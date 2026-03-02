@@ -165,7 +165,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
 
               {/* Login Button - Desktop */}
               <Link
-                href="/login"
+                href="/auth/login"
                 className="px-4 py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black hover:text-white transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 group whitespace-nowrap"
               >
                 <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
