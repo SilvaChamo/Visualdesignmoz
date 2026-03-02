@@ -42,7 +42,7 @@ export default function RegisterPage() {
   const handleGoogleLogin = () => {
     setLoadingGoogle(true)
     setError('')
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
     window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin + '/auth/callback')}`
   }
 

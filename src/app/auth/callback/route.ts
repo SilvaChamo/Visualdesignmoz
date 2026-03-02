@@ -16,10 +16,10 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
-    
+
     // Troca o código OAuth por uma sessão
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
