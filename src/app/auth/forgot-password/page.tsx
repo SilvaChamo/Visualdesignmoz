@@ -63,10 +63,16 @@ export default function ForgotPasswordPage() {
       >
         {enviado ? (
           <div className="text-center py-8">
-            <div className="text-4xl mb-4">📧</div>
-            <p className="text-green-400 font-bold">Email enviado!</p>
-            <p className="text-gray-400 text-sm mt-2">Verifica a tua caixa de entrada e segue as instruções.</p>
-            <a href="/auth/login" className="inline-block mt-6 text-white hover:text-red-400 transition text-sm font-semibold">← Voltar ao Login</a>
+            <div className="text-5xl mb-4">📧</div>
+            <p className="text-green-400 font-bold text-lg">Email enviado com sucesso!</p>
+            <p className="text-gray-300 text-sm mt-3">Verifica a caixa de entrada de <span className="text-white font-bold">{email}</span>.</p>
+            <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+              <p className="text-yellow-300 text-xs font-semibold">⏱ Tens <span className="text-white font-bold">15 minutos</span> para clicar no link antes de expirar.</p>
+            </div>
+            <p className="text-gray-500 text-xs mt-3">Não recebeste? Verifica a pasta de spam ou tenta novamente.</p>
+            <button onClick={() => setEnviado(false)} className="inline-block mt-3 text-red-400 hover:text-red-300 transition text-xs font-semibold">Enviar novamente</button>
+            <br/>
+            <a href="/auth/login" className="inline-block mt-4 text-white hover:text-red-400 transition text-sm font-semibold">← Voltar ao Login</a>
           </div>
         ) : (
           <>

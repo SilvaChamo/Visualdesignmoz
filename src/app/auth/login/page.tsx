@@ -15,6 +15,12 @@ function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const hasChecked = React.useRef(false)
+  const [loadingTimeout, setLoadingTimeout] = React.useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoadingTimeout(true), 3000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Ler erros de OAuth do URL (vindos do callback)
   useEffect(() => {
@@ -47,7 +53,7 @@ function LoginPageContent() {
     }
   }, [user, sessionLoading])
 
-  if (sessionLoading) {
+  if (sessionLoading && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
