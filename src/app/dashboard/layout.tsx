@@ -1,14 +1,40 @@
-'use client'
-
-import React from 'react'
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Sidebar from '@/components/dashboard/Sidebar'
 import { Bell, Search, User } from 'lucide-react'
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+        }
+    )
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+        redirect("/auth/login?from=/dashboard");
+    }
+
+    const userRole = session.user?.user_metadata?.role;
+    const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+
+    if (userRole !== 'reseller' && userRole !== 'admin' && !isExplicitAdmin) {
+        redirect("/client");
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900 font-exo-2 flex">
             {/* Sidebar */}

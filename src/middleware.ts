@@ -6,9 +6,12 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
   // Usa createServerClient que lê/escreve cookies do request correctamente
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get: (name) => req.cookies.get(name)?.value,
@@ -27,7 +30,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Rotas públicas — sem autenticação necessária
-  const publicRoutes = ['/', '/servicos', '/portfolio', '/sobre-nos', '/contacto', '/precos', '/auth', '/cursos', '/login']
+  const publicRoutes = ['/', '/servicos', '/portfolio', '/sobre-nos', '/contacto', '/precos', '/auth', '/cursos']
   const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
   if (isPublic) return res
 

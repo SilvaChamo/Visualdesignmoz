@@ -1,16 +1,8 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-    title: "Painel Admin",
-    robots: 'noindex, nofollow',
-};
-
-const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
-
-export default async function AdminLayout({
+export default async function ClientLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -30,14 +22,7 @@ export default async function AdminLayout({
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        redirect("/auth/login?from=/admin");
-    }
-
-    const userRole = session.user?.user_metadata?.role;
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-
-    if (userRole !== 'admin' && !isExplicitAdmin) {
-        redirect("/client");
+        redirect("/auth/login?from=/client");
     }
 
     return <>{children}</>;
