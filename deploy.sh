@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Iniciando Deploy da VisualDesign..."
-cd /home/visualdesign.pt/public_html || exit
+cd /home/visualdesigne.com/public_html || exit
 git pull origin main
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
