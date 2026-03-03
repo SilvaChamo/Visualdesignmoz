@@ -2,6 +2,10 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// Simulação de Rate Limiting (em produção usar Redis para Vercel Edge)
+const RATE_LIMIT_MS = 2000; // Mínimo de 2 segundos entre tentativas
+const loginAttempts = new Map<string, number>();
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
