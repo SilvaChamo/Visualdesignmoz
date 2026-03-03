@@ -10,6 +10,7 @@ function LoginPageContent() {
   const [loadingGoogle, setLoadingGoogle] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [website, setWebsite] = useState('') // Honeypot field for bot protection
   const [oauthError, setOauthError] = useState<{ title: string, desc: string } | null>(null)
   const { signIn, getRedirectPath, user, loading: sessionLoading } = useAuth()
   const router = useRouter()
@@ -63,6 +64,14 @@ function LoginPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Honeypot check: if 'website' is filled, it's a bot
+    if (website) {
+      console.warn('Bot detected by honeypot!')
+      // We don't tell the bot we know it's a bot, just simulate a general error or ignore
+      return
+    }
+
     setLoading(true)
     setError('')
     console.log('Tentando login com:', { email, passwordLength: password.length })
@@ -176,6 +185,18 @@ function LoginPageContent() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Honeypot field - Invisible to humans */}
+          <div className="absolute opacity-0 -z-10 pointer-events-none" aria-hidden="true">
+            <input
+              type="text"
+              name="website"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
+
           {/* Campo Email */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
