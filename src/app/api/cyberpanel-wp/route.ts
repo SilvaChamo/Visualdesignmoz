@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+
+const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
 
 export async function POST(request: NextRequest) {
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // Bloqueio interno: Só permitimos se houver sessão ativa
+    if (!session) {
+        return NextResponse.json({ error: 'Não autorizado. Identidade não verificada.' }, { status: 401 });
+    }
+
+    // Bloqueio de Role: Só admin pode gerir WordPress
+    const userRole = session.user?.user_metadata?.role;
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+    if (userRole !== 'admin' && !isExplicitAdmin) {
+        return NextResponse.json({ error: 'Acesso restrito a administradores.' }, { status: 403 });
+    }
+
     try {
         const body = await request.json();
         const { action } = body;
@@ -9,7 +29,7 @@ export async function POST(request: NextRequest) {
         switch (action) {
             case 'installWordPress': {
                 const { domain, directory, databaseName, databaseUser, databasePassword, adminUsername, adminPassword, adminEmail, siteName } = body;
-                
+
                 if (!domain || !siteName || !adminUsername || !adminPassword || !adminEmail) {
                     return NextResponse.json({ error: 'Faltam parâmetros obrigatórios' }, { status: 400 });
                 }
@@ -90,7 +110,7 @@ export async function POST(request: NextRequest) {
 
             case 'getWPInfo': {
                 const { domain } = body;
-                
+
                 if (!domain) {
                     return NextResponse.json({ error: 'Domínio é obrigatório' }, { status: 400 });
                 }
@@ -114,8 +134,8 @@ export async function POST(request: NextRequest) {
                 const versionMatch = result.match(/VERSION:(.+)/);
                 const version = versionMatch ? versionMatch[1].trim() : 'Unknown';
 
-                return NextResponse.json({ 
-                    success: true, 
+                return NextResponse.json({
+                    success: true,
                     installed,
                     info: {
                         software: 'WordPress',
@@ -130,7 +150,7 @@ export async function POST(request: NextRequest) {
 
             case 'backupWordPress': {
                 const { domain, includeDirectory = true, includeDatabase = true } = body;
-                
+
                 if (!domain) {
                     return NextResponse.json({ error: 'Domínio é obrigatório' }, { status: 400 });
                 }
@@ -168,14 +188,14 @@ export async function POST(request: NextRequest) {
                 `;
 
                 const result = await executeCyberPanelCommand(backupScript);
-                
+
                 if (result.includes('SUCCESS:')) {
                     const parts = result.split('SUCCESS:')[1].trim().split(':');
                     const filename = parts[0] || '';
                     const path = parts[1] || '';
-                    
-                    return NextResponse.json({ 
-                        success: true, 
+
+                    return NextResponse.json({
+                        success: true,
                         message: 'Backup criado com sucesso',
                         backup: {
                             filename,
@@ -191,7 +211,7 @@ export async function POST(request: NextRequest) {
 
             case 'getWPBackups': {
                 const { domain } = body;
-                
+
                 if (!domain) {
                     return NextResponse.json({ error: 'Domínio é obrigatório' }, { status: 400 });
                 }
@@ -211,11 +231,11 @@ export async function POST(request: NextRequest) {
                 `;
 
                 const result = await executeCyberPanelCommand(listScript);
-                
+
                 if (result.includes('NO_BACKUPS')) {
                     return NextResponse.json({ success: true, backups: [] });
                 }
-                
+
                 const backups = result.split('\n')
                     .filter(line => line.startsWith('FILE:'))
                     .map(line => {
@@ -227,13 +247,13 @@ export async function POST(request: NextRequest) {
                             date: parts[3] || 'Unknown'
                         };
                     });
-                
+
                 return NextResponse.json({ success: true, backups });
             }
 
             case 'deleteWPBackup': {
                 const { domain, backupId } = body;
-                
+
                 if (!domain || !backupId) {
                     return NextResponse.json({ error: 'Domínio e ID do backup são obrigatórios' }, { status: 400 });
                 }
@@ -249,7 +269,7 @@ export async function POST(request: NextRequest) {
                 `;
 
                 const result = await executeCyberPanelCommand(deleteScript);
-                
+
                 if (result.includes('SUCCESS')) {
                     return NextResponse.json({ success: true, message: 'Backup eliminado com sucesso' });
                 } else {

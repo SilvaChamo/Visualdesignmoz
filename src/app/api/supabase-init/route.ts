@@ -1,10 +1,25 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+
+const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 
 export async function POST() {
+  const cookieStore = await cookies();
+  const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore });
+  const { data: { session } } = await supabaseAuth.getSession();
+
+  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
+  const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+  if (session.user?.user_metadata?.role !== 'admin' && !isExplicitAdmin) {
+    return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 });
+  }
+
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
 

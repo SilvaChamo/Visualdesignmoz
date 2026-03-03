@@ -25,9 +25,22 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Verifica sessão lendo os cookies do request
   const { data: { session } } = await supabase.auth.getSession()
   const { pathname } = req.nextUrl
+  const ip = req.ip || 'unknown'
+
+  // 0. Rate Limiting para Login
+  if (pathname === '/auth/login' && req.method === 'POST') {
+    const lastAttempt = loginAttempts.get(ip) || 0;
+    const now = Date.now();
+    if (now - lastAttempt < RATE_LIMIT_MS) {
+      return new NextResponse('Muitas solicitações. Aguarde um momento.', { status: 429 });
+    }
+    loginAttempts.set(ip, now);
+
+    // Auto-clean old entries
+    if (loginAttempts.size > 1000) loginAttempts.clear();
+  }
 
   // 1. Bloquear caminhos que o utilizador quer esconder (404 forçado)
   const pathsToHide = ['/login', '/autenticacao']

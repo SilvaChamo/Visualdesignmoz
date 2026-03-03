@@ -1,7 +1,10 @@
 User-agent: *
-Disallow: /2026adminv01
 Disallow: /admin
-Disallow: /api/
-Disallow: /auth/
+Disallow: /dashboard
+Disallow: /client
+Disallow: /api
+Disallow: /auth
+Disallow: /login
+Disallow: /autenticacao
 
-Allow: /
+Sitemap: https://www.visualdesigne.com/sitemap.xml
