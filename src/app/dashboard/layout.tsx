@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Sidebar from '@/components/dashboard/Sidebar'
 import { Bell, Search, User } from 'lucide-react'
 
@@ -24,7 +24,7 @@ export default async function DashboardLayout({
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        redirect("/auth/login?from=/dashboard");
+        notFound();
     }
 
     const userRole = session.user?.user_metadata?.role;
@@ -32,7 +32,7 @@ export default async function DashboardLayout({
     const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
 
     if (userRole !== 'reseller' && userRole !== 'admin' && !isExplicitAdmin) {
-        redirect("/client");
+        notFound();
     }
 
     return (

@@ -29,19 +29,26 @@ export async function middleware(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   const { pathname } = req.nextUrl
 
-  // Rotas públicas — sem autenticação necessária
+  // 1. Bloquear caminhos que o utilizador quer esconder (404 forçado)
+  const pathsToHide = ['/login', '/autenticacao']
+  if (pathsToHide.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+    return NextResponse.rewrite(new URL('/404-obfuscated', req.url))
+  }
+
+  // 2. Rotas públicas — sem autenticação necessária
   const publicRoutes = ['/', '/servicos', '/portfolio', '/sobre-nos', '/contacto', '/precos', '/auth', '/cursos']
   const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
   if (isPublic) return res
 
-  // Sem sessão → redirecionar para login
+  // 3. Sem sessão em rotas protegidas (/admin, /dashboard, /client)
+  // Requisito especial do utilizador: em vez de redirect para login, dar 404 para "esconder" a página.
   if (!session) {
-    const loginUrl = new URL('/auth/login', req.url)
-    loginUrl.searchParams.set('from', pathname)
-    return NextResponse.redirect(loginUrl)
+    // Só mostramos o login se for explicitamente solicitado via /auth/login
+    // Se tentarem entrar directo em /admin, fingimos que não existe
+    return NextResponse.rewrite(new URL('/404-not-found-security', req.url))
   }
 
-  // Determinar role do utilizador
+  // Se chegou aqui, tem sessão. Determinar role do utilizador
   const userEmail = session.user?.email
   const userRole = session.user?.user_metadata?.role
   const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com']
@@ -50,9 +57,9 @@ export async function middleware(req: NextRequest) {
   if (adminEmails.includes(userEmail || '') || userRole === 'admin') role = 'admin'
   else if (userRole === 'reseller') role = 'reseller'
 
-  // Bloquear /admin para não-admins → enviar para /client
+  // Bloquear /admin para não-admins → enviar para /client (ou 404 se preferires obscuridade total)
   if (pathname.startsWith('/admin') && role !== 'admin') {
-    return NextResponse.redirect(new URL('/client', req.url))
+    return NextResponse.rewrite(new URL('/404-admin-only', req.url))
   }
 
   // Bloquear /dashboard para simples clientes → enviar para /client

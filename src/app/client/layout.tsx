@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export default async function ClientLayout({
     children,
@@ -22,7 +22,7 @@ export default async function ClientLayout({
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        redirect("/auth/login?from=/client");
+        notFound();
     }
 
     return <>{children}</>;
