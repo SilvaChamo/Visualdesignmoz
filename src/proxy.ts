@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -6,32 +6,38 @@ import type { NextRequest } from 'next/server'
 const RATE_LIMIT_MS = 2000; // Mínimo de 2 segundos entre tentativas
 const loginAttempts = new Map<string, number>();
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
+export async function proxy(req: NextRequest) {
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  })
 
-  // Usa createServerClient que lê/escreve cookies do request correctamente
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
-
+  // 1. Supabase Session Handling via SSR
   const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) => {
-          res.cookies.set({ name, value, ...options })
+        getAll() {
+          return req.cookies.getAll()
         },
-        remove: (name, options) => {
-          res.cookies.set({ name, value: '', ...options })
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => req.cookies.set(name, value))
+          res = NextResponse.next({
+            request: req,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          )
         },
       },
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = req.nextUrl
-  const ip = req.ip || 'unknown'
+  const ip = (req as any).ip || req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
   // 0. Rate Limiting para Login
   if (pathname === '/auth/login' && req.method === 'POST') {
@@ -42,7 +48,6 @@ export async function middleware(req: NextRequest) {
     }
     loginAttempts.set(ip, now);
 
-    // Auto-clean old entries
     if (loginAttempts.size > 1000) loginAttempts.clear();
   }
 
@@ -57,29 +62,26 @@ export async function middleware(req: NextRequest) {
   const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
   if (isPublic) return res
 
-  // 3. Sem sessão em rotas protegidas (/admin, /dashboard, /client)
-  // Requisito especial do utilizador: em vez de redirect para login, dar 404 para "esconder" a página.
-  if (!session) {
-    // Só mostramos o login se for explicitamente solicitado via /auth/login
-    // Se tentarem entrar directo em /admin, fingimos que não existe
+  // 3. Sem sessão em rotas protegidas
+  if (!user) {
     return NextResponse.rewrite(new URL('/404-not-found-security', req.url))
   }
 
-  // Se chegou aqui, tem sessão. Determinar role do utilizador
-  const userEmail = session.user?.email
-  const userRole = session.user?.user_metadata?.role
+  // Determinar role do utilizador
+  const userEmail = user.email
+  const userRole = user.app_metadata?.role || user.user_metadata?.role
   const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com']
 
   let role = 'client'
   if (adminEmails.includes(userEmail || '') || userRole === 'admin') role = 'admin'
   else if (userRole === 'reseller') role = 'reseller'
 
-  // Bloquear /admin para não-admins → enviar para /client (ou 404 se preferires obscuridade total)
+  // Bloquear /admin para não-admins
   if (pathname.startsWith('/admin') && role !== 'admin') {
     return NextResponse.rewrite(new URL('/404-admin-only', req.url))
   }
 
-  // Bloquear /dashboard para simples clientes → enviar para /client
+  // Bloquear /dashboard para simples clientes
   if (pathname.startsWith('/dashboard') && role === 'client') {
     return NextResponse.redirect(new URL('/client', req.url))
   }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 
 const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
 
@@ -9,25 +8,14 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
 
 // Cliente com privilégios de admin para operações na BD
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey)
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
 
 // Encriptação simples base64 (para produção usar crypto)
 const encrypt = (text: string) => Buffer.from(text).toString('base64')
 const decrypt = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  );
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
@@ -63,18 +51,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  );
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -132,18 +109,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  );
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

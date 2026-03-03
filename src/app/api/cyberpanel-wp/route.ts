@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
 const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
 
 export async function POST(request: NextRequest) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
-                },
-            },
-        }
-    );
+    const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
 
     // Bloqueio interno: Só permitimos se houver sessão ativa
