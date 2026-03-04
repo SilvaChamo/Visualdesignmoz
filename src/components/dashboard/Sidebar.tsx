@@ -115,6 +115,7 @@ export default function DashboardSidebar() {
         { icon: CreditCard, label: 'Faturas', href: '/dashboard/faturas' },
         { icon: Settings, label: 'Definições', href: '/dashboard/definicoes' },
         { icon: LifeBuoy, label: 'Suporte', href: '/dashboard/suporte' },
+        { icon: Globe, label: 'Ver Painel Cliente', href: '/client' },
     ]
 
     return (
