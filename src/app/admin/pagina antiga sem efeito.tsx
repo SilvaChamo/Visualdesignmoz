@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
 import { 
   Menu, 
   X, 
@@ -132,13 +132,10 @@ export default function AdminPage() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <motion.div
+      <div
         ref={sidebarRef}
         className="relative bg-slate-800 text-white flex flex-col shadow-xl"
         style={{ width: `${currentSidebarWidth}px` }}
-        initial={false}
-        animate={{ width: currentSidebarWidth }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
       >
         {/* Sidebar Header */}
         <div className="p-3 border-b border-slate-700">
@@ -211,7 +208,7 @@ export default function AdminPage() {
             onMouseDown={handleMouseDown}
           />
         )}
-      </motion.div>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -237,14 +234,9 @@ export default function AdminPage() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-4">
-          <AnimatePresence mode="wait">
             {activeSection === 'dashboard' && (
-              <motion.div
+              <div
                 key="dashboard"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
               >
                 <CpanelDashboard
                   sites={cyberPanelSites}
@@ -253,16 +245,12 @@ export default function AdminPage() {
                   onNavigate={(section) => setActiveSection(section)}
                   onRefresh={loadCyberPanelData}
                 />
-              </motion.div>
+              </div>
             )}
 
             {activeSection === 'websites' && (
-              <motion.div
+              <div
                 key="websites"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-4"
               >
                 <div className="bg-white rounded-lg shadow-sm p-4">
@@ -286,16 +274,12 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {activeSection === 'users' && (
-              <motion.div
+              <div
                 key="users"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-4"
               >
                 <div className="bg-white rounded-lg shadow-sm p-4">
@@ -319,16 +303,12 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {activeSection === 'packages' && (
-              <motion.div
+              <div
                 key="packages"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-4"
               >
                 <div className="bg-white rounded-lg shadow-sm p-4">
@@ -349,16 +329,12 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {['subdomains', 'databases', 'ftp', 'email', 'ssl', 'dns', 'backup', 'settings'].includes(activeSection) && (
-              <motion.div
+              <div
                 key={activeSection}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="bg-white rounded-lg shadow-sm p-4"
               >
                 <h3 className="text-lg font-semibold mb-4 capitalize">
@@ -372,9 +348,8 @@ export default function AdminPage() {
                     This section will connect to CyberPanel API to manage {activeSection}.
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </main>
       </div>
     </div>

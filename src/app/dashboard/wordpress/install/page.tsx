@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+
 import { Globe, Database, Mail, Eye, EyeOff, Check, X, Server, FolderOpen, ExternalLink, RefreshCw } from 'lucide-react'
 
 interface Site {

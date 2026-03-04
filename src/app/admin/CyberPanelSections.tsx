@@ -46,7 +46,7 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
     setCreating(true); setMsg('')
     const ok = await cyberPanelAPI.createSubdomain(selectedDomain, newSub.trim())
     cpSaveSubdomain(selectedDomain, newSub.trim())
-    void (async () => { try { await supabase.from('cyberpanel_subdomains').upsert({ domain: selectedDomain, subdomain: `${newSub.trim()}.${selectedDomain}` }, { onConflict: 'domain,subdomain' }) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_subdomains').upsert({ domain: selectedDomain, subdomain: `${newSub.trim()}.${selectedDomain}` }, { onConflict: 'domain,subdomain' }) } catch { } })()
     setMsg(ok ? 'Subdomínio criado com sucesso!' : 'Guardado localmente. Verifica no CyberPanel.')
     setNewSub('')
     loadSubs(selectedDomain)
@@ -57,7 +57,7 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
     if (!confirm(`Eliminar subdomínio ${sub}?`)) return
     await cyberPanelAPI.deleteSubdomain(selectedDomain, sub)
     cpRemoveSubdomain(sub)
-    void (async () => { try { await supabase.from('cyberpanel_subdomains').delete().eq('subdomain', sub) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_subdomains').delete().eq('subdomain', sub) } catch { } })()
     loadSubs(selectedDomain)
   }
 
@@ -507,9 +507,8 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               key={f}
               type="button"
               onClick={() => handleFilterChange(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold border ${
-                filter === f ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold border ${filter === f ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
             >
               {f}
             </button>
@@ -673,8 +672,8 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                 newRecord.type === 'A'
                   ? '192.0.2.1'
                   : newRecord.type === 'CNAME' || newRecord.type === 'MX'
-                  ? 'mail.example.com'
-                  : 'Valor do registo'
+                    ? 'mail.example.com'
+                    : 'Valor do registo'
               }
             />
           </div>
@@ -732,9 +731,9 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                 const displayContent =
                   record.type === 'MX'
                     ? (() => {
-                        const { priority, value } = parseMxContent(record.content)
-                        return `Prioridade: ${priority || '-'} / Destino: ${value || '-'}`
-                      })()
+                      const { priority, value } = parseMxContent(record.content)
+                      return `Prioridade: ${priority || '-'} / Destino: ${value || '-'}`
+                    })()
                     : record.content
                 return (
                   <React.Fragment key={record.id}>
@@ -752,9 +751,8 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                       <td className="px-4 py-3 align-top text-gray-600">{record.ttl || 0}</td>
                       <td className="px-4 py-3 align-top">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            typeColors[record.type] || 'bg-gray-100 text-gray-800'
-                          }`}
+                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${typeColors[record.type] || 'bg-gray-100 text-gray-800'
+                            }`}
                         >
                           {record.type}
                         </span>
@@ -886,11 +884,10 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
 
       {msg && (
         <div
-          className={`px-4 py-2.5 rounded-lg text-sm font-medium ${
-            msg.toLowerCase().includes('erro')
+          className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.toLowerCase().includes('erro')
               ? 'bg-red-50 text-red-700 border border-red-200'
               : 'bg-green-50 text-green-700 border border-green-200'
-          }`}
+            }`}
         >
           {msg}
         </div>
@@ -912,7 +909,7 @@ export function DatabasesSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [dbPass, setDbPass] = useState('')
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
-  const [lastCreated, setLastCreated] = useState<{dbName: string; dbUser: string; dbPass: string} | null>(null)
+  const [lastCreated, setLastCreated] = useState<{ dbName: string; dbUser: string; dbPass: string } | null>(null)
 
   const loadDBs = async (domain: string) => {
     if (!domain) return
@@ -933,7 +930,7 @@ export function DatabasesSection({ sites }: { sites: CyberPanelWebsite[] }) {
     setCreating(true); setMsg('')
     const ok = await cyberPanelAPI.createDatabase({ domain: selectedDomain, dbName, dbUser, dbPassword: dbPass })
     cpSaveDatabase(selectedDomain, dbName, dbUser)
-    void (async () => { try { await supabase.from('cyberpanel_databases').upsert({ domain: selectedDomain, db_name: dbName, db_user: dbUser }, { onConflict: 'domain,db_name' }) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_databases').upsert({ domain: selectedDomain, db_name: dbName, db_user: dbUser }, { onConflict: 'domain,db_name' }) } catch { } })()
     const createdPass = dbPass
     setLastCreated({ dbName, dbUser, dbPass: createdPass })
     setMsg(ok ? 'Base de dados criada!' : 'Guardada localmente. Verifica no CyberPanel.')
@@ -946,7 +943,7 @@ export function DatabasesSection({ sites }: { sites: CyberPanelWebsite[] }) {
     if (!confirm(`Eliminar base de dados ${name}?`)) return
     await cyberPanelAPI.deleteDatabase({ dbName: name })
     cpRemoveDatabase(selectedDomain, name)
-    void (async () => { try { await supabase.from('cyberpanel_databases').delete().eq('domain', selectedDomain).eq('db_name', name) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_databases').delete().eq('domain', selectedDomain).eq('db_name', name) } catch { } })()
     loadDBs(selectedDomain)
   }
 
@@ -1053,7 +1050,7 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
     setCreating(true); setMsg('')
     const ok = await cyberPanelAPI.createFTPAccount({ domain: selectedDomain, username: ftpUser, password: ftpPass, path: ftpPath })
     cpSaveFTP(selectedDomain, ftpUser, ftpPath)
-    void (async () => { try { await supabase.from('cyberpanel_ftp').upsert({ domain: selectedDomain, username: ftpUser, path: ftpPath }, { onConflict: 'domain,username' }) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_ftp').upsert({ domain: selectedDomain, username: ftpUser, path: ftpPath }, { onConflict: 'domain,username' }) } catch { } })()
     setMsg(ok ? 'Conta FTP criada!' : 'Guardada localmente. Verifica no CyberPanel.')
     setFtpUser(''); setFtpPass(''); setFtpPath('/')
     loadFTP(selectedDomain)
@@ -1064,7 +1061,7 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
     if (!confirm(`Eliminar conta FTP ${user}?`)) return
     await cyberPanelAPI.deleteFTPAccount({ username: user })
     cpRemoveFTP(selectedDomain, user)
-    void (async () => { try { await supabase.from('cyberpanel_ftp').delete().eq('domain', selectedDomain).eq('username', user) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_ftp').delete().eq('domain', selectedDomain).eq('username', user) } catch { } })()
     loadFTP(selectedDomain)
   }
 
@@ -1159,7 +1156,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
     setCreating(true); setMsg('')
     const ok = await cyberPanelAPI.createEmail({ domainName: selectedDomain, emailUser, emailPass, quota: parseInt(emailQuota) })
     cpSaveEmail(selectedDomain, emailUser, { quota: emailQuota })
-    void (async () => { try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch {} })()
+    void (async () => { try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch { } })()
     setMsg(ok ? 'Conta de e-mail criada!' : 'Guardada localmente. Verifica no CyberPanel.')
     setEmailUser(''); setEmailPass('')
     loadEmails(selectedDomain)
@@ -1305,12 +1302,12 @@ export function CPUsersSection() {
         if (!sbErr && sbUsers && sbUsers.length > 0) {
           setUsers(sbUsers.map((u: any) => ({
             id: u.id,
-            userName: u.username, 
+            userName: u.username,
             firstName: u.first_name || '',
             lastName: u.last_name || '',
-            email: u.email || '', 
-            acl: (u as any).acl || 'user', 
-            websitesLimit: u.websites_limit || 0, 
+            email: u.email || '',
+            acl: (u as any).acl || 'user',
+            websitesLimit: u.websites_limit || 0,
             status: u.status || 'Active'
           })))
           loaded = true
@@ -1370,7 +1367,7 @@ export function CPUsersSection() {
   const handleSuspend = async (userName: string) => {
     const user = users.find(u => u.userName === userName)
     const isSuspended = (user as any).state === 'Suspended'
-    
+
     try {
       // TODO: Call suspend/unsuspend API
       setMsg(`Utilizador ${isSuspended ? 'ativado' : 'suspenso'} com sucesso!`)
@@ -1382,7 +1379,7 @@ export function CPUsersSection() {
 
   const handleResetPassword = async (userName: string) => {
     if (!confirm(`Redefinir password para ${userName}?`)) return
-    
+
     try {
       // Generate random password
       const newPassword = Math.random().toString(36).slice(-8)
@@ -1409,14 +1406,14 @@ export function CPUsersSection() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="font-bold text-gray-900 mb-4">Criar Novo Utilizador</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label><input value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="João" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Apelido</label><input value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="Silva" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">E-mail</label><input value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao@email.com" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Username</label><input value={form.userName} onChange={(e) => setForm({...form, userName: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha</label><input type="password" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="••••••" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite Websites</label><input type="number" value={form.websitesLimit} onChange={(e) => setForm({...form, websitesLimit: parseInt(e.target.value)})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label><input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="João" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Apelido</label><input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="Silva" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">E-mail</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao@email.com" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Username</label><input value={form.userName} onChange={(e) => setForm({ ...form, userName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="••••••" /></div>
+            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite Websites</label><input type="number" value={form.websitesLimit} onChange={(e) => setForm({ ...form, websitesLimit: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
             <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">ACL (Permissão)</label>
-              <select value={form.acl} onChange={(e) => setForm({...form, acl: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+              <select value={form.acl} onChange={(e) => setForm({ ...form, acl: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
                 {acls.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
@@ -1442,7 +1439,7 @@ export function CPUsersSection() {
                       <input
                         type="email"
                         value={editForm.email}
-                        onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                         className="w-40 px-2 py-1 border border-gray-300 rounded text-sm"
                       />
                     ) : (
@@ -1453,7 +1450,7 @@ export function CPUsersSection() {
                     {editingUser === u.userName ? (
                       <select
                         value={editForm.acl}
-                        onChange={(e) => setEditForm({...editForm, acl: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, acl: e.target.value })}
                         className="px-2 py-1 border border-gray-300 rounded text-sm"
                       >
                         {acls.map(a => <option key={a} value={a}>{a}</option>)}
@@ -1463,9 +1460,8 @@ export function CPUsersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      (u as any).state === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${(u as any).state === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      }`}>
                       {(u as any).state || 'Active'}
                     </span>
                   </td>
@@ -1556,7 +1552,7 @@ export function ResellerSection() {
     if (!form.name) return
     setCreating(true); setMsg('')
     const ok = await cyberPanelAPI.createACL(form)
-    if (ok) { setMsg('ACL criada!'); setShowForm(false); setForm({...form, name: ''}); loadACLs() }
+    if (ok) { setMsg('ACL criada!'); setShowForm(false); setForm({ ...form, name: '' }); loadACLs() }
     else setMsg('Erro ao criar ACL.')
     setCreating(false)
   }
@@ -1584,7 +1580,7 @@ export function ResellerSection() {
           <h3 className="font-bold text-gray-900 mb-4">Criar Nova ACL</h3>
           <div className="mb-4">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome da ACL</label>
-            <input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="reseller_basic" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="reseller_basic" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
             {[
@@ -1789,7 +1785,7 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
       setFirewallOn(fw)
       // Garantir que blockedIPs é sempre um array
       const result = ips || []
-      const blockedArray = Array.isArray(result) ? result : 
+      const blockedArray = Array.isArray(result) ? result :
         typeof result === 'string' ? result.split('\n').filter((ip: string) => ip.trim()) : []
       setBlockedIPs(blockedArray)
       setLoading(false)
@@ -1918,7 +1914,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const handleIssueSSL = async () => {
     if (!selectedDomain) return
     setIssuing(true); setMsg('')
-    
+
     try {
       // Primeiro verificar se o domínio resolve para o IP correcto
       const checkRes = await fetch('/api/server-exec', {
@@ -1995,7 +1991,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
             {sites.map(s => (
               <div key={s.domain} className={`flex items-center gap-3 p-4 border rounded-lg
                 ${s.ssl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-                {s.ssl 
+                {s.ssl
                   ? <Lock className="w-5 h-5 text-green-500" />
                   : <LockOpen className="w-5 h-5 text-red-400" />
                 }
@@ -2238,8 +2234,8 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: CyberPanelW
               <td className="px-4 py-3 font-bold">{s.domain}</td>
               <td className="px-4 py-3">
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold
-                  ${parseState(s.state) === 'Active' 
-                    ? 'bg-green-100 text-green-700' 
+                  ${parseState(s.state) === 'Active'
+                    ? 'bg-green-100 text-green-700'
                     : 'bg-red-100 text-red-700'}`}>
                   {parseState(s.state) === 'Active' ? '● Activo' : '● Suspenso'}
                 </span>
@@ -2322,8 +2318,8 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: CyberPanelWe
 // ============================================================
 // WORDPRESS LIST SECTION
 // ============================================================
-export function WPListSection({ sites, setFileManagerDomain, setActiveSection }: { 
-  sites: CyberPanelWebsite[], 
+export function WPListSection({ sites, setFileManagerDomain, setActiveSection }: {
+  sites: CyberPanelWebsite[],
   setFileManagerDomain?: (domain: string) => void,
   setActiveSection?: (section: string) => void
 }) {
@@ -2982,7 +2978,7 @@ export function CatchAllEmailSection({ sites }: { sites: CyberPanelWebsite[] }) 
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Catch-All Email</label>
             {loading ? <div className="py-2"><RefreshCw className="w-4 h-4 animate-spin text-gray-400" /></div> :
-            <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />}
+              <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />}
           </div>
         </div>
         {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
@@ -3116,9 +3112,9 @@ export function EmailChangePasswordSection({ sites }: { sites: CyberPanelWebsite
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Account</label>
             {loading ? <div className="py-2"><RefreshCw className="w-4 h-4 animate-spin text-gray-400" /></div> :
-            <select value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-              <option value="">Select...</option>{emails.map(em => <option key={em.email} value={em.email}>{em.email}</option>)}
-            </select>}
+              <select value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+                <option value="">Select...</option>{emails.map(em => <option key={em.email} value={em.email}>{em.email}</option>)}
+              </select>}
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">New Password</label><input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
         </div>
@@ -3263,7 +3259,7 @@ export function GitDeploySection() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shrink-0">
             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+              <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
             </svg>
           </div>
           <div className="flex-1 min-w-0">
@@ -3365,7 +3361,7 @@ export function GitDeploySection() {
       <div className="bg-white rounded-lg border border-indigo-100 shadow-sm p-6">
         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Commits Recentes</h3>
         {loading ? (
-          <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+          <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
         ) : commits.length > 0 ? (
           <div className="space-y-1">
             {commits.map((c, i) => (
@@ -3450,9 +3446,9 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         const res = await fetch('/api/server-exec', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'editPackage', 
-            params: { 
+          body: JSON.stringify({
+            action: 'editPackage',
+            params: {
               packageName: pkg.packageName,
               diskSpace: editForm.diskSpace || pkg.diskSpace,
               bandwidth: editForm.bandwidth || pkg.bandwidth,
@@ -3498,16 +3494,16 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
             {showCreateForm ? 'Cancelar' : 'Criar Novo Pacote'}
           </button>
         </div>
-        
+
         {showCreateForm && (
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Detalhes do Pacote</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({...form, packageName: e.target.value})} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Espaço em Disco (MB)</label><input type="number" value={form.diskSpace} onChange={e => setForm({...form, diskSpace: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({...form, bandwidth: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({...form, emailAccounts: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({...form, dataBases: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Espaço em Disco (MB)</label><input type="number" value={form.diskSpace} onChange={e => setForm({ ...form, diskSpace: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({ ...form, bandwidth: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({ ...form, emailAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({ ...form, dataBases: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
             </div>
             <button onClick={handleCreate} disabled={creating || !form.packageName.trim()} className="bg-green-600 hover:bg-green-700 text-white py-2.5 px-6 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
               {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />} Criar Pacote
@@ -3529,10 +3525,10 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                     <td className="py-3 px-2 font-medium">{pkg.packageName || pkg.name || '-'}</td>
                     <td className="py-3 px-2">
                       {editing === pkg.packageName ? (
-                        <input 
-                          type="number" 
-                          value={editForm.diskSpace} 
-                          onChange={e => setEditForm({...editForm, diskSpace: e.target.value})}
+                        <input
+                          type="number"
+                          value={editForm.diskSpace}
+                          onChange={e => setEditForm({ ...editForm, diskSpace: e.target.value })}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                         />
                       ) : (
@@ -3541,10 +3537,10 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                     </td>
                     <td className="py-3 px-2">
                       {editing === pkg.packageName ? (
-                        <input 
-                          type="number" 
-                          value={editForm.bandwidth} 
-                          onChange={e => setEditForm({...editForm, bandwidth: e.target.value})}
+                        <input
+                          type="number"
+                          value={editForm.bandwidth}
+                          onChange={e => setEditForm({ ...editForm, bandwidth: e.target.value })}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                         />
                       ) : (
@@ -3553,10 +3549,10 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                     </td>
                     <td className="py-3 px-2">
                       {editing === pkg.packageName ? (
-                        <input 
-                          type="number" 
-                          value={editForm.emailAccounts} 
-                          onChange={e => setEditForm({...editForm, emailAccounts: e.target.value})}
+                        <input
+                          type="number"
+                          value={editForm.emailAccounts}
+                          onChange={e => setEditForm({ ...editForm, emailAccounts: e.target.value })}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                         />
                       ) : (
@@ -3565,10 +3561,10 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                     </td>
                     <td className="py-3 px-2">
                       {editing === pkg.packageName ? (
-                        <input 
-                          type="number" 
-                          value={editForm.dataBases} 
-                          onChange={e => setEditForm({...editForm, dataBases: e.target.value})}
+                        <input
+                          type="number"
+                          value={editForm.dataBases}
+                          onChange={e => setEditForm({ ...editForm, dataBases: e.target.value })}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                         />
                       ) : (
@@ -3576,23 +3572,23 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                       )}
                     </td>
                     <td className="py-3 px-2">
-                      <button 
-                        onClick={() => handleEdit(pkg)} 
+                      <button
+                        onClick={() => handleEdit(pkg)}
                         className="text-blue-600 hover:text-blue-800 text-xs font-bold mr-2"
                       >
                         {editing === pkg.packageName ? 'Salvar' : 'Editar'}
                       </button>
                       {editing === pkg.packageName && (
-                        <button 
-                          onClick={() => setEditing(null)} 
+                        <button
+                          onClick={() => setEditing(null)}
                           className="text-gray-600 hover:text-gray-800 text-xs font-bold mr-2"
                         >
                           Cancelar
                         </button>
                       )}
-                      <button 
-                        onClick={() => handleDelete(pkg.packageName || pkg.name)} 
-                        disabled={deleting === pkg.packageName} 
+                      <button
+                        onClick={() => handleDelete(pkg.packageName || pkg.name)}
+                        disabled={deleting === pkg.packageName}
                         className="text-red-600 hover:text-red-800 text-xs font-bold disabled:opacity-50"
                       >
                         {deleting === pkg.packageName ? 'A apagar...' : 'Apagar'}
@@ -3680,7 +3676,7 @@ export function FileManagerSection({ domain, sites }: {
 
   return (
     <div className="w-full space-y-4">
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -3688,7 +3684,7 @@ export function FileManagerSection({ domain, sites }: {
           <p className="text-xs text-gray-400 mt-0.5">Explorar directório do site</p>
         </div>
         {/* Selector de domínio */}
-        <select value={selectedDomain} 
+        <select value={selectedDomain}
           onChange={e => { setSelectedDomain(e.target.value); setPath(`/home/${e.target.value}/public_html`) }}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
           {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
@@ -3735,7 +3731,7 @@ export function FileManagerSection({ domain, sites }: {
               </td>
               <td colSpan={3} className="px-4 py-2.5 text-gray-400 text-xs">Pasta anterior</td>
             </tr>
-            
+
             {loading ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">
                 <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
@@ -3748,7 +3744,7 @@ export function FileManagerSection({ domain, sites }: {
               <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    {f.isDir 
+                    {f.isDir
                       ? <FolderOpen className="w-4 h-4 text-yellow-500 shrink-0" />
                       : <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                     }
@@ -3784,7 +3780,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
-  const [msgType, setMsgType] = useState<'success'|'error'>('success')
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
   const tabs = [
     { id: 'full', label: 'Conta Completa', icon: '🗂️' },
@@ -3794,7 +3790,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
     { id: 'ftp', label: 'FTP Accounts', icon: '📡' },
   ]
 
-  const showMsg = (text: string, type: 'success'|'error' = 'success') => {
+  const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
   }
@@ -3811,17 +3807,17 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
     })
     const data = await res.json()
     const output = data.data?.output || ''
-    
+
     if (output.includes('NO_BACKUPS') || output.includes('No such file') || !output.trim()) {
       setBackups([])
       setLoading(false)
       return
     }
 
-    const lines = output.split('\n').filter((l: string) => 
+    const lines = output.split('\n').filter((l: string) =>
       l.trim() && l.includes('.tar.gz')
     )
-    
+
     setBackups(lines.map((line: string) => {
       const parts = line.trim().split(/\s+/)
       const filename = parts[parts.length - 1].split('/').pop() || ''
@@ -3829,10 +3825,10 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
         size: parts[4] || 'N/A',
         date: `${parts[5] || ''} ${parts[6] || ''} ${parts[7] || ''}`,
         filename,
-        path: `/home/${domain}/backup/${filename}` 
+        path: `/home/${domain}/backup/${filename}`
       }
     }).filter((b: any) => b.filename && b.filename.includes('.tar.gz')))
-    
+
     setLoading(false)
   }
 
@@ -3951,11 +3947,10 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 
       {/* Mensagem */}
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-          msgType === 'success'
+        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success'
             ? 'bg-green-50 text-green-700 border-green-200'
             : 'bg-red-50 text-red-700 border-red-200'
-        }`}>{msg}</div>
+          }`}>{msg}</div>
       )}
 
       {/* Tabs */}
@@ -3963,11 +3958,10 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
         <div className="flex border-b border-gray-200 bg-gray-50">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === tab.id
                   ? 'border-red-600 text-red-600 bg-white'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}>
+                }`}>
               <span>{tab.icon}</span>
               {tab.label}
             </button>
@@ -4075,7 +4069,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
 
   const getPasswordStrength = (password: string): 'weak' | 'medium' | 'strong' => {
     if (!password) return 'weak'
-    
+
     let strength = 0
     if (password.length >= 8) strength++
     if (password.length >= 12) strength++
@@ -4096,7 +4090,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
 
   const generateDBCredentials = () => {
     if (!form.domain) return
-    
+
     const domainClean = form.domain.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
     const dbName = `${domainClean}_wp`
     const dbUser = `${domainClean}_wpuser`
@@ -4122,7 +4116,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
   const handleInstall = async () => {
     setInstalling(true)
     setMessage('')
-    
+
     try {
       const response = await fetch('/api/cyberpanel-wp', {
         method: 'POST',
@@ -4134,7 +4128,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setSuccess(true)
         setMessage('WordPress instalado com sucesso!')
@@ -4144,7 +4138,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
     } catch (error) {
       setMessage('Erro de conexão com o servidor')
     }
-    
+
     setInstalling(false)
   }
 
@@ -4507,7 +4501,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const handleBackup = async () => {
     setBackingUp(true)
     setMessage('')
-    
+
     try {
       const response = await fetch('/api/cyberpanel-wp', {
         method: 'POST',
@@ -4523,7 +4517,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setMessage('Backup criado com sucesso!')
         loadBackups()
@@ -4533,7 +4527,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
     } catch (error) {
       setMessage('Erro de conexão com o servidor')
     }
-    
+
     setBackingUp(false)
   }
 
@@ -4750,14 +4744,14 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
-  const [msgType, setMsgType] = useState<'success'|'error'>('success')
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
   // Formulário criar domínio
   const [newDomain, setNewDomain] = useState('')
   const [docRoot, setDocRoot] = useState('')
   const [shareRoot, setShareRoot] = useState(false)
 
-  const showMsg = (text: string, type: 'success'|'error' = 'success') => {
+  const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
   }
@@ -4771,9 +4765,9 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
     const data = await res.json()
     const allSites = data.data?.sites || []
     const sitesArray = Array.isArray(allSites) ? allSites : []
-    
+
     // Mostrar apenas domínios não activos e sem hostname do servidor
-    setDomains(sitesArray.filter((s: any) => 
+    setDomains(sitesArray.filter((s: any) =>
       !s.domain.includes('contaboserver') &&
       !s.domain.includes('localhost') &&
       s.isActive !== true
@@ -4841,9 +4835,8 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
       </div>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-          msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
-        }`}>{msg}</div>
+        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+          }`}>{msg}</div>
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -4914,9 +4907,8 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
       <p className="text-sm text-gray-500">Use this interface to manage your domains.</p>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-          msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
-        }`}>{msg}</div>
+        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+          }`}>{msg}</div>
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -5018,9 +5010,8 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
       </h1>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-          msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
-        }`}>{msg}</div>
+        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+          }`}>{msg}</div>
       )}
 
       <div className="grid grid-cols-3 gap-4">
@@ -5121,7 +5112,7 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [deploying, setDeploying] = useState(false)
   const [log, setLog] = useState('')
-  const [status, setStatus] = useState<'idle'|'success'|'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [gitLog, setGitLog] = useState('')
   const [selectedDomain, setSelectedDomain] = useState('visualdesigne.com')
 
@@ -5154,7 +5145,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
     setDeploying(false)
   }
 
-  const activeSites = Array.isArray(sites) ? sites.filter(s => 
+  const activeSites = Array.isArray(sites) ? sites.filter(s =>
     s.isActive && !s.domain.includes('contaboserver')
   ) : []
 
@@ -5176,7 +5167,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
         </select>
         <button onClick={handleDeploy} disabled={deploying}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
-          {deploying 
+          {deploying
             ? <><RefreshCw className="w-4 h-4 animate-spin" /> A fazer deploy...</>
             : <><Upload className="w-4 h-4" /> Deploy</>
           }
@@ -5185,11 +5176,10 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Status */}
       {status !== 'idle' && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-          status === 'success' 
-            ? 'bg-green-50 text-green-700 border-green-200' 
+        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${status === 'success'
+            ? 'bg-green-50 text-green-700 border-green-200'
             : 'bg-red-50 text-red-700 border-red-200'
-        }`}>
+          }`}>
           {status === 'success' ? '✅ Deploy concluído com sucesso!' : '❌ Erro no deploy — ver log abaixo'}
         </div>
       )}

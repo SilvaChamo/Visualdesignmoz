@@ -1,9 +1,21 @@
 const EXEC = '/api/server-exec';
+import { cacheService } from './cache-service';
 
 async function run(action: string, params: Record<string, any> = {}) {
   try {
+    // Cache key baseada na action e params
+    const cacheKey = `cyberpanel_${action}_${JSON.stringify(params)}`;
+    
+    // Tentar obter do cache primeiro
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for ${action}`);
+      return cached;
+    }
+    
+    // Se não tem cache, fazer requisição
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
     
     const res = await fetch(EXEC, {
       method: 'POST',
@@ -20,6 +32,12 @@ async function run(action: string, params: Record<string, any> = {}) {
     
     const j = await res.json();
     if (!j.success) throw new Error(j.error || 'Request failed');
+    
+    // Armazenar no cache (5 minutos para listagens, 1 minuto para outras)
+    const ttl = action.includes('list') ? 5 * 60 * 1000 : 60 * 1000;
+    cacheService.set(cacheKey, j.data, ttl);
+    
+    console.log(`Cache set for ${action} (TTL: ${ttl/1000}s)`);
     return j.data;
   } catch (error: any) {
     if (error.name === 'AbortError') {
@@ -32,8 +50,16 @@ async function run(action: string, params: Record<string, any> = {}) {
 // Função específica para listWebsites que retorna sites
 async function runSites(action: string, params: Record<string, any> = {}) {
   try {
+    // Cache para listWebsites (5 minutos)
+    const cacheKey = `cyberpanel_${action}_${JSON.stringify(params)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for ${action}`);
+      return cached;
+    }
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
     
     const res = await fetch(EXEC, {
       method: 'POST',
@@ -51,8 +77,11 @@ async function runSites(action: string, params: Record<string, any> = {}) {
     const j = await res.json();
     if (!j.success) throw new Error(j.error || 'Request failed');
     // Para listWebsites, retornar sites array
-    return Array.isArray(j.data?.sites) ? j.data.sites : 
+    const result = Array.isArray(j.data?.sites) ? j.data.sites : 
            Array.isArray(j.data) ? j.data : [];
+    cacheService.set(cacheKey, result, 5 * 60 * 1000);
+    console.log(`Cache set for ${action} (TTL: 300s)`);
+    return result;
   } catch (error: any) {
     if (error.name === 'AbortError') {
       throw new Error('Request timed out - server took too long to respond');

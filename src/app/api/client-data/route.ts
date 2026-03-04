@@ -36,16 +36,44 @@ export async function GET(req: Request) {
         const userEmail = (isAdmin && targetEmail) ? targetEmail : (user.email || '');
 
         // Buscar dados do CyberPanel filtrados por email do cliente
-        const response = await fetch('http://localhost:3002/api/server-exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'listWebsites',
-                params: { filter: userEmail }
-            }),
-        });
-
-        const data = await response.json();
+        // Timeout de 8 segundos para evitar processamento infinito
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        let data;
+        try {
+            const response = await fetch('http://localhost:3002/api/server-exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'listWebsites',
+                    params: { filter: userEmail }
+                }),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            data = await response.json();
+        } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            if (fetchError.name === 'AbortError') {
+                console.log('CyberPanel API timeout - using empty data');
+                // Retornar dados vazios se timeout
+                return NextResponse.json({
+                    success: true,
+                    data: {
+                        sites: [],
+                        servicos: {
+                            dominios: [],
+                            hospedagem: [],
+                            proximas_renovacoes: []
+                        },
+                        userEmail
+                    }
+                });
+            }
+            throw fetchError;
+        }
 
         if (!data.success) {
             throw new Error(data.error || 'Failed to fetch client data');

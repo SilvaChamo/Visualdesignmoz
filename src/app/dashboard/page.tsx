@@ -14,6 +14,7 @@ import {
     Mail
 } from 'lucide-react'
 import Link from 'next/link'
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import UsageProgress from '@/components/dashboard/UsageProgress'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
@@ -58,11 +59,7 @@ export default function DashboardHome() {
     }
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-        )
+        return <DashboardSkeleton />
     }
 
     return (

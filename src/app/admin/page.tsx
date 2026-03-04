@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
 import { 
   Home, Globe, Users, Mail, Shield, Database, Settings, 
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
@@ -790,12 +790,9 @@ export default function AdminPage() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <motion.div
+      <div
         className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm"
         style={{ width: `${currentSidebarWidth}px` }}
-        animate={{ width: currentSidebarWidth }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
-        initial={{ width: 250 }}
       >
         {/* Sidebar Header */}
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
@@ -867,7 +864,7 @@ export default function AdminPage() {
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -903,17 +900,11 @@ export default function AdminPage() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
-          <AnimatePresence mode="wait">
-            <motion.div
+            <div
               key={activeSection}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
             >
               {renderSection()}
-            </motion.div>
-          </AnimatePresence>
+            </div>
         </main>
       </div>
     </div>

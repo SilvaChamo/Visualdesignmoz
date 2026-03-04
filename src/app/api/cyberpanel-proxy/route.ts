@@ -3,8 +3,8 @@ import https from 'https';
 
 // CyberPanel API Configuration
 const CYBERPANEL_URL = process.env.CYBERPANEL_URL || 'https://109.199.104.22:8090/api';
-const CYBERPANEL_ADMIN_PASS = process.env.CYBERPANEL_PASS || 'Vgz5Zat4uMyFt2tb';
-const CYBERPANEL_TIMEOUT_MS = 20000; // 20 seconds
+const CYBERPANEL_ADMIN_PASS = process.env.CYBERPANEL_PASS || '';
+const CYBERPANEL_TIMEOUT_MS = 8000; // 8 seconds
 
 export async function POST(request: NextRequest) {
     try {

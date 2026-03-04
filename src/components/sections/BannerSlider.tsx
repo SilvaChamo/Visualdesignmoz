@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
 import { ArrowRight, Play, CheckCircle, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -60,41 +60,27 @@ export function BannerSlider() {
       {/* Background cinza 95% */}
       <div className="absolute inset-0 bg-[#f2f2f2]" />
 
-      <AnimatePresence mode="wait">
-        <motion.div
+        <div
           key={currentSlide}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
           className="relative z-10 h-full flex items-center justify-center"
         >
           <div className="container mx-auto px-4 h-full flex items-center justify-center">
             <div className="max-w-6xl w-full">
               <div className="grid lg:grid-cols-2 gap-12 items-center w-full lg:grid-cols-[1.3fr_1fr]">
                 {/* Left Column - Text Content */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8 }}
+                <div
                   className="text-center lg:text-left"
                 >
                     {/* Badge */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
+                    <div
                       className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium mb-6"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       {t(slides[currentSlide].badgeKey)}
-                    </motion.div>
+                    </div>
 
                     {/* Main Title */}
-                    <motion.h1
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
+                    <h1
                       className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6 text-left"
                     >
                       {t(slides[currentSlide].titleKey).split('\n').map((line, index) => (
@@ -103,23 +89,17 @@ export function BannerSlider() {
                           {index < t(slides[currentSlide].titleKey).split('\n').length - 1 && <br />}
                         </span>
                       ))}
-                    </motion.h1>
+                    </h1>
 
                     {/* Description */}
-                    <motion.p
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
+                    <p
                       className="text-xl text-gray-700 mb-8 text-left"
                     >
                       {t(slides[currentSlide].descKey)}
-                    </motion.p>
+                    </p>
 
                     {/* CTA Buttons */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 }}
+                    <div
                       className="flex flex-col sm:flex-row gap-4 mb-12 lg:justify-start justify-center"
                     >
                       <Button size="lg" className="group" asChild>
@@ -132,13 +112,10 @@ export function BannerSlider() {
                         <Play className="mr-2 w-4 h-4" />
                         {t('banner.button.portfolio')}
                       </Button>
-                    </motion.div>
+                    </div>
 
                     {/* Contact Info */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.6 }}
+                    <div
                       className="flex flex-col sm:flex-row gap-4 lg:justify-start justify-center text-gray-600"
                     >
                       <a href="tel:+258821234567" className="flex items-center space-x-2 hover:text-gray-900 transition-colors">
@@ -149,14 +126,11 @@ export function BannerSlider() {
                         <Mail className="w-4 h-4" />
                         <span>info@visualdesign.co.mz</span>
                       </a>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
 
                   {/* Right Column - Visual Element */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.8, delay: 0.3 }}
+                  <div
                     className="relative hidden lg:block flex items-center justify-center h-full"
                   >
                     {/* Card */}
@@ -179,49 +153,34 @@ export function BannerSlider() {
                     </div>
 
                     {/* Floating Elements */}
-                    <motion.div
-                      animate={{ y: [-10, 10, -10] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    <div
                       className="absolute -top-4 -right-4 w-16 h-16 bg-red-600/30 rounded-full"
                     />
-                    <motion.div
-                      animate={{ y: [10, -10, 10] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                    <div
                       className="absolute -bottom-4 -left-4 w-12 h-12 bg-red-600/30 rounded-full"
                     />
-                  </motion.div>
+                  </div>
               </div>
             </div>
           </div>
 
           {/* Bolas Saltitando */}
-          <motion.div
-            animate={{ y: [-10, 10, -10] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          <div
             className="absolute top-20 right-10 w-20 h-20 bg-red-600/30 rounded-full"
           />
-          <motion.div
-            animate={{ y: [10, -10, 10] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          <div
             className="absolute bottom-20 right-32 w-16 h-16 bg-red-600/30 rounded-full"
           />
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          <div
             className="absolute top-1/2 -left-8 w-12 h-12 bg-red-600/30 rounded-full"
           />
-          <motion.div
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+          <div
             className="absolute top-32 left-20 w-8 h-8 bg-red-600/40 rounded-full"
           />
-          <motion.div
-            animate={{ x: [0, 30, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+          <div
             className="absolute bottom-32 left-40 w-6 h-6 bg-red-600/35 rounded-full"
           />
-        </motion.div>
-      </AnimatePresence>
+        </div>
 
       {/* Slide Controls */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
@@ -239,7 +198,7 @@ export function BannerSlider() {
           {/* Slide Indicators */}
           <div className="flex space-x-3">
             {slides.map((_, index) => (
-              <motion.button
+              <button
                 key={index}
                 onClick={() => goToSlide(index)}
                 className={`h-3 rounded-full transition-all duration-300 relative overflow-hidden`}
@@ -247,16 +206,11 @@ export function BannerSlider() {
                   width: currentSlide === index ? '32px' : '12px',
                   backgroundColor: currentSlide === index ? '#FF0000' : 'rgba(0, 0, 0, 0.3)'
                 }}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
               >
-                <motion.div
+                <div
                   className="absolute inset-0 bg-red-500"
-                  initial={{ width: '0%' }}
-                  animate={{ width: currentSlide === index ? '100%' : '0%' }}
-                  transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                 />
-              </motion.button>
+              </button>
             ))}
           </div>
 

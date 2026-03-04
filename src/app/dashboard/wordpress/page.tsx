@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+
 import { Database, LayoutGrid, Lock, Rocket, LogIn, Gauge, Plus } from 'lucide-react'
 import Link from 'next/link'
 
@@ -67,11 +67,8 @@ export default function WordPressManagerPage() {
                 {features.map((feature, index) => {
                     const Icon = feature.icon
                     return (
-                        <motion.div
+                        <div
                             key={feature.title}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
                             className="bg-white p-8 rounded-2xl border border-indigo-50 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
                         >
                             <Link href={feature.href} className="block h-full">
@@ -87,7 +84,7 @@ export default function WordPressManagerPage() {
                                     </p>
                                 </div>
                             </Link>
-                        </motion.div>
+                        </div>
                     )
                 })}
             </div>

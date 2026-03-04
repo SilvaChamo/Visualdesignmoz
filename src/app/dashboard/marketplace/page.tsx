@@ -14,7 +14,7 @@ import {
     LifeBuoy
 } from 'lucide-react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+
 
 const services = [
     {
@@ -115,11 +115,8 @@ export default function MarketplacePage() {
             {/* Services Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
                 {services.map((service, index) => (
-                    <motion.div
+                    <div
                         key={service.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
                     >
                         <Link
                             href={service.link}
@@ -161,7 +158,7 @@ export default function MarketplacePage() {
                                 </div>
                             </div>
                         </Link>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
 
