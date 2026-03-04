@@ -1,28 +1,64 @@
 const EXEC = '/api/server-exec';
 
 async function run(action: string, params: Record<string, any> = {}) {
-  const res = await fetch(EXEC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, params }),
-  });
-  const j = await res.json();
-  if (!j.success) throw new Error(j.error);
-  return j.data;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    const res = await fetch(EXEC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error || 'Request failed');
+    return j.data;
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out - server took too long to respond');
+    }
+    throw error;
+  }
 }
 
 // Função específica para listWebsites que retorna sites
 async function runSites(action: string, params: Record<string, any> = {}) {
-  const res = await fetch(EXEC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, params }),
-  });
-  const j = await res.json();
-  if (!j.success) throw new Error(j.error);
-  // Para listWebsites, retornar sites array
-  return Array.isArray(j.data?.sites) ? j.data.sites : 
-         Array.isArray(j.data) ? j.data : [];
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    const res = await fetch(EXEC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error || 'Request failed');
+    // Para listWebsites, retornar sites array
+    return Array.isArray(j.data?.sites) ? j.data.sites : 
+           Array.isArray(j.data) ? j.data : [];
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out - server took too long to respond');
+    }
+    throw error;
+  }
 }
 
 export interface CyberPanelWebsite {

@@ -35,15 +35,13 @@ export async function POST(req: NextRequest) {
     switch (action) {
 
       case 'listWebsites': {
-        // Listar todos os sites do CyberPanel
-        const sitesRaw = await execSSH(`cyberpanel listWebsitesJson 2>&1 || python3 -c "
-import django, os, json
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'baseTemplate.settings')
-django.setup()
-from websiteFunctions.models import Websites
-sites = list(Websites.objects.values('domain','adminEmail','package','suspended'))
-print(json.dumps(sites))
-" 2>&1`)
+        // Listar todos os sites via MYSQL directo (muito mais rápido que o script python)
+        const sitesRaw = await execSSH(`mysql cyberpanel -e "SELECT domain, adminEmail, package, state FROM websiteFunctions_websites;" -B -N 2>/dev/null`);
+
+        const sites = sitesRaw.split('\n').filter(Boolean).map(line => {
+          const [domain, adminEmail, pkg, state] = line.split('\t');
+          return { domain, adminEmail, package: pkg, state };
+        });
 
         // Para cada site verificar se tem conteúdo real em public_html
         const checkScript = `
@@ -78,35 +76,24 @@ for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websit
   
   echo "$domain|$is_active|$wp_score|$next_score|$basic_score"
 done
-`
-        const checkRaw = await execSSH(checkScript)
-        
-        const siteStatus: Record<string, any> = {}
+`;
+        const checkRaw = await execSSH(checkScript);
+
+        const siteStatus: Record<string, any> = {};
         checkRaw.split('\n').filter(Boolean).forEach(line => {
-          const [domain, isActive, wpScore, nextScore, basicScore] = line.split('|')
+          const [domain, isActive, wpScore, nextScore, basicScore] = line.split('|');
           if (domain) {
             siteStatus[domain] = {
               isActive: isActive === '1',
               hasWordPress: parseInt(wpScore) >= 3,
               hasNextJs: parseInt(nextScore) >= 2,
               hasBasicSite: parseInt(basicScore) >= 2,
-              siteType: parseInt(wpScore) >= 3 ? 'wordpress' : 
-                        parseInt(nextScore) >= 2 ? 'nextjs' : 
-                        parseInt(basicScore) >= 2 ? 'html' : 'empty'
-            }
+              siteType: parseInt(wpScore) >= 3 ? 'wordpress' :
+                parseInt(nextScore) >= 2 ? 'nextjs' :
+                  parseInt(basicScore) >= 2 ? 'html' : 'empty'
+            };
           }
-        })
-
-        // Retornar sites com campo isActive
-        // Parse sitesRaw e adicionar isActive a cada site
-        let sites = []
-        try {
-          sites = JSON.parse(sitesRaw)
-        } catch {
-          // fallback: parse manual
-          const domains = checkRaw.split('\n').filter(Boolean).map(line => line.split('|')[0])
-          sites = domains.map(d => ({ domain: d }))
-        }
+        });
 
         data = {
           sites: sites.map((s: any) => ({
@@ -115,28 +102,23 @@ done
             isActive: siteStatus[s.domain]?.isActive ?? false
           })),
           success: true
-        }
-        break
+        };
+        break;
       }
 
       case 'listPackages': {
-        const raw = await execSSH(`/usr/local/CyberPanel/bin/python /usr/local/CyberCP/manage.py shell -c "
-from packages.models import Package
-pkgs = list(Package.objects.values())
-print(pkgs)
-"`);
-        try { 
-          // Parse do output do Django shell
-          const lines = raw.trim().split('\n');
-          const dataLine = lines.find(line => line.startsWith('[') && line.endsWith(']'));
-          if (dataLine) {
-            data = eval(dataLine); // Avalia a lista Python
-          } else {
-            data = [];
-          }
-        } catch { 
-          data = []; 
-        }
+        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, dataBases FROM packages_package;" -B -N 2>/dev/null`);
+        data = raw.split('\n').filter(Boolean).map(line => {
+          const [id, packageName, diskSpace, bandwidth, emailAccounts, dataBases] = line.split('\t');
+          return {
+            id: parseInt(id),
+            packageName,
+            diskSpace: parseInt(diskSpace),
+            bandwidth: parseInt(bandwidth),
+            emailAccounts: parseInt(emailAccounts),
+            dataBases: parseInt(dataBases)
+          };
+        });
         break;
       }
 
@@ -197,23 +179,11 @@ print('ok')
       }
 
       case 'listUsers': {
-        const raw = await execSSH(`/usr/local/CyberPanel/bin/python /usr/local/CyberCP/manage.py shell -c "
-from loginSystem.models import Administrator
-users = list(Administrator.objects.values('id','userName','email','type','state'))
-print(users)
-"`);
-        try { 
-          // Parse do output do Django shell
-          const lines = raw.trim().split('\n');
-          const dataLine = lines.find(line => line.startsWith('[') && line.endsWith(']'));
-          if (dataLine) {
-            data = eval(dataLine); // Avalia a lista Python
-          } else {
-            data = [];
-          }
-        } catch { 
-          data = []; 
-        }
+        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+        data = raw.split('\n').filter(Boolean).map(line => {
+          const [id, userName, email, type, state] = line.split('\t');
+          return { id: parseInt(id), userName, email, type, state };
+        });
         break;
       }
 
@@ -249,7 +219,7 @@ print('ok')
 
       case 'deleteWebsite': {
         const raw = await execSSH(
-          `cyberpanel deleteWebsite --domainName ${params.domain} 2>&1` 
+          `cyberpanel deleteWebsite --domainName ${params.domain} 2>&1`
         );
         // Consider success if contains "success": 1 or doesn't contain error/traceback
         const hasSuccess = raw.includes('"success": 1') || raw.includes('Website successfully deleted');
@@ -266,7 +236,7 @@ print('ok')
           `--owner ${params.username || 'admin'} ` +
           `--package "${params.packageName || 'Default'}" ` +
           `--php "${params.php || 'PHP 8.2'}" ` +
-          `--ssl 1 --dkim 1 2>&1` 
+          `--ssl 1 --dkim 1 2>&1`
         );
         data = { output: raw, success: !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('traceback') };
         break;
@@ -274,7 +244,7 @@ print('ok')
 
       case 'listEmails': {
         const raw = await execSSH(
-          `doveadm user '*@${params.domain}' 2>/dev/null || echo ""` 
+          `doveadm user '*@${params.domain}' 2>/dev/null || echo ""`
         );
         data = { emails: raw.trim().split('\n').filter(Boolean) };
         break;
@@ -346,7 +316,7 @@ print('ok')
 
       case 'listDNS': {
         const raw = await execSSH(
-          `cat /etc/named/conf.d/${params.domain}.conf 2>/dev/null || echo ""` 
+          `cat /etc/named/conf.d/${params.domain}.conf 2>/dev/null || echo ""`
         );
         data = { zone: raw };
         break;
@@ -356,7 +326,7 @@ print('ok')
         const raw = await execSSH(
           `echo "CPU:$(top -bn1 | grep 'Cpu(s)' | awk '{print $2}')" && ` +
           `echo "RAM:$(free -m | awk 'NR==2{printf "%s/%s", $3,$2}')" && ` +
-          `echo "DISK:$(df -h / | awk 'NR==2{print $3"/"$2}')"` 
+          `echo "DISK:$(df -h / | awk 'NR==2{print $3"/"$2}')"`
         );
         data = Object.fromEntries(
           raw.trim().split('\n').filter(Boolean).map(l => l.split(':'))
@@ -366,9 +336,9 @@ print('ok')
 
       case 'restoreBackup': {
         const { domain, filename, tab = 'full' } = params
-        const filepath = `/home/backup/${tab}/${filename}` 
+        const filepath = `/home/backup/${tab}/${filename}`
         const raw = await execSSH(
-          `cyberpanel restoreBackup --domainName ${domain} --fileName ${filename} --backupPath /home/backup/${tab} 2>&1` 
+          `cyberpanel restoreBackup --domainName ${domain} --fileName ${filename} --backupPath /home/backup/${tab} 2>&1`
         )
         data = { output: raw, success: !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('traceback') }
         break;
