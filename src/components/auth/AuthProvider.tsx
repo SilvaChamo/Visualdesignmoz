@@ -61,29 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
 
-    // Listener para mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('AuthProvider onAuthStateChange:', event, session?.user?.email)
-        const currentUser = session?.user || null
-        setUser(currentUser)
-
-        if (currentUser) {
-          const role = await auth.getUserRole()
-          console.log('AuthProvider onAuthStateChange: Role:', role)
-          setUserRole(role)
-          setIsAdmin(role === 'admin')
-        } else {
-          console.log('AuthProvider onAuthStateChange: User logged out')
-          setIsAdmin(false)
-          setUserRole(null)
-        }
-
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    // Rerunning onAuthStateChange is not recommended with SSR cookies, 
+    // as it can conflict with the server requests. We only rely on initializeAuth.
   }, [])
 
   const signIn = async (email: string, password: string) => {
@@ -158,17 +137,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      setLoading(true)
+      // Remover setLoading(true) para evitar que a página bloqueie no loading
+      const redirectUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`
+      console.log('Google OAuth: Iniciando login...')
+      console.log('Redirect URL:', redirectUrl)
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       })
-      if (error) throw error
+
+      if (error) {
+        console.error('Google OAuth Error:', error)
+        throw error
+      }
+
+      console.log('Google OAuth: Redirecionando para Google...')
     } catch (error) {
-      console.error('AuthProvider signInWithGoogle: Error:', error)
+      console.error('Google OAuth Exception:', error)
       throw error
     } finally {
       setLoading(false)

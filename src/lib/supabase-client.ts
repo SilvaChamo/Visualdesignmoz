@@ -1,16 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    flowType: "pkce",
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-})
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 // Tipos para o nosso sistema
 export interface Cliente {

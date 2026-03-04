@@ -41,13 +41,27 @@ export async function GET(request: Request) {
     console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
 
     // Troca o código OAuth por uma sessão (cookies são escritos automaticamente)
+    console.log('Trocando código por sessão...')
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (exchangeError || !data.user) {
-      console.error('Exchange error:', exchangeError)
+    if (exchangeError) {
+      console.error('Erro na troca de código:', exchangeError)
+      console.error('Error details:', {
+        message: exchangeError.message,
+        status: exchangeError.status,
+        code: exchangeError.code
+      })
       const loginUrl = new URL('/auth/login', requestUrl.origin)
       loginUrl.searchParams.set('error', 'callback_error')
-      loginUrl.searchParams.set('error_description', exchangeError?.message || 'Falha ao trocar código por sessão')
+      loginUrl.searchParams.set('error_description', `Falha na autenticação: ${exchangeError.message}`)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    if (!data.user) {
+      console.error('Nenhum usuário retornado na troca de código')
+      const loginUrl = new URL('/auth/login', requestUrl.origin)
+      loginUrl.searchParams.set('error', 'callback_error')
+      loginUrl.searchParams.set('error_description', 'Nenhum usuário encontrado na autenticação')
       return NextResponse.redirect(loginUrl)
     }
 

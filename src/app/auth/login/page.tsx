@@ -50,7 +50,11 @@ function LoginPageContent() {
         hasChecked.current = true
       }
       if (user) {
-        getRedirectPath().then((path) => router.push(path))
+        getRedirectPath().then((path) => {
+          // Usar navegação hard (window.location) em vez de Next.js router
+          // para garantir que os cookies SSR são enviados ao servidor
+          window.location.assign(path)
+        })
       }
     }
   }, [user, sessionLoading])
@@ -79,7 +83,9 @@ function LoginPageContent() {
       await signIn(email, password)
       const redirectPath = await getRedirectPath()
       console.log('Login bem-sucedido, redirecionando para:', redirectPath)
-      router.push(redirectPath)
+
+      // FORÇAR redirecionamento real para que os cookies SSR cheguem ao servidor Next.js
+      window.location.assign(redirectPath)
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {

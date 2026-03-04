@@ -82,13 +82,13 @@ export async function proxy(request: NextRequest) {
 
 
 
-  // Admin access control
-  if (pathname.startsWith('/admin')) {
-    if (role === 'admin' || userEmail.includes('silva.chamo')) {
-      return response
-    }
-    return NextResponse.rewrite(new URL('/404-admin-only', request.url))
-  }
+  // Admin access control - REMOVIDO: deixar layout admin verificar permissões
+  // if (pathname.startsWith('/admin')) {
+  //   if (role === 'admin' || userEmail.includes('silva.chamo')) {
+  //     return response
+  //   }
+  //   return NextResponse.rewrite(new URL('/404-admin-only', request.url))
+  // }
 
   // Dashboard access control
   if (pathname.startsWith('/dashboard') && role === 'client') {
