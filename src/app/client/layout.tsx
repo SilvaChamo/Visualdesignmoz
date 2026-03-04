@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 
 export default async function ClientLayout({
@@ -6,13 +6,10 @@ export default async function ClientLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: { session } } = await supabase.auth.getSession();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
         notFound();
     }
 

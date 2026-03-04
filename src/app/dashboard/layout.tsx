@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Sidebar from '@/components/dashboard/Sidebar'
 import { Bell, Search, User } from 'lucide-react'
@@ -8,19 +8,16 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: { session } } = await supabase.auth.getSession();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
         notFound();
     }
 
-    const userRole = session.user?.user_metadata?.role;
+    const userRole = user.user_metadata?.role;
     const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+    const isExplicitAdmin = adminEmails.includes(user.email || '');
 
     if (userRole !== 'reseller' && userRole !== 'admin' && !isExplicitAdmin) {
         notFound();
