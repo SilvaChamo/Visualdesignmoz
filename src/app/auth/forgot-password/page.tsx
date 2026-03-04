@@ -62,22 +62,70 @@ export default function ForgotPasswordPage() {
         }}
       >
         {enviado ? (
-          <div className="text-center py-8">
-            <div className="text-5xl mb-4">📧</div>
-            <p className="text-green-400 font-bold text-lg">Email enviado com sucesso!</p>
-            <p className="text-gray-300 text-sm mt-3">Verifica a caixa de entrada de <span className="text-white font-bold">{email}</span>.</p>
-            <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
-              <p className="text-yellow-300 text-xs font-semibold">⏱ Tens <span className="text-white font-bold">15 minutos</span> para clicar no link antes de expirar.</p>
+          <div className="text-center py-6">
+            {/* Ícone de sucesso animado */}
+            <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
             </div>
-            <p className="text-gray-500 text-xs mt-3">Não recebeste? Verifica a pasta de spam ou tenta novamente.</p>
-            <button onClick={() => setEnviado(false)} className="inline-block mt-3 text-red-400 hover:text-red-300 transition text-xs font-semibold">Enviar novamente</button>
-            <br/>
-            <a href="/auth/login" className="inline-block mt-4 text-white hover:text-red-400 transition text-sm font-semibold">← Voltar ao Login</a>
+
+            <h2 className="text-green-400 font-bold text-lg mb-2">Email Enviado com Sucesso!</h2>
+            <p className="text-gray-300 text-sm">
+              Enviámos um link de recuperação para<br />
+              <span className="text-white font-bold">{email}</span>
+            </p>
+
+            {/* Instruções detalhadas */}
+            <div className="mt-5 space-y-3 text-left">
+              <div className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
+                <p className="text-blue-300 text-xs font-semibold flex items-start gap-2">
+                  <span className="text-base leading-none">📋</span>
+                  <span><strong className="text-blue-200">Como proceder:</strong> Abre o email e clica no botão &ldquo;Redefinir Password&rdquo;. Serás redirecionado para criar uma nova palavra-passe.</span>
+                </p>
+              </div>
+
+              <div className="p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg">
+                <p className="text-yellow-300 text-xs font-semibold flex items-start gap-2">
+                  <span className="text-base leading-none">⏱</span>
+                  <span>O link expira em <strong className="text-white">60 minutos</strong>. Após esse período, terás de solicitar um novo link.</span>
+                </p>
+              </div>
+
+              <div className="p-3 bg-red-900/20 border border-red-700/30 rounded-lg">
+                <p className="text-red-300 text-xs font-semibold flex items-start gap-2">
+                  <span className="text-base leading-none">🔒</span>
+                  <span><strong className="text-red-200">Segurança:</strong> Nunca partilhes este link com ninguém. A equipa VisualDesign nunca te pedirá a tua password.</span>
+                </p>
+              </div>
+
+              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <p className="text-gray-400 text-xs flex items-start gap-2">
+                  <span className="text-base leading-none">💡</span>
+                  <span>Não recebeste o email? Verifica a pasta de <strong className="text-white">spam/lixo</strong> ou aguarda alguns minutos. Por vezes o envio pode demorar até 2 minutos.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <button
+                onClick={() => setEnviado(false)}
+                className="text-red-400 hover:text-red-300 transition text-xs font-semibold uppercase tracking-wider"
+              >
+                Reenviar Email
+              </button>
+              <a
+                href="/auth/login"
+                className="text-white/60 hover:text-white transition text-sm font-medium"
+              >
+                ← Voltar ao Login
+              </a>
+            </div>
           </div>
         ) : (
           <>
             <h1 className="text-white text-xl font-bold mb-1 text-center">Recuperar Password</h1>
-            <p className="text-gray-500 text-xs mb-8 text-center">Enviaremos um link para redefinir a tua conta</p>
+            <p className="text-gray-500 text-xs mb-8 text-center">Enviaremos um link seguro para redefinir a tua palavra-passe</p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm">{error}</div>
@@ -102,12 +150,19 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-red-700 hover:bg-red-600 disabled:bg-red-900 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-200 shadow-lg shadow-red-900/20"
+                className="w-full py-3 bg-red-700 hover:bg-red-600 disabled:bg-red-900 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-200 shadow-lg shadow-red-900/20 uppercase tracking-widest text-sm"
               >
                 {loading ? 'A enviar...' : 'Enviar Link de Recuperação'}
               </button>
             </form>
-            <p className="text-center mt-8">
+
+            <div className="mt-6 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <p className="text-gray-500 text-xs text-center">
+                🔐 O link será enviado para o email associado à tua conta. Por razões de segurança, não indicamos se o email existe no sistema.
+              </p>
+            </div>
+
+            <p className="text-center mt-6">
               <a href="/auth/login" className="text-white/50 hover:text-white transition text-sm font-medium">← Voltar ao Login</a>
             </p>
           </>
