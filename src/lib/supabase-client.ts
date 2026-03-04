@@ -186,8 +186,8 @@ export const auth = {
     console.log('getUserRole: User metadata:', user.user_metadata)
 
     // Admin por email
-    const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com']
-    if (adminEmails.includes(user.email || '')) {
+    const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
+    if (adminEmails.includes((user.email || '').toLowerCase())) {
       console.log('getUserRole: Admin by email:', user.email)
       return 'admin'
     }

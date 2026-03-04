@@ -76,33 +76,12 @@ export default function ForgotPasswordPage() {
               <span className="text-white font-bold">{email}</span>
             </p>
 
-            {/* Instruções detalhadas */}
+            {/* Instrução Simples */}
             <div className="mt-5 space-y-3 text-left">
-              <div className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-                <p className="text-blue-300 text-xs font-semibold flex items-start gap-2">
-                  <span className="text-base leading-none">📋</span>
-                  <span><strong className="text-blue-200">Como proceder:</strong> Abre o email e clica no botão &ldquo;Redefinir Password&rdquo;. Serás redirecionado para criar uma nova palavra-passe.</span>
-                </p>
-              </div>
-
-              <div className="p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg">
-                <p className="text-yellow-300 text-xs font-semibold flex items-start gap-2">
-                  <span className="text-base leading-none">⏱</span>
-                  <span>O link expira em <strong className="text-white">60 minutos</strong>. Após esse período, terás de solicitar um novo link.</span>
-                </p>
-              </div>
-
-              <div className="p-3 bg-red-900/20 border border-red-700/30 rounded-lg">
-                <p className="text-red-300 text-xs font-semibold flex items-start gap-2">
-                  <span className="text-base leading-none">🔒</span>
-                  <span><strong className="text-red-200">Segurança:</strong> Nunca partilhes este link com ninguém. A equipa VisualDesign nunca te pedirá a tua password.</span>
-                </p>
-              </div>
-
-              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-                <p className="text-gray-400 text-xs flex items-start gap-2">
-                  <span className="text-base leading-none">💡</span>
-                  <span>Não recebeste o email? Verifica a pasta de <strong className="text-white">spam/lixo</strong> ou aguarda alguns minutos. Por vezes o envio pode demorar até 2 minutos.</span>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-gray-300 text-sm flex items-start gap-3">
+                  <span className="text-xl">📧</span>
+                  <span>Verifica a tua caixa de entrada (e a pasta de spam) e clica no link para criar uma nova password.</span>
                 </p>
               </div>
             </div>

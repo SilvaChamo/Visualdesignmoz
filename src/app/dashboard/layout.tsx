@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Sidebar from '@/components/dashboard/Sidebar'
 import { Bell, Search, User } from 'lucide-react'
@@ -8,16 +9,27 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+        }
+    )
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session) {
         notFound();
     }
 
-    const userRole = user.user_metadata?.role;
+    const userRole = session.user?.user_metadata?.role;
     const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
-    const isExplicitAdmin = adminEmails.includes(user.email || '');
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
 
     if (userRole !== 'reseller' && userRole !== 'admin' && !isExplicitAdmin) {
         notFound();

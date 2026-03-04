@@ -2,6 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../components/auth/AuthProvider'
+import { supabase } from '../../../lib/supabase-client'
 
 function LoginPageContent() {
   const [email, setEmail] = useState('')
@@ -10,9 +11,9 @@ function LoginPageContent() {
   const [loadingGoogle, setLoadingGoogle] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [website, setWebsite] = useState('') // Honeypot field for bot protection
+  const [internalField, setInternalField] = useState('') // Honeypot field for bot protection
   const [oauthError, setOauthError] = useState<{ title: string, desc: string } | null>(null)
-  const { signIn, getRedirectPath, user, loading: sessionLoading } = useAuth()
+  const { signIn, signInWithGoogle, getRedirectPath, user, loading: sessionLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const hasChecked = React.useRef(false)
@@ -65,11 +66,10 @@ function LoginPageContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Honeypot check: if 'website' is filled, it's a bot
-    if (website) {
-      console.warn('Bot detected by honeypot!')
-      // We don't tell the bot we know it's a bot, just simulate a general error or ignore
-      return
+    // Honeypot check: if 'internalField' is filled, it's likely a bot or autofill
+    if (internalField) {
+      console.warn('Honeypot triggered - might be a bot or aggressive autofill.')
+      // Proceed anyway but log it, to avoid blocking legitimate users
     }
 
     setLoading(true)
@@ -96,15 +96,7 @@ function LoginPageContent() {
     setLoadingGoogle(true)
     setError('')
     try {
-      const { supabase } = await import('../../../lib/supabase-client')
-      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { access_type: 'offline', prompt: 'consent' },
-        },
-      })
-      if (oauthErr) throw oauthErr
+      await signInWithGoogle()
       // O browser será redirecionado automaticamente
     } catch (err: unknown) {
       setLoadingGoogle(false)
@@ -189,9 +181,9 @@ function LoginPageContent() {
           <div className="absolute opacity-0 -z-10 pointer-events-none" aria-hidden="true">
             <input
               type="text"
-              name="website"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
+              name="_internal_hp_field"
+              value={internalField}
+              onChange={(e) => setInternalField(e.target.value)}
               tabIndex={-1}
               autoComplete="off"
             />

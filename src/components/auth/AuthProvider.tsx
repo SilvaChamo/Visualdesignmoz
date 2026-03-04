@@ -10,6 +10,7 @@ interface AuthContextType {
   isAdmin: boolean
   userRole: 'admin' | 'reseller' | 'client' | null
   signIn: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string, nome: string, telefone?: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
@@ -27,21 +28,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Verificar sessão inicial
     const initializeAuth = async () => {
+      // Safety timeout - never let loading hang more than 3 seconds
+      const timeout = setTimeout(() => {
+        console.log('AuthProvider: Init timeout reached, forcing loading=false')
+        setLoading(false)
+      }, 3000)
+
       try {
         const session = await auth.getSession()
         const currentUser = session?.user || null
-        console.log('AuthProvider initializeAuth: User:', currentUser?.email)
         setUser(currentUser)
 
         if (currentUser) {
-          const role = await auth.getUserRole()
-          console.log('AuthProvider initializeAuth: Role:', role)
-          setUserRole(role)
-          setIsAdmin(role === 'admin')
+          try {
+            const role = await auth.getUserRole()
+            setUserRole(role)
+            setIsAdmin(role === 'admin')
+          } catch (roleError) {
+            console.error('AuthProvider: Error getting role:', roleError)
+            // Default to client if role check fails
+            setUserRole('client')
+            setIsAdmin(false)
+          }
         }
       } catch (error) {
         console.error('AuthProvider initializeAuth: Error:', error)
       } finally {
+        clearTimeout(timeout)
         setLoading(false)
       }
     }
@@ -75,22 +88,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true)
-      console.log('AuthProvider signIn: Attempting login for:', email)
+      // Do NOT set loading=true here — it hides the login form
       const data = await auth.signIn(email, password)
-      console.log('AuthProvider signIn: Sign-in successful, data:', data.user?.email)
 
       if (data.user) {
-        const role = await auth.getUserRole()
-        console.log('AuthProvider signIn: Role determined:', role)
-        setUserRole(role)
-        setIsAdmin(role === 'admin')
+        try {
+          const role = await auth.getUserRole()
+          setUserRole(role)
+          setIsAdmin(role === 'admin')
+        } catch {
+          setUserRole('client')
+          setIsAdmin(false)
+        }
+        setUser(data.user)
       }
     } catch (error) {
       console.error('AuthProvider signIn: Error:', error)
       throw error
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -122,12 +136,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setLoading(true)
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+      console.log('AuthProvider resetPassword: Requesting enriched email for:', email)
+
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Erro ao enviar email de recuperação.')
+
+      console.log('AuthProvider resetPassword: Success:', data)
+    } catch (error) {
+      console.error('AuthProvider resetPassword: Error:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
       })
       if (error) throw error
     } catch (error) {
-      console.error('AuthProvider resetPassword: Error:', error)
+      console.error('AuthProvider signInWithGoogle: Error:', error)
       throw error
     } finally {
       setLoading(false)
@@ -144,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     userRole,
     signIn,
+    signInWithGoogle,
     signUp,
     signOut,
     resetPassword,

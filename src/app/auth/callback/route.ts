@@ -36,20 +36,27 @@ export async function GET(request: Request) {
       }
     )
 
+    console.log('--- OAuth Callback Debug ---')
+    console.log('Code received:', code ? 'present' : 'missing')
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+
     // Troca o código OAuth por uma sessão (cookies são escritos automaticamente)
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError || !data.user) {
+      console.error('Exchange error:', exchangeError)
       const loginUrl = new URL('/auth/login', requestUrl.origin)
       loginUrl.searchParams.set('error', 'callback_error')
       loginUrl.searchParams.set('error_description', exchangeError?.message || 'Falha ao trocar código por sessão')
       return NextResponse.redirect(loginUrl)
     }
 
+    console.log('Exchange successful for user:', data.user.email)
+
     // Determinar destino com base no role/email
     const userEmail = data.user.email || ''
     const userRole = data.user.user_metadata?.role
-    const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com']
+    const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
 
     let redirectPath = '/client'
     if (adminEmails.includes(userEmail) || userRole === 'admin') {
