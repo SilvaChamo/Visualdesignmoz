@@ -44,15 +44,16 @@ function LoginPageContent() {
 
   useEffect(() => {
     // Só redireciona se a sessão foi verificada E o utilizador está autenticado
-    // Ignora o estado inicial antes da verificação terminar
+    // NÃO redireciona se vem do OAuth (callback já tratou disso)
     if (!sessionLoading) {
       if (!hasChecked.current) {
         hasChecked.current = true
       }
-      if (user) {
+      // Se vem do OAuth callback, não interferir — o callback já redirecionou
+      const isFromOAuth = window.location.search.includes('code=') || 
+                          document.referrer.includes('/auth/callback')
+      if (user && !isFromOAuth) {
         getRedirectPath().then((path) => {
-          // Usar navegação hard (window.location) em vez de Next.js router
-          // para garantir que os cookies SSR são enviados ao servidor
           window.location.assign(path)
         })
       }

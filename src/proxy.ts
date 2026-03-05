@@ -7,6 +7,13 @@ const RATE_LIMIT_MS = 2000
 const loginAttempts = new Map<string, number>()
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // FIRST: let auth callback pass immediately — no session exists yet at this point
+  if (pathname === '/auth/callback') {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -35,7 +42,6 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
   const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
   // Honeypot/Rate Limit logic
@@ -103,6 +109,7 @@ export const config = {
     '/admin/:path*',
     '/dashboard/:path*',
     '/client/:path*',
+    '/auth/:path*',
     '/login',
     '/autenticacao',
   ],

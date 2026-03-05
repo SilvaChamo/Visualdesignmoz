@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
       case 'listWebsites': {
         // Listar todos os sites via MYSQL directo (muito mais rápido que o script python)
-        const sitesRaw = await execSSH(`mysql cyberpanel -e "SELECT domain, adminEmail, package, state FROM websiteFunctions_websites;" -B -N 2>/dev/null`);
+        const sitesRaw = await execSSH(`mysql cyberpanel -e "SELECT domain, adminEmail, package_id, state FROM websiteFunctions_websites;" -B -N 2>/dev/null`);
 
         const sites = sitesRaw.split('\n').filter(Boolean).map(line => {
           const [domain, adminEmail, pkg, state] = line.split('\t');
@@ -107,16 +107,16 @@ done
       }
 
       case 'listPackages': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, dataBases FROM packages_package;" -B -N 2>/dev/null`);
+        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, \`dataBases\` FROM packages_package;" -B -N 2>/dev/null`);
         data = raw.split('\n').filter(Boolean).map(line => {
-          const [id, packageName, diskSpace, bandwidth, emailAccounts, dataBases] = line.split('\t');
+          const parts = line.split('\t');
           return {
-            id: parseInt(id),
-            packageName,
-            diskSpace: parseInt(diskSpace),
-            bandwidth: parseInt(bandwidth),
-            emailAccounts: parseInt(emailAccounts),
-            dataBases: parseInt(dataBases)
+            id: parseInt(parts[0]) || null,
+            packageName: parts[1] || '',
+            diskSpace: parseInt(parts[2]) || 0,
+            bandwidth: parseInt(parts[3]) || 0,
+            emailAccounts: parseInt(parts[4]) || 0,
+            dataBases: parseInt(parts[5]) || 0
           };
         });
         break;

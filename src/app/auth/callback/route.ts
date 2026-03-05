@@ -2,13 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
 
-  // Se houver erro no OAuth → redirecionar para login com mensagem de erro
   if (error) {
     const loginUrl = new URL('/auth/login', requestUrl.origin)
     loginUrl.searchParams.set('error', error)
@@ -18,15 +19,12 @@ export async function GET(request: Request) {
 
   if (code) {
     const cookieStore = await cookies()
-
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
+          getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
@@ -36,52 +34,53 @@ export async function GET(request: Request) {
       }
     )
 
-    console.log('--- OAuth Callback Debug ---')
-    console.log('Code received:', code ? 'present' : 'missing')
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    const allCookies = cookieStore.getAll()
+    console.log('CALLBACK: Cookies recebidos:', allCookies.map(c => c.name).join(', '))
 
-    // Troca o código OAuth por uma sessão (cookies são escritos automaticamente)
-    console.log('Trocando código por sessão...')
+    // Verificar se o code_verifier existe
+    const verifier = allCookies.find(c => c.name.includes('code-verifier'))
+    console.log('CALLBACK: Verifier encontrado:', verifier ? 'SIM' : 'NÃO')
+
+    console.log('CALLBACK: Tentando trocar código:', code.substring(0, 15) + '...')
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      console.error('Erro na troca de código:', exchangeError)
-      console.error('Error details:', {
+      console.error('CALLBACK: ERRO DETALHADO:', {
         message: exchangeError.message,
         status: exchangeError.status,
-        code: exchangeError.code
+        name: exchangeError.name
       })
+    }
+    console.log('CALLBACK: Resultado:', exchangeError ? 'ERRO' : 'SUCESSO, user: ' + data?.user?.email)
+
+    if (exchangeError || !data.user) {
       const loginUrl = new URL('/auth/login', requestUrl.origin)
       loginUrl.searchParams.set('error', 'callback_error')
-      loginUrl.searchParams.set('error_description', `Falha na autenticação: ${exchangeError.message}`)
+      loginUrl.searchParams.set('error_description', exchangeError?.message || 'Erro desconhecido')
       return NextResponse.redirect(loginUrl)
     }
-
-    if (!data.user) {
-      console.error('Nenhum usuário retornado na troca de código')
-      const loginUrl = new URL('/auth/login', requestUrl.origin)
-      loginUrl.searchParams.set('error', 'callback_error')
-      loginUrl.searchParams.set('error_description', 'Nenhum usuário encontrado na autenticação')
-      return NextResponse.redirect(loginUrl)
-    }
-
-    console.log('Exchange successful for user:', data.user.email)
 
     // Determinar destino com base no role/email
-    const userEmail = data.user.email || ''
+    const userEmail = (data.user.email || '').toLowerCase()
     const userRole = data.user.user_metadata?.role
     const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
 
+    // Verificar também na tabela profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
     let redirectPath = '/client'
-    if (adminEmails.includes(userEmail) || userRole === 'admin') {
+    if (adminEmails.includes(userEmail) || userRole === 'admin' || profile?.role === 'admin') {
       redirectPath = '/admin'
-    } else if (userRole === 'reseller') {
+    } else if (userRole === 'reseller' || profile?.role === 'reseller') {
       redirectPath = '/dashboard'
     }
 
     return NextResponse.redirect(new URL(redirectPath, requestUrl.origin))
   }
 
-  // Sem código nem erro → redirecionar para login
   return NextResponse.redirect(new URL('/auth/login', requestUrl.origin))
 }
