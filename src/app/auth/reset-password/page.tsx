@@ -100,11 +100,13 @@ export default function ResetPasswordPage() {
 
             {/* Logo */}
             <div className="flex flex-col items-center mb-6 z-10">
-                <img
-                    src="/assets/logotipoII.png"
-                    alt="VisualDesigne"
-                    className="h-32 object-contain"
-                />
+                <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
+                    <img
+                        src="/assets/logotipoII.png"
+                        alt="VisualDesigne"
+                        className="h-32 object-contain"
+                    />
+                </a>
             </div>
 
             <div

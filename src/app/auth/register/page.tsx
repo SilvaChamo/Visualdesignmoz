@@ -66,12 +66,14 @@ export default function RegisterPage() {
 
       {/* Logo Aumentado e Menos Espaço */}
       <div className="flex flex-col items-center mb-6 z-10 transition-all duration-300">
-        <img
-          src="/assets/logotipoII.png"
-          alt="VisualDesigne"
-          className="h-32 object-contain"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
+        <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
+          <img
+            src="/assets/logotipoII.png"
+            alt="VisualDesigne"
+            className="h-32 object-contain"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        </a>
       </div>
 
       {/* Formulário com glassmorphism (opacidade 0.08) */}
