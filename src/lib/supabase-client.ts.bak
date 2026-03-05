@@ -170,23 +170,52 @@ export const auth = {
   // Verificar role do utilizador
   async getUserRole(): Promise<'admin' | 'reseller' | 'client'> {
     const user = await this.getCurrentUser()
-    if (!user) return 'client'
+    if (!user) {
+      console.log('getUserRole: No user found')
+      return 'client'
+    }
 
+    console.log('getUserRole: User found:', user.email)
+    console.log('getUserRole: User metadata:', user.user_metadata)
+
+    // Admin por email
     const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
-    if (adminEmails.includes((user.email || '').toLowerCase())) return 'admin'
+    if (adminEmails.includes((user.email || '').toLowerCase())) {
+      console.log('getUserRole: Admin by email:', user.email)
+      return 'admin'
+    }
 
-    const metaRole = user.user_metadata?.role
-    if (metaRole === 'admin') return 'admin'
-    if (metaRole === 'reseller') return 'reseller'
-    if (metaRole === 'client') return 'client'
+    // Verificar role nos metadados do Supabase
+    if (user.user_metadata?.role === 'admin') {
+      console.log('getUserRole: Admin by metadata')
+      return 'admin'
+    }
+    if (user.user_metadata?.role === 'reseller') {
+      console.log('getUserRole: Reseller by metadata')
+      return 'reseller'
+    }
 
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (data?.role === 'admin') return 'admin'
-    if (data?.role === 'reseller') return 'reseller'
+    // Verificar na tabela profiles do Supabase
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
+    console.log('getUserRole: Profile data:', data, 'Error:', error)
+
+    if (data?.role === 'admin') {
+      console.log('getUserRole: Admin by profile')
+      return 'admin'
+    }
+    if (data?.role === 'reseller') {
+      console.log('getUserRole: Reseller by profile')
+      return 'reseller'
+    }
+
+    console.log('getUserRole: Default client role')
     return 'client'
   },
-
 
   // Manter isAdmin para compatibilidade
   async isAdmin(): Promise<boolean> {

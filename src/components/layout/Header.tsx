@@ -75,7 +75,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
               <Link href="/" className="flex items-center">
                 <div className="w-12 h-12 lg:w-40 lg:h-12 flex items-center justify-center overflow-hidden hover:scale-105 transition-transform duration-200">
                   <img
-                    src="/assets/logotipoII.png"
+                    src="/assets/Horizontal_logo.png"
                     alt="Visual Design Logo"
                     className="w-full h-full object-contain"
                   />

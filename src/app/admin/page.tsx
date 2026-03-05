@@ -799,7 +799,7 @@ export default function AdminPage() {
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-20 h-20 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+              <img src="/assets/Horizontal_logo.png" alt="Logo" className="h-12 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
               <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
                 <LogOut size={20} className="text-gray-500" />
               </button>
