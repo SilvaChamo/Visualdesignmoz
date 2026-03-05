@@ -24,6 +24,7 @@ import {
   // ClientesSection // Removido - não usado no painel do cliente
 } from '../admin/CyberPanelSections'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
 const CORES_PALETA = [
@@ -1920,7 +1921,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (paginatedSites.length > 0 && !expandedSite) {
       setExpandedSite(paginatedSites[0].domain)
     }
-  }, [paginatedSites, expandedSite])
+  }, [paginatedSites])
 
   const handleDelete = async (domain: string) => {
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
@@ -2645,15 +2646,19 @@ export default function AdminPage() {
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-10 h-10 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+              <img src="/assets/simbolo.png" alt="Logo" className="w-20 h-20 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
               <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
                 <LogOut size={20} className="text-gray-500" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <img src="/assets/logotipo.png" alt="VisualDesign" className="h-10 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
-              <button onClick={() => setIsCollapsed(!isCollapsed)} className="ml-auto rounded-lg hover:bg-gray-100 transition-colors">
+              <img src="/assets/simbolo.png" alt="Logo" className="w-14 h-14 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+              <div className="flex-1">
+                <h1 className="text-xl font-bold text-gray-900">Painel Cliente</h1>
+                <p className="text-xs text-gray-500">VisualDesign</p>
+              </div>
+              <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
                 <LogOut size={20} className="text-gray-500 rotate-180" />
               </button>
             </div>
@@ -2730,7 +2735,7 @@ export default function AdminPage() {
                   + Adicionar Conta
                 </button>
               )}
-              <button onClick={() => window.location.href = '/'}
+              <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
                 className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title="Sair">
                 <LogOut size={13} />
                 Sair

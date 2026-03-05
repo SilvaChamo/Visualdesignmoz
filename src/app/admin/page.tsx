@@ -23,6 +23,7 @@ import {
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
 } from './CyberPanelSections'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
 // Secções que precisam de criar websites
@@ -889,7 +890,7 @@ export default function AdminPage() {
                 className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
                 <Globe size={13} /> Painel CyberPanel
               </a>
-              <button onClick={() => window.location.href = '/'}
+              <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
                 className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title="Sair">
                 <LogOut size={13} />
                 Sair

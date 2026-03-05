@@ -63,7 +63,7 @@ export async function proxy(request: NextRequest) {
 
   // Protected routes
   if (!user) {
-    return NextResponse.rewrite(new URL('/404-not-found-security', request.url))
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
   // Role detection
