@@ -46,19 +46,19 @@ export async function POST(req: Request) {
       subject: 'Recuperação de Password - VisualDesign',
       html: `
         <div style="font-family: 'Inter', sans-serif; background-color: #000; color: #fff; padding: 40px 40px 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #333;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 60px;">
+          <div style="text-align: center; margin-bottom: 25px;">
+            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 75px;">
           </div>
           
-          <h1 style="color: #fff; font-size: 24px; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">
+          <h1 style="color: #fff; font-size: 24px; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 18px;">
             Recuperação de Acesso
           </h1>
           
-          <p style="color: #ccc; font-size: 16px; line-height: 1.6; text-align: center; margin-bottom: 30px;">
+          <p style="color: #ccc; font-size: 16px; line-height: 1.5; text-align: center; margin-bottom: 25px;">
             Recebemos um pedido para redefinir a password da sua conta. Se não fez este pedido, pode ignorar este email com segurança.
           </p>
           
-          <div style="text-align: center; margin-bottom: 30px;">
+          <div style="text-align: center; margin-bottom: 25px;">
             <a href="${resetLink}" style="background-color: #cc0000; color: #fff; padding: 16px 32px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(204, 0, 0, 0.3);">
               Redefinir Password
             </a>
