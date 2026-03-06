@@ -10,15 +10,15 @@ function parseEmailOutput(output: string, domain: string) {
     for (const line of lines) {
         if (!line.includes('|')) continue;
         const parts = line.split('|');
-        if (parts.length >= 2) {
-            const emailId = parts[0].trim();
-            const emailUser = parts[1].trim();
+        if (parts.length >= 1) {
+            const emailAddr = parts[0].trim();
+            const usage = parts[1] || '0';
 
             emails.push({
-                id: emailId,
-                email: `${emailUser}@${domain}`,
-                user: emailUser,
-                domain: domain
+                email: emailAddr,
+                user: emailAddr.split('@')[0],
+                domain: domain,
+                usage: usage
             });
         }
     }
@@ -37,9 +37,10 @@ export async function GET(request: Request) {
 
         const cleanDomain = domain.replace(/[^a-zA-Z0-9_.-]/g, '');
 
-        // Inside CyberPanel database, emails are stored in email_emails, linked to websiteBase_websites
-        // Fetch emails associated to a specific domain name directly
-        const query = `mysql -D cyberpanel -e "SELECT id, email FROM email_emails WHERE domain_id=(SELECT id FROM websiteBase_websites WHERE domain='${cleanDomain}');" | tr '\\t' '|' | grep -v "email"`;
+        // Correct CyberPanel database tables:
+        // Domains are in websiteFunctions_websites
+        // Emails are in e_users linked by emailOwner_id (which is the domain string)
+        const query = `mysql -D cyberpanel -e "SELECT email, DiskUsage FROM e_users WHERE emailOwner_id='${cleanDomain}';" | tr '\\t' '|' | grep -v "email"`;
 
         const output = await executeCyberPanelCommand(query);
         const emails = parseEmailOutput(output, cleanDomain);
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
         const command = `cyberpanel createEmail --domainName "${cleanDomain}" --userName "${cleanUser}" --password "${cleanPassword}"`;
         const output = await executeCyberPanelCommand(command);
 
-        if (output.includes('successfully') || !output.toLowerCase().includes('error')) {
+        if (output.includes('successfully') || output.includes('"success": 1') || output.includes('"success":1')) {
             return NextResponse.json({ success: true, message: 'Conta de E-mail criada com sucesso!' });
         } else {
             return NextResponse.json({ error: 'Erro ao criar conta de E-mail.', details: output }, { status: 400 });

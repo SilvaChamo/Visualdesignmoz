@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
+import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 
 const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
 
@@ -68,6 +69,15 @@ export async function POST(req: NextRequest) {
     // Tenta criar no CyberPanel via comando SSH
     const domain = email.split('@')[1]
     const user = email.split('@')[0]
+
+    if (domain === 'visualdesigne.com' || domain.includes('visualdesigne')) {
+      try {
+        await executeCyberPanelCommand(`cyberpanel createEmail --domainName ${domain} --userName ${user} --password '${password}'`);
+      } catch (cpError) {
+        console.error('Erro ao criar no CyberPanel:', cpError);
+        // Continuamos para guardar no Supabase mesmo que falhe o CP (o utilizador pode configurar depois)
+      }
+    }
 
     // Guarda no Supabase com password encriptada
     const { data, error } = await supabaseAdmin

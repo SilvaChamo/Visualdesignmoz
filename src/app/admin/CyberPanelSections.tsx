@@ -885,8 +885,8 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
       {msg && (
         <div
           className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.toLowerCase().includes('erro')
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'bg-green-50 text-green-700 border border-green-200'
             }`}
         >
           {msg}
@@ -900,7 +900,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
 // ============================================================
 // DATABASES SECTION
 // ============================================================
-export function DatabasesSection({ sites }: { sites: CyberPanelWebsite[] }) {
+export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWebsite[]; initialDomain?: string }) {
   const [selectedDomain, setSelectedDomain] = useState('')
   const [databases, setDatabases] = useState<CyberPanelDatabase[]>([])
   const [loading, setLoading] = useState(false)
@@ -910,6 +910,13 @@ export function DatabasesSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
   const [lastCreated, setLastCreated] = useState<{ dbName: string; dbUser: string; dbPass: string } | null>(null)
+
+  useEffect(() => {
+    if (initialDomain) {
+      setSelectedDomain(initialDomain)
+      loadDBs(initialDomain)
+    }
+  }, [initialDomain])
 
   const loadDBs = async (domain: string) => {
     if (!domain) return
@@ -1122,150 +1129,469 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 // EMAIL MANAGEMENT SECTION (Extended)
 // ============================================================
 export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('')
+  const [selectedDomain, setSelectedDomain] = useState('visualdesigne.com')
   const [emails, setEmails] = useState<CyberPanelEmail[]>([])
   const [loading, setLoading] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [emailUser, setEmailUser] = useState('')
   const [emailPass, setEmailPass] = useState('')
+  const [showPass, setShowPass] = useState(false)
   const [emailQuota, setEmailQuota] = useState('500')
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
-  const [showPass, setShowPass] = useState(false)
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success')
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<string[]>([])
+  const [stayOnPage, setStayOnPage] = useState(false)
   const [changingPass, setChangingPass] = useState<string | null>(null)
   const [newPass, setNewPass] = useState('')
-  const [forwardEmail, setForwardEmail] = useState<string | null>(null)
-  const [forwardTo, setForwardTo] = useState('')
-  const [forwards, setForwards] = useState<string[]>([])
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
+    return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  }
 
   const loadEmails = async (domain: string) => {
     if (!domain) return
     setLoading(true)
-    const data = await cyberPanelAPI.listEmails(domain).catch(() => [])
-    if (data.length > 0) {
-      setEmails(data)
-      data.forEach((e: any) => cpSaveEmail(domain, e.email?.split('@')[0] || e.email, { quota: e.quota || '500' }))
-    } else {
+    try {
+      const res = await fetch(`/api/cyberpanel-email?domain=${domain}`)
+      const data = await res.json()
+      if (data.success && data.emails?.length > 0) {
+        setEmails(data.emails)
+      } else {
+        const ls = cpGetEmails(domain)
+        setEmails(ls.length > 0 ? ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })) : [])
+      }
+    } catch {
       const ls = cpGetEmails(domain)
-      setEmails(ls.length > 0 ? ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })) : [])
+      setEmails(ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })))
     }
     setLoading(false)
   }
 
+  useEffect(() => {
+    if (selectedDomain) loadEmails(selectedDomain)
+  }, [selectedDomain])
+
   const handleCreate = async () => {
-    if (!selectedDomain || !emailUser || !emailPass) return
-    setCreating(true); setMsg('')
-    const ok = await cyberPanelAPI.createEmail({ domainName: selectedDomain, emailUser, emailPass, quota: parseInt(emailQuota) })
-    cpSaveEmail(selectedDomain, emailUser, { quota: emailQuota })
-    void (async () => { try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch { } })()
-    setMsg(ok ? 'Conta de e-mail criada!' : 'Guardada localmente. Verifica no CyberPanel.')
-    setEmailUser(''); setEmailPass('')
-    loadEmails(selectedDomain)
+    if (!selectedDomain || !emailUser || !emailPass) {
+      setMsg('Preenche todos os campos obrigatórios.')
+      setMsgType('error')
+      return
+    }
+    setCreating(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/cyberpanel-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainName: selectedDomain, userName: emailUser, password: emailPass, quota: parseInt(emailQuota) })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMsg('Conta criada com sucesso!')
+        setMsgType('success')
+        cpSaveEmail(selectedDomain, emailUser, { quota: emailQuota })
+        try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch { }
+        await loadEmails(selectedDomain)
+        if (!stayOnPage) {
+          setShowModal(false)
+          setEmailUser('')
+          setEmailPass('')
+        } else {
+          setEmailUser('')
+          setEmailPass('')
+        }
+      } else {
+        setMsg((data.error || 'Erro ao criar conta.') + (data.details ? ' | ' + data.details : ''))
+        setMsgType('error')
+      }
+    } catch (e: any) {
+      setMsg('Erro de ligação: ' + e.message)
+      setMsgType('error')
+    }
     setCreating(false)
   }
 
   const handleDelete = async (email: string) => {
     if (!confirm(`Eliminar ${email}?`)) return
-    const ok = await cyberPanelAPI.deleteEmail({ domain: selectedDomain, email })
-    if (ok) loadEmails(selectedDomain)
-    else setMsg('Erro ao eliminar.')
+    setDeleting(email)
+    try {
+      const res = await fetch('/api/cyberpanel-email', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMsg('Conta eliminada.')
+        setMsgType('success')
+        await loadEmails(selectedDomain)
+      } else {
+        setMsg('Erro ao eliminar.')
+        setMsgType('error')
+      }
+    } catch {
+      setMsg('Erro de ligação.')
+      setMsgType('error')
+    }
+    setDeleting(null)
   }
 
   const handleChangePass = async (email: string) => {
     if (!newPass) return
     const ok = await cyberPanelAPI.changeEmailPassword({ email, password: newPass })
-    if (ok) { setMsg('Senha alterada!'); setChangingPass(null); setNewPass('') }
-    else setMsg('Erro ao alterar senha.')
+    if (ok) {
+      setMsg('Senha alterada com sucesso!')
+      setMsgType('success')
+      setChangingPass(null)
+      setNewPass('')
+    } else {
+      setMsg('Erro ao alterar senha.')
+      setMsgType('error')
+    }
   }
 
-  const loadForwards = async (email: string) => {
-    setForwardEmail(email)
-    const fwds = await cyberPanelAPI.getEmailForwarding({ email })
-    setForwards(fwds)
+  const toggleSelect = (email: string) => {
+    setSelected(prev => prev.includes(email) ? prev.filter(x => x !== email) : [...prev, email])
   }
 
-  const handleAddForward = async () => {
-    if (!forwardEmail || !forwardTo) return
-    const ok = await cyberPanelAPI.addEmailForwarding({ email: forwardEmail, forward: forwardTo })
-    if (ok) { setForwardTo(''); loadForwards(forwardEmail) }
-    else setMsg('Erro ao adicionar reencaminhamento.')
+  const filtered = emails.filter(e =>
+    (e.email || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  const getStoragePct = (usage: string, quota: string) => {
+    const u = parseFloat(usage) || 0
+    const q = parseFloat(quota) || 500
+    return Math.min((u / q) * 100, 100)
+  }
+
+  const getStorageColor = (pct: number) => {
+    if (pct > 80) return '#ef4444'
+    if (pct > 50) return '#f59e0b'
+    return '#22c55e'
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div><h1 className="text-3xl font-bold text-gray-900">Gestão de E-mail</h1><p className="text-gray-500 mt-1">Crie, elimine e configure contas de e-mail, senhas e reencaminhamento.</p></div>
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
-              <option value="">Seleccione...</option>
-              {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-            </select>
+    <div className="text-gray-900">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Utilizador</label>
-            <div className="flex items-center gap-1">
-              <input value={emailUser} onChange={(e) => setEmailUser(e.target.value)} placeholder="info" className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-              <span className="text-gray-400 text-sm">@{selectedDomain || '...'}</span>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha</label>
-            <input type={showPass ? 'text' : 'password'} value={emailPass} onChange={(e) => setEmailPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Quota (MB)</label>
-            <input value={emailQuota} onChange={(e) => setEmailQuota(e.target.value)} placeholder="500" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <h1 className="text-xl font-bold text-gray-900">Gestão de E-mail</h1>
+            <p className="text-xs text-gray-600">Cria, elimina e configura contas de e-mail corporativo</p>
           </div>
         </div>
-        <button onClick={handleCreate} disabled={creating || !selectedDomain || !emailUser || !emailPass}
-          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-          {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} Criar Conta de E-mail
-        </button>
+        <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+          <span className="text-gray-900 font-semibold">∞</span> Disponíveis
+          <span className="mx-2 text-gray-400">|</span>
+          <span className="text-gray-900 font-semibold">{emails.length}</span> Usadas
+        </div>
+      </div>
 
-        {msg && <div className={`mt-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('!') && !msg.includes('Erro') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+      {/* Domain selector + Search + Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <select
+          value={selectedDomain}
+          onChange={e => setSelectedDomain(e.target.value)}
+          className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Seleccionar domínio...</option>
+          {sites.length > 0
+            ? sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)
+            : <option value="visualdesigne.com">visualdesigne.com</option>
+          }
+        </select>
+        <div className="flex-1">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Pesquisar contas..."
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => loadEmails(selectedDomain)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-all"
+          >
+            <RefreshCw className="w-4 h-4" /> Actualizar
+          </button>
+          <button
+            onClick={() => { setShowModal(true); setMsg(''); setEmailUser(''); setEmailPass('') }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Criar
+          </button>
+        </div>
+      </div>
 
-        {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : emails.length > 0 && (
-          <div className="mt-6 space-y-3">
-            {emails.map((em, i) => (
-              <div key={i} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center"><Mail className="w-5 h-5 text-red-600" /></div>
-                    <div>
-                      <p className="font-bold text-gray-900 text-sm">{em.email}</p>
-                      <p className="text-xs text-gray-500">Quota: {em.quota || 'Unlimited'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a href={`https://webmail.${selectedDomain}`} target="_blank" rel="noopener noreferrer" className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-bold transition-colors">Webmail</a>
-                    <button onClick={() => setChangingPass(changingPass === em.email ? null : em.email)} className="text-xs bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-md font-medium transition-colors">Alterar Senha</button>
-                    <button onClick={() => loadForwards(em.email)} className="text-xs bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-md font-medium transition-colors">Reencaminhar</button>
-                    <button onClick={() => handleDelete(em.email)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-                {changingPass === em.email && (
-                  <div className="mt-3 pt-3 border-t flex gap-2">
-                    <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Nova senha" className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                    <button onClick={() => handleChangePass(em.email)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all">Guardar</button>
-                  </div>
-                )}
-                {forwardEmail === em.email && (
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex gap-2 mb-2">
-                      <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="destino@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                      <button onClick={handleAddForward} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all">Adicionar</button>
-                    </div>
-                    {forwards.length > 0 && <div className="text-xs text-gray-500">{forwards.map((f, fi) => <span key={fi} className="inline-block bg-gray-100 px-2 py-1 rounded mr-1 mb-1">{f}</span>)}</div>}
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Mensagem de feedback */}
+      {msg && (
+        <div className={`flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-4 border ${msgType === 'success'
+          ? 'text-green-700 bg-green-50 border-green-200'
+          : 'text-red-700 bg-red-50 border-red-200'
+          }`}>
+          <span>{msgType === 'success' ? '✅' : '⚠️'}</span> {msg}
+        </div>
+      )}
+
+      {/* Tabela */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {/* Header */}
+        <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={selected.length === emails.length && emails.length > 0}
+              onChange={() => setSelected(selected.length === emails.length ? [] : emails.map(e => e.email))}
+              className="w-4 h-4 accent-blue-600 cursor-pointer"
+            />
+          </div>
+          <div>Conta @ Domínio</div>
+          <div>Restrições</div>
+          <div>Armazenamento</div>
+          <div>Ações</div>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <div className="py-12 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin" /> A carregar contas...
           </div>
         )}
+
+        {/* Empty */}
+        {!loading && filtered.length === 0 && (
+          <div className="py-12 text-center text-gray-500 text-sm">
+            {selectedDomain ? 'Nenhuma conta encontrada.' : 'Selecciona um domínio para ver as contas.'}
+          </div>
+        )}
+
+        {/* Rows */}
+        {!loading && filtered.map(email => {
+          const pct = getStoragePct(email.usage || '0', String(email.quota || '500'))
+          const color = getStorageColor(pct)
+          const emailStr = email.email || ''
+          const user = emailStr.split('@')[0]
+
+          return (
+            <div key={emailStr} className={`grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all ${selected.includes(emailStr) ? 'bg-blue-50' : ''}`}>
+              {/* Checkbox */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(emailStr)}
+                  onChange={() => toggleSelect(emailStr)}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                />
+              </div>
+
+              {/* Email */}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-xs font-bold text-blue-600">
+                  {user[0]?.toUpperCase() || '@'}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{emailStr}</p>
+                  {changingPass === emailStr && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="password"
+                        value={newPass}
+                        onChange={e => setNewPass(e.target.value)}
+                        placeholder="Nova password"
+                        className="text-xs bg-white border border-gray-300 rounded px-2 py-1 text-gray-900 focus:outline-none"
+                      />
+                      <button onClick={() => handleChangePass(emailStr)} className="text-xs text-green-600 hover:text-green-700">✓</button>
+                      <button onClick={() => { setChangingPass(null); setNewPass('') }} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Restrictions */}
+              <div className="flex items-center">
+                <span className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                  Sem restrições
+                </span>
+              </div>
+
+              {/* Storage */}
+              <div className="flex items-center">
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <span className="text-xs text-gray-600">
+                    {email.usage || '0'} MB / {String(email.quota || '500')} MB / {pct.toFixed(2)}%
+                  </span>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1">
+                <a
+                  href="https://webmail.visualdesigne.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
+                >
+                  <ExternalLink className="w-3 h-3" /> Webmail
+                </a>
+                <button
+                  onClick={() => setChangingPass(changingPass === emailStr ? null : emailStr)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
+                >
+                  <Settings className="w-3 h-3" /> Senha
+                </button>
+                <button
+                  onClick={() => handleDelete(emailStr)}
+                  disabled={deleting === emailStr}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all border border-red-200 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  {deleting === emailStr ? '...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Footer */}
+        <div className="px-4 py-3 text-xs text-gray-500 flex justify-between items-center bg-gray-50">
+          <span>{filtered.length} de {emails.length} contas</span>
+          <span>Domínio: {selectedDomain || '—'}</span>
+        </div>
       </div>
+
+      {/* Modal Criar Conta */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="relative bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-blue-600" />
+                </div>
+                <h2 className="text-base font-bold text-gray-900">Criar Conta de Email</h2>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Domain */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Domínio</label>
+                <div className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900">
+                  {selectedDomain || 'visualdesigne.com'}
+                </div>
+              </div>
+
+              {/* Username */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Utilizador</label>
+                <div className="flex">
+                  <input
+                    value={emailUser}
+                    onChange={e => setEmailUser(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
+                    placeholder="nome.utilizador"
+                    className="flex-1 bg-white border border-gray-300 border-r-0 rounded-l-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <div className="bg-gray-100 border border-gray-300 rounded-r-lg px-3 py-2.5 text-sm text-gray-600 whitespace-nowrap">
+                    @{selectedDomain || 'visualdesigne.com'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Senha</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={emailPass}
+                      onChange={e => setEmailPass(e.target.value)}
+                      placeholder="Password"
+                      className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 pr-10"
+                    />
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setEmailPass(generatePassword())}
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-xs text-gray-700 hover:bg-gray-200 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Gerar
+                  </button>
+                </div>
+              </div>
+
+              {/* Quota */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Quota (MB)</label>
+                <input
+                  type="number"
+                  value={emailQuota}
+                  onChange={e => setEmailQuota(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Error/Success */}
+              {msg && (
+                <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${msgType === 'success'
+                  ? 'text-green-700 bg-green-50 border-green-200'
+                  : 'text-red-700 bg-red-50 border-red-200'
+                  }`}>
+                  {msg}
+                </div>
+              )}
+
+              {/* Stay on page */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stayOnPage}
+                  onChange={e => setStayOnPage(e.target.checked)}
+                  className="w-4 h-4 accent-blue-600"
+                />
+                <span className="text-xs text-gray-600">Permanecer nesta página após criar</span>
+              </label>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !emailUser || !emailPass}
+                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+              >
+                {creating
+                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> A criar...</>
+                  : <><Plus className="w-4 h-4" /> Criar Conta</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3948,8 +4274,8 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
       {/* Mensagem */}
       {msg && (
         <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success'
-            ? 'bg-green-50 text-green-700 border-green-200'
-            : 'bg-red-50 text-red-700 border-red-200'
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-red-50 text-red-700 border-red-200'
           }`}>{msg}</div>
       )}
 
@@ -3959,8 +4285,8 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === tab.id
-                  ? 'border-red-600 text-red-600 bg-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-red-600 text-red-600 bg-white'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}>
               <span>{tab.icon}</span>
               {tab.label}
@@ -5177,8 +5503,8 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
       {/* Status */}
       {status !== 'idle' && (
         <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${status === 'success'
-            ? 'bg-green-50 text-green-700 border-green-200'
-            : 'bg-red-50 text-red-700 border-red-200'
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-red-50 text-red-700 border-red-200'
           }`}>
           {status === 'success' ? '✅ Deploy concluído com sucesso!' : '❌ Erro no deploy — ver log abaixo'}
         </div>

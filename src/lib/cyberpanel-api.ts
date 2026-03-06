@@ -148,6 +148,7 @@ export interface CyberPanelEmail {
   email: string;
   domain?: string;
   quota?: number;
+  usage?: string;
 }
 export interface CyberPanelPHPConfig {
   domain: string;

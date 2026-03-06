@@ -100,8 +100,7 @@ done
             ...s,
             ...(siteStatus[s.domain] || {}),
             isActive: siteStatus[s.domain]?.isActive ?? false
-          })),
-          success: true
+          }))
         };
         break;
       }
@@ -243,10 +242,13 @@ print('ok')
       }
 
       case 'listEmails': {
-        const raw = await execSSH(
-          `doveadm user '*@${params.domain}' 2>/dev/null || echo ""`
-        );
-        data = { emails: raw.trim().split('\n').filter(Boolean) };
+        const query = `mysql -D cyberpanel -e "SELECT email, DiskUsage FROM e_users WHERE emailOwner_id='${params.domain}';" -B -N 2>/dev/null`;
+        const raw = await execSSH(query);
+        const emails = raw.trim().split('\n').filter(Boolean).map(line => {
+          const [email, usage] = line.split('\t');
+          return { email, usage };
+        });
+        data = { emails };
         break;
       }
 

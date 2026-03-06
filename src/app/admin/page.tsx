@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-import { 
-  Home, Globe, Users, Mail, Shield, Database, Settings, 
+import {
+  Home, Globe, Users, Mail, Shield, Database, Settings,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon
 } from 'lucide-react'
 import { CpanelDashboard } from './CpanelDashboard'
+import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -50,16 +51,16 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
       <div><h1 className="text-3xl font-bold text-gray-900">Criar Website</h1><p className="text-gray-500 mt-1">Adicione um novo website ao servidor.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label><input value={form.domain} onChange={e => setForm({...form, domain: e.target.value})} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label><input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pacote</label>
-            <select value={form.packageName} onChange={e => setForm({...form, packageName: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
               <option value="Default">Default</option>
               {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
             </select>
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
-            <select value={form.php} onChange={e => setForm({...form, php: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={form.php} onChange={e => setForm({ ...form, php: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
               <option>7.4</option><option>8.0</option><option>8.1</option><option>8.2</option><option>8.3</option>
             </select>
           </div>
@@ -74,8 +75,8 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
 }
 
 function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync }: {
-  sites: CyberPanelWebsite[], 
-  onRefresh: () => void, 
+  sites: CyberPanelWebsite[],
+  onRefresh: () => void,
   packages: CyberPanelPackage[],
   setActiveSection: (section: string) => void,
   setFileManagerDomain: (domain: string) => void,
@@ -90,7 +91,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     return state || 'Active'
   }
   const [expandedSite, setExpandedSite] = useState<string | null>(null)
-  const [editingField, setEditingField] = useState<{domain: string, field: string} | null>(null)
+  const [editingField, setEditingField] = useState<{ domain: string, field: string } | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
@@ -104,11 +105,10 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
   // Filtrar sites activos — tem conteúdo real instalado
   const sitesArray = Array.isArray(sites) ? sites : []
-  const filtered = sitesArray.filter(s => 
+  const filtered = sitesArray.filter(s =>
     s.domain.toLowerCase().includes(search.toLowerCase()) &&
     !s.domain.includes('contaboserver') &&
-    !s.domain.includes('localhost') &&
-    s.isActive === true
+    !s.domain.includes('localhost')
   )
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
@@ -144,48 +144,48 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   }
 
   const handleSuspend = async (domain: string, state: string) => {
-  setLoading(domain)
-  const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-  await fetch('/api/server-exec', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, params: { domain } })
-  })
-  await onRefresh()
-  setLoading(null)
-}
-
-  const handleSaveField = async (domain: string, field: string, value: string) => {
-  setLoading(domain)
-  let command = ''
-  
-  if (field === 'php') {
-    command = `cyberpanel changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
-  } else if (field === 'package') {
-    command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
-  } else {
-    // Para outros campos, usa modifyWebsite
+    setLoading(domain)
+    const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
     await fetch('/api/server-exec', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
+      body: JSON.stringify({ action, params: { domain } })
     })
+    await onRefresh()
+    setLoading(null)
+  }
+
+  const handleSaveField = async (domain: string, field: string, value: string) => {
+    setLoading(domain)
+    let command = ''
+
+    if (field === 'php') {
+      command = `cyberpanel changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
+    } else if (field === 'package') {
+      command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
+    } else {
+      // Para outros campos, usa modifyWebsite
+      await fetch('/api/server-exec', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
+      })
+      setEditingField(null)
+      await onRefresh()
+      setLoading(null)
+      return
+    }
+
+    const res = await fetch('/api/server-exec', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'execCommand', params: { command } })
+    })
+    const data = await res.json()
+    if (!data.success) {
+      alert('Erro: ' + (data.data?.output || data.error || 'desconhecido'))
+    }
     setEditingField(null)
     await onRefresh()
     setLoading(null)
-    return
   }
-  
-  const res = await fetch('/api/server-exec', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'execCommand', params: { command } })
-  })
-  const data = await res.json()
-  if (!data.success) {
-    alert('Erro: ' + (data.data?.output || data.error || 'desconhecido'))
-  }
-  setEditingField(null)
-  await onRefresh()
-  setLoading(null)
-}
 
   const EditableField = ({ domain, field, value, label }: { domain: string, field: string, value: string, label: string }) => {
     const isEditing = editingField?.domain === domain && editingField?.field === field
@@ -244,7 +244,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             <Plus className="w-3 h-3" /> Criar Website
           </button>
           <button onClick={() => {
-            const rows = [['Domínio','IP','Estado','Pacote']]
+            const rows = [['Domínio', 'IP', 'Estado', 'Pacote']]
             sites.forEach(s => rows.push([s.domain, '109.199.104.22', s.state || 'Active', (s as any).package || 'Default']))
             const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'websites.csv'; a.click()
@@ -266,10 +266,10 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       <div className="space-y-2">
         {paginatedSites.map((s, i) => (
           <div key={i} className={`bg-white rounded-xl border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
-            
+
             {/* Linha do site com botões explícitos */}
             <div className="flex items-center justify-between px-4 py-4">
-              
+
               {/* Info do site */}
               <div className="flex items-center gap-3">
                 <button
@@ -310,7 +310,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   className="bg-black hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
                   Gerir
                 </button>
-                
+
                 {/* Botão Explorar Directório — sem fundo, texto link */}
                 <button
                   onClick={() => {
@@ -326,7 +326,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             {/* Conteúdo expandido */}
             {expandedSite === s.domain && (
               <div className="border-t border-gray-100 p-4 space-y-4">
-                
+
                 {/* Grid de cards de detalhes editáveis */}
                 <div className="grid grid-cols-4 gap-3">
 
@@ -454,14 +454,26 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     }
                     setLoading(null)
                   }}
-                  disabled={loading === s.domain + '-backup'}
-                  className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
-                    {loading === s.domain + '-backup' 
+                    disabled={loading === s.domain + '-backup'}
+                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
+                    {loading === s.domain + '-backup'
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       : <Archive className="w-3.5 h-3.5" />
                     }
                     {loading === s.domain + '-backup' ? 'A criar...' : 'Backup'}
                   </button>
+
+                  <button
+                    onClick={() => {
+                      // @ts-ignore
+                      window.__selectedDatabaseDomain = s.domain;
+                      setActiveSection('cp-databases');
+                    }}
+                    className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    <Database className="w-3.5 h-3.5" /> Base de Dados
+                  </button>
+
                   <button onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
                     className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
                     <Power className="w-3.5 h-3.5" /> {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
@@ -487,23 +499,22 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           >
             Anterior
           </button>
-          
+
           <div className="flex items-center gap-1">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
-                  currentPage === page
-                    ? 'bg-red-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${currentPage === page
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
               >
                 {page}
               </button>
             ))}
           </div>
-          
+
           <button
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
@@ -526,19 +537,19 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
-                <input value={createForm.domain} onChange={e => setCreateForm({...createForm, domain: e.target.value})}
+                <input value={createForm.domain} onChange={e => setCreateForm({ ...createForm, domain: e.target.value })}
                   placeholder="exemplo.com"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label>
-                <input value={createForm.email} onChange={e => setCreateForm({...createForm, email: e.target.value})}
+                <input value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
                   placeholder="admin@exemplo.com"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pacote</label>
-                <select value={createForm.packageName} onChange={e => setCreateForm({...createForm, packageName: e.target.value})}
+                <select value={createForm.packageName} onChange={e => setCreateForm({ ...createForm, packageName: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
                   <option>Default</option>
                   {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
@@ -546,7 +557,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
-                <select value={createForm.php} onChange={e => setCreateForm({...createForm, php: e.target.value})}
+                <select value={createForm.php} onChange={e => setCreateForm({ ...createForm, php: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
                   <option>PHP 7.4</option><option>PHP 8.0</option>
                   <option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
@@ -598,6 +609,20 @@ export default function AdminPage() {
   const [cyberPanelUsers, setCyberPanelUsers] = useState<CyberPanelUser[]>([])
   const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
+  const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
+
+  // Efeito para capturar domínio vindo do botão "Base de Dados"
+  useEffect(() => {
+    // @ts-ignore
+    if (window.__selectedDatabaseDomain && activeSection === 'cp-databases') {
+      // @ts-ignore
+      setSelectedDatabaseDomain(window.__selectedDatabaseDomain);
+      // @ts-ignore
+      window.__selectedDatabaseDomain = null;
+    } else if (activeSection !== 'cp-databases') {
+      setSelectedDatabaseDomain('');
+    }
+  }, [activeSection]);
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
 
@@ -615,8 +640,8 @@ export default function AdminPage() {
       })
       const data = await res.json()
       // CORRIGIR — garantir que usa data.data.sites e não data.data
-      const sites = Array.isArray(data.data?.sites) ? data.data.sites : 
-                    Array.isArray(data.data) ? data.data : []
+      const sites = Array.isArray(data.data?.sites) ? data.data.sites :
+        Array.isArray(data.data) ? data.data : []
       if (data.success) setCyberPanelSites(sites)
     } catch (e) { console.error(e) }
     setSyncing(false)
@@ -641,7 +666,7 @@ export default function AdminPage() {
   }
 
   // Definir domínio principal
-  const primaryDomain = cyberPanelSites.length > 0 
+  const primaryDomain = cyberPanelSites.length > 0
     ? cyberPanelSites.find(s => !s.domain.includes('contaboserver'))?.domain || cyberPanelSites[0].domain
     : 'visualdesigne.com'
 
@@ -652,7 +677,8 @@ export default function AdminPage() {
     { id: 'cp-users', label: 'Contas', icon: Users },
     { id: 'backup-manager', label: 'Backups', icon: Archive },
     { id: 'cp-databases', label: 'Databases', icon: Database },
-    { id: 'emails-new', label: 'Email', icon: Mail },
+    { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
+    { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
     { id: 'cp-ssl', label: 'SSL', icon: Lock },
     { id: 'cp-security', label: 'Segurança', icon: Shield },
     { id: 'cp-php', label: 'PHP', icon: Server },
@@ -665,28 +691,28 @@ export default function AdminPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <CpanelDashboard 
-          sites={cyberPanelSites} 
-          users={cyberPanelUsers} 
-          isFetching={isFetchingCyberPanel} 
-          onNavigate={setActiveSection} 
+        return <CpanelDashboard
+          sites={cyberPanelSites}
+          users={cyberPanelUsers}
+          isFetching={isFetchingCyberPanel}
+          onNavigate={setActiveSection}
           onRefresh={loadCyberPanelData}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
         />
       case 'domains':
       case 'domains-list':
-        return <ListWebsitesSection 
-        sites={cyberPanelSites} 
-        onRefresh={loadCyberPanelData} 
-        packages={cyberPanelPackages}
-        setActiveSection={setActiveSection}
-        setFileManagerDomain={setFileManagerDomain}
-        setSelectedDNSDomain={setSelectedDNSDomain}
-        loadCyberPanelData={loadCyberPanelData}
-        syncing={syncing}
-        handleSync={handleSync}
-      />
+        return <ListWebsitesSection
+          sites={cyberPanelSites}
+          onRefresh={loadCyberPanelData}
+          packages={cyberPanelPackages}
+          setActiveSection={setActiveSection}
+          setFileManagerDomain={setFileManagerDomain}
+          setSelectedDNSDomain={setSelectedDNSDomain}
+          loadCyberPanelData={loadCyberPanelData}
+          syncing={syncing}
+          handleSync={handleSync}
+        />
       case 'file-manager':
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || 'visualdesigne.com'} sites={cyberPanelSites} />
@@ -705,9 +731,11 @@ export default function AdminPage() {
       case 'cp-delete-website':
         return <DeleteWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} />
       case 'cp-databases':
-        return <DatabasesSection sites={cyberPanelSites} />
+        return <DatabasesSection sites={cyberPanelSites} initialDomain={selectedDatabaseDomain} />
       case 'cp-ftp':
         return <FTPSection sites={cyberPanelSites} />
+      case 'webmail':
+        return <EmailWebmailSection />
       case 'emails-new':
       case 'cp-email-mgmt':
         return <EmailManagementSection sites={cyberPanelSites} />
@@ -755,9 +783,9 @@ export default function AdminPage() {
       case 'cp-dns-create-zone':
         return <DNSCreateZoneSection sites={cyberPanelSites} />
       case 'domains-dns':
-        return <DNSZoneEditorSection 
-          sites={cyberPanelSites} 
-          initialDomain={selectedDNSDomain || primaryDomain} 
+        return <DNSZoneEditorSection
+          sites={cyberPanelSites}
+          initialDomain={selectedDNSDomain || primaryDomain}
         />
       case 'cp-dns-delete-zone':
         return <DNSDeleteZoneSection sites={cyberPanelSites} />
@@ -831,11 +859,10 @@ export default function AdminPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-red-50 text-red-600 font-bold'
-                      : 'hover:bg-gray-100 text-gray-600'
-                  }`}
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded-lg transition-colors ${isActive
+                    ? 'bg-red-50 text-red-600 font-bold'
+                    : 'hover:bg-gray-100 text-gray-600'
+                    }`}
                   title={isCollapsed ? item.label : ''}
                 >
                   <Icon size={22} className={isActive ? 'text-red-600' : 'text-gray-500'} />
@@ -901,11 +928,11 @@ export default function AdminPage() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
-            <div
-              key={activeSection}
-            >
-              {renderSection()}
-            </div>
+          <div
+            key={activeSection}
+          >
+            {renderSection()}
+          </div>
         </main>
       </div>
     </div>
