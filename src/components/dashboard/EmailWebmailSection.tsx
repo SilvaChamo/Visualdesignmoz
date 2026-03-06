@@ -70,25 +70,31 @@ export function EmailWebmailSection({
   const modalAdicionarPasso = propModalAdicionarPasso || 'escolher'
   const setModalAdicionarPasso = propSetModalAdicionarPasso || (() => { })
 
-  // Carregar contas reais do Supabase
+  // Carregar contas reais do CyberPanel
   useEffect(() => {
     const carregarContas = async () => {
+      // Carregar directamente do CyberPanel (fonte de verdade)
       try {
-        const res = await fetch('/api/email-contas?cliente_id=demo')
+        const res = await fetch('/api/cyberpanel-email?domain=visualdesigne.com')
         const data = await res.json()
-        if (data.success && data.contas.length > 0) {
-          setEmailsOrigem(data.contas.map((c: any) => ({
-            email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
+        if (data.success && data.emails && data.emails.length > 0) {
+          setEmailsOrigem(data.emails.map((e: any) => ({
+            email: e.email,
+            tipo: 'webmail',
+            nome: e.user || e.email.split('@')[0],
+            password: ''
           })))
         } else {
-          // Fallback: carregar do CyberPanel
-          const res2 = await fetch('/api/cyberpanel-email?domain=visualdesigne.com')
-          const data2 = await res2.json()
-          if (data2.success && data2.emails) {
-            setEmailsOrigem(data2.emails.map((e: any) => ({
-              email: e.email, tipo: 'webmail', nome: e.email.split('@')[0], password: ''
-            })))
-          }
+          // Fallback: Supabase com sessão real
+          try {
+            const res2 = await fetch('/api/email-contas')
+            const data2 = await res2.json()
+            if (data2.success && data2.contas?.length > 0) {
+              setEmailsOrigem(data2.contas.map((c: any) => ({
+                email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
+              })))
+            }
+          } catch { }
         }
       } catch { }
     }
@@ -265,8 +271,8 @@ export function EmailWebmailSection({
   const handleCloseModal = () => { setModalEmail(null); setModoResposta('none'); setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' }); setEnviado(false); setAnexos([]) }
 
   const handleSend = async () => {
-    if (!emailOrigem || !emailOrigemPassword) {
-      alert('Selecciona uma conta de email e introduz a password')
+    if (!emailOrigem) {
+      alert('Selecciona uma conta de email')
       return
     }
     setEnviando(true)
@@ -320,7 +326,7 @@ export function EmailWebmailSection({
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           ✏️ Escrever
         </button>
-        <a href="https://webmail.visualdesigne.com" target="_blank"
+        <a href="https://109.199.104.22:8090/snappymail/" target="_blank"
           className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           🌐 Webmail
         </a>
@@ -482,18 +488,6 @@ export function EmailWebmailSection({
                 <button onClick={() => setMostrarPopupFechar(true)}
                   className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
               </div>
-              {emailOrigem && (
-                <div className="flex items-center border-b border-gray-700 px-3 py-1.5">
-                  <span className="text-gray-400 text-xs w-16 shrink-0">Password:</span>
-                  <input
-                    type="password"
-                    value={emailOrigemPassword}
-                    onChange={e => setEmailOrigemPassword(e.target.value)}
-                    placeholder="Password da conta de email"
-                    className="flex-1 bg-transparent text-white text-sm outline-none"
-                  />
-                </div>
-              )}
               {/* Linha Para */}
               <div className="flex items-center border-b border-gray-700 px-3 py-1.5">
                 <span className="text-gray-400 text-xs w-16 shrink-0">Para:</span>

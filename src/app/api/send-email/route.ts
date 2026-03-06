@@ -2,9 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { resend } from '@/lib/resend'
 
+import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
+
 export async function POST(req: NextRequest) {
   try {
-    const { from, fromPassword, to, cc, bcc, subject, html, replyTo, category } = await req.json()
+    let { from, fromPassword, to, cc, bcc, subject, html, replyTo, category } = await req.json()
+
+    // Automatic Password Recovery if not provided
+    if (from && !fromPassword) {
+      try {
+        const supabase = await createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+          const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
+
+          const { data: conta } = await supabaseAdmin
+            .from('email_contas')
+            .select('password_smtp')
+            .eq('email', from)
+            .eq('cliente_id', session.user.id)
+            .single()
+
+          if (conta?.password_smtp) {
+            fromPassword = decryptPassword(conta.password_smtp)
+            console.log('Password recovered from database for:', from)
+          }
+        }
+      } catch (recoveryErr) {
+        console.error('Failed to recover password:', recoveryErr)
+      }
+    }
 
     // 1. Usar Resend APENAS para emails transacionais (recuperação de password, etc.)
     const isResendAvailable = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_placeholder';

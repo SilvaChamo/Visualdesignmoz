@@ -955,7 +955,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Bases de Dados</h1><p className="text-gray-500 mt-1">Crie e gira bases de dados MySQL para os seus websites.</p></div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -1073,7 +1073,7 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Contas FTP</h1><p className="text-gray-500 mt-1">Gira contas FTP para transferência de ficheiros.</p></div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -1156,15 +1156,31 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
     if (!domain) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/cyberpanel-email?domain=${domain}`)
+      // Usar API directa que lê da BD MySQL do CyberPanel via SSH
+      const res = await fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(domain)}`)
       const data = await res.json()
-      if (data.success && data.emails?.length > 0) {
-        setEmails(data.emails)
+      if (data.success && data.emails && data.emails.length > 0) {
+        setEmails(data.emails.map((e: any) => ({
+          email: e.email,
+          user: e.user,
+          domain: e.domain,
+          quota: e.quota || '500',
+          usage: e.usage || '0'
+        })))
+        data.emails.forEach((e: any) => cpSaveEmail(domain, e.user || e.email?.split('@')[0], { quota: e.quota || '500' }))
       } else {
-        const ls = cpGetEmails(domain)
-        setEmails(ls.length > 0 ? ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })) : [])
+        // Fallback: cyberPanelAPI
+        const fallback = await cyberPanelAPI.listEmails(domain).catch(() => [])
+        if (fallback.length > 0) {
+          setEmails(fallback)
+        } else {
+          // Último fallback: localStorage
+          const ls = cpGetEmails(domain)
+          setEmails(ls.length > 0 ? ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })) : [])
+        }
       }
-    } catch {
+    } catch (err) {
+      // Fallback: localStorage
       const ls = cpGetEmails(domain)
       setEmails(ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })))
     }
@@ -1438,10 +1454,11 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
               {/* Actions */}
               <div className="flex items-center gap-1">
                 <a
-                  href="https://webmail.visualdesigne.com"
+                  href={`https://109.199.104.22:8090/snappymail/?user=${encodeURIComponent(emailStr)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
+                  title={`Abrir webmail para ${emailStr}`}
                 >
                   <ExternalLink className="w-3 h-3" /> Webmail
                 </a>
@@ -1893,7 +1910,7 @@ export function ResellerSection() {
   const toggleField = (field: string) => setForm({ ...form, [field]: !(form as any)[field] })
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-gray-900">Centro de Revenda</h1><p className="text-gray-500 mt-1">Gira ACLs (Access Control Lists) e permissões de revendedores.</p></div>
         <button onClick={() => setShowForm(!showForm)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova ACL</button>
@@ -2106,15 +2123,21 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
 
   useEffect(() => {
     (async () => {
-      setLoading(true)
-      const [fw, ips] = await Promise.all([cyberPanelAPI.getFirewallStatus(), cyberPanelAPI.getBlockedIPs()])
-      setFirewallOn(fw)
-      // Garantir que blockedIPs é sempre um array
-      const result = ips || []
-      const blockedArray = Array.isArray(result) ? result :
-        typeof result === 'string' ? result.split('\n').filter((ip: string) => ip.trim()) : []
-      setBlockedIPs(blockedArray)
-      setLoading(false)
+      try {
+        setLoading(true)
+        const [fw, ips] = await Promise.all([cyberPanelAPI.getFirewallStatus(), cyberPanelAPI.getBlockedIPs()])
+        setFirewallOn(fw)
+        // Garantir que blockedIPs é sempre um array
+        const result = ips || []
+        const blockedArray = Array.isArray(result) ? result :
+          typeof result === 'string' ? result.split('\n').filter((ip: string) => ip.trim()) : []
+        setBlockedIPs(blockedArray)
+      } catch (error) {
+        console.error('Error loading security status:', error)
+        setMsg('Erro ao carregar dados de segurança/firewall.')
+      } finally {
+        setLoading(false)
+      }
     })()
   }, [])
 
@@ -2157,7 +2180,7 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Segurança & Firewall</h1><p className="text-gray-500 mt-1">Gira firewall, ModSecurity e IPs bloqueados.</p></div>
 
       {msg && <div className="px-4 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
@@ -2290,7 +2313,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Certificados SSL</h1><p className="text-gray-500 mt-1">Emita certificados SSL Let&apos;s Encrypt para os seus websites.</p></div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -2549,7 +2572,7 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: CyberPanelW
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Suspender / Activar Websites</h1><p className="text-gray-500 mt-1">Suspende ou reactiva websites.</p></div>
       {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -2617,7 +2640,7 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: CyberPanelWe
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Website</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: Deleting a website is permanent and cannot be undone.</p></div>
       {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
