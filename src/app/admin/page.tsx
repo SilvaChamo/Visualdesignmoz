@@ -102,6 +102,26 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [createForm, setCreateForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: 'PHP 8.2' })
   const [creating, setCreating] = useState(false)
   const [createMsg, setCreateMsg] = useState('')
+  const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (expandedSite && !siteDiskInfo[expandedSite]) {
+      const fetchUsage = async () => {
+        try {
+          const res = await fetch('/api/server-exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
+          })
+          const data = await res.json()
+          if (data.success) {
+            setSiteDiskInfo(prev => ({ ...prev, [expandedSite]: data.data.usage }))
+          }
+        } catch (e) { console.error(e) }
+      }
+      fetchUsage()
+    }
+  }, [expandedSite])
 
   // Filtrar sites activos — tem conteúdo real instalado
   const sitesArray = Array.isArray(sites) ? sites : []
@@ -346,7 +366,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
                     <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).diskUsed ? `${(s as any).diskUsed}MB` : '0MB'}</p>
+                      <p className="text-sm font-bold text-gray-900">{siteDiskInfo[s.domain] || '...'}</p>
                     </div>
                   </div>
 
@@ -666,8 +686,9 @@ export default function AdminPage() {
   }
 
   // Definir domínio principal
-  const primaryDomain = cyberPanelSites.length > 0
-    ? cyberPanelSites.find(s => !s.domain.includes('contaboserver'))?.domain || cyberPanelSites[0].domain
+  const filteredSites = cyberPanelSites.filter(s => !s.domain.includes('contaboserver'))
+  const primaryDomain = filteredSites.length > 0
+    ? filteredSites[0].domain
     : 'visualdesigne.com'
 
   const menuItems = [
@@ -692,7 +713,7 @@ export default function AdminPage() {
     switch (activeSection) {
       case 'dashboard':
         return <CpanelDashboard
-          sites={cyberPanelSites}
+          sites={filteredSites}
           users={cyberPanelUsers}
           isFetching={isFetchingCyberPanel}
           onNavigate={setActiveSection}
@@ -703,7 +724,7 @@ export default function AdminPage() {
       case 'domains':
       case 'domains-list':
         return <ListWebsitesSection
-          sites={cyberPanelSites}
+          sites={filteredSites}
           onRefresh={loadCyberPanelData}
           packages={cyberPanelPackages}
           setActiveSection={setActiveSection}
@@ -721,98 +742,98 @@ export default function AdminPage() {
       case 'domains-new':
         return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'cp-subdomains':
-        return <SubdomainsSection sites={cyberPanelSites} />
+        return <SubdomainsSection sites={filteredSites} />
       case 'cp-list-subdomains':
-        return <ListSubdomainsSection sites={cyberPanelSites} />
+        return <ListSubdomainsSection sites={filteredSites} />
       case 'cp-modify-website':
-        return <ModifyWebsiteSection sites={cyberPanelSites} packages={cyberPanelPackages} />
+        return <ModifyWebsiteSection sites={filteredSites} packages={cyberPanelPackages} />
       case 'cp-suspend-website':
-        return <SuspendWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} />
+        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-delete-website':
-        return <DeleteWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} />
+        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-databases':
-        return <DatabasesSection sites={cyberPanelSites} initialDomain={selectedDatabaseDomain} />
+        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain} />
       case 'cp-ftp':
-        return <FTPSection sites={cyberPanelSites} />
+        return <FTPSection sites={filteredSites} />
       case 'webmail':
         return <EmailWebmailSection />
       case 'emails-new':
       case 'cp-email-mgmt':
-        return <EmailManagementSection sites={cyberPanelSites} />
+        return <EmailManagementSection sites={filteredSites} />
       case 'cp-email-delete':
-        return <EmailDeleteSection sites={cyberPanelSites} />
+        return <EmailDeleteSection sites={filteredSites} />
       case 'cp-email-limits':
-        return <EmailLimitsSection sites={cyberPanelSites} />
+        return <EmailLimitsSection sites={filteredSites} />
       case 'cp-email-forwarding':
-        return <EmailForwardingSection sites={cyberPanelSites} />
+        return <EmailForwardingSection sites={filteredSites} />
       case 'cp-email-catchall':
-        return <CatchAllEmailSection sites={cyberPanelSites} />
+        return <CatchAllEmailSection sites={filteredSites} />
       case 'cp-email-pattern-fwd':
-        return <PatternForwardingSection sites={cyberPanelSites} />
+        return <PatternForwardingSection sites={filteredSites} />
       case 'cp-email-plus-addr':
-        return <PlusAddressingSection sites={cyberPanelSites} />
+        return <PlusAddressingSection sites={filteredSites} />
       case 'cp-email-change-pass':
-        return <EmailChangePasswordSection sites={cyberPanelSites} />
+        return <EmailChangePasswordSection sites={filteredSites} />
       case 'cp-email-dkim':
-        return <DKIMManagerSection sites={cyberPanelSites} />
+        return <DKIMManagerSection sites={filteredSites} />
       case 'cp-users':
         return <CPUsersSection />
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':
-        return <SSLSection sites={cyberPanelSites} />
+        return <SSLSection sites={filteredSites} />
       case 'cp-security':
-        return <SecuritySection sites={cyberPanelSites} />
+        return <SecuritySection sites={filteredSites} />
       case 'cp-php':
-        return <PHPConfigSection sites={cyberPanelSites} />
+        return <PHPConfigSection sites={filteredSites} />
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
       case 'cp-wp-list':
-        return <WPListSection sites={cyberPanelSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} />
+        return <WPListSection sites={filteredSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} />
       case 'cp-wp-plugins':
-        return <WPPluginsSection sites={cyberPanelSites} />
+        return <WPPluginsSection sites={filteredSites} />
       case 'cp-wp-restore-backup':
-        return <WPRestoreBackupSection sites={cyberPanelSites} />
+        return <WPRestoreBackupSection sites={filteredSites} />
       case 'cp-wp-remote-backup':
-        return <WPRemoteBackupSection sites={cyberPanelSites} />
+        return <WPRemoteBackupSection sites={filteredSites} />
       case 'cp-dns-nameserver':
-        return <DNSNameserverSection sites={cyberPanelSites} />
+        return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
         return <DNSDefaultNSSection />
       case 'cp-dns-create-zone':
-        return <DNSCreateZoneSection sites={cyberPanelSites} />
+        return <DNSCreateZoneSection sites={filteredSites} />
       case 'domains-dns':
         return <DNSZoneEditorSection
-          sites={cyberPanelSites}
+          sites={filteredSites}
           initialDomain={selectedDNSDomain || primaryDomain}
         />
       case 'cp-dns-delete-zone':
-        return <DNSDeleteZoneSection sites={cyberPanelSites} />
+        return <DNSDeleteZoneSection sites={filteredSites} />
       case 'cp-dns-cloudflare':
-        return <CloudFlareSection sites={cyberPanelSites} />
+        return <CloudFlareSection sites={filteredSites} />
       case 'cp-dns-reset':
-        return <DNSResetSection sites={cyberPanelSites} />
+        return <DNSResetSection sites={filteredSites} />
       case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={cyberPanelSites} />
+        return <DNSZoneEditorSection sites={filteredSites} />
       case 'git-deploy':
         return <GitDeploySection />
       case 'backup-manager':
       case 'cp-backup':
-        return <BackupManagerSection sites={cyberPanelSites} />
+        return <BackupManagerSection sites={filteredSites} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={cyberPanelSites} />
+        return <WordPressInstallSection sites={filteredSites} />
       case 'cp-wp-backup':
-        return <WPBackupSection sites={cyberPanelSites} />
+        return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
-        return <DomainManagerSection sites={cyberPanelSites} />
+        return <DomainManagerSection sites={filteredSites} />
       case 'git-deploy':
       case 'deploy':
         return <DeploySection sites={cyberPanelSites} />
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       default:
-        return <CpanelDashboard sites={cyberPanelSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <CpanelDashboard sites={filteredSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
     }
   }
 

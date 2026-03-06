@@ -40,9 +40,25 @@ interface Props {
 export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDomain, sites, users, isFetching, onRefresh }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [search, setSearch] = useState('')
+  const [diskInfo, setDiskInfo] = useState<{ used: string; total: string; percentage: string } | null>(null)
+
+  React.useEffect(() => {
+    const fetchDisk = async () => {
+      try {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'serverDiskUsage', params: {} })
+        })
+        const data = await res.json()
+        if (data.success) setDiskInfo(data.data)
+      } catch (e) { console.error(e) }
+    }
+    fetchDisk()
+  }, [])
 
   // Definir domínio principal
-  const primaryDomain = sites.length > 0 
+  const primaryDomain = sites.length > 0
     ? sites.find(s => !s.domain.includes('contaboserver'))?.domain || sites[0].domain
     : 'visualdesigne.com'
 
@@ -121,15 +137,15 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       headerIcon: <Globe2 className="w-5 h-5" />,
       color: 'text-indigo-700', bgColor: 'bg-indigo-50',
       tools: [
-        { 
-          id: 'wordpress-install', 
-          name: 'Instalar WordPress', 
-          icon: <Globe className="w-9 h-9 text-blue-500" /> 
+        {
+          id: 'wordpress-install',
+          name: 'Instalar WordPress',
+          icon: <Globe className="w-9 h-9 text-blue-500" />
         },
-        { 
-          id: 'cp-wp-backup', 
-          name: 'Fazer Backup WP', 
-          icon: <Archive className="w-9 h-9 text-indigo-500" /> 
+        {
+          id: 'cp-wp-backup',
+          name: 'Fazer Backup WP',
+          icon: <Archive className="w-9 h-9 text-indigo-500" />
         },
         { id: 'wordpress-deploy', name: 'Deploy WordPress', icon: <Download className="w-9 h-9 text-indigo-500" /> },
         { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
@@ -200,9 +216,9 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
 
   const filtered = search.trim()
     ? sections.map(s => ({
-        ...s,
-        tools: s.tools.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-      })).filter(s => s.tools.length > 0)
+      ...s,
+      tools: s.tools.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    })).filter(s => s.tools.length > 0)
     : sections
 
   return (
@@ -290,6 +306,15 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Utilizadores CP</p>
               <p className="font-bold text-gray-900">{users.length}</p>
             </div>
+            {diskInfo && (
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Espaço em Disco</p>
+                <p className="font-bold text-gray-900">{diskInfo.used} / {diskInfo.total}</p>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                  <div className="bg-red-500 h-1.5 rounded-full" style={{ width: diskInfo.percentage }}></div>
+                </div>
+              </div>
+            )}
             <div className="pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>

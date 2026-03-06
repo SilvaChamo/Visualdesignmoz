@@ -371,7 +371,7 @@ print('ok')
         const domain = params.domain || 'visualdesigne.com'
         // Usar API pública de screenshot (sem chave necessária)
         data = {
-          screenshotUrl: `https://api.screenshotone.com/take?url=https://${domain}&viewport_width=1280&viewport_height=800&format=jpg&image_quality=80`
+          screenshotUrl: `https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`
         }
         break
       }
