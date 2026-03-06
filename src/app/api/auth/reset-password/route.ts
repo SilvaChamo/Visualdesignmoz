@@ -46,8 +46,8 @@ export async function POST(req: Request) {
       subject: 'Recuperação de Password - VisualDesign',
       html: `
         <div style="font-family: 'Inter', sans-serif; background-color: #000; color: #fff; padding: 40px 40px 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #333;">
-          <div style="text-align: center; margin-bottom: 25px;">
-            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 75px;">
+          <div style="text-align: center; margin-bottom: 15px;">
+            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 90px;">
           </div>
           
           <h1 style="color: #fff; font-size: 24px; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 18px;">
