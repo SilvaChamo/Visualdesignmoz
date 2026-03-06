@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       html: `
         <div style="font-family: 'Inter', sans-serif; background-color: #000; color: #fff; padding: 40px 40px 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #333;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="https://gwankhxcbkrtgxopbxwd.supabase.co/storage/v1/object/public/assets/logotipoII.png" alt="VisualDesign" style="height: 60px;">
+            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 60px;">
           </div>
           
           <h1 style="color: #fff; font-size: 24px; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">
