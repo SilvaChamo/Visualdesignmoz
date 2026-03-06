@@ -99,7 +99,7 @@ done
           sites: sites.map((s: any) => ({
             ...s,
             ...(siteStatus[s.domain] || {}),
-            isActive: siteStatus[s.domain]?.isActive ?? false
+            isActive: true // Forçar visibilidade enquanto debugamos conteúdo
           }))
         };
         break;
@@ -242,14 +242,22 @@ print('ok')
       }
 
       case 'listEmails': {
-        const query = `mysql -D cyberpanel -e "SELECT email, DiskUsage FROM e_users WHERE emailOwner_id='${params.domain}';" -B -N 2>/dev/null`;
-        const raw = await execSSH(query);
-        const emails = raw.trim().split('\n').filter(Boolean).map(line => {
-          const [email, usage] = line.split('\t');
-          return { email, usage };
-        });
-        data = { emails };
-        break;
+        const domain = params.domain || 'visualdesigne.com'
+        const raw = await execSSH(
+          `mysql vmail -e "SELECT username FROM users WHERE domain='${domain}';" -B -N 2>/dev/null || ` +
+          `mysql cyberpanel -e "SELECT emailUser FROM e_manager_email WHERE domainOwner_id IN (SELECT id FROM websiteBase_websites WHERE domain='${domain}');" -B -N 2>/dev/null`
+        )
+        const emails = raw.trim().split('\n')
+          .filter(Boolean)
+          .map((user: string) => ({
+            email: user.includes('@') ? user : `${user}@${domain}`,
+            user: user.includes('@') ? user.split('@')[0] : user,
+            domain,
+            quota: '500',
+            usage: '0'
+          }))
+        data = { emails }
+        break
       }
 
       case 'createEmail': {
@@ -357,6 +365,35 @@ print('ok')
         );
         data = { output: raw };
         break;
+      }
+
+      case 'getScreenshot': {
+        const domain = params.domain || 'visualdesigne.com'
+        // Usar API pública de screenshot (sem chave necessária)
+        data = {
+          screenshotUrl: `https://api.screenshotone.com/take?url=https://${domain}&viewport_width=1280&viewport_height=800&format=jpg&image_quality=80`
+        }
+        break
+      }
+
+      case 'serverDiskUsage': {
+        const raw = await execSSH(`df -h / | tail -1`)
+        const parts = raw.trim().split(/\s+/)
+        // formato: Filesystem Size Used Avail Use% Mounted
+        data = {
+          total: parts[1] || '0',
+          used: parts[2] || '0',
+          available: parts[3] || '0',
+          percentage: parts[4] || '0%'
+        }
+        break
+      }
+
+      case 'siteDiskUsage': {
+        const domain = params.domain || ''
+        const raw = await execSSH(`du -sh /home/${domain} 2>/dev/null | cut -f1`)
+        data = { usage: raw.trim() || '0' }
+        break
       }
 
       default:

@@ -62,7 +62,7 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Subdomínios</h1>
@@ -1211,6 +1211,13 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
         setMsgType('success')
         cpSaveEmail(selectedDomain, emailUser, { quota: emailQuota })
         try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch { }
+        try {
+          await fetch('/api/email-contas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailUser + '@' + selectedDomain, password: emailPass, nome: emailUser, tipo: 'webmail' })
+          })
+        } catch { }
         await loadEmails(selectedDomain)
         if (!stayOnPage) {
           setShowModal(false)
@@ -1454,7 +1461,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
               {/* Actions */}
               <div className="flex items-center gap-1">
                 <a
-                  href={`https://109.199.104.22:8090/snappymail/?user=${encodeURIComponent(emailStr)}`}
+                  href={`https://visualdesigne.com/webmail/?user=${encodeURIComponent(emailStr)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
@@ -1734,7 +1741,7 @@ export function CPUsersSection() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-gray-900">Utilizadores CyberPanel</h1><p className="text-gray-500 mt-1">Gira utilizadores e permissões do servidor.</p></div>
         <div className="flex gap-2">
@@ -2007,7 +2014,7 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Configurações PHP</h1><p className="text-gray-500 mt-1">Configure a versão PHP e parâmetros de execução por website.</p></div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -2390,7 +2397,7 @@ export function APIConfigSection() {
   useEffect(() => { loadStatus() }, [])
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Configurações API</h1><p className="text-gray-500 mt-1">Gira tokens de acesso à API e veja o estado do servidor.</p></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2466,7 +2473,7 @@ export function ListSubdomainsSection({ sites }: { sites: CyberPanelWebsite[] })
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">List Sub/Addon Domains</h1><p className="text-gray-500 mt-1">View all subdomains and addon domains for a website.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
@@ -2513,7 +2520,7 @@ export function ModifyWebsiteSection({ sites, packages }: { sites: CyberPanelWeb
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Modify Website</h1><p className="text-gray-500 mt-1">Change package and PHP version for a website.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -2691,7 +2698,7 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
     : sites.map(s => ({ domain: s.domain, version: null, owner: s.owner }))
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Painel WP Admin</h1>
         <p className="text-gray-500 mt-1">Acesso directo ao painel de administração WordPress de cada site.</p>
@@ -2782,7 +2789,7 @@ export function WPPluginsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Configure Plugins</h1><p className="text-gray-500 mt-1">Manage WordPress plugins for your websites.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
@@ -2839,7 +2846,7 @@ export function WPRestoreBackupSection({ sites }: { sites: CyberPanelWebsite[] }
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Restore Backups</h1><p className="text-gray-500 mt-1">Restore WordPress from a previous backup.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
@@ -2883,7 +2890,7 @@ export function WPRemoteBackupSection({ sites }: { sites: CyberPanelWebsite[] })
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Remote Backup</h1><p className="text-gray-500 mt-1">Create a remote backup of your WordPress site.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -2929,7 +2936,7 @@ export function DNSNameserverSection({ sites }: { sites: CyberPanelWebsite[] }) 
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Create Nameserver</h1><p className="text-gray-500 mt-1">Create child nameservers for your domain.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -2973,7 +2980,7 @@ export function DNSDefaultNSSection() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Config Default Nameservers</h1><p className="text-gray-500 mt-1">Set the default nameservers for new websites.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -3006,7 +3013,7 @@ export function DNSCreateZoneSection({ sites }: { sites: CyberPanelWebsite[] }) 
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Create DNS Zone</h1><p className="text-gray-500 mt-1">Create a new DNS zone for a domain.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
@@ -3040,7 +3047,7 @@ export function DNSDeleteZoneSection({ sites }: { sites: CyberPanelWebsite[] }) 
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Zone</h1><p className="text-gray-500 mt-1">Delete a DNS zone for a domain.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
@@ -3079,7 +3086,7 @@ export function CloudFlareSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">CloudFlare</h1><p className="text-gray-500 mt-1">Configure CloudFlare integration for your domain.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -3117,7 +3124,7 @@ export function DNSResetSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Reset DNS Configurations</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: This will reset all DNS records to default.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
@@ -3159,7 +3166,7 @@ export function EmailDeleteSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Email</h1><p className="text-gray-500 mt-1">Delete email accounts from a domain.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -3205,7 +3212,7 @@ export function EmailLimitsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Email Limits</h1><p className="text-gray-500 mt-1">Set sending limits for email accounts.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -3262,7 +3269,7 @@ export function EmailForwardingSection({ sites }: { sites: CyberPanelWebsite[] }
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Email Forwarding</h1><p className="text-gray-500 mt-1">Configure email forwarding rules.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -3316,7 +3323,7 @@ export function CatchAllEmailSection({ sites }: { sites: CyberPanelWebsite[] }) 
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Catch-All Email</h1><p className="text-gray-500 mt-1">Configure a catch-all email address that receives all unmatched emails.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -3360,7 +3367,7 @@ export function PatternForwardingSection({ sites }: { sites: CyberPanelWebsite[]
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Forward emails matching a pattern to a destination.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -3404,7 +3411,7 @@ export function PlusAddressingSection({ sites }: { sites: CyberPanelWebsite[] })
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Plus-Addressing</h1><p className="text-gray-500 mt-1">Enable plus-addressing (user+tag@domain.com) for email accounts.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex gap-4 items-end mb-6">
@@ -3450,7 +3457,7 @@ export function EmailChangePasswordSection({ sites }: { sites: CyberPanelWebsite
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Change Password</h1><p className="text-gray-500 mt-1">Change the password for an email account.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -3498,7 +3505,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">DKIM Manager</h1><p className="text-gray-500 mt-1">Manage DKIM (DomainKeys Identified Mail) for email authentication.</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex gap-4 items-end mb-6">
@@ -3590,7 +3597,7 @@ export function GitDeploySection() {
   const commits: any[] = data?.commits || []
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Deploy / GitHub</h1>
@@ -3829,7 +3836,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Pacotes</h1><p className="text-gray-500 mt-1">Crie e gerencie pacotes de hospedagem.</p></div>
 
       {/* Criar Pacote - Botão no topo */}

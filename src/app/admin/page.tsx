@@ -107,8 +107,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const sitesArray = Array.isArray(sites) ? sites : []
   const filtered = sitesArray.filter(s =>
     s.domain.toLowerCase().includes(search.toLowerCase()) &&
-    !s.domain.includes('contaboserver') &&
-    !s.domain.includes('localhost')
+    !s.domain.includes('contaboserver')
   )
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
@@ -332,12 +331,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
                   {/* COLUNA 1 — Screenshot */}
                   <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-36 relative">
-                    <iframe
-                      src={`https://${s.domain}`}
-                      className="absolute top-0 left-0"
-                      style={{ width: '400%', height: '400%', transform: 'scale(0.25)', transformOrigin: 'top left', pointerEvents: 'none' }}
-                      scrolling="no"
-                      sandbox="allow-same-origin"
+                    <img
+                      src={`https://image.thum.io/get/width/400/crop/600/https://${s.domain}`}
+                      alt={s.domain}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder-site.png'
+                      }}
                     />
                   </div>
 
