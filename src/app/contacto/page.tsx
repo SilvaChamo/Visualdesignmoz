@@ -1,12 +1,11 @@
-import { ContactFormComponent } from '@/components/forms/ContactForm'
-import { Metadata } from 'next'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Contacto',
-  description: 'Entre em contato com a Visual Design para transformar suas ideias em realidade digital.',
-}
+import { ContactFormComponent } from '@/components/forms/ContactForm'
+import { useI18n } from '@/lib/i18n'
 
 export default function ContactPage() {
+  const { t } = useI18n()
+
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Section */}
@@ -20,10 +19,10 @@ export default function ContactPage() {
         <div className="relative z-10 container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-              Entre em <span className="text-red-600">Contato</span>
+              {t('contact.page.title')} <span className="text-red-600">{t('contact.page.titleHighlight')}</span>
             </h1>
             <p className="text-xl text-gray-300 mb-8">
-              Estamos prontos para transformar suas ideias em realidade digital.
+              {t('contact.page.subtitle')}
             </p>
           </div>
         </div>
@@ -35,7 +34,7 @@ export default function ContactPage() {
           <div className="max-w-2xl mx-auto">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 lg:p-12">
               <h2 className="text-3xl font-bold text-white mb-8 text-center">
-                Envie-nos uma mensagem
+                {t('contact.page.formTitle')}
               </h2>
               <ContactFormComponent />
             </div>
@@ -53,7 +52,7 @@ export default function ContactPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Telefone</h3>
+              <h3 className="text-xl font-bold text-white mb-2">{t('contact.page.phone')}</h3>
               <p className="text-gray-300">+258 821 234 567</p>
             </div>
 
@@ -63,7 +62,7 @@ export default function ContactPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Email</h3>
+              <h3 className="text-xl font-bold text-white mb-2">{t('contact.page.email')}</h3>
               <p className="text-gray-300">info@visualdesign.co.mz</p>
             </div>
 
@@ -74,8 +73,8 @@ export default function ContactPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Localização</h3>
-              <p className="text-gray-300">Maputo, Moçambique</p>
+              <h3 className="text-xl font-bold text-white mb-2">{t('contact.page.location')}</h3>
+              <p className="text-gray-300">{t('contact.page.locationValue')}</p>
             </div>
           </div>
         </div>

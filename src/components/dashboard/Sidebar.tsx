@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useI18n } from '@/lib/i18n'
 
 
 interface SidebarItemProps {
@@ -88,34 +89,35 @@ const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew
 export default function DashboardSidebar() {
     const pathname = usePathname()
     const [isOpen, setIsOpen] = React.useState(false)
+    const { t } = useI18n()
 
     const menuItems = [
-        { icon: Home, label: 'Início', href: '/dashboard' },
-        { icon: Package, label: 'Meus Planos', href: '/dashboard/servicos' },
+        { icon: Home, label: t('sidebar.home'), href: '/dashboard' },
+        { icon: Package, label: t('sidebar.myPlans'), href: '/dashboard/servicos' },
         {
-            icon: Globe, label: 'Domínios', href: '#', subItems: [
-                { label: 'Meus Domínios', href: '/dashboard/dominios' },
-                { label: 'Gestão de DNS', href: '/admin?section=domains-dns' }
+            icon: Globe, label: t('sidebar.domains'), href: '#', subItems: [
+                { label: t('sidebar.myDomains'), href: '/dashboard/dominios' },
+                { label: t('sidebar.dnsManagement'), href: '/admin?section=domains-dns' }
             ]
         },
         {
-            icon: Globe, // Using Globe as fallback for WordPress, can be replaced with custom SVG later
-            label: 'WordPress',
+            icon: Globe,
+            label: t('sidebar.wordpress'),
             href: '#',
             isNew: true,
             subItems: [
-                { label: 'Deploy WordPress', href: '/dashboard/wordpress' },
-                { label: 'List WordPress', href: '/dashboard/wordpress/list' },
-                { label: 'Configure Plugins', href: '/dashboard/wordpress/plugins' },
-                { label: 'Restore Backups', href: '/dashboard/wordpress/restore' },
-                { label: 'Remote Backup', href: '/dashboard/wordpress/remote-backup' }
+                { label: t('sidebar.deployWp'), href: '/dashboard/wordpress' },
+                { label: t('sidebar.listWp'), href: '/dashboard/wordpress/list' },
+                { label: t('sidebar.configPlugins'), href: '/dashboard/wordpress/plugins' },
+                { label: t('sidebar.restoreBackups'), href: '/dashboard/wordpress/restore' },
+                { label: t('sidebar.remoteBackup'), href: '/dashboard/wordpress/remote-backup' }
             ]
         },
-        { icon: ShoppingBag, label: 'Loja de Serviços', href: '/dashboard/marketplace' },
-        { icon: CreditCard, label: 'Faturas', href: '/dashboard/faturas' },
-        { icon: Settings, label: 'Definições', href: '/dashboard/definicoes' },
-        { icon: LifeBuoy, label: 'Suporte', href: '/dashboard/suporte' },
-        { icon: Globe, label: 'Ver Painel Cliente', href: '/client' },
+        { icon: ShoppingBag, label: t('sidebar.store'), href: '/dashboard/marketplace' },
+        { icon: CreditCard, label: t('sidebar.invoices'), href: '/dashboard/faturas' },
+        { icon: Settings, label: t('sidebar.settings'), href: '/dashboard/definicoes' },
+        { icon: LifeBuoy, label: t('sidebar.support'), href: '/dashboard/suporte' },
+        { icon: Globe, label: t('sidebar.viewClient'), href: '/client' },
     ]
 
     return (
@@ -168,7 +170,7 @@ export default function DashboardSidebar() {
                     <div className="mt-auto pt-6 border-t border-gray-100">
                         <button className="flex items-center gap-3 px-4 py-3 w-full text-gray-500 hover:text-red-500 transition-colors group">
                             <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                            <span className="font-medium">Sair da Conta</span>
+                            <span className="font-medium">{t('sidebar.logout')}</span>
                         </button>
                     </div>
                 </div>

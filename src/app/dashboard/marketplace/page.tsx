@@ -14,84 +14,21 @@ import {
     LifeBuoy
 } from 'lucide-react'
 import Link from 'next/link'
-
-
-const services = [
-    {
-        id: 'domains',
-        title: 'Domínios .MZ',
-        description: 'Garanta sua identidade online com extensões nacionais e internacionais com registro imediato.',
-        icon: <Globe className="w-8 h-8" />,
-        color: 'blue',
-        link: '/servicos/dominios',
-        price: 'Desde 1.250 MT/ano'
-    },
-    {
-        id: 'hosting',
-        title: 'Hospedagem Web',
-        description: 'Alta performance para seu site ou aplicação com servidores ultra-rápidos em Moçambique.',
-        icon: <Server className="w-8 h-8" />,
-        color: 'green',
-        link: '/servicos/hospedagem',
-        price: 'Desde 2.500 MT/ano'
-    },
-    {
-        id: 'ssl',
-        title: 'Certificados SSL',
-        description: 'Segurança máxima e selo de confiança para seus visitantes com criptografia de 256 bits.',
-        icon: <ShieldCheck className="w-8 h-8" />,
-        color: 'amber',
-        link: '/servicos/ssl',
-        price: 'Desde 1.500 MT/ano'
-    },
-    {
-        id: 'email',
-        title: 'Email Profissional',
-        description: 'Comunicação corporativa segura e personalizada com seu próprio domínio e anti-spam.',
-        icon: <Mail className="w-8 h-8" />,
-        color: 'purple',
-        link: '/servicos/email',
-        price: 'Desde 500 MT/mês'
-    },
-    {
-        id: 'design',
-        title: 'Design Gráfico',
-        description: 'Criação de logotipos, material para redes sociais e identidade visual de alto impacto.',
-        icon: <Star className="w-8 h-8" />,
-        color: 'red',
-        link: '/servicos/design-grafico',
-        price: 'Sob Consulta'
-    },
-    {
-        id: 'marketing',
-        title: 'Marketing Digital',
-        description: 'Estratégias avançadas para aumentar suas vendas e presença online nos canais certos.',
-        icon: <TrendingUp className="w-8 h-8" />,
-        color: 'orange',
-        link: '/servicos/marketing-digital',
-        price: 'Sob Consulta'
-    },
-    {
-        id: 'digital-card',
-        title: 'Cartão Digital',
-        description: 'O seu cartão de visita moderno e interativo, sempre acessível no telemóvel dos seus clientes.',
-        icon: <Contact className="w-8 h-8" />,
-        color: 'indigo',
-        link: '/servicos/cartao-digital',
-        price: '2.500 MT (Pagamento Único)'
-    },
-    {
-        id: 'support',
-        title: 'Suporte Prioritário',
-        description: 'Acesso direto a técnicos especialistas para resolver qualquer dúvida ou problema urgente.',
-        icon: <LifeBuoy className="w-8 h-8" />,
-        color: 'rose',
-        link: '/servicos/suporte',
-        price: 'Incluído nos Planos Business'
-    }
-]
+import { useI18n } from '@/lib/i18n'
 
 export default function MarketplacePage() {
+    const { t } = useI18n()
+
+    const services = [
+        { id: 'domains', titleKey: 'market.domains', descKey: 'market.domains.desc', icon: <Globe className="w-8 h-8" />, color: 'blue', link: '/servicos/dominios', price: 'Desde 1.250 MT/ano' },
+        { id: 'hosting', titleKey: 'market.hosting', descKey: 'market.hosting.desc', icon: <Server className="w-8 h-8" />, color: 'green', link: '/servicos/hospedagem', price: 'Desde 2.500 MT/ano' },
+        { id: 'ssl', titleKey: 'market.ssl', descKey: 'market.ssl.desc', icon: <ShieldCheck className="w-8 h-8" />, color: 'amber', link: '/servicos/ssl', price: 'Desde 1.500 MT/ano' },
+        { id: 'email', titleKey: 'market.email', descKey: 'market.email.desc', icon: <Mail className="w-8 h-8" />, color: 'purple', link: '/servicos/email', price: 'Desde 500 MT/mês' },
+        { id: 'design', titleKey: 'market.design', descKey: 'market.design.desc', icon: <Star className="w-8 h-8" />, color: 'red', link: '/servicos/design-grafico', priceKey: 'market.priceConsult' },
+        { id: 'marketing', titleKey: 'market.marketing', descKey: 'market.marketing.desc', icon: <TrendingUp className="w-8 h-8" />, color: 'orange', link: '/servicos/marketing-digital', priceKey: 'market.priceConsult' },
+        { id: 'digital-card', titleKey: 'market.card', descKey: 'market.card.desc', icon: <Contact className="w-8 h-8" />, color: 'indigo', link: '/servicos/cartao-digital', price: '2.500 MT' },
+        { id: 'support', titleKey: 'market.supportPriority', descKey: 'market.supportPriority.desc', icon: <LifeBuoy className="w-8 h-8" />, color: 'rose', link: '/servicos/suporte', priceKey: 'market.priceIncluded' },
+    ]
     return (
         <div className="space-y-10 pb-20">
             {/* Header Section */}
@@ -100,14 +37,13 @@ export default function MarketplacePage() {
                 <div className="relative z-10 max-w-2xl">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/20 text-red-500 border border-red-500/20 text-xs font-black uppercase tracking-widest mb-6">
                         <Sparkles className="w-4 h-4" />
-                        Loja de Serviços
+                        {t('market.badge')}
                     </div>
                     <h1 className="text-4xl lg:text-6xl font-black mb-6 tracking-tighter leading-none">
-                        Expanda a sua <span className="text-red-600">Presença Digital</span>
+                        {t('market.title')} <span className="text-red-600">{t('market.titleHighlight')}</span>
                     </h1>
                     <p className="text-gray-400 text-lg lg:text-xl font-medium leading-relaxed">
-                        Descubra serviços premium desenhados para elevar o seu negócio ao próximo nível.
-                        Mais do que tecnologia, entregamos resultados.
+                        {t('market.desc')}
                     </p>
                 </div>
             </div>
@@ -142,16 +78,16 @@ export default function MarketplacePage() {
                             </div>
 
                             <h3 className="text-xl font-black text-gray-900 mb-3 tracking-tight group-hover:text-red-600 transition-colors">
-                                {service.title}
+                                {t(service.titleKey)}
                             </h3>
 
                             <p className="text-gray-500 text-sm font-medium leading-relaxed mb-6 flex-1">
-                                {service.description}
+                                {t(service.descKey)}
                             </p>
 
                             <div className="pt-6 border-t border-gray-50 flex items-center justify-between mt-auto">
                                 <span className="text-xs font-black text-gray-400 uppercase tracking-widest leading-none">
-                                    {service.price}
+                                    {service.priceKey ? t(service.priceKey) : service.price}
                                 </span>
                                 <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-red-600 group-hover:text-white transition-all transform group-hover:translate-x-1 shadow-sm">
                                     <ArrowRight className="w-4 h-4" />
@@ -169,12 +105,12 @@ export default function MarketplacePage() {
                         <Sparkles className="w-10 h-10" />
                     </div>
                     <div>
-                        <h4 className="text-xl font-black text-gray-900 tracking-tight">Precisa de um Plano Personalizado?</h4>
-                        <p className="text-gray-500 font-medium">Fale com os nossos especialistas e criamos a solução ideal para o seu negócio.</p>
+                        <h4 className="text-xl font-black text-gray-900 tracking-tight">{t('market.customPlan')}</h4>
+                        <p className="text-gray-500 font-medium">{t('market.customPlanDesc')}</p>
                     </div>
                 </div>
                 <button className="px-10 py-5 bg-gray-900 text-white hover:bg-red-600 rounded-[20px] font-black text-sm uppercase tracking-widest transition-all shadow-xl hover:shadow-red-600/20 active:scale-95">
-                    Contactar Vendas
+                    {t('market.contactSales')}
                 </button>
             </div>
         </div>

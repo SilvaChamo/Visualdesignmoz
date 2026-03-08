@@ -352,14 +352,71 @@ export function EmailWebmailSection({
       {/* LISTA DE EMAILS */}
       <div className="flex-1 flex overflow-hidden bg-white">
         <div className="w-72 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto">
-          <div className="px-3 py-2 border-b border-gray-200"><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
-          {emailsOrigem.map(c => (
-            <button key={c.email} onClick={() => { setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
-              className={`flex flex-col px-3 py-2 text-left text-xs border-b border-gray-100 hover:bg-white transition-colors ${emailOrigem === c.email ? "bg-white border-l-2 border-l-red-500 text-red-600 font-bold" : "text-gray-600"}`}>
-              <span className="truncate w-full">{c.nome || c.email}</span>
-              {c.nome && <span className="text-[10px] text-gray-400 truncate w-full">{c.email}</span>}
-            </button>
-          ))}
+          <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
+          {(() => {
+            const pastas = [
+              { nome: 'Caixa de Entrada', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg> },
+              { nome: 'Enviados', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> },
+              { nome: 'Rascunhos', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
+              { nome: 'Arquivo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3h18v4H3zM5 7v13a1 1 0 001 1h12a1 1 0 001-1V7M10 12h4"/></svg> },
+              { nome: 'Lixo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg> },
+              { nome: 'Spam', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg> },
+            ]
+            const [todasExpanded, setTodasExpanded] = useState(true)
+            const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
+            const toggleExpand = (email: string) => setExpandedMap(prev => ({ ...prev, [email]: !prev[email] }))
+            return <>
+              {/* Todas as Contas */}
+              <div className="border-b border-gray-100">
+                <button onClick={() => setTodasExpanded(v => !v)}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-white transition-colors">
+                  <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{transform: todasExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  <span className="text-sm font-semibold text-gray-700">Todas as Contas</span>
+                </button>
+                {todasExpanded && (
+                  <div className="pl-5">
+                    {pastas.map(p => (
+                      <button key={p.nome} onClick={() => { setPastaActiva(p.nome); setEmailOrigem('') }}
+                        className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && !emailOrigem ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                        <span className="shrink-0">{p.icon}</span>
+                        <span>{p.nome}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Contas individuais */}
+              {emailsOrigem.map(c => {
+                const isSelected = emailOrigem === c.email
+                const isExpanded = !!expandedMap[c.email]
+                return (
+                  <div key={c.email} className="border-b border-gray-100">
+                    <div className="flex items-center w-full">
+                      <button onClick={() => toggleExpand(c.email)}
+                        className="px-3 py-2.5 hover:bg-white transition-colors">
+                        <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                      <button onClick={() => { setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
+                        className={`flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors`}>
+                        <span className={`text-sm truncate w-full block ${isSelected ? "text-red-600 font-bold" : "text-gray-700 font-medium"}`}>{c.email}</span>
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="pl-5">
+                        {pastas.map(p => (
+                          <button key={p.nome} onClick={() => { setPastaActiva(p.nome); setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
+                            className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && emailOrigem === c.email ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                            <span className="shrink-0">{p.icon}</span>
+                            <span>{p.nome}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </>
+          })()}
         </div>
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50">

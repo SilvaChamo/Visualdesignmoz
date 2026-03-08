@@ -20,6 +20,7 @@ import {
   EmailForwardingSection, CatchAllEmailSection, PatternForwardingSection,
   PlusAddressingSection, EmailChangePasswordSection, DKIMManagerSection,
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
+  WebsitePreviewSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
 } from './CyberPanelSections'
@@ -352,7 +353,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   {/* COLUNA 1 — Screenshot */}
                   <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-36 relative">
                     <img
-                      src={`https://image.thum.io/get/width/400/crop/600/https://${s.domain}`}
+                      src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
                       alt={s.domain}
                       className="w-full h-full object-cover rounded-lg"
                       onError={(e) => {
@@ -743,6 +744,8 @@ export default function AdminPage() {
         return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
+      case 'website-preview':
+        return <WebsitePreviewSection sites={filteredSites} />
       case 'cp-list-subdomains':
         return <ListSubdomainsSection sites={filteredSites} />
       case 'cp-modify-website':

@@ -14,9 +14,10 @@ function parseEmailOutput(output: string, domain: string) {
             const emailAddr = parts[0].trim();
             const usage = parts[1] || '0';
 
+            const fullEmail = emailAddr.includes('@') ? emailAddr : `${emailAddr}@${domain}`
             emails.push({
-                email: emailAddr,
-                user: emailAddr.split('@')[0],
+                email: fullEmail,
+                user: fullEmail.split('@')[0],
                 domain: domain,
                 usage: usage
             });
@@ -126,12 +127,22 @@ export async function DELETE(request: Request) {
 
         const cleanEmail = email.replace(/[^a-zA-Z0-9_.-@]/g, '');
 
-        // CyberPanel command: cyberpanel deleteEmail --emailAddress <email@dom.com>
-        const command = `cyberpanel deleteEmail --emailAddress "${cleanEmail}"`;
+        // CyberPanel command: cyberpanel deleteEmail --email <email@dom.com>
+        const command = `cyberpanel deleteEmail --email "${cleanEmail}"`;
 
         const output = await executeCyberPanelCommand(command);
 
-        if (output.includes('successfully') || !output.toLowerCase().includes('error') || output.includes('Deleted')) {
+        // Try to parse JSON response from CyberPanel
+        let success = false;
+        try {
+            const jsonData = JSON.parse(output);
+            success = jsonData.success === 1 || jsonData.success === true;
+        } catch {
+            // Fallback to string parsing if not JSON
+            success = output.includes('successfully') || !output.toLowerCase().includes('error') || output.includes('Deleted');
+        }
+
+        if (success) {
             return NextResponse.json({ success: true, message: 'Conta de E-mail removida com sucesso!' });
         } else {
             return NextResponse.json({ error: 'Erro ao remover conta de E-mail.', details: output }, { status: 400 });

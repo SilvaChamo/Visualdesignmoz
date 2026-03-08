@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../components/auth/AuthProvider'
 import { supabase } from '../../../lib/supabase-client'
+import { useI18n } from '@/lib/i18n'
 
 function LoginPageContent() {
   const [email, setEmail] = useState('')
@@ -16,6 +17,7 @@ function LoginPageContent() {
   const { signIn, signInWithGoogle, getRedirectPath, user, loading: sessionLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useI18n()
   const hasChecked = React.useRef(false)
   const [loadingTimeout, setLoadingTimeout] = React.useState(false)
 
@@ -29,13 +31,13 @@ function LoginPageContent() {
     const urlError = searchParams.get('error')
     const urlErrorDesc = searchParams.get('error_description')
     if (urlError) {
-      let title = 'Erro de Autenticação'
-      let desc = urlErrorDesc || 'Ocorreu um erro inesperado.'
+      let title = t('login.errorAuth')
+      let desc = urlErrorDesc || t('login.errorUnexpected')
       if (urlError === 'access_denied') {
-        title = 'Acesso Negado'
-        desc = 'Cancelaste o login com Google ou a conta não tem permissões suficientes.'
+        title = t('login.errorAccessDenied')
+        desc = t('login.errorAccessDeniedDesc')
       } else if (urlError === 'callback_error') {
-        title = 'Erro no Callback'
+        title = t('login.errorCallback')
         desc = desc
       }
       setOauthError({ title, desc })
@@ -50,8 +52,8 @@ function LoginPageContent() {
         hasChecked.current = true
       }
       // Se vem do OAuth callback, não interferir — o callback já redirecionou
-      const isFromOAuth = window.location.search.includes('code=') || 
-                          document.referrer.includes('/auth/callback')
+      const isFromOAuth = window.location.search.includes('code=') ||
+        document.referrer.includes('/auth/callback')
       if (user && !isFromOAuth) {
         getRedirectPath().then((path) => {
           window.location.assign(path)
@@ -90,9 +92,9 @@ function LoginPageContent() {
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
-        setError('Credenciais inválidas. Verifique o email e a password.')
+        setError(t('login.errorCredentials'))
       } else {
-        setError((err as Error).message || 'Erro ao fazer login')
+        setError((err as Error).message || t('login.errorGeneric'))
       }
     } finally {
       setLoading(false)
@@ -108,8 +110,8 @@ function LoginPageContent() {
     } catch (err: unknown) {
       setLoadingGoogle(false)
       setOauthError({
-        title: 'Erro ao iniciar login com Google',
-        desc: (err as Error).message || 'Não foi possível iniciar a autenticação com Google.',
+        title: t('login.errorGoogleStart'),
+        desc: (err as Error).message || t('login.errorGoogleDesc'),
       })
     }
   }
@@ -178,7 +180,7 @@ function LoginPageContent() {
                   onClick={() => setOauthError(null)}
                   className="w-full py-2.5 bg-red-700 hover:bg-red-600 text-white font-bold rounded-lg transition-colors uppercase text-xs tracking-widest"
                 >
-                  Fechar
+                  {t('login.close')}
                 </button>
               </div>
             </div>
@@ -201,7 +203,7 @@ function LoginPageContent() {
           {/* Campo Email */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              E-mail
+              {t('login.email')}
             </label>
             <input
               type="email"
@@ -221,7 +223,7 @@ function LoginPageContent() {
           {/* Campo Password */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              Palavra-passe
+              {t('login.password')}
             </label>
             <div className="relative mb-2">
               <input
@@ -248,7 +250,7 @@ function LoginPageContent() {
             </div>
             <div className="flex justify-start mt-2">
               <a href="/auth/forgot-password" className="text-xs text-red-500 hover:text-red-400 uppercase tracking-widest font-semibold transition">
-                ESQUECEU A SENHA?
+                {t('login.forgotPassword')}
               </a>
             </div>
           </div>
@@ -260,7 +262,7 @@ function LoginPageContent() {
               disabled={loading}
               className="flex-1 py-3 bg-red-700 hover:bg-red-600 disabled:bg-red-900 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-200 shadow-lg shadow-red-900/20 uppercase tracking-widest"
             >
-              {loading ? 'A ENTRAR...' : 'ENTRAR'}
+              {loading ? t('login.submitting') : t('login.submit')}
             </button>
             <button
               type="button"
@@ -287,9 +289,9 @@ function LoginPageContent() {
 
         {/* Link registo */}
         <p className="text-center text-white/50 text-sm mt-6">
-          Ainda não tens conta?{' '}
+          {t('login.noAccount')}{' '}
           <a href="/auth/register" className="text-white hover:text-red-400 transition font-semibold uppercase tracking-wider">
-            Registe-se
+            {t('login.register')}
           </a>
         </p>
       </div>

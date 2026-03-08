@@ -7,7 +7,7 @@ import {
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
-  Wifi, Zap, BookOpen, Monitor, Archive
+  Wifi, Zap, BookOpen, Monitor, Archive, Eye
 } from 'lucide-react'
 import type { CyberPanelWebsite, CyberPanelUser } from '@/lib/cyberpanel-api'
 
@@ -96,6 +96,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
         { id: 'cp-list-subdomains', name: 'Listar Sub/Addon', icon: <List className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-modify-website', name: 'Modificar Website', icon: <Edit className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-suspend-website', name: 'Suspender/Activar', icon: <Power className="w-9 h-9 text-blue-500" /> },
+        { id: 'website-preview', name: 'Website Preview', icon: <Eye className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-delete-website', name: 'Apagar Website', icon: <Trash2 className="w-9 h-9 text-red-500" /> },
       ]
     },

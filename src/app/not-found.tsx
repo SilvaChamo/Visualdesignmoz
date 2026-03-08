@@ -1,7 +1,12 @@
+'use client'
+
 import React from 'react'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n'
 
 export default function NotFound() {
+    const { t } = useI18n()
+
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
             {/* Premium Background Effects */}
@@ -48,7 +53,7 @@ export default function NotFound() {
                     </h1>
                     <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-4xl md:text-5xl font-black uppercase tracking-[0.2em] text-white drop-shadow-2xl">
-                            Perdido?
+                            {t('notfound.lost')}
                         </span>
                     </div>
                 </div>
@@ -61,11 +66,10 @@ export default function NotFound() {
                     }}
                 >
                     <h2 className="text-xl md:text-2xl font-bold text-white mb-4 uppercase tracking-wider">
-                        Página não encontrada
+                        {t('notfound.title')}
                     </h2>
                     <p className="text-gray-400 text-sm md:text-base leading-relaxed mb-8">
-                        O endereço que procuras pode ter sido removido,
-                        alterado ou estar temporariamente indisponível.
+                        {t('notfound.desc')}
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -73,13 +77,13 @@ export default function NotFound() {
                             href="/"
                             className="px-8 py-4 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20 uppercase text-xs tracking-widest"
                         >
-                            Voltar ao Início
+                            {t('notfound.home')}
                         </Link>
                         <Link
                             href="/contacto"
                             className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all duration-300 uppercase text-xs tracking-widest"
                         >
-                            Suporte Técnico
+                            {t('notfound.support')}
                         </Link>
                     </div>
                 </div>

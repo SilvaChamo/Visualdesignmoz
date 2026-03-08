@@ -14,12 +14,14 @@ import {
     Mail
 } from 'lucide-react'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import UsageProgress from '@/components/dashboard/UsageProgress'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 
 export default function DashboardHome() {
+    const { t } = useI18n()
     const [loading, setLoading] = React.useState(true)
     const [subscription, setSubscription] = React.useState<any>(null)
 
@@ -68,18 +70,18 @@ export default function DashboardHome() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-gray-200">
                 <div>
                     <h1 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2 tracking-tighter">
-                        Olá, <span className="text-red-600 font-black">{userAccount.name.split(' ')[0]}!</span>
+                        {t('dash.hello')} <span className="text-red-600 font-black">{userAccount.name.split(' ')[0]}!</span>
                     </h1>
-                    <p className="text-gray-500 font-medium">Bem-vindo ao seu painel de controlo visualdesign.</p>
+                    <p className="text-gray-500 font-medium">{t('dash.welcome')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl border border-gray-200 transition-all font-bold text-sm shadow-sm">
                         <RefreshCw className="w-4 h-4 text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
-                        Sincronizar
+                        {t('dash.sync')}
                     </button>
                     <button className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg shadow-red-900/20 transition-all font-bold text-sm">
                         <Plus className="w-5 h-5" />
-                        Novo Serviço
+                        {t('dash.newService')}
                     </button>
                 </div>
             </div>
@@ -99,7 +101,7 @@ export default function DashboardHome() {
                                 <div>
                                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-widest mb-4 border border-green-100">
                                         <div className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
-                                        Conta Ativa
+                                        {t('dash.activeAccount')}
                                     </div>
                                     <h3 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">{userAccount.plan}</h3>
                                     <p className="text-gray-500 font-medium flex items-center gap-2">
@@ -114,13 +116,13 @@ export default function DashboardHome() {
 
                             <div className="grid md:grid-cols-2 gap-10 mt-auto">
                                 <UsageProgress
-                                    label="Espaço em Disco"
+                                    label={t('dash.diskSpace')}
                                     current={userAccount.diskCurrent}
                                     max={userAccount.diskLimit}
                                     percentage={userAccount.diskUsage}
                                 />
                                 <UsageProgress
-                                    label="Tráfego Mensal"
+                                    label={t('dash.monthlyTraffic')}
                                     current={userAccount.bandwidthCurrent}
                                     max={userAccount.bandwidthLimit}
                                     percentage={userAccount.bandwidthUsage}
@@ -140,12 +142,12 @@ export default function DashboardHome() {
                                 <Clock className="w-6 h-6" />
                             </div>
                             <div>
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Próxima Renovação</p>
+                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">{t('dash.nextRenewal')}</p>
                                 <p className="text-xl font-black text-gray-900 tracking-tight">{userAccount.renewalDate}</p>
                             </div>
                         </div>
                         <button className="w-full py-4 bg-gray-900 text-white hover:bg-red-600 transition-all rounded-2xl font-black text-sm uppercase tracking-wider">
-                            Renovar Agora
+                            {t('dash.renewNow')}
                         </button>
                     </div>
 
@@ -155,8 +157,8 @@ export default function DashboardHome() {
                             <ShieldCheck className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Segurança</p>
-                            <p className="text-lg font-black text-gray-900 tracking-tight">SSL Protegido</p>
+                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">{t('dash.security')}</p>
+                            <p className="text-lg font-black text-gray-900 tracking-tight">{t('dash.sslProtected')}</p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-300 ml-auto" />
                     </div>
@@ -166,10 +168,10 @@ export default function DashboardHome() {
                         <div className="absolute -bottom-4 -right-4 opacity-20">
                             <Plus className="w-24 h-24 text-white" />
                         </div>
-                        <h4 className="text-lg font-black text-white mb-1 leading-tight tracking-tight">Upgrade de Performance</h4>
-                        <p className="text-red-100/80 text-xs font-medium mb-4">Aumente os seus limites com 20% desconto.</p>
+                        <h4 className="text-lg font-black text-white mb-1 leading-tight tracking-tight">{t('dash.upgradeTitle')}</h4>
+                        <p className="text-red-100/80 text-xs font-medium mb-4">{t('dash.upgradeDesc')}</p>
                         <button className="flex items-center gap-2 text-white font-black text-sm group">
-                            Ver Planos Superiores
+                            {t('dash.viewPlans')}
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
                     </div>
@@ -179,11 +181,11 @@ export default function DashboardHome() {
             <div className="pt-10">
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Serviços Recomendados</h2>
-                        <p className="text-gray-500 font-medium text-sm">Aumente o potencial do seu negócio online.</p>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">{t('dash.recommended')}</h2>
+                        <p className="text-gray-500 font-medium text-sm">{t('dash.recommendedDesc')}</p>
                     </div>
                     <Link href="/dashboard/marketplace" className="text-red-600 font-black text-sm hover:underline flex items-center gap-1 group">
-                        Ver Loja Completa
+                        {t('dash.viewStore')}
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>
@@ -194,10 +196,10 @@ export default function DashboardHome() {
                         <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all shadow-sm">
                             <ShieldCheck className="w-6 h-6" />
                         </div>
-                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">Certificados SSL</h4>
-                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">Segurança máxima e selo de confiança para seu site.</p>
+                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">{t('dash.sslCerts')}</h4>
+                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">{t('dash.sslDesc')}</p>
                         <div className="flex items-center text-amber-600 text-[10px] font-black uppercase tracking-widest">
-                            Configurar <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
+                            {t('dash.configure')} <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                     </Link>
 
@@ -206,10 +208,10 @@ export default function DashboardHome() {
                         <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-sm">
                             <Mail className="w-6 h-6" />
                         </div>
-                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">Email Profissional</h4>
-                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">Sua marca em todas as comunicações enviadas.</p>
+                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">{t('dash.emailPro')}</h4>
+                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">{t('dash.emailDesc')}</p>
                         <div className="flex items-center text-purple-600 text-[10px] font-black uppercase tracking-widest">
-                            Criar Conta <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
+                            {t('dash.createAccount')} <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                     </Link>
 
@@ -218,10 +220,10 @@ export default function DashboardHome() {
                         <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
                             <Globe2 className="w-6 h-6" />
                         </div>
-                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">Domínios .MZ</h4>
-                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">Proteja a sua marca com extensões nacionais.</p>
+                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">{t('dash.domainsMz')}</h4>
+                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">{t('dash.domainsDesc')}</p>
                         <div className="flex items-center text-blue-600 text-[10px] font-black uppercase tracking-widest">
-                            Registrar <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
+                            {t('dash.register')} <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                     </Link>
 
@@ -230,10 +232,10 @@ export default function DashboardHome() {
                         <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-4 group-hover:bg-red-600 group-hover:text-white transition-all shadow-sm">
                             <Plus className="w-6 h-6" />
                         </div>
-                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">Cartão Digital</h4>
-                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">O seu cartão de visita interativo e inovador.</p>
+                        <h4 className="font-black text-gray-900 mb-1 tracking-tight">{t('dash.digitalCard')}</h4>
+                        <p className="text-gray-500 text-xs font-medium leading-relaxed mb-4">{t('dash.digitalCardDesc')}</p>
                         <div className="flex items-center text-red-600 text-[10px] font-black uppercase tracking-widest">
-                            Experimentar <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
+                            {t('dash.tryIt')} <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                     </Link>
                 </div>

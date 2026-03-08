@@ -17,48 +17,48 @@ function HomePage() {
 
   const frequentQuestions = [
     {
-      category: 'Domínios',
+      category: t('home.faq.domains'),
       questions: [
-        'Como registrar um domínio?',
-        'Quanto custa um domínio .mz?',
-        'Como transferir meu domínio?',
-        'O que é DNS?'
+        t('home.faq.domains.q1'),
+        t('home.faq.domains.q2'),
+        t('home.faq.domains.q3'),
+        t('home.faq.domains.q4')
       ]
     },
     {
-      category: 'Hospedagem',
+      category: t('home.faq.hosting'),
       questions: [
-        'Qual plano de hospedagem escolher?',
-        'Como migrar meu site?',
-        'Hospedagem WordPress disponível?',
-        'Backup automático incluído?'
+        t('home.faq.hosting.q1'),
+        t('home.faq.hosting.q2'),
+        t('home.faq.hosting.q3'),
+        t('home.faq.hosting.q4')
       ]
     },
     {
-      category: 'SSL',
+      category: t('home.faq.ssl'),
       questions: [
-        'Por que preciso de certificado SSL?',
-        'Como instalar SSL no meu site?',
-        'SSL gratuito ou pago?',
-        'Validação SSL demora quanto?'
+        t('home.faq.ssl.q1'),
+        t('home.faq.ssl.q2'),
+        t('home.faq.ssl.q3'),
+        t('home.faq.ssl.q4')
       ]
     },
     {
-      category: 'Email',
+      category: t('home.faq.email'),
       questions: [
-        'Como criar email profissional?',
-        'Configurar email no celular?',
-        'Quantas contas de email?',
-        'Email com meu domínio?'
+        t('home.faq.email.q1'),
+        t('home.faq.email.q2'),
+        t('home.faq.email.q3'),
+        t('home.faq.email.q4')
       ]
     },
     {
-      category: 'Suporte',
+      category: t('home.faq.support'),
       questions: [
-        'Suporte 24/7 disponível?',
-        'Como abrir chamado técnico?',
-        'Tempo de resposta do suporte?',
-        'Suporte via telefone?'
+        t('home.faq.support.q1'),
+        t('home.faq.support.q2'),
+        t('home.faq.support.q3'),
+        t('home.faq.support.q4')
       ]
     }
   ]

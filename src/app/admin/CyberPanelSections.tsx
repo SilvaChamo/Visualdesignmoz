@@ -120,6 +120,181 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   )
 }
 
+export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] }) {
+  const [selectedDomain, setSelectedDomain] = useState('')
+  const [screenshotUrl, setScreenshotUrl] = useState('')
+  const [screenshotLoading, setScreenshotLoading] = useState(false)
+  const [screenshotError, setScreenshotError] = useState('')
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+
+  useEffect(() => {
+    if (selectedDomain) {
+      loadScreenshot(selectedDomain)
+    }
+  }, [selectedDomain])
+
+  useEffect(() => {
+    if (sites.length > 0 && !selectedDomain) {
+      setSelectedDomain(sites[0].domain)
+    }
+  }, [sites, selectedDomain])
+
+  const loadScreenshot = async (domain: string) => {
+    try {
+      setScreenshotLoading(true)
+      setScreenshotError('')
+
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getScreenshot',
+          params: { domain }
+        })
+      })
+
+      if (!res.ok) throw new Error('Falha ao carregar screenshot')
+
+      const data = await res.json()
+      if (data.success && data.data?.screenshotUrl) {
+        setScreenshotUrl(data.data.screenshotUrl)
+        setLastUpdate(new Date())
+      } else {
+        setScreenshotUrl(`https://image.thum.io/get/width/1200/crop/800/noanimate/https://${domain}`)
+        setLastUpdate(new Date())
+      }
+    } catch (error) {
+      setScreenshotError(`Erro: ${error instanceof Error ? error.message : 'Desconhecido'}`)
+      console.error('Screenshot error:', error)
+    } finally {
+      setScreenshotLoading(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    if (selectedDomain) {
+      loadScreenshot(selectedDomain)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Website Preview</h1>
+          <p className="text-gray-500 mt-1">Visualize screenshots dos seus websites.</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
+          <RefreshCw size={14} />
+          Último check: {lastUpdate ? lastUpdate.toLocaleTimeString('pt-PT') : 'N/A'}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Website
+            </label>
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-gray-50 transition-all"
+            >
+              <option value="">Selecione...</option>
+              {sites.map((site) => (
+                <option key={site.domain} value={site.domain}>
+                  {site.domain}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleRefresh}
+              disabled={!selectedDomain || screenshotLoading}
+              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 transition-all text-sm font-bold shadow-sm"
+            >
+              <RefreshCw size={16} className={screenshotLoading ? 'animate-spin' : ''} />
+              Atualizar
+            </button>
+          </div>
+
+          {selectedDomain && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Ações Rápidas
+              </label>
+              <a
+                href={`https://${selectedDomain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
+              >
+                <span>Visitar Site</span>
+                <ExternalLink size={14} className="text-gray-400" />
+              </a>
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-3">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+            {screenshotLoading && (
+              <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50">
+                <RefreshCw size={40} className="text-red-600 animate-spin mb-4" />
+                <p className="text-gray-500 font-medium">Capturando imagem do site...</p>
+                <p className="text-xs text-gray-400 mt-1">Isso pode levar alguns segundos</p>
+              </div>
+            )}
+
+            {screenshotError && !screenshotLoading && (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-red-50/30">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <AlertCircle size={32} className="text-red-500" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Ops! Falha no Preview</h3>
+                <p className="text-gray-600 max-w-xs mx-auto mb-6">{screenshotError}</p>
+                <button
+                  onClick={handleRefresh}
+                  className="px-6 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-bold text-sm shadow-sm"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+
+            {screenshotUrl && !screenshotLoading && !screenshotError && (
+              <div className="p-4 flex-1 bg-gray-100">
+                <div className="relative group">
+                  <img
+                    src={screenshotUrl}
+                    alt={`Preview de ${selectedDomain}`}
+                    className="w-full rounded-lg border border-gray-300 shadow-xl bg-white"
+                    onError={() => setScreenshotError('Não foi possível processar a imagem do servidor thum.io')}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none rounded-lg" />
+                </div>
+              </div>
+            )}
+
+            {!selectedDomain && !screenshotLoading && (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50/50">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <Eye size={40} className="text-gray-300" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Escolha um Website</h3>
+                <p className="text-gray-500 max-w-xs mx-auto">
+                  Selecione um dos seus domínios no menu lateral para visualizar o estado visual atual.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type DNSFilterType = 'All' | 'A' | 'CNAME' | 'MX' | 'TXT' | 'SRV' | 'NS'
 
 type DNSRecordRow = {
@@ -1219,13 +1394,10 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           })
         } catch { }
         await loadEmails(selectedDomain)
+        setEmailUser('')
+        setEmailPass('')
         if (!stayOnPage) {
-          setShowModal(false)
-          setEmailUser('')
-          setEmailPass('')
-        } else {
-          setEmailUser('')
-          setEmailPass('')
+          setTimeout(() => { setShowModal(false); setMsg('') }, 1500)
         }
       } else {
         setMsg((data.error || 'Erro ao criar conta.') + (data.details ? ' | ' + data.details : ''))
@@ -1499,7 +1671,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="relative bg-white border border-gray-200 rounded-2xl w-full max-w-xl shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -1518,9 +1690,17 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
               {/* Domain */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Domínio</label>
-                <div className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900">
-                  {selectedDomain || 'visualdesigne.com'}
-                </div>
+                <select
+                  value={selectedDomain}
+                  onChange={e => setSelectedDomain(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Seleccionar domínio...</option>
+                  {sites.length > 0
+                    ? sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)
+                    : <option value="visualdesigne.com">visualdesigne.com</option>
+                  }
+                </select>
               </div>
 
               {/* Username */}
@@ -1564,6 +1744,30 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
                 </div>
               </div>
 
+              {/* Password Strength */}
+              {emailPass && (() => {
+                const hasUpper = /[A-Z]/.test(emailPass)
+                const hasLower = /[a-z]/.test(emailPass)
+                const hasNumber = /[0-9]/.test(emailPass)
+                const hasSpecial = /[!@#$%^&*]/.test(emailPass)
+                const score = [emailPass.length >= 8, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+                const strength = score <= 2 ? 'Fraca' : score === 3 ? 'Média' : score === 4 ? 'Forte' : 'Muito Forte'
+                const color = score <= 2 ? 'bg-red-500' : score === 3 ? 'bg-yellow-500' : score === 4 ? 'bg-blue-500' : 'bg-green-500'
+                const textColor = score <= 2 ? 'text-red-600' : score === 3 ? 'text-yellow-600' : score === 4 ? 'text-blue-600' : 'text-green-600'
+                const width = `${(score / 5) * 100}%`
+                return (
+                  <div className="mt-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-gray-500">Força da password</span>
+                      <span className={`text-xs font-semibold ${textColor}`}>{strength}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${color}`} style={{ width }} />
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Quota */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Quota (MB)</label>
@@ -1599,13 +1803,13 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
 
             {/* Modal Footer */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors font-medium">
                 Cancelar
               </button>
               <button
                 onClick={handleCreate}
                 disabled={creating || !emailUser || !emailPass}
-                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                className="flex items-center gap-2 px-5 py-2 bg-gray-900 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
               >
                 {creating
                   ? <><RefreshCw className="w-4 h-4 animate-spin" /> A criar...</>

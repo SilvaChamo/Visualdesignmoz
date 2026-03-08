@@ -24,18 +24,18 @@ export default function ServicesPage() {
       {/* Hero Section */}
       <section className="relative py-20 lg:py-32">
         <div className="absolute inset-0 bg-black" />
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
         />
-        
+
         <div className="relative z-10 max-w-[1380px] mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-              Nossos <span className="text-red-600">Serviços</span>
+              {t('services.page.title')} <span className="text-red-600">{t('services.page.titleHighlight')}</span>
             </h1>
             <p className="text-xl text-gray-300 mb-8">
-              Soluções criativas e tecnológicas para impulsionar seu negócio
+              {t('services.page.subtitle')}
             </p>
           </div>
         </div>
@@ -53,7 +53,7 @@ export default function ServicesPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-4">{t('services.web')}</h3>
               <p className="text-gray-300">
-                Sites modernos, responsivos e otimizados para conversão
+                {t('services.web.card.desc')}
               </p>
             </div>
 
@@ -65,7 +65,7 @@ export default function ServicesPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-4">{t('services.graphic')}</h3>
               <p className="text-gray-300">
-                Identidade visual e materiais gráficos profissionais
+                {t('services.graphic.card.desc')}
               </p>
             </div>
 
@@ -77,7 +77,7 @@ export default function ServicesPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-4">{t('services.marketing')}</h3>
               <p className="text-gray-300">
-                Estratégias digitais para aumentar sua visibilidade online
+                {t('services.marketing.card.desc')}
               </p>
             </div>
 
@@ -89,7 +89,7 @@ export default function ServicesPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-4">{t('services.dev')}</h3>
               <p className="text-gray-300">
-                Aplicações web customizadas e sistemas robustos
+                {t('services.dev.card.desc')}
               </p>
             </div>
           </div>
