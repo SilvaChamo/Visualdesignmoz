@@ -1,86 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
-import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
-
-const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, emails: multiEmails, passwords: multiPasswords, allAccounts = false, folder = 'INBOX', page = 1, limit = 20 } = await req.json()
-    const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { email, password, emails: multiEmails, passwords: multiPasswords, folder = 'INBOX', page = 1, limit = 20 } = await req.json()
 
-    if (allAccounts && session) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-      const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
-      const { data: contas } = await supabaseAdmin.from('email_contas').select('email, senha_cyberpanel').eq('cliente_id', session.user.id).eq('status', 'activo')
-
-      if (contas && contas.length > 0) {
-        const todosEmails: any[] = []
-        
-        const promises = contas.map(async (conta) => {
-          try {
-            const senhaDescriptada = decryptPassword(conta.senha_cyberpanel)
-            const client = new ImapFlow({
-              host: process.env.IMAP_HOST || '109.199.104.22',
-              port: 993,
-              secure: true,
-              auth: { user: conta.email, pass: senhaDescriptada },
-              tls: { rejectUnauthorized: false },
-              logger: false
-            })
-
-            await client.connect()
-            const lock = await client.getMailboxLock(folder)
-            const emailsTemp: any[] = []
-
-            try {
-              const total = client.mailbox ? client.mailbox.exists || 0 : 0
-              if (total > 0) {
-                const start = Math.max(1, total - limit + 1)
-                for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
-                  emailsTemp.push({
-                    id: msg.uid,
-                    seq: msg.seq,
-                    conta: conta.email,
-                    de: msg.envelope?.from?.[0]?.address || '',
-                    deNome: msg.envelope?.from?.[0]?.name || '',
-                    assunto: msg.envelope?.subject || '(sem assunto)',
-                    data: msg.envelope?.date?.toISOString() || '',
-                    lido: msg.flags?.has('\\Seen') || false,
-                    preview: ''
-                  })
-                }
-              }
-            } finally {
-              lock.release()
-            }
-
-            await client.logout()
-            return emailsTemp
-          } catch (e) {
-            console.error(`Erro ao ler ${conta.email} na pasta ${folder}:`, e)
-            return []
-          }
-        })
-
-        const resultados = await Promise.all(promises)
-        resultados.forEach(emails => todosEmails.push(...emails))
-
-        todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-        
-        return NextResponse.json({
-          success: true,
-          emails: todosEmails.slice(0, limit * 2),
-          total: todosEmails.length,
-          modo: 'todas-contas',
-          folder: folder
-        })
-      }
-    }
-
+    // Se receber array de emails, agregar de todas as contas
     if (multiEmails && Array.isArray(multiEmails)) {
       const todosEmails: any[] = []
       for (let i = 0; i < multiEmails.length; i++) {
@@ -99,7 +24,9 @@ export async function POST(req: NextRequest) {
             const total = client.mailbox ? client.mailbox.exists || 0 : 0
             if (total > 0) {
               const start = Math.max(1, total - limit + 1)
-              for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+              for await (const msg of client.fetch(`${start}:${total}`, {
+                envelope: true, flags: true
+              })) {
                 todosEmails.push({
                   id: msg.uid,
                   seq: msg.seq,
@@ -139,7 +66,8 @@ export async function POST(req: NextRequest) {
     })
 
     await client.connect()
-
+    
+    // Se for pedido para listar pastas, retornar lista
     if (folder === 'LIST') {
       try {
         const mailboxes = await client.list()
@@ -163,13 +91,13 @@ export async function POST(req: NextRequest) {
 
     try {
       const total = client.mailbox ? client.mailbox.exists || 0 : 0
-      const start = Math.max(1, total - limit + 1)
-      const end = total
+      const start = Math.max(1, total - (page * limit) + 1)
+      const end = Math.max(1, total - ((page - 1) * limit))
 
-      if (total > 0 && start <= end) {
+      if (total > 0) {
         for await (const msg of client.fetch(`${start}:${end}`, {
-          envelope: true,
-          flags: true
+          envelope: true, flags: true, bodyStructure: true,
+          bodyParts: ['1'] 
         })) {
           emails.push({
             id: msg.uid,
@@ -179,7 +107,7 @@ export async function POST(req: NextRequest) {
             assunto: msg.envelope?.subject || '(sem assunto)',
             data: msg.envelope?.date?.toISOString() || '',
             lido: msg.flags?.has('\\Seen') || false,
-            preview: msg.envelope?.subject ? msg.envelope.subject.substring(0, 50) + (msg.envelope.subject.length > 50 ? '...' : '') : ''
+            preview: ''
           })
         }
       }

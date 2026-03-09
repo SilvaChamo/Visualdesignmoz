@@ -1,0 +1,55 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { ImapFlow } from 'imapflow'
+import nodemailer from 'nodemailer'
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email, password, emailId, forwardTo, folder } = await req.json()
+    if (!email || !password || !emailId || !forwardTo || !folder) {
+      return NextResponse.json({ error: 'Parâmetros obrigatórios faltam' }, { status: 400 })
+    }
+
+    // Ler email original
+    const imapClient = new ImapFlow({
+      host: process.env.IMAP_HOST || '109.199.104.22',
+      port: 993,
+      secure: true,
+      auth: { user: email, pass: password },
+      tls: { rejectUnauthorized: false },
+      logger: false
+    })
+
+    await imapClient.connect()
+    const lock = await imapClient.getMailboxLock(folder)
+    let emailContent = ''
+
+    try {
+      for await (const msg of imapClient.fetch(emailId, { source: true })) {
+        emailContent = msg.source?.toString() || ''
+      }
+    } finally {
+      lock.release()
+    }
+
+    await imapClient.logout()
+
+    // Encaminhar email
+    const smtpTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || '109.199.104.22',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: true,
+      auth: { user: email, pass: password }
+    })
+
+    await smtpTransporter.sendMail({
+      from: email,
+      to: forwardTo,
+      subject: `Fwd: ${emailContent.split('Subject:')[1]?.split('\n')[0] || 'Email'}`,
+      text: `---------- Email Reenviado ----------\n\n${emailContent}` 
+    })
+
+    return NextResponse.json({ success: true, message: 'Email reenviado' })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
