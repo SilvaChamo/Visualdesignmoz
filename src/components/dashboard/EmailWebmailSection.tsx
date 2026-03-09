@@ -163,11 +163,11 @@ export function EmailWebmailSection({
   const pastaParaIMAP = (pasta: string) => {
     const mapa: Record<string, string> = {
       'Caixa de Entrada': 'INBOX',
-      'Enviados': 'INBOX.Sent',
-      'Rascunhos': 'INBOX.Drafts',
-      'Arquivo': 'INBOX.Archive',
-      'Lixo': 'INBOX.Deleted Items',
-      'Spam': 'INBOX.Junk E-mail'
+      'Enviados': 'Sent',
+      'Rascunhos': 'Drafts',
+      'Arquivo': 'Archive',
+      'Lixo': 'Trash',
+      'Spam': 'Junk'
     }
     return mapa[pasta] || 'INBOX'
   }
@@ -743,34 +743,36 @@ export function EmailWebmailSection({
                   {emails.map((e, i) => (
                     <div 
                       key={i}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition flex items-center gap-3 px-3 py-3 group"
+                      className="border-b border-gray-100 hover:bg-gray-50 transition flex items-start gap-3 px-3 py-3 group"
                     >
-                      {/* Checkbox */}
-                      <input
-                        type="checkbox"
-                        checked={emailsSelecionados.includes(e.id)}
-                        onChange={(ev) => {
-                          ev.stopPropagation()
-                          if (ev.target.checked) {
-                            setEmailsSelecionados([...emailsSelecionados, e.id])
-                          } else {
-                            setEmailsSelecionados(emailsSelecionados.filter((id: any) => id !== e.id))
-                          }
-                        }}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                      {/* Informação do email - clicável apenas se não selecionado */}
-                      <div 
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => {
-                          if (!emailsSelecionados.includes(e.id)) {
-                            setModalEmail(e)
-                          }
-                        }}
-                      >
-                        <p className="font-semibold text-xs text-gray-900 truncate">{e.de}</p>
-                        <p className="text-xs text-gray-500 truncate">{e.assunto}</p>
-                        <p className="text-xs text-gray-400 truncate">{e.data}</p>
+                      <div className="flex items-start gap-3 flex-1">
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={emailsSelecionados.includes(e.id)}
+                          onChange={(ev) => {
+                            ev.stopPropagation()
+                            if (ev.target.checked) {
+                              setEmailsSelecionados([...emailsSelecionados, e.id])
+                            } else {
+                              setEmailsSelecionados(emailsSelecionados.filter((id: any) => id !== e.id))
+                            }
+                          }}
+                          className="w-4 h-4 cursor-pointer mt-0.5"
+                        />
+                        {/* Informação do email - clicável apenas se não selecionado */}
+                        <div 
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => {
+                            if (!emailsSelecionados.includes(e.id)) {
+                              setModalEmail(e)
+                            }
+                          }}
+                        >
+                          <p className="font-semibold text-xs text-gray-900 truncate">{e.de}</p>
+                          <p className="text-xs text-gray-500 truncate">{e.assunto}</p>
+                          <p className="text-xs text-gray-400 truncate">{e.data}</p>
+                        </div>
                       </div>
 
                       {/* Status */}
