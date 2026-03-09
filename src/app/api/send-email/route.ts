@@ -63,18 +63,26 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fallback para Nodemailer (SMTP Local) para tudo o resto
-    if (!from || !fromPassword || !to || !subject) {
+    if (!from || !to || !subject) {
       return NextResponse.json({
-        error: 'Campos obrigatórios em falta (from, fromPassword, to, subject) para envio via SMTP.'
+        error: 'Campos obrigatórios em falta (from, to, subject) para envio via SMTP.'
       }, { status: 400 })
     }
+    // Se não tem password, usar conta SMTP master para autenticar
+    // O campo From: continua a mostrar o email do utilizador
+    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com')
+    const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'AdvD2425'
 
     console.log('Using Nodemailer fallback...');
+    console.log('SMTP DEBUG - user:', smtpUser, '| pass:', smtpPass ? smtpPass.substring(0,4)+'***' : 'VAZIO', '| host:', process.env.SMTP_HOST || '109.199.104.22', '| from:', from);
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || '109.199.104.22',
+      host: '109.199.104.22',
       port: 465,
       secure: true,
-      auth: { user: from, pass: fromPassword },
+      auth: {
+        user: 'admin@visualdesigne.com',
+        pass: 'Ad.Vd#2425?*'
+      },
       tls: { rejectUnauthorized: false }
     })
 

@@ -73,6 +73,24 @@ export function EmailWebmailSection({
   // Carregar contas reais do CyberPanel
   useEffect(() => {
     const carregarContas = async () => {
+      // Buscar passwords do Supabase primeiro
+      let passwordMap: Record<string, string> = {}
+      try {
+        const res2 = await fetch('/api/email-contas')
+        const data2 = await res2.json()
+        if (data2.success && data2.contas?.length > 0) {
+          data2.contas.forEach((c: any) => {
+            if (c.senha_cyberpanel) {
+              try {
+                passwordMap[c.email] = atob(c.senha_cyberpanel)
+              } catch { 
+                passwordMap[c.email] = c.senha_cyberpanel 
+              }
+            }
+          })
+        }
+      } catch { }
+
       // Carregar directamente do CyberPanel (fonte de verdade)
       try {
         const res = await fetch('/api/cyberpanel-email?domain=visualdesigne.com')
@@ -82,16 +100,19 @@ export function EmailWebmailSection({
             email: e.email,
             tipo: 'webmail',
             nome: e.user || e.email.split('@')[0],
-            password: ''
+            password: passwordMap[e.email] || (e.email.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
           })))
         } else {
           // Fallback: Supabase com sessão real
           try {
-            const res2 = await fetch('/api/email-contas')
-            const data2 = await res2.json()
-            if (data2.success && data2.contas?.length > 0) {
-              setEmailsOrigem(data2.contas.map((c: any) => ({
-                email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
+            const res3 = await fetch('/api/email-contas')
+            const data3 = await res3.json()
+            if (data3.success && data3.contas?.length > 0) {
+              setEmailsOrigem(data3.contas.map((c: any) => ({
+                email: c.email, 
+                tipo: c.tipo_conta, 
+                nome: c.email.split('@')[0], 
+                password: passwordMap[c.email] || (c.email.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
               })))
             }
           } catch { }
@@ -103,7 +124,9 @@ export function EmailWebmailSection({
 
   // Carregar emails da pasta activa
   useEffect(() => {
-    if (!emailOrigem || !emailOrigemPassword) return
+    const contaActual = emailsOrigem.find((c: any) => c.email === emailOrigem)
+    const senhaImap = emailOrigemPassword || contaActual?.password || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
+    if (!emailOrigem || !senhaImap) return
     const carregar = async () => {
       setCarregandoEmails(true)
       setErroEmail('')
@@ -111,7 +134,7 @@ export function EmailWebmailSection({
         const res = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailOrigem, password: emailOrigemPassword, folder: pastaParaIMAP(pastaActiva) })
+          body: JSON.stringify({ email: emailOrigem, password: senhaImap, folder: pastaParaIMAP(pastaActiva) })
         })
         const data = await res.json()
         if (data.success) setEmails(data.emails)
@@ -355,12 +378,12 @@ export function EmailWebmailSection({
           <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
           {(() => {
             const pastas = [
-              { nome: 'Caixa de Entrada', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg> },
-              { nome: 'Enviados', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> },
-              { nome: 'Rascunhos', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
-              { nome: 'Arquivo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3h18v4H3zM5 7v13a1 1 0 001 1h12a1 1 0 001-1V7M10 12h4"/></svg> },
-              { nome: 'Lixo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg> },
-              { nome: 'Spam', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg> },
+              { nome: 'Caixa de Entrada', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> },
+              { nome: 'Enviados', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg> },
+              { nome: 'Rascunhos', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg> },
+              { nome: 'Arquivo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3h18v4H3zM5 7v13a1 1 0 001 1h12a1 1 0 001-1V7M10 12h4" /></svg> },
+              { nome: 'Lixo', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg> },
+              { nome: 'Spam', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg> },
             ]
             const [todasExpanded, setTodasExpanded] = useState(true)
             const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
@@ -370,7 +393,7 @@ export function EmailWebmailSection({
               <div className="border-b border-gray-100">
                 <button onClick={() => setTodasExpanded(v => !v)}
                   className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-white transition-colors">
-                  <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{transform: todasExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{ transform: todasExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                   <span className="text-sm font-semibold text-gray-700">Todas as Contas</span>
                 </button>
                 {todasExpanded && (
@@ -394,7 +417,7 @@ export function EmailWebmailSection({
                     <div className="flex items-center w-full">
                       <button onClick={() => toggleExpand(c.email)}
                         className="px-3 py-2.5 hover:bg-white transition-colors">
-                        <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
                       <button onClick={() => { setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
                         className={`flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors`}>
@@ -515,12 +538,12 @@ export function EmailWebmailSection({
         <div className="fixed inset-0 bg-white z-50 flex flex-col">
 
           {/* LINHA 1 — Layout 2 colunas */}
-          <div className="bg-gray-900 border-b border-gray-700 flex">
+          <div className="bg-gray-50 border-b border-gray-200 flex">
 
             {/* Coluna esquerda — só botão Enviar */}
-            <div className="flex flex-col border-r border-gray-700 shrink-0">
+            <div className="flex flex-col border-r border-gray-200 shrink-0">
               <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
-                className="flex-1 bg-gradient-to-b from-green-500 to-green-700 hover:from-green-400 hover:to-green-600 disabled:opacity-40 text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-lg transition-all min-w-[110px] border-r border-green-800">
+                className="flex-1 bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:opacity-40 text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm transition-all min-w-[110px] border-r border-green-800">
                 {enviando
                   ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
                   : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
@@ -531,13 +554,13 @@ export function EmailWebmailSection({
             {/* Coluna direita — Campos */}
             <div className="flex-1 flex flex-col">
               {/* Linha De + botão fechar */}
-              <div className="flex items-center border-b border-gray-700 px-3 py-1">
-                <span className="text-gray-400 text-xs w-16 shrink-0">De:</span>
+              <div className="flex items-center border-b border-gray-200 px-3 py-1">
+                <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">De:</span>
                 <select value={emailOrigem} onChange={e => setEmailOrigem(e.target.value)}
-                  className="bg-transparent text-white text-sm outline-none flex-1">
-                  <option value="" className="bg-gray-900">Escolher email de origem...</option>
+                  className="bg-transparent text-gray-900 text-sm outline-none flex-1">
+                  <option value="" className="bg-white">Escolher email de origem...</option>
                   {emailsOrigem.map(e => (
-                    <option key={e.email} value={e.email} className="bg-gray-900">
+                    <option key={e.email} value={e.email} className="bg-white">
                       {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
                     </option>
                   ))}
@@ -546,66 +569,66 @@ export function EmailWebmailSection({
                   className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
               </div>
               {/* Linha Para */}
-              <div className="flex items-center border-b border-gray-700 px-3 py-1.5">
-                <span className="text-gray-400 text-xs w-16 shrink-0">Para:</span>
+              <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Para:</span>
                 <input list="contactos-list" value={compose.para} onChange={e => setCompose({ ...compose, para: e.target.value })}
-                  className="flex-1 bg-transparent text-white text-sm outline-none" />
+                  className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
                 <datalist id="contactos-list">
                   {contactos.map(c => <option key={c.email} value={c.email}>{c.nome}</option>)}
                 </datalist>
-                <button title="Seleccionar contacto" className="text-gray-500 hover:text-gray-300 ml-2 text-xs border border-gray-600 rounded px-1.5 py-0.5">📖</button>
+                <button title="Seleccionar contacto" className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
                 {/* Botões para mostrar Cc e Bcc */}
                 <button onClick={() => setMostrarCc(!mostrarCc)}
-                  className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarCc ? 'border-blue-500 text-blue-400' : 'border-gray-600 text-gray-500 hover:text-gray-300'}`}>Cc</button>
+                  className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarCc ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}>Cc</button>
                 <button onClick={() => setMostrarBcc(!mostrarBcc)}
-                  className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarBcc ? 'border-blue-500 text-blue-400' : 'border-gray-600 text-gray-500 hover:text-gray-300'}`}>Bcc</button>
+                  className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarBcc ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}>Bcc</button>
               </div>
               {/* Linha Cc — só aparece se activado */}
               {mostrarCc && (
-                <div className="flex items-center border-b border-gray-700 px-3 py-1.5">
-                  <span className="text-gray-400 text-xs w-16 shrink-0">Cc:</span>
+                <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                  <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Cc:</span>
                   <input value={compose.cc} onChange={e => setCompose({ ...compose, cc: e.target.value })}
-                    className="flex-1 bg-transparent text-white text-sm outline-none" />
-                  <button className="text-gray-500 hover:text-gray-300 ml-2 text-xs border border-gray-600 rounded px-1.5 py-0.5">📖</button>
+                    className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                  <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
                 </div>
               )}
               {/* Linha Bcc — só aparece se activado */}
               {mostrarBcc && (
-                <div className="flex items-center border-b border-gray-700 px-3 py-1.5">
-                  <span className="text-gray-400 text-xs w-16 shrink-0">Bcc:</span>
+                <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                  <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Bcc:</span>
                   <input value={compose.bcc} onChange={e => setCompose({ ...compose, bcc: e.target.value })}
-                    className="flex-1 bg-transparent text-white text-sm outline-none" />
-                  <button className="text-gray-500 hover:text-gray-300 ml-2 text-xs border border-gray-600 rounded px-1.5 py-0.5">📖</button>
+                    className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                  <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
                 </div>
               )}
               {/* Linha Assunto */}
               <div className="flex items-center px-3 py-1.5">
-                <span className="text-gray-400 text-xs w-16 shrink-0">Assunto:</span>
+                <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Assunto:</span>
                 <input value={compose.assunto} onChange={e => setCompose({ ...compose, assunto: e.target.value })}
-                  className="flex-1 bg-transparent text-white text-sm outline-none" />
+                  className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
               </div>
             </div>
           </div>
 
           {/* LINHA 2 — Formatação */}
-          <div className="bg-gray-800 px-3 py-1 flex items-center justify-between gap-1 flex-wrap border-b border-gray-700">
+          <div className="bg-gray-100 px-3 py-1 flex items-center justify-between gap-1 flex-wrap border-b border-gray-200">
             {/* Lado esquerdo — formatação */}
             <div className="flex items-center gap-1 flex-wrap">
               <button title="Desfazer (Ctrl+Z)"
                 onMouseDown={(e) => { e.preventDefault(); execCmd('undo') }}
-                className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 border border-gray-600 text-white transition-colors">
+                className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors">
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M4.5 4.5l-3 3 3 3V8a5.5 5.5 0 1 1 5.5 5.5H6v1.5h4A7 7 0 1 0 4 5.6V4.5z" /></svg>
               </button>
               <button title="Refazer (Ctrl+Y)"
                 onMouseDown={(e) => { e.preventDefault(); execCmd('redo') }}
-                className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 border border-gray-600 text-white transition-colors">
+                className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors">
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11.5 4.5l3 3-3 3V8a5.5 5.5 0 1 0-5.5 5.5H10v1.5H6A7 7 0 1 1 12 5.6V4.5z" /></svg>
               </button>
-              <div className="w-px h-5 bg-gray-600 mx-1" />
-              <select className="bg-gray-700 border border-gray-600 text-white text-xs px-2 py-1.5 rounded" onChange={(e) => execCmd('fontName', e.target.value)}>
+              <div className="w-px h-5 bg-gray-200 mx-1" />
+              <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded" onChange={(e) => execCmd('fontName', e.target.value)}>
                 <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
               </select>
-              <select className="bg-gray-700 border border-gray-600 text-white text-xs px-2 py-1.5 rounded w-14" onChange={(e) => {
+              <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14" onChange={(e) => {
                 const mapeamento: Record<string, string> = { '11': '1', '12': '2', '14': '3', '16': '4', '18': '5' }
                 execCmd('fontSize', mapeamento[e.target.value] || '3')
               }}>
@@ -615,13 +638,13 @@ export function EmailWebmailSection({
               <div className="relative">
                 <button title="Cor do texto"
                   onMouseDown={(e) => { e.preventDefault(); setMostrarPaletaCor(prev => prev === 'texto' ? null : 'texto') }}
-                  className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-gray-600 bg-gray-700 border border-gray-600 gap-0.5">
-                  <span className="text-white text-xs font-bold leading-none" style={{ color: corTexto === '#000000' ? 'white' : corTexto }}>A</span>
+                  className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-white bg-white border border-gray-200 gap-0.5">
+                  <span className="text-gray-900 text-xs font-bold leading-none" style={{ color: corTexto === '#000000' ? '#111827' : corTexto }}>A</span>
                   <div className="w-4 h-1 rounded-sm" style={{ backgroundColor: corTexto }} />
                 </button>
                 {mostrarPaletaCor === 'texto' && (
-                  <div className="absolute top-8 left-0 bg-gray-800 border border-gray-600 rounded shadow-xl p-2 z-50 w-48">
-                    <p className="text-gray-400 text-[10px] mb-1.5">Cor do texto</p>
+                  <div className="absolute top-8 left-0 bg-white border border-gray-200 rounded shadow-xl p-2 z-50 w-48">
+                    <p className="text-gray-500 text-[10px] mb-1.5 font-bold uppercase">Cor do texto</p>
                     <div className="grid grid-cols-8 gap-0.5">
                       {CORES_PALETA.map(cor => (
                         <button key={cor} title={cor}
@@ -634,7 +657,7 @@ export function EmailWebmailSection({
                             if (range) { sel!.removeAllRanges(); sel!.addRange(range) }
                             document.execCommand('foreColor', false, cor)
                           }}
-                          className="w-4 h-4 rounded-sm border border-gray-600 hover:scale-125 transition-transform"
+                          className="w-4 h-4 rounded-sm border border-gray-100 hover:scale-125 transition-transform"
                           style={{ backgroundColor: cor }} />
                       ))}
                     </div>
@@ -646,13 +669,13 @@ export function EmailWebmailSection({
               <div className="relative">
                 <button title="Realçar texto"
                   onMouseDown={(e) => { e.preventDefault(); setMostrarPaletaCor(prev => prev === 'fundo' ? null : 'fundo') }}
-                  className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-gray-600 border border-gray-600 gap-0.5">
-                  <span className="text-white text-xs leading-none">🖌</span>
+                  className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-white bg-white border border-gray-200 gap-0.5">
+                  <span className="text-gray-900 text-xs leading-none">🖌</span>
                   <div className="w-4 h-1 rounded-sm" style={{ backgroundColor: corFundo }} />
                 </button>
                 {mostrarPaletaCor === 'fundo' && (
-                  <div className="absolute top-8 left-0 bg-gray-800 border border-gray-600 rounded shadow-xl p-2 z-50 w-48">
-                    <p className="text-gray-400 text-[10px] mb-1.5">Realçar texto</p>
+                  <div className="absolute top-8 left-0 bg-white border border-gray-200 rounded shadow-xl p-2 z-50 w-48">
+                    <p className="text-gray-500 text-[10px] mb-1.5 font-bold uppercase">Realçar texto</p>
                     <div className="grid grid-cols-8 gap-0.5">
                       {CORES_PALETA.map(cor => (
                         <button key={cor} title={cor}
@@ -665,14 +688,14 @@ export function EmailWebmailSection({
                             if (range) { sel!.removeAllRanges(); sel!.addRange(range) }
                             document.execCommand('hiliteColor', false, cor)
                           }}
-                          className="w-4 h-4 rounded-sm border border-gray-600 hover:scale-125 transition-transform"
+                          className="w-4 h-4 rounded-sm border border-gray-100 hover:scale-125 transition-transform"
                           style={{ backgroundColor: cor }} />
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-              <div className="w-px h-5 bg-gray-600 mx-1" />
+              <div className="w-px h-5 bg-gray-200 mx-1" />
               {botoesFormato.map((b, i) => {
                 const cmd =
                   b.t === 'Negrito' ? 'bold' :
@@ -687,7 +710,7 @@ export function EmailWebmailSection({
                     className={`text-sm px-2.5 py-1.5 rounded border relative group font-bold transition-colors
         ${activo
                         ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-transparent border-gray-600 text-white hover:bg-gray-600'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                       }`}
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -703,35 +726,35 @@ export function EmailWebmailSection({
                   </button>
                 )
               })}
-              <div className="w-px h-5 bg-gray-600 mx-1" />
-              <button title="Alinhar à esquerda" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('justifyLeft')}>
+              <div className="w-px h-5 bg-gray-200 mx-1" />
+              <button title="Alinhar à esquerda" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyLeft')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="1" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Centrar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('justifyCenter')}>
+              <button title="Centrar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyCenter')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="3" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="4" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Alinhar à direita" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('justifyRight')}>
+              <button title="Alinhar à direita" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyRight')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="5" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="7" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Justificar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('justifyFull')}>
+              <button title="Justificar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyFull')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="1" y="5.5" width="14" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="14" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Lista de pontos" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onMouseDown={(e) => {
+              <button title="Lista de pontos" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onMouseDown={(e) => {
                 e.preventDefault()
                 execCmd('insertUnorderedList')
               }}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><circle cx="2" cy="4" r="1.2" /><rect x="5" y="3.2" width="9" height="1.5" rx="0.75" /><circle cx="2" cy="8" r="1.2" /><rect x="5" y="7.2" width="9" height="1.5" rx="0.75" /><circle cx="2" cy="12" r="1.2" /><rect x="5" y="11.2" width="9" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Lista numerada" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onMouseDown={(e) => {
+              <button title="Lista numerada" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onMouseDown={(e) => {
                 e.preventDefault()
                 execCmd('insertOrderedList')
               }}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="2" height="1.5" rx="0.5" /><rect x="5" y="2" width="9" height="1.5" rx="0.75" /><rect x="1" y="5.5" width="2" height="1.5" rx="0.5" /><rect x="5" y="5.5" width="9" height="1.5" rx="0.75" /><rect x="1" y="9" width="2" height="1.5" rx="0.5" /><rect x="5" y="9" width="9" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Diminuir indentação" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('outdent')}>
+              <button title="Diminuir indentação" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('outdent')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><path d="M5 5.5L2 8l3 2.5V5.5z" /><rect x="6" y="7.2" width="9" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="14" height="1.5" rx="0.75" /></svg>
               </button>
-              <button title="Aumentar indentação" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-600 text-white transition-colors" onClick={() => execCmd('indent')}>
+              <button title="Aumentar indentação" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('indent')}>
                 <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><path d="M2 5.5l3 2.5-3 2.5V5.5z" /><rect x="6" y="7.2" width="9" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="14" height="1.5" rx="0.75" /></svg>
               </button>
             </div>
@@ -739,19 +762,19 @@ export function EmailWebmailSection({
             {/* Lado direito — inserir e assinatura */}
             <div className="flex items-center gap-1">
               {[{ l: '🔗', t: 'Ligação' }, { l: <ImageIcon className="w-3.5 h-3.5" />, t: 'Imagem' }, { l: '⊞', t: 'Tabela' }, { l: '📎', t: 'Anexo' }].map((b, i) => (
-                <button key={i} title={b.t} className="text-white text-sm px-2.5 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1.5 relative group"
+                <button key={i} title={b.t} className="text-gray-700 text-sm px-2.5 py-1.5 rounded hover:bg-white border border-gray-200 hover:shadow-sm flex items-center gap-1.5 relative group"
                   onClick={() => {
                     if (b.t === 'Ligação') inserirLink()
                     else if (b.t === 'Imagem') inserirImagem()
                     else if (b.t === 'Tabela') inserirTabela()
                     else if (b.t === 'Anexo') inserirAnexo()
                   }}>
-                  {b.l} <span className="text-white text-xs">{b.t}</span>
+                  {b.l} <span className="text-gray-600 text-xs font-semibold">{b.t}</span>
                 </button>
               ))}
               <button onClick={() => setMostrarConfigAssinatura(true)}
-                className="text-white text-sm px-2.5 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1.5">
-                ✍️ <span className="text-white text-xs">Assinatura</span>
+                className="text-gray-700 text-sm px-2.5 py-1.5 rounded hover:bg-white border border-gray-200 hover:shadow-sm flex items-center gap-1.5">
+                ✍️ <span className="text-gray-600 text-xs font-semibold">Assinatura</span>
               </button>
             </div>
           </div>
@@ -856,57 +879,55 @@ export function EmailWebmailSection({
 
       {mostrarConfigAssinatura && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-gray-200">
             {/* Header macOS style */}
-            <div className="bg-gray-800 px-5 py-3 flex items-center justify-between border-b border-gray-700">
+            <div className="bg-gray-50 px-5 py-3 flex items-center justify-between border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => setMostrarConfigAssinatura(false)} />
                 <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <div className="w-3 h-3 rounded-full bg-gray-600" />
+                <div className="w-3 h-3 rounded-full bg-gray-300" />
               </div>
-              <h2 className="text-sm font-bold text-white">Assinaturas</h2>
-              <button className="text-gray-400 hover:text-white text-xs px-3 py-1 rounded border border-gray-600 transition-colors">Mostrar Tudo</button>
+              <h2 className="text-sm font-bold text-gray-900">Assinaturas</h2>
+              <button className="text-gray-600 hover:text-gray-900 text-xs px-3 py-1 rounded border border-gray-300 transition-colors">Mostrar Tudo</button>
             </div>
 
             <div className="p-6 space-y-5">
               {/* Editar assinatura */}
               <div>
-                <h3 className="text-sm font-bold text-white mb-3">Editar assinatura:</h3>
-                <div className="bg-gray-800 rounded-lg border border-gray-600 flex overflow-hidden" style={{ minHeight: '200px' }}>
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Editar assinatura:</h3>
+                <div className="bg-white rounded-lg border border-gray-200 flex overflow-hidden" style={{ minHeight: '200px' }}>
                   {/* Lista */}
-                  <div className="w-52 border-r border-gray-600 flex flex-col">
-                    <div className="px-3 py-2 bg-gray-700 border-b border-gray-600">
-                      <p className="text-xs font-bold text-gray-300">Nome da assinatura</p>
+                  <div className="w-52 border-r border-gray-200 flex flex-col bg-gray-50/50">
+                    <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+                      <p className="text-xs font-bold text-gray-500">Nome da assinatura</p>
                     </div>
                     <div className="flex-1">
                       {assinaturas.map((s, i) => (
                         <div key={i} onClick={() => setAssinaturaActiva(i)}
-                          className={`px-3 py-2 cursor-pointer text-sm border-b border-gray-700 transition-colors ${assinaturaActiva === i ? 'bg-gray-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>
+                          className={`px-3 py-2 cursor-pointer text-sm border-b border-gray-100 transition-colors ${assinaturaActiva === i ? 'bg-red-50 text-red-600 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}>
                           {s.nome}
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center gap-1 p-2 border-t border-gray-600">
+                    <div className="flex items-center gap-1 p-2 border-t border-gray-200">
                       <button onClick={() => setAssinaturas([...assinaturas, { nome: 'Nova Assinatura', activa: false, texto: '', imagemUrl: '' }])}
-                        className="bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded font-bold transition-colors">+</button>
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded font-bold transition-colors">+</button>
                       <button onClick={() => setAssinaturas(assinaturas.filter((_, i) => i !== assinaturaActiva))}
-                        className="bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded font-bold transition-colors">−</button>
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded font-bold transition-colors">−</button>
                       <button onClick={() => { setMostrarConfigAssinatura(false); setMostrarEditarAssinatura(true) }}
-                        className="ml-auto bg-gray-600 hover:bg-gray-500 text-white text-xs px-3 py-1 rounded transition-colors">Editar</button>
+                        className="ml-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 text-xs px-3 py-1 rounded transition-colors">Editar</button>
                     </div>
                   </div>
                   {/* Preview */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="px-3 py-2 bg-gray-700 border-b border-gray-600 text-center">
-                      <p className="text-xs font-bold text-gray-300">Pré-visualização da Assinatura</p>
+                  <div className="flex-1 flex flex-col bg-white">
+                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-center">
+                      <p className="text-xs font-bold text-gray-500">Pré-visualização da Assinatura</p>
                     </div>
                     <div className="flex-1 bg-white p-4">
                       {assinaturas[assinaturaActiva]?.imagemUrl ? (
                         <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain" />
-                      ) : assinaturas[assinaturaActiva]?.texto ? (
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">{assinaturas[assinaturaActiva].texto}</div>
                       ) : (
-                        <div className="flex items-center justify-center h-full text-gray-400 text-xs">Sem conteúdo — clica em Editar</div>
+                        <div className="text-sm text-gray-700 whitespace-pre-wrap">{assinaturas[assinaturaActiva]?.texto || ''}</div>
                       )}
                     </div>
                   </div>
@@ -915,16 +936,16 @@ export function EmailWebmailSection({
 
               {/* Assinatura predefinida */}
               <div>
-                <h3 className="text-sm font-bold text-white mb-3">Selecionar assinatura predefinida:</h3>
-                <div className="bg-gray-800 rounded-lg border border-gray-600 p-4 space-y-3">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Selecionar assinatura predefinida:</h3>
+                <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 space-y-3">
                   {[
                     { label: 'Conta:', valor: 'Silva Chamo (silva.chamo@gmail.com)' },
                     { label: 'Novas mensagens:', valor: 'Nenhuma' },
                     { label: 'Respostas/reenc.:', valor: 'Nenhuma' },
                   ].map(({ label, valor }) => (
                     <div key={label} className="flex items-center gap-4">
-                      <span className="text-gray-400 text-sm w-44 text-right shrink-0">{label}</span>
-                      <select className="flex-1 bg-gray-700 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg outline-none">
+                      <span className="text-gray-500 text-sm w-44 text-right shrink-0">{label}</span>
+                      <select className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none">
                         <option>{valor}</option>
                         {assinaturas.map(s => <option key={s.nome}>{s.nome}</option>)}
                       </select>
@@ -945,9 +966,9 @@ export function EmailWebmailSection({
       )}
       {mostrarEditarAssinatura && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden border border-gray-200">
             {/* Header macOS style com título da assinatura */}
-            <div className="bg-gray-800 px-5 py-2 flex items-center gap-3 border-b border-gray-700">
+            <div className="bg-gray-50 px-5 py-2 flex items-center gap-3 border-b border-gray-200">
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }} />
                 <div className="w-3 h-3 rounded-full bg-yellow-500" />
@@ -955,32 +976,32 @@ export function EmailWebmailSection({
               </div>
               {/* Toolbar */}
               <div className="flex items-center gap-1 flex-wrap ml-2">
-                <button title="Colar" className="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-1.5 rounded border border-gray-600 flex items-center gap-1">📋 Colar</button>
-                <div className="w-px h-5 bg-gray-600 mx-1" />
-                <select className="bg-gray-700 border border-gray-600 text-white text-xs px-2 py-1.5 rounded">
+                <button title="Colar" className="bg-white hover:bg-gray-50 text-gray-700 text-xs px-3 py-1.5 rounded border border-gray-200 flex items-center gap-1 transition-colors">📋 Colar</button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded outline-none">
                   <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
                 </select>
-                <select className="bg-gray-700 border border-gray-600 text-white text-xs px-2 py-1.5 rounded w-14">
+                <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14 outline-none">
                   <option>11</option><option>12</option><option>14</option><option>16</option>
                 </select>
-                <div className="w-px h-5 bg-gray-600 mx-1" />
+                <div className="w-px h-5 bg-gray-200 mx-1" />
                 {[{ l: 'N', t: 'Negrito' }, { l: 'I', t: 'Itálico' }, { l: 'S', t: 'Sublinhado' }, { l: 'ab', t: 'Riscado' }].map((b, i) => (
-                  <button key={i} title={b.t} className="text-white text-xs px-2 py-1.5 rounded hover:bg-gray-600 border border-gray-600">{b.l}</button>
+                  <button key={i} title={b.t} className="text-gray-700 text-xs px-2 py-1.5 rounded hover:bg-gray-50 border border-gray-200 transition-colors font-bold">{b.l}</button>
                 ))}
-                <div className="w-px h-5 bg-gray-600 mx-1" />
-                {[{ l: <><ImageIcon className="w-3.5 h-3.5" /> <span className="text-gray-300 text-[10px]">Imagens</span></>, t: 'Imagens' }, { l: '🔗 Ligação', t: 'Ligação' }, { l: '⊞ Tabela', t: 'Tabela' }, { l: '🌙 Mudar Fundo', t: 'Mudar Fundo' }].map((b, i) => (
-                  <button key={i} title={b.t} className="text-white text-xs px-2 py-1.5 rounded hover:bg-gray-600 border border-gray-600">{b.l}</button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                {[{ l: <><ImageIcon className="w-3.5 h-3.5 text-gray-600" /> <span className="text-gray-700 text-[10px] font-medium">Imagens</span></>, t: 'Imagens' }, { l: '🔗 Ligação', t: 'Ligação' }, { l: '⊞ Tabela', t: 'Tabela' }, { l: '🌙 Mudar Fundo', t: 'Mudar Fundo' }].map((b, i) => (
+                  <button key={i} title={b.t} className="text-gray-700 text-xs px-2 py-1.5 rounded hover:bg-gray-50 border border-gray-200 transition-colors">{b.l}</button>
                 ))}
               </div>
-              <span className="ml-auto text-white text-sm font-bold">{assinaturas[assinaturaActiva]?.nome}</span>
+              <span className="ml-auto text-gray-900 text-sm font-bold">{assinaturas[assinaturaActiva]?.nome}</span>
             </div>
 
             {/* Nome da assinatura */}
-            <div className="bg-gray-800 flex items-center border-b border-gray-700 px-5 py-2">
-              <span className="text-gray-400 text-sm w-40 shrink-0">Nome da Assinatura:</span>
+            <div className="bg-gray-50 flex items-center border-b border-gray-200 px-5 py-2">
+              <span className="text-gray-500 text-sm w-40 shrink-0">Nome da Assinatura:</span>
               <input value={assinaturas[assinaturaActiva]?.nome || ''}
                 onChange={e => { const a = [...assinaturas]; a[assinaturaActiva].nome = e.target.value; setAssinaturas(a) }}
-                className="flex-1 bg-white text-gray-900 text-sm px-3 py-1.5 rounded outline-none" />
+                className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" />
             </div>
 
             {/* Área de edição — fundo branco */}
@@ -1023,11 +1044,11 @@ export function EmailWebmailSection({
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-800 border-t border-gray-700 px-5 py-3 flex justify-end gap-3">
+            <div className="bg-gray-50 border-t border-gray-200 px-5 py-3 flex justify-end gap-3">
               <button onClick={() => { setAssinatura(assinaturas[assinaturaActiva]?.texto || ''); setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors">Guardar</button>
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
               <button onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
             </div>
           </div>
         </div>
@@ -1092,85 +1113,85 @@ export function EmailWebmailSection({
 
       {mostrarAdicionarConta && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-gray-200">
 
             {/* Header macOS */}
-            <div className="bg-gray-800 px-5 py-3 flex items-center gap-3 border-b border-gray-700">
+            <div className="bg-gray-50 px-5 py-3 flex items-center gap-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => setMostrarAdicionarConta(false)} />
                 <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <div className="w-3 h-3 rounded-full bg-gray-600" />
+                <div className="w-3 h-3 rounded-full bg-gray-300" />
               </div>
               {modalAdicionarPasso !== 'escolher' && (
                 <button onClick={() => setModalAdicionarPasso('escolher')}
-                  className="text-gray-400 hover:text-white text-xs">← Voltar</button>
+                  className="text-gray-500 hover:text-gray-900 text-xs">← Voltar</button>
               )}
-              <h2 className="text-sm font-bold text-white mx-auto">Contas da Internet</h2>
+              <h2 className="text-sm font-bold text-gray-800 mx-auto">Contas da Internet</h2>
             </div>
 
             {/* PASSO 1 — Escolher tipo */}
             {modalAdicionarPasso === 'escolher' && (
               <div className="flex">
                 {/* Lista esquerda — contas existentes */}
-                <div className="w-56 border-r border-gray-700 p-3 space-y-1 min-h-64">
+                <div className="w-56 border-r border-gray-200 p-3 space-y-1 min-h-64 bg-gray-50/50">
                   <p className="text-xs text-gray-500 uppercase font-bold mb-2 px-2">Contas configuradas</p>
                   {emailsOrigem.length === 0 ? (
-                    <p className="text-xs text-gray-600 px-2">Nenhuma conta</p>
+                    <p className="text-xs text-gray-400 px-2 italic">Nenhuma conta</p>
                   ) : emailsOrigem.map((c, i) => (
-                    <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-800 cursor-pointer">
-                      <div className="w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center text-xs">
+                    <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 cursor-pointer transition-colors shadow-sm-hover">
+                      <div className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
                         {c.tipo === 'google' ? 'G' : c.tipo === 'hotmail' ? 'M' : '@'}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-white">{c.nome}</p>
-                        <p className="text-[10px] text-gray-400 truncate max-w-[130px]">{c.email}</p>
+                        <p className="text-xs font-bold text-gray-800">{c.nome}</p>
+                        <p className="text-[10px] text-gray-500 truncate max-w-[130px]">{c.email}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Direita — escolher tipo */}
-                <div className="flex-1 p-6">
-                  <p className="text-sm text-gray-300 mb-6">Escolhe o tipo de conta a adicionar:</p>
+                <div className="flex-1 p-6 bg-white">
+                  <p className="text-sm text-gray-500 mb-6 font-medium">Escolhe o tipo de conta a adicionar:</p>
                   <div className="space-y-3">
                     {/* Google */}
                     <button onClick={() => setModalAdicionarPasso('google')}
-                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700 hover:border-gray-500 hover:bg-gray-800 transition-colors text-left">
-                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-lg font-bold shrink-0">
+                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
+                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl font-bold shrink-0 border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
                         <span style={{ background: 'linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">Google</p>
-                        <p className="text-xs text-gray-400">Gmail, Google Workspace</p>
+                        <p className="text-sm font-bold text-gray-800">Google</p>
+                        <p className="text-xs text-gray-500">Gmail, Google Workspace</p>
                       </div>
                     </button>
 
                     {/* Hotmail */}
                     <button onClick={() => setModalAdicionarPasso('hotmail')}
-                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700 hover:border-gray-500 hover:bg-gray-800 transition-colors text-left">
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
+                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group">
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shrink-0 border border-blue-400 shadow-sm group-hover:scale-110 transition-transform">
                         <span className="text-white font-bold text-sm">M</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">Microsoft</p>
-                        <p className="text-xs text-gray-400">Hotmail, Outlook, Office 365</p>
+                        <p className="text-sm font-bold text-gray-800">Microsoft Exchange</p>
+                        <p className="text-xs text-gray-500">Outlook, Hotmail, MSN</p>
                       </div>
                     </button>
 
                     {/* Webmail / Email executivo */}
                     <button onClick={() => setModalAdicionarPasso('webmail')}
-                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700 hover:border-gray-500 hover:bg-gray-800 transition-colors text-left">
-                      <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shrink-0">
+                      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all text-left group">
+                      <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shrink-0 border border-red-400 shadow-sm group-hover:scale-110 transition-transform">
                         <span className="text-white font-bold text-sm">@</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">Email Executivo</p>
-                        <p className="text-xs text-gray-400">Webmail, IMAP/SMTP personalizado</p>
+                        <p className="text-sm font-bold text-gray-800">Email Executivo</p>
+                        <p className="text-xs text-gray-500">Webmail, IMAP/SMTP personalizado</p>
                       </div>
                     </button>
 
-                    <div className="border-t border-gray-700 pt-3">
-                      <button className="w-full text-center text-xs text-gray-500 hover:text-gray-300 py-2 transition-colors">
+                    <div className="border-t border-gray-200 pt-3">
+                      <button className="w-full text-center text-xs text-gray-500 hover:text-gray-900 py-2 transition-colors">
                         Adicionar outra conta...
                       </button>
                     </div>
@@ -1181,17 +1202,17 @@ export function EmailWebmailSection({
 
             {/* PASSO 2a — Google OAuth */}
             {modalAdicionarPasso === 'google' && (
-              <div className="p-8 flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-4">
+              <div className="p-8 flex flex-col items-center text-center bg-white">
+                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
                   <span className="text-3xl">@</span>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">Autenticação Google</h3>
-                <p className="text-sm text-gray-400 mb-6 max-w-sm">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Autenticação Google</h3>
+                <p className="text-sm text-gray-500 mb-6 max-w-sm">
                   O Google requer que a autenticação seja concluída no navegador da web. Após a autenticação, a conta será adicionada automaticamente.
                 </p>
                 <div className="flex gap-3">
                   <button onClick={() => setModalAdicionarPasso('escolher')}
-                    className="px-6 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors">
+                    className="px-6 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">
                     Cancelar
                   </button>
                   <button onClick={() => {
@@ -1201,12 +1222,10 @@ export function EmailWebmailSection({
                     setTimeout(() => {
                       const novasConta = { email: 'silva.chamo@gmail.com', tipo: 'google' as const, nome: 'Silva Chamo' }
                       setEmailsOrigem(prev => [...prev.filter(e => e.email !== novasConta.email), novasConta])
-                      setEmailOrigem(novasConta.email)
                       setMostrarAdicionarConta(false)
-                    }, 3000)
-                  }}
-                    className="px-6 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors">
-                    Abrir Navegador
+                    }, 2000)
+                  }} className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow-lg shadow-blue-200">
+                    Abrir no Navegador
                   </button>
                 </div>
               </div>
@@ -1214,31 +1233,31 @@ export function EmailWebmailSection({
 
             {/* PASSO 2b — Microsoft/Hotmail */}
             {modalAdicionarPasso === 'hotmail' && (
-              <div className="p-6 space-y-4">
-                <p className="text-sm text-gray-300 mb-2">Configurar conta Microsoft</p>
+              <div className="p-6 space-y-4 bg-white">
+                <p className="text-sm text-gray-500 mb-2 font-medium">Configurar conta Microsoft</p>
                 {[
                   { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@hotmail.com' },
                   { label: 'Nome de utilizador', field: 'nome', placeholder: 'Automático' },
                   { label: 'Palavra-passe', field: 'password', placeholder: '••••••••', type: 'password' },
                 ].map(f => (
                   <div key={f.field} className="flex items-center gap-4">
-                    <span className="text-gray-400 text-sm w-44 text-right shrink-0">{f.label}:</span>
+                    <span className="text-gray-500 text-sm w-44 text-right shrink-0">{f.label}:</span>
                     <input type={f.type || 'text'} placeholder={f.placeholder}
                       value={(novaContaForm as any)[f.field]}
                       onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
-                      className="flex-1 bg-gray-700 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg outline-none focus:border-red-500" />
+                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all" />
                   </div>
                 ))}
                 <div className="flex items-center gap-4">
-                  <span className="text-gray-400 text-sm w-44 text-right shrink-0">Tipo de conta:</span>
-                  <select className="flex-1 bg-gray-700 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg outline-none">
+                  <span className="text-gray-500 text-sm w-44 text-right shrink-0">Tipo de conta:</span>
+                  <select className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none">
                     <option>IMAP</option><option>POP3</option><option>Exchange</option>
                   </select>
                 </div>
-                <p className="text-xs text-red-400 text-center">Não foi possível confirmar automaticamente — preenche os servidores manualmente.</p>
+                <p className="text-xs text-red-500 text-center">Não foi possível confirmar automaticamente — preenche os servidores manualmente.</p>
                 <div className="flex justify-between pt-2">
                   <button onClick={() => setModalAdicionarPasso('escolher')}
-                    className="px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">Anterior</button>
+                    className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">Anterior</button>
                   <button onClick={() => {
                     if (novaContaForm.email) {
                       setEmailsOrigem(prev => [...prev, { email: novaContaForm.email, tipo: 'hotmail', nome: novaContaForm.nome || novaContaForm.email.split('@')[0] }])
@@ -1255,8 +1274,8 @@ export function EmailWebmailSection({
 
             {/* PASSO 2c — Email Executivo / Webmail */}
             {modalAdicionarPasso === 'webmail' && (
-              <div className="p-6 space-y-3">
-                <p className="text-sm text-gray-300 mb-2">Configurar Email Executivo (IMAP/SMTP)</p>
+              <div className="p-6 space-y-3 bg-white">
+                <p className="text-sm text-gray-500 mb-2 font-medium">Configurar Email Executivo (IMAP/SMTP)</p>
                 {[
                   { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@visualdesigne.com' },
                   { label: 'Nome de utilizador', field: 'nome', placeholder: 'Silva Chamo' },
@@ -1267,20 +1286,20 @@ export function EmailWebmailSection({
                   { label: 'Porta SMTP', field: 'smtpPorta', placeholder: '465' },
                 ].map(f => (
                   <div key={f.field} className="flex items-center gap-4">
-                    <span className="text-gray-400 text-xs w-48 text-right shrink-0">{f.label}:</span>
+                    <span className="text-gray-500 text-xs w-48 text-right shrink-0">{f.label}:</span>
                     <input type={f.type || 'text'} placeholder={f.placeholder}
                       value={(novaContaForm as any)[f.field]}
                       onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
-                      className="flex-1 bg-gray-700 border border-gray-600 text-white text-sm px-3 py-2 rounded-lg outline-none focus:border-red-500" />
+                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all" />
                   </div>
                 ))}
-                <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mt-2">
-                  <p className="text-xs text-blue-300 font-bold mb-1">Configurações recomendadas VisualDesign:</p>
-                  <p className="text-xs text-blue-200">Servidor: mail.visualdesigne.com • IMAP: 993 SSL • SMTP: 465 SSL</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+                  <p className="text-xs text-blue-700 font-bold mb-1">Configurações recomendadas VisualDesign:</p>
+                  <p className="text-xs text-blue-600">Servidor: mail.visualdesigne.com • IMAP: 993 SSL • SMTP: 465 SSL</p>
                 </div>
                 <div className="flex justify-between pt-2">
                   <button onClick={() => setModalAdicionarPasso('escolher')}
-                    className="px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">Anterior</button>
+                    className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">Anterior</button>
                   <button onClick={async () => {
                     if (novaContaForm.email) {
                       setCarregandoEmails(true)
@@ -1319,7 +1338,7 @@ export function EmailWebmailSection({
                     }
                   }}
                     disabled={!novaContaForm.email || carregandoEmails}
-                    className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2">
+                    className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-red-100">
                     {carregandoEmails ? '⏳ A sincronizar...' : 'Adicionar e Sincronizar'}
                   </button>
                 </div>
@@ -1327,8 +1346,9 @@ export function EmailWebmailSection({
             )}
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   )
 }
 

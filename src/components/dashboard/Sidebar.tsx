@@ -97,7 +97,9 @@ export default function DashboardSidebar() {
         {
             icon: Globe, label: t('sidebar.domains'), href: '#', subItems: [
                 { label: t('sidebar.myDomains'), href: '/dashboard/dominios' },
-                { label: t('sidebar.dnsManagement'), href: '/admin?section=domains-dns' }
+                { label: t('sidebar.dnsManagement'), href: '/admin?section=domains-dns' },
+                { label: t('sidebar.websitePreview'), href: '/admin?section=website-preview' },
+                { label: t('sidebar.emailImport'), href: '/admin?section=email-import' }
             ]
         },
         {

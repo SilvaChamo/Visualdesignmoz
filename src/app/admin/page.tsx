@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useI18n } from '@/lib/i18n'
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings,
@@ -20,7 +21,7 @@ import {
   EmailForwardingSection, CatchAllEmailSection, PatternForwardingSection,
   PlusAddressingSection, EmailChangePasswordSection, DKIMManagerSection,
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
-  WebsitePreviewSection,
+  WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
 } from './CyberPanelSections'
@@ -622,6 +623,192 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   )
 }
 
+// ============================================================
+// CLIENTES SECTION
+// ============================================================
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+function ClientesSection() {
+  const { t } = useI18n()
+  const [vista, setVista] = useState<'lista' | 'novo'>('lista')
+  const [clientes, setClientes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [salvando, setSalvando] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [form, setForm] = useState({
+    nome: '', email: '', telefone: '', morada: '', website: '', cidade: 'Maputo', pais: 'Moçambique', status: 'active'
+  })
+  const [erro, setErro] = useState('')
+  const [sucesso, setSucesso] = useState('')
+
+  const carregarClientes = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes?order=created_at.desc`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+      })
+      const data = await res.json()
+      setClientes(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setClientes([])
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { carregarClientes() }, [])
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nome?.toLowerCase().includes(busca.toLowerCase()) ||
+    c.email?.toLowerCase().includes(busca.toLowerCase()) ||
+    c.telefone?.includes(busca)
+  )
+
+  const handleSubmit = async () => {
+    setErro('')
+    if (!form.nome || !form.email) { setErro(t('admin.clientSection.errorMsg')); return }
+    setSalvando(true)
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation'
+        },
+        body: JSON.stringify({ ...form, data_cadastro: new Date().toISOString().split('T')[0] })
+      })
+      if (res.ok) {
+        setSucesso(t('admin.clientSection.successMsg'))
+        setForm({ nome: '', email: '', telefone: '', morada: '', website: '', cidade: 'Maputo', pais: 'Moçambique', status: 'active' })
+        await carregarClientes()
+        setTimeout(() => { setSucesso(''); setVista('lista') }, 1500)
+      } else {
+        const err = await res.json()
+        setErro(err.message || 'Erro ao criar cliente')
+      }
+    } catch (e: any) {
+      setErro(e.message)
+    }
+    setSalvando(false)
+  }
+
+  const inputClass = "w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+  const labelClass = "block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5"
+
+  if (vista === 'novo') return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => setVista('lista')} className="text-gray-400 hover:text-white transition-colors">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white">{t('admin.clientSection.new')}</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{t('admin.clientSection.newDesc')}</p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
+        {erro && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm">{erro}</div>}
+        {sucesso && <div className="bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg px-4 py-3 text-sm">{sucesso}</div>}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className={labelClass}>{t('admin.clientSection.name')}</label>
+            <input className={inputClass} placeholder={t('admin.clientSection.nameEx')} value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.clientSection.email')}</label>
+            <input className={inputClass} type="email" placeholder={t('admin.clientSection.emailEx')} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.clientSection.phone')}</label>
+            <input className={inputClass} placeholder={t('admin.clientSection.phoneEx')} value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelClass}>{t('admin.clientSection.address')}</label>
+            <input className={inputClass} placeholder={t('admin.clientSection.addressEx')} value={form.morada} onChange={e => setForm({ ...form, morada: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.clientSection.city')}</label>
+            <input className={inputClass} placeholder={t('admin.clientSection.cityEx')} value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>{t('admin.clientSection.website')}</label>
+            <input className={inputClass} placeholder={t('admin.clientSection.websiteEx')} value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button onClick={() => setVista('lista')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg transition-colors">
+            {t('admin.clientSection.cancel')}
+          </button>
+          <button onClick={handleSubmit} disabled={salvando} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+            {salvando ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t('admin.clientSection.saving')}</> : t('admin.clientSection.create')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{t('admin.clientSection.title')}</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{clientes.length} {t('admin.clientSection.subtitle')}</p>
+        </div>
+        <button onClick={() => setVista('novo')} className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          {t('admin.clientSection.new')}
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <input
+          className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors shadow-sm"
+          placeholder={t('admin.clientSection.search')}
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <svg className="w-6 h-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+        </div>
+      ) : clientesFiltrados.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          {busca ? t('admin.clientSection.notFound') : t('admin.clientSection.empty')}
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {clientesFiltrados.map(c => (
+            <div key={c.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-600/30 flex items-center justify-center text-blue-400 font-semibold text-sm flex-shrink-0">
+                  {c.nome?.charAt(0).toUpperCase() || '?'}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">{c.nome}</p>
+                  <p className="text-sm text-gray-500">{c.email} {c.telefone ? `· ${c.telefone}` : ''}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {c.cidade && <span className="text-xs text-gray-600 hidden md:block">{c.cidade}</span>}
+                <span className={`text-xs px-2 py-1 rounded-full ${c.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                  {c.status === 'active' ? t('admin.clientSection.active') : t('admin.clientSection.inactive')}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -739,13 +926,15 @@ export default function AdminPage() {
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || 'visualdesigne.com'} sites={cyberPanelSites} />
       case 'clientes':
-        return <div className="p-6"><h1 className="text-2xl font-bold">Clientes</h1><p className="text-gray-500 mt-1">Secção em desenvolvimento</p></div>
+        return <ClientesSection />
       case 'domains-new':
         return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
+      case 'email-import':
+        return <EmailImportSection sites={filteredSites} />
       case 'cp-list-subdomains':
         return <ListSubdomainsSection sites={filteredSites} />
       case 'cp-modify-website':

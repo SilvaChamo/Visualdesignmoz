@@ -9,6 +9,7 @@ import type {
 import { syncUserToSupabase, removeUserFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase } from '@/lib/supabase-sync'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
+import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import {
   RefreshCw, Globe, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield,
   Server, HardDrive, Key, Settings, Code, AlertCircle, CheckCircle, Eye, EyeOff,
@@ -1321,6 +1322,8 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
   const [changingPass, setChangingPass] = useState<string | null>(null)
   const [newPass, setNewPass] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
+  const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
 
   const generatePassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
@@ -1523,6 +1526,12 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           >
             <Plus className="w-4 h-4" /> Criar
           </button>
+          <button
+            onClick={() => { setMostrarAdicionarConta(true); setModalAdicionarPasso('escolher') }}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Adicionar Conta
+          </button>
         </div>
       </div>
 
@@ -1666,6 +1675,16 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           <span>Domínio: {selectedDomain || '—'}</span>
         </div>
       </div>
+
+      {/* Modal Adicionar Conta Externa */}
+      {mostrarAdicionarConta && (
+        <EmailWebmailSection
+          mostrarAdicionarConta={mostrarAdicionarConta}
+          setMostrarAdicionarConta={setMostrarAdicionarConta}
+          modalAdicionarPasso={modalAdicionarPasso}
+          setModalAdicionarPasso={setModalAdicionarPasso}
+        />
+      )}
 
       {/* Modal Criar Conta */}
       {showModal && (
@@ -1968,7 +1987,7 @@ export function CPUsersSection() {
             <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite Websites</label><input type="number" value={form.websitesLimit} onChange={(e) => setForm({ ...form, websitesLimit: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
             <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">ACL (Permissão)</label>
               <select value={form.acl} onChange={(e) => setForm({ ...form, acl: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-                {acls.map(a => <option key={a} value={a}>{a}</option>)}
+                {(Array.isArray(acls) ? acls : ['user', 'reseller']).map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
           </div>
@@ -2007,7 +2026,7 @@ export function CPUsersSection() {
                         onChange={(e) => setEditForm({ ...editForm, acl: e.target.value })}
                         className="px-2 py-1 border border-gray-300 rounded text-sm"
                       >
-                        {acls.map(a => <option key={a} value={a}>{a}</option>)}
+                        {(Array.isArray(acls) ? acls : ['user', 'reseller']).map(a => <option key={a} value={a}>{a}</option>)}
                       </select>
                     ) : (
                       <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">{(u as any).acl || 'User'}</span>
@@ -2159,7 +2178,7 @@ export function ResellerSection() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {acls.map((acl, i) => (
+            {(Array.isArray(acls) ? acls : []).map((acl, i) => (
               <div key={i} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><Shield className="w-5 h-5 text-gray-600" /></div>
@@ -3948,6 +3967,8 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   const [form, setForm] = useState({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5' })
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
+  const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [editing, setEditing] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ diskSpace: '', bandwidth: '', emailAccounts: '', dataBases: '' })
   const [msg, setMsg] = useState('')
@@ -5777,6 +5798,246 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// EMAIL IMPORT SECTION
+// ============================================================
+export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
+  const [gmailUser, setGmailUser] = useState('')
+  const [gmailAppPassword, setGmailAppPassword] = useState('')
+  const [destinationEmail, setDestinationEmail] = useState('')
+  const [destinationPassword, setDestinationPassword] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState({ total: 0, copied: 0, currentFolder: '', errors: [] })
+  const [showInstructions, setShowInstructions] = useState(false)
+  const [result, setResult] = useState<any>(null)
+
+  // Extrair emails dos sites para dropdown
+  const availableEmails = sites
+    .filter(site => site.domain === 'visualdesigne.com')
+    .flatMap(site => {
+      // Simular emails existentes - em produção viria da API
+      return [
+        'info@visualdesigne.com',
+        'suport@visualdesigne.com',
+        'admin@visualdesigne.com',
+        'contato@visualdesigne.com'
+      ]
+    })
+
+  const handleImport = async () => {
+    if (!gmailUser || !gmailAppPassword || !destinationEmail || !destinationPassword) {
+      alert('Por favor, preencha todos os campos.')
+      return
+    }
+
+    setImporting(true)
+    setProgress({ total: 0, copied: 0, currentFolder: '', errors: [] })
+
+    try {
+      const response = await fetch('/api/email-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gmailUser,
+          gmailAppPassword,
+          destinationEmail,
+          destinationPassword
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setResult(data)
+        setProgress({
+          total: data.total,
+          copied: data.copied,
+          currentFolder: data.currentFolder,
+          errors: data.errors || []
+        })
+      } else {
+        alert(`Erro: ${data.error}`)
+      }
+    } catch (error: any) {
+      alert(`Erro de conexão: ${error?.message || error}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Importar Emails</h1>
+          <p className="text-gray-500 mt-1">Importe emails do Gmail para sua conta VisualDesign.</p>
+        </div>
+        <button
+          onClick={() => setShowInstructions(!showInstructions)}
+          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+        >
+          {showInstructions ? 'Ocultar' : 'Mostrar'} Instruções
+        </button>
+      </div>
+
+      {showInstructions && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <h3 className="font-bold text-blue-900 mb-4">Como gerar App Password do Gmail</h3>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+            <li>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" className="underline">myaccount.google.com/apppasswords</a></li>
+            <li>Faça login com sua conta Google</li>
+            <li>Clique em "Select app" → "Other" e digite "VisualDesign Import"</li>
+            <li>Clique em "Generate" para criar a senha</li>
+            <li>Copie a senha de 16 caracteres gerada</li>
+            <li>Use essa senha no campo "App Password do Gmail"</li>
+          </ol>
+        </div>
+      )}
+
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Coluna Esquerda - Gmail */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-900 border-b border-gray-200 pb-2">Origem (Gmail)</h3>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Email Gmail</label>
+              <input
+                type="email"
+                value={gmailUser}
+                onChange={(e) => setGmailUser(e.target.value)}
+                placeholder="seuemail@gmail.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-2">App Password Gmail</label>
+              <div className="relative">
+                <input
+                  type={showInstructions ? 'text' : 'password'}
+                  value={gmailAppPassword}
+                  onChange={(e) => setGmailAppPassword(e.target.value)}
+                  placeholder="Senha de 16 caracteres"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowInstructions(!showInstructions)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Coluna Direita - Destino */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-900 border-b border-gray-200 pb-2">Destino (VisualDesign)</h3>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Email Destino</label>
+              <select
+                value={destinationEmail}
+                onChange={(e) => setDestinationEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+              >
+                <option value="">Selecione um email...</option>
+                {availableEmails.map(email => (
+                  <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Password Destino</label>
+              <input
+                type="password"
+                value={destinationPassword}
+                onChange={(e) => setDestinationPassword(e.target.value)}
+                placeholder="Password do email VisualDesign"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={handleImport}
+            disabled={importing || !gmailUser || !gmailAppPassword || !destinationEmail || !destinationPassword}
+            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2"
+          >
+            {importing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Importando...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Iniciar Importação
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Progresso e Resultados */}
+      {importing && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <h3 className="font-bold text-gray-900 mb-4">Progresso da Importação</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Pasta atual:</span>
+              <span className="font-medium">{progress.currentFolder || 'Preparando...'}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Mensagens copiadas:</span>
+              <span className="font-medium">{progress.copied} / {progress.total}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress.total > 0 ? (progress.copied / progress.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {result && !importing && (
+        <div className={`border rounded-xl p-6 ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          }`}>
+          <h3 className={`font-bold mb-4 ${result.success ? 'text-green-900' : 'text-red-900'
+            }`}>
+            {result.success ? '✅ Importação Concluída!' : '❌ Erro na Importação'}
+          </h3>
+          <div className="space-y-2 text-sm">
+            <p><strong>Total de mensagens:</strong> {result.total}</p>
+            <p><strong>Mensagens copiadas:</strong> {result.copied}</p>
+            <p><strong>Taxa de sucesso:</strong> {result.total > 0 ? Math.round((result.copied / result.total) * 100) : 0}%</p>
+            {result.message && <p className="text-gray-700">{result.message}</p>}
+
+            {result.errors && result.errors.length > 0 && (
+              <div className="mt-4">
+                <p className="font-bold text-red-700 mb-2">Erros encontrados:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs text-red-600">
+                  {result.errors.slice(0, 5).map((error: any, index: number) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                  {result.errors.length > 5 && <li>...e mais {result.errors.length - 5} erros</li>}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
