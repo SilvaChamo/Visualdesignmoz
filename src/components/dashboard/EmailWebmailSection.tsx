@@ -311,30 +311,44 @@ export function EmailWebmailSection({
   // ✅ DELETAR EMAIL
   const handleDeleteEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
-    if (!emailId || !emailOrigem) return
+    
+    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
+    let emailParaUsar = emailOrigem
+    let passwordParaUsar = emailOrigemPassword
+    
+    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
+      emailParaUsar = emailsOrigem[0].email
+      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+    }
+    
+    if (!emailId || !emailParaUsar) {
+      alert('Por favor, selecione uma conta específica para realizar ações')
+      return
+    }
+    
     try {
       const res = await fetch('/api/delete-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: emailOrigem,
-          password: emailOrigemPassword || 'Ad.Vd#2425?*',
+          email: emailParaUsar,
+          password: passwordParaUsar,
           emailId: emailId,
-          folder: pastaActiva
+          folder: pastaParaIMAP(pastaActiva)
         })
       })
       const data = await res.json()
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
         
-        // Recarregar lista
+        // Recarregar lista com as mesmas credenciais
         const recarregar = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: emailOrigem,
-            password: emailOrigemPassword || 'Ad.Vd#2425?*',
-            folder: pastaActiva
+            email: emailParaUsar,
+            password: passwordParaUsar,
+            folder: pastaParaIMAP(pastaActiva)
           })
         })
         const recarregados = await recarregar.json()
@@ -379,30 +393,44 @@ export function EmailWebmailSection({
   // ✅ ARQUIVAR EMAIL
   const handleArchiveEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
-    if (!emailId || !emailOrigem) return
+    
+    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
+    let emailParaUsar = emailOrigem
+    let passwordParaUsar = emailOrigemPassword
+    
+    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
+      emailParaUsar = emailsOrigem[0].email
+      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+    }
+    
+    if (!emailId || !emailParaUsar) {
+      alert('Por favor, selecione uma conta específica para realizar ações')
+      return
+    }
+    
     try {
       const res = await fetch('/api/archive-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: emailOrigem,
-          password: emailOrigemPassword || 'Ad.Vd#2425?*',
+          email: emailParaUsar,
+          password: passwordParaUsar,
           emailId: emailId,
-          fromFolder: pastaActiva
+          fromFolder: pastaParaIMAP(pastaActiva)
         })
       })
       const data = await res.json()
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
         
-        // Recarregar lista
+        // Recarregar lista com as mesmas credenciais
         const recarregar = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: emailOrigem,
-            password: emailOrigemPassword || 'Ad.Vd#2425?*',
-            folder: pastaActiva
+            email: emailParaUsar,
+            password: passwordParaUsar,
+            folder: pastaParaIMAP(pastaActiva)
           })
         })
         const recarregados = await recarregar.json()
@@ -731,6 +759,47 @@ export function EmailWebmailSection({
                         className="w-4 h-4 cursor-pointer"
                       />
                       <span className="text-xs text-gray-600 font-semibold">Seleccionar tudo</span>
+                      {emailsSelecionados.length > 0 && (
+                        <>
+                          <button
+                            onClick={async () => {
+                              for (const id of emailsSelecionados) {
+                                await handleDeleteEmail(id)
+                              }
+                              setEmailsSelecionados([])
+                            }}
+                            className="text-xs px-2 py-1 rounded border border-red-600 text-red-600 font-bold hover:bg-red-50 cursor-pointer"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                          <button
+                            onClick={async () => {
+                              for (const id of emailsSelecionados) {
+                                await handleArchiveEmail(id)
+                              }
+                              setEmailsSelecionados([])
+                            }}
+                            className="text-xs px-2 py-1 rounded border border-orange-600 text-orange-600 font-bold hover:bg-orange-50 cursor-pointer"
+                          >
+                            📁 Arquivar
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (emailsSelecionados.length === 1) {
+                                const email = emails.find(e => e.id === emailsSelecionados[0])
+                                if (email) {
+                                  setModalEmail(email)
+                                  setModoResposta('forward')
+                                  setEmailsSelecionados([])
+                                }
+                              }
+                            }}
+                            className="text-xs px-2 py-1 rounded border border-blue-600 text-blue-600 font-bold hover:bg-blue-50 cursor-pointer"
+                          >
+                            ↪️ Reencaminhar
+                          </button>
+                        </>
+                      )}
                       <input 
                         type="search" 
                         autoComplete="off" 

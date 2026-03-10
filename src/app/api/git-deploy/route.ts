@@ -17,19 +17,33 @@ async function execSSH(command: string): Promise<string> {
 
     conn.on('ready', () => {
       conn.exec(command, (err: any, stream: any) => {
-        if (err) { conn.end(); return reject(err); }
+        if (err) { 
+          console.error('SSH Error:', err)
+          conn.end(); 
+          return reject(err); 
+        }
         stream.on('data', (d: Buffer) => { out += d.toString(); });
         stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
         stream.on('close', () => { conn.end(); resolve(out); });
       });
     });
 
-    conn.on('error', reject);
+    conn.on('error', (err: any) => {
+      console.error('SSH Connection Error:', err)
+      reject(err)
+    });
+    
     conn.connect({
       host: '109.199.104.22',
       port: 22,
       username: 'root',
       privateKey,
+      readyTimeout: 10000,
+      algorithms: {
+        kex: ['diffie-hellman-group-exchange-sha256', 'ecdh-sha2-nistp256'],
+        cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
+        hmac: ['hmac-sha2-256', 'hmac-sha1']
+      }
     });
   });
 }

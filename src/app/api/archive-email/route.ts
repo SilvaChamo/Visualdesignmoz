@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
     const archiveFolder = toFolder // Usar toFolder ou padrão
     const lock = await client.getMailboxLock(fromFolder)
     try {
-      await client.messageCopy(emailId, archiveFolder)
-      await client.messageDelete(emailId)
+      await client.messageCopy([emailId], archiveFolder)
+      await client.messageDelete([emailId])
     } finally {
       lock.release()
     }
