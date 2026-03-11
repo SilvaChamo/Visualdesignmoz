@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/utils/supabase/server'
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings,
@@ -1138,10 +1139,26 @@ export default function AdminPage() {
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
+  const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   // Estados para gestão de contas de email
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
+
+  // Obter sessão do usuário
+  useEffect(() => {
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await createClientInstance.auth.getSession()
+        if (session?.user?.email) {
+          setSessionUser(session.user.email)
+        }
+      } catch (error) {
+        console.error('Erro ao obter sessão:', error)
+      }
+    }
+    getSession()
+  }, [])
 
   useEffect(() => {
     loadCyberPanelData()
@@ -1208,6 +1225,7 @@ export default function AdminPage() {
           setMostrarAdicionarConta={setMostrarAdicionarConta}
           modalAdicionarPasso={modalAdicionarPasso}
           setModalAdicionarPasso={setModalAdicionarPasso}
+          emailOrigem={sessionUser}
         />
       case 'domains':
         return <ListWebsitesSection

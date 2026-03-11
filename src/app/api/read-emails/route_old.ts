@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import * as simpleParser from 'mailparser'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
@@ -41,49 +40,44 @@ export async function POST(req: NextRequest) {
               const total = client.mailbox ? client.mailbox.exists || 0 : 0
               if (total > 0) {
                 const start = Math.max(1, total - limit + 1)
-                for await (const msg of client.fetch(`${start}:${total}`, { 
-                  envelope: true, 
-                  flags: true, 
-                  source: true 
-                })) {
-                  // Parse do email com mailparser
-                  if (msg.source) {
-                    const parsed = await simpleParser.simpleParser(msg.source)
-                    const corpoTexto = parsed.text || parsed.html || ''
-                    const preview = corpoTexto.length > 150 
-                      ? corpoTexto.substring(0, 150) + '...' 
-                      : corpoTexto
-
-                    emailsTemp.push({
-                      id: msg.uid,
-                      seq: msg.seq,
-                      conta: conta.email,
-                      de: msg.envelope?.from?.[0]?.address || '',
-                      deNome: msg.envelope?.from?.[0]?.name || '',
-                      assunto: msg.envelope?.subject || '(sem assunto)',
-                      data: msg.envelope?.date?.toISOString() || '',
-                      lido: msg.flags?.has('\\Seen') || false,
-                      corpo: corpoTexto,
-                      preview: preview
-                    })
-                  }
+                for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+                  emailsTemp.push({
+                    id: msg.uid,
+                    seq: msg.seq,
+                    conta: conta.email,
+                    de: msg.envelope?.from?.[0]?.address || '',
+                    deNome: msg.envelope?.from?.[0]?.name || '',
+                    assunto: msg.envelope?.subject || '(sem assunto)',
+                    data: msg.envelope?.date?.toISOString() || '',
+                    lido: msg.flags?.has('\\Seen') || false,
+                    preview: ''
+                  })
                 }
               }
             } finally {
               lock.release()
             }
+
             await client.logout()
             return emailsTemp
           } catch (e) {
-            console.error(`Erro ao ler ${conta.email}:`, e)
+            console.error(`Erro ao ler ${conta.email} na pasta ${folder}:`, e)
             return []
           }
         })
 
-        const results = await Promise.all(promises)
-        results.forEach(emails => todosEmails.push(...emails))
+        const resultados = await Promise.all(promises)
+        resultados.forEach(emails => todosEmails.push(...emails))
+
         todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-        return NextResponse.json({ success: true, emails: todosEmails.slice(0, limit * 2), total: todosEmails.length })
+        
+        return NextResponse.json({
+          success: true,
+          emails: todosEmails.slice(0, limit * 2),
+          total: todosEmails.length,
+          modo: 'todas-contas',
+          folder: folder
+        })
       }
     }
 
@@ -106,32 +100,18 @@ export async function POST(req: NextRequest) {
             const total = client.mailbox ? client.mailbox.exists || 0 : 0
             if (total > 0) {
               const start = Math.max(1, total - limit + 1)
-              for await (const msg of client.fetch(`${start}:${total}`, { 
-                envelope: true, 
-                flags: true, 
-                source: true 
-              })) {
-                // Parse do email com mailparser
-                if (msg.source) {
-                  const parsed = await simpleParser.simpleParser(msg.source)
-                  const corpoTexto = parsed.text || parsed.html || ''
-                  const preview = corpoTexto.length > 150 
-                    ? corpoTexto.substring(0, 150) + '...' 
-                    : corpoTexto
-
-                  todosEmails.push({
-                    id: msg.uid,
-                    seq: msg.seq,
-                    conta: multiEmails[i],
-                    de: msg.envelope?.from?.[0]?.address || '',
-                    deNome: msg.envelope?.from?.[0]?.name || '',
-                    assunto: msg.envelope?.subject || '(sem assunto)',
-                    data: msg.envelope?.date?.toISOString() || '',
-                    lido: msg.flags?.has('\\Seen') || false,
-                    corpo: corpoTexto,
-                    preview: preview
-                  })
-                }
+              for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+                todosEmails.push({
+                  id: msg.uid,
+                  seq: msg.seq,
+                  conta: multiEmails[i],
+                  de: msg.envelope?.from?.[0]?.address || '',
+                  deNome: msg.envelope?.from?.[0]?.name || '',
+                  assunto: msg.envelope?.subject || '(sem assunto)',
+                  data: msg.envelope?.date?.toISOString() || '',
+                  lido: msg.flags?.has('\\Seen') || false,
+                  preview: ''
+                })
               }
             }
           } finally {
@@ -156,32 +136,18 @@ export async function POST(req: NextRequest) {
               const total = fallbackClient.mailbox ? fallbackClient.mailbox.exists || 0 : 0
               if (total > 0) {
                 const start = Math.max(1, total - limit + 1)
-                for await (const msg of fallbackClient.fetch(`${start}:${total}`, { 
-                  envelope: true, 
-                  flags: true, 
-                  source: true 
-                })) {
-                  // Parse do email com mailparser
-                  if (msg.source) {
-                    const parsed = await simpleParser.simpleParser(msg.source)
-                    const corpoTexto = parsed.text || parsed.html || ''
-                    const preview = corpoTexto.length > 150 
-                      ? corpoTexto.substring(0, 150) + '...' 
-                      : corpoTexto
-
-                    todosEmails.push({
-                      id: msg.uid,
-                      seq: msg.seq,
-                      conta: multiEmails[i],
-                      de: msg.envelope?.from?.[0]?.address || '',
-                      deNome: msg.envelope?.from?.[0]?.name || '',
-                      assunto: msg.envelope?.subject || '(sem assunto)',
-                      data: msg.envelope?.date?.toISOString() || '',
-                      lido: msg.flags?.has('\\Seen') || false,
-                      corpo: corpoTexto,
-                      preview: preview
-                    })
-                  }
+                for await (const msg of fallbackClient.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+                  todosEmails.push({
+                    id: msg.uid,
+                    seq: msg.seq,
+                    conta: multiEmails[i],
+                    de: msg.envelope?.from?.[0]?.address || '',
+                    deNome: msg.envelope?.from?.[0]?.name || '',
+                    assunto: msg.envelope?.subject || '(sem assunto)',
+                    data: msg.envelope?.date?.toISOString() || '',
+                    lido: msg.flags?.has('\\Seen') || false,
+                    preview: ''
+                  })
                 }
               }
             } finally {
@@ -211,27 +177,38 @@ export async function POST(req: NextRequest) {
     })
 
     await client.connect()
+
+    if (folder === 'LIST') {
+      try {
+        const mailboxes = await client.list()
+        const pastas = mailboxes.map(box => ({
+          nome: box.name,
+          separador: box.delimiter,
+          caminhoCompleto: box.path,
+          temSubpastas: box.flags?.has('\\HasChildren') || false,
+          selecionavel: !box.flags?.has('\\Noselect')
+        }))
+        await client.logout()
+        return NextResponse.json({ success: true, pastas })
+      } catch (e: any) {
+        await client.logout()
+        return NextResponse.json({ error: e.message }, { status: 500 })
+      }
+    }
+
     const lock = await client.getMailboxLock(folder)
     const emails: any[] = []
 
     try {
       const total = client.mailbox ? client.mailbox.exists || 0 : 0
-      const start = Math.max(1, total - (page * limit) + 1)
-      const end = total - ((page - 1) * limit)
+      const start = Math.max(1, total - limit + 1)
+      const end = total
 
-      for await (const msg of client.fetch(`${start}:${end}`, { 
-        envelope: true, 
-        flags: true, 
-        source: true 
-      })) {
-        // Parse do email com mailparser
-        if (msg.source) {
-          const parsed = await simpleParser.simpleParser(msg.source)
-          const corpoTexto = parsed.text || parsed.html || ''
-          const preview = corpoTexto.length > 150 
-            ? corpoTexto.substring(0, 150) + '...' 
-            : corpoTexto
-
+      if (total > 0 && start <= end) {
+        for await (const msg of client.fetch(`${start}:${end}`, {
+          envelope: true,
+          flags: true
+        })) {
           emails.push({
             id: msg.uid,
             seq: msg.seq,
@@ -240,20 +217,17 @@ export async function POST(req: NextRequest) {
             assunto: msg.envelope?.subject || '(sem assunto)',
             data: msg.envelope?.date?.toISOString() || '',
             lido: msg.flags?.has('\\Seen') || false,
-            corpo: corpoTexto,
-            preview: preview
+            preview: msg.envelope?.subject ? msg.envelope.subject.substring(0, 50) + (msg.envelope.subject.length > 50 ? '...' : '') : ''
           })
         }
       }
     } finally {
       lock.release()
     }
-    await client.logout()
 
-    emails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-    return NextResponse.json({ success: true, emails, total: emails.length })
+    await client.logout()
+    return NextResponse.json({ success: true, emails: emails.reverse(), total: client.mailbox ? client.mailbox.exists || 0 : 0 })
   } catch (error: any) {
-    console.error('Erro ao ler emails:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

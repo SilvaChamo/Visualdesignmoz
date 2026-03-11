@@ -4,8 +4,26 @@ import { ImapFlow } from 'imapflow'
 export async function POST(req: NextRequest) {
   try {
     const { email, password, emailId, folder } = await req.json()
+    
+    // Debug para identificar parâmetros ausentes
+    console.log('Delete API - Parâmetros recebidos:', { 
+      email: email ? '✓' : '✗', 
+      password: password ? '✓' : '✗', 
+      emailId: emailId ? '✓' : '✗', 
+      folder: folder ? '✓' : '✗',
+      valores: { email, password: password ? '[HIDDEN]' : null, emailId, folder }
+    })
+    
     if (!email || !password || !emailId || !folder) {
-      return NextResponse.json({ error: 'Parâmetros obrigatórios faltam' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Parâmetros obrigatórios faltam',
+        detalhes: {
+          email: email || 'falta',
+          password: password || 'falta', 
+          emailId: emailId || 'falta',
+          folder: folder || 'falta'
+        }
+      }, { status: 400 })
     }
 
     const client = new ImapFlow({

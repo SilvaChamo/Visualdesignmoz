@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useI18n } from '@/lib/i18n'
+import { createClient } from '@/utils/supabase/server'
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings,
@@ -818,6 +819,7 @@ export default function AdminPage() {
   const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
+  const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   // Efeito para capturar domínio vindo do botão "Base de Dados"
   useEffect(() => {
@@ -831,6 +833,22 @@ export default function AdminPage() {
       setSelectedDatabaseDomain('');
     }
   }, [activeSection]);
+
+  // Obter sessão do usuário
+  useEffect(() => {
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await createClientInstance.auth.getSession()
+        if (session?.user?.email) {
+          setSessionUser(session.user.email)
+        }
+      } catch (error) {
+        console.error('Erro ao obter sessão:', error)
+      }
+    }
+    getSession()
+  }, [])
+
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
 
@@ -948,7 +966,7 @@ export default function AdminPage() {
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
-        return <EmailWebmailSection />
+        return <EmailWebmailSection emailOrigem={sessionUser} />
       case 'emails-new':
       case 'cp-email-mgmt':
         return <EmailManagementSection sites={filteredSites} />

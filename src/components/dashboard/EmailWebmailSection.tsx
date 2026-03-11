@@ -23,12 +23,14 @@ export function EmailWebmailSection({
   mostrarAdicionarConta: propMostrarAdicionarConta,
   setMostrarAdicionarConta: propSetMostrarAdicionarConta,
   modalAdicionarPasso: propModalAdicionarPasso,
-  setModalAdicionarPasso: propSetModalAdicionarPasso
+  setModalAdicionarPasso: propSetModalAdicionarPasso,
+  emailOrigem: propEmailOrigem
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
   modalAdicionarPasso?: 'escolher' | 'webmail' | 'google' | 'hotmail'
   setModalAdicionarPasso?: (value: 'escolher' | 'webmail' | 'google' | 'hotmail') => void
+  emailOrigem?: string | null
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -321,6 +323,23 @@ export function EmailWebmailSection({
       passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
     }
     
+    // Se ainda não tiver credenciais, usar fallback padrão
+    if (!passwordParaUsar) {
+      emailParaUsar = 'admin@visualdesigne.com'
+      passwordParaUsar = 'Ad.Vd#2425?*'
+    }
+    
+    // Debug para verificar parâmetros antes de enviar
+    console.log('handleDeleteEmail - Parâmetros:', {
+      emailId,
+      emailParaUsar,
+      passwordParaUsar: passwordParaUsar ? '[HIDDEN]' : null,
+      pastaActiva,
+      pastaIMAP: pastaParaIMAP(pastaActiva),
+      todasAsContas,
+      emailsOrigemLength: emailsOrigem.length
+    })
+    
     if (!emailId || !emailParaUsar) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
@@ -402,6 +421,23 @@ export function EmailWebmailSection({
       emailParaUsar = emailsOrigem[0].email
       passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
     }
+    
+    // Se ainda não tiver credenciais, usar fallback padrão
+    if (!passwordParaUsar) {
+      emailParaUsar = 'admin@visualdesigne.com'
+      passwordParaUsar = 'Ad.Vd#2425?*'
+    }
+    
+    // Debug para verificar parâmetros antes de enviar
+    console.log('handleArchiveEmail - Parâmetros:', {
+      emailId,
+      emailParaUsar,
+      passwordParaUsar: passwordParaUsar ? '[HIDDEN]' : null,
+      pastaActiva,
+      pastaIMAP: pastaParaIMAP(pastaActiva),
+      todasAsContas,
+      emailsOrigemLength: emailsOrigem.length
+    })
     
     if (!emailId || !emailParaUsar) {
       alert('Por favor, selecione uma conta específica para realizar ações')
