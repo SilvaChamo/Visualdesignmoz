@@ -20,11 +20,19 @@ export async function POST(req: NextRequest) {
     })
 
     await imapClient.connect()
+    console.log(`IMAP Connected for forward. Folder: ${folder}, emailId: ${emailId}`);
     const lock = await imapClient.getMailboxLock(folder)
     let emailContent = ''
+    console.log(`Mailbox locked. Fetching ${emailId}...`);
 
     try {
-      for await (const msg of imapClient.fetch(emailId, { source: true })) {
+      // Tentar buscar por UID primeiro, se falhar tenta por sequência
+      for await (const msg of imapClient.fetch(emailId.toString(), { source: true }, { uid: true })) {
+        emailContent = msg.source?.toString() || ''
+      }
+    } catch (e) {
+      console.log('Fetch by UID failed, trying by sequence...');
+      for await (const msg of imapClient.fetch(emailId.toString(), { source: true })) {
         emailContent = msg.source?.toString() || ''
       }
     } finally {
@@ -38,14 +46,15 @@ export async function POST(req: NextRequest) {
       host: process.env.SMTP_HOST || '109.199.104.22',
       port: parseInt(process.env.SMTP_PORT || '465'),
       secure: true,
-      auth: { user: email, pass: password }
+      auth: { user: email, pass: password },
+      tls: { rejectUnauthorized: false }
     })
 
     await smtpTransporter.sendMail({
       from: email,
       to: forwardTo,
       subject: `Fwd: ${emailContent.split('Subject:')[1]?.split('\n')[0] || 'Email'}`,
-      text: `---------- Email Reenviado ----------\n\n${emailContent}` 
+      text: `---------- Email Reenviado ----------\n\n${emailContent}`
     })
 
     return NextResponse.json({ success: true, message: 'Email reenviado' })

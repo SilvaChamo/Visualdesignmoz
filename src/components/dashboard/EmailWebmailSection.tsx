@@ -9,7 +9,7 @@ import {
   CornerUpRight as CornerUpRightIcon, Trash as TrashIcon, Download as DownloadIcon,
   Plus as PlusIcon, LayoutGrid, Palette, Type, MousePointer, Box,
   Trash2 as Trash2Icon, RefreshCw as RefreshCwIcon, LogOut as LogOutIcon, X, Upload,
-  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
+  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, AlertCircle, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
 } from 'lucide-react'
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
@@ -120,47 +120,47 @@ export function EmailWebmailSection({
 
   // Carregar emails da pasta activa
   useEffect(() => {
-    if (todasAsContas) {
-      const carregar = async () => {
-        setCarregandoEmails(true)
-        setErroEmail('')
-        try {
-          const res = await fetch('/api/read-emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              allAccounts: true,
-              folder: pastaParaIMAP(pastaActiva) 
-            })
-          })
-          const data = await res.json()
-          if (data.success) setEmails(data.emails)
-          else setErroEmail(data.error)
-        } catch (e: any) { setErroEmail(e.message) }
-        setCarregandoEmails(false)
-      }
-      carregar()
-    } else {
-      const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
-      if (!emailOrigem || !senhaImap) return
-      const carregar = async () => {
-        setCarregandoEmails(true)
-        setErroEmail('')
-        try {
-          const res = await fetch('/api/read-emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: emailOrigem, password: senhaImap, folder: pastaParaIMAP(pastaActiva) })
-          })
-          const data = await res.json()
-          if (data.success) setEmails(data.emails)
-          else setErroEmail(data.error)
-        } catch (e: any) { setErroEmail(e.message) }
-        setCarregandoEmails(false)
-      }
-      carregar()
+    // Se "Todas as Contas" estiver ativo, carregamos todas as pastas principais para dar a visão unificada
+    const payloadFolders = todasAsContas
+      ? ['INBOX', 'INBOX.Sent', 'INBOX.Drafts', 'INBOX.Archive', 'INBOX.Deleted Items', 'INBOX.Junk E-mail']
+      : [pastaParaIMAP(pastaActiva)]
+
+    const carregar = async () => {
+      setCarregandoEmails(true)
+      setErroEmail('')
+      try {
+        const body: any = {
+          folders: payloadFolders,
+          page: 1,
+          limit: todasAsContas ? 10 : 20
+        }
+
+        if (todasAsContas) {
+          body.allAccounts = true
+          body.emails = emailsOrigem.map(e => e.email)
+        } else {
+          const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
+          if (!emailOrigem || !senhaImap) {
+            setCarregandoEmails(false)
+            return
+          }
+          body.email = emailOrigem
+          body.password = senhaImap
+        }
+
+        const res = await fetch('/api/read-emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        const data = await res.json()
+        if (data.success) setEmails(data.emails)
+        else setErroEmail(data.error)
+      } catch (e: any) { setErroEmail(e.message) }
+      setCarregandoEmails(false)
     }
-  }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas])
+    carregar()
+  }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas, emailsOrigem])
 
   const pastaParaIMAP = (pasta: string) => {
     const mapa: Record<string, string> = {
@@ -313,22 +313,22 @@ export function EmailWebmailSection({
   // ✅ DELETAR EMAIL
   const handleDeleteEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
-    
+
     // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
     let emailParaUsar = emailOrigem
     let passwordParaUsar = emailOrigemPassword
-    
+
     if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
       emailParaUsar = emailsOrigem[0].email
       passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
     }
-    
+
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
       emailParaUsar = 'admin@visualdesigne.com'
       passwordParaUsar = 'Ad.Vd#2425?*'
     }
-    
+
     // Debug para verificar parâmetros antes de enviar
     console.log('handleDeleteEmail - Parâmetros:', {
       emailId,
@@ -339,12 +339,12 @@ export function EmailWebmailSection({
       todasAsContas,
       emailsOrigemLength: emailsOrigem.length
     })
-    
+
     if (!emailId || !emailParaUsar) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
     }
-    
+
     try {
       const res = await fetch('/api/delete-email', {
         method: 'POST',
@@ -359,7 +359,7 @@ export function EmailWebmailSection({
       const data = await res.json()
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
-        
+
         // Recarregar lista com as mesmas credenciais
         const recarregar = await fetch('/api/read-emails', {
           method: 'POST',
@@ -412,22 +412,22 @@ export function EmailWebmailSection({
   // ✅ ARQUIVAR EMAIL
   const handleArchiveEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
-    
+
     // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
     let emailParaUsar = emailOrigem
     let passwordParaUsar = emailOrigemPassword
-    
+
     if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
       emailParaUsar = emailsOrigem[0].email
       passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
     }
-    
+
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
       emailParaUsar = 'admin@visualdesigne.com'
       passwordParaUsar = 'Ad.Vd#2425?*'
     }
-    
+
     // Debug para verificar parâmetros antes de enviar
     console.log('handleArchiveEmail - Parâmetros:', {
       emailId,
@@ -438,12 +438,12 @@ export function EmailWebmailSection({
       todasAsContas,
       emailsOrigemLength: emailsOrigem.length
     })
-    
+
     if (!emailId || !emailParaUsar) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
     }
-    
+
     try {
       const res = await fetch('/api/archive-email', {
         method: 'POST',
@@ -458,7 +458,7 @@ export function EmailWebmailSection({
       const data = await res.json()
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
-        
+
         // Recarregar lista com as mesmas credenciais
         const recarregar = await fetch('/api/read-emails', {
           method: 'POST',
@@ -482,31 +482,51 @@ export function EmailWebmailSection({
   // ✅ SPAM EMAIL
   const handleSpamEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
-    if (!emailId || !emailOrigem) return
+
+    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
+    let emailParaUsar = emailOrigem
+    let passwordParaUsar = emailOrigemPassword
+
+    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
+      emailParaUsar = emailsOrigem[0].email
+      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+    }
+
+    // Se ainda não tiver credenciais, usar fallback padrão
+    if (!passwordParaUsar) {
+      emailParaUsar = 'admin@visualdesigne.com'
+      passwordParaUsar = 'Ad.Vd#2425?*'
+    }
+
+    if (!emailId || !emailParaUsar) {
+      alert('Por favor, selecione uma conta específica para realizar ações')
+      return
+    }
+
     try {
       const res = await fetch('/api/archive-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: emailOrigem,
-          password: emailOrigemPassword || 'Ad.Vd#2425?*',
+          email: emailParaUsar,
+          password: passwordParaUsar,
           emailId: emailId,
-          fromFolder: pastaActiva,
+          fromFolder: pastaParaIMAP(pastaActiva),
           toFolder: 'Spam'
         })
       })
       const data = await res.json()
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
-        
+
         // Recarregar lista
         const recarregar = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: emailOrigem,
-            password: emailOrigemPassword || 'Ad.Vd#2425?*',
-            folder: pastaActiva
+            email: emailParaUsar,
+            password: passwordParaUsar,
+            folder: pastaParaIMAP(pastaActiva)
           })
         })
         const recarregados = await recarregar.json()
@@ -654,7 +674,7 @@ export function EmailWebmailSection({
         </a>
         <div className="w-px h-5 bg-gray-700 mx-1" />
         {pastas.map(p => (
-          <button key={p} onClick={() => setPastaActiva(p)}
+          <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-500 bg-transparent' : 'text-gray-400 hover:text-red-500 bg-transparent'}`}>
             {p}
           </button>
@@ -693,17 +713,17 @@ export function EmailWebmailSection({
                 onClick={() => {
                   setTodasAsContas(true)
                   setEmailOrigem('')
+                  setModalEmail(null)
                 }}
                 className="flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors"
               >
-                <span className={`text-sm truncate w-full block ${
-                  todasAsContas ? 'text-red-600 font-bold' : 'text-gray-700 font-medium'
-                }`}>
+                <span className={`text-sm truncate w-full block ${todasAsContas ? 'text-red-600 font-bold' : 'text-gray-700 font-medium'
+                  }`}>
                   Todas as Contas
                 </span>
               </button>
             </div>
-            
+
             {expandedMap['todas-contas'] && (
               <div className="pl-5">
                 {pastasIcones.map(p => (
@@ -713,10 +733,10 @@ export function EmailWebmailSection({
                       setTodasAsContas(true)
                       setEmailOrigem('')
                       setPastaActiva(p.nome)
+                      setModalEmail(null)
                     }}
-                    className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${
-                      pastaActiva === p.nome && todasAsContas ? 'text-red-600 font-semibold' : 'text-gray-500'
-                    }`}
+                    className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && todasAsContas ? 'text-red-600 font-semibold' : 'text-gray-500'
+                      }`}
                   >
                     <span className="shrink-0">{p.icon}</span>
                     <span>{p.nome}</span>
@@ -735,7 +755,7 @@ export function EmailWebmailSection({
                     className="px-3 py-2.5 hover:bg-white transition-colors">
                     <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                   </button>
-                  <button onClick={() => { setTodasAsContas(false); setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
+                  <button onClick={() => { setTodasAsContas(false); setEmailOrigem(c.email); setModalEmail(null); if (c.password) setEmailOrigemPassword(c.password) }}
                     className={`flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors`}>
                     <span className={`text-sm truncate w-full block ${isSelected ? "text-red-600 font-bold" : "text-gray-700 font-medium"}`}>{c.email}</span>
                   </button>
@@ -743,7 +763,7 @@ export function EmailWebmailSection({
                 {isExpanded && (
                   <div className="pl-5">
                     {pastasIcones.map(p => (
-                      <button key={p.nome} onClick={() => { setPastaActiva(p.nome); setTodasAsContas(false); setEmailOrigem(c.email); if (c.password) setEmailOrigemPassword(c.password) }}
+                      <button key={p.nome} onClick={() => { setPastaActiva(p.nome); setTodasAsContas(false); setEmailOrigem(c.email); setModalEmail(null); if (c.password) setEmailOrigemPassword(c.password) }}
                         className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && emailOrigem === c.email ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
                         <span className="shrink-0">{p.icon}</span>
                         <span>{p.nome}</span>
@@ -768,6 +788,24 @@ export function EmailWebmailSection({
             {modalEmail && (
               <button onClick={handleForwardEmail} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-900 px-3 py-1.5 rounded border border-blue-300 hover:bg-blue-50 transition-colors">↪️ Fwd</button>
             )}
+            {modalEmail && (
+              <button
+                onClick={() => handleArchiveEmail(modalEmail.id)}
+                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-900 px-3 py-1.5 rounded border border-orange-300 hover:bg-orange-50 transition-colors"
+                title="Arquivar"
+              >
+                📁 Arquivar
+              </button>
+            )}
+            {modalEmail && (
+              <button
+                onClick={() => handleDeleteEmail(modalEmail.id)}
+                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-900 px-3 py-1.5 rounded border border-red-300 hover:bg-red-50 transition-colors"
+                title="Eliminar"
+              >
+                🗑️ Eliminar
+              </button>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto">
             {!modalEmail ? (
@@ -778,136 +816,184 @@ export function EmailWebmailSection({
                     <p className="text-sm font-medium">A caixa está vazia</p>
                   </div>
                 ) : (
-                <>
-                  {/* Header com "Select All" e busca */}
-                  {emails.length > 0 && (
-                    <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0">
-                      <input
-                        type="checkbox"
-                        checked={emailsSelecionados.length === emails.length && emails.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEmailsSelecionados(emails.map(e => e.id))
-                          } else {
-                            setEmailsSelecionados([])
-                          }
-                        }}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-xs text-gray-600 font-semibold">Seleccionar tudo</span>
-                      {emailsSelecionados.length > 0 && (
-                        <>
-                          <button
-                            onClick={async () => {
-                              for (const id of emailsSelecionados) {
-                                await handleDeleteEmail(id)
-                              }
-                              setEmailsSelecionados([])
-                            }}
-                            className="text-xs px-2 py-1 rounded border border-red-600 text-red-600 font-bold hover:bg-red-50 cursor-pointer"
-                          >
-                            🗑️ Eliminar
-                          </button>
-                          <button
-                            onClick={async () => {
-                              for (const id of emailsSelecionados) {
-                                await handleArchiveEmail(id)
-                              }
-                              setEmailsSelecionados([])
-                            }}
-                            className="text-xs px-2 py-1 rounded border border-orange-600 text-orange-600 font-bold hover:bg-orange-50 cursor-pointer"
-                          >
-                            📁 Arquivar
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (emailsSelecionados.length === 1) {
-                                const email = emails.find(e => e.id === emailsSelecionados[0])
-                                if (email) {
-                                  setModalEmail(email)
-                                  setModoResposta('forward')
-                                  setEmailsSelecionados([])
-                                }
-                              }
-                            }}
-                            className="text-xs px-2 py-1 rounded border border-blue-600 text-blue-600 font-bold hover:bg-blue-50 cursor-pointer"
-                          >
-                            ↪️ Reencaminhar
-                          </button>
-                        </>
-                      )}
-                      <input 
-                        type="search" 
-                        autoComplete="off" 
-                        placeholder="🔍 Pesquisar emails..." 
-                        className="ml-auto flex-1 px-3 py-1 border border-gray-300 rounded text-xs outline-none bg-white text-gray-700 placeholder-gray-400 max-w-xs" 
-                      />
-                    </div>
-                  )}
-                  {/* Lista de emails */}
-                  {emails.map((e, i) => (
-                    <div 
-                      key={i}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition flex items-start gap-3 px-3 py-3 group"
-                    >
-                      <div className="flex items-start gap-3 flex-1">
-                        {/* Checkbox */}
+                  <>
+                    {/* Header com "Select All" e busca */}
+                    {emails.length > 0 && (
+                      <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0">
                         <input
                           type="checkbox"
-                          checked={emailsSelecionados.includes(e.id)}
-                          onChange={(ev) => {
-                            ev.stopPropagation()
-                            if (ev.target.checked) {
-                              setEmailsSelecionados([...emailsSelecionados, e.id])
+                          checked={emailsSelecionados.length === emails.length && emails.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEmailsSelecionados(emails.map(e => e.id))
                             } else {
-                              setEmailsSelecionados(emailsSelecionados.filter((id: any) => id !== e.id))
+                              setEmailsSelecionados([])
                             }
                           }}
-                          className="w-4 h-4 cursor-pointer mt-0.5"
+                          className="w-4 h-4 cursor-pointer"
                         />
-                        {/* Informação do email - clicável apenas se não selecionado */}
-                        <div 
-                          className="flex-1 min-w-0 cursor-pointer"
-                          onClick={() => {
-                            if (!emailsSelecionados.includes(e.id)) {
-                              setModalEmail(e)
-                            }
-                          }}
-                        >
-                          <p className="font-semibold text-xs text-gray-900 truncate">{e.de}</p>
-                          <p className="text-xs text-gray-500 truncate">{e.assunto}</p>
-                          <p className="text-xs text-gray-400 truncate">{e.data}</p>
+                        <span className="text-xs text-gray-600 font-semibold">Seleccionar tudo</span>
+                        {emailsSelecionados.length > 0 && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                for (const id of emailsSelecionados) {
+                                  await handleDeleteEmail(id)
+                                }
+                                setEmailsSelecionados([])
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-red-600 text-red-600 font-bold hover:bg-red-50 cursor-pointer"
+                            >
+                              🗑️ Eliminar
+                            </button>
+                            <button
+                              onClick={async () => {
+                                for (const id of emailsSelecionados) {
+                                  await handleArchiveEmail(id)
+                                }
+                                setEmailsSelecionados([])
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-orange-600 text-orange-600 font-bold hover:bg-orange-50 cursor-pointer"
+                            >
+                              📁 Arquivar
+                            </button>
+                            <button
+                              onClick={async () => {
+                                for (const id of emailsSelecionados) {
+                                  await handleSpamEmail(id)
+                                }
+                                setEmailsSelecionados([])
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-orange-600 text-orange-600 font-bold hover:bg-orange-50 cursor-pointer"
+                            >
+                              🚫 Spam
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (emailsSelecionados.length === 1) {
+                                  const email = emails.find(e => e.id === emailsSelecionados[0])
+                                  if (email) {
+                                    setModalEmail(email)
+                                    setModoResposta('forward')
+                                    setEmailsSelecionados([])
+                                  }
+                                }
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-blue-600 text-blue-600 font-bold hover:bg-blue-50 cursor-pointer"
+                            >
+                              ↪️ Reencaminhar
+                            </button>
+                          </>
+                        )}
+                        <input
+                          type="search"
+                          autoComplete="off"
+                          placeholder="🔍 Pesquisar emails..."
+                          className="ml-auto flex-1 px-3 py-1 border border-gray-300 rounded text-xs outline-none bg-white text-gray-700 placeholder-gray-400 max-w-xs"
+                        />
+                      </div>
+                    )}
+                    {/* Skeleton Loader */}
+                    {carregandoEmails && emails.length === 0 && (
+                      <div className="flex-1 p-4 space-y-4">
+                        {[1, 2, 3, 4, 5, 6].map(n => (
+                          <div key={n} className="flex items-center gap-3 animate-pulse">
+                            <div className="w-4 h-4 bg-gray-200 rounded" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3 bg-gray-200 rounded w-1/4" />
+                              <div className="h-3 bg-gray-100 rounded w-3/4" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!carregandoEmails && emails.length === 0 && (
+                      <div className="flex-1 flex flex-col items-center justify-center p-10 text-gray-400">
+                        <Package className="w-12 h-12 mb-2 opacity-20" />
+                        <p className="text-sm">Nenhum email encontrado nesta pasta.</p>
+                      </div>
+                    )}
+
+                    {/* Lista de emails */}
+                    {emails.map((e, i) => (
+                      <div
+                        key={i}
+                        className={`border-b border-gray-100 hover:bg-gray-50 transition flex items-start gap-3 px-3 py-3 group cursor-pointer ${!e.lido ? 'bg-blue-50/30' : ''}`}
+                        onClick={() => {
+                          if (!emailsSelecionados.includes(e.id)) {
+                            setModalEmail(e)
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3 flex-1">
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={emailsSelecionados.includes(e.id)}
+                            onClick={(ev) => ev.stopPropagation()}
+                            onChange={(ev) => {
+                              ev.stopPropagation()
+                              if (ev.target.checked) {
+                                setEmailsSelecionados([...emailsSelecionados, e.id])
+                              } else {
+                                setEmailsSelecionados(emailsSelecionados.filter((id: any) => id !== e.id))
+                              }
+                            }}
+                            className="w-4 h-4 cursor-pointer mt-0.5"
+                          />
+                          {/* Informação do email */}
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={`text-xs truncate ${!e.lido ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
+                                  {e.tipo === 'enviado' ? `Para: ${e.para || e.de}` : (e.deNome || e.de)}
+                                </p>
+                                <p className="text-[10px] text-gray-400 shrink-0">
+                                  {e.data ? new Date(e.data).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : ''}
+                                </p>
+                              </div>
+                              <p className={`text-xs truncate ${!e.lido ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                                {e.assunto}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ações ao passar mouse */}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                          <button
+                            onClick={(ev) => { ev.stopPropagation(); handleArchiveEmail(e.id); }}
+                            className="p-1.5 rounded-md hover:bg-orange-100 text-orange-600 transition-colors"
+                            title="Arquivar"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(ev) => { ev.stopPropagation(); handleSpamEmail(e.id); }}
+                            className="p-1.5 rounded-md hover:bg-yellow-100 text-yellow-600 transition-colors"
+                            title="Spam"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(ev) => { ev.stopPropagation(); handleDeleteEmail(e.id); }}
+                            className="p-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-
-                      {/* Status */}
-                      {e.lido && <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">Lido</span>}
-
-                      {/* Ações ao passar mouse */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                        <button 
-                          onClick={() => handleArchiveEmail(e.id)}
-                          className="text-xs px-2 py-1 rounded bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-bold border border-yellow-300"
-                        >
-                          📁
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteEmail(e.id)}
-                          className="text-xs px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 font-bold border border-red-300"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
+                    ))}
+                  </>
+                )}
               </>
             ) : (
               <div className="p-6 space-y-4">
                 <div className="space-y-3">
                   <h2 className="text-xl font-bold text-gray-900">{modalEmail.assunto}</h2>
-                  
+
                   <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
                       {modalEmail.de?.[0]?.toUpperCase()}
@@ -981,6 +1067,12 @@ export function EmailWebmailSection({
                       </button>
                       <button onClick={handleDraftSave} className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded text-sm font-bold">💾 Salvar Rascunho</button>
                       <button onClick={handleDraftLoad} className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded text-sm font-bold">📂 Carregar Rascunhos</button>
+                      <button
+                        onClick={() => handleSpamEmail(modalEmail?.id)}
+                        className="bg-orange-100 hover:bg-orange-200 text-orange-600 px-3 py-2 rounded text-xs font-bold"
+                      >
+                        🚫 Spam
+                      </button>
                     </div>
                   </div>
                 )}
@@ -989,7 +1081,7 @@ export function EmailWebmailSection({
           </div>
         </div>
 
-        
+
       </div>
       {/* POPUP ESCREVER — FULLSCREEN */}
       {
