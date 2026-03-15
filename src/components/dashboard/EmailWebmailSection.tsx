@@ -36,6 +36,8 @@ export function EmailWebmailSection({
   const [emails, setEmails] = useState<any[]>([])
   const [emailsSelecionados, setEmailsSelecionados] = useState<any[]>([])
   const [modalEmail, setModalEmail] = useState<any>(null)
+  const [pesquisa, setPesquisa] = useState('')
+  const [searchTerm, setSearchTerm] = useState('') // Termo real enviado à API
   const [rascunhos, setRascunhos] = useState([])
   const [rascunhoAtual, setRascunhoAtual] = useState(null)
   const [modoResposta, setModoResposta] = useState<'none' | 'reply' | 'forward'>('none')
@@ -87,6 +89,33 @@ export function EmailWebmailSection({
     { nome: 'Spam', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg> },
   ]
 
+  // Buscar detalhes do email quando abrir o modal
+  useEffect(() => {
+    if (modalEmail && !modalEmail.corpo) {
+      const carregarCorpo = async () => {
+        try {
+          const res = await fetch('/api/read-email-detail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: emailOrigem || (todasAsContas ? modalEmail.conta : ''),
+              password: emailOrigemPassword || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : ''),
+              emailId: modalEmail.id,
+              folder: pastaParaIMAP(pastaActiva)
+            })
+          })
+          const data = await res.json()
+          if (data.success) {
+            setModalEmail((prev: any) => ({ ...prev, corpo: data.corpo, anexos: data.anexos }))
+          }
+        } catch (e) {
+          console.error('Erro ao carregar corpo:', e)
+        }
+      }
+      carregarCorpo()
+    }
+  }, [modalEmail])
+
   // Carregar contas reais do CyberPanel
   useEffect(() => {
     const carregarContas = async () => {
@@ -118,12 +147,18 @@ export function EmailWebmailSection({
     carregarContas()
   }, [])
 
+  // Debounce para a pesquisa
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(pesquisa)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [pesquisa])
+
   // Carregar emails da pasta activa
   useEffect(() => {
-    // Se "Todas as Contas" estiver ativo, carregamos todas as pastas principais para dar a visão unificada
-    const payloadFolders = todasAsContas
-      ? ['INBOX', 'INBOX.Sent', 'INBOX.Drafts', 'INBOX.Archive', 'INBOX.Deleted Items', 'INBOX.Junk E-mail']
-      : [pastaParaIMAP(pastaActiva)]
+    // Se "Todas as Contas" estiver ativo, carregamos apenas a pasta equivalente nas contas todas
+    const payloadFolders = [pastaParaIMAP(pastaActiva)]
 
     const carregar = async () => {
       setCarregandoEmails(true)
@@ -132,7 +167,8 @@ export function EmailWebmailSection({
         const body: any = {
           folders: payloadFolders,
           page: 1,
-          limit: todasAsContas ? 10 : 20
+          limit: todasAsContas ? 10 : 20,
+          search: searchTerm // Adiciona o termo de pesquisa
         }
 
         if (todasAsContas) {
@@ -160,18 +196,19 @@ export function EmailWebmailSection({
       setCarregandoEmails(false)
     }
     carregar()
-  }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas, emailsOrigem])
+  }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas, emailsOrigem, searchTerm])
 
   const pastaParaIMAP = (pasta: string) => {
+    if (pasta === 'Caixa de Entrada') return 'INBOX'
     const mapa: Record<string, string> = {
-      'Caixa de Entrada': 'INBOX',
       'Enviados': 'Sent',
       'Rascunhos': 'Drafts',
       'Arquivo': 'Archive',
-      'Lixo': 'Trash',
-      'Spam': 'Junk'
+      'Lixo': 'Deleted Items',
+      'Spam': 'Junk E-mail'
     }
-    return mapa[pasta] || 'INBOX'
+    const target = mapa[pasta] || pasta
+    return `INBOX.${target}`
   }
 
   const [mostrarCc, setMostrarCc] = useState(false)
@@ -360,18 +397,8 @@ export function EmailWebmailSection({
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
 
-        // Recarregar lista com as mesmas credenciais
-        const recarregar = await fetch('/api/read-emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: emailParaUsar,
-            password: passwordParaUsar,
-            folder: pastaParaIMAP(pastaActiva)
-          })
-        })
-        const recarregados = await recarregar.json()
-        if (recarregados.success) setEmails(recarregados.emails)
+        // Optimistic update: remove apenas o email apagado da lista local
+        setEmails(prev => prev.filter(e => e.id !== emailId))
       } else {
         alert('Erro ao deletar: ' + data.error)
       }
@@ -459,18 +486,8 @@ export function EmailWebmailSection({
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
 
-        // Recarregar lista com as mesmas credenciais
-        const recarregar = await fetch('/api/read-emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: emailParaUsar,
-            password: passwordParaUsar,
-            folder: pastaParaIMAP(pastaActiva)
-          })
-        })
-        const recarregados = await recarregar.json()
-        if (recarregados.success) setEmails(recarregados.emails)
+        // Optimistic update: remove apenas o email arquivado da lista local
+        setEmails(prev => prev.filter(e => e.id !== emailId))
       } else {
         alert('Erro ao arquivar: ' + data.error)
       }
@@ -519,18 +536,8 @@ export function EmailWebmailSection({
       if (data.success) {
         if (!emailIdParam) setModalEmail(null)
 
-        // Recarregar lista
-        const recarregar = await fetch('/api/read-emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: emailParaUsar,
-            password: passwordParaUsar,
-            folder: pastaParaIMAP(pastaActiva)
-          })
-        })
-        const recarregados = await recarregar.json()
-        if (recarregados.success) setEmails(recarregados.emails)
+        // Optimistic update: remove apenas o email marcado como spam da lista local
+        setEmails(prev => prev.filter(e => e.id !== emailId))
       } else {
         alert('Erro ao mover para Spam: ' + data.error)
       }
@@ -541,21 +548,20 @@ export function EmailWebmailSection({
 
   // ✅ SALVAR RASCUNHO
   const handleDraftSave = async () => {
-    if (!compose.assunto || !compose.corpo) {
-      alert('Preencha assunto e mensagem')
-      return
-    }
+    const htmlCorpo = editorRef.current?.innerHTML || compose.corpo || ''
+    
+    // Rascunho permite salvar vazio
     try {
       const res = await fetch('/api/draft-save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: emailOrigem || 'admin@visualdesigne.com',
-          para: compose.para,
-          cc: compose.cc,
-          bcc: compose.bcc,
-          assunto: compose.assunto,
-          corpo: compose.corpo
+          para: compose.para || '',
+          cc: compose.cc || '',
+          bcc: compose.bcc || '',
+          assunto: compose.assunto || '(Sem Assunto)',
+          corpo: htmlCorpo || '(Vazio)'
         })
       })
       const data = await res.json()
@@ -622,9 +628,17 @@ export function EmailWebmailSection({
       const htmlCorpo = editorRef.current?.innerHTML || ''
       const htmlFinal = assinatura ? `${htmlCorpo}<br/><br/>--<br/>${assinatura.replace(/\n/g, '<br/>')}` : htmlCorpo
 
+      // TAREFA 2: Idempotency key — garante que retries não geram duplicados
+      const idempotencyKey = crypto.randomUUID()
+
+      // TAREFA 4: AbortController — timeout de 30s para evitar hang infinito
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           from: emailOrigem,
           fromPassword: emailOrigemPassword,
@@ -632,14 +646,21 @@ export function EmailWebmailSection({
           cc: compose.cc,
           bcc: compose.bcc,
           subject: compose.assunto,
-          html: htmlFinal
+          html: htmlFinal,
+          idempotencyKey
         })
       })
+      clearTimeout(timeoutId)
+
       const data = await res.json()
       if (data.success) setEnviado(true)
       else alert('Erro ao enviar: ' + data.error)
     } catch (e: any) {
-      alert('Erro: ' + e.message)
+      if (e.name === 'AbortError') {
+        alert('O envio demorou demasiado. Verifique a pasta Enviados antes de tentar novamente.')
+      } else {
+        alert('Erro: ' + e.message)
+      }
     }
     setEnviando(false)
   }
@@ -668,7 +689,7 @@ export function EmailWebmailSection({
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           ✏️ Escrever
         </button>
-        <a href="https://109.199.104.22:8090/snappymail/" target="_blank"
+        <a href="https://mail.visualdesigne.com:8090/snappymail/" target="_blank"
           className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           🌐 Webmail
         </a>
@@ -889,6 +910,8 @@ export function EmailWebmailSection({
                           type="search"
                           autoComplete="off"
                           placeholder="🔍 Pesquisar emails..."
+                          value={pesquisa}
+                          onChange={(e) => setPesquisa(e.target.value)}
                           className="ml-auto flex-1 px-3 py-1 border border-gray-300 rounded text-xs outline-none bg-white text-gray-700 placeholder-gray-400 max-w-xs"
                         />
                       </div>
@@ -969,13 +992,7 @@ export function EmailWebmailSection({
                           >
                             <Archive className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={(ev) => { ev.stopPropagation(); handleSpamEmail(e.id); }}
-                            className="p-1.5 rounded-md hover:bg-yellow-100 text-yellow-600 transition-colors"
-                            title="Spam"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5" />
-                          </button>
+
                           <button
                             onClick={(ev) => { ev.stopPropagation(); handleDeleteEmail(e.id); }}
                             className="p-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors"
@@ -1012,7 +1029,7 @@ export function EmailWebmailSection({
                 </div>
 
                 <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-base">
-                  {modalEmail.corpo || '(sem conteúdo)'}
+                  {modalEmail.corpo || (carregandoEmails ? '⌛ Carregando conteúdo...' : '(sem conteúdo)')}
                 </div>
 
                 {modoResposta !== 'none' && (
@@ -1067,12 +1084,7 @@ export function EmailWebmailSection({
                       </button>
                       <button onClick={handleDraftSave} className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded text-sm font-bold">💾 Salvar Rascunho</button>
                       <button onClick={handleDraftLoad} className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded text-sm font-bold">📂 Carregar Rascunhos</button>
-                      <button
-                        onClick={() => handleSpamEmail(modalEmail?.id)}
-                        className="bg-orange-100 hover:bg-orange-200 text-orange-600 px-3 py-2 rounded text-xs font-bold"
-                      >
-                        🚫 Spam
-                      </button>
+
                     </div>
                   </div>
                 )}

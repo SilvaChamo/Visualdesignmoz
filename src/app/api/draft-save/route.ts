@@ -9,8 +9,8 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const { email, para, cc, bcc, assunto, corpo } = await req.json()
-    if (!email || !para || !assunto || !corpo) {
-      return NextResponse.json({ error: 'Campos obrigatórios faltam' }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ error: 'Email de envio obrigatório para Rascunho' }, { status: 400 })
     }
 
     const { data, error } = await supabase

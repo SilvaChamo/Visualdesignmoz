@@ -50,10 +50,14 @@ export async function POST(req: NextRequest) {
       tls: { rejectUnauthorized: false }
     })
 
+    // Extrair assunto de forma mais robusta
+    const subjectMatch = emailContent.match(/^Subject:\s*(.*)$/im)
+    const originalSubject = subjectMatch ? subjectMatch[1].trim() : 'Email'
+
     await smtpTransporter.sendMail({
       from: email,
       to: forwardTo,
-      subject: `Fwd: ${emailContent.split('Subject:')[1]?.split('\n')[0] || 'Email'}`,
+      subject: `Fwd: ${originalSubject}`,
       text: `---------- Email Reenviado ----------\n\n${emailContent}`
     })
 

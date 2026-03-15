@@ -5,19 +5,30 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
-const determinarTipo = (folder: string) => {
-  const f = folder.toLowerCase()
-  if (f.includes('sent')) return 'enviado'
-  if (f.includes('draft')) return 'rascunho'
-  if (f.includes('junk') || f.includes('spam')) return 'spam'
-  if (f.includes('trash') || f.includes('deleted')) return 'deletado'
-  if (f.includes('archive')) return 'arquivo'
+const determinarTipo = (path: string) => {
+  const p = path.toLowerCase()
+  if (p.includes('sent') || p.includes('enviado')) return 'enviado'
+  if (p.includes('draft') || p.includes('rascunho')) return 'rascunho'
+  if (p.includes('trash') || p.includes('deleted') || p.includes('lixo')) return 'lixo'
+  if (p.includes('junk') || p.includes('spam')) return 'spam'
+  if (p.includes('archive') || p.includes('arquivo')) return 'arquivo'
   return 'recebido'
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, emails: multiEmails, passwords: multiPasswords, allAccounts = false, folder: singleFolder, folders: multiFolders, page = 1, limit = 20 } = await req.json()
+    const { 
+      email, 
+      password, 
+      emails: multiEmails, 
+      passwords: multiPasswords, 
+      allAccounts = false, 
+      folder: singleFolder, 
+      folders: multiFolders, 
+      page = 1, 
+      limit = 20,
+      search = '' // Novo parâmetro de busca
+    } = await req.json()
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -51,8 +62,36 @@ export async function POST(req: NextRequest) {
               const emailsTemp: any[] = []
 
               try {
+                let uids: number[] = []
+                if (search) {
+                  const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
+                  uids = Array.isArray(searchResult) ? searchResult : []
+                  uids.reverse()
+                }
+
                 const total = client.mailbox ? client.mailbox.exists || 0 : 0
-                if (total > 0) {
+                
+                if (search) {
+                  const pagedUids = uids.slice(0, 10) // Limite menor para busca unificada
+                  if (pagedUids.length > 0) {
+                    for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
+                      emailsTemp.push({
+                        id: msg.uid,
+                        seq: msg.seq,
+                        tipo: determinarTipo(folderPath),
+                        conta: conta.email,
+                        messageId: msg.envelope?.messageId || '',
+                        de: msg.envelope?.from?.[0]?.address || '',
+                        deNome: msg.envelope?.from?.[0]?.name || '',
+                        para: msg.envelope?.to?.[0]?.address || '',
+                        assunto: msg.envelope?.subject || '(sem assunto)',
+                        data: msg.envelope?.date?.toISOString() || '',
+                        lido: msg.flags?.has('\\Seen') || false,
+                        preview: ''
+                      })
+                    }
+                  }
+                } else if (total > 0) {
                   // Fetch headers only for high performance
                   const itemsToFetch = multiFolders ? 10 : limit
                   const start = Math.max(1, total - itemsToFetch + 1)
@@ -62,6 +101,7 @@ export async function POST(req: NextRequest) {
                       seq: msg.seq,
                       tipo: determinarTipo(folderPath),
                       conta: conta.email,
+                      messageId: msg.envelope?.messageId || '',
                       de: msg.envelope?.from?.[0]?.address || '',
                       deNome: msg.envelope?.from?.[0]?.name || '',
                       para: msg.envelope?.to?.[0]?.address || '',
@@ -85,8 +125,23 @@ export async function POST(req: NextRequest) {
 
         const results = await Promise.all(promises)
         results.forEach(emails => todosEmails.push(...emails))
-        todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-        return NextResponse.json({ success: true, emails: todosEmails.slice(0, limit * 2), total: todosEmails.length })
+
+        // Deduplicação Inteligente
+        const finalEmails: any[] = []
+        const seenKeys = new Set()
+        todosEmails.forEach(e => {
+          const idKey = e.messageId ? `msgid-${e.messageId}` : null
+          const dateMinute = e.data ? e.data.substring(0, 16) : ''
+          const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+          if ((idKey && !seenKeys.has(idKey)) || (!idKey && !seenKeys.has(fuzzyKey))) {
+            if (idKey) seenKeys.add(idKey)
+            seenKeys.add(fuzzyKey)
+            finalEmails.push(e)
+          }
+        })
+
+        finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        return NextResponse.json({ success: true, emails: finalEmails.slice(0, limit * 2), total: finalEmails.length })
       }
     }
 
@@ -96,7 +151,7 @@ export async function POST(req: NextRequest) {
         pastasParaProcessar.map(async (fPath) => {
           try {
             const client = new ImapFlow({
-              host: 'za4.mozserver.com',
+              host: process.env.IMAP_HOST || '109.199.104.22',
               port: 993,
               secure: true,
               auth: { user: mEmail, pass: multiPasswords?.[idx] || 'Ad.Vd#2425?*' },
@@ -107,8 +162,35 @@ export async function POST(req: NextRequest) {
             const lock = await client.getMailboxLock(fPath)
             const emailsTemp: any[] = []
             try {
+              let uids: number[] = []
+              if (search) {
+                const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
+                uids = Array.isArray(searchResult) ? searchResult : []
+                uids.reverse()
+              }
+
               const total = client.mailbox ? client.mailbox.exists || 0 : 0
-              if (total > 0) {
+              if (search) {
+                const pagedUids = uids.slice(0, 10)
+                if (pagedUids.length > 0) {
+                  for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
+                    emailsTemp.push({
+                      id: msg.uid,
+                      seq: msg.seq,
+                      tipo: determinarTipo(fPath),
+                      conta: mEmail,
+                      messageId: msg.envelope?.messageId || '',
+                      de: msg.envelope?.from?.[0]?.address || '',
+                      deNome: msg.envelope?.from?.[0]?.name || '',
+                      para: msg.envelope?.to?.[0]?.address || '',
+                      assunto: msg.envelope?.subject || '(sem assunto)',
+                      data: msg.envelope?.date?.toISOString() || '',
+                      lido: msg.flags?.has('\\Seen') || false,
+                      preview: ''
+                    })
+                  }
+                }
+              } else if (total > 0) {
                 const itemsToFetch = multiFolders ? 10 : limit
                 const start = Math.max(1, total - itemsToFetch + 1)
                 for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
@@ -117,6 +199,7 @@ export async function POST(req: NextRequest) {
                     seq: msg.seq,
                     tipo: determinarTipo(fPath),
                     conta: mEmail,
+                    messageId: msg.envelope?.messageId || '',
                     de: msg.envelope?.from?.[0]?.address || '',
                     deNome: msg.envelope?.from?.[0]?.name || '',
                     para: msg.envelope?.to?.[0]?.address || '',
@@ -139,8 +222,28 @@ export async function POST(req: NextRequest) {
       )
       const results = await Promise.all(promises)
       results.forEach(emails => todosEmails.push(...emails))
-      todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-      return NextResponse.json({ success: true, emails: todosEmails.slice(0, limit * 2), total: todosEmails.length })
+
+      // Deduplicação Inteligente (Message-ID ou Assunto + Data truncada ao minuto)
+      const uniqueEmails: any[] = []
+      const seenKeys = new Set()
+      
+      todosEmails.forEach(e => {
+        // Chave 1: Message-ID (se existir)
+        const idKey = e.messageId ? `msgid-${e.messageId}` : null
+        
+        // Chave 2: Fuzzy Key (Assunto + Remetente + Data/Minuto)
+        const dateMinute = e.data ? e.data.substring(0, 16) : '' // YYYY-MM-DDTHH:mm
+        const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+        
+        if ((idKey && !seenKeys.has(idKey)) || (!idKey && !seenKeys.has(fuzzyKey))) {
+          if (idKey) seenKeys.add(idKey)
+          seenKeys.add(fuzzyKey)
+          uniqueEmails.push(e)
+        }
+      })
+
+      uniqueEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+      return NextResponse.json({ success: true, emails: uniqueEmails.slice(0, limit * 2), total: uniqueEmails.length })
     }
 
     if (!email || !password) {
@@ -163,8 +266,39 @@ export async function POST(req: NextRequest) {
       try {
         const lock = await client.getMailboxLock(fPath)
         try {
+          let uids: number[] = []
+          if (search) {
+            // Busca no servidor
+            const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
+            uids = Array.isArray(searchResult) ? searchResult : []
+          }
+
           const total = client.mailbox ? client.mailbox.exists || 0 : 0
-          if (total > 0) {
+          
+          if (search) {
+            // Se for busca, ordenamos os UIDs (mais recentes primeiro) e paginamos
+            uids.reverse()
+            const startIdx = (page - 1) * limit
+            const pagedUids = uids.slice(startIdx, startIdx + limit)
+            
+            if (pagedUids.length > 0) {
+              for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
+                emails.push({
+                  id: msg.uid,
+                  seq: msg.seq,
+                  tipo: determinarTipo(fPath),
+                  messageId: msg.envelope?.messageId || '',
+                  de: msg.envelope?.from?.[0]?.address || '',
+                  deNome: msg.envelope?.from?.[0]?.name || '',
+                  para: msg.envelope?.to?.[0]?.address || '',
+                  assunto: msg.envelope?.subject || '(sem assunto)',
+                  data: msg.envelope?.date?.toISOString() || '',
+                  lido: msg.flags?.has('\\Seen') || false,
+                  preview: ''
+                })
+              }
+            }
+          } else if (total > 0) {
             const itemsToFetch = multiFolders ? 10 : limit
             const start = Math.max(1, total - (page * itemsToFetch) + 1)
             const end = total - ((page - 1) * itemsToFetch)
@@ -174,6 +308,7 @@ export async function POST(req: NextRequest) {
                 id: msg.uid,
                 seq: msg.seq,
                 tipo: determinarTipo(fPath),
+                messageId: msg.envelope?.messageId || '',
                 de: msg.envelope?.from?.[0]?.address || '',
                 deNome: msg.envelope?.from?.[0]?.name || '',
                 para: msg.envelope?.to?.[0]?.address || '',
@@ -193,8 +328,24 @@ export async function POST(req: NextRequest) {
     }
     await client.logout()
 
-    emails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-    return NextResponse.json({ success: true, emails, total: emails.length })
+    // Deduplicação final inteligente
+    const finalEmails: any[] = []
+    const finalSeenKeys = new Set()
+    
+    emails.forEach(e => {
+      const idKey = e.messageId ? `msgid-${e.messageId}` : null
+      const dateMinute = e.data ? e.data.substring(0, 16) : ''
+      const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+      
+      if ((idKey && !finalSeenKeys.has(idKey)) || (!idKey && !finalSeenKeys.has(fuzzyKey))) {
+        if (idKey) finalSeenKeys.add(idKey)
+        finalSeenKeys.add(fuzzyKey)
+        finalEmails.push(e)
+      }
+    })
+
+    finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length })
   } catch (error: any) {
     console.error('Erro ao ler emails:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

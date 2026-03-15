@@ -3,7 +3,7 @@ import { ImapFlow } from 'imapflow'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, emailId, fromFolder, toFolder = 'Archived' } = await req.json()
+    const { email, password, emailId, fromFolder, toFolder = 'INBOX.Archive' } = await req.json()
     
     // Debug para identificar parâmetros ausentes
     console.log('Archive API - Parâmetros recebidos:', { 
@@ -40,11 +40,46 @@ export async function POST(req: NextRequest) {
     // Mover para pasta de arquivo
     const archiveFolder = toFolder // Usar toFolder ou padrão
     const lock = await client.getMailboxLock(fromFolder)
+    console.log(`1. ${fromFolder} aberta para arquivar`)
     try {
-      await client.messageCopy([emailId], archiveFolder)
-      await client.messageDelete([emailId])
+      const archiveFolders = [archiveFolder, 'INBOX.Archive', 'Archive']
+      let movedToArchive = false
+
+      for (const tFolder of archiveFolders) {
+        try {
+          await client.messageMove([emailId], tFolder, { uid: true })
+          movedToArchive = true
+          console.log(`2. Movido para arquivo (${tFolder})`)
+          break
+        } catch (err: any) {
+          console.warn(`Falha ao mover para ${tFolder}: ${err.message}`)
+        }
+      }
+
+      if (!movedToArchive) {
+        try {
+          await client.mailboxCreate(archiveFolders[0])
+          console.log(`Pasta criada: ${archiveFolders[0]}`)
+          await client.messageMove([emailId], archiveFolders[0], { uid: true })
+          movedToArchive = true
+          console.log(`2. Movido para arquivo (${archiveFolders[0]})`)
+        } catch (createErr: any) {
+          console.error(`Falha ao criar pasta de Arquivo: ${createErr.message}`)
+        }
+      }
+
+      if (movedToArchive) {
+        await client.mailboxClose()
+      } else {
+        lock.release()
+        await client.logout()
+        return NextResponse.json({ 
+          error: 'Não foi possível mover o email para o Arquivo.',
+          success: false 
+        }, { status: 500 })
+      }
     } finally {
-      lock.release()
+      if (typeof lock.release === 'function') lock.release() // Garante safety se o close já eliminou o lock em certos engines
     }
 
     await client.logout()
