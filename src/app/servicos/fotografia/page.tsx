@@ -1,23 +1,11 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
 import { useI18n } from '@/lib/i18n'
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Camera, Calendar, MapPin, Users, Heart } from 'lucide-react'
+import { Camera, Calendar, MapPin, Users, Heart } from 'lucide-react'
 
 export default function Fotografia() {
   const { t } = useI18n()
-  const [isScrolled, setIsScrolled] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   const eventosFotograficos = [
     {
@@ -66,9 +54,6 @@ export default function Fotografia() {
           </div>
         </div>
       </div>
-
-      {/* Header */}
-      <Header isScrolled={isScrolled} />
 
       {/* Content Section */}
       <div className="py-16">

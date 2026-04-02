@@ -1,44 +1,16 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
-import { useState, useEffect } from 'react'
+import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export default function PrecosEmail() {
-  const [isScrolled, setIsScrolled] = useState(false)
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const { t } = useI18n()
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Top Menu Bar - Aparece apenas sem scroll */}
-      {!isScrolled && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-all duration-300 shadow-lg">
-          <div className="container mx-auto max-w-7xl px-6 grid grid-cols-3 items-center h-full">
-            <div className="flex justify-start">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Ajuda</a>
-            </div>
-            <div className="flex justify-center">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">FAQ</a>
-            </div>
-            <div className="flex justify-end">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Perguntas e Respostas</a>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Header - Fixo e ocupa espaço do top menu quando scrolled */}
-      <Header isScrolled={isScrolled} />
-      
       {/* Header Section - Gray 25% */}
       <div className="bg-[#404040] relative overflow-hidden">
         <div 

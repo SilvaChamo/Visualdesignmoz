@@ -1,23 +1,11 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
 import { useI18n } from '@/lib/i18n'
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Palette, PenTool, Layers, Download } from 'lucide-react'
+import { Palette, PenTool, Layers, Download } from 'lucide-react'
 
 export default function DesignGrafico() {
   const { t } = useI18n()
-  const [isScrolled, setIsScrolled] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   const servicosDesign = [
     {
@@ -61,10 +49,8 @@ export default function DesignGrafico() {
         </div>
       </div>
 
-      {/* Header */}
-      <Header isScrolled={isScrolled} />
-
       {/* Content Section */}
+
       <div className="py-16">
         <div className="container mx-auto max-w-7xl px-6">
           <h2 className="text-2xl font-bold text-black mb-8 text-center">{t('services.graphic')}</h2>

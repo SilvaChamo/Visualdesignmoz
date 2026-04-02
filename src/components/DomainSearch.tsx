@@ -162,7 +162,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
           <div className="p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-black">Resultados da Busca</h3>
+              <h3 className="font-semibold text-black">{t('domain.results.title')}</h3>
               <button
                 onClick={closeResults}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -186,9 +186,9 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                       <div className="font-semibold text-black">{result.domain}</div>
                       <div className="text-sm text-gray-600">
                         {result.available ? (
-                          <span className="text-green-600">✓ Disponível</span>
+                          <span className="text-green-600">✓ {t('domain.results.available')}</span>
                         ) : (
-                          <span className="text-red-600">✗ Indisponível</span>
+                          <span className="text-red-600">✗ {t('domain.results.unavailable')}</span>
                         )}
                       </div>
                       {result.price && (
@@ -201,7 +201,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
 
                   {result.available && (
                     <button className="bg-red-600 hover:bg-black text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                      Registrar
+                      {t('domain.results.register')}
                     </button>
                   )}
                 </div>

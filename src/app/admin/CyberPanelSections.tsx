@@ -5365,11 +5365,16 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const handleCreate = async () => {
     if (!newDomain) return
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
+        const res = await fetch('/api/server-exec', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'execCommand',
-        params: { command: `cyberpanel createWebsite --domainName ${newDomain} --adminEmail admin@visualdesigne.com --phpVersion PHP74 --package Default 2>&1` }
+        action: 'createWebsite',
+        params: { 
+          domain: newDomain, 
+          email: 'admin@visualdesigne.com', 
+          php: 'PHP 8.2',
+          packageName: 'Default'
+        }
       })
     })
     const data = await res.json()

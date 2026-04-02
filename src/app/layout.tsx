@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 
 export const metadata: Metadata = {
   title: {
@@ -25,9 +26,13 @@ export default function RootLayout({
     <html lang="pt-MZ">
       <body className="antialiased" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
         <AuthProvider>
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider>
+            <ConditionalNavbar />
+            {children}
+          </I18nProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
+

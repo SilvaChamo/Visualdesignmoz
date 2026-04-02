@@ -1,12 +1,12 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
-import { useState, useEffect } from 'react'
+import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 export default function PrecosSuporte() {
-  const [isScrolled, setIsScrolled] = useState(false)
+
+  const { t } = useI18n()
 
   const frequentQuestions = [
     'Como registrar um domínio?',
@@ -23,37 +23,11 @@ export default function PrecosSuporte() {
     'Configurar email no celular?'
   ]
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Top Menu Bar */}
-      {!isScrolled && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-all duration-300 shadow-lg">
-          <div className="container mx-auto max-w-7xl px-6 grid grid-cols-3 items-center h-full">
-            <div className="flex justify-start">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Ajuda</a>
-            </div>
-            <div className="flex justify-center">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">FAQ</a>
-            </div>
-            <div className="flex justify-end">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Perguntas e Respostas</a>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <Header isScrolled={isScrolled} />
-      
       <div className="bg-[#404040] relative overflow-hidden">
+
         <div className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20" style={{ backgroundImage: "url('/assets/BG.jpg')" }} />
         <div className="absolute inset-0 bg-black/50" />
         <div className="container mx-auto max-w-7xl px-6 pt-[100px] pb-[60px] flex items-center justify-center min-h-[300px] relative z-10">

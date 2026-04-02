@@ -19,18 +19,22 @@ import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import UsageProgress from '@/components/dashboard/UsageProgress'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import { LogOut, User } from 'lucide-react'
 
 export default function DashboardHome() {
     const { t } = useI18n()
+    const { signOut, user } = useAuth()
     const [loading, setLoading] = React.useState(true)
     const [subscription, setSubscription] = React.useState<any>(null)
 
     React.useEffect(() => {
         async function fetchSubscription() {
             try {
+                // Buscar subscription do usuário logado (não da VisualDesign)
                 const { data, error } = await supabase
                     .from('subscriptions')
                     .select('*')
+                    .eq('client_email', user?.email)
                     .limit(1)
                     .single()
 
@@ -41,23 +45,28 @@ export default function DashboardHome() {
                 setLoading(false)
             }
         }
-        fetchSubscription()
-    }, [])
+        
+        if (user) {
+            fetchSubscription()
+        } else {
+            setLoading(false)
+        }
+    }, [user])
 
-    // Fallback / Mock data
+    // Fallback / Mock data - agora usa dados reais do usuário logado
     const userAccount = {
-        name: subscription?.client_name || "Silva Chamo",
-        email: subscription?.client_email || "silva.chamo@gmail.com",
-        plan: subscription?.plan || "Hospedagem Pro",
-        domain: subscription?.domain || "visualdesign.co.mz",
-        renewalDate: subscription?.expiry_date ? new Date(subscription.expiry_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : "20 Mar 2026",
+        name: subscription?.client_name || user?.email?.split('@')[0] || "Utilizador",
+        email: subscription?.client_email || user?.email || "user@example.com",
+        plan: subscription?.plan || "Plano Básico",
+        domain: subscription?.domain || "seu-dominio.com",
+        renewalDate: subscription?.expiry_date ? new Date(subscription.expiry_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : "Sem data",
         status: subscription?.status || "active",
-        diskUsage: subscription?.disk_used ? (parseInt(subscription.disk_used) / parseInt(subscription.quota || '1024') * 100) : 75,
-        diskLimit: subscription?.quota ? `${parseInt(subscription.quota) >= 1024 ? (parseInt(subscription.quota) / 1024).toFixed(0) + 'GB' : subscription.quota + 'MB'}` : "20GB",
-        diskCurrent: subscription?.disk_used ? `${parseInt(subscription.disk_used) >= 1024 ? (parseInt(subscription.disk_used) / 1024).toFixed(1) + 'GB' : subscription.disk_used + 'MB'}` : "15GB",
-        bandwidthUsage: 20,
-        bandwidthLimit: "Unlimited",
-        bandwidthCurrent: "450GB"
+        diskUsage: subscription?.disk_used ? (parseInt(subscription.disk_used) / parseInt(subscription.quota || '1024') * 100) : 0,
+        diskLimit: subscription?.quota ? `${parseInt(subscription.quota) >= 1024 ? (parseInt(subscription.quota) / 1024).toFixed(0) + 'GB' : subscription.quota + 'MB'}` : "0GB",
+        diskCurrent: subscription?.disk_used ? `${parseInt(subscription.disk_used) >= 1024 ? (parseInt(subscription.disk_used) / 1024).toFixed(1) + 'GB' : subscription.disk_used + 'MB'}` : "0MB",
+        bandwidthUsage: subscription?.bandwidth_used ? (parseInt(subscription.bandwidth_used) / 100) : 20,
+        bandwidthLimit: subscription?.bandwidth_limit || "Unlimited",
+        bandwidthCurrent: subscription?.bandwidth_used || "0GB"
     }
 
     if (loading) {
@@ -75,6 +84,17 @@ export default function DashboardHome() {
                     <p className="text-gray-500 font-medium">{t('dash.welcome')}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+                        <User className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm text-gray-700 font-medium">{userAccount.email}</span>
+                    </div>
+                    <button 
+                        onClick={() => signOut()}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all font-bold text-sm"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Sair
+                    </button>
                     <button className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl border border-gray-200 transition-all font-bold text-sm shadow-sm">
                         <RefreshCw className="w-4 h-4 text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
                         {t('dash.sync')}

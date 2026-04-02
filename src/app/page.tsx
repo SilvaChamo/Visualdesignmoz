@@ -1,101 +1,18 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
-import { I18nProvider, useI18n } from '@/lib/i18n'
-import { useState, useEffect } from 'react'
+import { useI18n } from '@/lib/i18n'
+import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ArrowRight, Sparkles } from 'lucide-react'
 import DomainSearch from '@/components/DomainSearch'
 
 function HomePage() {
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState('home.tabs.domains')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isScrolled, setIsScrolled] = useState(false)
 
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
-  const frequentQuestions = [
-    {
-      category: t('home.faq.domains'),
-      questions: [
-        t('home.faq.domains.q1'),
-        t('home.faq.domains.q2'),
-        t('home.faq.domains.q3'),
-        t('home.faq.domains.q4')
-      ]
-    },
-    {
-      category: t('home.faq.hosting'),
-      questions: [
-        t('home.faq.hosting.q1'),
-        t('home.faq.hosting.q2'),
-        t('home.faq.hosting.q3'),
-        t('home.faq.hosting.q4')
-      ]
-    },
-    {
-      category: t('home.faq.ssl'),
-      questions: [
-        t('home.faq.ssl.q1'),
-        t('home.faq.ssl.q2'),
-        t('home.faq.ssl.q3'),
-        t('home.faq.ssl.q4')
-      ]
-    },
-    {
-      category: t('home.faq.email'),
-      questions: [
-        t('home.faq.email.q1'),
-        t('home.faq.email.q2'),
-        t('home.faq.email.q3'),
-        t('home.faq.email.q4')
-      ]
-    },
-    {
-      category: t('home.faq.support'),
-      questions: [
-        t('home.faq.support.q1'),
-        t('home.faq.support.q2'),
-        t('home.faq.support.q3'),
-        t('home.faq.support.q4')
-      ]
-    }
-  ]
-
-  const currentQuestions = frequentQuestions.find(q => q.category === activeTab)?.questions || []
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
   return (
     <div className="min-h-screen bg-black/10">
-      {/* Top Menu Bar - Aparece apenas sem scroll */}
-      {!isScrolled && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-all duration-300 shadow-lg">
-          <div className="container mx-auto max-w-7xl px-6 grid grid-cols-3 items-center h-full">
-            <div className="flex justify-start">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">{t('nav.help')}</a>
-            </div>
-            <div className="flex justify-center">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">{t('nav.faq')}</a>
-            </div>
-            <div className="flex justify-end">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">{t('nav.questions')}</a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header - Fixo e ocupa espaço do top menu quando scrolled */}
-      <Header isScrolled={isScrolled} />
-
       {/* Header Section - Gray 25% */}
       <div className="bg-[#404040] relative overflow-hidden">
         <div
@@ -247,9 +164,5 @@ function HomePage() {
 }
 
 export default function Inicio() {
-  return (
-    <I18nProvider>
-      <HomePage />
-    </I18nProvider>
-  )
+  return <HomePage />
 }

@@ -1,21 +1,11 @@
 'use client'
 
-import { Header } from '@/components/layout/Header'
-import { useState, useEffect } from 'react'
+import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
-import { ArrowLeft, Video, Camera, Film, Play, Edit3, Mic } from 'lucide-react'
+import { ArrowLeft, Camera, Film, Video, Play, Edit3, Mic } from 'lucide-react'
 
 export default function VideoProducao() {
-  const [isScrolled, setIsScrolled] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const { t } = useI18n()
 
   const servicosVideo = [
     {
@@ -58,25 +48,6 @@ export default function VideoProducao() {
 
   return (
     <div className="min-h-screen bg-black/10">
-      {/* Top Menu Bar */}
-      {!isScrolled && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-all duration-300 shadow-lg">
-          <div className="container mx-auto max-w-7xl px-6 grid grid-cols-3 items-center h-full">
-            <div className="flex justify-start">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Ajuda</a>
-            </div>
-            <div className="flex justify-center">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">FAQ</a>
-            </div>
-            <div className="flex justify-end">
-              <a href="#faq" className="text-white text-sm hover:text-red-500 transition-colors">Perguntas e Respostas</a>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <Header isScrolled={isScrolled} />
-      
       <div className="bg-[#404040] relative overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
@@ -88,12 +59,12 @@ export default function VideoProducao() {
             <div className="flex items-center justify-center mb-4">
               <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Voltar para Home
+                {t('common.backToHome')}
               </Link>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Produção de Vídeo</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">{t('services.video')}</h1>
             <p className="text-base text-white font-normal">
-              Criamos vídeos profissionais que comunicam sua mensagem com impacto
+              {t('services.video.desc')}
             </p>
           </div>
         </div>
@@ -101,7 +72,7 @@ export default function VideoProducao() {
 
       <div className="py-16">
         <div className="container mx-auto max-w-7xl px-6">
-          <h2 className="text-2xl font-bold text-black mb-8 text-center">Nossos Serviços de Produção de Vídeo</h2>
+          <h2 className="text-2xl font-bold text-black mb-8 text-center">{t('services.video')}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {servicosVideo.map((servico, index) => (
@@ -118,7 +89,7 @@ export default function VideoProducao() {
                 </p>
                 
                 <div className="mb-6">
-                  <h4 className="font-medium mb-3 text-sm">Serviços incluídos:</h4>
+                  <h4 className="font-medium mb-3 text-sm">{t('common.included')}</h4>
                   <ul className="space-y-0">
                     {servico.servicos.map((item, idx) => (
                       <li key={idx} className="flex items-center text-black/70 text-sm">
@@ -130,28 +101,10 @@ export default function VideoProducao() {
                 </div>
                 
                 <button className="w-full bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 hover:text-white transition-colors">
-                  Solicitar Orçamento
+                  {t('common.requestQuote')}
                 </button>
               </div>
             ))}
-          </div>
-
-          <div className="mt-16 text-center">
-            <h3 className="text-xl font-bold text-black mb-4">Nosso Processo de Produção</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h4 className="font-medium text-black mb-3">Pré-produção</h4>
-                <p className="text-gray-600 text-sm">Planejamento, roteiro e preparação completa</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h4 className="font-medium text-black mb-3">Produção</h4>
-                <p className="text-gray-600 text-sm">Gravação profissional com equipamento de alta qualidade</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h4 className="font-medium text-black mb-3">Pós-produção</h4>
-                <p className="text-gray-600 text-sm">Edição, efeitos e finalização profissional</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
