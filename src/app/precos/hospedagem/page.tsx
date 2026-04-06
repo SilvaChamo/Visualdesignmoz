@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export default function PrecosHospedagem() {
-
-
   const { t } = useI18n()
 
   return (
@@ -23,14 +21,14 @@ export default function PrecosHospedagem() {
             <div className="flex items-center justify-center mb-4">
               <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Voltar para Home
+                {t('common.backToHome')}
               </Link>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Planos de Hospedagem
+              {t('pricing.hosting.title')}
             </h1>
             <p className="text-base text-white font-normal">
-              Hospedagem rápida e segura para seu site
+              {t('pricing.hosting.subtitle')}
             </p>
           </div>
         </div>
@@ -41,123 +39,123 @@ export default function PrecosHospedagem() {
         <div className="container mx-auto max-w-7xl px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">Básico</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">250 MZN<span className="text-lg font-normal">/mês</span></div>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.basic')}</h4>
+              <div className="text-3xl font-bold text-red-600 mb-4">250 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 GB Armazenamento</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB Bandwidth</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 Contas E-mail</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 Banco de Dados</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Backup Diário</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 GB {t('pricing.hosting.storage')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.bandwidth')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 {t('pricing.hosting.emails')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 {t('pricing.hosting.databases')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
-              <h4 className="text-xl font-bold text-black mb-4">Profissional</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">500 MZN<span className="text-lg font-normal">/mês</span></div>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
+              <div className="text-3xl font-bold text-red-600 mb-4">500 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 GB Armazenamento</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 500 GB Bandwidth</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 Contas E-mail</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 Bancos de Dados</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Backup Diário</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> SSL Gratuito</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 GB {t('pricing.hosting.storage')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 500 GB {t('pricing.hosting.bandwidth')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 {t('pricing.hosting.emails')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 {t('pricing.hosting.databases')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">Business</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">1.000 MZN<span className="text-lg font-normal">/mês</span></div>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.business')}</h4>
+              <div className="text-3xl font-bold text-red-600 mb-4">1.000 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB Armazenamento SSD</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 TB Bandwidth</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 Contas E-mail</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 Bancos de Dados</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Backup Diário</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> SSL Gratuito</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Suporte Prioritário</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.storage')} SSD</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 TB {t('pricing.hosting.bandwidth')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 {t('pricing.hosting.emails')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 {t('pricing.hosting.databases')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.priority')}</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">Enterprise</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">2.500 MZN<span className="text-lg font-normal">/mês</span></div>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.enterprise')}</h4>
+              <div className="text-3xl font-bold text-red-600 mb-4">2.500 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 200 GB Armazenamento SSD</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 2 TB Bandwidth</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 Contas E-mail</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 Bancos de Dados</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Backup Diário</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> SSL Gratuito</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Suporte 24/7</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> IP Dedicado</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 200 GB {t('pricing.hosting.storage')} SSD</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 2 TB {t('pricing.hosting.bandwidth')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 {t('pricing.hosting.emails')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 {t('pricing.hosting.databases')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.support247')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.dedicatedIp')}</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
           </div>
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Recursos técnicos</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.techFeatures')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Servidores SSD NVMe</span>
+                  <span>{t('pricing.hosting.servers')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>PHP 7.4, 8.0, 8.1, 8.2</span>
+                  <span>PHP 7.4, 8.0, 8.1, 8.2, 8.3</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>MySQL, PostgreSQL</span>
+                  <span>MySQL, PostgreSQL, Redis</span>
                 </li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Segurança</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.security')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Firewall avançado</span>
+                  <span>{t('pricing.hosting.firewall')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Proteção DDoS</span>
+                  <span>{t('pricing.hosting.ddos')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>SSL gratuito</span>
+                  <span>{t('pricing.hosting.ssl')}</span>
                 </li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Suporte</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.support')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Chat 24/7</span>
+                  <span>{t('pricing.hosting.chat')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>E-mail prioritário</span>
+                  <span>{t('pricing.hosting.emailSupport')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Telefone (planos Business+)</span>
+                  <span>{t('pricing.hosting.phoneSupport')}</span>
                 </li>
               </ul>
             </div>

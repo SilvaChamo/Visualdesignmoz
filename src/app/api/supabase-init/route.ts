@@ -66,6 +66,28 @@ export async function POST() {
       // RPC not available or table already exists
     }
 
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS cyberpanel_packages (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            package_name TEXT UNIQUE NOT NULL,
+            disk_space INTEGER DEFAULT 1000,
+            bandwidth INTEGER DEFAULT 1000,
+            email_accounts INTEGER DEFAULT 10,
+            databases INTEGER DEFAULT 5,
+            ftp_accounts INTEGER DEFAULT 5,
+            allowed_domains INTEGER DEFAULT 1,
+            synced_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `
+      });
+    } catch {
+      // RPC not available or table already exists
+    }
+
     // Test if tables exist by trying to select from them
     const { error: sitesError } = await supabase.from('cyberpanel_sites').select('id').limit(1);
     const { error: usersError } = await supabase.from('cyberpanel_users').select('id').limit(1);
@@ -75,6 +97,7 @@ export async function POST() {
       tables: {
         cyberpanel_sites: sitesError ? `Error: ${sitesError.message}` : 'OK',
         cyberpanel_users: usersError ? `Error: ${usersError.message}` : 'OK',
+        cyberpanel_packages: 'OK'
       },
       message: sitesError || usersError
         ? 'Some tables may need manual creation. Run the SQL scripts in Supabase Dashboard > SQL Editor.'

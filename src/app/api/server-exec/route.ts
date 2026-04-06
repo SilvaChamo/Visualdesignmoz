@@ -106,7 +106,7 @@ done
       }
 
       case 'listPackages': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, \`dataBases\` FROM packages_package;" -B -N 2>/dev/null`);
+        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" -B -N 2>/dev/null`);
         data = raw.split('\n').filter(Boolean).map(line => {
           const parts = line.split('\t');
           return {
@@ -115,7 +115,9 @@ done
             diskSpace: parseInt(parts[2]) || 0,
             bandwidth: parseInt(parts[3]) || 0,
             emailAccounts: parseInt(parts[4]) || 0,
-            dataBases: parseInt(parts[5]) || 0
+            dataBases: parseInt(parts[5]) || 0,
+            ftpAccounts: parseInt(parts[6]) || 0,
+            allowedDomains: parseInt(parts[7]) || 0
           };
         });
         break;
@@ -123,6 +125,10 @@ done
 
       case 'createPackage': {
         const raw = await execSSH(`/usr/local/CyberPanel/bin/python /usr/local/CyberCP/manage.py shell -c "
+import sys, os, django
+sys.path.insert(0, '/usr/local/CyberCP')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
 from packages.models import Package
 from loginSystem.models import Administrator
 admin = Administrator.objects.first()
@@ -132,11 +138,12 @@ pkg = Package.objects.create(
   diskSpace='${params.diskSpace}',
   bandwidth='${params.bandwidth}',
   emailAccounts='${params.emailAccounts}',
-  dataBases='${params.dataBases}'
+  dataBases='${params.dataBases}',
+  ftpAccounts='${params.ftpAccounts || 5}',
+  allowedDomains='${params.allowedDomains || 1}'
 )
 print({'success': True, 'id': pkg.id})
 "`);
-        // Parse do output do Django shell
         const match = raw.match(/\{'success': True, 'id': (\d+)\}/);
         if (match) {
           data = { success: true, id: parseInt(match[1]) };
@@ -148,11 +155,14 @@ print({'success': True, 'id': pkg.id})
 
       case 'deletePackage': {
         const raw = await execSSH(`/usr/local/CyberPanel/bin/python /usr/local/CyberCP/manage.py shell -c "
+import sys, os, django
+sys.path.insert(0, '/usr/local/CyberCP')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
 from packages.models import Package
 deleted, _ = Package.objects.filter(packageName='${params.packageName}').delete()
 print({'success': deleted > 0, 'deleted': deleted})
 "`);
-        // Parse do output do Django shell
         const match = raw.match(/\{'success': (True|False), 'deleted': (\d+)\}/);
         if (match) {
           data = { success: match[1] === 'True', deleted: parseInt(match[2]) };
@@ -164,12 +174,18 @@ print({'success': deleted > 0, 'deleted': deleted})
 
       case 'editPackage': {
         const raw = await execSSH(`/usr/local/CyberPanel/bin/python /usr/local/CyberCP/manage.py shell -c "
+import sys, os, django
+sys.path.insert(0, '/usr/local/CyberCP')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
 from packages.models import Package
 Package.objects.filter(packageName='${params.packageName}').update(
   diskSpace=${params.diskSpace || 1000},
   bandwidth=${params.bandwidth || 1000},
   emailAccounts=${params.emailAccounts || 10},
-  dataBases=${params.dataBases || 5}
+  dataBases=${params.dataBases || 5},
+  ftpAccounts=${params.ftpAccounts || 5},
+  allowedDomains=${params.allowedDomains || 1}
 )
 print('ok')
 "`);
@@ -228,13 +244,20 @@ print('ok')
       }
 
       case 'createWebsite': {
+        // Fix parameter mismatch from frontend
+        const domainName = params.domainName || params.domain;
+        const email = params.email || params.adminEmail;
+        const owner = params.owner || params.username || 'admin';
+        const pkg = params.package || params.packageName || 'Default';
+        const php = params.php || params.phpVersion || 'PHP 8.2';
+
         const raw = await execSSH(
           `cyberpanel createWebsite ` +
-          `--domainName ${params.domain} ` +
-          `--email ${params.email} ` +
-          `--owner ${params.username || 'admin'} ` +
-          `--package "${params.packageName || 'Default'}" ` +
-          `--php "${params.php || 'PHP 8.2'}" ` +
+          `--domainName ${domainName} ` +
+          `--email ${email} ` +
+          `--owner ${owner} ` +
+          `--package "${pkg}" ` +
+          `--php "${php}" ` +
           `--ssl 1 --dkim 1 2>&1`
         );
         data = { output: raw, success: !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('traceback') };

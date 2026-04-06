@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
         // SSH fallback
         const sshPass = process.env.CYBERPANEL_SSH_PASS;
-        const sshKey = process.env.CYBERPANEL_SSH_KEY;
+        const sshKey = process.env.CYBERPANEL_SSH_KEY || process.env.SSH_PRIVATE_KEY;
         if (!sshPass && !sshKey) {
             return NextResponse.json({ success: true, message: 'E-mail guardado no painel. Configure SSH nas env vars para sincronizar com CyberPanel.', warning: true });
         }

@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import type {
   CyberPanelWebsite, CyberPanelSubdomain, CyberPanelUser, CyberPanelDatabase,
   CyberPanelFTPAccount, CyberPanelEmail, CyberPanelPHPConfig, CyberPanelPackage
 } from '@/lib/cyberpanel-api'
-import { syncUserToSupabase, removeUserFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase } from '@/lib/supabase-sync'
+import { syncUserToSupabase, removeUserFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase, syncPackageToSupabase, removePackageFromSupabase } from '@/lib/supabase-sync'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -2490,6 +2491,21 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [issuing, setIssuing] = useState(false)
   const [msg, setMsg] = useState('')
 
+  const handleCreate = async (newDomain: string) => {
+    const res = await fetch('/api/server-exec', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'createWebsite',
+        params: {
+          domainName: newDomain,
+          email: 'admin@visualdesigne.com',
+          packageName: 'Default',
+          php: 'PHP 8.2'
+        }
+      })
+    })
+  }
+
   const handleIssueSSL = async () => {
     if (!selectedDomain) return
     setIssuing(true); setMsg('')
@@ -3964,13 +3980,28 @@ export function GitDeploySection() {
 }
 
 export function PackagesSection({ packages, onRefresh }: { packages: any[], onRefresh: () => void }) {
-  const [form, setForm] = useState({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5' })
+  const [form, setForm] = useState({ 
+    packageName: '', 
+    diskSpace: '1000', 
+    bandwidth: '1000', 
+    emailAccounts: '10', 
+    dataBases: '5',
+    ftpAccounts: '5',
+    allowedDomains: '1'
+  })
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [editing, setEditing] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ diskSpace: '', bandwidth: '', emailAccounts: '', dataBases: '' })
+  const [editForm, setEditForm] = useState({ 
+    diskSpace: '', 
+    bandwidth: '', 
+    emailAccounts: '', 
+    dataBases: '',
+    ftpAccounts: '',
+    allowedDomains: ''
+  })
   const [msg, setMsg] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
 
@@ -3986,7 +4017,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       const data = await res.json()
       if (data.success) {
         setMsg('Pacote criado com sucesso!')
-        setForm({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5' })
+        setForm({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5', ftpAccounts: '5', allowedDomains: '1' })
         onRefresh()
       } else {
         setMsg('Erro: ' + (data.error || 'Falha ao criar pacote'))
@@ -4034,7 +4065,9 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
               diskSpace: editForm.diskSpace || pkg.diskSpace,
               bandwidth: editForm.bandwidth || pkg.bandwidth,
               emailAccounts: editForm.emailAccounts || pkg.emailAccounts,
-              dataBases: editForm.dataBases || pkg.dataBases
+              dataBases: editForm.dataBases || pkg.dataBases,
+              ftpAccounts: editForm.ftpAccounts || pkg.ftpAccounts,
+              allowedDomains: editForm.allowedDomains || pkg.allowedDomains
             }
           })
         })
@@ -4055,7 +4088,9 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         diskSpace: pkg.diskSpace?.toString() || '',
         bandwidth: pkg.bandwidth?.toString() || '',
         emailAccounts: pkg.emailAccounts?.toString() || '',
-        dataBases: pkg.dataBases?.toString() || ''
+        dataBases: pkg.dataBases?.toString() || '',
+        ftpAccounts: pkg.ftpAccounts?.toString() || '',
+        allowedDomains: pkg.allowedDomains?.toString() || ''
       })
     }
   }
@@ -4085,6 +4120,8 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
               <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({ ...form, bandwidth: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
               <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({ ...form, emailAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
               <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({ ...form, dataBases: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas FTP</label><input type="number" value={form.ftpAccounts} onChange={e => setForm({ ...form, ftpAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Máximo de Domínios</label><input type="number" value={form.allowedDomains} onChange={e => setForm({ ...form, allowedDomains: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
             </div>
             <button onClick={handleCreate} disabled={creating || !form.packageName.trim()} className="bg-green-600 hover:bg-green-700 text-white py-2.5 px-6 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
               {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />} Criar Pacote
@@ -4099,7 +4136,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         {packages && packages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-200"><th className="text-left py-3 px-2 font-semibold text-gray-700">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Ações</th></tr></thead>
+              <thead><tr className="border-b border-gray-200"><th className="text-left py-3 px-2 font-semibold text-gray-700">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Ações</th></tr></thead>
               <tbody>
                 {packages.map((pkg: any, i: number) => (
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
@@ -4150,6 +4187,30 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
                         />
                       ) : (
                         (pkg.dataBases || pkg.databases || '-')
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      {editing === pkg.packageName ? (
+                        <input
+                          type="number"
+                          value={editForm.ftpAccounts}
+                          onChange={e => setEditForm({ ...editForm, ftpAccounts: e.target.value })}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      ) : (
+                        (pkg.ftpAccounts || '-')
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      {editing === pkg.packageName ? (
+                        <input
+                          type="number"
+                          value={editForm.allowedDomains}
+                          onChange={e => setEditForm({ ...editForm, allowedDomains: e.target.value })}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      ) : (
+                        (pkg.allowedDomains || '-')
                       )}
                     </td>
                     <td className="py-3 px-2">
@@ -4465,7 +4526,10 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
     const data = await res.json()
     const output = data.data?.output || ''
     if (data.success) showMsg('Restaurado com sucesso!')
-    else showMsg('Erro: ' + output, 'error')
+    else {
+      showMsg('Erro: ' + output);
+      setMsgType('error');
+    }
     setLoading(false)
   }
 
@@ -4490,9 +4554,9 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
         a.href = URL.createObjectURL(blob)
         a.download = filename; a.click()
         showMsg('Download iniciado!')
-      } catch { showMsg('Erro no download', 'error') }
+      } catch { showMsg('Erro no download', 'error' as any) }
     } else {
-      showMsg('Erro: ' + content, 'error')
+      showMsg('Erro: ' + content, 'error' as any)
     }
     setLoading(false)
   }
@@ -4518,6 +4582,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+
           <button onClick={handleCreate} disabled={!selectedDomain || creating}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
             {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -5319,7 +5384,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
 }
 
 // Domain Manager Section
-export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
+export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPanelWebsite[], packages?: CyberPanelPackage[] }) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
   const [domains, setDomains] = useState<any[]>([])
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
@@ -5331,30 +5396,67 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const [newDomain, setNewDomain] = useState('')
   const [docRoot, setDocRoot] = useState('')
   const [shareRoot, setShareRoot] = useState(false)
+  const [allowedDomains, setAllowedDomains] = useState(0)
+  const [ftpAccounts, setFtpAccounts] = useState(0)
+  const [selectedPackage, setSelectedPackage] = useState('Default')
+  const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
 
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
   }
-
   const loadDomains = async () => {
-    setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'listWebsites', params: {} })
-    })
-    const data = await res.json()
-    const allSites = data.data?.sites || []
-    const sitesArray = Array.isArray(allSites) ? allSites : []
+    setLoading(true);
+    console.log('[loadDomains] Início carregamento...');
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'listWebsites', params: {} })
+      });
+      const json = await res.json();
+      console.log('[loadDomains] Resposta API:', json);
 
-    // Mostrar apenas domínios não activos e sem hostname do servidor
-    setDomains(sitesArray.filter((s: any) =>
-      !s.domain.includes('contaboserver') &&
-      !s.domain.includes('localhost') &&
-      s.isActive !== true
-    ))
-    setLoading(false)
-  }
+      if (json.success && json.data?.sites) {
+        const sitesArray = json.data.sites;
+        
+        // Filtro básico
+        const filtered = sitesArray.filter((s: any) =>
+          s.domain && 
+          !s.domain.includes('contaboserver') &&
+          !s.domain.includes('localhost')
+        );
+        
+        setDomains(filtered);
+        console.log('[loadDomains] Domínios definidos:', filtered.length);
+
+        // Sincronizar em background para não bloquear a UI
+        void (async () => {
+          for (const site of sitesArray) {
+            try {
+              await syncWebsiteToSupabase({
+                domain: site.domain,
+                adminEmail: site.adminEmail,
+                package: site.package,
+                status: site.state || 'Active',
+              });
+            } catch (err) {
+              console.warn('[sync] Erro ao sincronizar:', site.domain, err);
+            }
+          }
+        })();
+      } else {
+        console.warn('[loadDomains] Resposta inválida ou vazia');
+        setDomains([]);
+      }
+    } catch (e: any) {
+      console.error('[loadDomains] Erro fatal:', e);
+      setMsg('Erro ao carregar domínios: ' + e.message);
+      setMsgType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => { loadDomains() }, [])
 
@@ -5365,15 +5467,15 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const handleCreate = async () => {
     if (!newDomain) return
     setLoading(true)
-        const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/server-exec', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'createWebsite',
         params: { 
           domain: newDomain, 
           email: 'admin@visualdesigne.com', 
-          php: 'PHP 8.2',
-          packageName: 'Default'
+          php: selectedPHP,
+          packageName: selectedPackage
         }
       })
     })
@@ -5409,15 +5511,21 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   // VISTA: LISTA DE DOMÍNIOS
   if (view === 'list') return (
     <div className="w-full space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Domínios</h1>
           <p className="text-xs text-gray-400 mt-0.5">Lista de domínios registados no servidor</p>
         </div>
-        <button onClick={() => setView('create')}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
-          <Plus className="w-4 h-4" /> Adicionar Domínio
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={loadDomains} disabled={loading}
+            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
+            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Sincronizar
+          </button>
+          <button onClick={() => setView('create')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+            <Plus className="w-4 h-4" /> Adicionar Domínio
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -5512,6 +5620,35 @@ export function DomainManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
             <input value={newDomain} onChange={e => setNewDomain(e.target.value)}
               placeholder="exemplo.com"
               className="w-full px-3 py-2.5 border border-blue-300 rounded-lg text-sm bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          </div>
+
+          {/* Package and PHP */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-gray-800 mb-1 text-sm">
+                Select Package
+              </label>
+              <select value={selectedPackage} onChange={e => setSelectedPackage(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <option value="Default">Default</option>
+                {packages.map((p: any) => (
+                  <option key={p.packageName} value={p.packageName}>{p.packageName}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-bold text-gray-800 mb-1 text-sm">
+                Select PHP
+              </label>
+              <select value={selectedPHP} onChange={e => setSelectedPHP(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <option>PHP 7.4</option>
+                <option>PHP 8.0</option>
+                <option>PHP 8.1</option>
+                <option>PHP 8.2</option>
+                <option>PHP 8.3</option>
+              </select>
+            </div>
           </div>
 
           {/* Share document root */}

@@ -26,7 +26,7 @@ export function executeCyberPanelCommand(command: string): Promise<string> {
     // MODE 2: SSH (remote)
     const sshPass = process.env.CYBERPANEL_SSH_PASS;
     const sshKeyPath = process.env.CYBERPANEL_SSH_KEY_PATH;
-    const sshKey = process.env.CYBERPANEL_SSH_KEY;
+    const sshKey = process.env.CYBERPANEL_SSH_KEY || process.env.SSH_PRIVATE_KEY;
 
     if (!sshPass && !sshKeyPath && !sshKey) {
         // MODE 3: no credentials — return empty so caller uses API/localStorage fallback

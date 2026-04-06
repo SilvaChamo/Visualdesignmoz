@@ -38,7 +38,7 @@ export default function PortfolioPage() {
                   <h3 className="text-xl font-bold text-white mb-2">{t('portfolio.project')} {i}</h3>
                   <p className="text-gray-300 mb-4">{t('portfolio.project.desc')}</p>
                   <div className="flex flex-wrap gap-2">
-                    <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-full text-sm">Web Design</span>
+                    <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-full text-sm">{t('services.web.title')}</span>
                     <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-full text-sm">Next.js</span>
                   </div>
                 </div>

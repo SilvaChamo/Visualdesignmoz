@@ -106,3 +106,40 @@ export async function syncUsersToSupabase(users: Array<{
     })
   }
 }
+
+// ── Packages ─────────────────────────────────────────────────────────────────
+
+export async function syncPackageToSupabase(pkg: {
+  packageName: string
+  diskSpace?: number
+  bandwidth?: number
+  emailAccounts?: number
+  dataBases?: number
+  ftpAccounts?: number
+  allowedDomains?: number
+}) {
+  try {
+    const { error } = await supabase.from('cyberpanel_packages').upsert({
+      package_name: pkg.packageName,
+      disk_space: pkg.diskSpace ?? 1000,
+      bandwidth: pkg.bandwidth ?? 1000,
+      email_accounts: pkg.emailAccounts ?? 10,
+      databases: pkg.dataBases ?? 5,
+      ftp_accounts: pkg.ftpAccounts ?? 5,
+      allowed_domains: pkg.allowedDomains ?? 1,
+      synced_at: new Date().toISOString(),
+    }, { onConflict: 'package_name' })
+    if (error) throw error
+  } catch (e) {
+    console.warn('[supabase-sync] syncPackageToSupabase error:', e)
+  }
+}
+
+export async function removePackageFromSupabase(packageName: string) {
+  try {
+    const { error } = await supabase.from('cyberpanel_packages').delete().eq('package_name', packageName)
+    if (error) throw error
+  } catch (e) {
+    console.warn('[supabase-sync] removePackageFromSupabase error:', e)
+  }
+}

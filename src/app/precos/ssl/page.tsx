@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export default function PrecosSSL() {
-
-
   const { t } = useI18n()
 
   return (
@@ -23,14 +21,14 @@ export default function PrecosSSL() {
             <div className="flex items-center justify-center mb-4">
               <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Voltar para Home
+                {t('common.backToHome')}
               </Link>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Certificados SSL
+              {t('pricing.ssl.title')}
             </h1>
             <p className="text-base text-white font-normal">
-              Proteja seu site e ganhe a confiança dos seus clientes
+              {t('pricing.ssl.subtitle')}
             </p>
           </div>
         </div>
@@ -41,47 +39,47 @@ export default function PrecosSSL() {
         <div className="container mx-auto max-w-7xl px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">Básico</h4>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.basic')}</h4>
               <div className="text-3xl font-bold text-red-600 mb-4">800 MZN<span className="text-lg font-normal">/ano</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Validação de Domínio</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.dv')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 128-bit Encryption</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Browser Trust</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> $10.000 Seguro</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
-              <h4 className="text-xl font-bold text-black mb-4">Profissional</h4>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
               <div className="text-3xl font-bold text-red-600 mb-4">1.500 MZN<span className="text-lg font-normal">/ano</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Validação de Empresa</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.ov')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 256-bit Encryption</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Green Bar Browser</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> $250.000 Seguro</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Selo Trust</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.features.2')}</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">EV</h4>
+              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.ssl.ev')}</h4>
               <div className="text-3xl font-bold text-red-600 mb-4">3.000 MZN<span className="text-lg font-normal">/ano</span></div>
               <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Validação Estendida</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.ev')} (Extended)</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 256-bit Encryption</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Green Bar Browser</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> $1.000.000 Seguro</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Selo Trust</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.features.2')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Mostrar Endereço</li>
               </ul>
               <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                Contratar
+                {t('pricing.hosting.hire')}
               </button>
             </div>
           </div>
@@ -136,7 +134,7 @@ export default function PrecosSSL() {
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Suporte técnico</span>
+                  <span>{t('pricing.hosting.support')}</span>
                 </li>
               </ul>
             </div>

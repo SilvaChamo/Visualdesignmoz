@@ -29,40 +29,46 @@ import {
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
+import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
+import { cn } from '@/lib/utils'
 
 // Secções que precisam de criar websites
 function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPackage[], onRefresh: () => void }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState('success')
 
   const handleCreate = async () => {
     if (!form.domain || !form.email) return
-    setCreating(true); setMsg('')
+    setCreating(true); setMsg(''); setMsgType('')
     try {
       const ok = await cyberPanelAPI.createWebsite(form)
       setMsg('Website criado com sucesso!')
+      setMsgType('success')
       onRefresh()
     } catch (e: any) {
       setMsg('Erro: ' + e.message)
+      setMsgType('error')
     }
     setCreating(false)
   }
 
   return (
     <div className="space-y-6 w-full">
-      <div><h1 className="text-3xl font-bold text-gray-900">Criar Website</h1><p className="text-gray-500 mt-1">Adicione um novo website ao servidor.</p></div>
+      <div><h1 className="text-3xl font-bold text-gray-900">{t('admin.sites.new')}</h1><p className="text-gray-500 mt-1">{t('admin.sites.newDesc')}</p></div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pacote</label>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.domain')}</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.email.title')}</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.package')}</label>
             <select value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
               <option value="Default">Default</option>
               {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
             </select>
           </div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">PHP Version</label>
             <select value={form.php} onChange={e => setForm({ ...form, php: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
               <option>7.4</option><option>8.0</option><option>8.1</option><option>8.2</option><option>8.3</option>
             </select>
@@ -70,7 +76,7 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
         </div>
         {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleCreate} disabled={creating || !form.domain || !form.email} className="bg-black hover:bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-          {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Criar Website
+          {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} {creating ? t('admin.sites.newDesc').split(' ')[0] + '...' : t('admin.sites.new')}
         </button>
       </div>
     </div>
@@ -811,6 +817,7 @@ function ClientesSection() {
 }
 
 export default function AdminPage() {
+  const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
@@ -869,16 +876,16 @@ export default function AdminPage() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listWebsites', params: {} })
-      })
-      const data = await res.json()
-      // CORRIGIR — garantir que usa data.data.sites e não data.data
-      const sites = Array.isArray(data.data?.sites) ? data.data.sites :
-        Array.isArray(data.data) ? data.data : []
-      if (data.success) setCyberPanelSites(sites)
+      const sites = await cyberPanelAPI.listWebsites()
+      if (Array.isArray(sites)) {
+        setCyberPanelSites(sites)
+        // Background sync
+        void (async () => {
+          for (const s of sites) {
+            await syncWebsiteToSupabase(s)
+          }
+        })()
+      }
     } catch (e) { console.error(e) }
     setSyncing(false)
   }
@@ -891,9 +898,30 @@ export default function AdminPage() {
         cyberPanelAPI.listUsers().catch(() => []),
         cyberPanelAPI.listPackages().catch(() => []),
       ])
-      setCyberPanelSites(Array.isArray(sites) ? sites : [])
-      setCyberPanelUsers(Array.isArray(users) ? users : [])
-      setCyberPanelPackages(Array.isArray(packages) ? packages : [])
+
+      const validSites = Array.isArray(sites) ? sites : []
+      const validUsers = Array.isArray(users) ? users : []
+      const validPackages = Array.isArray(packages) ? packages : []
+
+      setCyberPanelSites(validSites)
+      setCyberPanelUsers(validUsers)
+      setCyberPanelPackages(validPackages)
+
+      // Background Sync to Supabase
+      void (async () => {
+        for (const s of validSites) await syncWebsiteToSupabase(s)
+        for (const u of validUsers) await syncUserToSupabase({
+          username: u.userName,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          acl: u.acl,
+          websitesLimit: u.websitesLimit,
+          status: u.status
+        })
+        for (const p of validPackages) await syncPackageToSupabase(p)
+      })()
+
     } catch (error) {
       console.error('Erro ao carregar dados CyberPanel:', error)
     } finally {
@@ -1047,7 +1075,7 @@ export default function AdminPage() {
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
-        return <DomainManagerSection sites={filteredSites} />
+        return <DomainManagerSection sites={filteredSites} packages={cyberPanelPackages} />
       case 'git-deploy':
       case 'deploy':
         return <DeploySection sites={cyberPanelSites} />
@@ -1073,26 +1101,26 @@ export default function AdminPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 ml-6">
-                Dashboard
+                {t('sidebar.home')}
               </h1>
               <p className="text-xs text-gray-400 mt-0.5 ml-6">
-                Visão geral do servidor
+                {t('dash.welcome')}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={handleSync} disabled={syncing}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50" title="Actualizar dados">
+                className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50" title={t('dash.sync')}>
                 <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? 'A sincronizar...' : 'Actualizar'}
+                {syncing ? t('dash.sync') + '...' : t('dash.sync')}
               </button>
               <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
                 className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
-                <Globe size={13} /> Painel CyberPanel
+                <Globe size={13} /> {t('admin.settings.cyberpanel')}
               </a>
               <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title="Sair">
+                className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title={t('sidebar.logout')}>
                 <LogOut size={13} />
-                Sair
+                {t('sidebar.logout')}
               </button>
             </div>
           </div>

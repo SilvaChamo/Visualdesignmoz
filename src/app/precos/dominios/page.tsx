@@ -22,14 +22,14 @@ export default function PrecosDominios() {
             <div className="flex items-center justify-center mb-4">
               <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Voltar para Home
+                {t('common.backToHome')}
               </Link>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Preços de Domínios
+              {t('pricing.domains.title')}
             </h1>
             <p className="text-base text-white font-normal">
-              Registre seu domínio com confiança e segurança
+              {t('pricing.domains.subtitle')}
             </p>
           </div>
         </div>
@@ -42,11 +42,11 @@ export default function PrecosDominios() {
             <table className="w-full bg-white rounded-lg shadow-lg overflow-hidden">
               <thead className="bg-red-600 text-white">
                 <tr>
-                  <th className="px-6 py-4 text-left">Extensão</th>
-                  <th className="px-6 py-4 text-left">Registro</th>
-                  <th className="px-6 py-4 text-left">Renovação</th>
-                  <th className="px-6 py-4 text-left">Transferência</th>
-                  <th className="px-6 py-4 text-left">Ação</th>
+                  <th className="px-6 py-4 text-left">{t('pricing.domains.table.ext')}</th>
+                  <th className="px-6 py-4 text-left">{t('pricing.domains.table.reg')}</th>
+                  <th className="px-6 py-4 text-left">{t('pricing.domains.table.ren')}</th>
+                  <th className="px-6 py-4 text-left">{t('pricing.domains.table.trans')}</th>
+                  <th className="px-6 py-4 text-left">{t('pricing.domains.table.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -57,7 +57,7 @@ export default function PrecosDominios() {
                   <td className="px-6 py-4">1.500 MZN</td>
                   <td className="px-6 py-4">
                     <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                      Registrar
+                      {t('pricing.domains.register')}
                     </button>
                   </td>
                 </tr>
@@ -68,7 +68,7 @@ export default function PrecosDominios() {
                   <td className="px-6 py-4">350 MZN</td>
                   <td className="px-6 py-4">
                     <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                      Registrar
+                      {t('pricing.domains.register')}
                     </button>
                   </td>
                 </tr>
@@ -79,7 +79,7 @@ export default function PrecosDominios() {
                   <td className="px-6 py-4">750 MZN</td>
                   <td className="px-6 py-4">
                     <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                      Registrar
+                      {t('pricing.domains.register')}
                     </button>
                   </td>
                 </tr>
@@ -90,7 +90,7 @@ export default function PrecosDominios() {
                   <td className="px-6 py-4">350 MZN</td>
                   <td className="px-6 py-4">
                     <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                      Registrar
+                      {t('pricing.domains.register')}
                     </button>
                   </td>
                 </tr>
@@ -101,7 +101,7 @@ export default function PrecosDominios() {
                   <td className="px-6 py-4">2.500 MZN</td>
                   <td className="px-6 py-4">
                     <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                      Registrar
+                      {t('pricing.domains.register')}
                     </button>
                   </td>
                 </tr>
@@ -111,55 +111,55 @@ export default function PrecosDominios() {
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Por que registrar conosco?</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.domains.why.title')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Registro rápido e seguro</span>
+                  <span>{t('pricing.domains.why.1')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Painel de controle intuitivo</span>
+                  <span>{t('pricing.domains.why.2')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Suporte técnico especializado</span>
+                  <span>{t('pricing.domains.why.3')}</span>
                 </li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Serviços incluídos</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.domains.included.title')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>DNS gratuito</span>
+                  <span>{t('pricing.domains.included.1')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Proteção de privacidade</span>
+                  <span>{t('pricing.domains.included.2')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Redirecionamento de e-mail</span>
+                  <span>{t('pricing.domains.included.3')}</span>
                 </li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Suporte 24/7</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.domains.support.title')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Chat online</span>
+                  <span>{t('pricing.domains.support.1')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>E-mail</span>
+                  <span>{t('pricing.domains.support.2')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Telefone</span>
+                  <span>{t('pricing.domains.support.3')}</span>
                 </li>
               </ul>
             </div>

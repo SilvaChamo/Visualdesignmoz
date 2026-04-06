@@ -523,7 +523,152 @@ const dict: Record<Lang, Dict> = {
     'services.hosting': 'Hospedagem',
     'services.ssl': 'SSL',
     'services.email': 'Email Profissional',
-    'services.support': 'Suporte'
+    'services.support': 'Suporte',
+
+    // Pricing - Hosting
+    'pricing.hosting.title': 'Planos de Hospedagem',
+    'pricing.hosting.subtitle': 'Hospedagem rápida e segura para seu site',
+    'pricing.hosting.basic': 'Básico',
+    'pricing.hosting.pro': 'Profissional',
+    'pricing.hosting.business': 'Business',
+    'pricing.hosting.enterprise': 'Enterprise',
+    'pricing.hosting.month': 'mês',
+    'pricing.hosting.hire': 'Contratar',
+    'pricing.hosting.storage': 'Armazenamento',
+    'pricing.hosting.bandwidth': 'Bandwidth',
+    'pricing.hosting.emails': 'Contas E-mail',
+    'pricing.hosting.databases': 'Banco de Dados',
+    'pricing.hosting.backup': 'Backup Diário',
+    'pricing.hosting.ssl': 'SSL Gratuito',
+    'pricing.hosting.priority': 'Suporte Prioritário',
+    'pricing.hosting.support247': 'Suporte 24/7',
+    'pricing.hosting.dedicatedIp': 'IP Dedicado',
+    'pricing.hosting.techFeatures': 'Recursos técnicos',
+    'pricing.hosting.servers': 'Servidores SSD NVMe',
+    'pricing.hosting.security': 'Segurança',
+    'pricing.hosting.firewall': 'Firewall avançado',
+    'pricing.hosting.ddos': 'Proteção DDoS',
+    'pricing.hosting.support': 'Suporte',
+    'pricing.hosting.chat': 'Chat 24/7',
+    'pricing.hosting.emailSupport': 'E-mail prioritário',
+    'pricing.hosting.phoneSupport': 'Telefone (planos Business+)',
+
+    // Pricing - Domains
+    'pricing.domains.title': 'Preços de Domínios',
+    'pricing.domains.subtitle': 'Registre seu domínio com confiança e segurança',
+    'pricing.domains.table.ext': 'Extensão',
+    'pricing.domains.table.reg': 'Registro',
+    'pricing.domains.table.ren': 'Renovação',
+    'pricing.domains.table.trans': 'Transferência',
+    'pricing.domains.table.action': 'Ação',
+    'pricing.domains.register': 'Registrar',
+    'pricing.domains.why.title': 'Por que registrar conosco?',
+    'pricing.domains.why.1': 'Registro rápido e seguro',
+    'pricing.domains.why.2': 'Painel de controle intuitivo',
+    'pricing.domains.why.3': 'Suporte técnico especializado',
+    'pricing.domains.included.title': 'Serviços incluídos',
+    'pricing.domains.included.1': 'DNS gratuito',
+    'pricing.domains.included.2': 'Proteção de privacidade',
+    'pricing.domains.included.3': 'Redirecionamento de e-mail',
+    'pricing.domains.support.title': 'Suporte 24/7',
+    'pricing.domains.support.1': 'Chat online',
+    'pricing.domains.support.2': 'E-mail',
+    'pricing.domains.support.3': 'Telefone',
+
+    // Pricing - Email
+    'pricing.email.title': 'Email Profissional',
+    'pricing.email.subtitle': 'Sua marca em todas as comunicações enviadas',
+    'pricing.email.basic': 'E-mail Básico',
+    'pricing.email.pro': 'E-mail Pro',
+    'pricing.email.business': 'E-mail Business',
+    'pricing.email.features.1': 'Contas de E-mail',
+    'pricing.email.features.2': 'Espaço por conta',
+    'pricing.email.features.3': 'Anti-Spam Avançado',
+    'pricing.email.features.4': 'Webmail Responsivo',
+    'pricing.email.features.5': 'Sincronização Mobile',
+
+    // Pricing - SSL
+    'pricing.ssl.title': 'Certificados SSL',
+    'pricing.ssl.subtitle': 'Segurança e confiança para seus visitantes',
+    'pricing.ssl.dv': 'Validação de Domínio',
+    'pricing.ssl.ov': 'Validação Organizacional',
+    'pricing.ssl.ev': 'Extended Validation',
+    'pricing.ssl.features.1': 'Criptografia 256-bit',
+    'pricing.ssl.features.2': 'Selo de Confiança',
+    'pricing.ssl.features.3': 'Garantia de segurança',
+
+    // Pricing - Support
+    'pricing.support.title': 'Suporte Técnico',
+    'pricing.support.subtitle': 'Estamos aqui para ajudar você a crescer',
+    'pricing.support.standard': 'Suporte Standard',
+    'pricing.support.priority': 'Suporte Prioritário',
+    'pricing.support.dedicated': 'Suporte Dedicado',
+
+    // Service Lists Improvements
+    'services.list.web.1': 'Landing pages',
+    'services.list.web.2': 'Sites empresariais',
+    'services.list.web.3': 'Portais institucionais',
+    'services.list.web.4': 'Sites governamentais',
+    'services.list.web.5': 'Mobile-first design',
+    'services.list.web.6': 'Adaptação para Tablet',
+    'services.list.web.7': 'Otimização Desktop',
+    'services.list.web.8': 'Compatibilidade total',
+    'services.list.web.9': 'Lojas online',
+    'services.list.web.10': 'Catálogos digitais',
+    'services.list.web.11': 'Sistemas de pagamento',
+    'services.list.web.12': 'Gestão de estoque',
+    'services.list.web.13': 'Aplicações web',
+    'services.list.web.14': 'Sistemas customizados',
+    'services.list.web.15': 'Integrações API',
+    'services.list.web.16': 'Dashboards',
+    'services.list.web.17': 'Wireframing',
+    'services.list.web.18': 'Prototipagem',
+    'services.list.web.19': 'Testes de usabilidade',
+    'services.list.web.20': 'Design systems',
+    'services.list.web.21': 'SEO on-page',
+    'services.list.web.22': 'Otimização de velocidade',
+    'services.list.web.23': 'Core Web Vitals',
+    'services.list.web.24': 'Analytics setup',
+
+    'services.list.design.1': 'Logo design',
+    'services.list.design.2': 'Paleta de cores',
+    'services.list.design.3': 'Tipografia',
+    'services.list.design.4': 'Manual de marca',
+    'services.list.design.5': 'Cartões de visita',
+    'services.list.design.6': 'Papeteria',
+    'services.list.design.7': 'Brindes',
+    'services.list.design.8': 'Material de escritório',
+    'services.list.design.9': 'Posts para Instagram',
+    'services.list.design.10': 'Banners Facebook',
+    'services.list.design.11': 'Capas YouTube',
+    'services.list.design.12': 'Templates LinkedIn',
+    'services.list.design.13': 'Flyers e folhetos',
+    'services.list.design.14': 'Outdoors',
+    'services.list.design.15': 'Banner impressos',
+    'services.list.design.16': 'Material POP',
+
+    'pricing.support.q1': 'Como registrar um domínio?',
+    'pricing.support.q2': 'Quanto custa um domínio .mz?',
+    'pricing.support.q3': 'Como transferir meu domínio?',
+    'pricing.support.q4': 'O que é DNS?',
+    'pricing.support.q5': 'Qual plano de hospedagem escolher?',
+    'pricing.support.q6': 'Como migrar meu site?',
+    'pricing.support.q7': 'Hospedagem WordPress disponível?',
+    'pricing.support.q8': 'Backup automático incluído?',
+    'pricing.support.q9': 'Por que preciso de certificado SSL?',
+    'pricing.support.q10': 'Como instalar SSL no meu site?',
+    'pricing.support.q11': 'Como criar email profissional?',
+    'pricing.support.q12': 'Configurar email no celular?',
+    'pricing.support.clickForDetails': 'Clique para ver resposta detalhada',
+    'pricing.support.channels': 'Canais de Atendimento',
+    'pricing.support.hours': 'Horário de Atendimento',
+    'pricing.support.monFri': 'Segunda a Sexta',
+    'pricing.support.sat': 'Sábado',
+    'pricing.support.sun': 'Domingo',
+    'pricing.support.emergencies': 'Emergências',
+    'pricing.support.responseTime': 'Tempo de Resposta',
+    'pricing.support.immediate': 'Imediato',
+    'pricing.support.upTo2h': 'Até 2 horas'
   },
   en: {
     'nav.home': 'Home',
@@ -1070,29 +1215,189 @@ const dict: Record<Lang, Dict> = {
     'services.hosting': 'Hosting',
     'services.ssl': 'SSL',
     'services.email': 'Professional Email',
-    'services.support': 'Support'
+    'services.support': 'Support',
+
+    // Pricing - Hosting
+    'pricing.hosting.title': 'Hosting Plans',
+    'pricing.hosting.subtitle': 'Fast and secure hosting for your site',
+    'pricing.hosting.basic': 'Basic',
+    'pricing.hosting.pro': 'Professional',
+    'pricing.hosting.business': 'Business',
+    'pricing.hosting.enterprise': 'Enterprise',
+    'pricing.hosting.month': 'month',
+    'pricing.hosting.hire': 'Hire Now',
+    'pricing.hosting.storage': 'Storage',
+    'pricing.hosting.bandwidth': 'Bandwidth',
+    'pricing.hosting.emails': 'Email Accounts',
+    'pricing.hosting.databases': 'Databases',
+    'pricing.hosting.backup': 'Daily Backup',
+    'pricing.hosting.ssl': 'Free SSL',
+    'pricing.hosting.priority': 'Priority Support',
+    'pricing.hosting.support247': '24/7 Support',
+    'pricing.hosting.dedicatedIp': 'Dedicated IP',
+    'pricing.hosting.techFeatures': 'Technical Features',
+    'pricing.hosting.servers': 'SSD NVMe Servers',
+    'pricing.hosting.security': 'Security',
+    'pricing.hosting.firewall': 'Advanced Firewall',
+    'pricing.hosting.ddos': 'DDoS Protection',
+    'pricing.hosting.support': 'Support',
+    'pricing.hosting.chat': '24/7 Chat',
+    'pricing.hosting.emailSupport': 'Priority Email',
+    'pricing.hosting.phoneSupport': 'Phone (Business+ plans)',
+
+    // Pricing - Domains
+    'pricing.domains.title': 'Domain Pricing',
+    'pricing.domains.subtitle': 'Register your domain with confidence and security',
+    'pricing.domains.table.ext': 'Extension',
+    'pricing.domains.table.reg': 'Registration',
+    'pricing.domains.table.ren': 'Renewal',
+    'pricing.domains.table.trans': 'Transfer',
+    'pricing.domains.table.action': 'Action',
+    'pricing.domains.register': 'Register',
+    'pricing.domains.why.title': 'Why register with us?',
+    'pricing.domains.why.1': 'Fast and secure registration',
+    'pricing.domains.why.2': 'Intuitive control panel',
+    'pricing.domains.why.3': 'Specialized technical support',
+    'pricing.domains.included.title': 'Included services',
+    'pricing.domains.included.1': 'Free DNS',
+    'pricing.domains.included.2': 'Privacy protection',
+    'pricing.domains.included.3': 'Email forwarding',
+    'pricing.domains.support.title': '24/7 Support',
+    'pricing.domains.support.1': 'Online Chat',
+    'pricing.domains.support.2': 'Email',
+    'pricing.domains.support.3': 'Phone',
+
+    // Pricing - Email
+    'pricing.email.title': 'Professional Email',
+    'pricing.email.subtitle': 'Your brand in every communication sent',
+    'pricing.email.basic': 'Basic Email',
+    'pricing.email.pro': 'Pro Email',
+    'pricing.email.business': 'Business Email',
+    'pricing.email.features.1': 'Email Accounts',
+    'pricing.email.features.2': 'Space per account',
+    'pricing.email.features.3': 'Advanced Anti-Spam',
+    'pricing.email.features.4': 'Responsive Webmail',
+    'pricing.email.features.5': 'Mobile Sync',
+
+    // Pricing - SSL
+    'pricing.ssl.title': 'SSL Certificates',
+    'pricing.ssl.subtitle': 'Security and trust for your visitors',
+    'pricing.ssl.dv': 'Domain Validation',
+    'pricing.ssl.ov': 'Organizational Validation',
+    'pricing.ssl.ev': 'Extended Validation',
+    'pricing.ssl.features.1': '256-bit Encryption',
+    'pricing.ssl.features.2': 'Trust Seal',
+    'pricing.ssl.features.3': 'Security Warranty',
+
+    // Pricing - Support
+    'pricing.support.title': 'Technical Support',
+    'pricing.support.subtitle': 'We are here to help you grow',
+    'pricing.support.standard': 'Standard Support',
+    'pricing.support.priority': 'Priority Support',
+    'pricing.support.dedicated': 'Dedicated Support',
+
+    // Service Lists Improvements
+    'services.list.web.1': 'Landing pages',
+    'services.list.web.2': 'Business sites',
+    'services.list.web.3': 'Institutional portals',
+    'services.list.web.4': 'Government sites',
+    'services.list.web.5': 'Mobile-first design',
+    'services.list.web.6': 'Tablet adaptation',
+    'services.list.web.7': 'Desktop optimization',
+    'services.list.web.8': 'Full compatibility',
+    'services.list.web.9': 'Online stores',
+    'services.list.web.10': 'Digital catalogs',
+    'services.list.web.11': 'Payment systems',
+    'services.list.web.12': 'Inventory management',
+    'services.list.web.13': 'Web applications',
+    'services.list.web.14': 'Custom systems',
+    'services.list.web.15': 'API integrations',
+    'services.list.web.16': 'Dashboards',
+    'services.list.web.17': 'Wireframing',
+    'services.list.web.18': 'Prototyping',
+    'services.list.web.19': 'Usability testing',
+    'services.list.web.20': 'Design systems',
+    'services.list.web.21': 'On-page SEO',
+    'services.list.web.22': 'Speed optimization',
+    'services.list.web.23': 'Core Web Vitals',
+    'services.list.web.24': 'Analytics setup',
+
+    'services.list.design.1': 'Logo design',
+    'services.list.design.2': 'Color palette',
+    'services.list.design.3': 'Typography',
+    'services.list.design.4': 'Brand manual',
+    'services.list.design.5': 'Business cards',
+    'services.list.design.6': 'Stationery',
+    'services.list.design.7': 'Gifts',
+    'services.list.design.8': 'Office material',
+    'services.list.design.9': 'Instagram Posts',
+    'services.list.design.10': 'Facebook Banners',
+    'services.list.design.11': 'YouTube Covers',
+    'services.list.design.12': 'LinkedIn Templates',
+    'services.list.design.13': 'Flyers and brochures',
+    'services.list.design.14': 'Outdoors',
+    'services.list.design.15': 'Printed banners',
+    'services.list.design.16': 'POS material',
+
+    'pricing.support.q1': 'How to register a domain?',
+    'pricing.support.q2': 'How much does a .mz domain cost?',
+    'pricing.support.q3': 'How to transfer my domain?',
+    'pricing.support.q4': 'What is DNS?',
+    'pricing.support.q5': 'Which hosting plan to choose?',
+    'pricing.support.q6': 'How to migrate my site?',
+    'pricing.support.q7': 'WordPress hosting available?',
+    'pricing.support.q8': 'Automatic backup included?',
+    'pricing.support.q9': 'Why do I need an SSL certificate?',
+    'pricing.support.q10': 'How to install SSL on my site?',
+    'pricing.support.q11': 'How to create a professional email?',
+    'pricing.support.q12': 'Configure email on mobile?',
+    'pricing.support.clickForDetails': 'Click for detailed answer',
+    'pricing.support.channels': 'Support Channels',
+    'pricing.support.hours': 'Business Hours',
+    'pricing.support.monFri': 'Monday to Friday',
+    'pricing.support.sat': 'Saturday',
+    'pricing.support.sun': 'Sunday',
+    'pricing.support.emergencies': 'Emergencies',
+    'pricing.support.responseTime': 'Response Time',
+    'pricing.support.immediate': 'Immediate',
+    'pricing.support.upTo2h': 'Up to 2 hours'
   },
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Lang>('pt')
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('vd-lang')
-    const initial: Lang = saved === 'en' ? 'en' : 'pt'
-    setLang(initial)
+    if (saved === 'en' || saved === 'pt') {
+      setLang(saved)
+    }
+    setIsLoaded(true)
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('vd-lang', lang)
-    document.documentElement.lang = lang === 'pt' ? 'pt-MZ' : 'en'
-  }, [lang])
+    if (isLoaded) {
+      localStorage.setItem('vd-lang', lang)
+      document.documentElement.lang = lang === 'pt' ? 'pt-MZ' : 'en'
+    }
+  }, [lang, isLoaded])
 
   const value = useMemo<I18nContextValue>(() => {
-    const t = (key: string) => dict[lang][key] ?? key
+    const t = (key: string) => {
+      const translation = dict[lang][key]
+      if (!translation) {
+        // Fallback to PT if EN key is missing
+        if (lang === 'en') return dict['pt'][key] ?? key
+        return key
+      }
+      return translation
+    }
     const toggleLang = () => setLang((prev) => (prev === 'pt' ? 'en' : 'pt'))
     return { lang, t, toggleLang }
   }, [lang])
+
+  if (!isLoaded) return null
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }

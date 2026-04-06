@@ -9,18 +9,18 @@ export default function PrecosSuporte() {
   const { t } = useI18n()
 
   const frequentQuestions = [
-    'Como registrar um domínio?',
-    'Quanto custa um domínio .mz?',
-    'Como transferir meu domínio?',
-    'O que é DNS?',
-    'Qual plano de hospedagem escolher?',
-    'Como migrar meu site?',
-    'Hospedagem WordPress disponível?',
-    'Backup automático incluído?',
-    'Por que preciso de certificado SSL?',
-    'Como instalar SSL no meu site?',
-    'Como criar email profissional?',
-    'Configurar email no celular?'
+    t('pricing.support.q1'),
+    t('pricing.support.q2'),
+    t('pricing.support.q3'),
+    t('pricing.support.q4'),
+    t('pricing.support.q5'),
+    t('pricing.support.q6'),
+    t('pricing.support.q7'),
+    t('pricing.support.q8'),
+    t('pricing.support.q9'),
+    t('pricing.support.q10'),
+    t('pricing.support.q11'),
+    t('pricing.support.q12')
   ]
 
 
@@ -35,11 +35,11 @@ export default function PrecosSuporte() {
             <div className="flex items-center justify-center mb-4">
               <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Voltar para Home
+                {t('common.backToHome')}
               </Link>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Suporte Técnico</h1>
-            <p className="text-base text-white font-normal">Estamos aqui para ajudar com todas as suas dúvidas</p>
+            <h1 className="text-3xl font-bold text-white mb-2">{t('pricing.support.title')}</h1>
+            <p className="text-base text-white font-normal">{t('pricing.support.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -52,7 +52,7 @@ export default function PrecosSuporte() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="text-white font-medium text-sm group-hover:text-red-500 transition-colors leading-tight">{question}</h3>
-                    <p className="text-gray-400 text-xs mt-2 font-light">Clique para ver resposta detalhada</p>
+                    <p className="text-gray-400 text-xs mt-2 font-light">{t('pricing.support.clickForDetails')}</p>
                   </div>
                   <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors flex-shrink-0 ml-2" />
                 </div>
@@ -62,29 +62,29 @@ export default function PrecosSuporte() {
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Canais de Atendimento</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.support.channels')}</h3>
               <ul className="space-y-2 text-gray-600">
-                <li>Chat online 24/7</li>
+                <li>{t('pricing.hosting.chat')} 24/7</li>
                 <li>E-mail: suporte@visualdesign.co.mz</li>
-                <li>Telefone: +258 84 123 4567</li>
+                <li>{t('pricing.domains.support.3')}: +258 84 123 4567</li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Horário de Atendimento</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.support.hours')}</h3>
               <ul className="space-y-2 text-gray-600">
-                <li>Segunda a Sexta: 8h - 18h</li>
-                <li>Sábado: 9h - 13h</li>
-                <li>Domingo: Emergências</li>
+                <li>{t('pricing.support.monFri')}: 8h - 18h</li>
+                <li>{t('pricing.support.sat')}: 9h - 13h</li>
+                <li>{t('pricing.support.sun')}: {t('pricing.support.emergencies')}</li>
               </ul>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">Tempo de Resposta</h3>
+              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.support.responseTime')}</h3>
               <ul className="space-y-2 text-gray-600">
-                <li>Chat: Imediato</li>
-                <li>E-mail: Até 2 horas</li>
-                <li>Telefone: Imediato</li>
+                <li>Chat: {t('pricing.support.immediate')}</li>
+                <li>E-mail: {t('pricing.support.upTo2h')}</li>
+                <li>{t('pricing.domains.support.3')}: {t('pricing.support.immediate')}</li>
               </ul>
             </div>
           </div>

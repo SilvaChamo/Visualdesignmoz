@@ -12,37 +12,37 @@ export default function WebDesign() {
       icone: <Monitor className="w-8 h-8" />,
       tituloKey: 'services.web.title',
       descKey: 'services.web.desc',
-      servicos: ["Landing pages", "Sites empresariais", "Portais institucionais", "Sites governamentais"]
+      servicos: [t('services.list.web.1'), t('services.list.web.2'), t('services.list.web.3'), t('services.list.web.4')]
     },
     {
       icone: <Smartphone className="w-8 h-8" />,
       tituloKey: 'services.web.responsive',
       descKey: 'services.web.responsive.desc',
-      servicos: ["Mobile-first design", "Tablet adaptation", "Desktop optimization", "Cross-browser compatibility"]
+      servicos: [t('services.list.web.5'), t('services.list.web.6'), t('services.list.web.7'), t('services.list.web.8')]
     },
     {
       icone: <Globe className="w-8 h-8" />,
       tituloKey: 'services.web.ecommerce',
       descKey: 'services.web.ecommerce.desc',
-      servicos: ["Lojas online", "Catálogos digitais", "Sistemas de pagamento", "Gestão de estoque"]
+      servicos: [t('services.list.web.9'), t('services.list.web.10'), t('services.list.web.11'), t('services.list.web.12')]
     },
     {
       icone: <Code className="w-8 h-8" />,
       tituloKey: 'services.web.custom',
       descKey: 'services.web.custom.desc',
-      servicos: ["Aplicações web", "Sistemas customizados", "Integrações API", "Dashboards"]
+      servicos: [t('services.list.web.13'), t('services.list.web.14'), t('services.list.web.15'), t('services.list.web.16')]
     },
     {
       icone: <Palette className="w-8 h-8" />,
       tituloKey: 'services.web.uiux',
       descKey: 'services.web.uiux.desc',
-      servicos: ["Wireframing", "Prototipagem", "Testes de usabilidade", "Design systems"]
+      servicos: [t('services.list.web.17'), t('services.list.web.18'), t('services.list.web.19'), t('services.list.web.20')]
     },
     {
       icone: <Zap className="w-8 h-8" />,
       tituloKey: 'services.web.performance',
       descKey: 'services.web.performance.desc',
-      servicos: ["SEO on-page", "Otimização de velocidade", "Core Web Vitals", "Analytics setup"]
+      servicos: [t('services.list.web.21'), t('services.list.web.22'), t('services.list.web.23'), t('services.list.web.24')]
     }
   ]
 

@@ -12,25 +12,25 @@ export default function DesignGrafico() {
       icone: <Palette className="w-8 h-8" />,
       tituloKey: 'services.design.identity',
       descKey: 'services.design.identity.desc',
-      servicos: ["Logo design", "Paleta de cores", "Tipografia", "Manual de marca"]
+      servicos: [t('services.list.design.1'), t('services.list.design.2'), t('services.list.design.3'), t('services.list.design.4')]
     },
     {
       icone: <PenTool className="w-8 h-8" />,
       tituloKey: 'services.design.materials',
       descKey: 'services.design.materials.desc',
-      servicos: ["Cartões de visita", "Papeteria", "Brindes", "Material de escritório"]
+      servicos: [t('services.list.design.5'), t('services.list.design.6'), t('services.list.design.7'), t('services.list.design.8')]
     },
     {
       icone: <Layers className="w-8 h-8" />,
       tituloKey: 'services.design.social',
       descKey: 'services.design.social.desc',
-      servicos: ["Posts para Instagram", "Banners Facebook", "Capas YouTube", "Templates LinkedIn"]
+      servicos: [t('services.list.design.9'), t('services.list.design.10'), t('services.list.design.11'), t('services.list.design.12')]
     },
     {
       icone: <Download className="w-8 h-8" />,
       tituloKey: 'services.design.print',
       descKey: 'services.design.print.desc',
-      servicos: ["Flyers e folhetos", "Outdoors", "Banner impressos", "Material POP"]
+      servicos: [t('services.list.design.13'), t('services.list.design.14'), t('services.list.design.15'), t('services.list.design.16')]
     }
   ]
 
