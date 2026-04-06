@@ -8,16 +8,27 @@ async function execSSH(command: string): Promise<string> {
     const rawKey = process.env.SSH_PRIVATE_KEY || '';
     const privateKey = rawKey.replace(/\\n/g, '\n');
 
+    console.log('[SSH] Connecting to', process.env.CYBERPANEL_IP || '109.199.104.22', '- Key length:', privateKey.length);
+    console.log('[SSH] Command:', command.substring(0, 150));
+
     conn.on('ready', () => {
+      console.log('[SSH] Connected! Executing command...');
       conn.exec(command, (err, stream) => {
         if (err) { conn.end(); return reject(err); }
         stream.on('data', (d: Buffer) => { out += d.toString(); });
         stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
-        stream.on('close', () => { conn.end(); resolve(out); });
+        stream.on('close', () => { 
+          console.log('[SSH] Command finished. Output length:', out.length);
+          conn.end(); 
+          resolve(out); 
+        });
       });
     });
 
-    conn.on('error', reject);
+    conn.on('error', (err) => {
+      console.error('[SSH] Connection ERROR:', err.message);
+      reject(err);
+    });
     conn.connect({
       host: process.env.CYBERPANEL_IP || '109.199.104.22',
       port: 22,
@@ -194,11 +205,13 @@ print('ok')
       }
 
       case 'listUsers': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+        console.log('[listUsers] Raw SSH output:', raw.substring(0, 500));
         data = raw.split('\n').filter(Boolean).map(line => {
-          const [id, userName, email, type, state] = line.split('\t');
-          return { id: parseInt(id), userName, email, type, state };
+          const [id, userName, email, type, state, firstName, lastName] = line.split('\t');
+          return { id: parseInt(id), userName, email, type, state, firstName, lastName };
         });
+        console.log('[listUsers] Parsed users:', data.length, JSON.stringify(data).substring(0, 300));
         break;
       }
 
@@ -331,11 +344,44 @@ print('ok')
         break;
       }
 
+      case 'createUser': {
+        const raw = await execSSH(
+          `cyberpanel createAdministrator ` +
+          `--userName ${params.userName} ` +
+          `--password '${params.password}' ` +
+          `--email ${params.email} ` +
+          `--firstName '${params.firstName || ''}' ` +
+          `--lastName '${params.lastName || ''}' ` +
+          `--selectedACL ${params.acl || 'user'} ` +
+          `--websitesLimit ${params.websitesLimit ?? 0} ` +
+          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`
+        );
+        console.log('[createUser] Raw output:', raw);
+        const success = raw.includes('"status": 1') || raw.includes('successfully created') || raw.includes('Success') || raw.includes('created successfully');
+        data = { output: raw, success, error: success ? null : raw };
+        break;
+      }
+
       case 'suspendUser': {
         const raw = await execSSH(
           `cyberpanel suspendUser --userName ${params.userName} --state ${params.state} 2>&1`
         );
         data = { output: raw, success: raw.includes('"status": 1') };
+        break;
+      }
+
+      case 'modifyUser': {
+        const raw = await execSSH(
+          `cyberpanel modifyAdministrator ` +
+          `--userName ${params.userName} ` +
+          `--email ${params.email} ` +
+          `--firstName '${params.firstName || ''}' ` +
+          `--lastName '${params.lastName || ''}' ` +
+          `--selectedACL ${params.acl || 'user'} ` +
+          `--websitesLimit ${params.websitesLimit ?? 10} ` +
+          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`
+        );
+        data = { output: raw, success: raw.includes('Success') || raw.includes('successfully modified') || raw.includes('"status": 1') };
         break;
       }
 

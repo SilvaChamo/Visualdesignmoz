@@ -7,7 +7,7 @@ import type {
   CyberPanelWebsite, CyberPanelSubdomain, CyberPanelUser, CyberPanelDatabase,
   CyberPanelFTPAccount, CyberPanelEmail, CyberPanelPHPConfig, CyberPanelPackage
 } from '@/lib/cyberpanel-api'
-import { syncUserToSupabase, removeUserFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase, syncPackageToSupabase, removePackageFromSupabase } from '@/lib/supabase-sync'
+import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase, syncPackageToSupabase, removePackageFromSupabase } from '@/lib/supabase-sync'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -17,6 +17,105 @@ import {
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw,
   Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X
 } from 'lucide-react'
+
+// ============================================================
+// SHARED UTILITIES & SKELETONS
+// ============================================================
+const Skeleton = ({ className }: { className?: string }) => (
+  <div className={cn("animate-pulse bg-gray-200 rounded-md", className)} />
+)
+
+const TableSkeleton = ({ columns, rows = 5 }: { columns: number, rows?: number }) => (
+  <div className="w-full space-y-4">
+    {Array.from({ length: rows }).map((_, r) => (
+      <div key={r} className="flex gap-4 px-4 py-4 border-b border-gray-50">
+        {Array.from({ length: columns }).map((_, c) => (
+          <Skeleton key={c} className={cn("h-4", c === 0 ? "w-1/4" : "w-1/6")} />
+        ))}
+      </div>
+    ))}
+  </div>
+)
+
+const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" }: { count: number, onAction: (action: string) => void, onClear: () => void, label?: string }) => {
+  if (count === 0) return null
+  return (
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 duration-300">
+      <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10 ring-1 ring-black">
+        <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+          <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">{count}</div>
+          <span className="text-sm font-medium">{count} {label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => onAction('delete')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-xs font-bold">
+            <Trash2 className="w-3.5 h-3.5" /> Eliminar
+          </button>
+          <button onClick={() => onAction('suspend')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors text-xs font-bold">
+            <Pause className="w-3.5 h-3.5" /> Suspender
+          </button>
+          <button onClick={onClear} className="ml-2 text-xs text-gray-500 hover:text-white transition-colors">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+const ConfirmModal = ({ 
+  show, 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel, 
+  confirmText = "Sim, eliminar",
+  cancelText = "Cancelar",
+  isDanger = true 
+}: { 
+  show: boolean, 
+  title: string, 
+  message: string, 
+  onConfirm: () => void, 
+  onCancel: () => void, 
+  confirmText?: string, 
+  cancelText?: string,
+  isDanger?: boolean
+}) => {
+  if (!show) return null
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onCancel} />
+      <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
+        <div className="px-8 py-10 text-center space-y-4">
+          <div className={cn(
+            "w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-4 transition-transform hover:scale-105 duration-300",
+            isDanger ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
+          )}>
+            {isDanger ? <AlertCircle className="w-7 h-7" /> : <CheckCircle className="w-7 h-7" />}
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2 tracking-tight">{title}</h3>
+            <p className="text-sm text-gray-500 leading-relaxed px-2">{message}</p>
+          </div>
+        </div>
+        <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-3">
+          <button 
+            onClick={onCancel} 
+            className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded transition-all active:scale-95"
+          >
+            {cancelText}
+          </button>
+          <button 
+            onClick={() => { onConfirm(); onCancel(); }} 
+            className={cn(
+              "px-4 py-2 text-xs font-bold text-white rounded transition-all active:scale-95",
+              isDanger ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+            )}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ============================================================
 // SUBDOMAINS SECTION
@@ -31,15 +130,18 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
   const loadSubs = async (domain: string) => {
     if (!domain) return
-    setLoading(true); setMsg('')
-    const data = await cyberPanelAPI.listSubdomains(domain).catch(() => [])
-    if (data.length > 0) {
-      setSubdomains(data)
-      data.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
-    } else {
-      const ls = cpGetSubdomains(domain)
-      setSubdomains(ls.length > 0 ? ls : [])
-    }
+    setMsg('')
+    const ls = cpGetSubdomains(domain)
+    if (ls.length > 0) setSubdomains(ls)
+    else setLoading(true)
+
+    try {
+      const data = await cyberPanelAPI.listSubdomains(domain)
+      if (data.length > 0) {
+        setSubdomains(data)
+        data.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
+      }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -98,11 +200,10 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
         {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
-        {loading ? (
-          <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div>
-        ) : selectedDomain && subdomains.length === 0 ? (
+        {loading && <TableSkeleton columns={4} rows={5} />}
+        {!loading && selectedDomain && subdomains.length === 0 ? (
           <div className="py-12 text-center text-gray-400"><Layers className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum subdomínio encontrado.</p></div>
-        ) : subdomains.length > 0 ? (
+        ) : !loading && subdomains.length > 0 ? (
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomínio</th><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Ações</th></tr></thead>
             <tbody>
@@ -1097,15 +1198,17 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
 
   const loadDBs = async (domain: string) => {
     if (!domain) return
-    setLoading(true)
-    const data = await cyberPanelAPI.listDatabases(domain).catch(() => [])
-    if (data.length > 0) {
-      setDatabases(data)
-      data.forEach((d: any) => cpSaveDatabase(domain, d.dbName, d.dbUser))
-    } else {
-      const ls = cpGetDatabases(domain)
-      setDatabases(ls.length > 0 ? ls : [])
-    }
+    const ls = cpGetDatabases(domain)
+    if (ls.length > 0) setDatabases(ls)
+    else setLoading(true)
+
+    try {
+      const data = await cyberPanelAPI.listDatabases(domain)
+      if (data.length > 0) {
+        setDatabases(data)
+        data.forEach((d: any) => cpSaveDatabase(domain, d.dbName, d.dbUser))
+      }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -1180,7 +1283,8 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
           </div>
         )}
 
-        {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : databases.length > 0 && (
+        {loading && <TableSkeleton columns={3} rows={5} />}
+        {!loading && databases.length > 0 && (
           <table className="w-full text-sm mt-6">
             <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Base de Dados</th><th className="px-4 py-3">Utilizador</th><th className="px-4 py-3 w-32">Ações</th></tr></thead>
             <tbody>
@@ -1217,15 +1321,17 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
   const loadFTP = async (domain: string) => {
     if (!domain) return
-    setLoading(true)
-    const data = await cyberPanelAPI.listFTPAccounts(domain).catch(() => [])
-    if (data.length > 0) {
-      setAccounts(data)
-      data.forEach((f: any) => cpSaveFTP(domain, f.userName, f.path || '/'))
-    } else {
-      const ls = cpGetFTP(domain)
-      setAccounts(ls.length > 0 ? ls : [])
-    }
+    const ls = cpGetFTP(domain)
+    if (ls.length > 0) setAccounts(ls)
+    else setLoading(true)
+
+    try {
+      const data = await cyberPanelAPI.listFTPAccounts(domain)
+      if (data.length > 0) {
+        setAccounts(data)
+        data.forEach((a: any) => cpSaveFTP(domain, a.userName, a.path || ''))
+      }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -1283,7 +1389,8 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
         {msg && <div className={`mt-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
-        {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : accounts.length > 0 && (
+        {loading && <TableSkeleton columns={3} rows={5} />}
+        {!loading && accounts.length > 0 && (
           <table className="w-full text-sm mt-6">
             <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Utilizador</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Ações</th></tr></thead>
             <tbody>
@@ -1309,22 +1416,37 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
   const [selectedDomain, setSelectedDomain] = useState('visualdesigne.com')
   const [emails, setEmails] = useState<CyberPanelEmail[]>([])
   const [loading, setLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [emailUser, setEmailUser] = useState('')
-  const [emailPass, setEmailPass] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [emailQuota, setEmailQuota] = useState('500')
-  const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const [stayOnPage, setStayOnPage] = useState(false)
-  const [changingPass, setChangingPass] = useState<string | null>(null)
-  const [newPass, setNewPass] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
-  const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
+  
+  // Modal Único para Criação/Edição de E-mail
+  const [emailModal, setEmailModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
+    show: false,
+    mode: 'create',
+    data: { user: '', password: '', confirmPassword: '', quota: '500', activo: true, cliente_id: '' }
+  })
+  const [showEmailPass, setShowEmailPass] = useState(false)
+  const [clientes, setClientes] = useState<any[]>([])
+  const [loadingClientes, setLoadingClientes] = useState(false)
+  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
+    show: false, title: '', message: '', onConfirm: () => {} 
+  })
+
+  // Carregar clientes para o dropdown de proprietário
+  useEffect(() => {
+    const fetchClientes = async () => {
+      setLoadingClientes(true)
+      try {
+        const { data, error } = await supabase.from('clientes').select('id, nome, email')
+        if (!error) setClientes(data || [])
+      } catch (e) { console.error(e) }
+      setLoadingClientes(false)
+    }
+    fetchClientes()
+  }, [])
 
   const generatePassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
@@ -1333,35 +1455,46 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
 
   const loadEmails = async (domain: string) => {
     if (!domain) return
-    setLoading(true)
+    const ls = cpGetEmails(domain)
+    if (ls.length > 0) setEmails(ls.map((e: any) => ({ email: e.email || `${e.user}@${domain}`, user: e.user, domain, quota: e.quota || '500', usage: e.usage || '0', activo: true })))
+    else setLoading(true)
+
     try {
-      // Usar API directa que lê da BD MySQL do CyberPanel via SSH
-      const res = await fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(domain)}`)
-      const data = await res.json()
-      if (data.success && data.emails && data.emails.length > 0) {
-        setEmails(data.emails.map((e: any) => ({
-          email: e.email,
-          user: e.user,
-          domain: e.domain,
-          quota: e.quota || '500',
-          usage: e.usage || '0'
-        })))
-        data.emails.forEach((e: any) => cpSaveEmail(domain, e.user || e.email?.split('@')[0], { quota: e.quota || '500' }))
+      // 1. Carregar do CyberPanel
+      let cpEmails: any[] = []
+      const cpRes = await fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(domain)}`)
+      const cpData = await cpRes.json()
+      
+      if (cpData.success && cpData.emails) {
+        cpEmails = cpData.emails
       } else {
-        // Fallback: cyberPanelAPI
         const fallback = await cyberPanelAPI.listEmails(domain).catch(() => [])
-        if (fallback.length > 0) {
-          setEmails(fallback)
-        } else {
-          // Último fallback: localStorage
-          const ls = cpGetEmails(domain)
-          setEmails(ls.length > 0 ? ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })) : [])
-        }
+        cpEmails = fallback.length > 0 ? fallback : cpGetEmails(domain)
       }
+
+      // 2. Carregar metadados do Supabase
+      const { data: sbData } = await supabase.from('email_contas').select('*')
+
+      // 3. Cruzar dados
+      const merged = cpEmails.map((cpE: any) => {
+        const emailStr = cpE.email || `${cpE.user}@${domain}`
+        const sbE = sbData?.find((s: any) => s.email === emailStr)
+        return {
+          email: emailStr,
+          user: cpE.user || emailStr.split('@')[0],
+          domain: domain,
+          quota: cpE.quota || (sbE?.quota) || '500',
+          usage: cpE.usage || '0',
+          activo: sbE ? sbE.activo : true,
+          cliente_id: sbE ? sbE.cliente_id : null
+        }
+      })
+
+      setEmails(merged)
+      merged.forEach(e => cpSaveEmail(domain, e.user, { quota: e.quota }))
+      
     } catch (err) {
-      // Fallback: localStorage
-      const ls = cpGetEmails(domain)
-      setEmails(ls.map((e: any) => ({ email: e.emailUser || e.email, quota: e.quota || '500', usage: e.usage || '0' })))
+      console.error('Erro na sincronização:', err)
     }
     setLoading(false)
   }
@@ -1370,74 +1503,204 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
     if (selectedDomain) loadEmails(selectedDomain)
   }, [selectedDomain])
 
-  const handleCreate = async () => {
-    if (!selectedDomain || !emailUser || !emailPass) {
-      setMsg('Preenche todos os campos obrigatórios.')
-      setMsgType('error')
+  const handleCreateEmail = async (data: any) => {
+    if (data.password !== data.confirmPassword) {
+      setMsg('As senhas não coincidem!'); setMsgType('error')
       return
     }
-    setCreating(true)
-    setMsg('')
+    if (!selectedDomain || !data.user || !data.password) {
+      setMsg('Preencha os campos obrigatórios.'); setMsgType('error')
+      return
+    }
+    setCreating(true); setMsg('')
     try {
       const res = await fetch('/api/cyberpanel-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName: selectedDomain, userName: emailUser, password: emailPass, quota: parseInt(emailQuota) })
+        body: JSON.stringify({ domainName: selectedDomain, userName: data.user, password: data.password, quota: parseInt(data.quota) })
       })
-      const data = await res.json()
-      if (data.success) {
-        setMsg('Conta criada com sucesso!')
-        setMsgType('success')
-        cpSaveEmail(selectedDomain, emailUser, { quota: emailQuota })
-        try { await supabase.from('cyberpanel_emails').upsert({ domain: selectedDomain, email_user: emailUser, quota: emailQuota }, { onConflict: 'domain,email_user' }) } catch { }
-        try {
-          await fetch('/api/email-contas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: emailUser + '@' + selectedDomain, password: emailPass, nome: emailUser, tipo: 'webmail' })
-          })
-        } catch { }
-        await loadEmails(selectedDomain)
-        setEmailUser('')
-        setEmailPass('')
-        if (!stayOnPage) {
-          setTimeout(() => { setShowModal(false); setMsg('') }, 1500)
-        }
+      const resData = await res.json()
+      if (resData.success) {
+        setMsg('E-mail criado com sucesso!'); setMsgType('success')
+        cpSaveEmail(selectedDomain, data.user, { quota: data.quota })
+        // Guardar metadados no Supabase
+        await supabase.from('email_contas').upsert({
+          email: `${data.user}@${selectedDomain}`,
+          activo: data.activo,
+          cliente_id: data.cliente_id || null,
+          quota: data.quota
+        }, { onConflict: 'email' })
+        
+        setEmailModal({ ...emailModal, show: false })
+        loadEmails(selectedDomain)
       } else {
-        setMsg((data.error || 'Erro ao criar conta.') + (data.details ? ' | ' + data.details : ''))
-        setMsgType('error')
+        setMsg('Erro: ' + (resData.error || 'Falha no servidor.')); setMsgType('error')
       }
-    } catch (e: any) {
-      setMsg('Erro de ligação: ' + e.message)
-      setMsgType('error')
-    }
+    } catch (e: any) { setMsg('Erro: ' + e.message); setMsgType('error') }
     setCreating(false)
   }
 
-  const handleDelete = async (email: string) => {
-    if (!confirm(`Eliminar ${email}?`)) return
-    setDeleting(email)
+  const handleUpdateEmail = async (data: any) => {
+    if (data.password && data.password !== data.confirmPassword) {
+      setMsg('As senhas não coincidem!'); setMsgType('error')
+      return
+    }
+    setLoading(true); setMsg('')
     try {
-      const res = await fetch('/api/cyberpanel-email', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setMsg('Conta eliminada.')
-        setMsgType('success')
-        await loadEmails(selectedDomain)
-      } else {
-        setMsg('Erro ao eliminar.')
-        setMsgType('error')
+      // 1. Password no CyberPanel
+      if (data.password) {
+        await cyberPanelAPI.changeEmailPassword({ email: data.email, password: data.password })
       }
-    } catch {
-      setMsg('Erro de ligação.')
+      // 2. Metadados no Supabase
+      const { error } = await supabase.from('email_contas').upsert({
+        email: data.email, 
+        activo: data.activo,
+        cliente_id: data.cliente_id || null,
+        quota: data.quota
+      }, { onConflict: 'email' })
+
+      if (error) throw error
+      setMsg('Configurações guardadas.'); setMsgType('success')
+      setEmailModal({ ...emailModal, show: false })
+      loadEmails(selectedDomain)
+    } catch (e: any) {
+      setMsg('Erro: ' + e.message); setMsgType('error')
+    }
+  }
+
+  const handleDelete = async (email: string) => {
+    setConfirm({
+      show: true,
+      title: 'Eliminar Conta',
+      message: `Tens a certeza que desejas eliminar a conta ${email}? Esta ação não pode ser desfeita.`,
+      isDanger: true,
+      onConfirm: async () => {
+        setDeleting(email)
+        try {
+          const res = await fetch('/api/cyberpanel-email', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          })
+          const data = await res.json()
+          if (data.success) {
+            await supabase.from('email_contas').delete().eq('email', email)
+            await supabase.from('cyberpanel_emails').delete().eq('email_user', email.split('@')[0])
+            setMsg('Conta eliminada com sucesso.')
+            setMsgType('success')
+            loadEmails(selectedDomain)
+          } else {
+            setMsg('Erro: ' + (data.details || 'Falha no servidor.'))
+            setMsgType('error')
+          }
+        } catch (e: any) {
+          setMsg('Erro: ' + e.message)
+          setMsgType('error')
+        }
+        setDeleting(null)
+      }
+    })
+  }
+
+  const handleBulkAction = async (action: string) => {
+    if (selected.length === 0) return
+    const count = selected.length
+    
+    if (action === 'delete') {
+      setConfirm({
+        show: true,
+        title: `Eliminar ${count} Contas`,
+        message: `Estás prestes a eliminar permanentemente ${count} contas selecionadas. Desejas continuar?`,
+        isDanger: true,
+        onConfirm: async () => {
+          setLoading(true)
+          for (const email of selected) {
+            setMsg(`A eliminar ${email}...`)
+            try {
+              const res = await fetch('/api/cyberpanel-email', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+              })
+              const data = await res.json()
+              if (data.success) {
+                await supabase.from('email_contas').delete().eq('email', email)
+                await supabase.from('cyberpanel_emails').delete().eq('email_user', email.split('@')[0])
+              }
+            } catch (e) { console.error(`Erro ao eliminar ${email}:`, e) }
+          }
+          setMsg(`${count} contas processadas.`)
+          setMsgType('success')
+          setSelected([])
+          loadEmails(selectedDomain)
+          setLoading(false)
+        }
+      })
+    } else if (action === 'suspend') {
+      setConfirm({
+        show: true,
+        title: `Suspender ${count} Contas`,
+        message: `Desejas suspender o acesso de ${count} contas selecionadas?`,
+        isDanger: false,
+        onConfirm: async () => {
+          setLoading(true)
+          for (const email of selected) {
+            await fetch('/api/cyberpanel-email', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, action: 'suspend' })
+            })
+            await supabase.from('email_contas').upsert({ email, activo: false }, { onConflict: 'email' })
+          }
+          setMsg(`${count} contas suspensas.`)
+          setMsgType('success')
+          setSelected([])
+          loadEmails(selectedDomain)
+          setLoading(false)
+        }
+      })
+    }
+  }
+
+  const handleUpdateAccount = async (formData: any) => {
+    setLoading(true)
+    try {
+      // 1. Alertar CyberPanel se houver nova password
+      if (formData.password) {
+        await cyberPanelAPI.changeEmailPassword({ email: formData.email, password: formData.password })
+      }
+      
+      // 2. Atualizar Suspensão no CyberPanel (simulado via PATCH o seu API implementado há pouco)
+      await fetch('/api/cyberpanel-email', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, action: formData.activo ? 'unsuspend' : 'suspend' })
+      })
+
+      // 3. Atualizar Supabase (Mestre da verdade para Proprietário e Estado)
+      const { error } = await supabase.from('email_contas').upsert({
+        email: formData.email,
+        cliente_id: formData.cliente_id,
+        activo: formData.activo,
+        nome_conta: formData.email.split('@')[0],
+        ...(formData.password ? { password_smtp: Buffer.from(formData.password).toString('base64') } : {})
+      }, { onConflict: 'email' })
+
+      if (error) throw error
+
+      setMsg('Conta atualizada com sucesso.')
+      setMsgType('success')
+      setShowEditModal(false)
+      loadEmails(selectedDomain)
+    } catch (e: any) {
+      setMsg('Erro ao atualizar: ' + e.message)
       setMsgType('error')
     }
-    setDeleting(null)
+    setLoading(false)
   }
+
+  const [showEditPass, setShowEditPass] = useState(false)
+
 
   const handleChangePass = async (email: string) => {
     if (!newPass) return
@@ -1498,7 +1761,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
         <select
           value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
-          className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
+          className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
         >
           <option value="">Seleccionar domínio...</option>
           {sites.length > 0
@@ -1511,70 +1774,69 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Pesquisar contas..."
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-red-500"
           />
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => loadEmails(selectedDomain)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-all font-bold"
           >
-            <RefreshCw className="w-4 h-4" /> Actualizar
+            <RefreshCw className="w-4 h-4" /> Atualizar
           </button>
           <button
-            onClick={() => { setShowModal(true); setMsg(''); setEmailUser(''); setEmailPass('') }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
+            onClick={() => setEmailModal({
+              show: true,
+              mode: 'create',
+              data: { user: '', password: '', quota: '500', activo: true, cliente_id: '' }
+            })}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20"
           >
-            <Plus className="w-4 h-4" /> Criar
+            <Plus className="w-4 h-4" /> Criar E-mail
           </button>
           <button
             onClick={() => { setMostrarAdicionarConta(true); setModalAdicionarPasso('escolher') }}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition-all"
           >
-            <Plus className="w-4 h-4" /> Adicionar Conta
+            <Plus className="w-4 h-4" /> Conta Externa
           </button>
         </div>
       </div>
 
       {/* Mensagem de feedback */}
       {msg && (
-        <div className={`flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-4 border ${msgType === 'success'
+        <div className={`flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-4 border font-medium ${msgType === 'success'
           ? 'text-green-700 bg-green-50 border-green-200'
           : 'text-red-700 bg-red-50 border-red-200'
           }`}>
-          <span>{msgType === 'success' ? '✅' : '⚠️'}</span> {msg}
+          <span>{msgType === 'success' ? '✓' : '⚠'}</span> {msg}
         </div>
       )}
 
       {/* Tabela */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-3 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={selected.length === emails.length && emails.length > 0}
               onChange={() => setSelected(selected.length === emails.length ? [] : emails.map(e => e.email))}
-              className="w-4 h-4 accent-blue-600 cursor-pointer"
+              className="w-4 h-4 accent-red-600 cursor-pointer"
             />
           </div>
-          <div>Conta @ Domínio</div>
-          <div>Restrições</div>
+          <div>Conta</div>
+          <div>Estado</div>
           <div>Armazenamento</div>
-          <div>Ações</div>
+          <div className="text-right">Ações</div>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="py-12 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin" /> A carregar contas...
-          </div>
-        )}
+        {/* Loading Skeleton */}
+        {loading && <TableSkeleton columns={5} rows={8} />}
 
         {/* Empty */}
         {!loading && filtered.length === 0 && (
-          <div className="py-12 text-center text-gray-500 text-sm">
-            {selectedDomain ? 'Nenhuma conta encontrada.' : 'Selecciona um domínio para ver as contas.'}
+          <div className="py-12 text-center text-gray-400 text-sm">
+            {selectedDomain ? 'Nenhuma conta encontrada.' : 'Seleccione um domínio.'}
           </div>
         )}
 
@@ -1583,263 +1845,132 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           const pct = getStoragePct(email.usage || '0', String(email.quota || '500'))
           const color = getStorageColor(pct)
           const emailStr = email.email || ''
-          const user = emailStr.split('@')[0]
 
           return (
-            <div key={emailStr} className={`grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all ${selected.includes(emailStr) ? 'bg-blue-50' : ''}`}>
-              {/* Checkbox */}
+            <div key={emailStr} className={`grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 transition-all ${selected.includes(emailStr) ? 'bg-red-50/30' : ''}`}>
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   checked={selected.includes(emailStr)}
                   onChange={() => toggleSelect(emailStr)}
-                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                  className="w-4 h-4 accent-red-600 cursor-pointer"
                 />
               </div>
 
-              {/* Email */}
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-xs font-bold text-blue-600">
-                  {user[0]?.toUpperCase() || '@'}
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200">
+                  <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{emailStr}</p>
-                  {changingPass === emailStr && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="password"
-                        value={newPass}
-                        onChange={e => setNewPass(e.target.value)}
-                        placeholder="Nova password"
-                        className="text-xs bg-white border border-gray-300 rounded px-2 py-1 text-gray-900 focus:outline-none"
-                      />
-                      <button onClick={() => handleChangePass(emailStr)} className="text-xs text-green-600 hover:text-green-700">✓</button>
-                      <button onClick={() => { setChangingPass(null); setNewPass('') }} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
-                    </div>
-                  )}
+                  <p className="text-sm font-bold text-gray-900 leading-tight">{emailStr}</p>
+                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">Quota: {email.quota}MB</p>
                 </div>
               </div>
 
-              {/* Restrictions */}
               <div className="flex items-center">
-                <span className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                  Sem restrições
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight ${email.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {email.activo ? 'Ativo' : 'Suspenso'}
                 </span>
               </div>
 
-              {/* Storage */}
               <div className="flex items-center">
-                <div className="flex flex-col gap-1 min-w-[140px]">
-                  <span className="text-xs text-gray-600">
-                    {email.usage || '0'} MB / {String(email.quota || '500')} MB / {pct.toFixed(2)}%
-                  </span>
-                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="flex flex-col gap-1 w-full max-w-[140px]">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-gray-500">
+                    <span>{email.usage || '0'} MB</span>
+                    <span>{pct.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200/50">
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                   </div>
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center justify-end gap-1">
                 <a
                   href={`https://visualdesigne.com/webmail/?user=${encodeURIComponent(emailStr)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
-                  title={`Abrir webmail para ${emailStr}`}
+                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                  title="Webmail"
                 >
-                  <ExternalLink className="w-3 h-3" /> Webmail
+                  <ExternalLink className="w-4 h-4" />
                 </a>
                 <button
-                  onClick={() => setChangingPass(changingPass === emailStr ? null : emailStr)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300"
+                  onClick={() => setEmailModal({
+                    show: true,
+                    mode: 'edit',
+                    data: { ...email, password: '' }
+                  })}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                  title="Gerir"
                 >
-                  <Settings className="w-3 h-3" /> Senha
+                  <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(emailStr)}
                   disabled={deleting === emailStr}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all border border-red-200 disabled:opacity-50"
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                 >
-                  <Trash2 className="w-3 h-3" />
-                  {deleting === emailStr ? '...' : 'Eliminar'}
+                  {deleting === emailStr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
               </div>
             </div>
           )
         })}
-
-        {/* Footer */}
-        <div className="px-4 py-3 text-xs text-gray-500 flex justify-between items-center bg-gray-50">
-          <span>{filtered.length} de {emails.length} contas</span>
-          <span>Domínio: {selectedDomain || '—'}</span>
-        </div>
       </div>
 
-      {/* Modal Adicionar Conta Externa */}
-      {mostrarAdicionarConta && (
-        <EmailWebmailSection
-          mostrarAdicionarConta={mostrarAdicionarConta}
-          setMostrarAdicionarConta={setMostrarAdicionarConta}
-          modalAdicionarPasso={modalAdicionarPasso}
-          setModalAdicionarPasso={setModalAdicionarPasso}
-        />
-      )}
-
-      {/* Modal Criar Conta */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white border border-gray-200 rounded-2xl w-full max-w-xl shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      {/* Modal de E-mail (Unified) */}
+      {emailModal.show && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEmailModal({ ...emailModal, show: false })} />
+          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-blue-600" />
-                </div>
-                <h2 className="text-base font-bold text-gray-900">Criar Conta de Email</h2>
+                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20"><Mail className="w-5 h-5 text-white" /></div>
+                <div><h2 className="text-sm font-bold text-gray-900 block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
-
-            {/* Modal Body */}
-            <div className="px-6 py-5 space-y-5">
-              {/* Domain */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Domínio</label>
-                <select
-                  value={selectedDomain}
-                  onChange={e => setSelectedDomain(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">Seleccionar domínio...</option>
-                  {sites.length > 0
-                    ? sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)
-                    : <option value="visualdesigne.com">visualdesigne.com</option>
-                  }
-                </select>
+            <div className="p-6 space-y-5">
+              {emailModal.mode === 'create' && (
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Utilizador @{selectedDomain}</label><input value={emailModal.data.user} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, user: e.target.value}})} placeholder="ex: info" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /></div></div>
               </div>
-
-              {/* Username */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Utilizador</label>
-                <div className="flex">
-                  <input
-                    value={emailUser}
-                    onChange={e => setEmailUser(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
-                    placeholder="nome.utilizador"
-                    className="flex-1 bg-white border border-gray-300 border-r-0 rounded-l-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                  />
-                  <div className="bg-gray-100 border border-gray-300 rounded-r-lg px-3 py-2.5 text-sm text-gray-600 whitespace-nowrap">
-                    @{selectedDomain || 'visualdesigne.com'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Senha</label>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      value={emailPass}
-                      onChange={e => setEmailPass(e.target.value)}
-                      placeholder="Password"
-                      className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 pr-10"
-                    />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setEmailPass(generatePassword())}
-                    className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-xs text-gray-700 hover:bg-gray-200 transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Gerar
-                  </button>
-                </div>
-              </div>
-
-              {/* Password Strength */}
-              {emailPass && (() => {
-                const hasUpper = /[A-Z]/.test(emailPass)
-                const hasLower = /[a-z]/.test(emailPass)
-                const hasNumber = /[0-9]/.test(emailPass)
-                const hasSpecial = /[!@#$%^&*]/.test(emailPass)
-                const score = [emailPass.length >= 8, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
-                const strength = score <= 2 ? 'Fraca' : score === 3 ? 'Média' : score === 4 ? 'Forte' : 'Muito Forte'
-                const color = score <= 2 ? 'bg-red-500' : score === 3 ? 'bg-yellow-500' : score === 4 ? 'bg-blue-500' : 'bg-green-500'
-                const textColor = score <= 2 ? 'text-red-600' : score === 3 ? 'text-yellow-600' : score === 4 ? 'text-blue-600' : 'text-green-600'
-                const width = `${(score / 5) * 100}%`
-                return (
-                  <div className="mt-2">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-500">Força da password</span>
-                      <span className={`text-xs font-semibold ${textColor}`}>{strength}</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-300 ${color}`} style={{ width }} />
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Quota */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Quota (MB)</label>
-                <input
-                  type="number"
-                  value={emailQuota}
-                  onChange={e => setEmailQuota(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              {/* Error/Success */}
-              {msg && (
-                <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${msgType === 'success'
-                  ? 'text-green-700 bg-green-50 border-green-200'
-                  : 'text-red-700 bg-red-50 border-red-200'
-                  }`}>
-                  {msg}
+              <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label><input type="number" value={emailModal.data.quota} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, quota: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Proprietário</label><select value={emailModal.data.cliente_id || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, cliente_id: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="">Sem proprietário</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.email})</option>)}</select></div>
+              {emailModal.mode === 'edit' && (
+                <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${emailModal.data.activo ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.activo ? 'Ativa' : 'Suspensa'}</p></div></div>
+                  <button onClick={() => setEmailModal({...emailModal, data: {...emailModal.data, activo: !emailModal.data.activo}})} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.activo ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.activo ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
-
-              {/* Stay on page */}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stayOnPage}
-                  onChange={e => setStayOnPage(e.target.checked)}
-                  className="w-4 h-4 accent-blue-600"
-                />
-                <span className="text-xs text-gray-600">Permanecer nesta página após criar</span>
-              </label>
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors font-medium">
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={creating || !emailUser || !emailPass}
-                className="flex items-center gap-2 px-5 py-2 bg-gray-900 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
-              >
-                {creating
-                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> A criar...</>
-                  : <><Plus className="w-4 h-4" /> Criar Conta</>
-                }
-              </button>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
+              <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar 
+        count={selected.length} 
+        onAction={handleBulkAction} 
+        onClear={() => setSelected([])} 
+        label="contas de e-mail"
+      />
+      <ConfirmModal 
+        show={confirm.show} 
+        title={confirm.title} 
+        message={confirm.message} 
+        isDanger={confirm.isDanger}
+        onConfirm={confirm.onConfirm} 
+        onCancel={() => setConfirm({ ...confirm, show: false })} 
+      />
     </div>
   )
 }
@@ -1851,247 +1982,334 @@ export function CPUsersSection() {
   const [users, setUsers] = useState<CyberPanelUser[]>([])
   const [loading, setLoading] = useState(false)
   const [acls, setAcls] = useState<string[]>([])
-  const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', userName: '', password: '', websitesLimit: 10, acl: 'user' })
-  const [editingUser, setEditingUser] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', acl: '' })
+  const [selected, setSelected] = useState<string[]>([])
+  const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
+    show: false,
+    mode: 'create',
+    data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 10, emailsLimit: 100, acl: 'user' }
+  })
+  const [showUserPass, setShowUserPass] = useState(false)
+  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
+    show: false, title: '', message: '', onConfirm: () => {} 
+  })
 
   const loadUsers = async () => {
-    setLoading(true)
-    const [u, a] = await Promise.all([
-      cyberPanelAPI.listUsers().catch(() => [] as CyberPanelUser[]),
-      cyberPanelAPI.listACLs().catch(() => ['user', 'reseller'])
-    ])
-    setAcls(a)
-    if (u.length > 0) {
-      setUsers(u)
-      u.forEach((user: any) => cpSaveUser(user.userName, { firstName: user.firstName, lastName: user.lastName, email: user.email, acl: user.acl, websitesLimit: user.websitesLimit }))
-    } else {
-      // Fallback 1: Supabase
-      let loaded = false
-      try {
-        const { data: sbUsers, error: sbErr } = await supabase.from('cyberpanel_users').select('*').order('username')
-        if (!sbErr && sbUsers && sbUsers.length > 0) {
-          setUsers(sbUsers.map((u: any) => ({
-            id: u.id,
-            userName: u.username,
-            firstName: u.first_name || '',
-            lastName: u.last_name || '',
-            email: u.email || '',
-            acl: (u as any).acl || 'user',
-            websitesLimit: u.websites_limit || 0,
-            status: u.status || 'Active'
-          })))
-          loaded = true
-        }
-      } catch { /* table may not exist */ }
-      // Fallback 2: localStorage (always works)
-      if (!loaded) {
-        const lsUsers = cpGetUsers()
-        if (lsUsers.length > 0) setUsers(lsUsers)
+    const lsUsers = cpGetUsers()
+    if (lsUsers.length > 0) setUsers(lsUsers)
+    else setLoading(true)
+
+    try {
+      console.log('[loadUsers] Starting fetch...')
+      const [u, a, sbUsers] = await Promise.all([
+        cyberPanelAPI.listUsers().catch((e: any) => { console.error('[loadUsers] listUsers FAILED:', e.message); return [] as CyberPanelUser[] }),
+        cyberPanelAPI.listACLs().catch((e: any) => { console.error('[loadUsers] listACLs FAILED:', e.message); return ['user', 'reseller'] }),
+        getUsersFromSupabase().catch((e: any) => { console.error('[loadUsers] getUsersFromSupabase FAILED:', e.message); return [] })
+      ])
+      
+      console.log('[loadUsers] CyberPanel users:', u.length, 'Supabase users:', sbUsers.length)
+      console.log('[loadUsers] CyberPanel raw:', JSON.stringify(u).substring(0, 500))
+      
+      setAcls(Array.isArray(a) ? a.map((x: any) => typeof x === 'string' ? x : x.name || x.ACLName || x.id) : ['user', 'reseller'])
+      
+      if (u.length > 0 || sbUsers.length > 0) {
+        const merged: any[] = u.map(user => {
+          const sb = sbUsers.find((s: any) => s.username === user.userName)
+          const userType = (user.type !== undefined && user.type !== null) ? String(user.type) : null
+          return {
+            ...user,
+            existsOnServer: true,
+            firstName: user.firstName || sb?.first_name || '',
+            lastName: user.lastName || sb?.last_name || '',
+            email: user.email || sb?.email || '',
+            acl: userType || sb?.acl || 'user',
+            websitesLimit: sb?.websites_limit || 0,
+            emailsLimit: sb?.emails_limit || 0,
+            securityLevel: sb?.security_level || 'HIGH',
+            state: user.state || sb?.status || 'Active'
+          }
+        })
+
+        // Add accounts missing from CyberPanel but present in Supabase
+        sbUsers.forEach((sb: any) => {
+          if (!merged.find(m => m.userName === sb.username)) {
+            merged.push({
+              userName: sb.username,
+              existsOnServer: false,
+              firstName: sb.first_name || '',
+              lastName: sb.last_name || '',
+              email: sb.email || '',
+              acl: sb.acl || 'user',
+              websitesLimit: sb.websites_limit || 0,
+              emailsLimit: sb.emails_limit || 0,
+              securityLevel: sb.security_level || 'HIGH',
+              state: sb.status || 'Active'
+            })
+          }
+        })
+        
+        console.log('[loadUsers] Final merged users:', merged.length, merged.map(m => m.userName))
+        setUsers(merged)
+        merged.forEach((user: any) => cpSaveUser(user.userName, user))
+      } else {
+        console.warn('[loadUsers] No users from CyberPanel or Supabase! Showing cached data.')
       }
-    }
+    } catch (e: any) { console.error('[loadUsers] EXCEPTION:', e.message) }
     setLoading(false)
   }
 
   useEffect(() => { loadUsers() }, [])
 
-  const handleCreate = async () => {
-    if (!form.userName || !form.email || !form.password) return
+  const handleCreate = async (data: any) => {
+    if (data.password !== data.confirmPassword) {
+      setMsg('As senhas não coincidem!'); return
+    }
     setCreating(true); setMsg('')
-    const ok = await cyberPanelAPI.createUser(form)
-    // Always save locally (localStorage + Supabase) so user appears in list
-    cpSaveUser(form.userName, { firstName: form.firstName, lastName: form.lastName, email: form.email, acl: form.acl, websitesLimit: form.websitesLimit })
-    void syncUserToSupabase({ username: form.userName, firstName: form.firstName, lastName: form.lastName, email: form.email, acl: form.acl, websitesLimit: form.websitesLimit, status: 'Active' })
-    setMsg(ok ? 'Utilizador criado com sucesso!' : 'Guardado no painel. Verifica no CyberPanel se necessário.')
-    setShowForm(false)
-    setForm({ firstName: '', lastName: '', email: '', userName: '', password: '', websitesLimit: 10, acl: 'user' })
-    loadUsers()
+    try {
+      console.log('[handleCreate] Sending to API:', JSON.stringify(data).substring(0, 300))
+      const res = await cyberPanelAPI.createUser(data)
+      console.log('[handleCreate] API Response:', JSON.stringify(res).substring(0, 500))
+      const serverSuccess = res?.success === true
+      const newUser = { ...data, state: 'Active', existsOnServer: serverSuccess }
+      cpSaveUser(data.userName, newUser)
+      void syncUserToSupabase({ 
+        username: data.userName, 
+        firstName: data.firstName, 
+        lastName: data.lastName, 
+        email: data.email, 
+        acl: data.acl, 
+        websitesLimit: data.websitesLimit,
+        status: 'Active' 
+      })
+      if (serverSuccess) {
+        setMsg('✅ Utilizador criado com sucesso no CyberPanel!')
+        setUserModal({ ...userModal, show: false })
+      } else {
+        const errorDetail = res?.error || res?.output || 'Erro desconhecido'
+        setMsg(`❌ Falhou no CyberPanel: ${errorDetail.substring(0, 200)}`)
+      }
+      loadUsers()
+    } catch (e: any) {
+      console.error('[handleCreate] Exception:', e)
+      setMsg(`❌ Erro: ${e.message}`)
+    }
     setCreating(false)
   }
 
-  const handleDelete = async (userName: string) => {
-    if (!confirm(`Eliminar utilizador ${userName}?`)) return
-    await cyberPanelAPI.deleteUser(userName)
-    // Always remove from all stores
-    cpRemoveUser(userName)
-    void removeUserFromSupabase(userName)
-    await loadUsers()
+  const handleRetrySync = async (u: any) => {
+    setLoading(true); setMsg('')
+    try {
+      console.log('[handleRetrySync] Syncing user:', u.userName, JSON.stringify(u).substring(0, 300))
+      const res = await cyberPanelAPI.createUser(u)
+      console.log('[handleRetrySync] Response:', JSON.stringify(res).substring(0, 500))
+      if (res?.success === true) {
+        setMsg(`✅ Utilizador ${u.userName} sincronizado com sucesso no CyberPanel!`)
+        loadUsers()
+      } else {
+        const errorDetail = res?.error || res?.output || 'Erro desconhecido'
+        setMsg(`❌ Erro de Sincronização: ${errorDetail.substring(0, 300)}`)
+      }
+    } catch (e: any) {
+      console.error('[handleRetrySync] Exception:', e)
+      setMsg(`❌ Erro: ${e.message}`)
+    }
+    setLoading(false)
   }
 
-  const handleEdit = (user: CyberPanelUser) => {
-    if (editingUser === user.userName) {
-      // Save edit
-      setEditingUser(null)
-      // TODO: Call API to update user
-      setMsg('Utilizador atualizado com sucesso!')
-    } else {
-      setEditingUser(user.userName)
-      setEditForm({
-        firstName: (user as any).firstName || '',
-        lastName: (user as any).lastName || '',
-        email: user.email || '',
-        acl: (user as any).acl || 'user'
+  const handleDelete = async (userName: string) => {
+    setConfirm({
+      show: true,
+      title: 'Eliminar Utilizador',
+      message: `Tens a certeza que desejas eliminar o utilizador ${userName}? Esta ação removerá permanentemente o utilizador do CyberPanel e da base de dados.`,
+      isDanger: true,
+      onConfirm: async () => {
+        setLoading(true)
+        try {
+          await cyberPanelAPI.deleteUser({ userName })
+        } catch (e) {
+          console.warn('API deletion failed, but removing locally:', e)
+        }
+        cpRemoveUser(userName)
+        void removeUserFromSupabase(userName)
+        await loadUsers()
+        setLoading(false)
+        setConfirm({ ...confirm, show: false })
+      }
+    })
+  }
+
+  const handleBulkAction = async (action: string) => {
+    if (selected.length === 0) return
+    const count = selected.length
+    
+    if (action === 'delete') {
+      setConfirm({
+        show: true,
+        title: `Eliminar ${count} Utilizadores`,
+        message: `Desejas eliminar permanentemente os ${count} utilizadores selecionados?`,
+        isDanger: true,
+        onConfirm: async () => {
+          setLoading(true)
+          for (const user of selected) {
+            await cyberPanelAPI.deleteUser({ userName: user })
+            cpRemoveUser(user)
+            void removeUserFromSupabase(user)
+          }
+          setSelected([])
+          loadUsers()
+          setLoading(false)
+        }
+      })
+    } else if (action === 'suspend') {
+      setConfirm({
+        show: true,
+        title: `Suspender ${count} Utilizadores`,
+        message: `Desejas suspender o acesso dos ${count} utilizadores selecionados?`,
+        isDanger: false,
+        onConfirm: async () => {
+          setLoading(true)
+          // CyberPanel suspend logic if available via API, or just update state
+          for (const user of selected) {
+            // Note: cyberPanelAPI.modifyUser can handle suspension if implemented
+          }
+          setSelected([])
+          loadUsers()
+          setLoading(false)
+        }
       })
     }
   }
 
-  const handleSuspend = async (userName: string) => {
-    const user = users.find(u => u.userName === userName)
-    const isSuspended = (user as any).state === 'Suspended'
-
-    try {
-      // TODO: Call suspend/unsuspend API
-      setMsg(`Utilizador ${isSuspended ? 'ativado' : 'suspenso'} com sucesso!`)
-      await loadUsers()
-    } catch (e) {
-      setMsg('Erro ao alterar estado do utilizador')
+  const handleUpdate = async (data: any) => {
+    if (data.password && data.password !== data.confirmPassword) {
+      setMsg('As senhas não coincidem!'); return
     }
-  }
-
-  const handleResetPassword = async (userName: string) => {
-    if (!confirm(`Redefinir password para ${userName}?`)) return
-
+    setLoading(true)
     try {
-      // Generate random password
-      const newPassword = Math.random().toString(36).slice(-8)
-      // TODO: Call API to reset password
-      setMsg(`Password redefinida para ${userName}: ${newPassword}`)
-    } catch (e) {
-      setMsg('Erro ao redefinir password')
+      if (data.password) {
+        await cyberPanelAPI.execCommand(`cyberpanel changeUserPassword --userName ${data.userName} --password '${data.password}'`)
+      }
+      const currentState = (users.find(u => u.userName === data.userName) as any)?.state || 'Active'
+      if (data.state !== currentState) {
+        await cyberPanelAPI.execCommand(`cyberpanel ${data.state === 'Suspended' ? 'suspendUser' : 'unsuspendUser'} --userName ${data.userName}`)
+      }
+      
+      // Sync profile changes to CyberPanel original server
+      await cyberPanelAPI.modifyUser(data)
+      cpSaveUser(data.userName, data)
+      await syncUserToSupabase({ 
+        username: data.userName, 
+        firstName: data.firstName, 
+        lastName: data.lastName, 
+        email: data.email, 
+        acl: data.acl, 
+        websitesLimit: data.websitesLimit,
+        emailsLimit: data.emailsLimit,
+        status: data.state 
+      })
+      setMsg('Utilizador atualizado com sucesso!')
+      setUserModal({ ...userModal, show: false })
+      loadUsers()
+    } catch (e: any) {
+      setMsg('Erro: ' + e.message)
     }
+    setLoading(false)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-gray-900">Utilizadores CyberPanel</h1><p className="text-gray-500 mt-1">Gira utilizadores e permissões do servidor.</p></div>
+        <div><h1 className="text-3xl font-bold text-gray-900">Utilizadores CyberPanel</h1><p className="text-gray-500 mt-1 text-sm font-medium">Gira acessos e permissões do servidor.</p></div>
         <div className="flex gap-2">
           <button onClick={loadUsers} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
-          <button onClick={() => setShowForm(!showForm)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Novo Utilizador</button>
+          <button 
+            onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })} 
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"
+          >
+            <PlusCircle className="w-4 h-4" /> Novo Utilizador
+          </button>
         </div>
       </div>
 
-      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('criado') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="font-bold text-gray-900 mb-4">Criar Novo Utilizador</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label><input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="João" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Apelido</label><input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="Silva" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">E-mail</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao@email.com" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Username</label><input value={form.userName} onChange={(e) => setForm({ ...form, userName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="joao" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="••••••" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite Websites</label><input type="number" value={form.websitesLimit} onChange={(e) => setForm({ ...form, websitesLimit: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-            <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">ACL (Permissão)</label>
-              <select value={form.acl} onChange={(e) => setForm({ ...form, acl: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-                {(Array.isArray(acls) ? acls : ['user', 'reseller']).map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-          </div>
-          <button onClick={handleCreate} disabled={creating} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Criar Utilizador
-          </button>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : users.length === 0 ? (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
+        {loading && <TableSkeleton columns={5} rows={8} />}
+        {!loading && users.length === 0 ? (
           <div className="py-12 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum utilizador encontrado.</p></div>
-        ) : (
+        ) : !loading && (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50"><th className="px-4 py-3">Username</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Acções</th></tr></thead>
+            <thead>
+              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
+                <th className="px-4 py-2.5 w-10">
+                  <input 
+                    type="checkbox" 
+                    checked={selected.length === users.length && users.length > 0} 
+                    onChange={() => setSelected(selected.length === users.length ? [] : users.map(u => u.userName))}
+                    className="w-4 h-4 accent-red-600 cursor-pointer"
+                  />
+                </th>
+                <th className="px-4 py-2.5">Utilizador</th>
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">ACL</th>
+                <th className="px-4 py-2.5">Estado</th>
+                <th className="px-4 py-2.5 text-right">Acções</th>
+              </tr>
+            </thead>
             <tbody>
               {users.map((u, i) => (
-                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{u.userName}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {editingUser === u.userName ? (
-                      <input
-                        type="email"
-                        value={editForm.email}
-                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                        className="w-40 px-2 py-1 border border-gray-300 rounded text-sm"
-                      />
-                    ) : (
-                      u.email || 'N/A'
-                    )}
+                <tr key={i} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${selected.includes(u.userName) ? 'bg-red-50/30' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <input 
+                      type="checkbox" 
+                      checked={selected.includes(u.userName)} 
+                      onChange={() => setSelected(prev => prev.includes(u.userName) ? prev.filter(x => x !== u.userName) : [...prev, u.userName])}
+                      className="w-4 h-4 accent-red-600 cursor-pointer"
+                    />
                   </td>
-                  <td className="px-4 py-3">
-                    {editingUser === u.userName ? (
-                      <select
-                        value={editForm.acl}
-                        onChange={(e) => setEditForm({ ...editForm, acl: e.target.value })}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
-                      >
-                        {(Array.isArray(acls) ? acls : ['user', 'reseller']).map(a => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                    ) : (
-                      <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">{(u as any).acl || 'User'}</span>
-                    )}
+                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                    <div className="flex items-center gap-2">
+                      {u.userName}
+                      {!u.existsOnServer && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[9px] font-bold border border-orange-100 uppercase tracking-tighter" title="Esta conta existe apenas localmente e falhou ao sincronizar com o CyberPanel.">
+                          <AlertCircle className="w-2.5 h-2.5" /> Off-Sync
+                        </div>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${(u as any).state === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                      }`}>
+                  <td className="px-4 py-2.5 text-gray-600">{u.email || 'N/A'}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight">{(u as any).acl || 'User'}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${(u as any).state === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                       {(u as any).state || 'Active'}
+                      {!u.existsOnServer && (
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleRetrySync(u)} 
+                            className="text-[9px] text-blue-600 hover:underline font-bold uppercase transition-all"
+                            title="Tentar criar esta conta no CyberPanel agora"
+                          >
+                            🔄 Sincronizar
+                          </button>
+                        </div>
+                      )}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      {editingUser === u.userName ? (
-                        <>
-                          <button
-                            onClick={() => handleEdit(u)}
-                            className="text-green-600 hover:text-green-800 text-xs font-bold"
-                            title="Salvar"
-                          >
-                            Salvar
-                          </button>
-                          <button
-                            onClick={() => setEditingUser(null)}
-                            className="text-gray-600 hover:text-gray-800 text-xs font-bold"
-                            title="Cancelar"
-                          >
-                            Cancelar
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEdit(u)}
-                            className="text-blue-600 hover:text-blue-800 text-xs font-bold"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleSuspend(u.userName)}
-                            className={`text-${(u as any).state === 'Suspended' ? 'green' : 'orange'}-600 hover:text-${(u as any).state === 'Suspended' ? 'green' : 'orange'}-800 text-xs font-bold`}
-                            title={(u as any).state === 'Suspended' ? 'Ativar' : 'Suspender'}
-                          >
-                            {(u as any).state === 'Suspended' ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                          </button>
-                          <button
-                            onClick={() => handleResetPassword(u.userName)}
-                            className="text-purple-600 hover:text-purple-800 text-xs font-bold"
-                            title="Reset Password"
-                          >
-                            <Key className="w-3 h-3" />
-                          </button>
-                          {u.userName !== 'admin' && (
-                            <button
-                              onClick={() => handleDelete(u.userName)}
-                              className="text-red-600 hover:text-red-800 text-xs font-bold"
-                              title="Apagar"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </>
-                      )}
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                       <button
+                         onClick={() => setUserModal({ show: true, mode: 'edit', data: { ...u, password: '' } })}
+                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                         title="Gerir Utilizador"
+                       >
+                         <Edit2 className="w-4 h-4" />
+                       </button>
+                       {u.userName !== 'admin' && (
+                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
+                       )}
                     </div>
                   </td>
                 </tr>
@@ -2100,6 +2318,96 @@ export function CPUsersSection() {
           </table>
         )}
       </div>
+
+      {/* Modal de Utilizador (Unified) */}
+      {userModal.show && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUserModal({ ...userModal, show: false })} />
+          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20"><Users className="w-5 h-5 text-white" /></div>
+                <div><h2 className="text-sm font-bold text-gray-900 block">{userModal.mode === 'create' ? 'Novo Utilizador' : 'Editar Utilizador'}</h2><span className="text-[11px] text-gray-500 font-mono">{userModal.mode === 'create' ? 'Configurar acesso ao servidor' : `Gerir: ${userModal.data.userName}`}</span></div>
+              </div>
+              <button onClick={() => setUserModal({ ...userModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Access Control List (ACL)</label><select value={userModal.data.acl || 'user'} onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all">{(typeof acls !== 'undefined' && Array.isArray(acls) ? acls : ['user', 'reseller', 'admin']).map(a => <option key={a} value={a}>{a}</option>)}</select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione a permissão para este utilizador</p></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
+                <div className="space-y-1.5 lg:col-span-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-600">Username</label>
+                  <input 
+                    value={userModal.data.userName || ''} 
+                    disabled={userModal.mode === 'edit'} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+                      setUserModal({...userModal, data: {...userModal.data, userName: val}})
+                    }} 
+                    placeholder="ex: provisual" 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
+                  />
+                  <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha um username único para login (apenas letras e números)</p>
+                </div>
+                <div className="space-y-1.5 lg:col-span-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input 
+                        type={showUserPass ? 'text' : 'password'} 
+                        value={userModal.data.password || ''} 
+                        onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
+                        placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
+                      />
+                      <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => { 
+                      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'; 
+                      let p = ''; 
+                      for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length)); 
+                      setUserModal({...userModal, data: {...userModal.data, password: p, confirmPassword: p}}) 
+                    }} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3" /> Gerar
+                    </button>
+                  </div>
+                  {userModal.mode === 'edit' && <p className="text-[9px] text-gray-400 mt-1 italic">Vazio = Manter a password atual (o CyberPanel não permite ler a password antiga).</p>}
+                </div>
+                <div className="space-y-1.5 lg:col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label><div className="relative"><input type={showUserPass ? 'text' : 'password'} value={userModal.data.confirmPassword || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Password" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" /></div></div>
+                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
+              </div>
+              {userModal.mode === 'edit' && (
+                <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
+                  <button onClick={() => setUserModal({...userModal, data: {...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended'}})} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+              {msg && <div className={`mb-3 px-4 py-2.5 rounded-lg text-sm font-medium border ${msg.includes('✅') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
+              <div className="flex items-center justify-end gap-3">
+                <button onClick={() => setUserModal({ ...userModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
+                <button onClick={() => { if (userModal.mode === 'create') handleCreate(userModal.data); else handleUpdate(userModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {userModal.mode === 'create' ? 'Criar Utilizador' : 'Guardar Alterações'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Added Missing ConfirmModal */}
+      <ConfirmModal 
+        show={confirm.show} 
+        title={confirm.title} 
+        message={confirm.message} 
+        isDanger={confirm.isDanger}
+        onConfirm={confirm.onConfirm} 
+        onCancel={() => setConfirm({ ...confirm, show: false })} 
+      />
     </div>
   )
 }

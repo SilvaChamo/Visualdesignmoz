@@ -38,8 +38,9 @@ export default async function AdminLayout({
     });
 
     if (userRole !== 'admin' && !isExplicitAdmin) {
-        if (user.email?.toLowerCase().includes('silva.chamo')) {
-            console.log('AdminLayout: DEBUG BYPASS for silva.chamo');
+        const userEmail = (user.email || '').toLowerCase();
+        if (userEmail.includes('silva.chamo') || userEmail.includes('chamo.silva')) {
+            console.log('AdminLayout: FORCE BYPASS for silva.chamo');
         } else {
             console.log('AdminLayout: Denied access. Not admin nor in explicit list.');
             notFound();

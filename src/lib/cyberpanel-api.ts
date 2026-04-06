@@ -3,19 +3,30 @@ import { cacheService } from './cache-service';
 
 async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 30000) {
   try {
+    // Mutation actions should NEVER be cached
+    const isMutation = ['createUser', 'modifyUser', 'deleteUser', 'suspendUser', 'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail'].includes(action);
+    
     // Cache key baseada na action e params
     const cacheKey = `cyberpanel_${action}_${JSON.stringify(params)}`;
     
-    // Tentar obter do cache primeiro
-    const cached = cacheService.get(cacheKey);
-    if (cached) {
-      console.log(`Cache hit for ${action}`);
-      return cached;
+    // Tentar obter do cache primeiro (apenas para leitura)
+    if (!isMutation) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) {
+        console.log(`Cache hit for ${action}`);
+        return cached;
+      }
+    } else {
+      // Invalidar caches de listagem relacionados
+      cacheService.clear();
+      console.log(`[MUTATION] ${action} - cache cleared, executing fresh command`);
     }
     
-    // Se não tem cache, fazer requisição
+    // Fazer requisição
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    console.log(`[API CALL] ${action}`, JSON.stringify(params).substring(0, 200));
     
     const res = await fetch(EXEC, {
       method: 'POST',
@@ -31,15 +42,19 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
     }
     
     const j = await res.json();
+    console.log(`[API RESPONSE] ${action}:`, JSON.stringify(j).substring(0, 300));
+    
     if (!j.success) throw new Error(j.error || 'Request failed');
     
-    // Armazenar no cache (5 minutos para listagens, 1 minuto para outras)
-    const ttl = action.includes('list') ? 5 * 60 * 1000 : 60 * 1000;
-    cacheService.set(cacheKey, j.data, ttl);
+    // Armazenar no cache apenas leituras
+    if (!isMutation) {
+      const ttl = action.includes('list') ? 5 * 60 * 1000 : 60 * 1000;
+      cacheService.set(cacheKey, j.data, ttl);
+    }
     
-    console.log(`Cache set for ${action} (TTL: ${ttl/1000}s)`);
     return j.data;
   } catch (error: any) {
+    console.error(`[API ERROR] ${action}:`, error.message);
     if (error.name === 'AbortError') {
       throw new Error(`Request timed out after ${timeoutMs/1000}s - server took too long to respond`);
     }
@@ -188,6 +203,8 @@ export const cyberPanelAPI = {
   listEmails:              (domain: string)      => run('listEmails', { domain }),
   createEmail:             (p: any)              => run('createEmail', p),
   deleteEmail:             (p: any)              => run('deleteEmail', p),
+  suspendEmail:            (email: string)       => run('suspendEmail', { email }),
+  unsuspendEmail:          (email: string)       => run('unsuspendEmail', { email }),
   changeEmailPassword:     (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mailUtilities.py changeEmailPassword --email ${p.email} --newPassword '${p.password}'`),
   setEmailLimits:          (p: any)              => cmd(`echo "limits set for ${p.email}"`),
   getEmailForwarding:      (p: any)              => cmd(`cat /etc/postfix/virtual 2>/dev/null | grep ${p.email} || echo ""`),
@@ -221,8 +238,9 @@ export const cyberPanelAPI = {
   unblockIP:               (p: any)              => cmd(`ufw delete deny from ${p.ip} 2>/dev/null`),
 
   // Users
-  createUser:              (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/CLIHandler.py createUser --userName ${p.userName} --password '${p.password}' --email ${p.email} --firstName '${p.firstName || ''}' --lastName '${p.lastName || ''}' --acl ${p.acl || 'user'}`, LONG_TIMEOUT),
-  deleteUser:              (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/CLIHandler.py deleteUser --userName ${p.userName}`, LONG_TIMEOUT),
+  createUser:              (p: any)              => run('createUser', p, LONG_TIMEOUT),
+  modifyUser:              (p: any)              => run('modifyUser', p, LONG_TIMEOUT),
+  deleteUser:              (p: any)              => run('deleteUser', p, LONG_TIMEOUT),
   listACLs:                ()                    => cmd(`python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from loginSystem.models import ACLManager;print(json.dumps(list(ACLManager.objects.values()),default=str))"`),
   createACL:               (p: any)              => cmd(`echo "acl created: ${p.name}"`),
   deleteACL:               (p: any)              => cmd(`echo "acl deleted: ${p.name}"`),
