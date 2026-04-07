@@ -7,7 +7,7 @@ import {
   Home, Globe, Users, Mail, Shield, Database, Settings, Target,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
-  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye
+  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -1099,6 +1099,11 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newListLabel, setNewListLabel] = useState('Contactos');
+  const [editingSub, setEditingSub] = useState<any>(null);
+
+  const filteredSubscribers = subscribers.filter(s =>
+    !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const fetchSubs = async () => {
     try {
@@ -1123,6 +1128,13 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
     const timer = setTimeout(() => fetchSubs(), 2000);
     return () => clearTimeout(timer);
   }, [selectedSite, searchTerm]);
+
+  const openEdit = (sub: any) => {
+    setEditingSub(sub);
+    setNewEmail(sub.email);
+    setNewListLabel(sub.metadata?.list || 'Contactos');
+    setShowAddForm(true);
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1193,7 +1205,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
             <select 
                 value={selectedSite} 
                 onChange={(e) => setSelectedSite(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 h-10 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500/20 transition-all cursor-pointer"
+                className="w-[340px] px-3 py-1.5 text-xs font-black text-slate-900 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500/10 shadow-sm uppercase tracking-widest cursor-pointer hover:bg-slate-50 transition-colors"
             >
                 {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
@@ -1264,36 +1276,45 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
             <table className="w-full text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
-                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
-                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
-                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
+                <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
+                <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-                {subscribers.length === 0 ? (
-                <tr><td colSpan={3} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
-                ) : subscribers.map((sub) => (
+                {filteredSubscribers.length === 0 ? (
+                <tr><td colSpan={4} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
+                ) : filteredSubscribers.map((sub: any) => (
                 <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-[5px]">
                         <div className="flex flex-col">
                             <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
                         </div>
                     </td>
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-[5px]">
                         <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-widest">
                             {sub.metadata?.list || 'Contactos'}
                         </span>
                     </td>
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-[5px]">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
-                             {sub.metadata?.list || 'Lote Geral'}
+                             ACTIVE
                         </span>
                     </td>
-                    <td className="px-5 py-5 text-right">
-                        <button onClick={() => handleDelete(sub.id, sub.email)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100 hover:border-red-200 transition-all bg-white shadow-sm">
-                            <Trash2 size={16} />
-                        </button>
+                    <td className="px-5 py-[5px] text-right">
+                        <div className="flex items-center justify-end gap-2">
+                             <button 
+                                onClick={() => openEdit(sub)}
+                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-slate-100 transition-all bg-white shadow-sm"
+                                title="Editar"
+                            >
+                                <Pencil size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(sub.id, sub.email)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100 hover:border-red-200 transition-all bg-white shadow-sm">
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 ))}
@@ -1306,8 +1327,17 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-5 animate-in fade-in duration-200">
           <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
-              <h3 className="text-lg font-black tracking-tight">Novo Contacto</h3>
-              <button onClick={() => setShowAddForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><XLucide className="w-5 h-5 text-slate-500" /></button>
+              <h3 className="text-lg font-black tracking-tight">{editingSub ? 'Editar Contacto' : 'Novo Contacto'}</h3>
+              <button 
+                onClick={() => {
+                   setShowAddForm(false);
+                   setEditingSub(null);
+                   setNewEmail('');
+                }} 
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <XLucide className="w-5 h-5 text-slate-500" />
+              </button>
             </div>
             <form onSubmit={handleAdd} className="p-5 space-y-5">
               <div className="space-y-2">
@@ -1325,8 +1355,10 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
                 </select>
               </div>
               <div className="pt-2">
-                <Button type="submit" className="w-fit h-10 !bg-black hover:!bg-red-600 text-white font-black rounded-lg transition-all shadow-lg uppercase text-[10px] tracking-widest !opacity-100 px-10">
-                  Adicionar
+                <Button type="submit" className="w-full h-11 !bg-slate-900 hover:!bg-red-600 text-white font-black uppercase text-[11px] tracking-widest rounded-lg shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100">
+                  {editingSub ? 'Guardar Alterações' : (
+                     <><Plus size={16} /> Adicionar</>
+                  )}
                 </Button>
               </div>
             </form>
