@@ -695,13 +695,13 @@ export function EmailWebmailSection({
         <div className="w-px h-5 bg-gray-700 mx-1" />
         {pastas.map(p => (
           <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-500 hover:bg-gray-200'}`}>
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-transparent' : 'text-gray-600 hover:text-red-500 bg-transparent'}`}>
             {p}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setMostrarConfigAssinatura(true)}
-            className="text-gray-700 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 bg-white shadow-sm font-bold">
+            className="text-gray-600 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 font-medium bg-white">
             ✍️ Assinatura
           </button>
         </div>

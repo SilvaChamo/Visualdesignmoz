@@ -535,9 +535,11 @@ function ContaSection() {
     }
   }
 
-  if (loading || !dados) return <div className="p-6">Carregando dados da conta...</div>
   const [cancelModal, setCancelModal] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
+
+  if (loading || !dados) return <div className="p-6">Carregando dados da conta...</div>
+
 
   const forcaPassword = (p: string) => {
     if (p.length === 0) return { texto: '', cor: '' }
@@ -1551,18 +1553,16 @@ export default function AdminPage() {
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-20 h-20 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+              <img src="/assets/simbolo.png" alt="Logo" className="w-16 h-16 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
               <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
                 <LogOut size={20} className="text-gray-500" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-red-900/20">
-              <Globe className="text-white w-6 h-6" />
-            </div>
+              <img src="/assets/simbolo.png" alt="Logo" className="w-16 h-16 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
               <div className="flex-1">
-                <h1 className="text-xl font-bold text-gray-900">Portal Cliente</h1>
+                <h1 className="text-lg font-bold text-gray-900 tracking-tight">VisualDESIGN</h1>
                 <p className="text-xs text-gray-500">Gestão de Serviços</p>
               </div>
               <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
@@ -1628,10 +1628,10 @@ export default function AdminPage() {
         <header className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 ml-2">
+              <h1 className="text-2xl font-bold text-gray-900">
                 Dashboard
               </h1>
-              <p className="text-xs text-gray-400 mt-0.5 ml-6">
+              <p className="text-xs text-gray-400 mt-0.5">
                 Visão geral do servidor
               </p>
             </div>
