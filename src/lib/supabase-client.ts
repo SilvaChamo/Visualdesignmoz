@@ -177,7 +177,7 @@ export const auth = {
     const user = await this.getCurrentUser()
     if (!user) return 'client'
 
-    const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
+    const adminEmails = ['admin@your-domain.com', 'geral@your-domain.com', 'silva.chamo@gmail.com', 'silva.chamo@your-domain.com']
     if (adminEmails.includes((user.email || '').toLowerCase())) return 'admin'
 
     const metaRole = user.user_metadata?.role

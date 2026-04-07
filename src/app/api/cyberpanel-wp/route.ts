@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
 import { createClient } from '@/utils/supabase/server';
 
-const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
+const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com'];
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();

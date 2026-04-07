@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
-    const domain = searchParams.get('domain') || 'visualdesign.com'
+    const domain = searchParams.get('domain') || 'Portal Digital.com'
 
     console.log(`[SITE MANAGER] Action: ${action}, Domain: ${domain}`)
 
@@ -76,13 +76,13 @@ async function listSites() {
   try {
     const sites = await cyberPanelAPI.listWebsites()
     
-    const visualdesignSite = sites.find((site: any) => site.domain === 'visualdesign.com')
+    const Portal DigitalSite = sites.find((site: any) => site.domain === 'Portal Digital.com')
     
     return NextResponse.json({
       success: true,
       sites: sites,
-      visualdesign: visualdesignSite || {
-        domain: 'visualdesign.com',
+      Portal Digital: Portal DigitalSite || {
+        domain: 'Portal Digital.com',
         status: 'not_found',
         message: 'Site not found in CyberPanel'
       }

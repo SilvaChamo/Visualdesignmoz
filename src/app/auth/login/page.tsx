@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../components/auth/AuthProvider'
 import { supabase } from '../../../lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
+import { Globe } from 'lucide-react'
 
 function LoginPageContent() {
   const [email, setEmail] = useState('')
@@ -134,16 +135,10 @@ function LoginPageContent() {
         />
       </div>
 
-      {/* Logo no topo */}
       <div className="flex flex-col items-center mb-6 z-10 transition-all duration-300">
-        <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
-          <img
-            src="/assets/logotipoII.png"
-            alt="VisualDesigne"
-            className="h-32 object-contain"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
-        </a>
+        <div className="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-900/40 transform hover:scale-110 transition-transform">
+          <Globe className="text-white w-10 h-10" />
+        </div>
       </div>
 
       {/* Formulário com glassmorphism */}
@@ -215,7 +210,7 @@ function LoginPageContent() {
                 border: '1px solid rgba(127, 0, 0, 0.4)',
                 color: 'white',
               }}
-              placeholder="email@visualdesigne.com"
+              placeholder="email@your-domain.com"
               required
             />
           </div>

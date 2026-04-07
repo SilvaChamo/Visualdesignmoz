@@ -6,10 +6,10 @@ import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 
 export const metadata: Metadata = {
   title: {
-    default: "Visualdesign",
-    template: "Visualdesign - %s",
+    default: "Portal de Serviços",
+    template: "Portal - %s",
   },
-  description: "Visualdesign - Inovação e Design",
+  description: "Gestão Integrada de Serviços Digitais",
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",

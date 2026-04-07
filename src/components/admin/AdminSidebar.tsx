@@ -78,7 +78,7 @@ export function AdminSidebar({
             />
             <div className="flex-1">
               <h1 className="text-xl font-bold text-gray-900">Painel Admin</h1>
-              <p className="text-xs text-gray-500">VisualDesign</p>
+              <p className="text-xs text-gray-500">Portal Digital</p>
             </div>
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)} 
@@ -142,7 +142,7 @@ export function AdminSidebar({
               <p className="text-xs font-bold text-gray-900 truncate">
                 {sessionUser ? sessionUser.split('@')[0] : 'Silva Chamo'}
               </p>
-              <p className="text-[10px] text-gray-400 truncate">{sessionUser || 'admin@visualdesigne.com'}</p>
+              <p className="text-[10px] text-gray-400 truncate">{sessionUser || 'admin@your-domain.com'}</p>
             </div>
           )}
         </div>

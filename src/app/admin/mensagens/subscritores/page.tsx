@@ -101,7 +101,7 @@ export default function SubscritoresPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `subscritores_visualdesign_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `subscritores_Portal Digital_${new Date().toISOString().split('T')[0]}.csv`);
     link.click();
     toast.success("Exportação concluída!");
   };

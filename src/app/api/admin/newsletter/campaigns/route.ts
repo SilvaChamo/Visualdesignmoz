@@ -33,7 +33,7 @@ export async function POST(request: Request) {
                 subject,
                 content_html,
                 status: send_now ? 'sent' : 'draft',
-                sender_email: body.sender_email || 'admin@visualdesigne.com',
+                sender_email: body.sender_email || 'admin@your-domain.com',
                 target_audiences: body.target_audiences || [],
                 created_at: new Date().toISOString()
             })

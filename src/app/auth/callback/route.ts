@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     // Determinar destino com base no role/email
     const userEmail = (data.user.email || '').toLowerCase()
     const userRole = data.user.user_metadata?.role
-    const adminEmails = ['admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com']
+    const adminEmails = ['admin@your-domain.com', 'geral@your-domain.com', 'silva.chamo@gmail.com', 'silva.chamo@your-domain.com']
 
     // Verificar também na tabela profiles
     const { data: profile } = await supabase

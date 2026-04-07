@@ -1413,7 +1413,7 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 // EMAIL MANAGEMENT SECTION (Extended)
 // ============================================================
 export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('visualdesigne.com')
+  const [selectedDomain, setSelectedDomain] = useState('example.com')
   const [emails, setEmails] = useState<CyberPanelEmail[]>([])
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -1766,7 +1766,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           <option value="">Seleccionar domínio...</option>
           {sites.length > 0
             ? sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)
-            : <option value="visualdesigne.com">visualdesigne.com</option>
+            : <option value="example.com">example.com</option>
           }
         </select>
         <div className="flex-1">
@@ -1887,7 +1887,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
 
               <div className="flex items-center justify-end gap-1">
                 <a
-                  href={`https://visualdesigne.com/webmail/?user=${encodeURIComponent(emailStr)}`}
+                  href={`https://example.com/webmail/?user=${encodeURIComponent(emailStr)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
@@ -2806,7 +2806,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
         action: 'createWebsite',
         params: {
           domainName: newDomain,
-          email: 'admin@visualdesigne.com',
+          email: 'admin@example.com',
           packageName: 'Default',
           php: 'PHP 8.2'
         }
@@ -5319,7 +5319,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 type="text"
                 value={form.databaseName}
                 onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
-                placeholder="visualdesign_wp"
+                placeholder="digital_wp"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
               />
             </div>
@@ -5330,7 +5330,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 type="text"
                 value={form.databaseUser}
                 onChange={(e) => setForm({ ...form, databaseUser: e.target.value })}
-                placeholder="visualdesign_wpuser"
+                placeholder="digital_wpuser"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
               />
             </div>
@@ -5781,7 +5781,7 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
         action: 'createWebsite',
         params: { 
           domain: newDomain, 
-          email: 'admin@visualdesigne.com', 
+          email: 'admin@example.com', 
           php: selectedPHP,
           packageName: selectedPackage
         }
@@ -5965,11 +5965,11 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
               className="mt-1 w-4 h-4 border-2 border-gray-400 rounded" />
             <div>
               <p className="font-bold text-gray-800 text-sm">
-                Share document root (/home/visualdesign/public_html) with "visualdesigne.com".
+                Share document root (/home/digital/public_html) with "example.com".
                 <span className="text-blue-500 cursor-help ml-1">?</span>
               </p>
               <p className="text-sm text-gray-500">
-                If the document root is shared then the created domain will serve the same content as "visualdesigne.com".{' '}
+                If the document root is shared then the created domain will serve the same content as "example.com".{' '}
                 <strong>This setting is permanent.</strong>
               </p>
             </div>
@@ -5997,7 +5997,7 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
             <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
               <input value={newDomain}
                 className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-gray-50" readOnly />
-              <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-l border-gray-300">.visualdesigne.com</span>
+              <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-l border-gray-300">.example.com</span>
             </div>
           </div>
 
@@ -6145,7 +6145,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [log, setLog] = useState('')
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [gitLog, setGitLog] = useState('')
-  const [selectedDomain, setSelectedDomain] = useState('visualdesigne.com')
+  const [selectedDomain, setSelectedDomain] = useState('example.com')
 
   const loadGitLog = async () => {
     const res = await fetch('/api/git-deploy', {
@@ -6267,14 +6267,14 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
   // Extrair emails dos sites para dropdown
   const availableEmails = sites
-    .filter(site => site.domain === 'visualdesigne.com')
+    .filter(site => site.domain === 'example.com')
     .flatMap(site => {
       // Simular emails existentes - em produção viria da API
       return [
-        'info@visualdesigne.com',
-        'suport@visualdesigne.com',
-        'admin@visualdesigne.com',
-        'contato@visualdesigne.com'
+        'info@example.com',
+        'suport@example.com',
+        'admin@example.com',
+        'contato@example.com'
       ]
     })
 
@@ -6324,7 +6324,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Importar Emails</h1>
-          <p className="text-gray-500 mt-1">Importe emails do Gmail para sua conta VisualDesign.</p>
+          <p className="text-gray-500 mt-1">Importe emails do Gmail para sua conta Digital Services.</p>
         </div>
         <button
           onClick={() => setShowInstructions(!showInstructions)}
@@ -6340,7 +6340,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
           <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
             <li>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" className="underline">myaccount.google.com/apppasswords</a></li>
             <li>Faça login com sua conta Google</li>
-            <li>Clique em "Select app" → "Other" e digite "VisualDesign Import"</li>
+            <li>Clique em "Select app" → "Other" e digite "Digital Services Import"</li>
             <li>Clique em "Generate" para criar a senha</li>
             <li>Copie a senha de 16 caracteres gerada</li>
             <li>Use essa senha no campo "App Password do Gmail"</li>
@@ -6388,7 +6388,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
           {/* Coluna Direita - Destino */}
           <div className="space-y-4">
-            <h3 className="font-bold text-gray-900 border-b border-gray-200 pb-2">Destino (VisualDesign)</h3>
+            <h3 className="font-bold text-gray-900 border-b border-gray-200 pb-2">Destino (Digital Services)</h3>
 
             <div>
               <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Email Destino</label>
@@ -6410,7 +6410,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 type="password"
                 value={destinationPassword}
                 onChange={(e) => setDestinationPassword(e.target.value)}
-                placeholder="Password do email VisualDesign"
+                placeholder="Password do email Digital Services"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
               />
             </div>

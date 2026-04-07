@@ -24,7 +24,7 @@ export default function AdminMessagesPage() {
     const [subject, setSubject] = useState("");
     const [content, setContent] = useState("");
     const [selectedPlans, setSelectedPlans] = useState<string[]>([]);
-    const [senderEmail, setSenderEmail] = useState("admin@visualdesigne.com");
+    const [senderEmail, setSenderEmail] = useState("admin@your-domain.com");
     const [attachments, setAttachments] = useState<string[]>([]);
 
     const [isSending, setIsSending] = useState(false);

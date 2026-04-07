@@ -41,13 +41,13 @@ export async function POST(req: Request) {
 
     // Enviar email via Resend com template premium
     const emailResult = await resend.emails.send({
-      from: 'VisualDesign <noreply@visualdesigne.com>',
+      from: 'Portal Digital <noreply@your-domain.com>',
       to: email,
-      subject: 'Recuperação de Password - VisualDesign',
+      subject: 'Recuperação de Password - Portal Digital',
       html: `
         <div style="font-family: 'Inter', sans-serif; background-color: #000; color: #fff; padding: 40px 40px 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #333;">
           <div style="text-align: center; margin-bottom: 15px;">
-            <img src="https://visualdesigne.com/assets/logotipoII.png" alt="VisualDesign" style="height: 90px;">
+            <img src="https://your-domain.com/assets/logotipoII.png" alt="Portal Digital" style="height: 90px;">
           </div>
           
           <h1 style="color: #fff; font-size: 24px; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 18px;">
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
           <div style="color: #666; font-size: 12px; text-align: center; border-top: 1px solid #333; padding-top: 20px;">
             <p style="margin-bottom: 10px;">Este link expira em 60 minutos por razões de segurança.</p>
-            <p>VisualDesign &copy; 2024. Todos os direitos reservados.</p>
+            <p>Portal Digital &copy; 2024. Todos os direitos reservados.</p>
           </div>
           
           <div style="height: 3px; background: linear-gradient(90deg, #7f0000, #cc0000, #7f0000); margin-top: 20px; border-radius: 2px;"></div>

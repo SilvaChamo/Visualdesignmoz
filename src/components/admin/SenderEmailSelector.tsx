@@ -27,11 +27,11 @@ interface SenderEmailSelectorProps {
 }
 
 const DEFAULT_EMAILS = [
-    "geral@visualdesigne.com",
-    "admin@visualdesigne.com",
-    "silva.chamo@visualdesigne.com",
-    "suporte@visualdesigne.com",
-    "noreply@visualdesigne.com"
+    "geral@your-domain.com",
+    "admin@your-domain.com",
+    "silva.chamo@your-domain.com",
+    "suporte@your-domain.com",
+    "noreply@your-domain.com"
 ];
 
 export function SenderEmailSelector({ value, onChange }: SenderEmailSelectorProps) {
@@ -120,7 +120,7 @@ export function SenderEmailSelector({ value, onChange }: SenderEmailSelectorProp
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Endereço de Email</label>
                             <Input
-                                placeholder="ex: novidades@visualdesigne.com"
+                                placeholder="ex: novidades@your-domain.com"
                                 value={newEmail}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
                             />

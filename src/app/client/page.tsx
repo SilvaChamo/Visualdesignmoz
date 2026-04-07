@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/server'
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
-  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
+  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -33,22 +33,82 @@ const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
   '#ff0000', '#ff4500', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff',
   '#9900ff', '#ff00ff', '#e6b8a2', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3',
+  '#9900ff', '#ff00ff', '#e6b8a2', '#f4cccc', '#fce5cd', '#fff2cc', '#d9d9d3', '#d0e0e3',
   '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc', '#cc0000', '#e69138', '#f1c232', '#6aa84f',
   '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79', '#85200c', '#783f04', '#7f6000',
 ]
 
 // Componente ClienteDashboardHome
 function ClienteDashboardHome() {
-  const cliente = {
-    nome: 'João Silva', email: 'joao@aamihe.com', telefone: '+258 84 123 4567',
-    empresa: 'Aamihe', morada: 'Av. Principal, 123', cidade: 'Maputo', pais: 'Moçambique',
-    dominio: 'aamihe.com', plano: 'Premium', dataRenovacao: '21/10/2026',
-    valorAnual: 1500, ssl: true, estado: 'active', creditoDisponivel: 1282
+  const [cliente, setCliente] = useState<any>(null)
+  const [cyberPanelSites, setCyberPanelSites] = useState<any[]>([])
+  const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
+  const [tickets, setTickets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchClientData()
+  }, [])
+
+  const fetchClientData = async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      if (!user) return
+      const email = user.email
+
+      // 1. Carregar Perfil
+      const { data: profile } = await createClientInstance
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      setCliente({
+        nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
+        empresa: profile?.empresa || 'Cliente Individual',
+        email: user.email,
+        avatar: '/assets/simbolo.png'
+      })
+
+      // 2. Carregar Sites (via API do CyberPanel filtrada)
+      const sites = await cyberPanelAPI.listWebsites().catch(() => [])
+      const allSites = Array.isArray(sites) ? sites : []
+      const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
+      setCyberPanelSites(filteredSites)
+
+      // 3. Carregar Faturas
+      const { data: inv } = await createClientInstance
+        .from('pagamentos')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+      if (inv) setFaturasPendentes(inv)
+
+      // 4. Carregar Tickets
+      const { data: tkt } = await createClientInstance
+        .from('tickets_suporte')
+        .select('*')
+        .eq('user_id', user.id)
+      if (tkt) setTickets(tkt)
+
+    } catch (error) {
+      console.error('Erro ao carregar dados do cliente:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
+  if (loading || !cliente) return <div>Carregando...</div>
+
   const hoje = new Date()
-  const renovacao = new Date('2026-10-21')
-  const diasRestantes = Math.ceil((renovacao.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+  const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
+  const totalSites = cyberPanelSites.length
+  
+  // Encontrar a fatura mais próxima
+  const proximaFatura = faturasPendentes.length > 0 
+    ? faturasPendentes.sort((a,b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime())[0]
+    : null
 
   return (
     <div className="flex gap-6">
@@ -57,62 +117,60 @@ function ClienteDashboardHome() {
 
         {/* Saudação */}
         <div>
-          <p className="text-gray-500 text-sm">Bom dia, <strong className="text-gray-900">{cliente.nome}</strong> — aqui está o que está a acontecer hoje.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Olá, {cliente.nome}!</h1>
+          <p className="text-gray-500 mt-1">Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e faturas.</p>
         </div>
 
-        {/* 4 Cards de resumo */}
+        {/* Cards de Resumo */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
-            <div className="bg-blue-100 rounded-lg p-3"><Globe className="w-6 h-6 text-blue-600" /></div>
+            <div className="p-3 bg-blue-50 rounded-lg"><Globe className="w-6 h-6 text-blue-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Serviços Activos</p>
-              <p className="text-2xl font-bold text-gray-900">1</p>
-              <p className="text-xs text-gray-400 mt-0.5">{cliente.dominio}</p>
-              <button className="text-xs text-blue-600 hover:underline mt-1">Ver serviços</button>
+              <p className="text-2xl font-bold text-gray-900">{totalSites}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{totalSites > 0 ? cyberPanelSites[0].domain : 'Nenhum site'}</p>
             </div>
           </div>
-
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
-            <div className="bg-green-100 rounded-lg p-3"><Globe className="w-6 h-6 text-green-600" /></div>
+            <div className="p-3 bg-purple-50 rounded-lg"><Server className="w-6 h-6 text-purple-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Domínios Activos</p>
-              <p className="text-2xl font-bold text-gray-900">1</p>
-              <p className="text-xs text-gray-400 mt-0.5">Expira: {cliente.dataRenovacao}</p>
-              <button className="text-xs text-blue-600 hover:underline mt-1">Ver domínios</button>
+              <p className="text-2xl font-bold text-gray-900">{totalSites}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Expira: Ver faturas</p>
             </div>
           </div>
-
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
-            <div className={`rounded-lg p-3 ${diasRestantes < 30 ? 'bg-red-100' : 'bg-yellow-100'}`}>
-              <FileText className={`w-6 h-6 ${diasRestantes < 30 ? 'text-red-600' : 'text-yellow-600'}`} />
-            </div>
+            <div className="p-3 bg-red-50 rounded-lg"><FileText className="w-6 h-6 text-red-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Próxima Renovação</p>
-              <p className={`text-2xl font-bold ${diasRestantes < 30 ? 'text-red-600' : 'text-gray-900'}`}>{diasRestantes} dias</p>
-              <p className="text-xs text-gray-400 mt-0.5">{cliente.dataRenovacao} • {new Intl.NumberFormat('pt-MZ').format(cliente.valorAnual)} MZN</p>
-              <button className="text-xs text-blue-600 hover:underline mt-1">Ver faturas</button>
+              <p className="text-2xl font-bold text-gray-900">
+                {proximaFatura ? new Date(proximaFatura.vencimento).toLocaleDateString() : 'N/A'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {proximaFatura ? `${proximaFatura.valor} MZN` : 'Sem faturas pendentes'}
+              </p>
             </div>
           </div>
-
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
-            <div className="bg-purple-100 rounded-lg p-3"><Mail className="w-6 h-6 text-purple-600" /></div>
+            <div className="p-3 bg-green-50 rounded-lg"><MessageSquare className="w-6 h-6 text-green-600" /></div>
             <div>
-              <p className="text-sm text-gray-500">Faturas Não Pagas</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
-              <p className="text-xs text-gray-400 mt-0.5">Conta em dia ✓</p>
-              <button className="text-xs text-blue-600 hover:underline mt-1">Ver faturas</button>
+              <p className="text-sm text-gray-500">Tickets Abertos</p>
+              <p className="text-2xl font-bold text-gray-900">{tickets.filter(t => t.status === 'aberto').length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Aguardando resposta</p>
             </div>
           </div>
         </div>
 
-        {/* Serviços a renovar em breve */}
-        {diasRestantes < 60 && (
-          <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-yellow-800">⚠️ Serviços a renovar em breve</h2>
-              <button className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors">Renovar Agora</button>
+        {proximaFatura && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+            <div className="p-2 bg-yellow-100 rounded-lg text-yellow-700"><FileText className="w-5 h-5" /></div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-bold text-yellow-800">⚠️ Fatura pendente</h2>
+                <button className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg">Pagar Agora</button>
+              </div>
+              <p className="text-xs text-yellow-700">A tua fatura para o serviço <strong>{proximaFatura.domain || 'Digital Service'}</strong> vence em <strong>{new Date(proximaFatura.vencimento).toLocaleDateString()}</strong>.</p>
             </div>
-            <p className="text-xs text-yellow-700">O teu serviço <strong>{cliente.dominio}</strong> renova em <strong>{cliente.dataRenovacao}</strong> ({diasRestantes} dias). Renova agora para evitar interrupções.</p>
           </div>
         )}
 
@@ -122,74 +180,78 @@ function ClienteDashboardHome() {
             <h2 className="text-sm font-bold text-gray-700">Tickets de Suporte</h2>
             <button className="text-xs text-red-600 hover:underline font-bold">+ Abrir Ticket</button>
           </div>
-          <div className="p-5 text-center text-gray-400 text-sm">0 tickets abertos</div>
+          <div className="p-5 text-center text-gray-400 text-sm">
+            {tickets.length > 0 ? `${tickets.length} tickets no total` : '0 tickets abertos'}
+          </div>
         </div>
-
       </div>
 
       {/* Barra lateral direita */}
       <div className="w-64 shrink-0 space-y-4">
-
         {/* Card do cliente */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          {/* Avatar */}
           <div className="flex flex-col items-center mb-4">
             <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-2">
               <span className="text-white text-xl font-bold">
-                {cliente.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                {cliente.nome?.substring(0, 2).toUpperCase()}
               </span>
             </div>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${cliente.estado === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {cliente.estado === 'active' ? 'Activo' : 'Suspenso'}
-            </span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Activo</span>
           </div>
-          {/* Dados */}
-          <div className="space-y-1.5 text-sm border-t border-gray-100 pt-4">
-            <p className="font-bold text-gray-900 text-center">{cliente.empresa}</p>
-            <p className="text-gray-600 text-center text-xs">{cliente.nome}</p>
-            <p className="text-gray-500 text-xs text-center">{cliente.morada}</p>
-            <p className="text-gray-500 text-xs text-center">{cliente.cidade}</p>
-            <p className="text-gray-500 text-xs text-center">{cliente.pais}</p>
+          <div className="space-y-1.5 text-sm border-t border-gray-100 pt-4 text-center">
+            <p className="font-bold text-gray-900">{cliente.empresa}</p>
+            <p className="text-gray-600 text-xs">{cliente.nome}</p>
+            <p className="text-gray-500 text-xs">{cliente.email}</p>
           </div>
         </div>
 
         {/* Crédito disponível */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-gray-500 uppercase">Crédito Disponível</p>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          </div>
-          <p className="text-sm text-gray-600">Tens um saldo de <strong className="text-gray-900">MT {new Intl.NumberFormat('pt-MZ').format(cliente.creditoDisponivel)}</strong> que será aplicado às próximas faturas.</p>
-          <button className="w-full mt-3 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded-lg transition-colors">Adicionar Fundos</button>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-center">
+          <p className="text-xs font-bold text-gray-500 uppercase mb-2">Crédito Disponível</p>
+          <p className="text-2xl font-bold text-gray-900 mb-3">MT 0</p>
+          <button className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded-lg transition-colors">Adicionar Fundos</button>
         </div>
-
-        {/* Contactos */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-gray-500 uppercase">Contactos</p>
-          </div>
-          <p className="text-xs text-gray-400 mb-3">Nenhum contacto adicional.</p>
-          <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded-lg transition-colors">+ Novo Contacto</button>
-        </div>
-
       </div>
     </div>
   )
 }
 
 
-// Componente EmailWebmailSection
+// Componente SuporteSection
 function SuporteSection() {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [tickets, setTickets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ assunto: '', categoria: 'Geral', descricao: '' })
   const [enviado, setEnviado] = useState(false)
-  const [expanded, setExpanded] = useState<string | null>(null)
 
-  const tickets = [
-    { id: 'TK-001', assunto: 'Problema com email', categoria: 'Email', estado: 'Resolvido', data: '15/01/2026', resposta: 'O problema foi resolvido. O email está agora configurado correctamente.' },
-    { id: 'TK-002', assunto: 'Renovação do domínio', categoria: 'Facturação', estado: 'Aberto', data: '10/02/2026', resposta: '' },
-  ]
+  useEffect(() => {
+    fetchTickets()
+  }, [])
 
-  const estadoCor = (e: string) => e === 'Resolvido' ? 'bg-green-100 text-green-700' : e === 'Aberto' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+  const fetchTickets = async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      if (!user) return
+
+      const { data } = await createClientInstance
+        .from('tickets_suporte')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (data) setTickets(data)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const estadoCor = (s: string) => {
+    if (s.toLowerCase() === 'aberto') return 'bg-green-100 text-green-700'
+    if (s.toLowerCase() === 'pendente') return 'bg-yellow-100 text-yellow-700'
+    return 'bg-gray-100 text-gray-700'
+  }
 
   return (
     <div className="space-y-6">
@@ -202,11 +264,11 @@ function SuporteSection() {
           <div className="space-y-2">
             <a href="https://wa.me/258848066605" target="_blank"
               className="flex items-center gap-3 bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-bold transition-colors">
-              <span>📱</span> WhatsApp — +258 848 066 605
+              <span>📱</span> WhatsApp de Suporte
             </a>
-            <a href="mailto:silva.chamo@gmail.com"
+            <a href="mailto:suporte@oseudominio.com"
               className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg text-sm font-bold transition-colors">
-              <span>✉️</span> silva.chamo@gmail.com
+              <span>✉️</span> suporte@oseudominio.com
             </a>
           </div>
           <p className="text-xs text-gray-400 mt-3">Horário: Segunda a Sexta, 8h — 17h</p>
@@ -265,7 +327,7 @@ function SuporteSection() {
               </div>
               {expanded === t.id && t.resposta && (
                 <div className="px-5 py-3 bg-green-50 border-t border-green-100">
-                  <p className="text-xs font-bold text-green-700 mb-1">Resposta da VisualDesign:</p>
+                  <p className="text-xs font-bold text-green-700 mb-1">Resposta do Suporte:</p>
                   <p className="text-sm text-green-800">{t.resposta}</p>
                 </div>
               )}
@@ -285,15 +347,38 @@ function SuporteSection() {
 // Componente FacturacaoSection
 function FacturacaoSection() {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
+  const [faturasHistorico, setFaturasHistorico] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const faturasPendentes = [
-    { id: 'FAT-2026-001', descricao: 'Renovação Anual — aamihe.com', valor: 1500, vencimento: '21/10/2026', estado: 'pendente' }
-  ]
+  useEffect(() => {
+    fetchFaturas()
+  }, [])
 
-  const faturasHistorico = [
-    { id: 'FAT-2025-001', descricao: 'Renovação Anual — aamihe.com', valor: 1500, dataPagamento: '21/10/2025', metodo: 'M-Pesa', estado: 'pago' },
-    { id: 'FAT-2024-001', descricao: 'Registo de Domínio — aamihe.com', valor: 1200, dataPagamento: '21/10/2024', metodo: 'Transferência', estado: 'pago' },
-  ]
+  const fetchFaturas = async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      if (!user) return
+
+      const { data: pendentes } = await createClientInstance
+        .from('pagamentos')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+
+      const { data: historico } = await createClientInstance
+        .from('pagamentos')
+        .select('*')
+        .eq('user_id', user.id)
+        .neq('status', 'pending')
+
+      if (pendentes) setFaturasPendentes(pendentes)
+      if (historico) setFaturasHistorico(historico)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -303,16 +388,20 @@ function FacturacaoSection() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Total Pago Este Ano</p>
-          <p className="text-2xl font-bold text-green-600">1.500 MZN</p>
+          <p className="text-2xl font-bold text-green-600">
+            {new Intl.NumberFormat('pt-MZ').format(faturasHistorico.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Próxima Fatura</p>
-          <p className="text-2xl font-bold text-gray-900">21/10/2026</p>
-          <p className="text-xs text-gray-500 mt-1">1.500 MZN</p>
+          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Faturas Pendentes</p>
+          <p className="text-2xl font-bold text-red-600">{faturasPendentes.length}</p>
+          <p className="text-xs text-gray-500 mt-1">Valor: {new Intl.NumberFormat('pt-MZ').format(faturasPendentes.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Estado da Conta</p>
-          <p className="text-2xl font-bold text-green-600">Em dia ✓</p>
+          <p className={`text-2xl font-bold ${faturasPendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {faturasPendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
+          </p>
         </div>
       </div>
 
@@ -341,19 +430,19 @@ function FacturacaoSection() {
                     <p className="text-xs font-bold text-gray-700 mb-2">📱 M-Pesa</p>
                     <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
                     <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: aamihe.com</p>
+                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
                   </div>
                   <div className="bg-white rounded-lg border border-yellow-200 p-4">
                     <p className="text-xs font-bold text-gray-700 mb-2">📱 E-Mola</p>
                     <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
                     <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: aamihe.com</p>
+                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
                   </div>
                   <div className="bg-white rounded-lg border border-yellow-200 p-4">
                     <p className="text-xs font-bold text-gray-700 mb-2">🏦 Transferência</p>
                     <p className="text-xs text-gray-600">Banco: <strong>BCI</strong></p>
                     <p className="text-xs text-gray-600">NIB: <strong>a preencher</strong></p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: aamihe.com</p>
+                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
                   </div>
                 </div>
               )}
@@ -404,10 +493,49 @@ function FacturacaoSection() {
 
 // Componente ContaSection
 function ContaSection() {
-  const [dados, setDados] = useState({ nome: 'João Silva', email: 'joao@aamihe.com', telefone: '+258 84 123 4567', empresa: 'Aamihe', morada: 'Av. Principal, 123', cidade: 'Maputo' })
+  const [dados, setDados] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [pass, setPass] = useState({ actual: '', nova: '', confirmar: '' })
   const [notif, setNotif] = useState({ dias30: true, dias15: true, dias7: true, pagamentos: true, suporte: false })
   const [savedMsg, setSavedMsg] = useState('')
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const fetchProfile = async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      if (!user) return
+      const { data: profile } = await createClientInstance
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile) {
+        setDados({
+          nome: profile.nome || '',
+          email: user.email || '',
+          telefone: profile.telefone || '',
+          empresa: profile.empresa || '',
+          morada: profile.morada || '',
+          cidade: profile.cidade || ''
+        })
+      } else {
+        setDados({
+          nome: user.user_metadata?.nome || '',
+          email: user.email || '',
+          telefone: '', empresa: '', morada: '', cidade: ''
+        })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading || !dados) return <div className="p-6">Carregando dados da conta...</div>
   const [cancelModal, setCancelModal] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
 
@@ -1140,24 +1268,37 @@ export default function AdminPage() {
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
+  const [cliente, setCliente] = useState<any>(null)
 
   // Estados para gestão de contas de email
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
 
-  // Obter sessão do usuário
+  // Obter sessão e perfil do usuário
   useEffect(() => {
-    const getSession = async () => {
+    const getData = async () => {
       try {
-        const { data: { session } } = await createClientInstance.auth.getSession()
-        if (session?.user?.email) {
-          setSessionUser(session.user.email)
+        const { data: { user } } = await createClientInstance.auth.getUser()
+        if (user) {
+          setSessionUser(user.email || null)
+          
+          // Buscar perfil
+          const { data: profile } = await createClientInstance
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          
+          setCliente({
+            nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
+            email: user.email
+          })
         }
       } catch (error) {
-        console.error('Erro ao obter sessão:', error)
+        console.error('Erro ao obter dados:', error)
       }
     }
-    getSession()
+    getData()
   }, [])
 
   useEffect(() => {
@@ -1184,12 +1325,20 @@ export default function AdminPage() {
   const loadCyberPanelData = async () => {
     setIsFetchingCyberPanel(true)
     try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      const email = user?.email
+
       const [sites, users, packages] = await Promise.all([
         cyberPanelAPI.listWebsites().catch(() => []),
         cyberPanelAPI.listUsers().catch(() => []),
         cyberPanelAPI.listPackages().catch(() => []),
       ])
-      setCyberPanelSites(Array.isArray(sites) ? sites : [])
+
+      // Filtrar sites pelo email do administrador/cliente
+      const allSites = Array.isArray(sites) ? sites : []
+      const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
+      
+      setCyberPanelSites(filteredSites)
       setCyberPanelUsers(Array.isArray(users) ? users : [])
       setCyberPanelPackages(Array.isArray(packages) ? packages : [])
     } catch (error) {
@@ -1202,7 +1351,7 @@ export default function AdminPage() {
   // Definir domínio principal
   const primaryDomain = cyberPanelSites.length > 0
     ? cyberPanelSites.find(s => !s.domain.includes('contaboserver'))?.domain || cyberPanelSites[0].domain
-    : 'visualdesigne.com'
+    : 'oseudominio.com'
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -1229,7 +1378,7 @@ export default function AdminPage() {
         />
       case 'domains':
         return <ListWebsitesSection
-          sites={cyberPanelSites.filter(s => s.domain === 'visualdesigne.com')}
+          sites={cyberPanelSites}
           onRefresh={loadCyberPanelData}
           packages={cyberPanelPackages}
           setActiveSection={setActiveSection}
@@ -1253,7 +1402,7 @@ export default function AdminPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || 'visualdesigne.com'} sites={cyberPanelSites} />
+        return <FileManagerSection domain={fileManagerDomain || cyberPanelSites[0]?.domain || 'oseudominio.com'} sites={cyberPanelSites} />
       case 'tickets':
         return <SuporteSection />
       case 'faturas':
@@ -1409,10 +1558,12 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-14 h-14 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-red-900/20">
+              <Globe className="text-white w-6 h-6" />
+            </div>
               <div className="flex-1">
-                <h1 className="text-xl font-bold text-gray-900">Painel Cliente</h1>
-                <p className="text-xs text-gray-500">VisualDesign</p>
+                <h1 className="text-xl font-bold text-gray-900">Portal Cliente</h1>
+                <p className="text-xs text-gray-500">Gestão de Serviços</p>
               </div>
               <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
                 <LogOut size={20} className="text-gray-500 rotate-180" />
@@ -1457,12 +1608,14 @@ export default function AdminPage() {
         <div className="p-3 border-t border-gray-100">
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">SC</span>
+              <span className="text-white text-xs font-bold">
+                {cliente?.nome?.substring(0, 2).toUpperCase() || '??'}
+              </span>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-900 truncate">João Silva</p>
-                <p className="text-[10px] text-gray-400 truncate">joao@aamihe.com</p>
+                <p className="text-xs font-bold text-gray-900 truncate">{cliente?.nome || 'Carregando...'}</p>
+                <p className="text-[10px] text-gray-400 truncate">{cliente?.email || '...'}</p>
               </div>
             )}
           </div>

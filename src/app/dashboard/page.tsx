@@ -1,10 +1,10 @@
 'use client'
 
-import React from 'react'
+import React from 'react';
+import { User, LogOut, RefreshCw, Plus, ExternalLink } from 'lucide-react';
+import RenewalAlerts from '@/components/renewals/RenewalAlerts';
+import Link from 'next/link';
 import {
-    Plus,
-    RefreshCw,
-    ExternalLink,
     Server,
     Globe2,
     ShieldCheck,
@@ -13,13 +13,11 @@ import {
     ChevronRight,
     Mail
 } from 'lucide-react'
-import Link from 'next/link'
 import { useI18n } from '@/lib/i18n'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import UsageProgress from '@/components/dashboard/UsageProgress'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import { LogOut, User } from 'lucide-react'
 
 export default function DashboardHome() {
     const { t } = useI18n()
@@ -30,7 +28,7 @@ export default function DashboardHome() {
     React.useEffect(() => {
         async function fetchSubscription() {
             try {
-                // Buscar subscription do usuário logado (não da VisualDesign)
+                // Buscar subscription do usuário logado (não da Portal Digital)
                 const { data, error } = await supabase
                     .from('subscriptions')
                     .select('*')
@@ -104,6 +102,11 @@ export default function DashboardHome() {
                         {t('dash.newService')}
                     </button>
                 </div>
+            </div>
+
+            {/* Renewal Alerts Section */}
+            <div className="mb-8">
+                <RenewalAlerts />
             </div>
 
             {/* Main Grid */}

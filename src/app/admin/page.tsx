@@ -933,7 +933,7 @@ export default function AdminPage() {
   const filteredSites = cyberPanelSites.filter(s => !s.domain.includes('contaboserver'))
   const primaryDomain = filteredSites.length > 0
     ? filteredSites[0].domain
-    : 'visualdesigne.com'
+    : 'your-domain.com'
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -981,7 +981,7 @@ export default function AdminPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || 'visualdesigne.com'} sites={cyberPanelSites} />
+        return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={cyberPanelSites} />
       case 'clientes':
         return <ClientesSection />
       case 'domains-new':

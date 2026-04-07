@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/server';
 
-const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
+const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com'];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
@@ -49,6 +49,7 @@ export async function POST() {
         sql: `
           CREATE TABLE IF NOT EXISTS cyberpanel_users (
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID REFERENCES auth.users(id),
             username TEXT UNIQUE NOT NULL,
             first_name TEXT,
             last_name TEXT,
@@ -60,6 +61,14 @@ export async function POST() {
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
+          
+          -- Ensure user_id column exists if table was already created
+          DO $$ 
+          BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cyberpanel_users' AND column_name='user_id') THEN
+              ALTER TABLE cyberpanel_users ADD COLUMN user_id UUID REFERENCES auth.users(id);
+            END IF;
+          END $$;
         `
       });
     } catch {
@@ -88,20 +97,71 @@ export async function POST() {
       // RPC not available or table already exists
     }
 
+    // Create new business tables
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `
+          -- Profiles table for client extra info
+          CREATE TABLE IF NOT EXISTS profiles (
+            id UUID REFERENCES auth.users(id) PRIMARY KEY,
+            nome TEXT,
+            empresa TEXT,
+            telefone TEXT,
+            morada TEXT,
+            cidade TEXT,
+            pais TEXT DEFAULT 'Moçambique',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+
+          -- Invoices (Pagamentos)
+          CREATE TABLE IF NOT EXISTS pagamentos (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID REFERENCES auth.users(id),
+            domain TEXT,
+            valor DECIMAL,
+            vencimento DATE,
+            metodo TEXT,
+            pago_em TIMESTAMP WITH TIME ZONE,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+
+          -- Support Tickets
+          CREATE TABLE IF NOT EXISTS tickets_suporte (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID REFERENCES auth.users(id),
+            assunto TEXT,
+            categoria TEXT DEFAULT 'Geral',
+            descricao TEXT,
+            status TEXT DEFAULT 'Aberto',
+            resposta TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `
+      });
+    } catch {
+      // RPC error
+    }
+
     // Test if tables exist by trying to select from them
     const { error: sitesError } = await supabase.from('cyberpanel_sites').select('id').limit(1);
     const { error: usersError } = await supabase.from('cyberpanel_users').select('id').limit(1);
+    const { error: profilesError } = await supabase.from('profiles').select('id').limit(1);
 
     return NextResponse.json({
       success: true,
       tables: {
         cyberpanel_sites: sitesError ? `Error: ${sitesError.message}` : 'OK',
         cyberpanel_users: usersError ? `Error: ${usersError.message}` : 'OK',
-        cyberpanel_packages: 'OK'
+        profiles: profilesError ? `Error: ${profilesError.message}` : 'OK',
+        pagamentos: 'OK',
+        tickets_suporte: 'OK'
       },
-      message: sitesError || usersError
-        ? 'Some tables may need manual creation. Run the SQL scripts in Supabase Dashboard > SQL Editor.'
-        : 'All tables are ready!'
+      message: sitesError || usersError || profilesError
+        ? 'Some tables may need manual creation. Try common fixes or run SQL scripts.'
+        : 'All infrastructure tables ready!'
     });
   } catch (error: any) {
     return NextResponse.json({

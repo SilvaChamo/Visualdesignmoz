@@ -92,7 +92,7 @@ export default function NotFound() {
                 <div className="transition-opacity duration-500 hover:opacity-100 opacity-50">
                     <img
                         src="/assets/logotipoII.png"
-                        alt="VisualDesigne"
+                        alt="Portal Digitale"
                         className="h-20 object-contain brightness-75 grayscale hover:grayscale-0"
                     />
                 </div>

@@ -14,7 +14,7 @@ const smtpConfig = {
     port: parseInt(process.env.SMTP_PORT || '465'),
     secure: process.env.SMTP_SECURE === 'true' || true,
     auth: {
-        user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
+        user: process.env.SMTP_MASTER_EMAIL || 'admin@your-domain.com',
         pass: process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425',
     },
 };

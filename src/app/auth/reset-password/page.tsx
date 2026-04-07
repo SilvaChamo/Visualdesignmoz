@@ -103,7 +103,7 @@ export default function ResetPasswordPage() {
                 <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
                     <img
                         src="/assets/logotipoII.png"
-                        alt="VisualDesigne"
+                        alt="Portal Digitale"
                         className="h-32 object-contain"
                     />
                 </a>

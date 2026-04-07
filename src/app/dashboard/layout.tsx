@@ -16,7 +16,7 @@ export default async function DashboardLayout({
     }
 
     const userRole = user.user_metadata?.role;
-    const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
+    const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com'];
     const isExplicitAdmin = adminEmails.includes(user.email || '');
 
     if (userRole !== 'reseller' && userRole !== 'admin' && !isExplicitAdmin) {
@@ -49,8 +49,8 @@ export default async function DashboardLayout({
                         <div className="h-8 w-[1px] bg-white/5 mx-2"></div>
                         <button className="flex items-center gap-3 pl-2 group">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-white leading-tight">Cliente Visualdesign</p>
-                                <p className="text-xs text-gray-500 font-medium tracking-wide">ID: #VD89231</p>
+                                <p className="text-sm font-bold text-white leading-tight">Cliente Portal</p>
+                                <p className="text-xs text-gray-500 font-medium tracking-wide">ID: #GEST001</p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center text-white ring-2 ring-white/5 group-hover:ring-red-600/50 transition-all">
                                 <User className="w-6 h-6" />

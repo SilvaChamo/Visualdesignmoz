@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Configuração IMAP CyberPanel
     const cyberpanelConfig = {
-      host: 'mail.visualdesigne.com',
+      host: 'mail.your-domain.com',
       port: 993,
       secure: true,
       auth: {

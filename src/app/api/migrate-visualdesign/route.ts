@@ -13,7 +13,7 @@ const MOZSERVER_PASS = 'FerramentasWeb#2020'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { domain = 'visualdesign.com', preserveContent = true } = body
+    const { domain = 'Portal Digital.com', preserveContent = true } = body
 
     console.log(`[MIGRATION] Starting migration for ${domain}`)
 
@@ -132,12 +132,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    message: 'VisualDesign Migration API',
+    message: 'Portal Digital Migration API',
     status: 'ready',
-    description: 'API para migrar visualdesign.com do MozServer para CyberPanel',
-    usage: 'POST /api/migrate-visualdesign',
+    description: 'API para migrar Portal Digital.com do MozServer para CyberPanel',
+    usage: 'POST /api/migrate-Portal Digital',
     parameters: {
-      domain: 'visualdesign.com (opcional)',
+      domain: 'Portal Digital.com (opcional)',
       preserveContent: 'true/false (opcional, default: true)'
     }
   })

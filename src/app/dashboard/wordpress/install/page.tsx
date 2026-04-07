@@ -383,7 +383,7 @@ export default function WordPressInstallPage() {
                   type="text"
                   value={form.databaseName}
                   onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
-                  placeholder="visualdesign_wp"
+                  placeholder="Portal Digital_wp"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -394,7 +394,7 @@ export default function WordPressInstallPage() {
                   type="text"
                   value={form.databaseUser}
                   onChange={(e) => setForm({ ...form, databaseUser: e.target.value })}
-                  placeholder="visualdesign_wpuser"
+                  placeholder="Portal Digital_wpuser"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>

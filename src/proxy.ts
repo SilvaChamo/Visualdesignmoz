@@ -76,10 +76,10 @@ export async function proxy(request: NextRequest) {
   const userEmail = user.email?.toLowerCase() || ''
   const userRole = user.app_metadata?.role || user.user_metadata?.role
   const adminEmails = [
-    'admin@visualdesigne.com',
-    'geral@visualdesigne.com',
+    'admin@your-domain.com',
+    'geral@your-domain.com',
     'silva.chamo@gmail.com',
-    'silva.chamo@visualdesigne.com'
+    'silva.chamo@your-domain.com'
   ]
 
   let role = 'client'

@@ -25,7 +25,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
         }
 
-        const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com'];
+        const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com'];
         const userRole = user.user_metadata?.role;
         const isAdmin = adminEmails.includes(user.email || '') || userRole === 'admin' || userRole === 'reseller';
 

@@ -8,10 +8,10 @@ export const metadata: Metadata = {
 };
 
 const adminEmails = [
-    'admin@visualdesigne.com',
-    'geral@visualdesigne.com',
+    'admin@your-domain.com',
+    'geral@your-domain.com',
     'silva.chamo@gmail.com',
-    'silva.chamo@visualdesigne.com'
+    'silva.chamo@your-domain.com'
 ];
 
 export default async function AdminLayout({

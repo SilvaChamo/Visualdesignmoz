@@ -69,7 +69,7 @@ export default function RegisterPage() {
         <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
           <img
             src="/assets/logotipoII.png"
-            alt="VisualDesigne"
+            alt="Portal Digitale"
             className="h-32 object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
@@ -105,7 +105,7 @@ export default function RegisterPage() {
         ) : (
           <>
             <h1 className="text-white text-xl font-bold mb-1 text-center">Criar Conta</h1>
-            <p className="text-gray-500 text-xs mb-6 text-center">Acede à plataforma visualdesigne.com</p>
+            <p className="text-gray-500 text-xs mb-6 text-center">Acede à plataforma your-domain.com</p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm">{error}</div>

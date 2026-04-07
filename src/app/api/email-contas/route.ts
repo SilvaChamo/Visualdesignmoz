@@ -3,7 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 
-const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'];
+const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com'];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const domain = email.split('@')[1]
     const user = email.split('@')[0]
 
-    if (domain === 'visualdesigne.com' || domain.includes('visualdesigne')) {
+    if (domain === 'your-domain.com' || domain.includes('Portal Digitale')) {
       try {
         await executeCyberPanelCommand(`cyberpanel createEmail --domainName ${domain} --userName ${user} --password '${password}'`);
       } catch (cpError) {

@@ -48,8 +48,7 @@ export function EmailWebmailSection({
   const [assinatura, setAssinatura] = useState('')
   const [mostrarConfigAssinatura, setMostrarConfigAssinatura] = useState(false)
   const [contactos, setContactos] = useState([
-    { nome: 'Silva Chamo', email: 'silva.chamo@gmail.com' },
-    { nome: 'Suporte VisualDesign', email: 'suport@visualdesigne.com' },
+    { nome: 'Suporte Técnico', email: 'suporte@your-domain.com' },
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
@@ -99,7 +98,7 @@ export function EmailWebmailSection({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               email: emailOrigem || (todasAsContas ? modalEmail.conta : ''),
-              password: emailOrigemPassword || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : ''),
+              password: emailOrigemPassword || (emailOrigem?.endsWith('@your-domain.com') ? 'YourSecurePass' : ''),
               emailId: modalEmail.id,
               folder: pastaParaIMAP(pastaActiva)
             })
@@ -121,7 +120,7 @@ export function EmailWebmailSection({
     const carregarContas = async () => {
       // Carregar directamente do CyberPanel (fonte de verdade)
       try {
-        const res = await fetch('/api/cyberpanel-email?domain=visualdesigne.com')
+        const res = await fetch('/api/cyberpanel-email?domain=your-domain.com')
         const data = await res.json()
         if (data.success && data.emails && data.emails.length > 0) {
           setEmailsOrigem(data.emails.map((e: any) => ({
@@ -175,7 +174,7 @@ export function EmailWebmailSection({
           body.allAccounts = true
           body.emails = emailsOrigem.map(e => e.email)
         } else {
-          const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@visualdesigne.com') ? 'Ad.Vd#2425?*' : '')
+          const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@your-domain.com') ? 'Ad.Vd#2425?*' : '')
           if (!emailOrigem || !senhaImap) {
             setCarregandoEmails(false)
             return
@@ -215,8 +214,8 @@ export function EmailWebmailSection({
   const [mostrarBcc, setMostrarBcc] = useState(false)
   const [mostrarEditarAssinatura, setMostrarEditarAssinatura] = useState(false)
   const [assinaturas, setAssinaturas] = useState([
-    { nome: 'VisualDESIGN', activa: true, texto: '', imagemUrl: '' },
-    { nome: 'ProVisual Corporate', activa: false, texto: '', imagemUrl: '' },
+    { nome: 'Portal Digital', activa: true, texto: '', imagemUrl: '' },
+    { nome: 'Empresa Corporate', activa: false, texto: '', imagemUrl: '' },
     { nome: 'Sem Título', activa: false, texto: '', imagemUrl: '' },
   ])
   const [assinaturaActiva, setAssinaturaActiva] = useState(0)
@@ -362,7 +361,7 @@ export function EmailWebmailSection({
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
-      emailParaUsar = 'admin@visualdesigne.com'
+      emailParaUsar = 'admin@your-domain.com'
       passwordParaUsar = 'Ad.Vd#2425?*'
     }
 
@@ -451,7 +450,7 @@ export function EmailWebmailSection({
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
-      emailParaUsar = 'admin@visualdesigne.com'
+      emailParaUsar = 'admin@your-domain.com'
       passwordParaUsar = 'Ad.Vd#2425?*'
     }
 
@@ -511,7 +510,7 @@ export function EmailWebmailSection({
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
-      emailParaUsar = 'admin@visualdesigne.com'
+      emailParaUsar = 'admin@your-domain.com'
       passwordParaUsar = 'Ad.Vd#2425?*'
     }
 
@@ -556,7 +555,7 @@ export function EmailWebmailSection({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: emailOrigem || 'admin@visualdesigne.com',
+          email: emailOrigem || 'admin@your-domain.com',
           para: compose.para || '',
           cc: compose.cc || '',
           bcc: compose.bcc || '',
@@ -583,7 +582,7 @@ export function EmailWebmailSection({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: emailOrigem || 'admin@visualdesigne.com'
+          email: emailOrigem || 'admin@your-domain.com'
         })
       })
       const data = await res.json()
@@ -676,7 +675,7 @@ export function EmailWebmailSection({
     <div className="flex flex-col h-[calc(100vh-120px)] -mx-6 -mt-6">
 
       {/* TOOLBAR PRINCIPAL */}
-      <div className="bg-gray-900 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-800">
+      <div className="bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200">
         <button onClick={() => {
           setMostrarCompose(true)
           setEnviado(false)
@@ -689,20 +688,20 @@ export function EmailWebmailSection({
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           ✏️ Escrever
         </button>
-        <a href="https://mail.visualdesigne.com:8090/snappymail/" target="_blank"
+        <a href="https://mail.your-domain.com:8090/snappymail/" target="_blank"
           className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           🌐 Webmail
         </a>
         <div className="w-px h-5 bg-gray-700 mx-1" />
         {pastas.map(p => (
           <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-500 bg-transparent' : 'text-gray-400 hover:text-red-500 bg-transparent'}`}>
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-500 hover:bg-gray-200'}`}>
             {p}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setMostrarConfigAssinatura(true)}
-            className="text-gray-300 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-600 hover:border-red-500 transition-colors flex items-center gap-2">
+            className="text-gray-700 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 bg-white shadow-sm font-bold">
             ✍️ Assinatura
           </button>
         </div>
@@ -1581,7 +1580,7 @@ export function EmailWebmailSection({
                   value={assinaturas[assinaturaActiva]?.texto || ''}
                   onChange={e => { const a = [...assinaturas]; a[assinaturaActiva].texto = e.target.value; setAssinaturas(a) }}
                   className="flex-1 p-6 text-sm text-gray-800 outline-none resize-none"
-                  placeholder="Escreve aqui a tua assinatura...&#10;&#10;Ex:&#10;Silva Chamo&#10;DR. GERAL — VisualDesign&#10;+258 82 52 88 318&#10;silva.chamo@visualdesigne.com&#10;https://visualdesigne.com" />
+                  placeholder="Escreve aqui a tua assinatura...&#10;&#10;Ex:&#10;Silva Chamo&#10;DR. GERAL — Portal Digital&#10;+258 82 52 88 318&#10;silva.chamo@your-domain.com&#10;https://your-domain.com" />
 
                 {/* Imagem da assinatura */}
                 {assinaturas[assinaturaActiva]?.imagemUrl && (
@@ -1852,12 +1851,12 @@ export function EmailWebmailSection({
                 <div className="p-6 space-y-3 bg-white">
                   <p className="text-sm text-gray-500 mb-2 font-medium">Configurar Email Executivo (IMAP/SMTP)</p>
                   {[
-                    { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@visualdesigne.com' },
+                    { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@your-domain.com' },
                     { label: 'Nome de utilizador', field: 'nome', placeholder: 'Silva Chamo' },
                     { label: 'Palavra-passe', field: 'password', placeholder: '••••••••', type: 'password' },
-                    { label: 'Servidor de receção (IMAP)', field: 'servidor', placeholder: 'mail.visualdesigne.com' },
+                    { label: 'Servidor de receção (IMAP)', field: 'servidor', placeholder: 'mail.your-domain.com' },
                     { label: 'Porta IMAP', field: 'porta', placeholder: '993' },
-                    { label: 'Servidor de envio (SMTP)', field: 'smtp', placeholder: 'mail.visualdesigne.com' },
+                    { label: 'Servidor de envio (SMTP)', field: 'smtp', placeholder: 'mail.your-domain.com' },
                     { label: 'Porta SMTP', field: 'smtpPorta', placeholder: '465' },
                   ].map(f => (
                     <div key={f.field} className="flex items-center gap-4">
@@ -1869,8 +1868,8 @@ export function EmailWebmailSection({
                     </div>
                   ))}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
-                    <p className="text-xs text-blue-700 font-bold mb-1">Configurações recomendadas VisualDesign:</p>
-                    <p className="text-xs text-blue-600">Servidor: mail.visualdesigne.com • IMAP: 993 SSL • SMTP: 465 SSL</p>
+                    <p className="text-xs text-blue-700 font-bold mb-1">Configurações recomendadas Portal Digital:</p>
+                    <p className="text-xs text-blue-600">Servidor: mail.your-domain.com • IMAP: 993 SSL • SMTP: 465 SSL</p>
                   </div>
                   <div className="flex justify-between pt-2">
                     <button onClick={() => setModalAdicionarPasso('escolher')}

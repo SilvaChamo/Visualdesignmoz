@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
         <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
           <img
             src="/assets/logotipoII.png"
-            alt="VisualDesigne"
+            alt="Portal Digitale"
             className="h-32 object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
@@ -124,7 +124,7 @@ export default function ForgotPasswordPage() {
                     border: '1px solid rgba(127, 0, 0, 0.4)',
                     color: 'white',
                   }}
-                  placeholder="email@visualdesigne.com"
+                  placeholder="email@your-domain.com"
                   required
                 />
               </div>

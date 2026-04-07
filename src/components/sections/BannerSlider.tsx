@@ -122,9 +122,9 @@ export function BannerSlider() {
                         <Phone className="w-4 h-4" />
                         <span>+258 821 234 567</span>
                       </a>
-                      <a href="mailto:info@visualdesign.co.mz" className="flex items-center space-x-2 hover:text-gray-900 transition-colors">
+                      <a href="mailto:info@Portal Digital.co.mz" className="flex items-center space-x-2 hover:text-gray-900 transition-colors">
                         <Mail className="w-4 h-4" />
-                        <span>info@visualdesign.co.mz</span>
+                        <span>info@Portal Digital.co.mz</span>
                       </a>
                     </div>
                   </div>

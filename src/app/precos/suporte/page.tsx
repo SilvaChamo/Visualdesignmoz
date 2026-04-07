@@ -65,7 +65,7 @@ export default function PrecosSuporte() {
               <h3 className="text-lg font-bold text-black mb-3">{t('pricing.support.channels')}</h3>
               <ul className="space-y-2 text-gray-600">
                 <li>{t('pricing.hosting.chat')} 24/7</li>
-                <li>E-mail: suporte@visualdesign.co.mz</li>
+                <li>E-mail: suporte@Portal Digital.co.mz</li>
                 <li>{t('pricing.domains.support.3')}: +258 84 123 4567</li>
               </ul>
             </div>

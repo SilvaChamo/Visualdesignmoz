@@ -202,7 +202,7 @@ const dict: Record<Lang, Dict> = {
     'about.subtitle': 'Transformando ideias em realidade digital desde 2020',
     'about.historyTitle': 'Nossa',
     'about.historyHighlight': 'História',
-    'about.historyP1': 'A Visual Design nasceu da paixão por criar experiências digitais incríveis. Começamos como uma pequena equipe em Maputo e crescemos para nos tornarmos uma referência em design e desenvolvimento web em Moçambique.',
+    'about.historyP1': 'Este portal nasceu da paixão por criar experiências digitais incríveis. Começamos como uma pequena equipe em Maputo e crescemos para nos tornarmos uma referência em design e desenvolvimento web em Moçambique.',
     'about.historyP2': 'Nossa missão é ajudar empresas a alcançarem seu potencial máximo através de soluções digitais inovadoras e eficazes.',
     'about.historyP3': 'Cada projeto é uma oportunidade de superar expectativas e criar algo verdadeiramente único.',
     'about.stat.projects': 'Projetos Concluídos',
@@ -306,7 +306,7 @@ const dict: Record<Lang, Dict> = {
 
     // Dashboard
     'dash.hello': 'Olá,',
-    'dash.welcome': 'Bem-vindo ao seu painel de controlo visualdesign.',
+    'dash.welcome': 'Bem-vindo ao seu painel de controlo.',
     'dash.sync': 'Sincronizar',
     'dash.newService': 'Novo Serviço',
     'dash.activeAccount': 'Conta Ativa',
@@ -893,7 +893,7 @@ const dict: Record<Lang, Dict> = {
     'about.subtitle': 'Transforming ideas into digital reality since 2020',
     'about.historyTitle': 'Our',
     'about.historyHighlight': 'Story',
-    'about.historyP1': 'Visual Design was born from the passion to create incredible digital experiences. We started as a small team in Maputo and grew to become a reference in web design and development in Mozambique.',
+    'about.historyP1': 'This portal was born from the passion to create incredible digital experiences. We started as a small team in Maputo and grew to become a reference in web design and development in Mozambique.',
     'about.historyP2': 'Our mission is to help companies reach their maximum potential through innovative and effective digital solutions.',
     'about.historyP3': 'Every project is an opportunity to exceed expectations and create something truly unique.',
     'about.stat.projects': 'Completed Projects',
@@ -997,7 +997,7 @@ const dict: Record<Lang, Dict> = {
 
     // Dashboard
     'dash.hello': 'Hello,',
-    'dash.welcome': 'Welcome to your visualdesign control panel.',
+    'dash.welcome': 'Welcome to your control panel.',
     'dash.sync': 'Sync',
     'dash.newService': 'New Service',
     'dash.activeAccount': 'Active Account',

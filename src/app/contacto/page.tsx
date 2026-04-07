@@ -63,7 +63,7 @@ export default function ContactPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-white mb-2">{t('contact.page.email')}</h3>
-              <p className="text-gray-300">info@visualdesign.co.mz</p>
+              <p className="text-gray-300">info@Portal Digital.co.mz</p>
             </div>
 
             <div className="text-center">

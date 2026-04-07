@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
 async function execSSH(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -278,7 +283,7 @@ print('ok')
       }
 
       case 'listEmails': {
-        const domain = params.domain || 'visualdesigne.com'
+        const domain = params.domain || 'your-domain.com'
         const raw = await execSSH(
           `mysql vmail -e "SELECT username FROM users WHERE domain='${domain}';" -B -N 2>/dev/null || ` +
           `mysql cyberpanel -e "SELECT emailUser FROM e_manager_email WHERE domainOwner_id IN (SELECT id FROM websiteBase_websites WHERE domain='${domain}');" -B -N 2>/dev/null`
@@ -358,7 +363,46 @@ print('ok')
         );
         console.log('[createUser] Raw output:', raw);
         const success = raw.includes('"status": 1') || raw.includes('successfully created') || raw.includes('Success') || raw.includes('created successfully');
-        data = { output: raw, success, error: success ? null : raw };
+        
+        let supabaseAuthId = null;
+        if (success) {
+          try {
+            // Sincronizar com Supabase Auth
+            const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+              email: params.email,
+              password: params.password,
+              email_confirm: true,
+              user_metadata: { 
+                nome: `${params.firstName || ''} ${params.lastName || ''}`.trim(),
+                role: params.acl === 'admin' ? 'admin' : 'client'
+              }
+            });
+
+            if (authError) {
+              console.error('[createUser] Supabase Auth Error:', authError);
+              // Se o erro for que o utilizador já existe, tentamos apenas obter o ID
+              if (authError.message.includes('already registered')) {
+                 const { data: existing } = await supabaseAdmin.from('profiles').select('id').eq('email', params.email).single();
+                 supabaseAuthId = existing?.id;
+              }
+            } else {
+              supabaseAuthId = authUser.user?.id;
+              console.log('[createUser] Supabase Auth Success:', supabaseAuthId);
+            }
+
+            // Atualizar tabela cyberpanel_users com o user_id do Supabase
+            if (supabaseAuthId) {
+              await supabaseAdmin
+                .from('cyberpanel_users')
+                .update({ user_id: supabaseAuthId })
+                .eq('username', params.userName);
+            }
+          } catch (e) {
+            console.error('[createUser] Sync error:', e);
+          }
+        }
+
+        data = { output: raw, success, error: success ? null : raw, authSync: !!supabaseAuthId };
         break;
       }
 
@@ -437,7 +481,7 @@ print('ok')
       }
 
       case 'getScreenshot': {
-        const domain = params.domain || 'visualdesigne.com'
+        const domain = params.domain || 'your-domain.com'
         // Usar API pública de screenshot (sem chave necessária)
         data = {
           screenshotUrl: `https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`

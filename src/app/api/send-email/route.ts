@@ -61,13 +61,13 @@ export async function POST(req: NextRequest) {
     // 1. Usar Resend APENAS para emails transacionais (recuperação de password, etc.)
     const isResendAvailable = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_placeholder';
     const isTransactional = category === 'transactional';
-    const isAuthorizedDomain = from?.toLowerCase().endsWith('@visualdesigne.com');
+    const isAuthorizedDomain = from?.toLowerCase().endsWith('@your-domain.com');
 
     if (isResendAvailable && isTransactional && isAuthorizedDomain) {
       console.log('Using Resend for transactional email delivery...');
       try {
         const { data, error } = await resend.emails.send({
-          from: from || 'noreply@visualdesigne.com',
+          from: from || 'noreply@your-domain.com',
           to, cc, bcc, subject,
           html: html || '',
           replyTo: replyTo || from
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
     // Se não tem password, usar conta SMTP master para autenticar
     // O campo From: continua a mostrar o email do utilizador
-    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com')
+    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@your-domain.com')
     const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'AdvD2425'
 
     console.log('Using Nodemailer fallback...');
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       port: 465,
       secure: true,
       auth: {
-        user: 'admin@visualdesigne.com',
+        user: 'admin@your-domain.com',
         pass: 'Ad.Vd#2425?*'
       },
       tls: { rejectUnauthorized: false },
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
           await imapClient.connect()
           const foldersToTry = ['INBOX.Sent', 'Sent', '.Sent', 'Enviados']
-          const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@visualdesigne.com>`
+          const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@your-domain.com>`
           const dateStr = new Date().toUTCString()
           const fullMessage = `From: ${from}\r\nTo: ${to}\r\nSubject: ${subject}\r\nMessage-ID: ${messageId}\r\nDate: ${dateStr}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${html || ''}`
 

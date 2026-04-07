@@ -60,7 +60,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
   // Definir domínio principal
   const primaryDomain = sites.length > 0
     ? sites.find(s => !s.domain.includes('contaboserver'))?.domain || sites[0].domain
-    : 'visualdesigne.com'
+    : 'your-domain.com'
 
   const handleDNSNavigate = (section: string) => {
     if (section === 'domains-dns' && onSetDNSDomain) {

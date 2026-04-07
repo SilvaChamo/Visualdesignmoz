@@ -50,13 +50,13 @@ async function execSSH(command: string): Promise<string> {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const GITHUB_OWNER = process.env.GITHUB_OWNER || 'SilvaChamo'
-const GITHUB_REPO = process.env.GITHUB_REPO || 'Visualdesigne'
+const GITHUB_REPO = process.env.GITHUB_REPO || 'Portal Digitale'
 const VERCEL_DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK
 const IS_LOCAL = process.env.NODE_ENV === 'development'
 
 const ghHeaders = (): Record<string, string> => ({
   'Accept': 'application/vnd.github.v3+json',
-  'User-Agent': 'VisualDesign-Admin',
+  'User-Agent': 'Portal Digital-Admin',
   ...(GITHUB_TOKEN ? { 'Authorization': `token ${GITHUB_TOKEN}` } : {}),
 })
 
@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
 
     // ── DEPLOY DO SITE NO SERVIDOR ──
     if (action === 'deploySite') {
-      const { domain = 'visualdesigne.com' } = body
+      const { domain = 'your-domain.com' } = body
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html
@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'getDeployStatus') {
-      const { domain = 'visualdesigne.com' } = body
+      const { domain = 'your-domain.com' } = body
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html && git log --oneline -5 2>&1
@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'getGitLog') {
-      const { domain = 'visualdesigne.com' } = body
+      const { domain = 'your-domain.com' } = body
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html && git log --oneline -10 2>&1
