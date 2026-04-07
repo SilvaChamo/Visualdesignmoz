@@ -115,18 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setLoading(true)
-      console.log('AuthProvider resetPassword: Requesting enriched email for:', email)
-
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Erro ao enviar email de recuperação.')
-
-      console.log('AuthProvider resetPassword: Success:', data)
+      await auth.resetPassword(email)
     } catch (error) {
       console.error('AuthProvider resetPassword: Error:', error)
       throw error

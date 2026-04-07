@@ -1,13 +1,9 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 
 export default function ResetPasswordPage() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     const [password, setPassword] = useState('')
     const [confirmar, setConfirmar] = useState('')
     const [showPassword, setShowPassword] = useState(false)

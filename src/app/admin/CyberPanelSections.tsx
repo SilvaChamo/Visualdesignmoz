@@ -6276,6 +6276,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [destinationEmail, setDestinationEmail] = useState('')
   const [destinationPassword, setDestinationPassword] = useState('')
   const [importing, setImporting] = useState(false)
+  const [showErrors, setShowErrors] = useState(false)
   const [progress, setProgress] = useState({ total: 0, copied: 0, currentFolder: '', errors: [] })
   const [showInstructions, setShowInstructions] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -6490,14 +6491,20 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
             {result.message && <p className="text-gray-700">{result.message}</p>}
 
             {result.errors && result.errors.length > 0 && (
-              <div className="mt-4">
-                <p className="font-bold text-red-700 mb-2">Erros encontrados:</p>
-                <ul className="list-disc list-inside space-y-1 text-xs text-red-600">
-                  {result.errors.slice(0, 5).map((error: any, index: number) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                  {result.errors.length > 5 && <li>...e mais {result.errors.length - 5} erros</li>}
-                </ul>
+              <div className="mt-4 p-3 bg-white border border-red-100 rounded-lg shadow-inner">
+                <button 
+                  onClick={() => setShowErrors(!showErrors)}
+                  className="flex items-center gap-2 font-bold text-red-700 mb-2 hover:underline w-full text-left"
+                >
+                  {showErrors ? '▼' : '▶'} Erros encontrados ({result.errors.length}):
+                </button>
+                {showErrors && (
+                  <ul className="list-disc list-inside space-y-1 text-xs text-red-600 max-h-40 overflow-y-auto mt-2 custom-scrollbar">
+                    {result.errors.map((error: any, index: number) => (
+                      <li key={index} className="border-b border-red-50 last:border-0 py-1">{error}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>

@@ -40,18 +40,16 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
     const [isUploading, setIsUploading] = useState(false);
     const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
 
-    // Initial value sync (only once to avoid cursor jumping)
+    // Initial value sync and external value updates (like template application)
     useEffect(() => {
         if (typeof document !== 'undefined') {
             document.execCommand('defaultParagraphSeparator', false, 'p');
         }
         if (editorRef.current && editorRef.current.innerHTML !== value) {
             if (value === "" && editorRef.current.innerHTML === "<br>") return;
-            if (editorRef.current.innerHTML === "") {
-                editorRef.current.innerHTML = value;
-            }
+            editorRef.current.innerHTML = value || "";
         }
-    }, []);
+    }, [value]);
 
     const [isInputFocused, setIsInputFocused] = useState(false); // Track input focus
     const [localFontSize, setLocalFontSize] = useState("");

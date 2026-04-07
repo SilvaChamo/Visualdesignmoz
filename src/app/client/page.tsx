@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/server'
 
 import {
-  Home, Globe, Users, Mail, Shield, Database, Settings,
+  Home, Globe, Users, Mail, Shield, Database, Settings, Target,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
-  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare
+  Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
+  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -23,10 +24,24 @@ import {
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
-  // ClientesSection // Removido - não usado no painel do cliente
 } from '../admin/CyberPanelSections'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RichTextEditor } from "@/components/RichTextEditor"
+import { MultiFileUpload } from "@/components/admin/MultiFileUpload"
+import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector"
+import { EmailTemplates } from "@/components/admin/EmailTemplates"
+import { toast } from "sonner"
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
+import { 
+  adminListarSubscritores as listarSubscritores, 
+  adminAdicionarSubscritor as adicionarSubscritor, 
+  adminRemoverSubscritor as removerSubscritor, 
+  adminListarCampanhas as listarCampanhas, 
+  adminSalvarCampanha as salvarCampanha 
+} from '@/app/actions/mailmarketing'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
 const CORES_PALETA = [
@@ -111,9 +126,9 @@ function ClienteDashboardHome() {
     : null
 
   return (
-    <div className="flex gap-6">
+    <div className="flex gap-5">
       {/* Conteúdo principal */}
-      <div className="flex-1 space-y-6">
+      <div className="flex-1 space-y-5">
 
         {/* Saudação */}
         <div>
@@ -123,7 +138,7 @@ function ClienteDashboardHome() {
 
         {/* Cards de Resumo */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
             <div className="p-3 bg-blue-50 rounded-lg"><Globe className="w-6 h-6 text-blue-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Serviços Activos</p>
@@ -131,7 +146,7 @@ function ClienteDashboardHome() {
               <p className="text-xs text-gray-400 mt-0.5">{totalSites > 0 ? cyberPanelSites[0].domain : 'Nenhum site'}</p>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
             <div className="p-3 bg-purple-50 rounded-lg"><Server className="w-6 h-6 text-purple-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Domínios Activos</p>
@@ -139,7 +154,7 @@ function ClienteDashboardHome() {
               <p className="text-xs text-gray-400 mt-0.5">Expira: Ver faturas</p>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
             <div className="p-3 bg-red-50 rounded-lg"><FileText className="w-6 h-6 text-red-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Próxima Renovação</p>
@@ -151,7 +166,7 @@ function ClienteDashboardHome() {
               </p>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
             <div className="p-3 bg-green-50 rounded-lg"><MessageSquare className="w-6 h-6 text-green-600" /></div>
             <div>
               <p className="text-sm text-gray-500">Tickets Abertos</p>
@@ -162,12 +177,12 @@ function ClienteDashboardHome() {
         </div>
 
         {proximaFatura && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
             <div className="p-2 bg-yellow-100 rounded-lg text-yellow-700"><FileText className="w-5 h-5" /></div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-sm font-bold text-yellow-800">⚠️ Fatura pendente</h2>
-                <button className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg">Pagar Agora</button>
+                <button className="!bg-yellow-500 hover:!bg-red-600 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-lg !opacity-100 transition-all">Pagar Agora</button>
               </div>
               <p className="text-xs text-yellow-700">A tua fatura para o serviço <strong>{proximaFatura.domain || 'Digital Service'}</strong> vence em <strong>{new Date(proximaFatura.vencimento).toLocaleDateString()}</strong>.</p>
             </div>
@@ -175,7 +190,7 @@ function ClienteDashboardHome() {
         )}
 
         {/* Tickets recentes */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
             <h2 className="text-sm font-bold text-gray-700">Tickets de Suporte</h2>
             <button className="text-xs text-red-600 hover:underline font-bold">+ Abrir Ticket</button>
@@ -189,7 +204,7 @@ function ClienteDashboardHome() {
       {/* Barra lateral direita */}
       <div className="w-64 shrink-0 space-y-4">
         {/* Card do cliente */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <div className="flex flex-col items-center mb-4">
             <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-2">
               <span className="text-white text-xl font-bold">
@@ -206,10 +221,10 @@ function ClienteDashboardHome() {
         </div>
 
         {/* Crédito disponível */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-center">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 text-center">
           <p className="text-xs font-bold text-gray-500 uppercase mb-2">Crédito Disponível</p>
           <p className="text-2xl font-bold text-gray-900 mb-3">MT 0</p>
-          <button className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded-lg transition-colors">Adicionar Fundos</button>
+          <button className="w-full !bg-red-600 hover:!bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-lg transition-all !opacity-100">Adicionar Fundos</button>
         </div>
       </div>
     </div>
@@ -218,7 +233,7 @@ function ClienteDashboardHome() {
 
 
 // Componente SuporteSection
-function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
+function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, sites: any[], onComposeEmail: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -353,28 +368,47 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
+    <div className="space-y-5">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5 bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Suporte e Ajuda</h1>
           <p className="text-gray-500 mt-1">Esclareça dúvidas ou reporte problemas técnicos.</p>
+          
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <span className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-full">📞</span>
+              <span className="font-bold">+258 84 806 6605</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <span className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-full">📧</span>
+              <span className="font-bold">geral@visualdesigne.com</span>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex flex-wrap gap-3">
           <a href="https://wa.me/258848066605" target="_blank"
-            className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold border border-green-200 transition-all">
+            className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-5 py-2.5 rounded-lg text-sm font-bold border border-green-200 transition-all shadow-sm">
             <span>📱</span> WhatsApp
           </a>
-          <a href="mailto:suporte@visualdesigne.com"
-            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold border border-blue-200 transition-all">
-            <span>✉️</span> Email
-          </a>
+          <button onClick={() => {
+            const formElement = document.getElementById('novo-ticket-form');
+            if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
+          }}
+            className="flex items-center gap-2 !bg-red-600 text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest border border-red-600 hover:!bg-red-700 transition-all shadow-sm cursor-pointer !opacity-100">
+            <span>🎫</span> Abrir Novo Ticket
+          </button>
+          <button onClick={onComposeEmail}
+            className="flex items-center gap-2 !bg-slate-800 text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest border border-slate-800 hover:!bg-red-600 transition-all shadow-xl shadow-gray-900/10 cursor-pointer !opacity-100">
+            <span>✉️</span> Enviar Email
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-5">
         {/* Formulário Novo Ticket */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+        <div id="novo-ticket-form" className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden scroll-mt-20">
+          <div className="px-5 py-5 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
              <div className="p-2 bg-red-100 rounded-lg"><span className="text-red-600">🎫</span></div>
              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Novo Ticket de Suporte</h2>
           </div>
@@ -387,13 +421,13 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
               <p className="text-sm text-gray-500 max-w-sm mx-auto">Receberá uma confirmação no seu email em instantes. A nossa equipa irá analisar o seu pedido.</p>
               <div className="pt-4">
                 <button onClick={() => { setEnviado(false); setTicketRef(''); setForm({ ...form, assunto: '', descricao: '' }); setPreview(null); setFile(null); generateCaptcha(); }}
-                  className="px-6 py-2 bg-gray-800 text-white rounded-lg text-sm font-bold hover:bg-gray-900 transition-all shadow-sm">
+                  className="px-5 py-2 bg-gray-800 text-white rounded-lg text-sm font-bold hover:bg-gray-900 transition-all shadow-sm">
                   Abrir outro ticket
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-6">
+            <div className="p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {/* Nome */}
                 <div className="space-y-1">
@@ -434,7 +468,7 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
                   <select value={form.siteId} onChange={e => setForm({ ...form, siteId: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
                     <option value="">Nenhum / Geral</option>
-                    {sites.map(s => <option key={s.id} value={s.id}>{s.domain}</option>)}
+                    {sites.map(s => <option key={s.id || s.domain || Math.random().toString()} value={s.id || s.domain}>{s.domain}</option>)}
                   </select>
                 </div>
                 {/* Prioridade */}
@@ -460,7 +494,7 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
               </div>
 
               {/* Anexo e Segurança */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
                 {/* Anexo */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase block">Anexar Imagem (Opcional)</label>
@@ -501,7 +535,7 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
                 {erroEnvio && <p className="text-xs text-red-600 font-bold bg-red-50 border border-red-200 rounded px-3 py-2">{erroEnvio}</p>}
                 <button onClick={enviarTicket}
                   disabled={!form.assunto || !form.descricao || !userAnswer || enviando}
-                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200 flex items-center gap-2">
+                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200 flex items-center gap-2">
                   {enviando ? <>⏳ <span className="animate-pulse">A Enviar Pedido...</span></> : <>🚀 Enviar Ticket de Suporte</>}
                 </button>
               </div>
@@ -510,7 +544,7 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
         </div>
 
         {/* Histórico Simplificado */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Meus Pedidos Recentes</h2>
             <button onClick={fetchTickets} className="text-[10px] font-bold text-blue-600 hover:underline">Actualizar Lista</button>
@@ -542,7 +576,7 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
                     </div>
                   </div>
                   {expanded === t.id && (
-                    <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 space-y-3">
+                    <div className="px-5 py-5 bg-gray-50 border-t border-gray-100 space-y-3">
                       <div className="space-y-1">
                         <p className="text-[10px] font-black text-gray-400 uppercase">Mensagem Original:</p>
                         <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200">{t.descricao}</p>
@@ -576,6 +610,742 @@ function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
     </div>
   )
 }
+
+const RECIPIENT_GROUPS = [
+  "Contactos"
+];
+
+function MailMarketingSection({ sites, currentUserEmail }: { sites: any[], currentUserEmail?: string }) {
+  const [activeTab, setActiveTab] = useState<'comp' | 'subs' | 'camp' | 'news'>('comp')
+  const [selectedSite, setSelectedSite] = useState(sites.length > 0 ? sites[0].domain : '')
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <Target className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Mailmarketing</h1>
+            <p className="text-sm text-slate-500 font-medium tracking-tight">Gestão de campanhas e contactos.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto">
+          <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto">
+             <button onClick={() => setActiveTab('comp')}
+               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'comp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+               <Send size={14} /> Compor
+             </button>
+             <button onClick={() => setActiveTab('camp')}
+               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'camp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+               <Megaphone size={14} /> Campanhas
+             </button>
+             <button onClick={() => setActiveTab('subs')}
+               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'subs' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+               <Users size={14} /> Contactos
+             </button>
+          </div>
+        </div>
+      </div>
+
+      {activeTab === 'comp' && (
+        <MailMarketingComposer selectedSite={selectedSite} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} />
+      )}
+      {activeTab === 'subs' && (
+        <MailMarketingContacts selectedSite={selectedSite} />
+      )}
+      {activeTab === 'camp' && (
+        <MailMarketingCampaigns selectedSite={selectedSite} />
+      )}
+    </div>
+  )
+}
+
+function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string }) {
+    const [subject, setSubject] = useState("");
+    const [content, setContent] = useState("");
+    const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
+    const [senderEmail, setSenderEmail] = useState(currentUserEmail || "");
+    const [attachments, setAttachments] = useState<string[]>([]);
+    const [isSending, setIsSending] = useState(false);
+    const [showTemplates, setShowTemplates] = useState(false);
+
+    const handlePlanToggle = (plan: string) => {
+        if (selectedPlans.includes(plan)) {
+            setSelectedPlans(selectedPlans.filter((p: string) => p !== plan));
+        } else {
+            setSelectedPlans([...selectedPlans, plan]);
+        }
+    };
+
+    const handleSend = async () => {
+        if (!subject || !content || selectedPlans.length === 0) {
+            toast.error("Por favor, preencha o assunto, conteúdo e selecione os destinatários.");
+            return;
+        }
+
+        setIsSending(true);
+
+        try {
+            let finalHtml = content;
+            if (attachments.length > 0) {
+                finalHtml += `<br/><div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;"><strong>Anexos:</strong><ul style="list-style: none; padding: 0; margin-top: 8px;">`;
+                attachments.forEach(url => {
+                    const fileName = url.split('/').pop() || "Documento";
+                    finalHtml += `<li style="margin-bottom: 8px;"><a href="${url}" target="_blank" style="color: #ea580c; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">📎 ${fileName}</a></li>`;
+                });
+                finalHtml += `</ul></div>`;
+            }
+
+            let allRecipients: { id?: string, email: string }[] = [];
+
+            // Modified for multi-tenant contact fetch
+            if (selectedPlans.includes("Contactos")) {
+                const data = await listarSubscritores(selectedSite);
+                if (data) {
+                    allRecipients = [...allRecipients, ...data.map((s: any) => ({ email: s.email }))];
+                }
+            }
+            
+            if (allRecipients.length === 0) {
+                toast.error("Nenhum destinatário encontrado na sua lista de contactos.");
+                setIsSending(false);
+                return;
+            }
+
+            const uniqueEmails = Array.from(new Set(allRecipients.map((r: any) => r.email)));
+            const emailList = uniqueEmails.filter(Boolean);
+
+            const response = await fetch('/api/admin/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: emailList,
+                    subject: subject,
+                    html: finalHtml,
+                    attachments: attachments,
+                    replyTo: senderEmail,
+                    targetAudiences: selectedPlans,
+                    domain: selectedSite
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
+
+            toast.success(`Campanha enviada com sucesso para ${emailList.length} contactos!`);
+            
+            await salvarCampanha({
+                subject,
+                content_html: finalHtml,
+                total_recipients: emailList.length,
+                domain: selectedSite
+            });
+
+            setSubject("");
+            setContent("");
+            setAttachments([]);
+
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Erro ao enviar mensagem: " + error.message);
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className="w-full space-y-5 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="lg:col-span-2 space-y-5">
+                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                        <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
+                            <Newspaper className="w-5 h-5 text-emerald-600" />
+                            <h2 className="font-black text-emerald-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
+                        </div>
+                        <div className="p-1">
+                            <RichTextEditor
+                                value={content}
+                                onChange={setContent}
+                                placeholder="Escreva o corpo do seu email aqui..."
+                                className="min-h-[500px] border-none px-4"
+                            >
+                                <div className="px-5 py-5 bg-white border-b border-slate-50">
+                                    <input
+                                        type="text"
+                                        placeholder="Assunto da campanha..."
+                                        value={subject}
+                                        onChange={(e) => setSubject(e.target.value)}
+                                        className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                    />
+                                </div>
+                            </RichTextEditor>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <FileIcon className="w-4 h-4 text-orange-600" />
+                                Ficheiros em Anexo
+                            </h3>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                                {attachments.length} Ficheiros
+                            </span>
+                        </div>
+                        
+                        <MultiFileUpload
+                            value={attachments}
+                            onChange={setAttachments}
+                            folder="client-marketing"
+                            layout="default"
+                            description="PDF, Imagens, Documentos (Máx 10MB)"
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-5">
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={handleSend}
+                            disabled={isSending}
+                            className="flex-1 !bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100"
+                        >
+                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                            Enviar
+                        </Button>
+
+                        <Button
+                            onClick={() => setShowTemplates(true)}
+                            className="flex-1 !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100"
+                        >
+                            <LayoutTemplate className="w-5 h-5" />
+                            Templates
+                        </Button>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
+                        <div className="w-full">
+                           <SenderEmailSelector
+                               value={senderEmail}
+                               onChange={setSenderEmail}
+                               layout="col"
+                               currentUserEmail={currentUserEmail}
+                           />
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            O endereço selecionado será usado para as respostas.
+                        </p>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
+                            <button onClick={onGoToContacts} className="text-[10px] font-bold text-orange-600 hover:text-slate-900 uppercase tracking-widest underline flex items-center gap-1">
+                                <Plus size={10} /> Criar nova lista
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {RECIPIENT_GROUPS.map(plan => (
+                                <label key={plan} className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer group ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                                    <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
+                                    <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
+                            <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {showTemplates && (
+                <EmailTemplates
+                    onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
+                    onClose={() => setShowTemplates(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+function MailMarketingNewsletter({ selectedSite, onGoToContacts, currentUserEmail }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string }) {
+    const [subject, setSubject] = useState("");
+    const [content, setContent] = useState("");
+    const [senderEmail, setSenderEmail] = useState(currentUserEmail || "");
+    const [attachments, setAttachments] = useState<string[]>([]);
+    const [isSending, setIsSending] = useState(false);
+    const [showTemplates, setShowTemplates] = useState(false);
+    const [subscribersCount, setSubscribersCount] = useState(0);
+
+    useEffect(() => {
+        const checkSubs = async () => {
+            const data = await listarSubscritores(selectedSite);
+            if (data) setSubscribersCount(data.length);
+        };
+        checkSubs();
+    }, [selectedSite]);
+
+    const handleSend = async () => {
+        if (!subject || !content) {
+            toast.error("Por favor, preencha o assunto e conteúdo da newsletter.");
+            return;
+        }
+        if (subscribersCount === 0) {
+            toast.error("Nenhum subscritor encontrado.");
+            return;
+        }
+
+        setIsSending(true);
+
+        try {
+            let finalHtml = content;
+            if (attachments.length > 0) {
+                finalHtml += `<br/><div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;"><strong>Anexos:</strong><ul style="list-style: none; padding: 0; margin-top: 8px;">`;
+                attachments.forEach(url => {
+                    const fileName = url.split('/').pop() || "Documento";
+                    finalHtml += `<li style="margin-bottom: 8px;"><a href="${url}" target="_blank" style="color: #ea580c; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">📎 ${fileName}</a></li>`;
+                });
+                finalHtml += `</ul></div>`;
+            }
+
+            const data = await listarSubscritores(selectedSite);
+            let emailList: string[] = [];
+            if (data) {
+                emailList = data.map((s: any) => s.email).filter(Boolean);
+            }
+
+            const response = await fetch('/api/admin/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: emailList,
+                    subject: subject,
+                    html: finalHtml,
+                    attachments: attachments,
+                    replyTo: senderEmail,
+                    targetAudiences: ["Contactos"],
+                    domain: selectedSite
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
+
+            toast.success(`Newsletter enviada com sucesso para ${emailList.length} subscritor(es)!`);
+            
+            await salvarCampanha({
+                subject: `[NEWS] ${subject}`,
+                content_html: finalHtml,
+                total_recipients: emailList.length,
+                domain: selectedSite
+            });
+
+            setSubject("");
+            setContent("");
+            setAttachments([]);
+
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Erro ao enviar newsletter: " + error.message);
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className="w-full space-y-5 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="lg:col-span-2 space-y-5">
+                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                        <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
+                            <Newspaper className="w-5 h-5 text-emerald-600" />
+                            <h2 className="font-black text-emerald-800 uppercase tracking-widest text-xs">Editor de Newsletter</h2>
+                        </div>
+                        <div className="p-1">
+                            <RichTextEditor
+                                value={content}
+                                onChange={setContent}
+                                placeholder="Escreva a sua newsletter aqui..."
+                                className="min-h-[500px] border-none px-4"
+                            >
+                                <div className="px-5 py-5 bg-white border-b border-slate-50">
+                                    <input
+                                        type="text"
+                                        placeholder="Assunto da newsletter..."
+                                        value={subject}
+                                        onChange={(e) => setSubject(e.target.value)}
+                                        className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                    />
+                                </div>
+                            </RichTextEditor>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-5">
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={handleSend}
+                            disabled={isSending}
+                            className="flex-1 bg-[#059669] dark:bg-[#059669] hover:bg-[#dc2626] dark:hover:bg-[#dc2626] text-white dark:text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg shadow-xl shadow-emerald-500/20 transition-all border-none opacity-100 dark:opacity-100"
+                        >
+                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                            Enviar
+                        </Button>
+
+                        <Button
+                            onClick={() => setShowTemplates(true)}
+                            className="flex-1 bg-[#1e293b] dark:bg-[#1e293b] hover:bg-[#dc2626] dark:hover:bg-[#dc2626] text-white dark:text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg transition-all shadow-xl shadow-gray-900/10 border-none opacity-100 dark:opacity-100"
+                        >
+                            <LayoutTemplate className="w-5 h-5" />
+                            Templates
+                        </Button>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
+                        <div className="w-full">
+                           <SenderEmailSelector
+                               value={senderEmail}
+                               onChange={setSenderEmail}
+                               layout="col"
+                               currentUserEmail={currentUserEmail}
+                           />
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            A newsletter será disparada com este remetente.
+                        </p>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Audiência</h3>
+                        <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100/50 flex flex-col gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                                    <Users className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xl font-black text-blue-900">{subscribersCount}</p>
+                                    <p className="text-[10px] uppercase tracking-widest font-bold text-blue-600">Subscritores Ativos</p>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed border-t border-blue-100/50 pt-3 mt-1">
+                                Esta newsletter será enviada para todos os contactos ativos na sua lista.
+                            </p>
+                        </div>
+                        <button onClick={onGoToContacts} className="w-full py-2.5 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors mt-2">
+                            Gerir Lista de Contactos
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {showTemplates && (
+                <EmailTemplates
+                    onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
+                    onClose={() => setShowTemplates(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
+  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
+
+  const fetchSubs = async () => {
+    try {
+      setLoading(true);
+      const data = await listarSubscritores(selectedSite);
+      let filtered = data || [];
+      if (searchTerm) {
+        filtered = filtered.filter((s: any) => s.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      }
+      setSubscribers(filtered);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar subscritores");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubs();
+  }, [selectedSite, searchTerm]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail) return;
+    try {
+      await adicionarSubscritor({ email: newEmail, full_name: newName, domain: selectedSite });
+      toast.success("Subscritor adicionado!");
+      setNewEmail(''); setNewName(''); setShowAddForm(false);
+      fetchSubs();
+    } catch (error: any) {
+      toast.error("Erro ao adicionar subscritor");
+    }
+  };
+
+  const handleDelete = async (id: string, email: string) => {
+    if (!confirm(`Remover subscritor ${email}?`)) return;
+    try {
+      await removerSubscritor(id);
+      toast.success("Subscritor removido");
+      fetchSubs();
+    } catch (error) {
+      toast.error("Erro ao remover subscritor");
+    }
+  };
+
+  const exportCSV = () => {
+    const headers = ['Email', 'Nome', 'Status', 'Data Subscrição'];
+    const rows = subscribers.map(s => [s.email, s.full_name || '', s.status, new Date(s.created_at).toLocaleDateString()]);
+    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `subscritores_${selectedSite}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+    toast.success("Exportação concluída!");
+  };
+
+  return (
+    <div className="w-full space-y-5 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-5">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Lista de Contactos</h2>
+                <p className="text-sm text-slate-500 font-medium tracking-tight">Gestão da base de dados para {selectedSite || 'o seu domínio'}.</p>
+            </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-emerald-500/20 transition-all border-none !opacity-100">
+             <Plus size={14} className="mr-1" /> Adicionar
+          </Button>
+          <Button 
+            onClick={() => document.getElementById('csv-import-input')?.click()} 
+            className="!bg-slate-800 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100"
+          >
+             <Download size={14} className="mr-1 rotate-180" /> Importar
+          </Button>
+          <input 
+            id="csv-import-input"
+            type="file" 
+            accept=".csv" 
+            className="hidden" 
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              
+              const reader = new FileReader();
+              reader.onload = async (event) => {
+                const text = event.target?.result as string;
+                const lines = text.split('\n');
+                let count = 0;
+                
+                toast.loading("A importar contactos...");
+                
+                for (let i = 1; i < lines.length; i++) {
+                  const line = lines[i].trim();
+                  if (!line) continue;
+                  
+                  const [email, name] = line.split(',');
+                  if (email && email.includes('@')) {
+                    try {
+                      await adicionarSubscritor({ email, full_name: name || '', domain: selectedSite });
+                      count++;
+                    } catch (err) {
+                      console.error(`Erro ao importar ${email}`, err);
+                    }
+                  }
+                }
+                
+                toast.dismiss();
+                toast.success(`${count} contactos importados com sucesso!`);
+                fetchSubs();
+              };
+              reader.readAsText(file);
+            }}
+          />
+          <button onClick={exportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all font-black text-[10px] uppercase tracking-widest border border-slate-200 shadow-sm">
+            <Download size={16} /> Exportar
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-slate-50 flex items-center gap-5 bg-slate-50/30">
+            <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                <Input placeholder="Pesquisar contacto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-10 rounded-lg" />
+            </div>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+            <thead className="bg-slate-50/50 border-b border-slate-100">
+                <tr>
+                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
+                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+                {subscribers.length === 0 ? (
+                <tr><td colSpan={3} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
+                ) : subscribers.map((sub) => (
+                <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-5 py-5">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
+                            <span className="text-xs text-slate-400 font-medium">{sub.full_name || '---'}</span>
+                        </div>
+                    </td>
+                    <td className="px-5 py-5">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            Subscrito
+                        </span>
+                    </td>
+                    <td className="px-5 py-5 text-right">
+                        <button onClick={() => handleDelete(sub.id, sub.email)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100 hover:border-red-200 transition-all bg-white shadow-sm">
+                            <Trash2 size={16} />
+                        </button>
+                    </td>
+                </tr>
+                ))}
+            </tbody>
+            </table>
+        </div>
+      </div>
+
+      {showAddForm && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
+              <h3 className="text-xl font-black tracking-tight">Novo Contacto</h3>
+              <button onClick={() => setShowAddForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><XLucide className="w-5 h-5 text-slate-500" /></button>
+            </div>
+            <form onSubmit={handleAdd} className="p-5 space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-900 uppercase ml-1">Email</label>
+                <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-11 border-slate-300 focus:ring-emerald-500" placeholder="exemplo@servico.com" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-900 uppercase ml-1">Nome Completo</label>
+                <Input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="rounded-lg h-11 border-slate-300 focus:ring-emerald-500" placeholder="Nome do cliente" />
+              </div>
+              <Button type="submit" className="w-full h-11 !bg-emerald-600 hover:!bg-red-600 text-white font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20 uppercase text-xs tracking-widest !opacity-100">Confirmar</Button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCampaigns = async () => {
+    try {
+      setLoading(true);
+      const data = await listarCampanhas(selectedSite);
+      setCampaigns(data || []);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar campanhas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [selectedSite]);
+
+  return (
+    <div className="w-full space-y-5 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-5">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Megaphone className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Campanhas Enviadas</h2>
+                <p className="text-sm text-slate-500 font-medium tracking-tight">Histórico de comunicações para {selectedSite}.</p>
+            </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {loading ? (
+             Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm animate-pulse space-y-5">
+                    <div className="h-4 bg-slate-100 rounded w-3/4"></div>
+                    <div className="h-3 bg-slate-50 rounded w-1/2"></div>
+                    <div className="h-20 bg-slate-50 rounded w-full"></div>
+                </div>
+            ))
+        ) : campaigns.length === 0 ? (
+            <div className="col-span-full py-20 text-center bg-white rounded-lg border border-slate-100 shadow-sm">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                    <HistoryIcon size={32} />
+                </div>
+                <p className="text-slate-400 font-medium italic">Nenhuma campanha enviada recentemente.</p>
+            </div>
+        ) : campaigns.map((camp) => (
+            <div key={camp.id} className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-3">
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        camp.status === 'sent' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                        {camp.status}
+                    </span>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <h4 className="font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1 pr-12">{camp.subject}</h4>
+                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-1">
+                            <Calendar size={10} /> {new Date(camp.sent_at || camp.created_at).toLocaleString()}
+                        </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destinatários</span>
+                            <span className="text-sm font-bold text-slate-900">{camp.total_recipients || 0}</span>
+                        </div>
+                        <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 border border-slate-200 shadow-sm transition-all hover:bg-orange-600 hover:text-white hover:border-orange-600">
+                            <Eye size={16} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+
+
 
 
 // Componente FacturacaoSection
@@ -615,23 +1385,23 @@ function FacturacaoSection() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-gray-900">Facturação</h1><p className="text-gray-500 mt-1">Faturas, pagamentos e histórico financeiro.</p></div>
 
       {/* Resumo */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Total Pago Este Ano</p>
           <p className="text-2xl font-bold text-green-600">
             {new Intl.NumberFormat('pt-MZ').format(faturasHistorico.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Faturas Pendentes</p>
           <p className="text-2xl font-bold text-red-600">{faturasPendentes.length}</p>
           <p className="text-xs text-gray-500 mt-1">Valor: {new Intl.NumberFormat('pt-MZ').format(faturasPendentes.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Estado da Conta</p>
           <p className={`text-2xl font-bold ${faturasPendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {faturasPendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
@@ -641,7 +1411,7 @@ function FacturacaoSection() {
 
       {/* Faturas Pendentes */}
       {faturasPendentes.length > 0 && (
-        <div className="bg-yellow-50 rounded-xl border border-yellow-200 overflow-hidden">
+        <div className="bg-yellow-50 rounded-lg border border-yellow-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-yellow-200">
             <h2 className="text-sm font-bold text-yellow-800">⚠️ Faturas Pendentes</h2>
           </div>
@@ -686,7 +1456,7 @@ function FacturacaoSection() {
       )}
 
       {/* Histórico */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="text-sm font-bold text-gray-700">Histórico de Pagamentos</h2>
         </div>
@@ -773,7 +1543,7 @@ function ContaSection() {
   const [cancelModal, setCancelModal] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
 
-  if (loading || !dados) return <div className="p-6">Carregando dados da conta...</div>
+  if (loading || !dados) return <div className="p-5">Carregando dados da conta...</div>
 
 
   const forcaPassword = (p: string) => {
@@ -824,12 +1594,12 @@ function ContaSection() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-gray-900">A Minha Conta</h1><p className="text-gray-500 mt-1">Gere os teus dados pessoais e preferências.</p></div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-5">
         {/* Dados Pessoais */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-700 mb-4">Dados Pessoais</h2>
           <div className="space-y-3">
             {[
@@ -857,7 +1627,7 @@ function ContaSection() {
 
         <div className="space-y-5">
           {/* Alterar Password */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
             <h2 className="text-sm font-bold text-gray-700 mb-4">Alterar Password</h2>
             <div className="space-y-3">
               <div>
@@ -902,7 +1672,7 @@ function ContaSection() {
           </div>
 
           {/* Notificações */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
             <h2 className="text-sm font-bold text-gray-700 mb-4">Notificações por Email</h2>
             <div className="space-y-3">
               {[
@@ -926,7 +1696,7 @@ function ContaSection() {
       </div>
 
       {/* Informações do Serviço */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
         <h2 className="text-sm font-bold text-gray-700 mb-4">Informações do Serviço</h2>
         <div className="grid grid-cols-4 gap-4">
           {[
@@ -948,7 +1718,7 @@ function ContaSection() {
       </div>
 
       {/* Zona de Perigo */}
-      <div className="bg-red-50 rounded-xl border border-red-200 p-5">
+      <div className="bg-red-50 rounded-lg border border-red-200 p-5">
         <h2 className="text-sm font-bold text-red-700 mb-2">⚠️ Zona de Perigo</h2>
         <p className="text-xs text-red-600 mb-4">Acções irreversíveis. Procede com cautela.</p>
         <button onClick={() => setCancelModal(true)}
@@ -960,7 +1730,7 @@ function ContaSection() {
       {/* Modal Cancelamento */}
       {cancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-lg shadow-2xl p-5 w-full max-w-md mx-4">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Solicitar Cancelamento</h2>
             <p className="text-sm text-gray-500 mb-4">Lamenta-mos que queiras cancelar. Indica o motivo para podermos melhorar.</p>
             <textarea value={motivoCancelamento} onChange={e => setMotivoCancelamento(e.target.value)}
@@ -1004,9 +1774,9 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
   }
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-5 w-full">
       <div><h1 className="text-3xl font-bold text-gray-900">Criar Website</h1><p className="text-gray-500 mt-1">Adicione um novo website ao servidor.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
@@ -1223,10 +1993,10 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
         {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded-xl border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
+          <div key={i} className={`bg-white rounded-lg border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
 
             {/* Linha do site com botões explícitos */}
-            <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center justify-between px-4 py-5">
 
               {/* Info do site */}
               <div className="flex items-center gap-3">
@@ -1474,7 +2244,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {/* Modal de criação de website */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-lg shadow-2xl p-5 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-gray-900">Criar Novo Website</h2>
               <button onClick={() => { setShowCreateModal(false); setCreateMsg('') }}
@@ -1549,6 +2319,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
+  const [compondoEmail, setCompondoEmail] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
@@ -1647,6 +2418,7 @@ export default function AdminPage() {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'domains', label: 'O Meu Site', icon: Globe },
     { id: 'emails-new', label: 'Email', icon: Mail },
+    { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
     { id: 'tickets', label: 'Suporte', icon: Users },
     { id: 'faturas', label: 'Faturas', icon: FileText },
     { id: 'conta', label: 'Conta', icon: Settings },
@@ -1666,6 +2438,8 @@ export default function AdminPage() {
           setModalAdicionarPasso={setModalAdicionarPasso}
           emailOrigem={sessionUser}
           sites={cyberPanelSites}
+          defaultCompose={compondoEmail}
+          onCloseCompose={() => setCompondoEmail(false)}
         />
       case 'domains':
         return <ListWebsitesSection
@@ -1695,99 +2469,108 @@ export default function AdminPage() {
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || cyberPanelSites[0]?.domain || 'oseudominio.com'} sites={cyberPanelSites} />
       case 'tickets':
-        return <SuporteSection cliente={cliente} sites={cyberPanelSites} />
+        return <SuporteSection 
+          cliente={cliente} 
+          sites={cyberPanelSites} 
+          onComposeEmail={() => {
+            setActiveSection('email-new'); // ID do menu para Email
+            setCompondoEmail(true);
+          }} 
+        />
+      case 'mailmarketing':
+        return <MailMarketingSection sites={cyberPanelSites} currentUserEmail={cliente?.email} />
       case 'faturas':
         return <FacturacaoSection />
       case 'conta':
         return <ContaSection />
       case 'domains-new':
         // return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Criar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Criar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-subdomains':
         // return <SubdomainsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-list-subdomains':
         // return <ListSubdomainsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Listar Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Listar Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-modify-website':
         // return <ModifyWebsiteSection sites={cyberPanelSites} packages={cyberPanelPackages} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Modificar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Modificar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-suspend-website':
         // return <SuspendWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Suspender Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Suspender Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-delete-website':
         // return <DeleteWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Apagar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-databases':
         // return <DatabasesSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Bases de Dados</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Bases de Dados</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-ftp':
         // return <FTPSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">FTP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">FTP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-delete':
         // return <EmailDeleteSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Apagar Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-limits':
         // return <EmailLimitsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Limites de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Limites de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-forwarding':
         // return <EmailForwardingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Encaminhamento de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Encaminhamento de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-catchall':
         // return <CatchAllEmailSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Catch All Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Catch All Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-pattern-fwd':
         // return <PatternForwardingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-plus-addr':
         // return <PlusAddressingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Plus Addressing</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Plus Addressing</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-change-pass':
         // return <EmailChangePasswordSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Alterar Senha Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Alterar Senha Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-dkim':
         // return <DKIMManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">DKIM Manager</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">DKIM Manager</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-users':
         // return <CPUsersSection /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Utilizadores</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Utilizadores</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-reseller':
         // return <ResellerSection /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Revenda</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Revenda</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-ssl':
         // return <SSLSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">SSL</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">SSL</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-security':
         // return <SecuritySection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Segurança</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Segurança</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-php':
         // return <PHPConfigSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Configuração PHP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Configuração PHP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-api':
       case 'infrastructure':
         // return <APIConfigSection /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Configurações</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Configurações</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-list':
         // return <WPListSection sites={cyberPanelSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-plugins':
         // return <WPPluginsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Plugins WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Plugins WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-restore-backup':
         // return <WPRestoreBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Restaurar Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Restaurar Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-remote-backup':
         // return <WPRemoteBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Backup Remoto WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Backup Remoto WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-nameserver':
         // return <DNSNameserverSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Nameservers DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Nameservers DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-default-ns':
         // return <DNSDefaultNSSection /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Default Nameservers</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Default Nameservers</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-create-zone':
         // return <DNSCreateZoneSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Criar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Criar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'domains-dns':
         return <DNSZoneEditorSection
           sites={cyberPanelSites}
@@ -1795,37 +2578,37 @@ export default function AdminPage() {
         />
       case 'cp-dns-delete-zone':
         // return <DNSDeleteZoneSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Apagar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-cloudflare':
         // return <CloudFlareSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Cloudflare</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Cloudflare</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-reset':
         // return <DNSResetSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Reset DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Reset DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={cyberPanelSites} />
       case 'git-deploy':
         // return <GitDeploySection /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Deploy GitHub</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Deploy GitHub</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'backup-manager':
       case 'cp-backup':
         // return <BackupManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Backups</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Backups</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'wordpress-install':
         // return <WordPressInstallSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Instalar WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Instalar WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-backup':
         // return <WPBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'domain-manager':
         // return <DomainManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Gestor de Domínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Gestor de Domínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'deploy':
         // return <DeploySection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Deploy</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Deploy</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'packages-list':
         // return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
-        return <div className="p-6"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <div className="p-5"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       default:
         return <CpanelDashboard sites={cyberPanelSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
     }
@@ -1835,27 +2618,48 @@ export default function AdminPage() {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <div
-        className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm"
+        className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm transition-all duration-300 ease-in-out"
         style={{ width: `${currentSidebarWidth}px` }}
       >
         {/* Sidebar Header */}
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-16 h-16 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
-              <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
-                <LogOut size={20} className="text-gray-500" />
+              <img 
+                src="/assets/simbolo.png" 
+                alt="Logo" 
+                className="w-12 h-12 object-contain cursor-pointer" 
+                onClick={() => window.location.href = '/'} 
+              />
+              <button 
+                onClick={() => setIsCollapsed(!isCollapsed)} 
+                className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+              >
+                <LogOut size={22} className="text-gray-500" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <img src="/assets/simbolo.png" alt="Logo" className="w-16 h-16 object-contain cursor-pointer" onClick={() => window.location.href = '/'} />
+              <img 
+                src="/assets/simbolo.png" 
+                alt="Logo" 
+                className="w-14 h-14 object-contain cursor-pointer" 
+                onClick={() => window.location.href = '/'} 
+              />
               <div className="flex-1">
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight">VisualDESIGN</h1>
                 <p className="text-xs text-gray-500">Gestão de Serviços</p>
               </div>
-              <button onClick={() => setIsCollapsed(!isCollapsed)} className="rounded-lg hover:bg-gray-100 transition-colors">
-                <LogOut size={20} className="text-gray-500 rotate-180" />
+              <button 
+                onClick={() => setIsCollapsed(!isCollapsed)} 
+                className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+                title={isCollapsed ? "Expandir" : "Recolher"}
+              >
+                {isCollapsed ? (
+                  <LogOut size={22} className="text-gray-500" />
+                ) : (
+                  <LogOut size={22} className="text-gray-500 -scale-x-100" />
+                )}
               </button>
             </div>
           )}
@@ -1874,7 +2678,7 @@ export default function AdminPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded-lg transition-colors ${isActive
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${isActive
                       ? 'bg-red-50 text-red-600 font-bold'
                       : 'hover:bg-gray-100 text-gray-600'
                     }`}
@@ -1895,7 +2699,7 @@ export default function AdminPage() {
 
         {/* Sidebar Footer */}
         <div className="p-3 border-t border-gray-100">
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-2'}`}>
             <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center shrink-0">
               <span className="text-white text-xs font-bold">
                 {cliente?.nome?.substring(0, 2).toUpperCase() || '??'}
@@ -1942,7 +2746,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-5">
           <div
             key={activeSection}
           >

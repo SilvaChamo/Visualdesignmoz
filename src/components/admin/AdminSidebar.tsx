@@ -3,7 +3,7 @@
 import React from 'react';
 import { 
   Home, Globe, Users, Mail, Shield, Database, Settings, Layout,
-  LogOut, ChevronRight, Archive, Lock, Server, Download, Menu
+  LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
 interface MenuItem {
@@ -56,7 +56,7 @@ export function AdminSidebar({
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img 
-              src="/assets/Horizontal_logo.png" 
+              src="/assets/simbolo.png" 
               alt="Logo" 
               className="h-12 object-contain cursor-pointer" 
               onClick={() => window.location.href = '/'} 
@@ -64,8 +64,9 @@ export function AdminSidebar({
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)} 
               className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+              title="Expandir"
             >
-              <Menu size={20} className="text-gray-500" />
+              <LogOut size={22} className="text-gray-500" />
             </button>
           </div>
         ) : (
@@ -83,8 +84,9 @@ export function AdminSidebar({
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)} 
               className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+              title="Recolher"
             >
-              <Menu size={20} className="text-gray-500" />
+              <LogOut size={22} className="text-gray-500 -scale-x-100" />
             </button>
           </div>
         )}

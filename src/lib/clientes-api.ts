@@ -421,6 +421,109 @@ export async function atualizarUltimoAcesso(clienteId: string) {
   }
 }
 
+export async function listarSubscritores(dominio?: string) {
+  try {
+    let query = supabase
+      .from('newsletter_subscribers')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (dominio) {
+      // Filtering by domain in metadata
+      query = query.contains('metadata', { domain: dominio })
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Erro ao listar subscritores:', error)
+    throw error
+  }
+}
+
+export async function adicionarSubscritor(dados: { email: string, full_name?: string, domain: string }) {
+  try {
+    const { data, error } = await supabase
+      .from('newsletter_subscribers')
+      .upsert({
+        email: dados.email,
+        full_name: dados.full_name,
+        metadata: { domain: dados.domain },
+        status: 'subscribed',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Erro ao adicionar subscritor:', error)
+    throw error
+  }
+}
+
+export async function removerSubscritor(id: string) {
+  try {
+    const { error } = await supabase
+      .from('newsletter_subscribers')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Erro ao remover subscritor:', error)
+    throw error
+  }
+}
+
+export async function listarCampanhas(dominio?: string) {
+  try {
+    let query = supabase
+      .from('email_campaigns')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (dominio) {
+      query = query.contains('metadata', { domain: dominio })
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Erro ao listar campanhas:', error)
+    throw error
+  }
+}
+
+export async function salvarCampanha(dados: { subject: string, content_html: string, total_recipients?: number, domain: string, status?: string }) {
+  try {
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .insert({
+        subject: dados.subject,
+        content_html: dados.content_html,
+        status: dados.status || 'sent',
+        sent_at: dados.status === 'sent' ? new Date().toISOString() : null,
+        total_recipients: dados.total_recipients || 0,
+        metadata: { domain: dados.domain },
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Erro ao salvar campanha:', error)
+    throw error
+  }
+}
+
 export async function registrarAtividade(
   usuarioId: string,
   usuarioTipo: 'admin' | 'client',
@@ -465,5 +568,10 @@ export default {
   getClientePorId,
   getSitePorId,
   atualizarUltimoAcesso,
-  registrarAtividade
+  registrarAtividade,
+  listarSubscritores,
+  adicionarSubscritor,
+  removerSubscritor,
+  listarCampanhas,
+  salvarCampanha
 }

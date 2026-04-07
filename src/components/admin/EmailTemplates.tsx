@@ -155,7 +155,7 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
 
     return (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-3">
@@ -167,8 +167,8 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
                             <p className="text-xs text-slate-500">Selecione um design profissional para o seu email.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                        <X className="w-5 h-5 text-slate-400" />
+                    <button onClick={onClose} className="p-2 hover:bg-[#dc2626] hover:text-white rounded-lg transition-colors group">
+                        <X className="w-5 h-5 text-slate-400 group-hover:text-white" />
                     </button>
                 </div>
 
@@ -184,7 +184,7 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
                                 <button
                                     key={template.id}
                                     onClick={() => setSelectedId(template.id)}
-                                    className={`relative text-left p-5 rounded-xl border-2 transition-all hover:shadow-md ${isSelected
+                                    className={`relative text-left p-5 rounded-lg border-2 transition-all hover:shadow-md ${isSelected
                                             ? `${colors.border} ${colors.bg} ring-2 ${colors.ring}`
                                             : 'border-slate-100 bg-white hover:border-slate-200'
                                         }`}
@@ -194,7 +194,7 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
                                             <Check className={`w-4 h-4 ${colors.text}`} />
                                         </div>
                                     )}
-                                    <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center mb-4`}>
+                                    <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}>
                                         <Icon className={`w-6 h-6 ${colors.text}`} />
                                     </div>
                                     <h3 className="font-bold text-sm text-slate-900 mb-1">{template.name}</h3>
@@ -205,15 +205,20 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                    <Button variant="outline" onClick={onClose}>Cancelar</Button>
+                    <Button 
+                        onClick={onClose}
+                        variant="ghost"
+                        className="h-10 px-4 rounded-md font-medium text-sm text-slate-700 hover:bg-slate-200 transition-all border border-slate-200"
+                    >
+                        Cancelar
+                    </Button>
                     <Button
                         onClick={handleConfirm}
                         disabled={!selectedId}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs font-bold uppercase"
+                        className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 px-8 h-10 rounded-md font-black uppercase text-[10px] tracking-widest shadow-lg border-none !opacity-100 disabled:opacity-50 transition-all"
                     >
-                        <Check className="w-4 h-4" /> Usar Template
+                        <Check className="w-4 h-4 text-white" /> Ativar Template
                     </Button>
                 </div>
             </div>

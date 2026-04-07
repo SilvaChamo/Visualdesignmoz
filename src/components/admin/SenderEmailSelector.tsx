@@ -24,17 +24,14 @@ import { Input } from "@/components/ui/input";
 interface SenderEmailSelectorProps {
     value: string;
     onChange: (value: string) => void;
+    layout?: 'row' | 'col';
+    currentUserEmail?: string;
 }
 
-const DEFAULT_EMAILS = [
-    "geral@your-domain.com",
-    "admin@your-domain.com",
-    "silva.chamo@your-domain.com",
-    "suporte@your-domain.com",
-    "noreply@your-domain.com"
-];
+// Remover mocks, usar apenas emails reais
+const DEFAULT_EMAILS: string[] = [];
 
-export function SenderEmailSelector({ value, onChange }: SenderEmailSelectorProps) {
+export function SenderEmailSelector({ value, onChange, layout = 'row', currentUserEmail }: SenderEmailSelectorProps) {
     const [emails, setEmails] = useState<string[]>(DEFAULT_EMAILS);
     const [newEmail, setNewEmail] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,18 +39,29 @@ export function SenderEmailSelector({ value, onChange }: SenderEmailSelectorProp
     // Load from localStorage on mount
     useEffect(() => {
         const saved = localStorage.getItem("platform_sender_emails");
+        let list = [...DEFAULT_EMAILS];
+        
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                // Merge with defaults significantly to ensure defaults always exist but priority to saved
-                const merged = Array.from(new Set([...DEFAULT_EMAILS, ...parsed]));
-                // eslint-disable-next-line
-                setEmails(merged);
+                list = Array.from(new Set([...list, ...parsed]));
             } catch (e) {
                 console.error("Failed to parse saved emails", e);
             }
         }
-    }, []);
+
+        // Se a lista estiver vazia e tivermos o email do utilizador, usá-lo como base real
+        if (list.length === 0 && currentUserEmail) {
+            list = [currentUserEmail];
+        }
+
+        setEmails(list);
+
+        // Se não houver valor selecionado e tivermos opções, selecionar a primeira
+        if (!value && list.length > 0) {
+            onChange(list[0]);
+        }
+    }, [currentUserEmail, value, onChange]);
 
     const handleAddEmail = () => {
         if (!newEmail || !newEmail.includes("@")) {
@@ -82,53 +90,57 @@ export function SenderEmailSelector({ value, onChange }: SenderEmailSelectorProp
     };
 
     return (
-        <div className="flex gap-2 items-center w-full">
-            <Select value={value} onValueChange={onChange}>
-                <SelectTrigger className="w-full bg-slate-50 border-slate-200">
-                    <div className="flex items-center gap-2 text-slate-700">
-                        <Mail className="w-4 h-4 text-slate-400" />
-                        <SelectValue placeholder="Selecione um email de origem" />
-                    </div>
-                </SelectTrigger>
-                <SelectContent>
-                    {emails.map((email) => (
-                        <SelectItem key={email} value={email} className="group cursor-pointer">
-                            <div className="flex items-center justify-between w-full min-w-[300px]">
-                                <span>{email}</span>
-                                {/* Only show delete for non-defaults if we wanted, but let's allow all for flexibility except the very first default maybe? For now allow all. */}
-                            </div>
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <div className={`flex ${layout === 'col' ? 'flex-col' : 'flex-row'} gap-5 items-center w-full`}>
+            <div className="flex-1 min-w-0 w-full">
+                <Select value={value} onValueChange={onChange}>
+                    <SelectTrigger className="w-full bg-slate-50 border-slate-300 h-11 rounded-lg">
+                        <div className="flex items-center gap-2 text-slate-700">
+                            <Mail className="w-4 h-4 text-slate-400" />
+                            <SelectValue placeholder="Selecione um email de origem" />
+                        </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-slate-200 shadow-xl overflow-hidden z-[110]">
+                        {emails.map((email) => (
+                            <SelectItem key={email} value={email} className="group cursor-pointer hover:bg-slate-50 py-3">
+                                <div className="flex items-center justify-between w-full min-w-[300px]">
+                                    <span className="font-medium text-slate-700">{email}</span>
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="outline" className="shrink-0 gap-2 border-dashed border-slate-300 text-slate-600 hover:text-emerald-600 hover:border-emerald-500">
-                        <Plus className="w-4 h-4" />
+                    <Button 
+                        className={`${layout === 'col' ? 'w-full' : 'shrink-0'} gap-2 !bg-emerald-600 hover:!bg-red-600 text-white h-10 rounded-md font-black uppercase text-[10px] tracking-widest transition-all shadow-lg border-none !opacity-100`}
+                    >
+                        <Plus className="w-4 h-4 text-white" />
                         Cadastrar Email
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="rounded-lg bg-white dark:bg-white border-slate-200">
                     <DialogHeader>
-                        <DialogTitle>Cadastrar Novo Email de Plataforma</DialogTitle>
-                        <DialogDescription>
-                            Adicione um novo endereço de email para ser usado como remetente nas mensagens do sistema.
+                        <DialogTitle className="font-black text-xl tracking-tight">Novo Remetente</DialogTitle>
+                        <DialogDescription className="text-sm font-medium text-slate-500">
+                            Adicione um novo endereço de email para as suas campanhas.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 py-5">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Endereço de Email</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço de Email</label>
                             <Input
-                                placeholder="ex: novidades@your-domain.com"
+                                placeholder="ex: news@exemplo.com"
                                 value={newEmail}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
+                                className="h-11 rounded-lg border-slate-300 focus:ring-emerald-500"
                             />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleAddEmail} className="bg-emerald-600 hover:bg-emerald-700 text-white">Adicionar Email</Button>
+                    <DialogFooter className="p-5 bg-slate-50 gap-3 border-t border-slate-100">
+                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-all">Cancelar</Button>
+                        <Button onClick={handleAddEmail} className="!bg-emerald-600 hover:!bg-red-600 text-white px-8 h-10 rounded-md font-black uppercase text-[10px] tracking-widest transition-all shadow-lg border-none !opacity-100">Adicionar Email</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

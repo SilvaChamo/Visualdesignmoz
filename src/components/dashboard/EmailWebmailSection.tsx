@@ -26,7 +26,9 @@ export function EmailWebmailSection({
   modalAdicionarPasso: propModalAdicionarPasso,
   setModalAdicionarPasso: propSetModalAdicionarPasso,
   emailOrigem: propEmailOrigem,
-  sites = []
+  sites = [],
+  defaultCompose = false,
+  onCloseCompose
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
@@ -34,6 +36,8 @@ export function EmailWebmailSection({
   setModalAdicionarPasso?: (value: 'escolher' | 'webmail' | 'google' | 'hotmail') => void
   emailOrigem?: string | null
   sites?: any[]
+  defaultCompose?: boolean
+  onCloseCompose?: () => void
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -45,7 +49,11 @@ export function EmailWebmailSection({
   const [rascunhoAtual, setRascunhoAtual] = useState(null)
   const [modoResposta, setModoResposta] = useState<'none' | 'reply' | 'forward'>('none')
   const [compose, setCompose] = useState({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
-  const [mostrarCompose, setMostrarCompose] = useState(false)
+  const [mostrarCompose, setMostrarCompose] = useState(defaultCompose)
+
+  useEffect(() => {
+    if (defaultCompose) setMostrarCompose(true)
+  }, [defaultCompose])
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [assinatura, setAssinatura] = useState('')
@@ -1422,7 +1430,13 @@ export function EmailWebmailSection({
                 <div className="text-center">
                   <p className="text-5xl mb-4">✅</p>
                   <p className="text-xl font-bold text-gray-800">Email enviado com sucesso!</p>
-                  <button onClick={() => { setMostrarCompose(false); setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' }); setEnviado(false); setAnexos([]) }}
+                  <button onClick={() => { 
+                    setMostrarCompose(false); 
+                    setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' }); 
+                    setEnviado(false); 
+                    setAnexos([]);
+                    if (onCloseCompose) onCloseCompose();
+                  }}
                     className="mt-5 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold">Fechar</button>
                 </div>
               </div>
