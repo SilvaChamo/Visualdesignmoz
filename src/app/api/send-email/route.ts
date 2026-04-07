@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     
     // Se não tem password, usar conta SMTP master para autenticar
     const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com')
-    const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'AdvD2425'
+    const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425'
 
     console.log('Using Nodemailer dynamic delivery...');
     console.log('SMTP DEBUG - user:', smtpUser, '| host:', domainConfig.smtp, '| from:', from);

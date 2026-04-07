@@ -76,12 +76,12 @@ async function listSites() {
   try {
     const sites = await cyberPanelAPI.listWebsites()
     
-    const Portal DigitalSite = sites.find((site: any) => site.domain === 'Portal Digital.com')
+    const portalDigitalSite = sites.find((site: any) => site.domain === 'Portal Digital.com')
     
     return NextResponse.json({
       success: true,
       sites: sites,
-      Portal Digital: Portal DigitalSite || {
+      PortalDigital: portalDigitalSite || {
         domain: 'Portal Digital.com',
         status: 'not_found',
         message: 'Site not found in CyberPanel'

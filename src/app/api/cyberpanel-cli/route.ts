@@ -113,11 +113,11 @@ async function runCyberPanelCLI(command: string): Promise<any> {
       };
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('CLI Error:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message || 'Unknown error'
     };
   }
 }

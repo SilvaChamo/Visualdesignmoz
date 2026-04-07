@@ -1421,6 +1421,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   
   // Modal Único para Criação/Edição de E-mail
   const [emailModal, setEmailModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
@@ -1431,6 +1432,10 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
   const [showEmailPass, setShowEmailPass] = useState(false)
   const [clientes, setClientes] = useState<any[]>([])
   const [loadingClientes, setLoadingClientes] = useState(false)
+  const [newPass, setNewPass] = useState('')
+  const [changingPass, setChangingPass] = useState<string | null>(null)
+  const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
+  const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
     show: false, title: '', message: '', onConfirm: () => {} 
   })
@@ -1700,7 +1705,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
 
       setMsg('Conta atualizada com sucesso.')
       setMsgType('success')
-      setShowEditModal(false)
+      setEmailModal({ show: false, mode: 'create', data: {} })
       loadEmails(selectedDomain)
     } catch (e: any) {
       setMsg('Erro ao atualizar: ' + e.message)
@@ -2024,7 +2029,7 @@ export function CPUsersSection() {
       setAcls(Array.isArray(a) ? a.map((x: any) => typeof x === 'string' ? x : x.name || x.ACLName || x.id) : ['user', 'reseller'])
       
       if (u.length > 0 || sbUsers.length > 0) {
-        const merged: any[] = u.map(user => {
+        const merged: any[] = u.map((user: any) => {
           const sb = sbUsers.find((s: any) => s.username === user.userName)
           const userType = (user.type !== undefined && user.type !== null) ? String(user.type) : null
           return {

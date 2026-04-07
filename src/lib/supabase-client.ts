@@ -237,4 +237,9 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 })
 
+// Função createClientInstance para compatibilidade
+export function createClientInstance() {
+  return supabase
+}
+
 export default supabase

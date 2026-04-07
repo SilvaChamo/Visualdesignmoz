@@ -76,7 +76,7 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
           const j = await res.json();
           if (j.success) return j.data;
         }
-      } catch (fallbackError) {
+      } catch (fallbackError: any) {
         console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
       }
     }
@@ -163,6 +163,7 @@ export interface CyberPanelUser {
   email?: string;
   type?: string;
   suspended?: boolean;
+  existsOnServer?: boolean;
 }
 export interface CyberPanelSubdomain {
   id?: string | number;
@@ -190,6 +191,7 @@ export interface CyberPanelEmail {
   domain?: string;
   quota?: number;
   usage?: string;
+  activo?: boolean;
 }
 export interface CyberPanelPHPConfig {
   domain: string;

@@ -21,7 +21,7 @@ export const sendEmail = async (options: EmailOptions) => {
     
     // Configuração de autenticação
     const authUser = options.from || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
-    const authPass = options.password || process.env.SMTP_MASTER_PASSWORD || 'AdvD2425';
+    const authPass = options.password || process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425';
 
     try {
         // 1. Tentar via SMTP Dinâmico

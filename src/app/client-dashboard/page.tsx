@@ -132,8 +132,8 @@ export default function ClientDashboard() {
     storage: 0,
     bandwidth: 0
   })
-  const [services, setServices] = useState([])
-  const [notifications, setNotifications] = useState([])
+  const [services, setServices] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
 
   useEffect(() => {
     // Simular carregamento de dados

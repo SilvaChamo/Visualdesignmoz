@@ -119,7 +119,7 @@ const RenewalAlerts: React.FC = () => {
                 🔄 Renovar Agora
               </button>
               <button
-                onClick={() => alert(`Detalhes para ${alert.user_id}`)}
+                onClick={() => window.alert(`Detalhes para ${alert.user_id}`)}
                 className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors"
               >
                 📋 Detalhes

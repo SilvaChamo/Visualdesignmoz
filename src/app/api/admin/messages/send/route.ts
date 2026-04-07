@@ -43,7 +43,7 @@ export async function POST(req: Request) {
             secure: config.ports.smtp === 465,
             auth: {
                 user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
-                pass: process.env.SMTP_MASTER_PASSWORD || 'AdvD2425',
+                pass: process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425',
             },
             tls: {
                 rejectUnauthorized: false

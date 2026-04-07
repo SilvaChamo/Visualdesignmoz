@@ -42,15 +42,17 @@ export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
 
 /**
  * Retorna as configurações padrão do servidor principal para domínios não mapeados.
+ * Garante que todos os painéis herdem o servidor master por padrão.
  */
 export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
-  const host = domain ? `mail.${domain}` : '109.199.104.22';
+  // Priorizar o servidor Master (109.199.104.22) para garantir que funcione para qualquer domínio novo
+  const host = '109.199.104.22';
   return {
     imap: host,
     smtp: host,
     ports: { imap: 993, smtp: 465 },
     ssl: true,
-    webmail: domain ? `https://mail.${domain}:8090/snappymail/` : 'https://109.199.104.22:8090/snappymail/'
+    webmail: domain ? `https://${domain}:8090/snappymail/` : 'https://109.199.104.22:8090/snappymail/'
   };
 };
 

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       secure: domainConfig.ports.smtp === 465,
       auth: {
         user: masterEmail,
-        pass: process.env.SMTP_MASTER_PASSWORD || 'AdvD2425'
+        pass: process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425'
       },
       tls: { rejectUnauthorized: false },
       connectionTimeout: 10000,
