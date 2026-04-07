@@ -68,16 +68,31 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
     console.error(`[API ERROR] ${action}:`, error.message);
     
     // Fallback para CLI em caso de erro 500
-    if (error.message.includes('500') && action === 'listUsers') {
-      console.log(`[FALLBACK] ${action} via CLI due to 500 error`);
-      try {
-        const res = await fetch(`${CLI_EXEC}?action=${action}`);
-        if (res.ok) {
-          const j = await res.json();
-          if (j.success) return j.data;
+    if (error.message.includes('500')) {
+      if (action === 'listUsers') {
+        console.log(`[FALLBACK] ${action} via CLI due to 500 error`);
+        try {
+          const res = await fetch(`${CLI_EXEC}?action=${action}`);
+          if (res.ok) {
+            const j = await res.json();
+            if (j.success) return j.data;
+          }
+        } catch (fallbackError: any) {
+          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
         }
-      } catch (fallbackError: any) {
-        console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+      }
+      
+      if (action === 'listPackages') {
+        console.log(`[FALLBACK] ${action} via dedicated packages API due to 500 error`);
+        try {
+          const res = await fetch('/api/cyberpanel-packages');
+          if (res.ok) {
+            const j = await res.json();
+            if (j.success) return j.packages;
+          }
+        } catch (fallbackError: any) {
+          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+        }
       }
     }
     

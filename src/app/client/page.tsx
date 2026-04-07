@@ -615,46 +615,18 @@ const RECIPIENT_GROUPS = [
   "Contactos"
 ];
 
-function MailMarketingSection({ sites, currentUserEmail }: { sites: any[], currentUserEmail?: string }) {
-  const [activeTab, setActiveTab] = useState<'comp' | 'subs' | 'camp' | 'news'>('comp')
-  const [selectedSite, setSelectedSite] = useState(sites.length > 0 ? sites[0].domain : '')
+function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab, listas, setListas }: { sites: any[], currentUserEmail?: string, activeTab: string, setActiveTab: (tab: any) => void, listas: string[], setListas: (l: string[]) => void }) {
+  // Filtrar apenas domínios puros (sem mail.)
+  const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
+  const [selectedSite, setSelectedSite] = useState(pureSites.length > 0 ? pureSites[0].domain : (sites.length > 0 ? sites[0].domain : ''));
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-5">
-          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-            <Target className="w-6 h-6 text-orange-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Mailmarketing</h1>
-            <p className="text-sm text-slate-500 font-medium tracking-tight">Gestão de campanhas e contactos.</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto">
-          <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto">
-             <button onClick={() => setActiveTab('comp')}
-               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'comp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-               <Send size={14} /> Compor
-             </button>
-             <button onClick={() => setActiveTab('camp')}
-               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'camp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-               <Megaphone size={14} /> Campanhas
-             </button>
-             <button onClick={() => setActiveTab('subs')}
-               className={`flex-1 sm:flex-none px-5 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'subs' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-               <Users size={14} /> Contactos
-             </button>
-          </div>
-        </div>
-      </div>
-
       {activeTab === 'comp' && (
-        <MailMarketingComposer selectedSite={selectedSite} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} />
+        <MailMarketingComposer selectedSite={selectedSite} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} />
       )}
       {activeTab === 'subs' && (
-        <MailMarketingContacts selectedSite={selectedSite} />
+        <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} />
       )}
       {activeTab === 'camp' && (
         <MailMarketingCampaigns selectedSite={selectedSite} />
@@ -663,7 +635,7 @@ function MailMarketingSection({ sites, currentUserEmail }: { sites: any[], curre
   )
 }
 
-function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string }) {
+function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail, listas, setListas }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void }) {
     const [subject, setSubject] = useState("");
     const [content, setContent] = useState("");
     const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
@@ -671,6 +643,8 @@ function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail 
     const [attachments, setAttachments] = useState<string[]>([]);
     const [isSending, setIsSending] = useState(false);
     const [showTemplates, setShowTemplates] = useState(false);
+    const [showNewListPopup, setShowNewListPopup] = useState(false);
+    const [newListTitle, setNewListTitle] = useState("");
 
     const handlePlanToggle = (plan: string) => {
         if (selectedPlans.includes(plan)) {
@@ -758,27 +732,28 @@ function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail 
 
     return (
         <div className="w-full space-y-5 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-2 space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+                <div className="lg:col-span-3 space-y-5">
                     <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
                         <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
                             <Newspaper className="w-5 h-5 text-emerald-600" />
                             <h2 className="font-black text-emerald-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
                         </div>
-                        <div className="p-1">
+                        <div className="">
                             <RichTextEditor
                                 value={content}
                                 onChange={setContent}
                                 placeholder="Escreva o corpo do seu email aqui..."
                                 className="min-h-[500px] border-none px-4"
                             >
-                                <div className="px-5 py-5 bg-white border-b border-slate-50">
+                                <div className="px-5 py-4 bg-white border-b border-slate-50 flex items-center gap-4">
+                                    <span className="text-sm font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-100 pr-4">Assunto</span>
                                     <input
                                         type="text"
-                                        placeholder="Assunto da campanha..."
+                                        placeholder="Escreva aqui o assunto da sua campanha..."
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                        className="w-full bg-transparent border-none focus:ring-0 text-lg font-bold placeholder:text-slate-200 text-slate-800 p-0"
                                     />
                                 </div>
                             </RichTextEditor>
@@ -842,19 +817,33 @@ function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail 
                     </div>
 
                     <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col">
                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
-                            <button onClick={onGoToContacts} className="text-[10px] font-bold text-orange-600 hover:text-slate-900 uppercase tracking-widest underline flex items-center gap-1">
-                                <Plus size={10} /> Criar nova lista
-                            </button>
                         </div>
                         <div className="space-y-3">
-                            {RECIPIENT_GROUPS.map(plan => (
-                                <label key={plan} className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer group ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
-                                    <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
-                                    <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
-                                </label>
+                            {listas.map(plan => (
+                                <div key={plan} className="group relative">
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                                        <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
+                                        <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                                    </label>
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setListas(listas.filter(l => l !== plan));
+                                            setSelectedPlans(selectedPlans.filter(p => p !== plan));
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                                        title="Eliminar lista"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
                             ))}
+                            
+                            <button onClick={() => setShowNewListPopup(true)} className="w-fit mt-2 ml-1 text-[10px] font-bold text-orange-600 hover:text-slate-900 uppercase tracking-widest underline flex items-center gap-1">
+                                <Plus size={10} /> Criar nova lista
+                            </button>
                         </div>
                         <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
                             <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
@@ -869,6 +858,52 @@ function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail 
                     onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
                     onClose={() => setShowTemplates(false)}
                 />
+            )}
+            {showNewListPopup && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="mb-5">
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nova Lista</h3>
+                            <p className="text-xs text-slate-500 font-medium">Atribua um nome à sua nova audiência.</p>
+                        </div>
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder="Ex: Clientes VIP, Black Friday..."
+                            value={newListTitle}
+                            onChange={(e) => setNewListTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && newListTitle) {
+                                    setListas([...listas, newListTitle]);
+                                    setNewListTitle("");
+                                    setShowNewListPopup(false);
+                                }
+                            }}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all mb-5"
+                        />
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => {
+                                    if (newListTitle) {
+                                        setListas([...listas, newListTitle]);
+                                        setNewListTitle("");
+                                        setShowNewListPopup(false);
+                                    }
+                                }}
+                                disabled={!newListTitle}
+                                className="flex-1 bg-black hover:bg-red-600 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                            >
+                                Adicionar
+                            </button>
+                            <button 
+                                onClick={() => { setShowNewListPopup(false); setNewListTitle(""); }}
+                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -960,8 +995,8 @@ function MailMarketingNewsletter({ selectedSite, onGoToContacts, currentUserEmai
 
     return (
         <div className="w-full space-y-5 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-2 space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+                <div className="lg:col-span-3 space-y-5">
                     <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
                         <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
                             <Newspaper className="w-5 h-5 text-emerald-600" />
@@ -1056,13 +1091,14 @@ function MailMarketingNewsletter({ selectedSite, onGoToContacts, currentUserEmai
     );
 }
 
-function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
+function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[] }) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
+  const [newListLabel, setNewListLabel] = useState('Contactos');
 
   const fetchSubs = async () => {
     try {
@@ -1083,18 +1119,35 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
 
   useEffect(() => {
     fetchSubs();
+    // Forçar um delay mínimo para garantir que o Supabase propagou o dado se necessário
+    const timer = setTimeout(() => fetchSubs(), 2000);
+    return () => clearTimeout(timer);
   }, [selectedSite, searchTerm]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail) return;
+    const email = newEmail?.trim();
+    if (!email) return;
+    
     try {
-      await adicionarSubscritor({ email: newEmail, full_name: newName, domain: selectedSite });
-      toast.success("Subscritor adicionado!");
-      setNewEmail(''); setNewName(''); setShowAddForm(false);
-      fetchSubs();
+      // Tentar gravar no servidor
+      const result = await adicionarSubscritor({ 
+        email: email, 
+        full_name: newName || '', 
+        domain: selectedSite, 
+        list: newListLabel 
+      });
+      
+      if (result) {
+        toast.success("Contacto adicionado com sucesso!");
+        setNewEmail(''); 
+        setNewName('');
+        setShowAddForm(false);
+        fetchSubs();
+      }
     } catch (error: any) {
-      toast.error("Erro ao adicionar subscritor");
+      console.error("ERRO COMPLETO:", error);
+      toast.error(`Erro: ${error.message || "Tente novamente mais tarde"}`);
     }
   };
 
@@ -1135,6 +1188,17 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
             </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Seletor de Domínio Integrado */}
+          {sites.length > 1 && (
+            <select 
+                value={selectedSite} 
+                onChange={(e) => setSelectedSite(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 h-10 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500/20 transition-all cursor-pointer"
+            >
+                {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+            </select>
+          )}
+
           <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-emerald-500/20 transition-all border-none !opacity-100">
              <Plus size={14} className="mr-1" /> Adicionar
           </Button>
@@ -1168,7 +1232,7 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
                   const [email, name] = line.split(',');
                   if (email && email.includes('@')) {
                     try {
-                      await adicionarSubscritor({ email, full_name: name || '', domain: selectedSite });
+                      await adicionarSubscritor({ email, domain: selectedSite });
                       count++;
                     } catch (err) {
                       console.error(`Erro ao importar ${email}`, err);
@@ -1201,6 +1265,7 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
             <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
                 <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
+                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
                 <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
                 </tr>
@@ -1213,12 +1278,16 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
                     <td className="px-5 py-5">
                         <div className="flex flex-col">
                             <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
-                            <span className="text-xs text-slate-400 font-medium">{sub.full_name || '---'}</span>
                         </div>
                     </td>
                     <td className="px-5 py-5">
+                        <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-widest">
+                            {sub.metadata?.list || 'Contactos'}
+                        </span>
+                    </td>
+                    <td className="px-5 py-5">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            Subscrito
+                             {sub.metadata?.list || 'Lote Geral'}
                         </span>
                     </td>
                     <td className="px-5 py-5 text-right">
@@ -1237,19 +1306,29 @@ function MailMarketingContacts({ selectedSite }: { selectedSite: string }) {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-5 animate-in fade-in duration-200">
           <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
-              <h3 className="text-xl font-black tracking-tight">Novo Contacto</h3>
+              <h3 className="text-lg font-black tracking-tight">Novo Contacto</h3>
               <button onClick={() => setShowAddForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><XLucide className="w-5 h-5 text-slate-500" /></button>
             </div>
             <form onSubmit={handleAdd} className="p-5 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-900 uppercase ml-1">Email</label>
-                <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-11 border-slate-300 focus:ring-emerald-500" placeholder="exemplo@servico.com" />
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email do Contacto</label>
+                <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-10 border-slate-200 focus:ring-red-500 text-sm" placeholder="exemplo@servico.com" />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-900 uppercase ml-1">Nome Completo</label>
-                <Input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="rounded-lg h-11 border-slate-300 focus:ring-emerald-500" placeholder="Nome do cliente" />
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Atribuir à Lista</label>
+                <select 
+                    value={newListLabel} 
+                    onChange={(e) => setNewListLabel(e.target.value)}
+                    className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
+                >
+                    {listas.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
               </div>
-              <Button type="submit" className="w-full h-11 !bg-emerald-600 hover:!bg-red-600 text-white font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20 uppercase text-xs tracking-widest !opacity-100">Confirmar</Button>
+              <div className="pt-2">
+                <Button type="submit" className="w-fit h-10 !bg-black hover:!bg-red-600 text-white font-black rounded-lg transition-all shadow-lg uppercase text-[10px] tracking-widest !opacity-100 px-10">
+                  Adicionar
+                </Button>
+              </div>
             </form>
           </div>
         </div>
@@ -2319,6 +2398,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
+  const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
+  const [mailMarketingListas, setMailMarketingListas] = useState(['Contactos', 'Clientes', 'Newsletter'])
   const [compondoEmail, setCompondoEmail] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
@@ -2478,7 +2559,14 @@ export default function AdminPage() {
           }} 
         />
       case 'mailmarketing':
-        return <MailMarketingSection sites={cyberPanelSites} currentUserEmail={cliente?.email} />
+        return <MailMarketingSection 
+          sites={cyberPanelSites} 
+          currentUserEmail={cliente?.email} 
+          activeTab={mailMarketingTab} 
+          setActiveTab={setMailMarketingTab} 
+          listas={mailMarketingListas}
+          setListas={setMailMarketingListas}
+        />
       case 'faturas':
         return <FacturacaoSection />
       case 'conta':
@@ -2729,6 +2817,22 @@ export default function AdminPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {activeSection === 'mailmarketing' && (
+                <div className="flex bg-slate-100 p-1 rounded-lg mr-4 shadow-inner">
+                  <button onClick={() => setMailMarketingTab('comp')}
+                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Compor
+                  </button>
+                  <button onClick={() => setMailMarketingTab('camp')}
+                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Campanhas
+                  </button>
+                  <button onClick={() => setMailMarketingTab('subs')}
+                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Contactos
+                  </button>
+                </div>
+              )}
               {activeSection === 'emails-new' && (
                 <button
                   onClick={() => { setMostrarAdicionarConta(true); setModalAdicionarPasso('escolher') }}

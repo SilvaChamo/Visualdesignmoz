@@ -18,7 +18,8 @@ export async function adminListarSubscritores(dominio?: string) {
             .order('created_at', { ascending: false })
 
         if (dominio) {
-            query = query.contains('metadata', { domain: dominio })
+            const d = dominio.toLowerCase()
+            query = query.or(`metadata->>domain.eq.${d},metadata->>domain.eq.${dominio}`)
         }
 
         const { data, error } = await query
@@ -74,25 +75,29 @@ export async function adminSalvarCampanha(dados: { subject: string, content_html
     }
 }
 
-export async function adminAdicionarSubscritor(dados: { email: string, full_name?: string, domain: string }) {
+export async function adminAdicionarSubscritor(dados: { email: string, full_name?: string, domain: string, list?: string }) {
     try {
+        if (!supabaseUrl || !supabaseServiceKey) {
+            throw new Error('Configuração do Supabase ausente no servidor.');
+        }
+
+        const normalizedEmail = dados.email.toLowerCase().trim();
+        
+        // TESTE MINIMALISTA: Gravar apenas o email para ver se o erro 500 persiste
         const { data, error } = await supabaseAdmin
             .from('newsletter_subscribers')
-            .upsert({
-                email: dados.email,
-                full_name: dados.full_name || '',
-                status: 'subscribed',
-                metadata: { domain: dados.domain },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'email' })
+            .upsert({ email: normalizedEmail }, { onConflict: 'email' })
             .select()
-            .single()
 
-        if (error) throw error
-        return data
-    } catch (error) {
-        console.error('Erro no Server Action adminAdicionarSubscritor:', error)
-        throw error
+        if (error) {
+            console.error('ERRO SUPABASE:', error.message);
+            throw new Error(error.message);
+        }
+
+        return data?.[0] || { success: true };
+    } catch (error: any) {
+        console.error('ERRO CRÍTICO NO SERVIDOR:', error.message);
+        throw error;
     }
 }
 

@@ -270,12 +270,12 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                     const range = selection.getRangeAt(0);
                     range.deleteContents();
                     range.insertNode(img);
-                    
+
                     // Create spacing after image
                     const p = document.createElement('p');
                     p.innerHTML = '<br>';
                     img.after(p);
-                    
+
                     range.setStartAfter(p);
                     range.collapse(true);
                     selection.removeAllRanges();
@@ -373,7 +373,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
             className={cn("flex flex-col bg-white overflow-hidden transition-all relative", className)}
         >
             {/* Toolbar */}
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 bg-white sticky top-0 z-30 flex-wrap shadow-sm">
+            <div className="flex items-center gap-1.5 px-0 py-2 border-b border-slate-100 bg-white sticky top-0 z-30 flex-wrap">
                 <ToolbarButton onClick={() => execCommand("bold")} icon={<span className="font-black text-lg leading-none font-serif">B</span>} title="Bold" isActive={activeStyles.bold} />
                 <ToolbarButton onClick={() => execCommand("italic")} icon={<Italic className="w-4 h-4" />} title="Italic" isActive={activeStyles.italic} />
 
@@ -408,7 +408,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                 </select>
 
                 <div className="w-px h-4 bg-slate-300 mx-1" />
-                
+
                 <ToolbarButton onClick={() => execCommand("insertUnorderedList")} icon={<List className="w-4 h-4" />} title="Lista de Pontos" />
                 <ToolbarButton onClick={() => execCommand("insertOrderedList")} icon={<ListOrdered className="w-4 h-4" />} title="Lista Numerada" />
 
@@ -444,8 +444,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                                 { color: "#475569", title: "Cinza" },
                                 { color: "#2563eb", title: "Azul" },
                                 { color: "#dc2626", title: "Vermelho" },
-                                { color: "#000000", title: "Preto" }, // Assuming site black
-                                { color: "#f97316", title: "Laranja (Visual Design)" }, // Site Orange
+                                { color: "#f97316", title: "Laranja (Visual Design)" },
                                 { color: "#ffffff", title: "Branco", border: true },
                             ].map((c) => (
                                 <button
@@ -520,7 +519,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                     </>
                 )}
             </div>
-            
+
             {children}
 
             {/* Editor Area Container */}
@@ -531,11 +530,11 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                         {placeholder || "Escreva o corpo do seu email aqui..."}
                     </div>
                 )}
-                
+
                 <div
                     ref={editorRef}
                     contentEditable
-                    className="flex-1 px-6 py-6 min-h-[300px] outline-none text-slate-700 text-sm overflow-y-auto prose prose-sm max-w-none prose-headings:my-2 prose-headings:font-black [&_b]:font-black [&_strong]:font-black prose-ul:list-disc prose-ul:pl-5 prose-ol:list-decimal prose-ol:pl-5 marker:text-orange-600 [&_.rich-text-image-selected]:ring-4 [&_.rich-text-image-selected]:ring-orange-500 [&_.rich-text-image-selected]:ring-offset-2 transition-all relative z-0"
+                    className="flex-1 px-0 py-6 min-h-[300px] outline-none text-slate-700 text-sm overflow-y-auto prose prose-sm max-w-none prose-headings:my-2 prose-headings:font-black [&_b]:font-black [&_strong]:font-black prose-ul:list-disc prose-ul:pl-5 prose-ol:list-decimal prose-ol:pl-5 marker:text-orange-600 [&_.rich-text-image-selected]:ring-4 [&_.rich-text-image-selected]:ring-orange-500 [&_.rich-text-image-selected]:ring-offset-2 transition-all relative z-0"
                     onInput={handleInput}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
@@ -589,8 +588,8 @@ function ToolbarButton({ onClick, icon, title, disabled, isActive }: { onClick: 
             }}
             disabled={disabled}
             className={cn(
-                "p-2 text-slate-500 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-all shrink-0",
-                isActive && "text-orange-600 bg-white border border-orange-200 shadow-sm",
+                "w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-600 transition-all shrink-0",
+                isActive && "text-red-600",
                 disabled && "opacity-50 cursor-not-allowed"
             )}
             title={title}
