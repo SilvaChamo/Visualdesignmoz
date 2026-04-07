@@ -33,7 +33,11 @@ export default function RegisterPage() {
       await signUp(email, password, nome)
       setSucesso(true)
     } catch (err: unknown) {
-      setError((err as Error).message || 'Erro ao criar conta.')
+      let msg = (err as Error).message || 'Erro ao criar conta.'
+      if (msg.includes('Error sending confirmation email')) {
+        msg = 'O envio de e-mails falhou. Para contornar provisoriamente, vá ao painel do Supabase > Authentication > Providers > Email e DESATIVE a opção "Confirm email".'
+      }
+      setError(msg)
     } finally {
       setLoading(false)
     }

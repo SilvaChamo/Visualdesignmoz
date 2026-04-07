@@ -93,7 +93,7 @@ function LoginPageContent() {
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
-        setError(t('login.errorCredentials'))
+        setError('Credenciais inválidas ou conta não confirmada. Por favor, verifique se clicou no link enviado para o seu e-mail e tente novamente.')
       } else {
         setError((err as Error).message || t('login.errorGeneric'))
       }
@@ -135,10 +135,16 @@ function LoginPageContent() {
         />
       </div>
 
+      {/* Logo Aumentado e Menos Espaço */}
       <div className="flex flex-col items-center mb-6 z-10 transition-all duration-300">
-        <div className="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-900/40 transform hover:scale-110 transition-transform">
-          <Globe className="text-white w-10 h-10" />
-        </div>
+        <a href="/" className="block transform transition-transform duration-300 hover:scale-110">
+          <img
+            src="/assets/logotipoII.png"
+            alt="VisualDesign"
+            className="h-32 object-contain"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        </a>
       </div>
 
       {/* Formulário com glassmorphism */}

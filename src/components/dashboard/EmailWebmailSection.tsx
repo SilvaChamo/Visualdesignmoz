@@ -11,6 +11,7 @@ import {
   Trash2 as Trash2Icon, RefreshCw as RefreshCwIcon, LogOut as LogOutIcon, X, Upload,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, AlertCircle, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
 } from 'lucide-react'
+import { detectDomainConfig } from '@/lib/email-autoconfig'
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
   '#ff0000', '#ff4500', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff',
@@ -24,13 +25,15 @@ export function EmailWebmailSection({
   setMostrarAdicionarConta: propSetMostrarAdicionarConta,
   modalAdicionarPasso: propModalAdicionarPasso,
   setModalAdicionarPasso: propSetModalAdicionarPasso,
-  emailOrigem: propEmailOrigem
+  emailOrigem: propEmailOrigem,
+  sites = []
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
   modalAdicionarPasso?: 'escolher' | 'webmail' | 'google' | 'hotmail'
   setModalAdicionarPasso?: (value: 'escolher' | 'webmail' | 'google' | 'hotmail') => void
   emailOrigem?: string | null
+  sites?: any[]
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -48,7 +51,7 @@ export function EmailWebmailSection({
   const [assinatura, setAssinatura] = useState('')
   const [mostrarConfigAssinatura, setMostrarConfigAssinatura] = useState(false)
   const [contactos, setContactos] = useState([
-    { nome: 'Suporte Técnico', email: 'suporte@your-domain.com' },
+    { nome: 'Suporte Técnico', email: 'suporte@visualdesigne.com' },
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
@@ -61,7 +64,42 @@ export function EmailWebmailSection({
   const editorRef = useRef<HTMLDivElement>(null)
   const [credenciaisNovas, setCredenciaisNovas] = useState<any>(null)
   const [mostrarCredenciais, setMostrarCredenciais] = useState(false)
-  const [novaContaForm, setNovaContaForm] = useState({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465' })
+  const [novaContaForm, setNovaContaForm] = useState({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
+  const [autoconfigurando, setAutoconfigurando] = useState(false)
+  const [mostrarAvancado, setMostrarAvancado] = useState(false)
+
+  // Autoconfiguração em tempo real
+  useEffect(() => {
+    const email = novaContaForm.email
+    if (email && email.includes('@') && email.split('@')[1].length > 3) {
+      const timer = setTimeout(async () => {
+        setAutoconfigurando(true)
+        try {
+          const res = await fetch('/api/email-autoconfig', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          })
+          const data = await res.json()
+          if (data.success && data.config) {
+            setNovaContaForm(prev => ({
+              ...prev,
+              nome: prev.nome || data.config.displayName,
+              servidor: data.config.imap,
+              porta: String(data.config.ports.imap),
+              smtp: data.config.smtp,
+              smtpPorta: String(data.config.ports.smtp),
+              assinatura: data.config.signature
+            }))
+          }
+        } catch (err) {
+          console.error('Erro na autoconfiguração:', err)
+        } finally {
+          setAutoconfigurando(false)
+        }
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+  }, [novaContaForm.email])
   const [corTexto, setCorTexto] = useState('#000000')
   const [corFundo, setCorFundo] = useState('#ffff00')
   const [mostrarPaletaCor, setMostrarPaletaCor] = useState<'texto' | 'fundo' | null>(null)
@@ -72,6 +110,11 @@ export function EmailWebmailSection({
   const [mostrarPopupFechar, setMostrarPopupFechar] = useState(false)
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
   const toggleExpand = (email: string) => setExpandedMap(prev => ({ ...prev, [email]: !prev[email] }))
+
+  // Extrair domínio do emailOrigem para o webmail
+  const getWebmailUrl = () => {
+    return detectDomainConfig(emailOrigem).webmail
+  }
 
   // Usar props ou valores locais
   const mostrarAdicionarConta = propMostrarAdicionarConta || false
@@ -115,36 +158,68 @@ export function EmailWebmailSection({
     }
   }, [modalEmail])
 
-  // Carregar contas reais do CyberPanel
+  // Carregar contas reais do CyberPanel para as abas
   useEffect(() => {
     const carregarContas = async () => {
-      // Carregar directamente do CyberPanel (fonte de verdade)
+      if (!sites || sites.length === 0) {
+        // Fallback: Tentar buscar todas as contas do Supabase ligadas ao cliente
+        try {
+          const res2 = await fetch('/api/email-contas')
+          const data2 = await res2.json()
+          if (data2.success && data2.contas?.length > 0) {
+            setEmailsOrigem(data2.contas.map((c: any) => ({
+              email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
+            })))
+          }
+        } catch { }
+        return
+      }
+
+      setCarregandoEmails(true)
       try {
-        const res = await fetch('/api/cyberpanel-email?domain=your-domain.com')
-        const data = await res.json()
-        if (data.success && data.emails && data.emails.length > 0) {
-          setEmailsOrigem(data.emails.map((e: any) => ({
-            email: e.email,
-            tipo: 'webmail',
-            nome: e.user || e.email.split('@')[0],
-            password: ''
-          })))
+        // Carregar contas de TODOS os domínios do cliente em paralelo
+        const promises = sites.map(site => 
+          fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(site.domain)}`)
+            .then(r => r.json())
+            .catch(() => ({ success: false }))
+        )
+        
+        const results = await Promise.all(promises)
+        const allEmails: any[] = []
+        
+        results.forEach((data, index) => {
+          if (data.success && data.emails) {
+            data.emails.forEach((e: any) => {
+              allEmails.push({
+                email: e.email,
+                tipo: 'webmail',
+                nome: e.user || e.email.split('@')[0],
+                password: '',
+                domain: sites[index].domain
+              })
+            })
+          }
+        })
+
+        if (allEmails.length > 0) {
+          setEmailsOrigem(allEmails)
         } else {
-          // Fallback: Supabase com sessão real
-          try {
-            const res2 = await fetch('/api/email-contas')
-            const data2 = await res2.json()
-            if (data2.success && data2.contas?.length > 0) {
-              setEmailsOrigem(data2.contas.map((c: any) => ({
-                email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
-              })))
-            }
-          } catch { }
+          // Segundo fallback se não vier nada do CyberPanel
+          const res2 = await fetch('/api/email-contas')
+          const data2 = await res2.json()
+          if (data2.success && data2.contas?.length > 0) {
+            setEmailsOrigem(data2.contas.map((c: any) => ({
+              email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
+            })))
+          }
         }
-      } catch { }
+      } catch (e) {
+        console.error('Erro ao carregar contas:', e)
+      }
+      setCarregandoEmails(false)
     }
     carregarContas()
-  }, [])
+  }, [sites])
 
   // Debounce para a pesquisa
   useEffect(() => {
@@ -214,9 +289,8 @@ export function EmailWebmailSection({
   const [mostrarBcc, setMostrarBcc] = useState(false)
   const [mostrarEditarAssinatura, setMostrarEditarAssinatura] = useState(false)
   const [assinaturas, setAssinaturas] = useState([
-    { nome: 'Portal Digital', activa: true, texto: '', imagemUrl: '' },
-    { nome: 'Empresa Corporate', activa: false, texto: '', imagemUrl: '' },
-    { nome: 'Sem Título', activa: false, texto: '', imagemUrl: '' },
+    { nome: 'Profissional', activa: true, texto: '', imagemUrl: '' },
+    { nome: 'Minimalista', activa: false, texto: '', imagemUrl: '' },
   ])
   const [assinaturaActiva, setAssinaturaActiva] = useState(0)
 
@@ -686,25 +760,26 @@ export function EmailWebmailSection({
           }, 50)
         }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
-          ✏️ Escrever
+          Escrever
         </button>
-        <a href="https://mail.your-domain.com:8090/snappymail/" target="_blank"
-          className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
-          🌐 Webmail
-        </a>
-        <div className="w-px h-5 bg-gray-700 mx-1" />
-        {pastas.map(p => (
-          <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-transparent' : 'text-gray-600 hover:text-red-500 bg-transparent'}`}>
-            {p}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => setMostrarConfigAssinatura(true)}
-            className="text-gray-600 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 font-medium bg-white">
-            ✍️ Assinatura
-          </button>
-        </div>
+      
+      <a href={getWebmailUrl()} target="_blank"
+        className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
+        {emailOrigem ? 'Webmail' : 'Webmail'}
+      </a>
+      <div className="w-px h-5 bg-gray-700 mx-1" />
+      {pastas.map(p => (
+        <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-transparent' : 'text-gray-600 hover:text-red-500 bg-transparent'}`}>
+          {p}
+        </button>
+      ))}
+      <div className="ml-auto flex items-center gap-2">
+        <button onClick={() => setMostrarConfigAssinatura(true)}
+          className="text-gray-600 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 font-medium bg-white">
+          Assinatura
+        </button>
+      </div>
       </div>
 
       {/* LISTA DE EMAILS */}
@@ -1837,7 +1912,7 @@ export function EmailWebmailSection({
                         setEmailsOrigem(prev => [...prev, { email: novaContaForm.email, tipo: 'hotmail', nome: novaContaForm.nome || novaContaForm.email.split('@')[0] }])
                         setEmailOrigem(novaContaForm.email)
                         setMostrarAdicionarConta(false)
-                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465' })
+                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
                       }
                     }}
                       disabled={!novaContaForm.email}
@@ -1849,27 +1924,77 @@ export function EmailWebmailSection({
               {/* PASSO 2c — Email Executivo / Webmail */}
               {modalAdicionarPasso === 'webmail' && (
                 <div className="p-6 space-y-3 bg-white">
-                  <p className="text-sm text-gray-500 mb-2 font-medium">Configurar Email Executivo (IMAP/SMTP)</p>
-                  {[
-                    { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@your-domain.com' },
-                    { label: 'Nome de utilizador', field: 'nome', placeholder: 'Silva Chamo' },
-                    { label: 'Palavra-passe', field: 'password', placeholder: '••••••••', type: 'password' },
-                    { label: 'Servidor de receção (IMAP)', field: 'servidor', placeholder: 'mail.your-domain.com' },
-                    { label: 'Porta IMAP', field: 'porta', placeholder: '993' },
-                    { label: 'Servidor de envio (SMTP)', field: 'smtp', placeholder: 'mail.your-domain.com' },
-                    { label: 'Porta SMTP', field: 'smtpPorta', placeholder: '465' },
-                  ].map(f => (
-                    <div key={f.field} className="flex items-center gap-4">
-                      <span className="text-gray-500 text-xs w-48 text-right shrink-0">{f.label}:</span>
-                      <input type={f.type || 'text'} placeholder={f.placeholder}
-                        value={(novaContaForm as any)[f.field]}
-                        onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
-                        className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all" />
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold text-gray-500 ml-1">Endereço de e-mail</label>
+                      <div className="relative">
+                        <input type="email" placeholder="nome@empresa.com"
+                          value={novaContaForm.email}
+                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'email']: e.target.value })}
+                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all font-medium" />
+                        {autoconfigurando && (
+                          <div className="absolute right-3 top-2.5">
+                            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+                        {!autoconfigurando && novaContaForm.servidor && (
+                          <div className="absolute right-3 top-2.5 text-green-500 flex items-center gap-1.5 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Autoconfigurado</span>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
-                    <p className="text-xs text-blue-700 font-bold mb-1">Configurações recomendadas Portal Digital:</p>
-                    <p className="text-xs text-blue-600">Servidor: mail.your-domain.com • IMAP: 993 SSL • SMTP: 465 SSL</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-gray-500 ml-1">Nome de Exibição</label>
+                        <input type="text" placeholder="Silva Chamo"
+                          value={novaContaForm.nome}
+                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'nome']: e.target.value })}
+                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 font-medium" />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-gray-500 ml-1">Palavra-passe</label>
+                        <input type="password" placeholder="••••••••"
+                          value={novaContaForm.password}
+                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'password']: e.target.value })}
+                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 font-medium" />
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                       <button onClick={() => setMostrarAvancado(!mostrarAvancado)}
+                        className="text-[11px] font-bold text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                        {mostrarAvancado ? '↓ Ocultar Definições Técnicas' : '↑ Configurações Avançadas (IMAP/SMTP)'}
+                      </button>
+
+                      {mostrarAvancado && (
+                        <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                          {[
+                            { label: 'Servidor IMAP', field: 'servidor' },
+                            { label: 'Porta IMAP', field: 'porta' },
+                            { label: 'Servidor SMTP', field: 'smtp' },
+                            { label: 'Porta SMTP', field: 'smtpPorta' }
+                          ].map(f => (
+                            <div key={f.field} className="flex flex-col gap-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">{f.label}</label>
+                              <input type="text"
+                                value={(novaContaForm as any)[f.field]}
+                                onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
+                                className="w-full bg-white border border-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded-lg outline-none focus:border-red-300" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-3 mt-2">
+                      <p className="text-[11px] text-blue-700 font-bold mb-1 uppercase tracking-tight">Suporte VisualDesigne:</p>
+                      <p className="text-[11px] text-blue-600 leading-relaxed">Detectamos automaticamente as configurações de domínio para garantir um setup sem erros. Webmail e App prontos a usar após clicar em adicionar.</p>
+                    </div>
                   </div>
                   <div className="flex justify-between pt-2">
                     <button onClick={() => setModalAdicionarPasso('escolher')}
@@ -1902,13 +2027,18 @@ export function EmailWebmailSection({
                             }])
                             setEmailOrigem(data.credenciais.email)
                             setEmailOrigemPassword(novaContaForm.password)
+                            
+                            // Forçar refresh conforme solicitado pelo utilizador
+                            setTimeout(() => {
+                              window.location.reload()
+                            }, 1500)
                           }
                         } catch (error: any) {
                           alert('Erro ao criar conta: ' + error.message)
                         }
                         setCarregandoEmails(false)
                         setMostrarAdicionarConta(false)
-                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465' })
+                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
                       }
                     }}
                       disabled={!novaContaForm.email || carregandoEmails}

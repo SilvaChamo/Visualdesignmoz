@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 import { resend } from '@/lib/resend';
+import { detectDomainConfig } from '@/lib/email-autoconfig';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,16 +33,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Assunto ou conteúdo em falta' }, { status: 400 });
         }
 
-        const senderEmail = replyTo || process.env.SMTP_MASTER_EMAIL;
+        const senderEmail = replyTo || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
+        const config = detectDomainConfig(senderEmail);
 
-        // 2. Configurar transporter SMTP
+        // 2. Configurar transporter SMTP dinâmico
         const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || '109.199.104.22',
-            port: Number(process.env.SMTP_PORT) || 465,
-            secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
+            host: config.smtp,
+            port: config.ports.smtp,
+            secure: config.ports.smtp === 465,
             auth: {
-                user: process.env.SMTP_MASTER_EMAIL,
-                pass: process.env.SMTP_MASTER_PASSWORD,
+                user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
+                pass: process.env.SMTP_MASTER_PASSWORD || 'AdvD2425',
             },
             tls: {
                 rejectUnauthorized: false
@@ -102,9 +104,9 @@ export async function POST(req: Request) {
 
             try {
                 await transporter.sendMail({
-                    from: `"Visual Design" <${process.env.SMTP_MASTER_EMAIL}>`,
+                    from: `"Visual Design" <${process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com'}>`,
                     replyTo: senderEmail,
-                    to: process.env.SMTP_MASTER_EMAIL,
+                    to: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
                     bcc: chunk,
                     subject,
                     html,
@@ -120,7 +122,7 @@ export async function POST(req: Request) {
                 // Fallback para Resend neste chunk
                 try {
                     const resendData = await resend.emails.send({
-                        from: 'Visual Design <onboarding@resend.dev>',
+                        from: 'Visual Design <noreply@visualdesigne.com>',
                         to: chunk,
                         subject,
                         html,

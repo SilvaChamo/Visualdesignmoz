@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import nodemailer from 'nodemailer'
+import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,11 +10,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Parâmetros obrigatórios faltam' }, { status: 400 })
     }
 
+    const domainConfig = detectDomainConfig(email)
+
     // Ler email original
     const imapClient = new ImapFlow({
-      host: process.env.IMAP_HOST || '109.199.104.22',
-      port: 993,
-      secure: true,
+      host: domainConfig.imap,
+      port: domainConfig.ports.imap,
+      secure: domainConfig.ports.imap === 993,
       auth: { user: email, pass: password },
       tls: { rejectUnauthorized: false },
       logger: false
@@ -43,9 +46,9 @@ export async function POST(req: NextRequest) {
 
     // Encaminhar email
     const smtpTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || '109.199.104.22',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: true,
+      host: domainConfig.smtp,
+      port: domainConfig.ports.smtp,
+      secure: domainConfig.ports.smtp === 465,
       auth: { user: email, pass: password },
       tls: { rejectUnauthorized: false }
     })

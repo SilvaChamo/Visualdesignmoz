@@ -1533,6 +1533,11 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
         
         setEmailModal({ ...emailModal, show: false })
         loadEmails(selectedDomain)
+        
+        // Forçar refresh conforme solicitado pelo utilizador
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       } else {
         setMsg('Erro: ' + (resData.error || 'Falha no servidor.')); setMsgType('error')
       }
@@ -1563,6 +1568,11 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
       setMsg('Configurações guardadas.'); setMsgType('success')
       setEmailModal({ ...emailModal, show: false })
       loadEmails(selectedDomain)
+
+      // Forçar refresh conforme solicitado pelo utilizador
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (e: any) {
       setMsg('Erro: ' + e.message); setMsgType('error')
     }

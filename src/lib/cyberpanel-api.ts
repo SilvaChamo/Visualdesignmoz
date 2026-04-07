@@ -1,8 +1,19 @@
 const EXEC = '/api/server-exec';
+const CLI_EXEC = '/api/cyberpanel-cli';
 import { cacheService } from './cache-service';
 
 async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 30000) {
   try {
+    // Para listUsers, usar API CLI que funciona
+    if (action === 'listUsers') {
+      console.log(`[API CALL] ${action} via CLI (fallback)`);
+      const res = await fetch(`${CLI_EXEC}?action=${action}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const j = await res.json();
+      if (!j.success) throw new Error(j.error || 'Request failed');
+      return j.data;
+    }
+
     // Mutation actions should NEVER be cached
     const isMutation = ['createUser', 'modifyUser', 'deleteUser', 'suspendUser', 'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail'].includes(action);
     
@@ -48,13 +59,28 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
     
     // Armazenar no cache apenas leituras
     if (!isMutation) {
-      const ttl = action.includes('list') ? 5 * 60 * 1000 : 60 * 1000;
+      const ttl = action.includes('list') ?5 * 60 * 1000 : 60 * 1000;
       cacheService.set(cacheKey, j.data, ttl);
     }
     
     return j.data;
   } catch (error: any) {
     console.error(`[API ERROR] ${action}:`, error.message);
+    
+    // Fallback para CLI em caso de erro 500
+    if (error.message.includes('500') && action === 'listUsers') {
+      console.log(`[FALLBACK] ${action} via CLI due to 500 error`);
+      try {
+        const res = await fetch(`${CLI_EXEC}?action=${action}`);
+        if (res.ok) {
+          const j = await res.json();
+          if (j.success) return j.data;
+        }
+      } catch (fallbackError) {
+        console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+      }
+    }
+    
     if (error.name === 'AbortError') {
       throw new Error(`Request timed out after ${timeoutMs/1000}s - server took too long to respond`);
     }

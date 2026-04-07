@@ -218,16 +218,56 @@ function ClienteDashboardHome() {
 
 
 // Componente SuporteSection
-function SuporteSection() {
+function SuporteSection({ cliente, sites }: { cliente: any, sites: any[] }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ assunto: '', categoria: 'Geral', descricao: '' })
+  const [form, setForm] = useState({ 
+    nome: cliente?.nome || '',
+    email: cliente?.email || '',
+    assunto: '', 
+    categoria: 'Geral', 
+    descricao: '',
+    prioridade: 'Normal',
+    siteId: '',
+    website_url: '' // honeypot
+  })
   const [enviado, setEnviado] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [ticketRef, setTicketRef] = useState('')
+  const [erroEnvio, setErroEnvio] = useState('')
+  
+  // Anti-spam math challenge
+  const [captcha, setCaptcha] = useState({ n1: 0, n2: 0, result: 0 })
+  const [userAnswer, setUserAnswer] = useState('')
+  
+  // Attachment
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTickets()
+    generateCaptcha()
   }, [])
+
+  const generateCaptcha = () => {
+    const n1 = Math.floor(Math.random() * 10) + 1
+    const n2 = Math.floor(Math.random() * 10) + 1
+    setCaptcha({ n1, n2, result: n1 + n2 })
+    setUserAnswer('')
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) {
+      if (f.size > 5 * 1024 * 1024) {
+        alert('Imagem muito grande. Limite: 5MB')
+        return
+      }
+      setFile(f)
+      setPreview(URL.createObjectURL(f))
+    }
+  }
 
   const fetchTickets = async () => {
     setLoading(true)
@@ -247,102 +287,296 @@ function SuporteSection() {
     }
   }
 
+  const enviarTicket = async () => {
+    if (!form.assunto || !form.descricao || !userAnswer) return
+    if (parseInt(userAnswer) !== captcha.result) {
+      setErroEnvio('Resposta de segurança incorrecta.')
+      return
+    }
+
+    setEnviando(true)
+    setErroEnvio('')
+    try {
+      let anexoUrl = ''
+      
+      // 1. Upload anexo if exists
+      if (file) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const { data: uploadData, error: uploadError } = await createClientInstance.storage
+          .from('ticket-attachments')
+          .upload(fileName, file)
+
+        if (uploadError) {
+          console.error('Erro upload:', uploadError)
+        } else {
+          const { data: { publicUrl } } = createClientInstance.storage
+            .from('ticket-attachments')
+            .getPublicUrl(fileName)
+          anexoUrl = publicUrl
+        }
+      }
+
+      const res = await fetch('/api/submit-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          clienteNome: form.nome,
+          clienteEmail: form.email,
+          anexoUrl,
+          captchaAnswer: userAnswer,
+          captchaResult: captcha.result
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTicketRef(data.ticketId || '')
+        setEnviado(true)
+        fetchTickets()
+      } else {
+        setErroEnvio(data.error || 'Erro ao enviar ticket.')
+        generateCaptcha()
+      }
+    } catch (err: any) {
+      setErroEnvio(err?.message || 'Erro de ligação ao servidor.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   const estadoCor = (s: string) => {
-    if (s.toLowerCase() === 'aberto') return 'bg-green-100 text-green-700'
-    if (s.toLowerCase() === 'pendente') return 'bg-yellow-100 text-yellow-700'
-    return 'bg-gray-100 text-gray-700'
+    const status = (s || 'open').toLowerCase()
+    if (status === 'aberto' || status === 'open') return 'bg-green-100 text-green-700 border-green-200'
+    if (status === 'pendente' || status === 'waiting_client') return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    return 'bg-gray-100 text-gray-700 border-gray-200'
   }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-gray-900">Suporte</h1><p className="text-gray-500 mt-1">Contacta-nos ou abre um ticket de suporte.</p></div>
-
-      {/* Contactos */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-bold text-gray-700 mb-3">Contacto Directo</h2>
-          <div className="space-y-2">
-            <a href="https://wa.me/258848066605" target="_blank"
-              className="flex items-center gap-3 bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-bold transition-colors">
-              <span>📱</span> WhatsApp de Suporte
-            </a>
-            <a href="mailto:suporte@oseudominio.com"
-              className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg text-sm font-bold transition-colors">
-              <span>✉️</span> suporte@oseudominio.com
-            </a>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">Horário: Segunda a Sexta, 8h — 17h</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Suporte e Ajuda</h1>
+          <p className="text-gray-500 mt-1">Esclareça dúvidas ou reporte problemas técnicos.</p>
         </div>
-
-        {/* Novo Ticket */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-bold text-gray-700 mb-3">Abrir Novo Ticket</h2>
-          {enviado ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <p className="text-green-700 font-bold text-sm">✅ Ticket enviado com sucesso!</p>
-              <p className="text-green-600 text-xs mt-1">Responderemos em breve.</p>
-              <button onClick={() => { setEnviado(false); setForm({ assunto: '', categoria: 'Geral', descricao: '' }) }}
-                className="mt-3 text-xs text-green-700 underline">Abrir outro ticket</button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <input value={form.assunto} onChange={e => setForm({ ...form, assunto: e.target.value })}
-                placeholder="Assunto" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-              <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                {['Geral', 'Técnico', 'Facturação', 'Domínio', 'Email', 'SSL', 'Backup'].map(c => <option key={c}>{c}</option>)}
-              </select>
-              <textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
-                placeholder="Descreve o teu problema..." rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
-              <button onClick={() => { if (form.assunto && form.descricao) setEnviado(true) }}
-                disabled={!form.assunto || !form.descricao}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
-                Enviar Ticket
-              </button>
-            </div>
-          )}
+        <div className="flex gap-2">
+          <a href="https://wa.me/258848066605" target="_blank"
+            className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold border border-green-200 transition-all">
+            <span>📱</span> WhatsApp
+          </a>
+          <a href="mailto:suporte@visualdesigne.com"
+            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold border border-blue-200 transition-all">
+            <span>✉️</span> Email
+          </a>
         </div>
       </div>
 
-      {/* Histórico */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-sm font-bold text-gray-700">Histórico de Tickets</h2>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {tickets.map(t => (
-            <div key={t.id}>
-              <div className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 cursor-pointer"
-                onClick={() => setExpanded(expanded === t.id ? null : t.id)}>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-gray-400">{t.id}</span>
-                  <span className="text-sm font-medium text-gray-800">{t.assunto}</span>
-                  <span className="text-xs text-gray-400">{t.categoria}</span>
+      <div className="grid grid-cols-1 gap-6">
+        {/* Formulário Novo Ticket */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+             <div className="p-2 bg-red-100 rounded-lg"><span className="text-red-600">🎫</span></div>
+             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Novo Ticket de Suporte</h2>
+          </div>
+          
+          {enviado ? (
+            <div className="p-10 text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-2xl">✅</div>
+              <h3 className="text-xl font-bold text-gray-900">Ticket Enviado com Sucesso!</h3>
+              {ticketRef && <p className="text-gray-600">A sua referência é: <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded text-red-600">{ticketRef}</span></p>}
+              <p className="text-sm text-gray-500 max-w-sm mx-auto">Receberá uma confirmação no seu email em instantes. A nossa equipa irá analisar o seu pedido.</p>
+              <div className="pt-4">
+                <button onClick={() => { setEnviado(false); setTicketRef(''); setForm({ ...form, assunto: '', descricao: '' }); setPreview(null); setFile(null); generateCaptcha(); }}
+                  className="px-6 py-2 bg-gray-800 text-white rounded-lg text-sm font-bold hover:bg-gray-900 transition-all shadow-sm">
+                  Abrir outro ticket
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Nome */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">O Teu Nome</label>
+                  <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${estadoCor(t.estado)}`}>{t.estado}</span>
-                  <span className="text-xs text-gray-400">{t.data}</span>
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Teu Endereço de Email</label>
+                  <input value={form.email} readOnly
+                    className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 text-gray-400 rounded-lg text-sm cursor-not-allowed" />
                 </div>
               </div>
-              {expanded === t.id && t.resposta && (
-                <div className="px-5 py-3 bg-green-50 border-t border-green-100">
-                  <p className="text-xs font-bold text-green-700 mb-1">Resposta do Suporte:</p>
-                  <p className="text-sm text-green-800">{t.resposta}</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Assunto */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Assunto do Pedido</label>
+                  <input value={form.assunto} onChange={e => setForm({ ...form, assunto: e.target.value })}
+                    placeholder="Ex: Não consigo aceder ao meu email"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" />
                 </div>
-              )}
-              {expanded === t.id && !t.resposta && (
-                <div className="px-5 py-3 bg-yellow-50 border-t border-yellow-100">
-                  <p className="text-xs text-yellow-700">Aguardando resposta...</p>
+                {/* Categoria */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Categoria</label>
+                  <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
+                    {['Geral', 'Técnico', 'Facturação', 'Domínio', 'Email', 'SSL', 'Backup'].map(c => <option key={c}>{c}</option>)}
+                  </select>
                 </div>
-              )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                 {/* Serviço Relacionado */}
+                 <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Serviço Relacionado</label>
+                  <select value={form.siteId} onChange={e => setForm({ ...form, siteId: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
+                    <option value="">Nenhum / Geral</option>
+                    {sites.map(s => <option key={s.id} value={s.id}>{s.domain}</option>)}
+                  </select>
+                </div>
+                {/* Prioridade */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Prioridade</label>
+                  <div className="flex gap-2 h-full items-center">
+                     {['Baixa', 'Normal', 'Alta', 'Urgente'].map(p => (
+                       <button key={p} onClick={() => setForm({...form, prioridade: p})}
+                         className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase transition-all border ${form.prioridade === p ? 'bg-red-600 text-white border-red-600' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                         {p}
+                       </button>
+                     ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div className="space-y-1 mb-4">
+                <label className="text-xs font-bold text-gray-500 uppercase">Descrição Detalhada</label>
+                <textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
+                  placeholder="Por favor, descreva o problema com o máximo detalhe possível..." rows={4}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none" />
+              </div>
+
+              {/* Anexo e Segurança */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                {/* Anexo */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase block">Anexar Imagem (Opcional)</label>
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold border border-gray-200 transition-all border-dashed">
+                      <span>📸</span> {file ? 'Alterar Imagem' : 'Escolher Ficheiro'}
+                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                    </label>
+                    {preview && (
+                      <div className="relative w-12 h-12 border rounded-lg overflow-hidden group">
+                        <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                        <button onClick={() => { setFile(null); setPreview(null); }}
+                          className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Anti-Spam / Math Captcha */}
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-gray-500 uppercase block text-right">Verificação de Segurança</label>
+                   <div className="flex items-center justify-end gap-3">
+                      <span className="text-sm font-bold text-gray-600 italic">Quanto é {captcha.n1} + {captcha.n2}?</span>
+                      <input type="number" value={userAnswer} onChange={e => setUserAnswer(e.target.value)}
+                        placeholder="?" className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-bold focus:ring-2 focus:ring-red-500 outline-none" />
+                   </div>
+                </div>
+              </div>
+
+              {/* Honeypot (Spam Prevention) */}
+              <input type="text" name="website_url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} className="hidden" tabIndex={-1} />
+
+              <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                <div className="text-[11px] text-gray-400">
+                  <p>🔹 Tempo de resposta médio: 2 horas</p>
+                  <p>🔹 Responderemos para {form.email}</p>
+                </div>
+                {erroEnvio && <p className="text-xs text-red-600 font-bold bg-red-50 border border-red-200 rounded px-3 py-2">{erroEnvio}</p>}
+                <button onClick={enviarTicket}
+                  disabled={!form.assunto || !form.descricao || !userAnswer || enviando}
+                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200 flex items-center gap-2">
+                  {enviando ? <>⏳ <span className="animate-pulse">A Enviar Pedido...</span></> : <>🚀 Enviar Ticket de Suporte</>}
+                </button>
+              </div>
             </div>
-          ))}
+          )}
+        </div>
+
+        {/* Histórico Simplificado */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Meus Pedidos Recentes</h2>
+            <button onClick={fetchTickets} className="text-[10px] font-bold text-blue-600 hover:underline">Actualizar Lista</button>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {loading ? (
+              <div className="p-10 text-center text-gray-400 animate-pulse text-sm">A carregar histórico...</div>
+            ) : tickets.length === 0 ? (
+              <div className="p-10 text-center text-gray-400 text-sm italic">Ainda não abriu nenhum ticket.</div>
+            ) : (
+              tickets.map(t => (
+                <div key={t.id} className="group">
+                  <div className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => setExpanded(expanded === t.id ? null : t.id)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-gray-800 group-hover:text-red-600 transition-colors">{t.assunto}</span>
+                        <div className="flex items-center gap-3 mt-0.5">
+                           <span className="text-[10px] text-gray-400 font-mono">ID: #{String(t.id).substring(0,8)}</span>
+                           <span className="text-[10px] text-gray-400">•</span>
+                           <span className="text-[10px] text-gray-400 italic">{new Date(t.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase ${estadoCor(t.status)}`}>{t.status}</span>
+                      <span className="text-gray-300 text-xs">{expanded === t.id ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+                  {expanded === t.id && (
+                    <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase">Mensagem Original:</p>
+                        <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200">{t.descricao}</p>
+                      </div>
+                      {t.anexo_url && (
+                        <div className="pt-1">
+                           <a href={t.anexo_url} target="_blank" className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                             <span>🖼️</span> Ver imagem em anexo
+                           </a>
+                        </div>
+                      )}
+                      <div className="pt-2">
+                        {t.status === 'resolved' || t.status === 'closed' ? (
+                          <div className="bg-green-100 border border-green-200 text-green-700 p-3 rounded-lg text-xs font-bold text-center">
+                            ✅ Este ticket foi resolvido.
+                          </div>
+                        ) : (
+                          <div className="bg-blue-50 border border-blue-100 text-blue-700 p-3 rounded-lg text-xs font-medium italic">
+                            Aguardando resposta da nossa equipa...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            ))}
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
 
 // Componente FacturacaoSection
 function FacturacaoSection() {
@@ -498,6 +732,7 @@ function ContaSection() {
   const [pass, setPass] = useState({ actual: '', nova: '', confirmar: '' })
   const [notif, setNotif] = useState({ dias30: true, dias15: true, dias7: true, pagamentos: true, suporte: false })
   const [savedMsg, setSavedMsg] = useState('')
+  const [passMsg, setPassMsg] = useState({ text: '', type: '' })
 
   useEffect(() => {
     fetchProfile()
@@ -548,9 +783,44 @@ function ContaSection() {
     return { texto: 'Forte', cor: 'text-green-500' }
   }
 
-  const guardar = () => {
-    setSavedMsg('Dados guardados com sucesso!')
-    setTimeout(() => setSavedMsg(''), 3000)
+  const guardar = async () => {
+    try {
+      const { data: { user } } = await createClientInstance.auth.getUser()
+      if (!user) {
+        setSavedMsg('Erro: Sessão expirada. Faz login novamente.')
+        setTimeout(() => setSavedMsg(''), 3000)
+        return
+      }
+
+      const profileData = { 
+        id: user.id, 
+        nome: dados.nome, 
+        telefone: dados.telefone, 
+        empresa: dados.empresa, 
+        morada: dados.morada, 
+        cidade: dados.cidade,
+        email: dados.email,
+        updated_at: new Date().toISOString()
+      }
+
+      const { error } = await createClientInstance
+        .from('profiles')
+        .upsert(profileData, { onConflict: 'id' })
+      
+      if (error) {
+        console.error('Erro ao guardar dados:', error.message, error.code, error.details, error.hint)
+        setSavedMsg(`Erro: ${error.message || 'Falha ao guardar dados.'}`)
+        setTimeout(() => setSavedMsg(''), 5000)
+        return
+      }
+
+      setSavedMsg('Dados guardados com sucesso!')
+      setTimeout(() => window.location.reload(), 1500)
+    } catch (err: any) {
+      console.error('Erro ao guardar dados (exception):', err?.message || err)
+      setSavedMsg(`Erro: ${err?.message || 'Falha inesperada ao guardar dados.'}`)
+    }
+    setTimeout(() => setSavedMsg(''), 5000)
   }
 
   return (
@@ -573,10 +843,11 @@ function ContaSection() {
               <div key={field}>
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{label}</label>
                 <input value={(dados as any)[field]} onChange={e => setDados({ ...dados, [field]: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  disabled={field === 'email'}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${field === 'email' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
               </div>
             ))}
-            {savedMsg && <p className="text-green-600 text-xs font-bold bg-green-50 border border-green-200 rounded px-3 py-2">{savedMsg}</p>}
+            {savedMsg && <p className={`text-xs font-bold border rounded px-3 py-2 ${savedMsg.startsWith('Erro') ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-600 bg-green-50 border-green-200'}`}>{savedMsg}</p>}
             <button onClick={guardar}
               className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-bold transition-colors">
               Guardar Alterações
@@ -607,10 +878,27 @@ function ContaSection() {
                 {pass.confirmar && pass.nova !== pass.confirmar && <p className="text-xs text-red-500 font-bold mt-1">Passwords não coincidem</p>}
               </div>
               <button disabled={!pass.actual || !pass.nova || pass.nova !== pass.confirmar}
+                onClick={async () => {
+                  try {
+                    const { error } = await createClientInstance.auth.updateUser({ password: pass.nova })
+                    if (error) throw error
+                    setPassMsg({ text: 'Password alterada com sucesso!', type: 'success' })
+                    setPass({ actual: '', nova: '', confirmar: '' })
+                    setTimeout(() => window.location.reload(), 1500)
+                  } catch (err: any) {
+                    setPassMsg({ text: err.message || 'Erro ao alterar password.', type: 'error' })
+                  }
+                  setTimeout(() => setPassMsg({ text: '', type: '' }), 4000)
+                }}
                 className="w-full bg-gray-800 hover:bg-gray-900 text-white py-2.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
                 Alterar Password
               </button>
             </div>
+            {passMsg.text && (
+              <p className={`mt-3 text-xs font-bold px-3 py-2 border rounded ${passMsg.type === 'success' ? 'text-green-600 bg-green-50 border-green-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
+                {passMsg.text}
+              </p>
+            )}
           </div>
 
           {/* Notificações */}
@@ -1377,6 +1665,7 @@ export default function AdminPage() {
           modalAdicionarPasso={modalAdicionarPasso}
           setModalAdicionarPasso={setModalAdicionarPasso}
           emailOrigem={sessionUser}
+          sites={cyberPanelSites}
         />
       case 'domains':
         return <ListWebsitesSection
@@ -1406,7 +1695,7 @@ export default function AdminPage() {
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || cyberPanelSites[0]?.domain || 'oseudominio.com'} sites={cyberPanelSites} />
       case 'tickets':
-        return <SuporteSection />
+        return <SuporteSection cliente={cliente} sites={cyberPanelSites} />
       case 'faturas':
         return <FacturacaoSection />
       case 'conta':

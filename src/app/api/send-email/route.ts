@@ -4,6 +4,7 @@ import { resend } from '@/lib/resend'
 
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
@@ -92,23 +93,26 @@ export async function POST(req: NextRequest) {
         error: 'Campos obrigatórios em falta (from, to, subject) para envio via SMTP.'
       }, { status: 400 })
     }
+
+    // Detectar configuração do domínio dinamicamente
+    const domainConfig = detectDomainConfig(from)
+    
     // Se não tem password, usar conta SMTP master para autenticar
-    // O campo From: continua a mostrar o email do utilizador
-    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@your-domain.com')
+    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com')
     const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'AdvD2425'
 
-    console.log('Using Nodemailer fallback...');
-    console.log('SMTP DEBUG - user:', smtpUser, '| pass:', smtpPass ? smtpPass.substring(0,4)+'***' : 'VAZIO', '| host:', process.env.SMTP_HOST || '109.199.104.22', '| from:', from);
+    console.log('Using Nodemailer dynamic delivery...');
+    console.log('SMTP DEBUG - user:', smtpUser, '| host:', domainConfig.smtp, '| from:', from);
+    
     const transporter = nodemailer.createTransport({
-      host: '109.199.104.22',
-      port: 465,
-      secure: true,
+      host: domainConfig.smtp,
+      port: domainConfig.ports.smtp,
+      secure: domainConfig.ports.smtp === 465,
       auth: {
-        user: 'admin@your-domain.com',
-        pass: 'Ad.Vd#2425?*'
+        user: smtpUser,
+        pass: smtpPass
       },
       tls: { rejectUnauthorized: false },
-      // TAREFA 3: Timeout explícito para evitar bloqueio >60s
       connectionTimeout: 10000,
       socketTimeout: 15000,
     })
@@ -135,9 +139,9 @@ export async function POST(req: NextRequest) {
         try {
           const { ImapFlow } = await import('imapflow')
           const imapClient = new ImapFlow({
-            host: '109.199.104.22',
-            port: 993,
-            secure: true,
+            host: domainConfig.imap,
+            port: domainConfig.ports.imap,
+            secure: domainConfig.ports.imap === 993,
             auth: { user: from, pass: fromPassword },
             tls: { rejectUnauthorized: false },
             logger: false
