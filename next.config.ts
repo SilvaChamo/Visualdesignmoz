@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['ssh2'],
-  turbopack: {
-    root: __dirname,
-  },
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  outputFileTracingRoot: path.join(__dirname),
   async headers() {
     return [
       {

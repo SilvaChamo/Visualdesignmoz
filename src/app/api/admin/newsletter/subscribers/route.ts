@@ -14,7 +14,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     
-    let query = supabaseAdmin.from('newsletter_subscribers').select('*');
+    let query = supabaseAdmin
+        .from('newsletter_subscribers')
+        .select('*')
+        .or('metadata->>panel.eq.admin,metadata->>domain.is.null');
     
     if (email) {
         query = query.ilike('email', `%${email}%`);
@@ -35,14 +38,14 @@ export async function POST(request: Request) {
         
         const { data, error } = await supabaseAdmin
             .from('newsletter_subscribers')
-            .upsert({ 
+            .insert({
                 email, 
                 full_name, 
                 tags: tags || [], 
-                metadata: metadata || {},
+                metadata: { ...(metadata || {}), panel: 'admin' },
                 status: 'subscribed',
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'email' })
+            })
             .select();
             
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });

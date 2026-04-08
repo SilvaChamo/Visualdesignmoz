@@ -17,10 +17,10 @@ const templates = [
         icon: Newspaper,
         color: 'emerald',
         html: `
-<div style="max-width:600px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
+<div style="margin:-20px;width:calc(100% + 40px);font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#059669,#10b981);padding:32px 24px;text-align:center;">
-    <h1 style="color:#ffffff;font-size:24px;margin:0;font-weight:800;letter-spacing:-0.5px;">✨ Visual Design</h1>
+    <h1 style="color:#ffffff;font-size:24px;margin:0;font-weight:800;letter-spacing:-0.5px;">[Nome da Empresa]</h1>
     <p style="color:#d1fae5;font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:2px;font-weight:700;">Newsletter Semanal</p>
   </div>
   
@@ -33,21 +33,21 @@ const templates = [
     
     <!-- Article Block -->
     <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px;">
-      <h3 style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px 0;">📰 [Título do Artigo]</h3>
+      <h3 style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px 0;">[Título do Artigo]</h3>
       <p style="color:#64748b;font-size:13px;line-height:1.5;margin:0 0 12px 0;">[Breve resumo do artigo ou notícia aqui...]</p>
       <a href="#" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ler Mais</a>
     </div>
     
     <!-- Another Block -->
     <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px;">
-      <h3 style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px 0;">📊 [Cotações de Mercado]</h3>
+      <h3 style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px 0;">[Cotações de Mercado]</h3>
       <p style="color:#64748b;font-size:13px;line-height:1.5;margin:0;">[Insira dados de mercado ou tabela de preços aqui...]</p>
     </div>
   </div>
   
   <!-- Footer -->
   <div style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="color:#94a3b8;font-size:11px;margin:0;">© Visual Design — Soluções Criativas</p>
+    <p style="color:#94a3b8;font-size:11px;margin:0;">[Nome da Empresa] - [Contacto]</p>
     <p style="color:#94a3b8;font-size:10px;margin-top:8px;">
       <a href="#" style="color:#64748b;">Desinscrever-se</a>
     </p>
@@ -61,7 +61,7 @@ const templates = [
         icon: Megaphone,
         color: 'orange',
         html: `
-<div style="max-width:600px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
+<div style="margin:-20px;width:calc(100% + 40px);font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#ea580c,#f97316);padding:40px 24px;text-align:center;">
     <p style="color:#fed7aa;font-size:11px;text-transform:uppercase;letter-spacing:3px;font-weight:800;margin:0 0 8px 0;">Oferta Especial</p>
@@ -87,7 +87,7 @@ const templates = [
   
   <!-- Footer -->
   <div style="background:#1e293b;padding:24px;text-align:center;">
-    <p style="color:#94a3b8;font-size:11px;margin:0;">Visual Design — Marketing & Emailing Profissional</p>
+    <p style="color:#94a3b8;font-size:11px;margin:0;">[Nome da Empresa] - Marketing & Emailing Profissional</p>
     <p style="color:#64748b;font-size:10px;margin-top:8px;">
       <a href="#" style="color:#64748b;">Desinscrever-se</a>
     </p>
@@ -101,7 +101,7 @@ const templates = [
         icon: AlertTriangle,
         color: 'blue',
         html: `
-<div style="max-width:600px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
+<div style="margin:-20px;width:calc(100% + 40px);font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);padding:32px 24px;text-align:center;">
     <h1 style="color:#ffffff;font-size:22px;margin:0;font-weight:800;">ℹ️ Comunicado Importante</h1>
@@ -128,7 +128,7 @@ const templates = [
   
   <!-- Footer -->
   <div style="background:#f8fafc;padding:20px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="color:#94a3b8;font-size:11px;margin:0;">Visual Design</p>
+    <p style="color:#94a3b8;font-size:11px;margin:0;">[Nome da Empresa]</p>
     <p style="color:#94a3b8;font-size:10px;margin-top:8px;">
       <a href="#" style="color:#64748b;">Desinscrever-se</a>
     </p>
@@ -154,8 +154,8 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-lg shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-3">

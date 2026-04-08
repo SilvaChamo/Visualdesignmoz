@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/server'
+import { supabase } from '@/lib/supabase-client'
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings, Target,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
-  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil
+  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -35,12 +36,12 @@ import { EmailTemplates } from "@/components/admin/EmailTemplates"
 import { toast } from "sonner"
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
-import { 
-  adminListarSubscritores as listarSubscritores, 
-  adminAdicionarSubscritor as adicionarSubscritor, 
-  adminRemoverSubscritor as removerSubscritor, 
-  adminListarCampanhas as listarCampanhas, 
-  adminSalvarCampanha as salvarCampanha 
+import {
+  adminListarSubscritores as listarSubscritores,
+  adminAdicionarSubscritor as adicionarSubscritor,
+  adminRemoverSubscritor as removerSubscritor,
+  adminListarCampanhas as listarCampanhas,
+  adminSalvarCampanha as salvarCampanha
 } from '@/app/actions/mailmarketing'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
@@ -73,11 +74,15 @@ function ClienteDashboardHome() {
       const email = user.email
 
       // 1. Carregar Perfil
-      const { data: profile } = await createClientInstance
+      const { data: profile, error: profileError } = await createClientInstance
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
+
+      if (profileError) {
+        console.warn('Perfil não encontrado, usando metadados do usuário:', profileError.message)
+      }
 
       setCliente({
         nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
@@ -92,20 +97,38 @@ function ClienteDashboardHome() {
       const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
       setCyberPanelSites(filteredSites)
 
-      // 3. Carregar Faturas
-      const { data: inv } = await createClientInstance
-        .from('pagamentos')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-      if (inv) setFaturasPendentes(inv)
+      // 3. Carregar Faturas (apenas se tabela existir)
+      try {
+        const { data: inv, error: invError } = await createClientInstance
+          .from('pagamentos')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'pending')
+        
+        if (invError) {
+          console.warn('Erro ao carregar faturas:', invError.message)
+        } else {
+          if (inv) setFaturasPendentes(inv)
+        }
+      } catch (err) {
+        console.warn('Tabela pagamentos não existe:', err)
+      }
 
-      // 4. Carregar Tickets
-      const { data: tkt } = await createClientInstance
-        .from('tickets_suporte')
-        .select('*')
-        .eq('user_id', user.id)
-      if (tkt) setTickets(tkt)
+      // 4. Carregar Tickets (apenas se tabela existir)
+      try {
+        const { data: tkt, error: tktError } = await createClientInstance
+          .from('tickets_suporte')
+          .select('*')
+          .eq('user_id', user.id)
+        
+        if (tktError) {
+          console.warn('Erro ao carregar tickets:', tktError.message)
+        } else {
+          if (tkt) setTickets(tkt)
+        }
+      } catch (err) {
+        console.warn('Tabela tickets_suporte não existe:', err)
+      }
 
     } catch (error) {
       console.error('Erro ao carregar dados do cliente:', error)
@@ -119,10 +142,10 @@ function ClienteDashboardHome() {
   const hoje = new Date()
   const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
   const totalSites = cyberPanelSites.length
-  
+
   // Encontrar a fatura mais próxima
-  const proximaFatura = faturasPendentes.length > 0 
-    ? faturasPendentes.sort((a,b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime())[0]
+  const proximaFatura = faturasPendentes.length > 0
+    ? faturasPendentes.sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime())[0]
     : null
 
   return (
@@ -237,11 +260,11 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const [expanded, setExpanded] = useState<string | null>(null)
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ 
+  const [form, setForm] = useState({
     nome: cliente?.nome || '',
     email: cliente?.email || '',
-    assunto: '', 
-    categoria: 'Geral', 
+    assunto: '',
+    categoria: 'Geral',
     descricao: '',
     prioridade: 'Normal',
     siteId: '',
@@ -251,11 +274,11 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const [enviando, setEnviando] = useState(false)
   const [ticketRef, setTicketRef] = useState('')
   const [erroEnvio, setErroEnvio] = useState('')
-  
+
   // Anti-spam math challenge
   const [captcha, setCaptcha] = useState({ n1: 0, n2: 0, result: 0 })
   const [userAnswer, setUserAnswer] = useState('')
-  
+
   // Attachment
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -313,7 +336,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
     setErroEnvio('')
     try {
       let anexoUrl = ''
-      
+
       // 1. Upload anexo if exists
       if (file) {
         const fileExt = file.name.split('.').pop()
@@ -373,7 +396,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Suporte e Ajuda</h1>
           <p className="text-gray-500 mt-1">Esclareça dúvidas ou reporte problemas técnicos.</p>
-          
+
           <div className="mt-4 flex flex-col gap-2">
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <span className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-full">📞</span>
@@ -385,7 +408,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
             </div>
           </div>
         </div>
-        
+
         <div className="flex flex-wrap gap-3">
           <a href="https://wa.me/258848066605" target="_blank"
             className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-5 py-2.5 rounded-lg text-sm font-bold border border-green-200 transition-all shadow-sm">
@@ -409,10 +432,10 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
         {/* Formulário Novo Ticket */}
         <div id="novo-ticket-form" className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden scroll-mt-20">
           <div className="px-5 py-5 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-             <div className="p-2 bg-red-100 rounded-lg"><span className="text-red-600">🎫</span></div>
-             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Novo Ticket de Suporte</h2>
+            <div className="p-2 bg-red-100 rounded-lg"><span className="text-red-600">🎫</span></div>
+            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Novo Ticket de Suporte</h2>
           </div>
-          
+
           {enviado ? (
             <div className="p-10 text-center space-y-4">
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-2xl">✅</div>
@@ -462,8 +485,8 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                 {/* Serviço Relacionado */}
-                 <div className="space-y-1">
+                {/* Serviço Relacionado */}
+                <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase">Serviço Relacionado</label>
                   <select value={form.siteId} onChange={e => setForm({ ...form, siteId: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
@@ -475,12 +498,12 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-500 uppercase">Prioridade</label>
                   <div className="flex gap-2 h-full items-center">
-                     {['Baixa', 'Normal', 'Alta', 'Urgente'].map(p => (
-                       <button key={p} onClick={() => setForm({...form, prioridade: p})}
-                         className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase transition-all border ${form.prioridade === p ? 'bg-red-600 text-white border-red-600' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300'}`}>
-                         {p}
-                       </button>
-                     ))}
+                    {['Baixa', 'Normal', 'Alta', 'Urgente'].map(p => (
+                      <button key={p} onClick={() => setForm({ ...form, prioridade: p })}
+                        className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase transition-all border ${form.prioridade === p ? 'bg-red-600 text-white border-red-600' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                        {p}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -515,17 +538,17 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
 
                 {/* Anti-Spam / Math Captcha */}
                 <div className="space-y-2">
-                   <label className="text-xs font-bold text-gray-500 uppercase block text-right">Verificação de Segurança</label>
-                   <div className="flex items-center justify-end gap-3">
-                      <span className="text-sm font-bold text-gray-600 italic">Quanto é {captcha.n1} + {captcha.n2}?</span>
-                      <input type="number" value={userAnswer} onChange={e => setUserAnswer(e.target.value)}
-                        placeholder="?" className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-bold focus:ring-2 focus:ring-red-500 outline-none" />
-                   </div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block text-right">Verificação de Segurança</label>
+                  <div className="flex items-center justify-end gap-3">
+                    <span className="text-sm font-bold text-gray-600 italic">Quanto é {captcha.n1} + {captcha.n2}?</span>
+                    <input type="number" value={userAnswer} onChange={e => setUserAnswer(e.target.value)}
+                      placeholder="?" className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-bold focus:ring-2 focus:ring-red-500 outline-none" />
+                  </div>
                 </div>
               </div>
 
               {/* Honeypot (Spam Prevention) */}
-              <input type="text" name="website_url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} className="hidden" tabIndex={-1} />
+              <input type="text" name="website_url" value={form.website_url} onChange={e => setForm({ ...form, website_url: e.target.value })} className="hidden" tabIndex={-1} />
 
               <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
                 <div className="text-[11px] text-gray-400">
@@ -564,9 +587,9 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-gray-800 group-hover:text-red-600 transition-colors">{t.assunto}</span>
                         <div className="flex items-center gap-3 mt-0.5">
-                           <span className="text-[10px] text-gray-400 font-mono">ID: #{String(t.id).substring(0,8)}</span>
-                           <span className="text-[10px] text-gray-400">•</span>
-                           <span className="text-[10px] text-gray-400 italic">{new Date(t.created_at).toLocaleDateString()}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">ID: #{String(t.id).substring(0, 8)}</span>
+                          <span className="text-[10px] text-gray-400">•</span>
+                          <span className="text-[10px] text-gray-400 italic">{new Date(t.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -583,9 +606,9 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                       </div>
                       {t.anexo_url && (
                         <div className="pt-1">
-                           <a href={t.anexo_url} target="_blank" className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline">
-                             <span>🖼️</span> Ver imagem em anexo
-                           </a>
+                          <a href={t.anexo_url} target="_blank" className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                            <span>🖼️</span> Ver imagem em anexo
+                          </a>
                         </div>
                       )}
                       <div className="pt-2">
@@ -603,7 +626,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                   )}
                 </div>
               )
-            ))}
+              ))}
           </div>
         </div>
       </div>
@@ -615,501 +638,501 @@ const RECIPIENT_GROUPS = [
   "Contactos"
 ];
 
-function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab, listas, setListas }: { sites: any[], currentUserEmail?: string, activeTab: string, setActiveTab: (tab: any) => void, listas: string[], setListas: (l: string[]) => void }) {
-  // Filtrar apenas domínios puros (sem mail.)
+function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab, listas, setListas, searchTerm, setSearchTerm }: { sites: any[], currentUserEmail?: string, activeTab: string, setActiveTab: (tab: any) => void, listas: string[], setListas: (l: string[]) => void, searchTerm: string, setSearchTerm: (value: string) => void }) {
+  // Filtrar domínios reais
   const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
-  const [selectedSite, setSelectedSite] = useState(pureSites.length > 0 ? pureSites[0].domain : (sites.length > 0 ? sites[0].domain : ''));
+
+  // Detecção Automática: Tenta primeiro o primeiro site real, depois o hostname atual, depois a agency
+  const getDefaultDomain = () => {
+    if (pureSites.length > 0) return pureSites[0].domain;
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname.replace('client.', '').replace('portal.', '');
+      if (host && host !== 'localhost') return host;
+    }
+    // Sem domínio detectado não forçamos filtro para não esconder contactos.
+    return '';
+  };
+
+  const [selectedSite, setSelectedSite] = useState(getDefaultDomain());
 
   return (
-    <div className="space-y-5">
-      {activeTab === 'comp' && (
-        <MailMarketingComposer selectedSite={selectedSite} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} />
-      )}
-      {activeTab === 'subs' && (
-        <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} />
-      )}
-      {activeTab === 'camp' && (
-        <MailMarketingCampaigns selectedSite={selectedSite} />
-      )}
+    <div className="space-y-5 overflow-hidden">
+      <div className="relative">
+        <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} />
+        </div>
+        <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+          <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </div>
+        <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+          <MailMarketingCampaigns selectedSite={selectedSite} />
+        </div>
+      </div>
     </div>
   )
 }
 
-function MailMarketingComposer({ selectedSite, onGoToContacts, currentUserEmail, listas, setListas }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void }) {
-    const [subject, setSubject] = useState("");
-    const [content, setContent] = useState("");
-    const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
-    const [senderEmail, setSenderEmail] = useState(currentUserEmail || "");
-    const [attachments, setAttachments] = useState<string[]>([]);
-    const [isSending, setIsSending] = useState(false);
-    const [showTemplates, setShowTemplates] = useState(false);
-    const [showNewListPopup, setShowNewListPopup] = useState(false);
-    const [newListTitle, setNewListTitle] = useState("");
+function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void }) {
+  const [subject, setSubject] = useState("");
+  const [content, setContent] = useState("");
+  const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
+  const [senderEmail, setSenderEmail] = useState(currentUserEmail || "");
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showNewListPopup, setShowNewListPopup] = useState(false);
+  const [newListTitle, setNewListTitle] = useState("");
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showValidationError, setShowValidationError] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [user, setUser] = useState<any>(null);
 
-    const handlePlanToggle = (plan: string) => {
-        if (selectedPlans.includes(plan)) {
-            setSelectedPlans(selectedPlans.filter((p: string) => p !== plan));
-        } else {
-            setSelectedPlans([...selectedPlans, plan]);
-        }
+  // Obter dados do usuário logado
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        console.log("USUÁRIO LOGADO:", user);
+      } catch (error) {
+        console.error("Erro ao obter usuário:", error);
+      }
     };
+    getUserData();
+  }, []);
 
-    const handleSend = async () => {
-        if (!subject || !content || selectedPlans.length === 0) {
-            toast.error("Por favor, preencha o assunto, conteúdo e selecione os destinatários.");
-            return;
+  const handlePlanToggle = (plan: string) => {
+    if (selectedPlans.includes(plan)) {
+      setSelectedPlans(selectedPlans.filter((p: string) => p !== plan));
+    } else {
+      setSelectedPlans([...selectedPlans, plan]);
+    }
+  };
+
+  const handleSend = async () => {
+    // Validar campos obrigatórios
+    const errors = [];
+    if (!subject || subject.trim() === '') {
+      errors.push('Assunto do email é obrigatório');
+    }
+    if (!content || content.trim() === '') {
+      errors.push('Conteúdo da mensagem é obrigatório');
+    }
+    if (selectedPlans.length === 0) {
+      errors.push('Selecione pelo menos uma lista de destinatários');
+    }
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationError(true);
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      let finalHtml = content;
+      if (attachments.length > 0) {
+        finalHtml += `<br/><div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;"><strong>Anexos:</strong><ul style="list-style: none; padding: 0; margin-top: 8px;">`;
+        attachments.forEach(url => {
+          const fileName = url.split('/').pop() || "Documento";
+          finalHtml += `<li style="margin-bottom: 8px;"><a href="${url}" target="_blank" style="color: #ea580c; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">📎 ${fileName}</a></li>`;
+        });
+        finalHtml += `</ul></div>`;
+      }
+
+      let allRecipients: { id?: string, email: string }[] = [];
+
+      // Modified for multi-tenant contact fetch
+      if (selectedPlans.length > 0) {
+        console.log("BUSCANDO SUBSCRITORES PARA:", selectedSite);
+        console.log("PLANOS SELECIONADOS:", selectedPlans);
+        
+        let data = await listarSubscritores(selectedSite);
+        // Fallback: se o domínio ativo não tiver contactos, usa todas as listas do cliente.
+        if ((!data || data.length === 0) && selectedSite) {
+          data = await listarSubscritores();
         }
+        console.log("DADOS RECEBIDOS:", data);
+        
+        if (data) {
+          const filteredData = data.filter((s: any) => {
+            const listName = s.metadata?.list || 'Contactos';
+            console.log("VERIFICANDO SUBSCRITOR:", s.email, "LISTA:", listName);
+            return selectedPlans.includes(listName);
+          });
+          console.log("DADOS FILTRADOS:", filteredData);
+          allRecipients = [...allRecipients, ...filteredData.map((s: any) => ({ email: s.email }))];
+        }
+      }
 
-        setIsSending(true);
+      if (allRecipients.length === 0) {
+        toast.error("Nenhum destinatário encontrado na sua lista de contactos.");
+        setIsSending(false);
+        return;
+      }
 
-        try {
-            let finalHtml = content;
-            if (attachments.length > 0) {
-                finalHtml += `<br/><div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;"><strong>Anexos:</strong><ul style="list-style: none; padding: 0; margin-top: 8px;">`;
-                attachments.forEach(url => {
-                    const fileName = url.split('/').pop() || "Documento";
-                    finalHtml += `<li style="margin-bottom: 8px;"><a href="${url}" target="_blank" style="color: #ea580c; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">📎 ${fileName}</a></li>`;
-                });
-                finalHtml += `</ul></div>`;
-            }
+      const uniqueEmails = Array.from(new Set(allRecipients.map((r: any) => r.email)));
+      const emailList = uniqueEmails.filter(Boolean);
 
-            let allRecipients: { id?: string, email: string }[] = [];
+      console.log("INICIANDO PROCESSO DE ENVIO PARA:", emailList.length, "contactos");
+      console.log("LISTA DE EMAILS:", emailList);
+      let targetDomain = selectedSite;
 
-            // Modified for multi-tenant contact fetch
-            if (selectedPlans.includes("Contactos")) {
-                const data = await listarSubscritores(selectedSite);
-                if (data) {
-                    allRecipients = [...allRecipients, ...data.map((s: any) => ({ email: s.email }))];
+      if (!targetDomain || targetDomain === "") {
+        targetDomain = process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || 'visualdesign.pt';
+        console.warn("DOMINIO VAZIO! Usando fallback:", targetDomain);
+        alert("AVISO: Domínio não detetado. Tentando via " + targetDomain);
+      }
+
+      // Obter dados do usuário logado para remetente
+      const clientName =
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.nome ||
+        senderEmail?.split('@')[0] ||
+        user?.email?.split('@')[0] ||
+        '';
+      const clientEmail = senderEmail || user?.email || '';
+
+      console.log("ENVIANDO PARA API:", {
+        to: emailList,
+        subject,
+        content: finalHtml.substring(0, 100) + "...",
+        domain: targetDomain,
+        clientName: clientName,
+        clientEmail: clientEmail,
+        sender: `"${clientName}" <${clientEmail}>`
+      });
+
+      const response = await fetch('/api/mailmarketing-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailList,
+          subject,
+          content: finalHtml,
+          domain: targetDomain,
+          clientName: clientName,
+          clientEmail: clientEmail,
+          sender: clientEmail ? `"${clientName || clientEmail}" <${clientEmail}>` : undefined
+        })
+      });
+
+      console.log("STATUS RESPONSE:", response.status);
+      const result = await response.json();
+      console.log("RESULTADO DA API:", result);
+      if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
+
+      toast.success(`Campanha enviada com sucesso para ${emailList.length} contactos!`);
+
+      await salvarCampanha({
+        subject,
+        content_html: finalHtml,
+        total_recipients: emailList.length,
+        domain: selectedSite
+      });
+
+      setAttachments([]);
+
+      setShowSuccessDialog(true);
+
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Erro ao enviar mensagem: " + error.message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="w-full space-y-5 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <div className="lg:col-span-3 space-y-5">
+          <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+            <div className="bg-slate-200 px-5 py-3 border-b border-slate-300 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Newspaper className="w-5 h-5 text-slate-600" />
+                <h2 className="font-black text-slate-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleSend}
+                  disabled={isSending}
+                  className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
+                >
+                  {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                  Enviar
+                </Button>
+
+                <Button
+                  onClick={() => setShowTemplates(true)}
+                  className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100 cursor-pointer"
+                >
+                  <LayoutTemplate className="w-3 h-3" />
+                  Templates
+                </Button>
+              </div>
+            </div>
+            <div className="">
+              <RichTextEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Escreva o corpo do seu email aqui..."
+                className="min-h-[500px] border-none"
+              >
+                <div className="px-5 py-3 bg-white border-b border-slate-200 flex items-center gap-4">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-200 pr-4">Assunto</span>
+                  <input
+                    type="text"
+                    placeholder="Escreva aqui o assunto da sua campanha..."
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full bg-transparent border-none focus:ring-0 outline-none text-sm font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                  />
+                </div>
+              </RichTextEditor>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <FileIcon className="w-4 h-4 text-orange-600" />
+                Ficheiros em Anexo
+              </h3>
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                {attachments.length} Ficheiros
+              </span>
+            </div>
+
+            <MultiFileUpload
+              value={attachments}
+              onChange={setAttachments}
+              folder="client-marketing"
+              layout="default"
+              description="PDF, Imagens, Documentos (Máx 10MB)"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-5">
+
+          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
+            <div className="w-full">
+              <SenderEmailSelector
+                value={senderEmail}
+                onChange={setSenderEmail}
+                layout="col"
+                currentUserEmail={currentUserEmail}
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+              O endereço selecionado será usado para as respostas.
+            </p>
+          </div>
+
+          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+            <div className="flex flex-col">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
+            </div>
+            <div className="space-y-3">
+              {listas.map(plan => (
+                <div key={plan} className="group relative">
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                    <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
+                    <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                  </label>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setListas(listas.filter(l => l !== plan));
+                      setSelectedPlans(selectedPlans.filter(p => p !== plan));
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Eliminar lista"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+
+              <button onClick={() => setShowNewListPopup(true)} className="w-fit mt-2 ml-1 text-[10px] font-bold text-orange-600 hover:text-slate-900 uppercase tracking-widest underline flex items-center gap-1">
+                <Plus size={10} /> Criar nova lista
+              </button>
+            </div>
+            <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
+              <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showTemplates && (
+        <EmailTemplates
+          onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+      {showNewListPopup && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
+            <div className="mb-5">
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nova Lista</h3>
+              <p className="text-xs text-slate-500 font-medium">Atribua um nome à sua nova audiência.</p>
+            </div>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Ex: Clientes VIP, Black Friday..."
+              value={newListTitle}
+              onChange={(e) => setNewListTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newListTitle) {
+                  setListas([...listas, newListTitle]);
+                  setNewListTitle("");
+                  setShowNewListPopup(false);
                 }
-            }
-            
-            if (allRecipients.length === 0) {
-                toast.error("Nenhum destinatário encontrado na sua lista de contactos.");
-                setIsSending(false);
-                return;
-            }
-
-            const uniqueEmails = Array.from(new Set(allRecipients.map((r: any) => r.email)));
-            const emailList = uniqueEmails.filter(Boolean);
-
-            const response = await fetch('/api/admin/messages/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: emailList,
-                    subject: subject,
-                    html: finalHtml,
-                    attachments: attachments,
-                    replyTo: senderEmail,
-                    targetAudiences: selectedPlans,
-                    domain: selectedSite
-                })
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
-
-            toast.success(`Campanha enviada com sucesso para ${emailList.length} contactos!`);
-            
-            await salvarCampanha({
-                subject,
-                content_html: finalHtml,
-                total_recipients: emailList.length,
-                domain: selectedSite
-            });
-
-            setSubject("");
-            setContent("");
-            setAttachments([]);
-
-        } catch (error: any) {
-            console.error(error);
-            toast.error("Erro ao enviar mensagem: " + error.message);
-        } finally {
-            setIsSending(false);
-        }
-    };
-
-    return (
-        <div className="w-full space-y-5 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-                <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-                        <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
-                            <Newspaper className="w-5 h-5 text-emerald-600" />
-                            <h2 className="font-black text-emerald-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
-                        </div>
-                        <div className="">
-                            <RichTextEditor
-                                value={content}
-                                onChange={setContent}
-                                placeholder="Escreva o corpo do seu email aqui..."
-                                className="min-h-[500px] border-none px-4"
-                            >
-                                <div className="px-5 py-4 bg-white border-b border-slate-50 flex items-center gap-4">
-                                    <span className="text-sm font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-100 pr-4">Assunto</span>
-                                    <input
-                                        type="text"
-                                        placeholder="Escreva aqui o assunto da sua campanha..."
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-lg font-bold placeholder:text-slate-200 text-slate-800 p-0"
-                                    />
-                                </div>
-                            </RichTextEditor>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                <FileIcon className="w-4 h-4 text-orange-600" />
-                                Ficheiros em Anexo
-                            </h3>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-                                {attachments.length} Ficheiros
-                            </span>
-                        </div>
-                        
-                        <MultiFileUpload
-                            value={attachments}
-                            onChange={setAttachments}
-                            folder="client-marketing"
-                            layout="default"
-                            description="PDF, Imagens, Documentos (Máx 10MB)"
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-5">
-                    <div className="flex gap-2">
-                        <Button
-                            onClick={handleSend}
-                            disabled={isSending}
-                            className="flex-1 !bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100"
-                        >
-                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            Enviar
-                        </Button>
-
-                        <Button
-                            onClick={() => setShowTemplates(true)}
-                            className="flex-1 !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100"
-                        >
-                            <LayoutTemplate className="w-5 h-5" />
-                            Templates
-                        </Button>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
-                        <div className="w-full">
-                           <SenderEmailSelector
-                               value={senderEmail}
-                               onChange={setSenderEmail}
-                               layout="col"
-                               currentUserEmail={currentUserEmail}
-                           />
-                        </div>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            O endereço selecionado será usado para as respostas.
-                        </p>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <div className="flex flex-col">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {listas.map(plan => (
-                                <div key={plan} className="group relative">
-                                    <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
-                                        <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
-                                        <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
-                                    </label>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setListas(listas.filter(l => l !== plan));
-                                            setSelectedPlans(selectedPlans.filter(p => p !== plan));
-                                        }}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
-                                        title="Eliminar lista"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                            
-                            <button onClick={() => setShowNewListPopup(true)} className="w-fit mt-2 ml-1 text-[10px] font-bold text-orange-600 hover:text-slate-900 uppercase tracking-widest underline flex items-center gap-1">
-                                <Plus size={10} /> Criar nova lista
-                            </button>
-                        </div>
-                        <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
-                            <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
-                        </div>
-                    </div>
-                </div>
+              }}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all mb-5"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (newListTitle) {
+                    setListas([...listas, newListTitle]);
+                    setNewListTitle("");
+                    setShowNewListPopup(false);
+                  }
+                }}
+                disabled={!newListTitle}
+                className="flex-1 bg-black hover:bg-red-600 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+              >
+                Adicionar
+              </button>
+              <button
+                onClick={() => { setShowNewListPopup(false); setNewListTitle(""); }}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all"
+              >
+                Cancelar
+              </button>
             </div>
-
-            {showTemplates && (
-                <EmailTemplates
-                    onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
-                    onClose={() => setShowTemplates(false)}
-                />
-            )}
-            {showNewListPopup && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 border border-slate-100 animate-in zoom-in-95 duration-300">
-                        <div className="mb-5">
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nova Lista</h3>
-                            <p className="text-xs text-slate-500 font-medium">Atribua um nome à sua nova audiência.</p>
-                        </div>
-                        <input 
-                            autoFocus
-                            type="text" 
-                            placeholder="Ex: Clientes VIP, Black Friday..."
-                            value={newListTitle}
-                            onChange={(e) => setNewListTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && newListTitle) {
-                                    setListas([...listas, newListTitle]);
-                                    setNewListTitle("");
-                                    setShowNewListPopup(false);
-                                }
-                            }}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all mb-5"
-                        />
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => {
-                                    if (newListTitle) {
-                                        setListas([...listas, newListTitle]);
-                                        setNewListTitle("");
-                                        setShowNewListPopup(false);
-                                    }
-                                }}
-                                disabled={!newListTitle}
-                                className="flex-1 bg-black hover:bg-red-600 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
-                            >
-                                Adicionar
-                            </button>
-                            <button 
-                                onClick={() => { setShowNewListPopup(false); setNewListTitle(""); }}
-                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all"
-                            >
-                                Cancelar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+          </div>
         </div>
-    );
+      )}
+
+      {/* Success Popup */}
+      {showSuccessDialog && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 border border-slate-200 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Campanha Enviada!</h3>
+            <p className="text-sm text-slate-500 font-medium mb-6">A sua mensagem foi enviada com sucesso para a lista selecionada.</p>
+            <button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                setSubject("");
+                setContent("");
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+            >
+              OK, Fechar Editor
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Validação de Campos */}
+      {showValidationError && (
+        <>
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-4 max-w-sm w-full mx-4 shadow-xl border border-gray-200">
+              <div className="flex flex-col items-center gap-3 mb-3 text-center">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Campos Obrigatórios</h3>
+                  <p className="text-xs text-gray-500">Preencha todos os campos obrigatórios</p>
+                </div>
+              </div>
+              
+              <div className="space-y-1.5 mb-4 text-center">
+                {validationErrors.map((error, index) => (
+                  <div key={index} className="flex items-center justify-center gap-2 text-xs text-red-600">
+                    <X className="w-3 h-3 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowValidationError(false)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+          <style jsx>{`
+            body { overflow: hidden; }
+          `}</style>
+        </>
+      )}
+    </div>
+  );
 }
 
-function MailMarketingNewsletter({ selectedSite, onGoToContacts, currentUserEmail }: { selectedSite: string, onGoToContacts: () => void, currentUserEmail?: string }) {
-    const [subject, setSubject] = useState("");
-    const [content, setContent] = useState("");
-    const [senderEmail, setSenderEmail] = useState(currentUserEmail || "");
-    const [attachments, setAttachments] = useState<string[]>([]);
-    const [isSending, setIsSending] = useState(false);
-    const [showTemplates, setShowTemplates] = useState(false);
-    const [subscribersCount, setSubscribersCount] = useState(0);
-
-    useEffect(() => {
-        const checkSubs = async () => {
-            const data = await listarSubscritores(selectedSite);
-            if (data) setSubscribersCount(data.length);
-        };
-        checkSubs();
-    }, [selectedSite]);
-
-    const handleSend = async () => {
-        if (!subject || !content) {
-            toast.error("Por favor, preencha o assunto e conteúdo da newsletter.");
-            return;
-        }
-        if (subscribersCount === 0) {
-            toast.error("Nenhum subscritor encontrado.");
-            return;
-        }
-
-        setIsSending(true);
-
-        try {
-            let finalHtml = content;
-            if (attachments.length > 0) {
-                finalHtml += `<br/><div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;"><strong>Anexos:</strong><ul style="list-style: none; padding: 0; margin-top: 8px;">`;
-                attachments.forEach(url => {
-                    const fileName = url.split('/').pop() || "Documento";
-                    finalHtml += `<li style="margin-bottom: 8px;"><a href="${url}" target="_blank" style="color: #ea580c; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">📎 ${fileName}</a></li>`;
-                });
-                finalHtml += `</ul></div>`;
-            }
-
-            const data = await listarSubscritores(selectedSite);
-            let emailList: string[] = [];
-            if (data) {
-                emailList = data.map((s: any) => s.email).filter(Boolean);
-            }
-
-            const response = await fetch('/api/admin/messages/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: emailList,
-                    subject: subject,
-                    html: finalHtml,
-                    attachments: attachments,
-                    replyTo: senderEmail,
-                    targetAudiences: ["Contactos"],
-                    domain: selectedSite
-                })
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
-
-            toast.success(`Newsletter enviada com sucesso para ${emailList.length} subscritor(es)!`);
-            
-            await salvarCampanha({
-                subject: `[NEWS] ${subject}`,
-                content_html: finalHtml,
-                total_recipients: emailList.length,
-                domain: selectedSite
-            });
-
-            setSubject("");
-            setContent("");
-            setAttachments([]);
-
-        } catch (error: any) {
-            console.error(error);
-            toast.error("Erro ao enviar newsletter: " + error.message);
-        } finally {
-            setIsSending(false);
-        }
-    };
-
-    return (
-        <div className="w-full space-y-5 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-                <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-                        <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex items-center gap-3">
-                            <Newspaper className="w-5 h-5 text-emerald-600" />
-                            <h2 className="font-black text-emerald-800 uppercase tracking-widest text-xs">Editor de Newsletter</h2>
-                        </div>
-                        <div className="p-1">
-                            <RichTextEditor
-                                value={content}
-                                onChange={setContent}
-                                placeholder="Escreva a sua newsletter aqui..."
-                                className="min-h-[500px] border-none px-4"
-                            >
-                                <div className="px-5 py-5 bg-white border-b border-slate-50">
-                                    <input
-                                        type="text"
-                                        placeholder="Assunto da newsletter..."
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
-                                    />
-                                </div>
-                            </RichTextEditor>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-5">
-                    <div className="flex gap-2">
-                        <Button
-                            onClick={handleSend}
-                            disabled={isSending}
-                            className="flex-1 bg-[#059669] dark:bg-[#059669] hover:bg-[#dc2626] dark:hover:bg-[#dc2626] text-white dark:text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg shadow-xl shadow-emerald-500/20 transition-all border-none opacity-100 dark:opacity-100"
-                        >
-                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            Enviar
-                        </Button>
-
-                        <Button
-                            onClick={() => setShowTemplates(true)}
-                            className="flex-1 bg-[#1e293b] dark:bg-[#1e293b] hover:bg-[#dc2626] dark:hover:bg-[#dc2626] text-white dark:text-white gap-2 font-black uppercase text-[10px] tracking-widest h-11 rounded-lg transition-all shadow-xl shadow-gray-900/10 border-none opacity-100 dark:opacity-100"
-                        >
-                            <LayoutTemplate className="w-5 h-5" />
-                            Templates
-                        </Button>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
-                        <div className="w-full">
-                           <SenderEmailSelector
-                               value={senderEmail}
-                               onChange={setSenderEmail}
-                               layout="col"
-                               currentUserEmail={currentUserEmail}
-                           />
-                        </div>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            A newsletter será disparada com este remetente.
-                        </p>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Audiência</h3>
-                        <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100/50 flex flex-col gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                                    <Users className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xl font-black text-blue-900">{subscribersCount}</p>
-                                    <p className="text-[10px] uppercase tracking-widest font-bold text-blue-600">Subscritores Ativos</p>
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed border-t border-blue-100/50 pt-3 mt-1">
-                                Esta newsletter será enviada para todos os contactos ativos na sua lista.
-                            </p>
-                        </div>
-                        <button onClick={onGoToContacts} className="w-full py-2.5 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors mt-2">
-                            Gerir Lista de Contactos
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {showTemplates && (
-                <EmailTemplates
-                    onSelect={(html: string) => { setContent(html); setShowTemplates(false); toast.success("Template aplicado!"); }}
-                    onClose={() => setShowTemplates(false)}
-                />
-            )}
-        </div>
-    );
-}
-
-function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[] }) {
+function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, searchTerm, setSearchTerm }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[], searchTerm: string, setSearchTerm: (value: string) => void }) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newListLabel, setNewListLabel] = useState('Contactos');
   const [editingSub, setEditingSub] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const normalizeDomain = (value?: string | null) =>
+    (value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/^mail\./, '')
+      .replace(/\/.*$/, '');
 
   const filteredSubscribers = subscribers.filter(s =>
     !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calcular itens para página atual
+  const totalPages = Math.ceil(filteredSubscribers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredSubscribers.slice(startIndex, endIndex);
+
+  // Resetar página quando mudar busca
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const fetchSubs = async () => {
     try {
       setLoading(true);
-      const data = await listarSubscritores(selectedSite);
+      // Carrega todos os contactos do cliente e filtra localmente por domínio selecionado.
+      // Isso evita inconsistências entre domínios legados e domínios detectados no painel.
+      const data = await listarSubscritores();
       let filtered = data || [];
+      if (selectedSite) {
+        const selectedDomain = normalizeDomain(selectedSite);
+        filtered = filtered.filter((s: any) => normalizeDomain(s.metadata?.domain) === selectedDomain);
+      }
       if (searchTerm) {
         filtered = filtered.filter((s: any) => s.email.toLowerCase().includes(searchTerm.toLowerCase()));
       }
@@ -1140,19 +1163,19 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
     e.preventDefault();
     const email = newEmail?.trim();
     if (!email) return;
-    
+
     try {
       // Tentar gravar no servidor
-      const result = await adicionarSubscritor({ 
-        email: email, 
-        full_name: newName || '', 
-        domain: selectedSite, 
-        list: newListLabel 
+      const result = await adicionarSubscritor({
+        email: email,
+        full_name: newName || '',
+        domain: selectedSite,
+        list: newListLabel
       });
-      
+
       if (result) {
         toast.success("Contacto adicionado com sucesso!");
-        setNewEmail(''); 
+        setNewEmail('');
         setNewName('');
         setShowAddForm(false);
         fetchSubs();
@@ -1191,56 +1214,58 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
     <div className="w-full space-y-5 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
         <div className="flex items-center gap-5">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Lista de Contactos</h2>
-                <p className="text-sm text-slate-500 font-medium tracking-tight">Gestão da base de dados para {selectedSite || 'o seu domínio'}.</p>
-            </div>
+          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <Users className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Lista de Contactos</h2>
+            <p className="text-sm text-slate-500 font-medium tracking-tight">Gestão da base de dados para {selectedSite || 'o seu domínio'}.</p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Seletor de Domínio Integrado */}
-          {sites.length > 1 && (
-            <select 
-                value={selectedSite} 
-                onChange={(e) => setSelectedSite(e.target.value)}
-                className="w-[340px] px-3 py-1.5 text-xs font-black text-slate-900 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500/10 shadow-sm uppercase tracking-widest cursor-pointer hover:bg-slate-50 transition-colors"
+          <div className="relative min-w-[220px]">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+            <select
+              value={selectedSite}
+              onChange={(e) => setSelectedSite(e.target.value)}
+              className="h-10 rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 min-w-[220px]"
             >
-                {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+              <option value="">Todos os domínios</option>
+              {sites.map((site: any) => (
+                <option key={site.domain} value={site.domain}>{site.domain}</option>
+              ))}
             </select>
-          )}
-
+          </div>
           <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-emerald-500/20 transition-all border-none !opacity-100">
-             <Plus size={14} className="mr-1" /> Adicionar
+            <Plus size={14} className="mr-1" /> Adicionar
           </Button>
-          <Button 
-            onClick={() => document.getElementById('csv-import-input')?.click()} 
+          <Button
+            onClick={() => document.getElementById('csv-import-input')?.click()}
             className="!bg-slate-800 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100"
           >
-             <Download size={14} className="mr-1 rotate-180" /> Importar
+            <Download size={14} className="mr-1 rotate-180" /> Importar
           </Button>
-          <input 
+          <input
             id="csv-import-input"
-            type="file" 
-            accept=".csv" 
-            className="hidden" 
+            type="file"
+            accept=".csv"
+            className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              
+
               const reader = new FileReader();
               reader.onload = async (event) => {
                 const text = event.target?.result as string;
                 const lines = text.split('\n');
                 let count = 0;
-                
+
                 toast.loading("A importar contactos...");
-                
+
                 for (let i = 1; i < lines.length; i++) {
                   const line = lines[i].trim();
                   if (!line) continue;
-                  
+
                   const [email, name] = line.split(',');
                   if (email && email.includes('@')) {
                     try {
@@ -1251,7 +1276,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
                     }
                   }
                 }
-                
+
                 toast.dismiss();
                 toast.success(`${count} contactos importados com sucesso!`);
                 fetchSubs();
@@ -1259,81 +1284,130 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
               reader.readAsText(file);
             }}
           />
-          <button onClick={exportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all font-black text-[10px] uppercase tracking-widest border border-slate-200 shadow-sm">
+          <button onClick={exportCSV} className="h-10 flex items-center gap-2 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all font-black text-[10px] uppercase tracking-widest border border-slate-200 shadow-sm">
             <Download size={16} /> Exportar
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-50 flex items-center gap-5 bg-slate-50/30">
-            <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <Input placeholder="Pesquisar contacto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-10 rounded-lg" />
-            </div>
-        </div>
         <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          <table className="w-full text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
-                <tr>
+              <tr>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
-                </tr>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-                {filteredSubscribers.length === 0 ? (
+              {currentItems.length === 0 ? (
                 <tr><td colSpan={4} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
-                ) : filteredSubscribers.map((sub: any) => (
+              ) : currentItems.map((sub: any) => (
                 <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-5 py-[5px]">
-                        <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
-                        </div>
-                    </td>
-                    <td className="px-5 py-[5px]">
-                        <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-widest">
-                            {sub.metadata?.list || 'Contactos'}
-                        </span>
-                    </td>
-                    <td className="px-5 py-[5px]">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
-                             ACTIVE
-                        </span>
-                    </td>
-                    <td className="px-5 py-[5px] text-right">
-                        <div className="flex items-center justify-end gap-2">
-                             <button 
-                                onClick={() => openEdit(sub)}
-                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-slate-100 transition-all bg-white shadow-sm"
-                                title="Editar"
-                            >
-                                <Pencil size={14} />
-                            </button>
-                            <button onClick={() => handleDelete(sub.id, sub.email)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100 hover:border-red-200 transition-all bg-white shadow-sm">
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    </td>
+                  <td className="px-5 py-[5px]">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-[5px]">
+                    <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-widest">
+                      {sub.metadata?.list || 'Contactos'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-[5px]">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      ACTIVE
+                    </span>
+                  </td>
+                  <td className="px-5 py-[5px] text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEdit(sub)}
+                        className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-slate-100 transition-all bg-white shadow-sm"
+                        title="Editar"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(sub.id, sub.email)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100 hover:border-red-200 transition-all bg-white shadow-sm">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-                ))}
+              ))}
             </tbody>
-            </table>
+          </table>
         </div>
       </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              Mostrando {startIndex + 1}-{Math.min(endIndex, filteredSubscribers.length)} de {filteredSubscribers.length} contactos
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Anterior
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-5 animate-in fade-in duration-200">
           <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
               <h3 className="text-lg font-black tracking-tight">{editingSub ? 'Editar Contacto' : 'Novo Contacto'}</h3>
-              <button 
+              <button
                 onClick={() => {
-                   setShowAddForm(false);
-                   setEditingSub(null);
-                   setNewEmail('');
-                }} 
+                  setShowAddForm(false);
+                  setEditingSub(null);
+                  setNewEmail('');
+                }}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <XLucide className="w-5 h-5 text-slate-500" />
@@ -1346,18 +1420,18 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Atribuir à Lista</label>
-                <select 
-                    value={newListLabel} 
-                    onChange={(e) => setNewListLabel(e.target.value)}
-                    className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
+                <select
+                  value={newListLabel}
+                  onChange={(e) => setNewListLabel(e.target.value)}
+                  className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
                 >
-                    {listas.map(l => <option key={l} value={l}>{l}</option>)}
+                  {listas.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div className="pt-2">
                 <Button type="submit" className="w-full h-11 !bg-slate-900 hover:!bg-red-600 text-white font-black uppercase text-[11px] tracking-widest rounded-lg shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100">
                   {editingSub ? 'Guardar Alterações' : (
-                     <><Plus size={16} /> Adicionar</>
+                    <><Plus size={16} /> Adicionar</>
                   )}
                 </Button>
               </div>
@@ -1372,6 +1446,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas }:
 function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchCampaigns = async () => {
     try {
@@ -1390,65 +1465,139 @@ function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
     fetchCampaigns();
   }, [selectedSite]);
 
+  const filteredCampaigns = campaigns.filter(c => !searchTerm || c.subject?.toLowerCase().includes(searchTerm.toLowerCase()));
+
   return (
-    <div className="w-full space-y-5 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-5">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Megaphone className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Campanhas Enviadas</h2>
-                <p className="text-sm text-slate-500 font-medium tracking-tight">Histórico de comunicações para {selectedSite}.</p>
-            </div>
+    <div className="w-full space-y-6 animate-in fade-in duration-500">
+      {/* Header Panel */}
+      <div className="flex items-center gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+        <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+          <BarChart3 className="w-5 h-5 text-orange-600" />
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Histórico de Campanhas</h2>
+          <p className="text-sm text-slate-500 font-medium">Análise de desempenho e registo de mensagens enviadas.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {loading ? (
-             Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm animate-pulse space-y-5">
-                    <div className="h-4 bg-slate-100 rounded w-3/4"></div>
-                    <div className="h-3 bg-slate-50 rounded w-1/2"></div>
-                    <div className="h-20 bg-slate-50 rounded w-full"></div>
-                </div>
-            ))
-        ) : campaigns.length === 0 ? (
-            <div className="col-span-full py-20 text-center bg-white rounded-lg border border-slate-100 shadow-sm">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                    <HistoryIcon size={32} />
-                </div>
-                <p className="text-slate-400 font-medium italic">Nenhuma campanha enviada recentemente.</p>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
+          <Mail className="absolute -right-4 -bottom-4 w-28 h-28 text-slate-50 opacity-50" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Mail className="w-5 h-5 text-blue-600" />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Envios</span>
             </div>
-        ) : campaigns.map((camp) => (
-            <div key={camp.id} className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-3">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        camp.status === 'sent' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                        {camp.status}
-                    </span>
-                </div>
-                <div className="space-y-4">
+            <div className="flex items-end gap-3 pb-2 border-slate-100">
+              <span className="text-4xl font-black text-slate-900 leading-none">{campaigns.reduce((acc, curr) => acc + (curr.total_recipients || 0), 0)}</span>
+              <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md mb-0.5">Acumulado</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
+          <TrendingUp className="absolute -right-4 -bottom-4 w-28 h-28 text-slate-50 opacity-50" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxa de Sucesso</span>
+            </div>
+            <div className="flex items-end gap-3 pb-2">
+              <span className="text-4xl font-black text-slate-900 leading-none">
+                {campaigns.length > 0 ? "100" : "0.0"}%
+              </span>
+              <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-0.5">Entrega</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
+          <Calendar className="absolute -right-4 -bottom-4 w-28 h-28 text-slate-50 opacity-50" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                <ArrowUpRight className="w-5 h-5 text-purple-600" />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campanhas</span>
+            </div>
+            <div className="flex items-end gap-3 pb-2">
+              <span className="text-4xl font-black text-slate-900 leading-none">{campaigns.length}</span>
+              <span className="text-[9px] font-black uppercase text-purple-600 bg-purple-50 px-2 py-1 rounded-md mb-0.5">Executadas</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* List Area */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+        {/* Header List */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-slate-50">
+          <div className="flex items-center gap-3">
+            <h3 className="font-black text-slate-900 uppercase tracking-widest text-[11px]">Lista de Envios</h3>
+            <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-full text-[10px] font-bold border border-slate-100">{filteredCampaigns.length} Registos</span>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text"
+              placeholder="Pesquisar assunto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-300 transition-all text-slate-700" 
+            />
+          </div>
+        </div>
+
+        {/* List Content */}
+        <div className="flex-1 p-5">
+          {loading ? (
+             <div className="flex items-center justify-center h-full pt-10">
+               <Loader2 className="w-6 h-6 text-slate-300 animate-spin" />
+             </div>
+          ) : filteredCampaigns.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full pt-16 pb-12 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mb-6 border border-slate-100">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h4 className="font-black text-slate-900 mb-2">Ainda não enviou nenhuma campanha</h4>
+              <p className="text-sm font-medium text-slate-400">Crie a sua primeira mensagem no compositor.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredCampaigns.map((camp) => (
+                <div key={camp.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Mail className="w-5 h-5 text-slate-400 group-hover:text-orange-600 transition-colors" />
+                    </div>
                     <div>
-                        <h4 className="font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1 pr-12">{camp.subject}</h4>
-                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-1">
-                            <Calendar size={10} /> {new Date(camp.sent_at || camp.created_at).toLocaleString()}
-                        </p>
+                      <h4 className="font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{camp.subject}</h4>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">
+                        {new Date(camp.sent_at || camp.created_at).toLocaleString()}
+                      </p>
                     </div>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destinatários</span>
-                            <span className="text-sm font-bold text-slate-900">{camp.total_recipients || 0}</span>
-                        </div>
-                        <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 border border-slate-200 shadow-sm transition-all hover:bg-orange-600 hover:text-white hover:border-orange-600">
-                            <Eye size={16} />
-                        </div>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <p className="text-[9px] uppercase tracking-widest text-slate-400 font-black mb-0.5">Contactos</p>
+                      <p className="text-sm font-black text-slate-900">{camp.total_recipients || 0}</p>
                     </div>
+                    <div className="w-24 flex justify-end">
+                      <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center justify-center h-6 ${camp.status === 'sent' || !camp.status ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                        {camp.status === 'sent' || !camp.status ? 'Enviado' : camp.status}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+              ))}
             </div>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1629,7 +1778,7 @@ function ContaSection() {
         .select('*')
         .eq('id', user.id)
         .single()
-      
+
       if (profile) {
         setDados({
           nome: profile.nome || '',
@@ -1673,12 +1822,12 @@ function ContaSection() {
         return
       }
 
-      const profileData = { 
-        id: user.id, 
-        nome: dados.nome, 
-        telefone: dados.telefone, 
-        empresa: dados.empresa, 
-        morada: dados.morada, 
+      const profileData = {
+        id: user.id,
+        nome: dados.nome,
+        telefone: dados.telefone,
+        empresa: dados.empresa,
+        morada: dados.morada,
         cidade: dados.cidade,
         email: dados.email,
         updated_at: new Date().toISOString()
@@ -1687,7 +1836,7 @@ function ContaSection() {
       const { error } = await createClientInstance
         .from('profiles')
         .upsert(profileData, { onConflict: 'id' })
-      
+
       if (error) {
         console.error('Erro ao guardar dados:', error.message, error.code, error.details, error.hint)
         setSavedMsg(`Erro: ${error.message || 'Falha ao guardar dados.'}`)
@@ -2333,8 +2482,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 key={page}
                 onClick={() => setCurrentPage(page)}
                 className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${currentPage === page
-                    ? 'bg-red-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 {page}
@@ -2431,6 +2580,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
+  const [mailMarketingSearchTerm, setMailMarketingSearchTerm] = useState('')
   const [mailMarketingListas, setMailMarketingListas] = useState(['Contactos', 'Clientes', 'Newsletter'])
   const [compondoEmail, setCompondoEmail] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -2455,14 +2605,14 @@ export default function AdminPage() {
         const { data: { user } } = await createClientInstance.auth.getUser()
         if (user) {
           setSessionUser(user.email || null)
-          
+
           // Buscar perfil
           const { data: profile } = await createClientInstance
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single()
-          
+
           setCliente({
             nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
             email: user.email
@@ -2511,7 +2661,7 @@ export default function AdminPage() {
       // Filtrar sites pelo email do administrador/cliente
       const allSites = Array.isArray(sites) ? sites : []
       const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
-      
+
       setCyberPanelSites(filteredSites)
       setCyberPanelUsers(Array.isArray(users) ? users : [])
       setCyberPanelPackages(Array.isArray(packages) ? packages : [])
@@ -2582,22 +2732,24 @@ export default function AdminPage() {
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || cyberPanelSites[0]?.domain || 'oseudominio.com'} sites={cyberPanelSites} />
       case 'tickets':
-        return <SuporteSection 
-          cliente={cliente} 
-          sites={cyberPanelSites} 
+        return <SuporteSection
+          cliente={cliente}
+          sites={cyberPanelSites}
           onComposeEmail={() => {
             setActiveSection('email-new'); // ID do menu para Email
             setCompondoEmail(true);
-          }} 
+          }}
         />
       case 'mailmarketing':
-        return <MailMarketingSection 
-          sites={cyberPanelSites} 
-          currentUserEmail={cliente?.email} 
-          activeTab={mailMarketingTab} 
-          setActiveTab={setMailMarketingTab} 
+        return <MailMarketingSection
+          sites={cyberPanelSites}
+          currentUserEmail={cliente?.email}
+          activeTab={mailMarketingTab}
+          setActiveTab={setMailMarketingTab}
           listas={mailMarketingListas}
           setListas={setMailMarketingListas}
+          searchTerm={mailMarketingSearchTerm}
+          setSearchTerm={setMailMarketingSearchTerm}
         />
       case 'faturas':
         return <FacturacaoSection />
@@ -2745,14 +2897,14 @@ export default function AdminPage() {
         <div className="px-2 pb-4 border-b border-gray-100 pt-4">
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3">
-              <img 
-                src="/assets/simbolo.png" 
-                alt="Logo" 
-                className="w-12 h-12 object-contain cursor-pointer" 
-                onClick={() => window.location.href = '/'} 
+              <img
+                src="/assets/simbolo.png"
+                alt="Logo"
+                className="w-12 h-12 object-contain cursor-pointer"
+                onClick={() => window.location.href = '/'}
               />
-              <button 
-                onClick={() => setIsCollapsed(!isCollapsed)} 
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
                 className="rounded-lg hover:bg-gray-100 transition-colors p-1"
               >
                 <LogOut size={22} className="text-gray-500" />
@@ -2760,18 +2912,18 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <img 
-                src="/assets/simbolo.png" 
-                alt="Logo" 
-                className="w-14 h-14 object-contain cursor-pointer" 
-                onClick={() => window.location.href = '/'} 
+              <img
+                src="/assets/simbolo.png"
+                alt="Logo"
+                className="w-14 h-14 object-contain cursor-pointer"
+                onClick={() => window.location.href = '/'}
               />
               <div className="flex-1">
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight">VisualDESIGN</h1>
                 <p className="text-xs text-gray-500">Gestão de Serviços</p>
               </div>
-              <button 
-                onClick={() => setIsCollapsed(!isCollapsed)} 
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
                 className="rounded-lg hover:bg-gray-100 transition-colors p-1"
                 title={isCollapsed ? "Expandir" : "Recolher"}
               >
@@ -2799,8 +2951,8 @@ export default function AdminPage() {
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${isActive
-                      ? 'bg-red-50 text-red-600 font-bold'
-                      : 'hover:bg-gray-100 text-gray-600'
+                    ? 'bg-red-50 text-red-600 font-bold'
+                    : 'hover:bg-gray-100 text-gray-600'
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
@@ -2838,7 +2990,7 @@ export default function AdminPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-4 py-3">
+        <header className="bg-white border-b border-gray-200 px-4 py-3 mb-0">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -2850,19 +3002,39 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center gap-2">
               {activeSection === 'mailmarketing' && (
-                <div className="flex bg-slate-100 p-1 rounded-lg mr-4 shadow-inner">
-                  <button onClick={() => setMailMarketingTab('comp')}
-                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Compor
-                  </button>
-                  <button onClick={() => setMailMarketingTab('camp')}
-                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Campanhas
-                  </button>
-                  <button onClick={() => setMailMarketingTab('subs')}
-                    className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Contactos
-                  </button>
+                <div className="flex items-center gap-3 mr-4">
+                  {mailMarketingTab === 'subs' && (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <Input
+                        placeholder="Pesquisar contacto..."
+                        value={mailMarketingSearchTerm}
+                        onChange={(e) => setMailMarketingSearchTerm(e.target.value)}
+                        className="pl-9 h-10 min-w-[230px] rounded-lg"
+                      />
+                    </div>
+                  )}
+                  <div className="flex relative bg-slate-100 p-1 rounded-lg shadow-inner">
+                    <div 
+                      className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
+                      style={{
+                        width: 'calc(33.33% - 2.66px)',
+                        left: mailMarketingTab === 'comp' ? '4px' : mailMarketingTab === 'camp' ? 'calc(33.33% + 1.33px)' : 'calc(66.66% - 1.33px)',
+                      }}
+                    />
+                    <button onClick={() => setMailMarketingTab('comp')}
+                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      Compor
+                    </button>
+                    <button onClick={() => setMailMarketingTab('camp')}
+                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      Campanhas
+                    </button>
+                    <button onClick={() => setMailMarketingTab('subs')}
+                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      Contactos
+                    </button>
+                  </div>
                 </div>
               )}
               {activeSection === 'emails-new' && (
@@ -2893,3 +3065,4 @@ export default function AdminPage() {
     </div>
   )
 }
+

@@ -29,6 +29,7 @@ export default function SubscritoresPage() {
       let query = supabase
         .from('newsletter_subscribers')
         .select('*')
+        .or('metadata->>panel.eq.admin,metadata->>domain.is.null')
         .order('created_at', { ascending: false });
 
       if (searchTerm) {
@@ -60,7 +61,12 @@ export default function SubscritoresPage() {
     try {
       const { error } = await supabase
         .from('newsletter_subscribers')
-        .insert({ email: newEmail, full_name: newName, status: 'subscribed' });
+        .insert({
+          email: newEmail,
+          full_name: newName,
+          status: 'subscribed',
+          metadata: { panel: 'admin' }
+        });
       
       if (error) throw error;
 

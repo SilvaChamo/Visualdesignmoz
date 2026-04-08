@@ -90,7 +90,8 @@ export default function AdminMessagesPage() {
             if (selectedPlans.includes("Subscritores (Newsletter)")) {
                 const { data: subscribers, error: subError } = await supabase
                     .from('newsletter_subscribers')
-                    .select('email');
+                    .select('email')
+                    .or('metadata->>panel.eq.admin,metadata->>domain.is.null');
 
                 if (subError) throw subError;
                 if (subscribers) {

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bold, Italic, List, ListOrdered, Indent, Outdent, Image as ImageIcon, Loader2, Trash2, ZoomIn, ZoomOut, AlignCenter, AlignLeft, AlignRight } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Indent, Outdent, Image as ImageIcon, Loader2, Trash2, ZoomIn, ZoomOut, AlignCenter, AlignLeft, AlignRight, Link as LinkIcon, Unlink, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +33,8 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
         justifyCenter: false,
         justifyRight: false,
         fontSize: "",
+        commandFontSize: "",
+        fontName: "",
         color: "#000000",
     });
     const [isFocused, setIsFocused] = useState(false);
@@ -90,6 +92,8 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                 justifyRight: document.queryCommandState("justifyRight"),
                 // Detect current color (approximate)
                 color: document.queryCommandValue("foreColor"),
+                fontName: document.queryCommandValue("fontName")?.replace(/['"]/g, ''),
+                commandFontSize: document.queryCommandValue("fontSize"),
                 // Only update font size if input is NOT focused
                 fontSize: isInputFocused ? prev.fontSize : getComputedFontSize(),
             }));
@@ -127,16 +131,22 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
     // Clear selected image or color picker when clicking outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (selectedImage && !selectedImage.contains(e.target as Node)) {
-                setSelectedImage(null);
-                // Remove selection styling
-                document.querySelectorAll('.rich-text-image-selected').forEach(img => {
-                    img.classList.remove('rich-text-image-selected');
-                });
+            const target = e.target as Element;
+
+            // Don't deselect image if clicking inside the toolbar (image controls)
+            if (selectedImage && !selectedImage.contains(target)) {
+                const isToolbarClick = target.closest('[class*="bg-emerald-50"]') || target.closest('button[title]');
+                if (!isToolbarClick) {
+                    setSelectedImage(null);
+                    // Remove selection styling
+                    document.querySelectorAll('.rich-text-image-selected').forEach(img => {
+                        img.classList.remove('rich-text-image-selected');
+                    });
+                }
             }
 
             // Close color picker if clicking outside
-            if (isColorPickerOpen && !(e.target as Element).closest('.relative.group')) {
+            if (isColorPickerOpen && !target.closest('.relative.group')) {
                 setIsColorPickerOpen(false);
             }
         };
@@ -152,10 +162,13 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
     };
 
     const execCommand = (command: string, value: string | undefined = undefined) => {
-        document.execCommand(command, false, value);
+        // Restore selection before executing command so it applies to correct text
+        restoreSelection();
         if (editorRef.current) {
             editorRef.current.focus();
         }
+        document.execCommand(command, false, value);
+        handleInput();
         checkStyles();
     };
 
@@ -219,42 +232,28 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
         setIsUploading(true);
 
         try {
-            let fileToUpload: Blob = file;
+            let fileToProcess: Blob = file;
             const fileSizeMB = file.size / (1024 * 1024);
 
             // Compress if > 1MB
             if (fileSizeMB > 1) {
                 toast.info(`Comprimindo imagem (${fileSizeMB.toFixed(1)}MB)...`);
-                fileToUpload = await compressImage(file, 1);
-                toast.success(`Imagem comprimida para ${(fileToUpload.size / (1024 * 1024)).toFixed(1)}MB`);
+                fileToProcess = await compressImage(file, 1);
+                toast.success(`Imagem comprimida para ${(fileToProcess.size / (1024 * 1024)).toFixed(1)}MB`);
             }
 
-            // Generate unique filename
-            const timestamp = Date.now();
-            const randomStr = Math.random().toString(36).substring(7);
-            const ext = 'jpg';
-            const fileName = `content-images/${timestamp}-${randomStr}.${ext}`;
-
-            // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
-                .from('public-assets')
-                .upload(fileName, fileToUpload, {
-                    cacheControl: '3600',
-                    contentType: 'image/jpeg'
-                });
-
-            if (error) throw error;
-
-            // Get public URL
-            const { data: urlData } = supabase.storage
-                .from('public-assets')
-                .getPublicUrl(fileName);
-
-            const imageUrl = urlData.publicUrl;
+            // Convert to Base64 data URI
+            const imageUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => resolve(ev.target?.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(fileToProcess);
+            });
 
             // Create image element and insert it
             if (editorRef.current) {
-                // Focus editor first to ensure insertion point
+                // Restore selection and focus editor to ensure insertion point
+                restoreSelection();
                 editorRef.current.focus();
 
                 const img = document.createElement('img');
@@ -318,6 +317,10 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
             // Add selection to clicked image
             img.classList.add('rich-text-image-selected');
             setSelectedImage(img);
+        } else if (target.tagName === 'A' || target.closest('a')) {
+            const link = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
+            e.preventDefault();
+            window.open(link.href, "_blank");
         }
         checkStyles();
     };
@@ -346,26 +349,55 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
     // Center selected image
     const centerImage = () => {
         if (!selectedImage) return;
-
-        // Toggle centering
-        const isCentered = selectedImage.style.marginLeft === 'auto' && selectedImage.style.marginRight === 'auto';
-
-        if (isCentered) {
-            // Remove centering
-            selectedImage.style.marginLeft = '0';
-            selectedImage.style.marginRight = '0';
-            selectedImage.style.display = 'inline-block';
-            selectedImage.style.width = '48%';
-            selectedImage.style.margin = '1%';
-        } else {
-            // Center the image and make it full width
-            selectedImage.style.marginLeft = 'auto';
-            selectedImage.style.marginRight = 'auto';
-            selectedImage.style.display = 'block';
-            selectedImage.style.width = '100%';
-            selectedImage.style.margin = '16px auto';
-        }
+        selectedImage.style.float = 'none';
+        selectedImage.style.display = 'block';
+        selectedImage.style.marginLeft = 'auto';
+        selectedImage.style.marginRight = 'auto';
+        selectedImage.style.marginBottom = '16px';
         handleInput();
+    };
+
+    // Float image left (text wraps around right)
+    const floatImageLeft = () => {
+        if (!selectedImage) return;
+        selectedImage.style.display = 'inline-block';
+        selectedImage.style.float = 'left';
+        selectedImage.style.marginLeft = '0';
+        selectedImage.style.marginRight = '16px';
+        selectedImage.style.marginBottom = '16px';
+        handleInput();
+    };
+
+    // Float image right (text wraps around left)
+    const floatImageRight = () => {
+        if (!selectedImage) return;
+        selectedImage.style.display = 'inline-block';
+        selectedImage.style.float = 'right';
+        selectedImage.style.marginLeft = '16px';
+        selectedImage.style.marginRight = '0';
+        selectedImage.style.marginBottom = '16px';
+        handleInput();
+    };
+
+    const insertLink = () => {
+        saveSelection();
+        const url = prompt("Introduza o URL do link (ex: https://google.com):", "https://");
+        if (url) {
+            restoreSelection();
+            if (editorRef.current) editorRef.current.focus();
+            document.execCommand("createLink", false, url);
+            handleInput();
+            checkStyles();
+        }
+    };
+
+    const removeLink = () => {
+        saveSelection();
+        restoreSelection();
+        if (editorRef.current) editorRef.current.focus();
+        document.execCommand("unlink");
+        handleInput();
+        checkStyles();
     };
 
     return (
@@ -373,106 +405,187 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
             className={cn("flex flex-col bg-white overflow-hidden transition-all relative", className)}
         >
             {/* Toolbar */}
-            <div className="flex items-center gap-1.5 px-0 py-2 border-b border-slate-100 bg-white sticky top-0 z-30 flex-wrap">
-                <ToolbarButton onClick={() => execCommand("bold")} icon={<span className="font-black text-lg leading-none font-serif">B</span>} title="Bold" isActive={activeStyles.bold} />
-                <ToolbarButton onClick={() => execCommand("italic")} icon={<Italic className="w-4 h-4" />} title="Italic" isActive={activeStyles.italic} />
-
-                <div className="w-px h-4 bg-slate-300 mx-1" />
-
-                {/* Text Alignment */}
-                <ToolbarButton onClick={() => execCommand("justifyLeft")} icon={<AlignLeft className="w-4 h-4" />} title="Alinhar à Esquerda" isActive={activeStyles.justifyLeft} />
-                <ToolbarButton onClick={() => execCommand("justifyCenter")} icon={<AlignCenter className="w-4 h-4" />} title="Centralizar Texto" isActive={activeStyles.justifyCenter} />
-                <ToolbarButton onClick={() => execCommand("justifyRight")} icon={<AlignRight className="w-4 h-4" />} title="Alinhar à Direita" isActive={activeStyles.justifyRight} />
-
-                <div className="w-px h-4 bg-slate-300 mx-1" />
-
-                {/* Heading Selector */}
+            <div className="flex items-center gap-0 px-1 py-1 border-b border-slate-200 bg-white sticky top-0 z-30 flex-wrap">
+                {/* Font Family Selector */}
                 <select
+                    value={activeStyles.fontName || ""}
+                    onMouseDown={() => saveSelection()}
                     onChange={(e) => {
                         const val = e.target.value;
                         if (val) {
-                            execCommand("formatBlock", val);
-                            e.target.value = ""; // Reset
+                            restoreSelection();
+                            if (editorRef.current) editorRef.current.focus();
+                            document.execCommand("fontName", false, val);
+                            handleInput();
+                            checkStyles();
                         }
                     }}
-                    className="h-8 text-[11px] font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-600 px-2 outline-none hover:border-orange-500 hover:bg-white transition-all cursor-pointer appearance-none min-w-[100px]"
+                    className="h-7 text-[11px] font-bold border border-slate-200 rounded text-slate-600 px-1 outline-none hover:border-emerald-500 hover:text-emerald-700 transition-all cursor-pointer appearance-none min-w-fit pr-4 mr-1 shrink-0"
                 >
-                    <option value="">CABEÇALHO</option>
-                    <option value="H1">Título 1 (H1)</option>
-                    <option value="H2">Título 2 (H2)</option>
-                    <option value="H3">Título 3 (H3)</option>
-                    <option value="H4">Título 4 (H4)</option>
-                    <option value="H5">Título 5 (H5)</option>
-                    <option value="H6">Título 6 (H6)</option>
-                    <option value="P">Parágrafo</option>
+                    <option value="">Fonte Padrão</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Inter">Inter</option>
+                    <option value="Roboto">Roboto</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier</option>
+                    <option value="Verdana">Verdana</option>
+                    <option value="Georgia">Georgia</option>
                 </select>
 
-                <div className="w-px h-4 bg-slate-300 mx-1" />
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("bold"); }} icon={<span className="font-black text-lg leading-none font-serif">B</span>} title="Bold" isActive={activeStyles.bold} />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("italic"); }} icon={<Italic className="w-4 h-4" />} title="Italic" isActive={activeStyles.italic} />
 
-                <ToolbarButton onClick={() => execCommand("insertUnorderedList")} icon={<List className="w-4 h-4" />} title="Lista de Pontos" />
-                <ToolbarButton onClick={() => execCommand("insertOrderedList")} icon={<ListOrdered className="w-4 h-4" />} title="Lista Numerada" />
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
 
-                <div className="w-px h-4 bg-slate-300 mx-1" />
+                {/* Text Alignment */}
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("justifyLeft"); }} icon={<AlignLeft className="w-4 h-4" />} title="Alinhar à Esquerda" isActive={activeStyles.justifyLeft} />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("justifyCenter"); }} icon={<AlignCenter className="w-4 h-4" />} title="Centralizar Texto" isActive={activeStyles.justifyCenter} />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("justifyRight"); }} icon={<AlignRight className="w-4 h-4" />} title="Alinhar à Direita" isActive={activeStyles.justifyRight} />
 
-                <ToolbarButton onClick={() => execCommand("outdent")} icon={<Outdent className="w-4 h-4" />} title="Diminuir Recuo (Tab)" />
-                <ToolbarButton onClick={() => execCommand("indent")} icon={<Indent className="w-4 h-4" />} title="Aumentar Recuo (Tab)" />
 
-                <div className="w-px h-4 bg-slate-300 mx-1" />
+
+                {/* Font Size Selector */}
+                <select
+                    value={activeStyles.commandFontSize || ""}
+                    onMouseDown={() => saveSelection()}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                            restoreSelection();
+                            if (editorRef.current) editorRef.current.focus();
+                            document.execCommand("fontSize", false, val);
+                            handleInput();
+                            checkStyles();
+                        }
+                    }}
+                    className="h-7 w-12 text-[11px] font-bold border border-slate-200 rounded text-slate-600 px-1 text-center outline-none hover:border-emerald-500 hover:text-emerald-700 transition-all cursor-pointer appearance-none shrink-0"
+                    title="Tamanho da Fonte"
+                >
+                    <option value="">Nº</option>
+                    <option value="1">10</option>
+                    <option value="2">12</option>
+                    <option value="3">14</option>
+                    <option value="4">18</option>
+                    <option value="5">24</option>
+                    <option value="6">32</option>
+                    <option value="7">48</option>
+                </select>
+
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
+
+                {/* Line Spacing */}
+                <div className="relative group shrink-0 flex items-center" title="Espaçamento entre linhas">
+                   <ArrowUpDown className="w-3 h-3 text-slate-400 absolute left-1 pointer-events-none" />
+                    <select
+                        onMouseDown={() => saveSelection()}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val) {
+                                restoreSelection();
+                                if (editorRef.current) editorRef.current.focus();
+                                
+                                const selection = window.getSelection();
+                                if (selection && selection.rangeCount > 0) {
+                                    let node = selection.anchorNode;
+                                    if (node?.nodeType === 3) node = node.parentElement; 
+                                    while (node && node !== editorRef.current) {
+                                        if (window.getComputedStyle(node as Element).display === 'block') {
+                                            (node as HTMLElement).style.lineHeight = val;
+                                            (node as HTMLElement).style.marginBottom = `${parseFloat(val) * 0.5}em`;
+                                            break;
+                                        }
+                                        node = node.parentElement;
+                                    }
+                                }
+                                handleInput();
+                                e.target.value = "";
+                            }
+                        }}
+                        className="h-7 w-14 text-[11px] font-bold border border-slate-200 rounded text-slate-600 pl-4 pr-1 outline-none hover:border-emerald-500 hover:text-emerald-700 transition-all cursor-pointer appearance-none shrink-0"
+                    >
+                        <option value="">Espaç.</option>
+                        <option value="1.0">1.0</option>
+                        <option value="1.15">1.15</option>
+                        <option value="1.5">1.5</option>
+                        <option value="2.0">2.0</option>
+                        <option value="2.5">2.5</option>
+                        <option value="3.0">3.0</option>
+                    </select>
+                </div>
+
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
+
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("insertUnorderedList"); }} icon={<List className="w-4 h-4" />} title="Lista de Pontos" />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("insertOrderedList"); }} icon={<ListOrdered className="w-4 h-4" />} title="Lista Numerada" />
+
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
+
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("outdent"); }} icon={<Outdent className="w-4 h-4" />} title="Diminuir Recuo (Tab)" />
+                <ToolbarButton onClick={() => { saveSelection(); execCommand("indent"); }} icon={<Indent className="w-4 h-4" />} title="Aumentar Recuo (Tab)" />
+
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
 
                 {/* Text Color Picker */}
-                <div className="relative group shrink-0">
+                <div className="relative group shrink-0 mx-1">
                     <button
-                        onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+                        onClick={() => { saveSelection(); setIsColorPickerOpen(!isColorPickerOpen); }}
                         className={cn(
-                            "flex items-center gap-2 border border-slate-200 rounded-lg px-2 bg-slate-50 h-8 hover:border-orange-500 hover:bg-white transition-all outline-none",
+                            "w-7 h-7 flex items-center justify-center border border-slate-200 rounded hover:bg-slate-50 transition-all outline-none",
                             isColorPickerOpen && "border-orange-500 bg-white ring-2 ring-orange-500/10"
                         )}
                         title="Cor do Texto"
                     >
-                        <span className="font-black text-[9px] text-slate-400 uppercase select-none">COR</span>
                         <div
-                            className="w-4 h-4 rounded-full border border-white shadow-sm"
+                            className="w-4 h-4 rounded-sm border border-slate-300 shadow-sm"
                             style={{ backgroundColor: activeStyles.color || "#000000" }}
                         />
-                        <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isColorPickerOpen && "rotate-180")} />
                     </button>
                     {/* Palette */}
                     {isColorPickerOpen && (
-                        <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-xl grid grid-cols-4 gap-1 z-50 w-[140px]">
+                        <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-xl grid grid-cols-5 gap-1 z-50 w-[140px]">
                             {[
-                                { color: "#000000", title: "Preto" },
-                                { color: "#475569", title: "Cinza" },
-                                { color: "#2563eb", title: "Azul" },
-                                { color: "#dc2626", title: "Vermelho" },
-                                { color: "#f97316", title: "Laranja (Visual Design)" },
-                                { color: "#ffffff", title: "Branco", border: true },
+                                "#000000", "#434343", "#666666", "#999999", "#b7b7b7", 
+                                "#cccccc", "#d9d9d9", "#efefef", "#f3f3f3", "#ffffff",
+                                "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", 
+                                "#00ffff", "#4a86e8", "#0000ff", "#9900ff", "#ff00ff"
                             ].map((c) => (
                                 <button
-                                    key={c.color}
-                                    className={cn(
-                                        "w-6 h-6 rounded-full hover:scale-110 transition-transform",
-                                        c.border && "border border-slate-200"
-                                    )}
-                                    style={{ backgroundColor: c.color }}
+                                    key={c}
+                                    className="w-5 h-5 hover:scale-110 transition-transform shadow-sm border border-slate-200"
+                                    style={{ backgroundColor: c }}
+                                    onMouseDown={(e) => { 
+                                        e.preventDefault(); 
+                                        restoreSelection();
+                                    }}
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        execCommand("foreColor", c.color);
+                                        if (editorRef.current) editorRef.current.focus();
+                                        document.execCommand("foreColor", false, c);
+                                        handleInput();
+                                        checkStyles();
                                         setIsColorPickerOpen(false); // Close on selection
                                     }}
-                                    title={c.title}
+                                    title={c}
                                 />
                             ))}
                         </div>
                     )}
                 </div>
 
-                <div className="w-px h-4 bg-slate-300 mx-1" />
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
+
+                {/* Link Buttons */}
+                <ToolbarButton onClick={insertLink} icon={<LinkIcon className="w-4 h-4 text-emerald-600" />} title="Inserir Link" />
+                <ToolbarButton onClick={removeLink} icon={<Unlink className="w-4 h-4 text-rose-500" />} title="Remover Link" />
+
+                <div className="w-px h-4 bg-slate-300 mx-1 shrink-0" />
 
                 {/* Image Upload Button */}
                 <ToolbarButton
-                    onClick={() => fileInputRef.current?.click()}
-                    icon={isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                    onClick={() => { saveSelection(); fileInputRef.current?.click(); }}
+                    icon={isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
                     title="Inserir Imagem"
                     disabled={isUploading}
                 />
@@ -501,14 +614,22 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                                 title="Aumentar Imagem"
                             />
                             <ToolbarButton
+                                onClick={floatImageLeft}
+                                className="w-auto px-2 bg-white border border-slate-200 rounded-md shadow-sm h-7 hover:border-emerald-500 hover:text-emerald-600 focus:outline-none"
+                                icon={<AlignLeft className="w-4 h-4" />}
+                                title="Alinhar à Esquerda (Texto à vista)"
+                            />
+                            <ToolbarButton
                                 onClick={centerImage}
-                                icon={
-                                    <div className="flex items-center gap-1.5 px-1">
-                                        <AlignCenter className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase">Centralizar</span>
-                                    </div>
-                                }
+                                className="w-auto px-2 bg-white border border-slate-200 rounded-md shadow-sm h-7 hover:border-emerald-500 hover:text-emerald-600 focus:outline-none"
+                                icon={<AlignCenter className="w-4 h-4" />}
                                 title="Centralizar Imagem"
+                            />
+                            <ToolbarButton
+                                onClick={floatImageRight}
+                                className="w-auto px-2 bg-white border border-slate-200 rounded-md shadow-sm h-7 mr-2 hover:border-emerald-500 hover:text-emerald-600 focus:outline-none"
+                                icon={<AlignRight className="w-4 h-4" />}
+                                title="Alinhar à Direita (Texto à vista)"
                             />
                             <ToolbarButton
                                 onClick={deleteImage}
@@ -534,7 +655,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                 <div
                     ref={editorRef}
                     contentEditable
-                    className="flex-1 px-0 py-6 min-h-[300px] outline-none text-slate-700 text-sm overflow-y-auto prose prose-sm max-w-none prose-headings:my-2 prose-headings:font-black [&_b]:font-black [&_strong]:font-black prose-ul:list-disc prose-ul:pl-5 prose-ol:list-decimal prose-ol:pl-5 marker:text-orange-600 [&_.rich-text-image-selected]:ring-4 [&_.rich-text-image-selected]:ring-orange-500 [&_.rich-text-image-selected]:ring-offset-2 transition-all relative z-0"
+                    className="flex-1 px-[20px] py-[20px] min-h-[300px] outline-none text-slate-700 text-sm overflow-y-auto prose prose-sm max-w-none prose-headings:my-2 prose-headings:font-black [&_b]:font-black [&_strong]:font-black prose-ul:list-disc prose-ul:pl-5 prose-ol:list-decimal prose-ol:pl-5 marker:text-black [&_.rich-text-image-selected]:ring-4 [&_.rich-text-image-selected]:ring-orange-500 [&_.rich-text-image-selected]:ring-offset-2 [&_a]:cursor-pointer [&_a]:text-blue-600 [&_a]:underline hover:[&_a]:text-blue-800 transition-all relative z-0"
                     onInput={handleInput}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
@@ -578,19 +699,23 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
     );
 }
 
-function ToolbarButton({ onClick, icon, title, disabled, isActive }: { onClick: () => void; icon: React.ReactNode; title: string; disabled?: boolean; isActive?: boolean }) {
+function ToolbarButton({ onClick, icon, title, disabled, isActive, className }: { onClick: () => void; icon: React.ReactNode; title: string; disabled?: boolean; isActive?: boolean; className?: string }) {
     return (
         <button
             type="button"
+            onMouseDown={(e) => {
+                e.preventDefault();
+            }}
             onClick={(e) => {
                 e.preventDefault();
                 if (!disabled) onClick();
             }}
             disabled={disabled}
             className={cn(
-                "w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-600 transition-all shrink-0",
+                "w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 transition-all shrink-0",
                 isActive && "text-red-600",
-                disabled && "opacity-50 cursor-not-allowed"
+                disabled && "opacity-50 cursor-not-allowed",
+                className
             )}
             title={title}
         >
