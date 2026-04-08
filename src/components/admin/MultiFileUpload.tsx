@@ -25,7 +25,7 @@ export function MultiFileUpload({
     label = "Anexos",
     description = "Carregue imagens ou documentos (PDF, Docx)",
     maxSizeMB = 10,
-    bucket = "public-assets",
+    bucket = "ticket-attachments",
     folder = "attachments",
     layout = 'default',
     showList = true,
@@ -55,28 +55,26 @@ export function MultiFileUpload({
             }
 
             try {
-                const fileExt = file.name.split('.').pop();
-                const originalName = file.name.split('.').slice(0, -1).join('.');
-                const sanitizedName = originalName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-                const fileName = `${folder}/${Date.now()}-${sanitizedName}.${fileExt}`;
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('bucket', bucket);
+                formData.append('folder', folder);
 
-                const { data, error: uploadError } = await supabase.storage
-                    .from(bucket)
-                    .upload(fileName, file, {
-                        cacheControl: '3600',
-                        upsert: false
-                    });
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from(bucket)
-                    .getPublicUrl(data.path);
-
-                newUrls.push(publicUrl);
+                const response = await fetch('/api/storage-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result?.error || 'Falha no upload');
+                }
+                if (!result?.url) {
+                    throw new Error('URL pública não retornada');
+                }
+                newUrls.push(result.url);
             } catch (err: any) {
                 console.error("Upload error for", file.name, err);
-                errors.push(`Erro ao carregar ${file.name}`);
+                errors.push(`Erro ao carregar ${file.name}: ${err?.message || 'falha no upload'}`);
             }
         }
 
@@ -97,14 +95,13 @@ export function MultiFileUpload({
     };
 
     return (
-        <div className={cn("space-y-3", className)}>
-            {/* Upload Area */}
+        <div className={cn(layout === 'minimal' ? "" : "space-y-3", className)}>
             {layout === 'minimal' ? (
                 <div className="flex flex-wrap gap-2 items-center">
                     <button
                         type="button"
                         className={cn(
-                            "w-10 h-10 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center transition-all shadow-sm active:scale-95",
+                            "w-10 h-10 rounded-full bg-transparent hover:bg-slate-50 flex items-center justify-center transition-all active:scale-95",
                             uploading ? "opacity-50 pointer-events-none" : ""
                         )}
                         onClick={() => !uploading && fileInputRef.current?.click()}
@@ -128,28 +125,7 @@ export function MultiFileUpload({
                     )}
                 </div>
             ) : (
-                <div
-                    className={cn(
-                        "relative rounded-xl border border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all cursor-pointer group flex flex-col items-center justify-center p-8",
-                        uploading ? "opacity-50 pointer-events-none" : ""
-                    )}
-                    onClick={() => !uploading && fileInputRef.current?.click()}
-                >
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mb-3 group-hover:scale-110 transition-transform">
-                        {uploading ? (
-                            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
-                        ) : (
-                            <Paperclip className="w-6 h-6 text-slate-400 group-hover:text-emerald-500" />
-                        )}
-                    </div>
-
-                    <div className="text-center">
-                        <p className="text-sm font-bold text-slate-700">
-                            {uploading ? "A carregar ficheiros..." : `Clique para adicionar ${label}`}
-                        </p>
-                        <p className="text-xs text-slate-400 font-medium mt-1">{description}</p>
-                    </div>
-                </div>
+                <p className="text-xs text-slate-500 font-medium">{description}</p>
             )}
 
             <input
@@ -168,7 +144,7 @@ export function MultiFileUpload({
                 </p>
             )}
 
-            {/* File List (Default Layout) */}
+            {/* File List (Default Layout): sempre em linhas */}
             {layout === 'default' && showList && value.length > 0 && (
                 <div className="space-y-2">
                     {value.map((url, index) => (
@@ -200,6 +176,29 @@ export function MultiFileUpload({
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Botão simples de anexar (default): sempre no fim */}
+            {layout === 'default' && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    className={cn("h-9 text-xs font-bold", uploading ? "opacity-50 pointer-events-none" : "")}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    disabled={uploading}
+                >
+                    {uploading ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            A carregar...
+                        </>
+                    ) : (
+                        <>
+                            <Paperclip className="w-4 h-4 mr-2" />
+                            Anexar ficheiro
+                        </>
+                    )}
+                </Button>
             )}
         </div>
     );

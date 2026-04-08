@@ -194,13 +194,21 @@ export default function AdminMessagesPage() {
                                 className="min-h-[500px] border-none"
                             >
                                 {/* Subject below toolbar */}
-                                <div className="px-6 py-4 bg-white border-b border-slate-50">
+                                <div className="px-6 py-4 bg-white border-b border-slate-50 flex items-center gap-3">
                                     <input
                                         type="text"
                                         placeholder="Indique o assunto da mensagem..."
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
                                         className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                    />
+                                    <MultiFileUpload
+                                        value={attachments}
+                                        onChange={setAttachments}
+                                        folder="admin-messages"
+                                        layout="minimal"
+                                        showList={false}
+                                        className="shrink-0"
                                     />
                                 </div>
                             </RichTextEditor>

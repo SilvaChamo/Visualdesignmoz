@@ -13,6 +13,15 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function adminListarSubscritores(dominio?: string) {
     try {
+        const normalizeDomain = (value?: string | null) =>
+            (value || '')
+                .toLowerCase()
+                .trim()
+                .replace(/^https?:\/\//, '')
+                .replace(/^www\./, '')
+                .replace(/^mail\./, '')
+                .replace(/\/.*$/, '');
+
         const query = supabaseAdmin
             .from('newsletter_subscribers')
             .select('*')
@@ -33,15 +42,6 @@ export async function adminListarSubscritores(dominio?: string) {
         });
         if (!dominio) return allData;
 
-        const normalizeDomain = (value?: string | null) =>
-            (value || '')
-                .toLowerCase()
-                .trim()
-                .replace(/^https?:\/\//, '')
-                .replace(/^www\./, '')
-                .replace(/^mail\./, '')
-                .replace(/\/.*$/, '');
-
         const requestedDomain = normalizeDomain(dominio);
         if (!requestedDomain) return allData;
 
@@ -58,44 +58,44 @@ export async function adminListarSubscritores(dominio?: string) {
     }
 }
 
-export async function adminListarCampanhas(dominio?: string) {
+export async function adminListarCampanhas(dominio?: string, ownerEmail?: string) {
     try {
-        let query = supabaseAdmin
+        const query = supabaseAdmin
             .from('email_campaigns')
             .select('*')
             .order('created_at', { ascending: false })
 
-        if (dominio) {
-            query = query.contains('metadata', { domain: dominio })
-        }
-
         const { data, error } = await query
-        
-        // Se erro for coluna não existente, carrega sem filtro
-        if (error && error.code === '42703') {
-            console.warn('Coluna metadata não existe em email_campaigns, carregando sem filtro');
-            const { data: allData } = await supabaseAdmin
-                .from('email_campaigns')
-                .select('*')
-                .order('created_at', { ascending: false })
-            return allData || []
-        }
-        
         if (error) throw error
-        return data || []
+        const requestedOwner = (ownerEmail || '').toLowerCase().trim()
+
+        // Segurança: campanhas do cliente só visíveis para a própria conta.
+        return (data || []).filter((row: any) => {
+            const sender = (row?.sender_email || '').toLowerCase().trim()
+            if (!sender) return false
+            if (sender.startsWith('admin:')) return false
+            if (!requestedOwner || sender !== requestedOwner) return false
+            return true
+        })
     } catch (error) {
         console.error('Erro no Server Action adminListarCampanhas:', error)
-        throw error
+        return []
     }
 }
 
-export async function adminSalvarCampanha(dados: { subject: string, content_html: string, total_recipients?: number, domain: string, status?: string }) {
+export async function adminSalvarCampanha(dados: { subject: string, content_html: string, total_recipients?: number, domain: string, status?: string, owner_email?: string }) {
     try {
-        // Tenta inserir apenas com subject para evitar constraints
+        const owner = (dados.owner_email || '').toLowerCase().trim()
+        if (!owner) return null
+
         const { data, error } = await supabaseAdmin
             .from('email_campaigns')
             .insert({
-                subject: dados.subject
+                subject: dados.subject,
+                content: dados.content_html,
+                sender_email: owner,
+                recipient_count: dados.total_recipients || 0,
+                status: dados.status || 'sent'
             })
             .select()
             .single()
@@ -164,5 +164,48 @@ export async function adminRemoverSubscritor(id: string) {
     } catch (error) {
         console.error('Erro no Server Action adminRemoverSubscritor:', error)
         throw error
+    }
+}
+
+export async function adminAtualizarSubscritor(
+    id: string,
+    dados: { email: string, full_name?: string, domain: string, list?: string }
+) {
+    try {
+        if (!supabaseUrl || !supabaseServiceKey) {
+            throw new Error('Configuração do Supabase ausente no servidor.');
+        }
+
+        const normalizedEmail = dados.email.toLowerCase().trim();
+        const normalizedDomain = (dados.domain || 'default').toLowerCase();
+
+        const { data, error } = await supabaseAdmin
+            .from('newsletter_subscribers')
+            .update({
+                email: normalizedEmail,
+                full_name: dados.full_name || '',
+                metadata: {
+                    panel: PANEL_SCOPE_CLIENT,
+                    domain: normalizedDomain,
+                    list: dados.list || 'Contactos'
+                },
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('ERRO SUPABASE UPDATE:', error.message);
+            if (error.code === '23505') {
+                throw new Error('Já existe outro contacto com este email nesta lista/painel.');
+            }
+            throw new Error(error.message);
+        }
+
+        return data;
+    } catch (error: any) {
+        console.error('ERRO CRÍTICO NO UPDATE:', error.message);
+        throw error;
     }
 }

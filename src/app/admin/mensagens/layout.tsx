@@ -68,24 +68,29 @@ export default function MensagensLayout({
             </div>
           </div>
 
-          {/* Tabs Navigation */}
-          <div className="flex gap-1 border-b border-gray-100">
+          {/* Tabs Navigation - estilo alinhado ao client */}
+          <div className="flex relative bg-slate-100 p-1 rounded-lg shadow-inner w-fit">
+            <div
+              className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
+              style={{
+                width: 'calc(33.33% - 2.66px)',
+                left: pathname === '/admin/mensagens'
+                  ? '4px'
+                  : pathname === '/admin/mensagens/campanhas'
+                    ? 'calc(33.33% + 1.33px)'
+                    : 'calc(66.66% - 1.33px)',
+              }}
+            />
             {tabs.map((tab) => {
               const isActive = pathname === tab.href;
               const Icon = tab.icon;
-              
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`
-                    flex items-center gap-2 px-6 py-3 text-sm font-bold transition-all duration-200
-                    ${isActive 
-                      ? 'text-red-600 border-b-2 border-red-600 bg-red-50/50' 
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
-                  `}
+                  className={`relative z-10 w-[140px] flex items-center justify-center gap-2 py-2 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${isActive ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  <Icon size={18} />
+                  <Icon size={15} />
                   {tab.name}
                 </Link>
               );

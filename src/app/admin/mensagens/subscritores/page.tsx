@@ -48,10 +48,7 @@ export default function SubscritoresPage() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-        fetchSubscribers();
-    }, 300);
-    return () => clearTimeout(timer);
+    fetchSubscribers();
   }, [searchTerm]);
 
   const handleAddSubscriber = async (e: React.FormEvent) => {

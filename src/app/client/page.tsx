@@ -39,6 +39,7 @@ import { supabase as createClientInstance } from '@/lib/supabase'
 import {
   adminListarSubscritores as listarSubscritores,
   adminAdicionarSubscritor as adicionarSubscritor,
+  adminAtualizarSubscritor as atualizarSubscritor,
   adminRemoverSubscritor as removerSubscritor,
   adminListarCampanhas as listarCampanhas,
   adminSalvarCampanha as salvarCampanha
@@ -655,6 +656,12 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
 
   const [selectedSite, setSelectedSite] = useState(getDefaultDomain());
 
+  useEffect(() => {
+    if (!selectedSite && pureSites.length > 0) {
+      setSelectedSite(pureSites[0].domain);
+    }
+  }, [selectedSite, pureSites]);
+
   return (
     <div className="space-y-5 overflow-hidden">
       <div className="relative">
@@ -665,7 +672,7 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
           <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
-          <MailMarketingCampaigns selectedSite={selectedSite} />
+          <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} />
         </div>
       </div>
     </div>
@@ -700,6 +707,35 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
     };
     getUserData();
   }, []);
+
+  useEffect(() => {
+    if (showTemplates) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showTemplates]);
+
+  const normalizeDomain = (value?: string | null) =>
+    (value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/^mail\./, '')
+      .replace(/\/.*$/, '');
+
+  const allowedDomains = new Set(
+    (sites || [])
+      .map((s: any) => normalizeDomain(s?.domain))
+      .filter(Boolean)
+  );
+
+  const isPlatformDomain = (domain: string) =>
+    domain.includes('visualdesign') || domain.includes('visualdesigne');
 
   const handlePlanToggle = (plan: string) => {
     if (selectedPlans.includes(plan)) {
@@ -757,9 +793,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         
         if (data) {
           const filteredData = data.filter((s: any) => {
+            const contactDomain = normalizeDomain(s?.metadata?.domain);
             const listName = s.metadata?.list || 'Contactos';
             console.log("VERIFICANDO SUBSCRITOR:", s.email, "LISTA:", listName);
-            return selectedPlans.includes(listName);
+            if (!selectedPlans.includes(listName)) return false;
+            if (!contactDomain || isPlatformDomain(contactDomain)) return false;
+            if (allowedDomains.size === 0) return false;
+            return allowedDomains.has(contactDomain);
           });
           console.log("DADOS FILTRADOS:", filteredData);
           allRecipients = [...allRecipients, ...filteredData.map((s: any) => ({ email: s.email }))];
@@ -829,7 +869,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         subject,
         content_html: finalHtml,
         total_recipients: emailList.length,
-        domain: selectedSite
+        domain: selectedSite,
+        owner_email: user?.email || currentUserEmail || ''
       });
 
       setAttachments([]);
@@ -880,7 +921,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                 placeholder="Escreva o corpo do seu email aqui..."
                 className="min-h-[500px] border-none"
               >
-                <div className="px-5 py-3 bg-white border-b border-slate-200 flex items-center gap-4">
+                <div className="px-5 py-0 bg-white border-b border-slate-200 flex items-center gap-4">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-200 pr-4">Assunto</span>
                   <input
                     type="text"
@@ -888,6 +929,14 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     className="w-full bg-transparent border-none focus:ring-0 outline-none text-sm font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                  />
+                  <MultiFileUpload
+                    value={attachments}
+                    onChange={setAttachments}
+                    folder="client-marketing"
+                    layout="minimal"
+                    showList={false}
+                    className="shrink-0"
                   />
                 </div>
               </RichTextEditor>
@@ -1095,9 +1144,12 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newListLabel, setNewListLabel] = useState('Contactos');
+  const [newDomainLabel, setNewDomainLabel] = useState('');
   const [editingSub, setEditingSub] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedSubscriberIds, setSelectedSubscriberIds] = useState<string[]>([]);
   const itemsPerPage = 10;
+
   const normalizeDomain = (value?: string | null) =>
     (value || '')
       .toLowerCase()
@@ -1106,6 +1158,15 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       .replace(/^www\./, '')
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
+
+  const allowedDomains = new Set(
+    (sites || [])
+      .map((s: any) => normalizeDomain(s?.domain))
+      .filter(Boolean)
+  );
+
+  const isPlatformDomain = (domain: string) =>
+    domain.includes('visualdesign') || domain.includes('visualdesigne');
 
   const filteredSubscribers = subscribers.filter(s =>
     !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1122,21 +1183,35 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     setCurrentPage(1);
   }, [searchTerm]);
 
+  useEffect(() => {
+    if (showAddForm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddForm]);
+
   const fetchSubs = async () => {
     try {
       setLoading(true);
-      // Carrega todos os contactos do cliente e filtra localmente por domínio selecionado.
-      // Isso evita inconsistências entre domínios legados e domínios detectados no painel.
-      const data = await listarSubscritores();
-      let filtered = data || [];
-      if (selectedSite) {
-        const selectedDomain = normalizeDomain(selectedSite);
-        filtered = filtered.filter((s: any) => normalizeDomain(s.metadata?.domain) === selectedDomain);
+      let data = await listarSubscritores(selectedSite);
+      // Fallback: evita ecrã vazio quando domínio selecionado não coincide com contactos legados.
+      if ((!data || data.length === 0) && selectedSite) {
+        data = await listarSubscritores();
       }
+      let filtered = (data || []).filter((s: any) => {
+        const contactDomain = normalizeDomain(s?.metadata?.domain);
+        if (!contactDomain || isPlatformDomain(contactDomain)) return false;
+        return allowedDomains.has(contactDomain);
+      });
       if (searchTerm) {
         filtered = filtered.filter((s: any) => s.email.toLowerCase().includes(searchTerm.toLowerCase()));
       }
       setSubscribers(filtered);
+      setSelectedSubscriberIds((prev) => prev.filter((id) => filtered.some((s: any) => s.id === id)));
     } catch (error) {
       console.error(error);
       toast.error("Erro ao carregar subscritores");
@@ -1147,15 +1222,13 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
 
   useEffect(() => {
     fetchSubs();
-    // Forçar um delay mínimo para garantir que o Supabase propagou o dado se necessário
-    const timer = setTimeout(() => fetchSubs(), 2000);
-    return () => clearTimeout(timer);
   }, [selectedSite, searchTerm]);
 
   const openEdit = (sub: any) => {
     setEditingSub(sub);
     setNewEmail(sub.email);
     setNewListLabel(sub.metadata?.list || 'Contactos');
+    setNewDomainLabel(sub.metadata?.domain || selectedSite || '');
     setShowAddForm(true);
   };
 
@@ -1165,19 +1238,25 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     if (!email) return;
 
     try {
-      // Tentar gravar no servidor
-      const result = await adicionarSubscritor({
+      const payload = {
         email: email,
         full_name: newName || '',
-        domain: selectedSite,
+        domain: newDomainLabel || selectedSite || '',
         list: newListLabel
-      });
+      };
+
+      // Em modo edição, atualiza o registo existente em vez de inserir novo.
+      const result = editingSub?.id
+        ? await atualizarSubscritor(editingSub.id, payload)
+        : await adicionarSubscritor(payload);
 
       if (result) {
-        toast.success("Contacto adicionado com sucesso!");
+        toast.success(editingSub ? "Contacto atualizado com sucesso!" : "Contacto adicionado com sucesso!");
         setNewEmail('');
         setNewName('');
+        setNewDomainLabel(selectedSite || '');
         setShowAddForm(false);
+        setEditingSub(null);
         fetchSubs();
       }
     } catch (error: any) {
@@ -1194,6 +1273,37 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       fetchSubs();
     } catch (error) {
       toast.error("Erro ao remover subscritor");
+    }
+  };
+
+  const toggleSelectSubscriber = (id: string) => {
+    setSelectedSubscriberIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllCurrentItems = () => {
+    const currentIds = currentItems.map((sub: any) => sub.id);
+    const isAllSelected = currentIds.every((id: string) => selectedSubscriberIds.includes(id));
+    if (isAllSelected) {
+      setSelectedSubscriberIds((prev) => prev.filter((id) => !currentIds.includes(id)));
+    } else {
+      setSelectedSubscriberIds((prev) => Array.from(new Set([...prev, ...currentIds])));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedSubscriberIds.length === 0) return;
+    if (!confirm(`Remover ${selectedSubscriberIds.length} contacto(s) selecionado(s)?`)) return;
+    try {
+      const selectedMap = new Set(selectedSubscriberIds);
+      const selectedRows = subscribers.filter((s: any) => selectedMap.has(s.id));
+      await Promise.all(selectedRows.map((sub: any) => removerSubscritor(sub.id)));
+      toast.success(`${selectedRows.length} contacto(s) removido(s).`);
+      setSelectedSubscriberIds([]);
+      fetchSubs();
+    } catch (error) {
+      toast.error("Erro ao remover contactos selecionados");
     }
   };
 
@@ -1230,21 +1340,34 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               onChange={(e) => setSelectedSite(e.target.value)}
               className="h-10 rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 min-w-[220px]"
             >
-              <option value="">Todos os domínios</option>
               {sites.map((site: any) => (
                 <option key={site.domain} value={site.domain}>{site.domain}</option>
               ))}
             </select>
           </div>
-          <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-emerald-500/20 transition-all border-none !opacity-100">
-            <Plus size={14} className="mr-1" /> Adicionar
-          </Button>
-          <Button
-            onClick={() => document.getElementById('csv-import-input')?.click()}
-            className="!bg-slate-800 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100"
-          >
-            <Download size={14} className="mr-1 rotate-180" /> Importar
-          </Button>
+          {selectedSubscriberIds.length > 1 ? (
+            <Button
+              onClick={handleDeleteSelected}
+              className="!bg-red-600 hover:!bg-red-700 text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg transition-all border-none !opacity-100"
+            >
+              <Trash2 size={14} className="mr-1" /> Eliminar Selecionados ({selectedSubscriberIds.length})
+            </Button>
+          ) : (
+            <>
+              <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-emerald-500/20 transition-all border-none !opacity-100">
+                <Plus size={14} className="mr-1" /> Adicionar
+              </Button>
+              <Button
+                onClick={() => document.getElementById('csv-import-input')?.click()}
+                className="!bg-slate-800 hover:bg-[#dc2626] text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100"
+              >
+                <Download size={14} className="mr-1 rotate-180" /> Importar
+              </Button>
+              <button onClick={exportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all font-black text-[10px] uppercase tracking-widest border border-slate-200 shadow-sm">
+                <Download size={16} /> Exportar
+              </button>
+            </>
+          )}
           <input
             id="csv-import-input"
             type="file"
@@ -1284,9 +1407,6 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               reader.readAsText(file);
             }}
           />
-          <button onClick={exportCSV} className="h-10 flex items-center gap-2 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all font-black text-[10px] uppercase tracking-widest border border-slate-200 shadow-sm">
-            <Download size={16} /> Exportar
-          </button>
         </div>
       </div>
 
@@ -1295,21 +1415,45 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
           <table className="w-full text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
+                <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest w-[40px]">
+                  <input
+                    type="checkbox"
+                    checked={currentItems.length > 0 && currentItems.every((sub: any) => selectedSubscriberIds.includes(sub.id))}
+                    onChange={toggleSelectAllCurrentItems}
+                    className="accent-orange-600"
+                    aria-label="Selecionar todos os contactos visíveis"
+                  />
+                </th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
+                <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dominio</th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                <th className="px-5 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {currentItems.length === 0 ? (
-                <tr><td colSpan={4} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
               ) : currentItems.map((sub: any) => (
                 <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-5 py-[5px]">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubscriberIds.includes(sub.id)}
+                      onChange={() => toggleSelectSubscriber(sub.id)}
+                      className="accent-orange-600"
+                      aria-label={`Selecionar ${sub.email}`}
+                    />
+                  </td>
                   <td className="px-5 py-[5px]">
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-900 text-sm">{sub.email}</span>
                     </div>
+                  </td>
+                  <td className="px-5 py-[5px]">
+                    <span className="text-[10px] font-black px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100 tracking-widest">
+                      {sub.metadata?.domain || '-'}
+                    </span>
                   </td>
                   <td className="px-5 py-[5px]">
                     <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-widest">
@@ -1398,8 +1542,8 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-5 animate-in fade-in duration-200">
-          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden h-[92vh] max-h-[780px] flex flex-col animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
               <h3 className="text-lg font-black tracking-tight">{editingSub ? 'Editar Contacto' : 'Novo Contacto'}</h3>
               <button
@@ -1407,13 +1551,14 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   setShowAddForm(false);
                   setEditingSub(null);
                   setNewEmail('');
+                  setNewDomainLabel(selectedSite || '');
                 }}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <XLucide className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <form onSubmit={handleAdd} className="p-5 space-y-5">
+            <form onSubmit={handleAdd} className="p-5 space-y-5 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email do Contacto</label>
                 <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-10 border-slate-200 focus:ring-red-500 text-sm" placeholder="exemplo@servico.com" />
@@ -1428,12 +1573,40 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   {listas.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Dominio</label>
+                <select
+                  value={newDomainLabel}
+                  onChange={(e) => setNewDomainLabel(e.target.value)}
+                  className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
+                >
+                  <option value="">Selecionar dominio</option>
+                  {sites.map((site: any) => (
+                    <option key={site.domain} value={site.domain}>{site.domain}</option>
+                  ))}
+                </select>
+              </div>
               <div className="pt-2">
-                <Button type="submit" className="w-full h-11 !bg-slate-900 hover:!bg-red-600 text-white font-black uppercase text-[11px] tracking-widest rounded-lg shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100">
-                  {editingSub ? 'Guardar Alterações' : (
-                    <><Plus size={16} /> Adicionar</>
-                  )}
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button type="submit" className="h-11 !bg-slate-900 hover:!bg-red-600 text-white font-black uppercase text-[11px] tracking-widest rounded-lg shadow-lg shadow-slate-900/10 transition-all border-none !opacity-100">
+                    {editingSub ? 'Guardar Alteracoes' : (
+                      <><Plus size={16} /> Adicionar</>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingSub(null);
+                      setNewEmail('');
+                      setNewName('');
+                      setNewDomainLabel(selectedSite || '');
+                    }}
+                    className="h-11 !bg-slate-100 hover:!bg-slate-200 text-slate-700 font-black uppercase text-[11px] tracking-widest rounded-lg transition-all border border-slate-200 !opacity-100"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
@@ -1443,7 +1616,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   );
 }
 
-function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
+function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSite: string, currentUserEmail?: string }) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1451,7 +1624,7 @@ function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const data = await listarCampanhas(selectedSite);
+      const data = await listarCampanhas(selectedSite, currentUserEmail);
       setCampaigns(data || []);
     } catch (error) {
       console.error(error);
@@ -1492,7 +1665,7 @@ function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Envios</span>
             </div>
             <div className="flex items-end gap-3 pb-2 border-slate-100">
-              <span className="text-4xl font-black text-slate-900 leading-none">{campaigns.reduce((acc, curr) => acc + (curr.total_recipients || 0), 0)}</span>
+              <span className="text-4xl font-black text-slate-900 leading-none">{campaigns.reduce((acc, curr) => acc + (curr.recipient_count || curr.total_recipients || 0), 0)}</span>
               <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md mb-0.5">Acumulado</span>
             </div>
           </div>
@@ -1585,7 +1758,7 @@ function MailMarketingCampaigns({ selectedSite }: { selectedSite: string }) {
                   <div className="flex items-center gap-8">
                     <div className="text-right">
                       <p className="text-[9px] uppercase tracking-widest text-slate-400 font-black mb-0.5">Contactos</p>
-                      <p className="text-sm font-black text-slate-900">{camp.total_recipients || 0}</p>
+                      <p className="text-sm font-black text-slate-900">{camp.recipient_count || camp.total_recipients || 0}</p>
                     </div>
                     <div className="w-24 flex justify-end">
                       <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center justify-center h-6 ${camp.status === 'sent' || !camp.status ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
@@ -3010,7 +3183,7 @@ export default function AdminPage() {
                         placeholder="Pesquisar contacto..."
                         value={mailMarketingSearchTerm}
                         onChange={(e) => setMailMarketingSearchTerm(e.target.value)}
-                        className="pl-9 h-10 min-w-[230px] rounded-lg"
+                        className="pl-9 h-9 min-w-[230px] rounded-lg"
                       />
                     </div>
                   )}
@@ -3023,15 +3196,15 @@ export default function AdminPage() {
                       }}
                     />
                     <button onClick={() => setMailMarketingTab('comp')}
-                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
                       Compor
                     </button>
                     <button onClick={() => setMailMarketingTab('camp')}
-                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
                       Campanhas
                     </button>
                     <button onClick={() => setMailMarketingTab('subs')}
-                      className={`relative z-10 w-[95px] h-10 flex items-center justify-center rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
                       Contactos
                     </button>
                   </div>

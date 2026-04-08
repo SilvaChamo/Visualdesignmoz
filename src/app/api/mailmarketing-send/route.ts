@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
             status: 'SMTP MASTER COM REMETENTE PERSONALIZADO'
         });
 
+        let activeAuthUser = 'admin@visualdesigne.com';
+        let usingGmailFallback = false;
+
         // Tentar servidor local primeiro
         let transporter = nodemailer.createTransport({
             host: emailConfig.smtp,
@@ -58,6 +61,8 @@ export async function POST(req: NextRequest) {
                 ports: { smtp: 587 },
                 ssl: false
             };
+            usingGmailFallback = true;
+            activeAuthUser = 'Visualdesign.moz@gmail.com';
             
             transporter = nodemailer.createTransport({
                 host: emailConfig.smtp,
@@ -104,20 +109,33 @@ export async function POST(req: NextRequest) {
                             ? `"${safeClientName || safeClientEmail}" <${safeClientEmail}>`
                             : process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com');
 
+                    // Para melhor entregabilidade, enviar com conta autenticada e usar replyTo do cliente.
+                    const envelopeFrom = usingGmailFallback
+                        ? `"${safeClientName || 'Cliente'} via VisualDesign" <${activeAuthUser}>`
+                        : personalizedSender;
+
                     await transporter.sendMail({
-                        from: personalizedSender,  // Remetente: cliente
+                        from: envelopeFrom,
+                        replyTo: safeClientEmail || personalizedSender,
                         to: email,
                         subject: subject,
                         html: content,
                     });
                     results.success++;
-                    console.log(`Email enviado para ${email} como ${personalizedSender}`);
+                    console.log(`Email enviado para ${email} como ${envelopeFrom}`);
                 } catch (err: any) {
                     console.error(`Falha ao enviar para ${email}:`, err.message);
                     results.failed++;
                     results.errors.push(`${email}: ${err.message}`);
                 }
             }));
+        }
+
+        if (results.success === 0) {
+            return NextResponse.json({
+                error: 'Nenhum email foi entregue.',
+                details: results
+            }, { status: 500 });
         }
 
         return NextResponse.json({ 

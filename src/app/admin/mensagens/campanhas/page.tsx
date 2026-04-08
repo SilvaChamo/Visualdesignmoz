@@ -28,6 +28,7 @@ export default function CampanhasPage() {
       const { data, error } = await supabase
         .from('email_campaigns')
         .select('*')
+        .ilike('sender_email', 'admin:%')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -44,8 +45,8 @@ export default function CampanhasPage() {
     fetchCampaigns();
   }, []);
 
-  const totalSent = campaigns.reduce((acc, current) => acc + (current.total_recipients || 0), 0);
-  const totalSuccess = campaigns.reduce((acc, current) => acc + (current.successful_sends || 0), 0);
+  const totalSent = campaigns.reduce((acc, current: any) => acc + (current.recipient_count || current.total_recipients || 0), 0);
+  const totalSuccess = campaigns.reduce((acc, current: any) => acc + (current.recipient_count || current.successful_sends || 0), 0);
   const successRate = totalSent > 0 ? (totalSuccess / totalSent) * 100 : 0;
 
   return (
@@ -183,15 +184,15 @@ export default function CampanhasPage() {
               <div className="flex flex-wrap items-center gap-4 lg:justify-end">
                 <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 text-center shadow-sm min-w-[90px]">
                   <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-1">Destinos</p>
-                  <p className="font-black text-slate-900 text-lg leading-none">{campaign.total_recipients}</p>
+                  <p className="font-black text-slate-900 text-lg leading-none">{(campaign as any).recipient_count || campaign.total_recipients || 0}</p>
                 </div>
                 <div className="bg-emerald-50/50 px-4 py-2 rounded-2xl border border-emerald-100/50 text-center shadow-sm min-w-[90px]">
                   <p className="text-[9px] text-emerald-500/70 font-black uppercase tracking-wider mb-1">Sucesso</p>
-                  <p className="font-black text-emerald-700 text-lg leading-none">{campaign.successful_sends}</p>
+                  <p className="font-black text-emerald-700 text-lg leading-none">{(campaign as any).recipient_count || campaign.successful_sends || 0}</p>
                 </div>
                 <div className="bg-rose-50/50 px-4 py-2 rounded-2xl border border-rose-100/50 text-center shadow-sm min-w-[90px]">
                   <p className="text-[9px] text-rose-500/70 font-black uppercase tracking-wider mb-1">Falha</p>
-                  <p className="font-black text-rose-700 text-lg leading-none">{campaign.failed_sends}</p>
+                  <p className="font-black text-rose-700 text-lg leading-none">{campaign.failed_sends || 0}</p>
                 </div>
                 <div className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all ${
                   campaign.status === 'sent' 

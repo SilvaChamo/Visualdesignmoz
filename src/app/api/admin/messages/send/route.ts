@@ -34,6 +34,7 @@ export async function POST(req: Request) {
         }
 
         const senderEmail = replyTo || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
+        const campaignSenderKey = `admin:${senderEmail.toLowerCase()}`;
         const config = detectDomainConfig(senderEmail);
 
         // 2. Configurar transporter SMTP dinâmico
@@ -69,12 +70,12 @@ export async function POST(req: Request) {
                 .from('email_campaigns')
                 .insert({
                     subject,
-                    content_html: html,
-                    sender_email: senderEmail,
-                    target_audiences: targetAudiences || [],
-                    total_recipients: to.length,
+                    content: html,
+                    sender_email: campaignSenderKey,
+                    target_audiences: (targetAudiences || []).join(', '),
+                    recipient_count: to.length,
                     status: 'enviando',
-                    attachments: attachments || []
+                    sent_at: null
                 })
                 .select('id')
                 .single();
@@ -157,14 +158,7 @@ export async function POST(req: Request) {
                     .update({
                         status: totalFailed === to.length ? 'failed' : totalFailed > 0 ? 'partial' : 'sent',
                         sent_at: new Date().toISOString(),
-                        successful_sends: totalSent,
-                        failed_sends: totalFailed,
-                        metadata: {
-                            provider: usedProvider,
-                            chunks_total: chunks.length,
-                            chunk_size: CHUNK_SIZE,
-                            last_error: lastError
-                        }
+                        recipient_count: totalSent
                     })
                     .eq('id', campaignId);
             } catch (e) {
