@@ -218,7 +218,7 @@ const LONG_TIMEOUT = 120000; // 120s
 
 export const cyberPanelAPI = {
   // Websites
-  listWebsites:            ()                    => runSites('listWebsites'),
+  listWebsites:            (timeoutMs?: number)  => runSites('listWebsites', {}, timeoutMs),
   listPackages:            ()                    => run('listPackages'),
   listUsers:               ()                    => run('listUsers'),
   createWebsite:           (p: any)              => run('createWebsite', p, LONG_TIMEOUT),

@@ -35,6 +35,7 @@ import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector"
 import { EmailTemplates } from "@/components/admin/EmailTemplates"
 import { toast } from "sonner"
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import ClientDashboardSkeleton from '@/components/dashboard/ClientDashboardSkeleton'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import {
   adminListarSubscritores as listarSubscritores,
@@ -138,7 +139,7 @@ function ClienteDashboardHome() {
     }
   }
 
-  if (loading || !cliente) return <div>Carregando...</div>
+  if (loading || !cliente) return <ClientDashboardSkeleton />
 
   const hoje = new Date()
   const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
@@ -1042,8 +1043,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         />
       )}
       {showNewListPopup && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
             <div className="mb-5">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nova Lista</h3>
               <p className="text-xs text-slate-500 font-medium">Atribua um nome à sua nova audiência.</p>
@@ -1073,13 +1074,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                   }
                 }}
                 disabled={!newListTitle}
-                className="flex-1 bg-black hover:bg-red-600 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                className="flex-1 bg-black hover:bg-red-600 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
               >
                 Adicionar
               </button>
               <button
                 onClick={() => { setShowNewListPopup(false); setNewListTitle(""); }}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
               >
                 Cancelar
               </button>
@@ -1090,8 +1091,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
       {/* Success Popup */}
       {showSuccessDialog && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
-          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 border border-slate-200 text-center animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-10 w-full max-w-sm mx-4 border border-slate-200 text-center animate-in zoom-in-95 duration-300">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8" />
             </div>
@@ -1103,7 +1104,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                 setSubject("");
                 setContent("");
               }}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+              className="w-full bg-emerald-600 hover:bg-red-600 text-white py-3.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
             >
               OK, Fechar Editor
             </button>
@@ -1114,8 +1115,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       {/* Modal de Validação de Campos */}
       {showValidationError && (
         <>
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-4 max-w-sm w-full mx-4 shadow-xl border border-gray-200">
+          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
               <div className="flex flex-col items-center gap-3 mb-3 text-center">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
@@ -1138,7 +1139,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
               <div className="flex justify-center">
                 <button
                   onClick={() => setShowValidationError(false)}
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
                 >
                   Entendido
                 </button>
