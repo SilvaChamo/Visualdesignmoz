@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
-import { Mail, Users, History, ChevronLeft } from 'lucide-react';
+import { Mail, Users, History, LogOut } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { supabase as createClientInstance } from '@/lib/supabase';
 
@@ -31,7 +31,7 @@ export default function MensagensLayout({
   }, []);
 
   const tabs = [
-    { name: 'Enviar Emails', href: '/admin/mensagens', icon: Mail },
+    { name: 'Compor', href: '/admin/mensagens', icon: Mail },
     { name: 'Subscritores', href: '/admin/mensagens/subscritores', icon: Users },
     { name: 'Campanhas', href: '/admin/mensagens/campanhas', icon: History },
   ];
@@ -52,49 +52,39 @@ export default function MensagensLayout({
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header Area */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/admin" 
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
-              >
-                <ChevronLeft size={20} />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Email Marketing</h1>
-                <p className="text-sm text-gray-500">Gira as tuas campanhas e lista de subscritores</p>
-              </div>
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-xs text-gray-400 mt-0.5">Gestão de email marketing</p>
             </div>
-          </div>
+            <div className="flex items-center gap-2">
+              {/* Tabs Navigation */}
+              <div className="flex bg-slate-100 p-1 rounded-lg shadow-inner">
+                {tabs.map((tab) => {
+                  const isActive = pathname === tab.href;
+                  return (
+                    <Link
+                      key={tab.href}
+                      href={tab.href}
+                      className={`flex-1 flex items-center justify-center py-1.5 px-3 rounded-md text-[10px] font-black uppercase text-center transition-all ${isActive ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      {tab.name}
+                    </Link>
+                  );
+                })}
+              </div>
 
-          {/* Tabs Navigation - estilo alinhado ao client */}
-          <div className="flex relative bg-slate-100 p-1 rounded-lg shadow-inner w-fit">
-            <div
-              className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
-              style={{
-                width: 'calc(33.33% - 2.66px)',
-                left: pathname === '/admin/mensagens'
-                  ? '4px'
-                  : pathname === '/admin/mensagens/campanhas'
-                    ? 'calc(33.33% + 1.33px)'
-                    : 'calc(66.66% - 1.33px)',
-              }}
-            />
-            {tabs.map((tab) => {
-              const isActive = pathname === tab.href;
-              const Icon = tab.icon;
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  className={`relative z-10 w-[140px] flex items-center justify-center gap-2 py-2 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${isActive ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  <Icon size={15} />
-                  {tab.name}
-                </Link>
-              );
-            })}
+              {/* Botão Sair */}
+              <button
+                onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
+                className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                title="Sair da Conta"
+              >
+                <LogOut size={13} />
+                Sair da Conta
+              </button>
+            </div>
           </div>
         </div>
 

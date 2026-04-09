@@ -3130,10 +3130,10 @@ export default function AdminPage() {
                 onClick={() => window.location.href = '/'}
               />
               <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={() => setIsCollapsed(false)}
                 className="rounded-lg hover:bg-gray-100 transition-colors p-1"
               >
-                <LogOut size={22} className="text-gray-500" />
+                <ChevronRight size={22} className="text-gray-500" />
               </button>
             </div>
           ) : (
@@ -3154,9 +3154,9 @@ export default function AdminPage() {
                 title={isCollapsed ? "Expandir" : "Recolher"}
               >
                 {isCollapsed ? (
-                  <LogOut size={22} className="text-gray-500" />
+                  <ChevronRight size={22} className="text-gray-500" />
                 ) : (
-                  <LogOut size={22} className="text-gray-500 -scale-x-100" />
+                  <ChevronLeft size={22} className="text-gray-500" />
                 )}
               </button>
             </div>
@@ -3216,14 +3216,14 @@ export default function AdminPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-4 py-3 mb-0">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 mb-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Dashboard
+              <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                {menuItems.find(i => i.id === activeSection)?.label || 'Painel de Gestão'}
               </h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Visão geral do servidor
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                VisualDesign Admin Cloud
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -3280,7 +3280,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-5">
+        <main className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
           <div
             key={activeSection}
           >
@@ -3291,4 +3291,3 @@ export default function AdminPage() {
     </div>
   )
 }
-

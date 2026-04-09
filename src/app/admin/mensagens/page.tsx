@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Send, FileText, FileArchive, File as FileIcon, X, LayoutTemplate, Sparkles, Newspaper } from "lucide-react";
+import { Loader2, Send, FileText, FileArchive, File as FileIcon, X, LayoutTemplate, Sparkles, Newspaper, Plus } from "lucide-react";
 import { MultiFileUpload } from "@/components/admin/MultiFileUpload";
 import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
 import { EmailTemplates } from "@/components/admin/EmailTemplates";
@@ -29,6 +29,8 @@ export default function AdminMessagesPage() {
 
     const [isSending, setIsSending] = useState(false);
     const [showTemplates, setShowTemplates] = useState(false);
+    const [showNewListModal, setShowNewListModal] = useState(false);
+    const [newListName, setNewListName] = useState("");
 
     const handlePlanToggle = (plan: string) => {
         if (selectedPlans.includes(plan)) {
@@ -245,9 +247,7 @@ export default function AdminMessagesPage() {
 
                     {/* Target Audience */}
                     <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <div className="flex flex-col">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
-                        </div>
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
                         <div className="space-y-3">
                             {PLANS.map(plan => (
                                 <div key={plan} className="group relative">
@@ -258,6 +258,13 @@ export default function AdminMessagesPage() {
                                 </div>
                             ))}
                         </div>
+                        <button
+                            onClick={() => setShowNewListModal(true)}
+                            className="text-xs font-bold text-slate-600 hover:text-red-600 transition-colors flex items-center gap-1.5 uppercase tracking-wider"
+                        >
+                            <Plus className="w-3 h-3" />
+                            Criar Nova Lista
+                        </button>
                         <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
                             <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                             <p className="text-[10px] text-blue-800 font-medium leading-relaxed">A sua mensagem também será guardada no histórico de notificações internas.</p>
@@ -276,6 +283,55 @@ export default function AdminMessagesPage() {
                     }}
                     onClose={() => setShowTemplates(false)}
                 />
+            )}
+
+            {/* New List Modal */}
+            {showNewListModal && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Criar Nova Lista</h3>
+                            <button onClick={() => setShowNewListModal(false)} className="p-2 hover:bg-white rounded-lg transition-colors group">
+                                <X className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 tracking-wider">Nome da Lista</label>
+                                <Input
+                                    type="text"
+                                    value={newListName}
+                                    onChange={(e) => setNewListName(e.target.value)}
+                                    className="rounded-lg border-slate-200 h-11"
+                                    placeholder="Ex: Clientes Premium"
+                                />
+                            </div>
+                            <div className="flex gap-3">
+                                <Button
+                                    onClick={() => setShowNewListModal(false)}
+                                    variant="outline"
+                                    className="flex-1 h-11 rounded-lg font-bold text-slate-600"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        if (newListName.trim()) {
+                                            toast.success(`Lista "${newListName}" criada!`);
+                                            setNewListName("");
+                                            setShowNewListModal(false);
+                                        } else {
+                                            toast.error("Digite um nome para a lista");
+                                        }
+                                    }}
+                                    className="flex-1 h-11 bg-emerald-600 hover:bg-red-600 text-white font-black rounded-lg transition-all shadow-lg border-none !opacity-100"
+                                >
+                                    Criar Lista
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
