@@ -524,6 +524,21 @@ export async function salvarCampanha(dados: { subject: string, content_html: str
   }
 }
 
+export async function removerCampanha(id: string) {
+  try {
+    const { error } = await supabase
+      .from('email_campaigns')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Erro ao remover campanha:', error)
+    return false
+  }
+}
+
 export async function registrarAtividade(
   usuarioId: string,
   usuarioTipo: 'admin' | 'client',
@@ -573,5 +588,6 @@ export default {
   adicionarSubscritor,
   removerSubscritor,
   listarCampanhas,
-  salvarCampanha
+  salvarCampanha,
+  removerCampanha
 }

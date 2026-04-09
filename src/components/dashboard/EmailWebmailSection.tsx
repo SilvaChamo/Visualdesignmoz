@@ -998,15 +998,19 @@ export function EmailWebmailSection({
                         />
                       </div>
                     )}
-                    {/* Skeleton Loader */}
+                    {/* Skeleton Loader Premium */}
                     {carregandoEmails && emails.length === 0 && (
-                      <div className="flex-1 p-4 space-y-4">
+                      <div className="flex-1 overflow-hidden">
                         {[1, 2, 3, 4, 5, 6].map(n => (
-                          <div key={n} className="flex items-center gap-3 animate-pulse">
-                            <div className="w-4 h-4 bg-gray-200 rounded" />
-                            <div className="flex-1 space-y-2">
-                              <div className="h-3 bg-gray-200 rounded w-1/4" />
-                              <div className="h-3 bg-gray-100 rounded w-3/4" />
+                          <div key={n} className="border-b border-gray-100 flex items-start gap-3 px-3 py-4 bg-white animate-in fade-in duration-500">
+                            <div className="w-4 h-4 bg-gray-200 rounded mt-0.5 animate-pulse shrink-0" />
+                            <div className="flex-1 space-y-2.5">
+                              <div className="flex justify-between items-center">
+                                <div className="h-4 bg-gray-300 rounded-md w-1/3 animate-pulse" />
+                                <div className="h-3 bg-gray-200 rounded-md w-16 animate-pulse" />
+                              </div>
+                              <div className="h-4 bg-gray-200 rounded-md w-3/4 animate-pulse" />
+                              <div className="h-3 bg-gray-100 rounded-md w-full animate-pulse" />
                             </div>
                           </div>
                         ))}

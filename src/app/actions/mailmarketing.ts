@@ -113,6 +113,21 @@ export async function adminSalvarCampanha(dados: { subject: string, content_html
     }
 }
 
+export async function adminRemoverCampanha(id: string) {
+    try {
+        const { error } = await supabaseAdmin
+            .from('email_campaigns')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+        return true
+    } catch (error) {
+        console.error('Erro no Server Action adminRemoverCampanha:', error)
+        throw error
+    }
+}
+
 export async function adminAdicionarSubscritor(dados: { email: string, full_name?: string, domain: string, list?: string }) {
     try {
         if (!supabaseUrl || !supabaseServiceKey) {

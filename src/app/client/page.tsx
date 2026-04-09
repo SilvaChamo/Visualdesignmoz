@@ -43,7 +43,8 @@ import {
   adminAtualizarSubscritor as atualizarSubscritor,
   adminRemoverSubscritor as removerSubscritor,
   adminListarCampanhas as listarCampanhas,
-  adminSalvarCampanha as salvarCampanha
+  adminSalvarCampanha as salvarCampanha,
+  adminRemoverCampanha as removerCampanha
 } from '@/app/actions/mailmarketing'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
@@ -640,6 +641,62 @@ const RECIPIENT_GROUPS = [
   "Contactos"
 ];
 
+function MailMarketingContactsSkeleton() {
+  return (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <tr key={i} className="hover:bg-slate-50/50 transition-colors animate-in fade-in duration-500">
+          <td className="px-5 py-[5px]">
+            <div className="w-4 h-4 bg-slate-200 rounded animate-pulse" />
+          </td>
+          <td className="px-5 py-4">
+            <div className="space-y-2">
+              <div className="h-4 w-32 bg-slate-300 rounded animate-pulse" />
+              <div className="h-3 w-48 bg-slate-200 rounded animate-pulse" />
+            </div>
+          </td>
+          <td className="px-5 py-4"><div className="h-4 w-28 bg-slate-200 rounded animate-pulse" /></td>
+          <td className="px-5 py-4"><div className="h-6 w-20 bg-slate-100 rounded-md animate-pulse" /></td>
+          <td className="px-5 py-4"><div className="h-5 w-16 bg-emerald-50 rounded-md animate-pulse" /></td>
+          <td className="px-5 py-4">
+            <div className="flex items-center justify-end gap-2">
+              <div className="w-7 h-7 bg-slate-100 rounded animate-pulse" />
+              <div className="w-7 h-7 bg-red-50 rounded animate-pulse" />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  )
+}
+
+function MailMarketingCampaignsSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-white animate-in fade-in duration-500">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-slate-100 rounded-xl border border-slate-50 animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-4 bg-slate-300 rounded w-48 animate-pulse" />
+              <div className="h-3 bg-slate-200 rounded w-32 animate-pulse" />
+            </div>
+          </div>
+          <div className="flex items-center gap-8">
+            <div className="text-right space-y-2">
+              <div className="h-3 bg-slate-200 rounded w-16 animate-pulse ml-auto" />
+              <div className="h-4 bg-slate-300 rounded w-12 animate-pulse ml-auto" />
+            </div>
+            <div className="w-24 flex justify-end">
+              <div className="h-6 bg-slate-100 rounded-md w-16 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab, listas, setListas, searchTerm, setSearchTerm }: { sites: any[], currentUserEmail?: string, activeTab: string, setActiveTab: (tab: any) => void, listas: string[], setListas: (l: string[]) => void, searchTerm: string, setSearchTerm: (value: string) => void }) {
   // Filtrar domínios reais
   const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
@@ -656,6 +713,7 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   };
 
   const [selectedSite, setSelectedSite] = useState(getDefaultDomain());
+  const [campaignToResend, setCampaignToResend] = useState<any>(null);
 
   useEffect(() => {
     if (!selectedSite && pureSites.length > 0) {
@@ -667,20 +725,20 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
     <div className="space-y-5 overflow-hidden">
       <div className="relative">
         <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} />
+          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} />
+          <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} onResend={(camp) => { setCampaignToResend(camp); setActiveTab('comp'); }} />
         </div>
       </div>
     </div>
   )
 }
 
-function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void }) {
+function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
   const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
@@ -710,14 +768,9 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   }, []);
 
   useEffect(() => {
-    if (showTemplates) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    if (showTemplates) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
   }, [showTemplates]);
 
   const normalizeDomain = (value?: string | null) =>
@@ -1488,7 +1541,9 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {currentItems.length === 0 ? (
+              {loading ? (
+                <MailMarketingContactsSkeleton />
+              ) : currentItems.length === 0 ? (
                 <tr><td colSpan={6} className="px-5 py-20 text-center text-slate-400">Nenhum subscritor encontrado.</td></tr>
               ) : currentItems.map((sub: any) => (
                 <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
@@ -1670,10 +1725,11 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   );
 }
 
-function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSite: string, currentUserEmail?: string }) {
+function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { selectedSite: string, currentUserEmail?: string, onResend?: (c: any) => void }) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
 
   const fetchCampaigns = async () => {
     try {
@@ -1767,6 +1823,25 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSi
           <div className="flex items-center gap-3">
             <h3 className="font-black text-slate-900 uppercase tracking-widest text-[11px]">Lista de Envios</h3>
             <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-full text-[10px] font-bold border border-slate-100">{filteredCampaigns.length} Registos</span>
+            
+            {selectedCampaignIds.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (confirm(`Tem a certeza que deseja eliminar ${selectedCampaignIds.length} campanhas?`)) {
+                    for (const id of selectedCampaignIds) {
+                      await removerCampanha(id);
+                    }
+                    setSelectedCampaignIds([]);
+                    fetchCampaigns();
+                  }
+                }}
+                className="ml-4 flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                title="Apagar seleccionadas"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                ({selectedCampaignIds.length}) Apagar
+              </button>
+            )}
           </div>
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1783,9 +1858,7 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSi
         {/* List Content */}
         <div className="flex-1 p-5">
           {loading ? (
-             <div className="flex items-center justify-center h-full pt-10">
-               <Loader2 className="w-6 h-6 text-slate-300 animate-spin" />
-             </div>
+             <MailMarketingCampaignsSkeleton />
           ) : filteredCampaigns.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full pt-16 pb-12 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mb-6 border border-slate-100">
@@ -1796,9 +1869,32 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSi
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Select All Checkbox - Opcional se houver poucas */}
+              <div className="flex items-center gap-3 px-2 border-b border-slate-50 pb-2">
+                <input 
+                  type="checkbox"
+                  checked={filteredCampaigns.length > 0 && selectedCampaignIds.length === filteredCampaigns.length}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedCampaignIds(filteredCampaigns.map(c => c.id));
+                    else setSelectedCampaignIds([]);
+                  }}
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seleccionar Todas</span>
+              </div>
+              
               {filteredCampaigns.map((camp) => (
-                <div key={camp.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition-all group">
+                <div key={camp.id} className={`flex items-center justify-between p-4 rounded-xl border ${selectedCampaignIds.includes(camp.id) ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'} transition-all group`}>
                   <div className="flex items-center gap-4">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCampaignIds.includes(camp.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedCampaignIds(prev => [...prev, camp.id]);
+                        else setSelectedCampaignIds(prev => prev.filter(id => id !== camp.id));
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    />
                     <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
                       <Mail className="w-5 h-5 text-slate-400 group-hover:text-orange-600 transition-colors" />
                     </div>
@@ -1809,15 +1905,40 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSi
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-8">
+                  <div className="flex items-center gap-6">
                     <div className="text-right">
                       <p className="text-[9px] uppercase tracking-widest text-slate-400 font-black mb-0.5">Contactos</p>
                       <p className="text-sm font-black text-slate-900">{camp.recipient_count || camp.total_recipients || 0}</p>
                     </div>
-                    <div className="w-24 flex justify-end">
+                    <div className="w-20 flex justify-end">
                       <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center justify-center h-6 ${camp.status === 'sent' || !camp.status ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
                         {camp.status === 'sent' || !camp.status ? 'Enviado' : camp.status}
                       </span>
+                    </div>
+                    
+                    {/* Acções */}
+                    <div className="flex items-center gap-2">
+                       <button
+                         onClick={() => {
+                           if (onResend) onResend(camp);
+                         }}
+                         className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 text-slate-400 transition-all font-bold"
+                         title="Reenviar Campanha"
+                       >
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                       </button>
+                       <button
+                         onClick={async () => {
+                           if (confirm(`Tem a certeza que deseja eliminar a campanha "${camp.subject}"?`)) {
+                             await removerCampanha(camp.id);
+                             fetchCampaigns();
+                           }
+                         }}
+                         className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 transition-all font-bold"
+                         title="Apagar Campanha"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
                     </div>
                   </div>
                 </div>
@@ -1834,6 +1955,62 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail }: { selectedSi
 
 
 
+
+function FaturasSkeleton() {
+  return (
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <div>
+        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse mb-2"></div>
+        <div className="h-4 w-72 bg-gray-100 rounded-md animate-pulse"></div>
+      </div>
+
+      {/* Resumo */}
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+            <div className="h-3 bg-gray-300 rounded w-32 animate-pulse mb-3" />
+            <div className="h-8 bg-gray-200 rounded w-24 animate-pulse" />
+            {i === 2 && <div className="h-3 bg-gray-100 rounded w-20 animate-pulse mt-2" />}
+          </div>
+        ))}
+      </div>
+
+      {/* Histórico Tabela */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mt-5">
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex">
+          <div className="h-4 bg-gray-300 rounded w-48 animate-pulse" />
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-gray-50">
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-16 animate-pulse" /></th>
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-12 animate-pulse" /></th>
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-10 animate-pulse" /></th>
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-16 animate-pulse" /></th>
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-14 animate-pulse" /></th>
+              <th className="px-5 py-3"><div className="h-3 bg-gray-200 rounded w-16 animate-pulse" /></th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5].map(i => (
+              <tr key={i} className="border-b border-gray-50">
+                <td className="px-5 py-3">
+                  <div className="h-4 bg-gray-300 rounded w-32 animate-pulse mb-1.5" />
+                  <div className="h-3 bg-gray-200 rounded w-48 animate-pulse" />
+                </td>
+                <td className="px-5 py-3"><div className="h-4 bg-gray-200 rounded w-24 animate-pulse" /></td>
+                <td className="px-5 py-3"><div className="h-4 bg-gray-200 rounded w-20 animate-pulse" /></td>
+                <td className="px-5 py-3"><div className="h-4 bg-gray-200 rounded w-16 animate-pulse" /></td>
+                <td className="px-5 py-3"><div className="h-5 bg-green-100 rounded-full w-12 animate-pulse" /></td>
+                <td className="px-5 py-3"><div className="h-4 bg-blue-100 rounded w-16 animate-pulse" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 // Componente FacturacaoSection
 function FacturacaoSection() {
@@ -1870,6 +2047,8 @@ function FacturacaoSection() {
       setLoading(false)
     }
   }
+
+  if (loading) return <FaturasSkeleton />
 
   return (
     <div className="space-y-5">
@@ -1982,6 +2161,60 @@ function FacturacaoSection() {
   )
 }
 
+// Componente Conta Skeleton
+function ContaSkeleton() {
+  return (
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <div>
+        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse mb-2"></div>
+        <div className="h-4 w-72 bg-gray-100 rounded-md animate-pulse"></div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <div className="h-4 w-32 bg-gray-200 rounded mb-6 animate-pulse"></div>
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i}>
+                <div className="h-3 w-24 bg-gray-100 rounded mb-2 animate-pulse"></div>
+                <div className="h-10 w-full bg-slate-50/80 rounded-lg border border-slate-100 animate-pulse"></div>
+              </div>
+            ))}
+            <div className="h-10 w-full bg-slate-200 rounded-lg mt-4 animate-pulse"></div>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+            <div className="h-4 w-32 bg-gray-200 rounded mb-6 animate-pulse"></div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i}>
+                  <div className="h-3 w-24 bg-gray-100 rounded mb-2 animate-pulse"></div>
+                  <div className="h-10 w-full bg-slate-50/80 rounded-lg border border-slate-100 animate-pulse"></div>
+                </div>
+              ))}
+              <div className="h-10 w-full bg-slate-200 rounded-lg mt-4 animate-pulse"></div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+            <div className="h-4 w-40 bg-gray-200 rounded mb-6 animate-pulse"></div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="h-4 w-48 bg-gray-100 rounded animate-pulse"></div>
+                  <div className="h-5 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Componente ContaSection
 function ContaSection() {
   const [dados, setDados] = useState<any>(null)
@@ -2030,7 +2263,8 @@ function ContaSection() {
   const [cancelModal, setCancelModal] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
 
-  if (loading || !dados) return <div className="p-5">Carregando dados da conta...</div>
+  if (loading || !dados) return <ContaSkeleton />
+
 
 
   const forcaPassword = (p: string) => {
@@ -2288,7 +2522,41 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
   )
 }
 
-function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync }: {
+function WebsiteSkeleton() {
+  return (
+    <div className="w-full space-y-4 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-8 w-28 bg-gray-200 rounded-lg animate-pulse"></div>
+          <div className="h-8 w-32 bg-gray-200 rounded-lg animate-pulse"></div>
+          <div className="h-8 w-28 bg-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+        <div className="h-9 w-52 bg-gray-100 border border-gray-200 rounded-lg animate-pulse"></div>
+      </div>
+      <div className="space-y-2 mt-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-lg border border-gray-100 shadow-sm p-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-40 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-16 bg-gray-100 rounded-full animate-pulse"></div>
+              <div className="h-5 w-20 bg-gray-100 rounded-full animate-pulse"></div>
+              <div className="h-4 w-16 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-20 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-4 w-28 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync, isFetching }: {
   sites: CyberPanelWebsite[],
   onRefresh: () => void,
   packages: CyberPanelPackage[],
@@ -2297,7 +2565,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   setSelectedDNSDomain: (domain: string) => void,
   loadCyberPanelData: () => void,
   syncing: boolean,
-  handleSync: () => void
+  handleSync: () => void,
+  isFetching?: boolean
 }) {
   const parseState = (state: any) => {
     if (state === 1 || state === '1' || state === 'Active') return 'Active'
@@ -2323,6 +2592,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     s.domain.toLowerCase().includes(search.toLowerCase()) &&
     !s.domain.includes('contaboserver') &&
     !s.domain.includes('localhost') &&
+    !s.domain.toLowerCase().startsWith('mail.') &&
     s.isActive === true
   )
 
@@ -2443,57 +2713,24 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     )
   }
 
+  if (isFetching) return <WebsiteSkeleton />
+
   return (
     <div className="w-full space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-base font-bold text-gray-900">Websites ({filtered.length})</span>
-          <button onClick={handleSync} disabled={syncing}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'A sincronizar...' : 'Sincronizar'}
-          </button>
-          <button onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
-            <Plus className="w-3 h-3" /> Criar Website
-          </button>
-          <button onClick={() => {
-            const rows = [['Domínio', 'IP', 'Estado', 'Pacote']]
-            sites.forEach(s => rows.push([s.domain, '109.199.104.22', s.state || 'Active', (s as any).package || 'Default']))
-            const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'websites.csv'; a.click()
-          }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold">
-            ↓ Exportar CSV
-          </button>
-        </div>
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar websites..."
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm w-52" />
-        </div>
-      </div>
+      {/* Header Removido */}
 
       {msg && <div className="px-4 py-2.5 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
 
-      {/* Lista de sites como cards expansíveis */}
+      {/* Lista de sites */}
       <div className="space-y-2">
         {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded-lg border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
+          <div key={i} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden transition-all">
 
             {/* Linha do site com botões explícitos */}
             <div className="flex items-center justify-between px-4 py-5">
 
               {/* Info do site */}
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setExpandedSite(expandedSite === s.domain ? null : s.domain)}
-                  className="p-1 rounded hover:bg-gray-100 transition-colors"
-                  title="Expandir/Colapsar"
-                >
-                  <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedSite === s.domain ? 'rotate-90' : ''}`} />
-                </button>
                 <Globe className="w-4 h-4 text-blue-500" />
                 <a href={`https://${s.domain}`} target="_blank"
                   className="text-blue-600 hover:underline font-bold text-sm">
@@ -2517,177 +2754,59 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 )}
               </div>
 
-              {/* Botões */}
-              <div className="flex items-center gap-3">
-                {/* Botão Gerir — abre cards de gestão */}
-                <button
-                  onClick={() => setExpandedSite(expandedSite === s.domain ? null : s.domain)}
-                  className="bg-black hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                  Gerir
-                </button>
-
-                {/* Botão Explorar Directório — sem fundo, texto link */}
-                <button
-                  onClick={() => {
-                    setFileManagerDomain(s.domain)
-                    setTimeout(() => setActiveSection('file-manager'), 50)
-                  }}
-                  className="text-gray-600 hover:text-red-600 text-xs font-medium transition-colors underline-offset-2 hover:underline">
-                  Explorar directório
-                </button>
-              </div>
             </div>
 
-            {/* Conteúdo expandido */}
-            {expandedSite === s.domain && (
-              <div className="border-t border-gray-100 p-4 space-y-4">
-
-                {/* Grid de cards de detalhes editáveis */}
-                <div className="grid grid-cols-4 gap-3">
-
-                  {/* COLUNA 1 — Screenshot */}
-                  <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-36 relative">
-                    <iframe
-                      src={`https://${s.domain}`}
-                      className="absolute top-0 left-0"
-                      style={{ width: '400%', height: '400%', transform: 'scale(0.25)', transformOrigin: 'top left', pointerEvents: 'none' }}
-                      scrolling="no"
-                      sandbox="allow-same-origin"
-                    />
-                  </div>
-
-                  {/* COLUNA 2 — State + Disk Usage */}
-                  <div className="flex flex-col gap-3">
-                    <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).diskUsed ? `${(s as any).diskUsed}MB` : '0MB'}</p>
-                    </div>
-                  </div>
-
-                  {/* COLUNA 3 — IP + Package */}
-                  <div className="flex flex-col gap-3">
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
-                    </div>
-                    <EditableField domain={s.domain} field="package" value={(s as any).package || 'Default'} label="Package" />
-                  </div>
-
-                  {/* COLUNA 4 — PHP + Owner */}
-                  <div className="flex flex-col gap-3">
-                    <EditableField domain={s.domain} field="php" value={(s as any).phpVersion || 'PHP 8.2'} label="PHP Version" />
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-1">Owner</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).owner || 'admin'}</p>
-                    </div>
-                  </div>
-
+            {/* Conteúdo Permanente */}
+            <div className="border-t border-gray-100 p-4 space-y-4">
+              {/* Grid de cards de detalhes editáveis */}
+              <div className="grid grid-cols-4 gap-3">
+                {/* COLUNA 1 — Screenshot */}
+                <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-36 relative">
+                  <iframe
+                    src={`https://${s.domain}`}
+                    className="absolute top-0 left-0"
+                    style={{ width: '400%', height: '400%', transform: 'scale(0.25)', transformOrigin: 'top left', pointerEvents: 'none' }}
+                    scrolling="no"
+                    sandbox="allow-same-origin"
+                  />
                 </div>
 
-                {/* Botões de acção numa linha */}
-                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                  <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
-                    <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
-                  </a>
-                  <button
-                    onClick={async () => {
-                      setLoading(s.domain + '-ssl')
-                      try {
-                        // Primeiro verificar se o domínio resolve para o IP correcto
-                        const checkRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `dig +short ${s.domain} 2>&1` }
-                          })
-                        })
-                        const checkData = await checkRes.json()
-                        const resolvedIP = (checkData.data?.output || '').trim()
-                        const serverIP = '109.199.104.22'
+                {/* COLUNA 2 — State + Disk Usage */}
+                <div className="flex flex-col gap-3">
+                  <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
+                    <p className="text-sm font-bold text-gray-900">{(s as any).diskUsed ? `${(s as any).diskUsed}MB` : '0MB'}</p>
+                  </div>
+                </div>
 
-                        if (!resolvedIP) {
-                          alert(`⚠️ DNS não propagou ainda!\n\nO domínio "${s.domain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
+                {/* COLUNA 3 — IP + Package */}
+                <div className="flex flex-col gap-3">
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
+                    <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
+                  </div>
+                  <EditableField domain={s.domain} field="package" value={(s as any).package || 'Default'} label="Package" />
+                </div>
 
-                        if (!resolvedIP.includes(serverIP)) {
-                          alert(`⚠️ DNS ainda não propagou!\n\nO domínio "${s.domain}" está a resolver para:\n${resolvedIP}\n\nMas devia resolver para:\n${serverIP}\n\nAguarda a propagação DNS e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
-
-                        // DNS está correcto — emitir SSL
-                        const sslRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `cyberpanel issueSSL --domainName ${s.domain} 2>&1` }
-                          })
-                        })
-                        const sslData = await sslRes.json()
-                        const output = sslData.data?.output || ''
-
-                        if (output.toLowerCase().includes('success') || output.toLowerCase().includes('issued')) {
-                          alert(`✅ SSL emitido com sucesso para ${s.domain}!`)
-                          onRefresh()
-                        } else {
-                          alert(`⚠️ Erro ao emitir SSL:\n\n${output}`)
-                        }
-
-                      } catch (e: any) {
-                        alert('Erro: ' + e.message)
-                      }
-                      setLoading(null)
-                    }} disabled={loading === s.domain + '-ssl'}
-                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
-                    <Lock className="w-3.5 h-3.5" /> {loading === s.domain + '-ssl' ? 'A verificar...' : 'Issue SSL'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedDNSDomain(s.domain)
-                      setActiveSection('domains-dns')
-                    }}
-                    className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
-                    <Server className="w-3.5 h-3.5" /> Editar DNS
-                  </button>
-                  <button onClick={async () => {
-                    setLoading(s.domain + '-backup')
-                    try {
-                      await fetch('/api/server-exec', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'execCommand',
-                          params: { command: `mkdir -p /home/backup/full && cyberpanel createBackup --domainName ${s.domain} --backupPath /home/backup/full 2>&1` }
-                        })
-                      })
-                      alert(`✅ Backup de "${s.domain}" criado com sucesso!\n\nPode ver na página Backups.`)
-                    } catch (e: any) {
-                      alert('Erro ao criar backup: ' + e.message)
-                    }
-                    setLoading(null)
-                  }}
-                    disabled={loading === s.domain + '-backup'}
-                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
-                    {loading === s.domain + '-backup'
-                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      : <Archive className="w-3.5 h-3.5" />
-                    }
-                    {loading === s.domain + '-backup' ? 'A criar...' : 'Backup'}
-                  </button>
-                  <button onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
-                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
-                    <Power className="w-3.5 h-3.5" /> {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
-                  </button>
-                  <button onClick={() => handleDelete(s.domain)} disabled={loading === s.domain}
-                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
-                    <Trash2 className="w-3.5 h-3.5" /> {loading === s.domain ? 'A apagar...' : 'Apagar'}
-                  </button>
+                {/* COLUNA 4 — PHP + Owner */}
+                <div className="flex flex-col gap-3">
+                  <EditableField domain={s.domain} field="php" value={(s as any).phpVersion || 'PHP 8.2'} label="PHP Version" />
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">Owner</p>
+                    <p className="text-sm font-bold text-gray-900">{(s as any).owner || 'admin'}</p>
+                  </div>
                 </div>
               </div>
-            )}
+
+              {/* Botões de acção numa linha */}
+              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm">
+                   <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
+                </a>
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -2954,6 +3073,7 @@ export default function AdminPage() {
           loadCyberPanelData={loadCyberPanelData}
           syncing={syncing}
           handleSync={handleSync}
+          isFetching={isFetchingCyberPanel}
         />
       case 'file-manager':
       case 'cp-file-manager':
