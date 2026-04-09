@@ -94,8 +94,7 @@ export async function adminSalvarCampanha(dados: { subject: string, content_html
                 subject: dados.subject,
                 content: dados.content_html,
                 sender_email: owner,
-                recipient_count: dados.total_recipients || 0,
-                status: dados.status || 'sent'
+                recipient_count: dados.total_recipients || 0
             })
             .select()
             .single()

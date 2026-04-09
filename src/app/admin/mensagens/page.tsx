@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Send, FileText, FileArchive, File as FileIcon, X, LayoutTemplate, Sparkles, MessageSquare } from "lucide-react";
+import { Loader2, Send, FileText, FileArchive, File as FileIcon, X, LayoutTemplate, Sparkles, Newspaper } from "lucide-react";
 import { MultiFileUpload } from "@/components/admin/MultiFileUpload";
 import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
 import { EmailTemplates } from "@/components/admin/EmailTemplates";
@@ -146,61 +146,50 @@ export default function AdminMessagesPage() {
     };
 
     return (
-        <div className="w-full max-w-full space-y-8 pb-20 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                        <MessageSquare className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Compor Mensagem</h1>
-                        <p className="text-sm text-slate-500 font-medium">Envie notificações e emails profissionais para a sua audiência.</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowTemplates(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all font-bold text-xs uppercase tracking-wider"
-                    >
-                        <LayoutTemplate className="w-4 h-4" />
-                        Templates
-                    </button>
-                    <Button
-                        onClick={handleSend}
-                        disabled={isSending}
-                        className="bg-emerald-600 hover:bg-orange-600 text-white px-6 h-10 rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                        {isSending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <>
-                                <Send className="w-4 h-4 mr-2" />
-                                Enviar Agora
-                            </>
-                        )}
-                    </Button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="w-full space-y-5 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
                 {/* Main Content */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-                        <div className="p-1">
+                <div className="lg:col-span-3 space-y-5">
+                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                        <div className="bg-slate-200 px-5 py-3 border-b border-slate-300 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Newspaper className="w-5 h-5 text-slate-600" />
+                                <h2 className="font-black text-slate-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    onClick={handleSend}
+                                    disabled={isSending}
+                                    className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
+                                >
+                                    {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                    Enviar
+                                </Button>
+
+                                <Button
+                                    onClick={() => setShowTemplates(true)}
+                                    className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100 cursor-pointer"
+                                >
+                                    <LayoutTemplate className="w-3 h-3" />
+                                    Templates
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="">
                             <RichTextEditor
                                 value={content}
                                 onChange={setContent}
-                                placeholder="Escreva o corpo do seu email aqui. Use as ferramentas de formatação para destacar informações importantes..."
+                                placeholder="Escreva o corpo do seu email aqui..."
                                 className="min-h-[500px] border-none"
                             >
-                                {/* Subject below toolbar */}
-                                <div className="px-6 py-4 bg-white border-b border-slate-50 flex items-center gap-3">
+                                <div className="px-5 py-0 bg-white border-b border-slate-200 flex items-center gap-4">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-200 pr-4">Assunto</span>
                                     <input
                                         type="text"
-                                        placeholder="Indique o assunto da mensagem..."
+                                        placeholder="Escreva aqui o assunto da sua campanha..."
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-xl font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                        className="w-full bg-transparent border-none focus:ring-0 outline-none text-sm font-bold placeholder:text-slate-200 text-slate-800 p-0"
                                     />
                                     <MultiFileUpload
                                         value={attachments}
@@ -214,19 +203,19 @@ export default function AdminMessagesPage() {
                             </RichTextEditor>
                         </div>
                     </div>
-                    
+
                     {/* Attachments Section */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                <FileIcon className="w-4 h-4 text-orange-500" />
+                                <FileIcon className="w-4 h-4 text-orange-600" />
                                 Ficheiros em Anexo
                             </h3>
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
                                 {attachments.length} Ficheiros
                             </span>
                         </div>
-                        
+
                         <MultiFileUpload
                             value={attachments}
                             onChange={setAttachments}
@@ -238,69 +227,40 @@ export default function AdminMessagesPage() {
                 </div>
 
                 {/* Sidebar Configuration */}
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Sender Selection */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
                         <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
-                        <SenderEmailSelector
-                            value={senderEmail}
-                            onChange={setSenderEmail}
-                        />
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                            O endereço selecionado será usado para as respostas dos utilizadores.
+                        <div className="w-full">
+                            <SenderEmailSelector
+                                value={senderEmail}
+                                onChange={setSenderEmail}
+                                layout="col"
+                            />
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            O endereço selecionado será usado para as respostas.
                         </p>
                     </div>
 
                     {/* Target Audience */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                        <div className="flex justify-between items-center">
+                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                        <div className="flex flex-col">
                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setSelectedPlans(PLANS)}
-                                    className="text-[9px] uppercase font-bold text-emerald-600 hover:underline"
-                                >
-                                    Todos
-                                </button>
-                                <button
-                                    onClick={() => setSelectedPlans([])}
-                                    className="text-[9px] uppercase font-bold text-slate-400 hover:underline"
-                                >
-                                    Nenhum
-                                </button>
-                            </div>
                         </div>
-                        
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {PLANS.map(plan => (
-                                <label
-                                    key={plan}
-                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${
-                                        selectedPlans.includes(plan)
-                                            ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-500/10'
-                                            : 'bg-white border-slate-100 hover:border-slate-200'
-                                    }`}
-                                >
-                                    <Checkbox
-                                        id={`plan-${plan}`}
-                                        checked={selectedPlans.includes(plan)}
-                                        onCheckedChange={() => handlePlanToggle(plan)}
-                                        className="rounded-md border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                                    />
-                                    <span className={`text-xs font-bold ${
-                                        selectedPlans.includes(plan) ? 'text-emerald-700' : 'text-slate-600'
-                                    }`}>
-                                        {plan}
-                                    </span>
-                                </label>
+                                <div key={plan} className="group relative">
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                                        <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
+                                        <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                                    </label>
+                                </div>
                             ))}
                         </div>
-                        
-                        <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100/50 flex items-start gap-3">
+                        <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
                             <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-blue-700 font-medium leading-relaxed">
-                                A sua mensagem também será guardada no histórico de notificações internas dos utilizadores registados.
-                            </p>
+                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed">A sua mensagem também será guardada no histórico de notificações internas.</p>
                         </div>
                     </div>
                 </div>

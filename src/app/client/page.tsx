@@ -665,13 +665,13 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   return (
     <div className="space-y-5 overflow-hidden">
       <div className="relative">
-        <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+        <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+        <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10 translate-x-0' : 'opacity-0 absolute inset-0 z-0 pointer-events-none translate-x-4'}`}>
+        <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} />
         </div>
       </div>
@@ -736,6 +736,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
   const isPlatformDomain = (domain: string) =>
     domain.includes('visualdesign') || domain.includes('visualdesigne');
+
+  const hasLikelyDomainTypo = (email: string) => {
+    const domain = (email.split('@')[1] || '').toLowerCase().trim();
+    return ['gail.com', 'gmial.com', 'gmai.com', 'hotnail.com', 'yaho.com'].includes(domain);
+  };
 
   const handlePlanToggle = (plan: string) => {
     if (selectedPlans.includes(plan)) {
@@ -815,6 +820,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       const uniqueEmails = Array.from(new Set(allRecipients.map((r: any) => r.email)));
       const emailList = uniqueEmails.filter(Boolean);
 
+      const typoEmails = emailList.filter(hasLikelyDomainTypo);
+      if (typoEmails.length > 0) {
+        toast.error(`Emails com provável erro de domínio: ${typoEmails.slice(0, 3).join(', ')}${typoEmails.length > 3 ? '...' : ''}`);
+        setIsSending(false);
+        return;
+      }
+
       console.log("INICIANDO PROCESSO DE ENVIO PARA:", emailList.length, "contactos");
       console.log("LISTA DE EMAILS:", emailList);
       let targetDomain = selectedSite;
@@ -862,8 +874,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       const result = await response.json();
       console.log("RESULTADO DA API:", result);
       if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
-
-      toast.success(`Campanha enviada com sucesso para ${emailList.length} contactos!`);
+      const sentCount = result?.details?.success ?? emailList.length;
+      const failedCount = result?.details?.failed ?? 0;
+      if (failedCount > 0) {
+        toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+      } else {
+        toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
+      }
 
       await salvarCampanha({
         subject,
@@ -1025,7 +1042,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         />
       )}
       {showNewListPopup && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
             <div className="mb-5">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nova Lista</h3>
@@ -1073,7 +1090,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
       {/* Success Popup */}
       {showSuccessDialog && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
           <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 border border-slate-200 text-center animate-in zoom-in-95 duration-300">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8" />
@@ -1097,7 +1114,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       {/* Modal de Validação de Campos */}
       {showValidationError && (
         <>
-          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-4 max-w-sm w-full mx-4 shadow-xl border border-gray-200">
               <div className="flex flex-col items-center gap-3 mb-3 text-center">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1168,6 +1185,26 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   const isPlatformDomain = (domain: string) =>
     domain.includes('visualdesign') || domain.includes('visualdesigne');
 
+  const COMMON_EMAIL_DOMAIN_FIXES: Record<string, string> = {
+    'gail.com': 'gmail.com',
+    'gmial.com': 'gmail.com',
+    'gmai.com': 'gmail.com',
+    'hotnail.com': 'hotmail.com',
+    'yaho.com': 'yahoo.com'
+  };
+
+  const normalizeEmailDomainTypos = (rawEmail: string) => {
+    const cleaned = (rawEmail || '').toLowerCase().trim();
+    const atIndex = cleaned.lastIndexOf('@');
+    if (atIndex <= 0 || atIndex === cleaned.length - 1) {
+      return cleaned;
+    }
+    const localPart = cleaned.slice(0, atIndex);
+    const domainPart = cleaned.slice(atIndex + 1);
+    const correctedDomain = COMMON_EMAIL_DOMAIN_FIXES[domainPart] || domainPart;
+    return `${localPart}@${correctedDomain}`;
+  };
+
   const filteredSubscribers = subscribers.filter(s =>
     !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -1221,6 +1258,20 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   };
 
   useEffect(() => {
+    // Migração automática de contatos antigos ao carregar
+    const runMigration = async () => {
+      try {
+        const response = await fetch('/api/migrate-contacts', { method: 'POST' });
+        const result = await response.json();
+        if (result.migrated > 0) {
+          console.log(`Migração: ${result.migrated} contatos atualizados`);
+          fetchSubs(); // Recarrega após migração
+        }
+      } catch (error) {
+        console.error('Erro na migração automática:', error);
+      }
+    };
+    runMigration();
     fetchSubs();
   }, [selectedSite, searchTerm]);
 
@@ -1234,7 +1285,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = newEmail?.trim();
+    const email = normalizeEmailDomainTypos(newEmail?.trim() || '');
     if (!email) return;
 
     try {
@@ -1251,6 +1302,9 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
         : await adicionarSubscritor(payload);
 
       if (result) {
+        if (newEmail?.trim().toLowerCase() !== email) {
+          toast.success(`Email corrigido automaticamente para ${email}`);
+        }
         toast.success(editingSub ? "Contacto atualizado com sucesso!" : "Contacto adicionado com sucesso!");
         setNewEmail('');
         setNewName('');
@@ -1392,7 +1446,8 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   const [email, name] = line.split(',');
                   if (email && email.includes('@')) {
                     try {
-                      await adicionarSubscritor({ email, domain: selectedSite });
+                      const correctedEmail = normalizeEmailDomainTypos(email);
+                      await adicionarSubscritor({ email: correctedEmail, domain: selectedSite });
                       count++;
                     } catch (err) {
                       console.error(`Erro ao importar ${email}`, err);
@@ -1542,8 +1597,8 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden h-[92vh] max-h-[780px] flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 h-screen bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
               <h3 className="text-lg font-black tracking-tight">{editingSub ? 'Editar Contacto' : 'Novo Contacto'}</h3>
               <button
@@ -1558,29 +1613,27 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                 <XLucide className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <form onSubmit={handleAdd} className="p-5 space-y-5 flex-1 overflow-y-auto">
+            <form onSubmit={handleAdd} className="p-5 space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email do Contacto</label>
-                <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-10 border-slate-200 focus:ring-red-500 text-sm" placeholder="exemplo@servico.com" />
+                <Input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="rounded-lg h-10 border-slate-200 focus:ring-red-500 text-sm" placeholder="Email do contacto" />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Atribuir à Lista</label>
                 <select
                   value={newListLabel}
                   onChange={(e) => setNewListLabel(e.target.value)}
                   className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
                 >
+                  <option value="" disabled>Selecionar lista</option>
                   {listas.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Dominio</label>
                 <select
                   value={newDomainLabel}
                   onChange={(e) => setNewDomainLabel(e.target.value)}
                   className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
                 >
-                  <option value="">Selecionar dominio</option>
+                  <option value="" disabled>Selecionar dominio</option>
                   {sites.map((site: any) => (
                     <option key={site.domain} value={site.domain}>{site.domain}</option>
                   ))}
@@ -1602,7 +1655,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                       setNewName('');
                       setNewDomainLabel(selectedSite || '');
                     }}
-                    className="h-11 !bg-slate-100 hover:!bg-slate-200 text-slate-700 font-black uppercase text-[11px] tracking-widest rounded-lg transition-all border border-slate-200 !opacity-100"
+                    className="h-11 !bg-red-600 hover:!bg-red-700 text-white font-black uppercase text-[11px] tracking-widest rounded-lg transition-all border-none !opacity-100"
                   >
                     Cancelar
                   </Button>
