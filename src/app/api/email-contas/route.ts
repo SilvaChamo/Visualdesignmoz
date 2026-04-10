@@ -4,6 +4,12 @@ import { createClient } from '@/utils/supabase/server'
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import nodemailer from 'nodemailer'
+import { 
+  generateWelcomeEmailHTML, 
+  generateWelcomeEmailText, 
+  generateOutlookConfigFile,
+  getWarmupTermsAndConditions
+} from '@/lib/email-welcome-service'
 
 const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesigne.com'];
 
@@ -35,19 +41,54 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from('email_contas')
-      .select('*')
-      .eq('cliente_id', clienteId)
+    // 🚀 BUSCA SIMPLIFICADA: apenas por domínio do utilizador (evita locks)
+    let allEmails: any[] = [];
+    
+    if (session.user?.email) {
+      const userDomain = session.user.email.split('@')[1];
+      console.log(`📧 Buscando emails do domínio: ${userDomain}`);
+      
+      if (userDomain) {
+        const { data: byDomain, error } = await supabaseAdmin
+          .from('email_contas')
+          .select('*')
+          .ilike('email', `%@${userDomain}`)
+          .limit(50); // Limitar para evitar timeouts
+        
+        if (error) {
+          console.error('📧 Erro na query:', error);
+        }
+        
+        if (byDomain && byDomain.length > 0) {
+          allEmails = byDomain;
+          console.log(`📧 Encontrados ${byDomain.length} emails para ${userDomain}`);
+        }
+      }
+    }
+    
+    // Se não encontrou nada, tentar por cliente_id como fallback
+    if (allEmails.length === 0) {
+      const { data: byClient, error } = await supabaseAdmin
+        .from('email_contas')
+        .select('*')
+        .eq('cliente_id', clienteId)
+        .limit(50);
+      
+      if (!error && byClient) {
+        allEmails = byClient;
+        console.log(`📧 Encontrados ${byClient.length} emails por cliente_id`);
+      }
+    }
 
-    if (error) throw error
+    console.log(`📧 API email-contas: ${allEmails.length} emails`);
+    console.log('📧 Emails:', allEmails.map((e: any) => e.email));
 
-    const contas = (data || []).map(c => ({
+    const contas = allEmails.map(c => ({
       ...c,
       password_smtp: '' // nunca devolver password
     }))
 
-    return NextResponse.json({ success: true, contas })
+    return NextResponse.json({ success: true, contas, debug: { totalReturned: allEmails.length } })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -110,55 +151,105 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
-    // ENVIO DE EMAIL DE BOAS-VINDAS COM CONFIGURAÇÕES
+    // 🚀 ENVIO DE EMAIL DE BOAS-VINDAS COMPLETO COM CONFIGURAÇÕES
     try {
+      // Configurações do servidor para o email
+      const serverConfig = {
+        ip: process.env.SERVER_IP || '109.199.104.22',
+        nameservers: [
+          'ns1.mozserver.com',
+          'ns2.mozserver.com',
+          'ns3.mozserver.com',
+          'ns4.mozserver.com'
+        ],
+        package: `vd_${domain}`
+      }
+
+      const accountInfo = {
+        email,
+        password,
+        domain,
+        username: user,
+        quota: '1 GB',
+        contactEmail: 'admin@visualdesigne.com'
+      }
+
+      // Gerar conteúdos do email
+      const welcomeHtml = generateWelcomeEmailHTML(accountInfo, serverConfig)
+      const welcomeText = generateWelcomeEmailText(accountInfo, serverConfig)
+      const outlookConfig = generateOutlookConfigFile(accountInfo, serverConfig)
+      const termsAndConditions = getWarmupTermsAndConditions()
+
       const transporter = nodemailer.createTransport({
-        host: domainConfig.smtp,
-        port: domainConfig.ports.smtp,
-        secure: domainConfig.ports.smtp === 465,
+        host: process.env.SMTP_HOST || '109.199.104.22',
+        port: Number(process.env.SMTP_PORT || 465),
+        secure: true,
         auth: {
           user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
-          pass: process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425'
+          pass: process.env.SMTP_MASTER_PASSWORD || ''
         },
         tls: { rejectUnauthorized: false }
       })
 
-      const welcomeHtml = `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #eee; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-          <div style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); padding: 30px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">E-mail Configurado!</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">Bem-vindo à sua nova caixa de correio profissional.</p>
-          </div>
-          
-          <div style="padding: 30px; background: white;">
-            <p style="font-size: 16px; line-height: 1.6;">Olá <strong>${nome || user}</strong>,</p>
-            <p style="font-size: 14px; line-height: 1.6; color: #666;">A sua conta <strong>${email}</strong> foi criada com sucesso. Abaixo os dados para configurar o seu e-mail no telemóvel ou PC.</p>
-            
-            <div style="margin: 25px 0; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
-              <h3 style="margin: 0 0 15px 0; font-size: 15px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">⚙️ Dados de Configuração</h3>
-              <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-                <tr><td style="padding: 8px 0; color: #71717a;">Utilizador:</td><td style="padding: 8px 0; font-weight: 600;">${email}</td></tr>
-                <tr><td style="padding: 8px 0; color: #71717a;">Servidor IMAP/SMTP:</td><td style="padding: 8px 0; font-weight: 600;">${domainConfig.imap}</td></tr>
-                <tr><td style="padding: 8px 0; color: #71717a;">Porta IMAP:</td><td style="padding: 8px 0; font-weight: 600;">${domainConfig.ports.imap} (SSL)</td></tr>
-                <tr><td style="padding: 8px 0; color: #71717a;">Porta SMTP:</td><td style="padding: 8px 0; font-weight: 600;">${domainConfig.ports.smtp} (SSL)</td></tr>
-              </table>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${domainConfig.webmail}" style="background: #111827; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Aceder ao Webmail</a>
-            </div>
-          </div>
-        </div>
-      `
-
       await transporter.sendMail({
-        from: `"Suporte VisualDesigne" <suporte@visualdesigne.com>`,
+        from: `"VisualDesign Email" <admin@visualdesigne.com>`,
         to: email,
-        subject: `[Configuração] A sua nova conta de e-mail: ${email}`,
-        html: welcomeHtml
+        subject: `🎉 Nova Conta de Email Configurada - ${email}`,
+        text: welcomeText,
+        html: welcomeHtml,
+        attachments: [
+          {
+            filename: `configuracao-outlook-${domain}.txt`,
+            content: outlookConfig,
+            contentType: 'text/plain'
+          },
+          {
+            filename: 'termos-condicoes-warmup.txt',
+            content: termsAndConditions,
+            contentType: 'text/plain'
+          },
+          {
+            filename: `dados-conta-${user}.txt`,
+            content: `
++===================================+
+| New Account Info                  |
++===================================+
+| Domain: ${domain}
+| IP: ${serverConfig.ip}
+| UserName: ${user}
+| PassWord: ${password}
+| Quota: ${accountInfo.quota}
+| NameServer1: ${serverConfig.nameservers[0]}
+| NameServer2: ${serverConfig.nameservers[1]}
+| NameServer3: ${serverConfig.nameservers[2]}
+| NameServer4: ${serverConfig.nameservers[3]}
+| Contact Email: ${accountInfo.contactEmail}
+| Package: ${serverConfig.package}
++===================================+
+
+CONFIGURAÇÕES OUTLOOK:
+- IMAP Server: ${domainConfig.imap}
+- IMAP Port: ${domainConfig.ports.imap}
+- SMTP Server: ${domainConfig.smtp}
+- SMTP Port: ${domainConfig.ports.smtp}
+- SSL/TLS: Ativado
+- Username: ${email}
+- Password: ${password}
+
+⚠️ SISTEMA WARM-UP ATIVO:
+Consulte o documento anexo "termos-condicoes-warmup.txt"
+
+VisualDesign - ${new Date().getFullYear()}
+            `,
+            contentType: 'text/plain'
+          }
+        ]
       })
+
+      console.log(`✅ Email de boas-vindas enviado para ${email} com configurações completas`)
     } catch (mailErr) {
       console.error('Erro ao enviar email de boas-vindas:', mailErr)
+      // Não falha a criação se o email falhar
     }
 
     return NextResponse.json({

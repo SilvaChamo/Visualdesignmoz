@@ -37,6 +37,35 @@ const TableSkeleton = ({ columns, rows = 5 }: { columns: number, rows?: number }
   </div>
 )
 
+const EmailFormSkeleton = () => (
+  <div className="p-6 space-y-5">
+    {/* Website / Domínio */}
+    <div className="space-y-1.5">
+      <Skeleton className="h-3 w-32" />
+      <Skeleton className="h-10 w-full rounded-lg" />
+    </div>
+    {/* Email Username */}
+    <div className="space-y-1.5">
+      <Skeleton className="h-3 w-28" />
+      <div className="flex gap-2">
+        <Skeleton className="h-10 flex-1 rounded-lg" />
+        <Skeleton className="h-10 w-24 rounded-lg" />
+      </div>
+    </div>
+    {/* Senha e Confirmar Senha */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+    </div>
+  </div>
+)
+
 const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" }: { count: number, onAction: (action: string) => void, onClear: () => void, label?: string }) => {
   if (count === 0) return null
   return (
@@ -1413,7 +1442,7 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 // EMAIL MANAGEMENT SECTION (Extended)
 // ============================================================
 export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('example.com')
+  const [selectedDomain, setSelectedDomain] = useState('__ALL__')
   const [emails, setEmails] = useState<CyberPanelEmail[]>([])
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -1504,17 +1533,58 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
     setLoading(false)
   }
 
+  // Carregar todos os emails de todos os sites
+  const loadAllEmails = async () => {
+    if (sites.length === 0) return
+    setLoading(true)
+    setEmails([])
+    
+    try {
+      let allEmails: any[] = []
+      
+      for (const site of sites) {
+        try {
+          const cpRes = await fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(site.domain)}`)
+          const cpData = await cpRes.json()
+          
+          if (cpData.success && cpData.emails) {
+            const siteEmails = cpData.emails.map((cpE: any) => ({
+              email: cpE.email || `${cpE.user}@${site.domain}`,
+              user: cpE.user || cpE.email?.split('@')[0],
+              domain: site.domain,
+              quota: cpE.quota || '500',
+              usage: cpE.usage || '0',
+              activo: true
+            }))
+            allEmails = [...allEmails, ...siteEmails]
+          }
+        } catch (e) {
+          console.error(`Erro ao carregar emails de ${site.domain}:`, e)
+        }
+      }
+      
+      setEmails(allEmails)
+    } catch (err) {
+      console.error('Erro ao carregar todos os emails:', err)
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
-    if (selectedDomain) loadEmails(selectedDomain)
-  }, [selectedDomain])
+    if (selectedDomain === '__ALL__') {
+      loadAllEmails()
+    } else if (selectedDomain) {
+      loadEmails(selectedDomain)
+    }
+  }, [selectedDomain, sites])
 
   const handleCreateEmail = async (data: any) => {
     if (data.password !== data.confirmPassword) {
       setMsg('As senhas não coincidem!'); setMsgType('error')
       return
     }
-    if (!selectedDomain || !data.user || !data.password) {
-      setMsg('Preencha os campos obrigatórios.'); setMsgType('error')
+    if (selectedDomain === '__ALL__' || !selectedDomain || !data.user || !data.password) {
+      setMsg('Selecione um domínio específico para criar o e-mail.'); setMsgType('error')
       return
     }
     setCreating(true); setMsg('')
@@ -1778,7 +1848,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
           onChange={e => setSelectedDomain(e.target.value)}
           className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
         >
-          <option value="">Seleccionar domínio...</option>
+          <option value="__ALL__">Todos os domínios</option>
           {sites.length > 0
             ? sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)
             : <option value="example.com">example.com</option>
@@ -1851,7 +1921,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
         {/* Empty */}
         {!loading && filtered.length === 0 && (
           <div className="py-12 text-center text-gray-400 text-sm">
-            {selectedDomain ? 'Nenhuma conta encontrada.' : 'Seleccione um domínio.'}
+            {selectedDomain && selectedDomain !== '__ALL__' ? 'Nenhuma conta encontrada neste domínio.' : 'Nenhuma conta de e-mail encontrada.'}
           </div>
         )}
 
@@ -1937,8 +2007,8 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
       {/* Modal de E-mail (Unified) */}
       {emailModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEmailModal({ ...emailModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setEmailModal({ ...emailModal, show: false })} />
+          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20"><Mail className="w-5 h-5 text-white" /></div>
@@ -1946,16 +2016,43 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
               </div>
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-6 space-y-5">
-              {emailModal.mode === 'create' && (
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Utilizador @{selectedDomain}</label><input value={emailModal.data.user} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, user: e.target.value}})} placeholder="ex: info" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /></div></div>
-              </div>
-              <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label><input type="number" value={emailModal.data.quota} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, quota: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Proprietário</label><select value={emailModal.data.cliente_id || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, cliente_id: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="">Sem proprietário</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.email})</option>)}</select></div>
+            {loadingClientes ? (
+              <EmailFormSkeleton />
+            ) : (
+              <div className="p-6 space-y-5">
+                {emailModal.mode === 'create' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Website / Domínio</label>
+                      <select 
+                        value={selectedDomain} 
+                        onChange={e => setSelectedDomain(e.target.value)} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                      >
+                        <option value="">Selecione um website</option>
+                        {sites.map(site => (
+                          <option key={site.domain} value={site.domain}>{site.domain}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          value={emailModal.data.user} 
+                          onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, user: e.target.value}})} 
+                          placeholder="admin" 
+                          className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" 
+                        />
+                        <span className="text-gray-400 text-sm">@{selectedDomain || 'dominio.com'}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                </div>
               {emailModal.mode === 'edit' && (
                 <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${emailModal.data.activo ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.activo ? 'Ativa' : 'Suspensa'}</p></div></div>
@@ -1963,6 +2060,7 @@ export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }
                 </div>
               )}
             </div>
+            )}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
               <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>

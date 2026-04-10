@@ -22,7 +22,6 @@ interface AdminSidebarProps {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'domains', label: 'Websites', icon: Globe },
   { id: 'cp-users', label: 'Contas', icon: Users },
   { id: 'backup-manager', label: 'Backups', icon: Archive },
@@ -94,7 +93,7 @@ export function AdminSidebar({
 
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto px-2 py-2.5">
-        <div className="space-y-0.5">
+        <div className="space-y-0">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id ||

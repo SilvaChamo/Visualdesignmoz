@@ -701,25 +701,42 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   // Filtrar domínios reais
   const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
 
-  // Detecção Automática: Tenta primeiro o primeiro site real, depois o hostname atual, depois a agency
+  // 🎯 Detecção Inteligente: Site → Domínio do Email → Hostname
+  // Funciona para clientes COM site ou SEM site (email corporativo apenas)
   const getDefaultDomain = () => {
+    // 1. Primeiro: usar site do CyberPanel se existir
     if (pureSites.length > 0) return pureSites[0].domain;
+    
+    // 2. Segundo: extrair domínio do email do utilizador (caso Osher - email corporativo sem site)
+    if (currentUserEmail && currentUserEmail.includes('@')) {
+      const emailDomain = currentUserEmail.split('@')[1];
+      if (emailDomain && emailDomain !== 'localhost' && !emailDomain.startsWith('127.')) {
+        return emailDomain;
+      }
+    }
+    
+    // 3. Terceiro: usar hostname da URL
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.replace('client.', '').replace('portal.', '');
-      if (host && host !== 'localhost') return host;
+      if (host && host !== 'localhost' && !host.startsWith('127.')) return host;
     }
-    // Sem domínio detectado não forçamos filtro para não esconder contactos.
+    
+    // Sem domínio detectado - retorna vazio para evitar mostrar contactos errados
     return '';
   };
 
   const [selectedSite, setSelectedSite] = useState(getDefaultDomain());
   const [campaignToResend, setCampaignToResend] = useState<any>(null);
 
+  // 🔄 Atualizar selectedSite quando não está definido
   useEffect(() => {
-    if (!selectedSite && pureSites.length > 0) {
-      setSelectedSite(pureSites[0].domain);
+    if (!selectedSite) {
+      const defaultDomain = getDefaultDomain();
+      if (defaultDomain) {
+        setSelectedSite(defaultDomain);
+      }
     }
-  }, [selectedSite, pureSites]);
+  }, [selectedSite, pureSites, currentUserEmail]);
 
   return (
     <div className="space-y-5 overflow-hidden">
@@ -752,6 +769,25 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [showValidationError, setShowValidationError] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [showReputationInfo, setShowReputationInfo] = useState(false);
+  
+  // 🆕 Estado para diálogo de avançar fase
+  const [showAdvancePhaseDialog, setShowAdvancePhaseDialog] = useState(false);
+  const [advancePhaseData, setAdvancePhaseData] = useState<any>(null);
+  const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
+  
+  // 🆕 Estado para guardar dados do último envio (para reenvio)
+  const [lastSendData, setLastSendData] = useState<any>(null);
+  
+  // 🚀 Estado de reputação de domínio (warm-up)
+  const [domainReputation, setDomainReputation] = useState<any>(null);
+  const [loadingReputation, setLoadingReputation] = useState(false);
+  
+  // 🚀 Emails disponíveis do domínio selecionado
+  const [domainEmails, setDomainEmails] = useState<string[]>([]);
+  const [loadingDomainEmails, setLoadingDomainEmails] = useState(false);
+
+  // Email do utilizador é adicionado no fetchDomainEmails se pertencer ao domínio selecionado
 
   // Obter dados do usuário logado
   useEffect(() => {
@@ -766,6 +802,157 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
     };
     getUserData();
   }, []);
+  
+  // 🆕 Função para buscar reputação (independente do useEffect)
+  const fetchReputation = async () => {
+    if (!selectedSite) return;
+    
+    setLoadingReputation(true);
+    try {
+      const response = await fetch(`/api/mailmarketing-send?domain=${encodeURIComponent(selectedSite)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setDomainReputation(data.reputation);
+        console.log("📊 Reputação do domínio:", data.reputation);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar reputação:", error);
+    } finally {
+      setLoadingReputation(false);
+    }
+  };
+
+  // 🚀 Buscar reputação do domínio quando site muda
+  useEffect(() => {
+    fetchReputation();
+  }, [selectedSite]);
+
+  // 🚀 Buscar emails do domínio quando site muda
+  useEffect(() => {
+    const fetchDomainEmails = async () => {
+      if (!selectedSite) return;
+      
+      setLoadingDomainEmails(true);
+      try {
+        // 🆕 BUSCAR DE DUAS FONTES: Supabase + CyberPanel
+        const [supabaseRes, cyberpanelRes] = await Promise.allSettled([
+          fetch('/api/email-contas'),
+          fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(selectedSite)}`)
+        ]);
+        
+        let allEmailsList: string[] = [];
+        
+        // Processar resultado do Supabase
+        if (supabaseRes.status === 'fulfilled') {
+          const result = await supabaseRes.value.json();
+          const data = result.contas || result;
+          if (Array.isArray(data)) {
+            const supabaseEmails = data
+              .filter((account: any) => {
+                const emailDomain = account.email?.split('@')[1]?.toLowerCase();
+                return emailDomain === selectedSite.toLowerCase();
+              })
+              .map((account: any) => account.email);
+            allEmailsList = [...allEmailsList, ...supabaseEmails];
+            console.log("📧 Emails do Supabase:", supabaseEmails);
+          }
+        }
+        
+        // Processar resultado do CyberPanel
+        if (cyberpanelRes.status === 'fulfilled') {
+          const result = await cyberpanelRes.value.json();
+          if (result.success && Array.isArray(result.emails)) {
+            allEmailsList = [...allEmailsList, ...result.emails];
+            console.log("📧 Emails do CyberPanel:", result.emails);
+            console.log("📧 Fonte:", result.source);
+          }
+        }
+        
+        // Remover duplicados
+        const domainEmailsList = [...new Set(allEmailsList.filter((e: string) => e && e.includes('@')))];
+        
+        console.log("📧 Total combinado (sem duplicados):", domainEmailsList);
+          
+          // 🎯 GARANTIR: sempre incluir o email do utilizador logado se pertencer ao domínio
+          if (currentUserEmail) {
+            const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
+            if (userDomain === selectedSite.toLowerCase() && !domainEmailsList.includes(currentUserEmail)) {
+              domainEmailsList.push(currentUserEmail);
+              console.log("✅ Email do utilizador adicionado:", currentUserEmail);
+            }
+          }
+          
+          // 🚀 Apenas emails REAIS da BD/CyberPanel + email do utilizador
+          // NÃO adicionar fallbacks fictícios
+          
+          // Se ainda não tem emails e tem currentUserEmail, usar como fallback
+          if (domainEmailsList.length === 0 && currentUserEmail) {
+            domainEmailsList.push(currentUserEmail);
+          }
+          
+          // 🎯 Reordenar: priorizar email do utilizador logado, depois marketing@, depois ordem alfabética
+          const sortedEmails = domainEmailsList.sort((a: string, b: string) => {
+            const aLower = a.toLowerCase();
+            const bLower = b.toLowerCase();
+            const userEmail = currentUserEmail?.toLowerCase();
+            const selectedDomain = selectedSite.toLowerCase();
+            
+            // Prioridade 1: email do utilizador logado
+            if (aLower === userEmail) return -1;
+            if (bLower === userEmail) return 1;
+            
+            // Prioridade 2: email marketing@dominio
+            if (aLower === `marketing@${selectedDomain}`) return -1;
+            if (bLower === `marketing@${selectedDomain}`) return 1;
+            
+            // Prioridade 3: email geral@dominio ou admin@dominio
+            if (aLower === `geral@${selectedDomain}` || aLower === `admin@${selectedDomain}`) return -1;
+            if (bLower === `geral@${selectedDomain}` || bLower === `admin@${selectedDomain}`) return 1;
+            
+            // Resto: ordem alfabética
+            return aLower.localeCompare(bLower);
+          });
+          
+          // 🚀 Apenas emails REAIS - não adicionar fallbacks fictícios
+          // Se não há emails reais, mostrar apenas o email do utilizador logado
+          if (domainEmailsList.length === 0) {
+            console.log("📧 Nenhum email real encontrado, usando apenas email do utilizador");
+            if (currentUserEmail) {
+              const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
+              if (userDomain === selectedSite.toLowerCase()) {
+                domainEmailsList.push(currentUserEmail);
+              }
+            }
+          }
+          
+          // Remover duplicados antes de definir estado
+          const uniqueEmails = [...new Set(domainEmailsList)];
+          setDomainEmails(uniqueEmails);
+          
+          // Se o senderEmail atual não está na lista, selecionar o primeiro (principal)
+          if (uniqueEmails.length > 0 && !uniqueEmails.includes(senderEmail)) {
+            setSenderEmail(uniqueEmails[0]);
+          }
+          
+          console.log("📧 Emails do domínio (final):", uniqueEmails);
+      } catch (error) {
+        console.error("Erro ao buscar emails do domínio:", error);
+        // Em caso de erro, apenas usar email do utilizador logado
+        if (currentUserEmail) {
+          const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
+          if (userDomain === selectedSite.toLowerCase()) {
+            setDomainEmails([currentUserEmail]);
+            setSenderEmail(currentUserEmail);
+          }
+        }
+      } finally {
+        setLoadingDomainEmails(false);
+      }
+    };
+    
+    fetchDomainEmails();
+  }, [selectedSite, currentUserEmail]);
 
   useEffect(() => {
     if (showTemplates) document.body.style.overflow = 'hidden';
@@ -782,10 +969,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
+  // 🎯 Domínios permitidos: sites do CyberPanel OU domínio do email selecionado
+  // Isso permite que clientes SEM site (apenas email corporativo) enviem campanhas
   const allowedDomains = new Set(
     (sites || [])
       .map((s: any) => normalizeDomain(s?.domain))
       .filter(Boolean)
+      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio selecionado
   );
 
   const isPlatformDomain = (domain: string) =>
@@ -910,6 +1100,15 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         sender: `"${clientName}" <${clientEmail}>`
       });
 
+      // 🆕 Guardar dados para possível reenvio (avançar fase)
+      setLastSendData({
+        emailList,
+        finalHtml,
+        targetDomain,
+        clientName,
+        clientEmail
+      });
+
       const response = await fetch('/api/mailmarketing-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -950,7 +1149,28 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
     } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao enviar mensagem: " + error.message);
+      
+      // 🆕 DETECTAR: Erro de limite com opção de avançar fase
+      if (error.message?.includes('CAN_ADVANCE_PHASE') || error.code === 'CAN_ADVANCE_PHASE') {
+        // Usar dados guardados do último envio
+        const sendData = lastSendData || {};
+        setAdvancePhaseData({
+          message: error.message,
+          excessCount: error.excessCount || 0,
+          currentPhase: error.options?.stay?.phase,
+          currentLimit: error.options?.stay?.limit,
+          nextPhase: error.options?.advance?.phase,
+          nextLimit: error.options?.advance?.limit,
+          emailList: sendData.emailList || [],
+          finalHtml: sendData.finalHtml || '',
+          targetDomain: sendData.targetDomain || selectedSite,
+          clientName: sendData.clientName || '',
+          clientEmail: sendData.clientEmail || ''
+        });
+        setShowAdvancePhaseDialog(true);
+      } else {
+        toast.error("Erro ao enviar mensagem: " + error.message);
+      }
     } finally {
       setIsSending(false);
     }
@@ -966,10 +1186,31 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                 <Newspaper className="w-5 h-5 text-slate-600" />
                 <h2 className="font-black text-slate-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {/* 🚀 Seletor de Remetente - mostra emails do domínio */}
+                <div className="flex items-center gap-2 bg-white rounded-md border border-slate-300 px-2 h-8">
+                  <Mail className="w-4 h-4 text-slate-500 shrink-0" />
+                  <select
+                    value={senderEmail}
+                    onChange={(e) => setSenderEmail(e.target.value)}
+                    disabled={loadingDomainEmails || domainEmails.length === 0}
+                    className="h-full px-1 text-xs font-bold text-slate-700 bg-transparent border-none focus:outline-none focus:ring-0 min-w-[260px] max-w-[340px] truncate"
+                  >
+                    {loadingDomainEmails ? (
+                      <option value="">A carregar...</option>
+                    ) : domainEmails.length === 0 ? (
+                      <option value="">Nenhum email disponível</option>
+                    ) : (
+                      [...new Set(domainEmails)].map((email) => (
+                        <option key={email} value={email}>{email}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
                 <Button
                   onClick={handleSend}
-                  disabled={isSending}
+                  disabled={isSending || !senderEmail}
                   className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
                 >
                   {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
@@ -1038,21 +1279,6 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         <div className="space-y-5">
 
           <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
-            <div className="w-full">
-              <SenderEmailSelector
-                value={senderEmail}
-                onChange={setSenderEmail}
-                layout="col"
-                currentUserEmail={currentUserEmail}
-              />
-            </div>
-            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-              O endereço selecionado será usado para as respostas.
-            </p>
-          </div>
-
-          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
             <div className="flex flex-col">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
             </div>
@@ -1085,6 +1311,135 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
               <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
               <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
             </div>
+            
+            {/* 🚀 STATUS DE REPUTAÇÃO E WARM-UP */}
+            {selectedSite && (
+              <div className="mt-4 p-4 rounded-lg border border-slate-200/70 shadow-sm transition-all duration-300">
+                {loadingReputation ? (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-orange-500 rounded-full animate-spin" />
+                    <span className="text-[10px] font-medium">A verificar reputação...</span>
+                  </div>
+                ) : domainReputation ? (
+                  <div className={`mt-4 space-y-1 ${domainReputation.remainingToday <= 0 ? 'bg-red-50/50 border-red-200' : 'bg-green-50/50 border-green-200'} rounded-md p-2`}>
+                    {/* Linha 1: Status do domínio - SEM BULLET */}
+                    <div className="w-full pb-2 border-b border-slate-200/50">
+                      <span className="text-xs font-bold text-slate-700">{domainReputation.phaseDescription}</span>
+                    </div>
+                    
+                    {/* Linha 2: Reputação - TÍTULO */}
+                    <div className="w-full leading-none">
+                      <span className="text-[10px] text-slate-500">Reputação próximos 7 dias:</span>
+                    </div>
+                    
+                    {/* Linha 3: Reputação - VALOR */}
+                    <div className="w-full leading-none">
+                      <span className={`text-sm font-black ${domainReputation.score >= 80 ? 'text-green-600' : domainReputation.score >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {domainReputation.score}/100
+                      </span>
+                    </div>
+                    
+                    {/* Espaço entre secções */}
+                    <div className="h-2" />
+                    
+                    {/* Linha 4: Status - TÍTULO */}
+                    <div className="w-full leading-none">
+                      <span className="text-[10px] text-slate-500">Status:</span>
+                    </div>
+                    
+                    {/* Linha 5: Status - VALOR */}
+                    <div className="w-full leading-none pb-2">
+                      <span className={`text-[10px] font-medium ${domainReputation.remainingToday <= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {domainReputation.remainingToday > 0 
+                          ? `${domainReputation.sentToday} / ${domainReputation.dailyLimit} enviados (${domainReputation.remainingToday} restantes)` 
+                          : 'Limite diário atingido'}
+                      </span>
+                    </div>
+                    
+                    {/* Linha 4: Barra de progresso */}
+                    <div className="space-y-1">
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            domainReputation.remainingToday <= 0 ? 'bg-red-500' : 
+                            domainReputation.sentToday / domainReputation.dailyLimit > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min((domainReputation.sentToday / domainReputation.dailyLimit) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* 🆕 Linha 4.5: Setas de controle de reputação */}
+                    {domainReputation.scoreChange !== undefined && domainReputation.scoreChange !== 0 && (
+                      <div className="flex items-center justify-center gap-4 py-1">
+                        <button
+                          onClick={() => domainReputation.scoreChange && domainReputation.scoreChange > 0 ? setShowReputationInfo(true) : null}
+                          className={`flex items-center gap-1 text-[10px] font-bold transition-all ${
+                            domainReputation.scoreChange && domainReputation.scoreChange > 0 
+                              ? 'text-green-600 hover:text-green-800 cursor-pointer' 
+                              : 'text-slate-300 cursor-default'
+                          }`}
+                          disabled={!domainReputation.scoreChange || domainReputation.scoreChange <= 0}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                          </svg>
+                          <span>{domainReputation.scoreChange && domainReputation.scoreChange > 0 ? `+${domainReputation.scoreChange}%` : '--'}</span>
+                        </button>
+                        
+                        <span className="text-[9px] text-slate-400">vs semana anterior</span>
+                        
+                        <button
+                          onClick={() => domainReputation.scoreChange && domainReputation.scoreChange < 0 ? setShowReputationInfo(true) : null}
+                          className={`flex items-center gap-1 text-[10px] font-bold transition-all ${
+                            domainReputation.scoreChange && domainReputation.scoreChange < 0 
+                              ? 'text-red-600 hover:text-red-800 cursor-pointer' 
+                              : 'text-slate-300 cursor-default'
+                          }`}
+                          disabled={!domainReputation.scoreChange || domainReputation.scoreChange >= 0}
+                        >
+                          <span>{domainReputation.scoreChange && domainReputation.scoreChange < 0 ? `${domainReputation.scoreChange}%` : '--'}</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Linha 5: Recomendações (quando necessário) */}
+                    {domainReputation.remainingToday <= 0 && (
+                      <div className="mt-4 p-2 bg-red-100/50 rounded border border-red-200">
+                        <p className="text-[10px] text-red-700 font-medium">
+                          ⚠️ Limite diário atingido. Aguarde até amanhã para enviar mais emails.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {domainReputation.score < 70 && domainReputation.remainingToday > 0 && (
+                      <div className="mt-4 p-2 bg-yellow-100/50 rounded border border-yellow-200">
+                        <p className="text-[10px] text-yellow-700 font-medium">
+                          💡 Reputação em recuperação. Envie apenas para contactos engajados.{" "}
+                          <button 
+                            onClick={() => setShowReputationInfo(true)}
+                            className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                          >
+                            Saber mais
+                          </button>
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Linha 6: Info adicional */}
+                    <div className="flex justify-between text-[9px] text-slate-400 pt-2 border-t border-slate-200/50">
+                      <span>Dias ativos: {domainReputation.daysActive || 0}</span>
+                      <span>Total enviado: {domainReputation.sentTotal || 0}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400">Selecione um domínio para ver o status</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1204,6 +1559,192 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           `}</style>
         </>
       )}
+
+      {/* 🚀 Popup Informativo sobre Reputação */}
+      {showReputationInfo && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg mx-4 border border-slate-200 animate-in zoom-in-95 duration-300 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">🛡️ Sistema de Reputação</h3>
+              <button 
+                onClick={() => setShowReputationInfo(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-sm text-slate-600">
+              <p className="leading-relaxed">
+                O <strong>sistema de reputação</strong> protege o seu domínio para garantir que os seus emails cheguem à caixa de entrada e não ao spam.
+              </p>
+              
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <h4 className="font-bold text-blue-800 mb-2 text-xs uppercase tracking-wider">Como funciona?</h4>
+                <ul className="space-y-2 text-xs">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">1.</span>
+                    <span>Cada domínio começa com <strong>50 emails/dia</strong> e vai aumentando automaticamente.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">2.</span>
+                    <span>A reputação é avaliada a cada <strong>7 dias</strong> e pode subir ou descer.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">3.</span>
+                    <span>Se enviar spam ou ter muitos erros, a reputação desce e os limites reduzem.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">4.</span>
+                    <span>Se manter boas práticas, a reputação sobe e ganha mais emails/dia.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Fases do Warm-up:</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-blue-600">Dias 0-1:</span> 50 emails/dia
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-yellow-600">Dias 2-3:</span> 100 emails/dia
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-orange-600">Dias 4-7:</span> 300 emails/dia
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-green-600">Dias 8-14:</span> 600 emails/dia
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-emerald-600">Dias 15-30:</span> 1000 emails/dia
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border border-slate-200">
+                    <span className="font-bold text-purple-600">Dias 30+:</span> 2000 emails/dia
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                <p className="text-xs text-amber-800">
+                  <strong>💡 Dica:</strong> Mantenha a sua lista de contactos limpa e atualizada para evitar bounces e manter a reputação alta.
+                </p>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setShowReputationInfo(false)}
+              className="w-full mt-6 bg-slate-800 hover:bg-red-600 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 DIÁLOGO: Avançar de Fase */}
+      {showAdvancePhaseDialog && advancePhaseData && (
+        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-[100] animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">🚀 Limite Atingido</h3>
+              <button 
+                onClick={() => setShowAdvancePhaseDialog(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Você excedeu o limite da fase atual em{" "}
+                <strong className="text-orange-600">{advancePhaseData.excessCount} emails</strong>.
+              </p>
+              
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Fase atual:</span>
+                  <span className="text-xs font-bold text-slate-700">{advancePhaseData.currentPhase} ({advancePhaseData.currentLimit}/dia)</span>
+                </div>
+                <div className="flex justify-center">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Próxima fase:</span>
+                  <span className="text-xs font-bold text-emerald-600">{advancePhaseData.nextPhase} ({advancePhaseData.nextLimit}/dia)</span>
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-500">
+                Deseja avançar para a próxima fase e enviar todos os emails? 
+                Os {advancePhaseData.excessCount} emails excedentes serão contabilizados na nova fase.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowAdvancePhaseDialog(false)}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Não, agora não
+              </button>
+              <button 
+                onClick={async () => {
+                  setIsAdvancingPhase(true);
+                  try {
+                    // Reenviar com header especial para avançar fase
+                    const response = await fetch('/api/mailmarketing-send', {
+                      method: 'POST',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'x-advance-phase': 'true'
+                      },
+                      body: JSON.stringify({
+                        to: advancePhaseData.emailList,
+                        subject: subject,
+                        content: advancePhaseData.finalHtml,
+                        domain: advancePhaseData.targetDomain,
+                        clientName: advancePhaseData.clientName,
+                        clientEmail: advancePhaseData.clientEmail,
+                        sender: advancePhaseData.clientEmail ? `"${advancePhaseData.clientName || advancePhaseData.clientEmail}" <${advancePhaseData.clientEmail}>` : undefined
+                      })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!response.ok) throw new Error(result.error || "Erro ao enviar");
+                    
+                    toast.success(`Campanha enviada! Fase avançada para ${result.newPhase || advancePhaseData.nextPhase}.`);
+                    setShowAdvancePhaseDialog(false);
+                    setShowSuccessDialog(true);
+                    
+                    // Atualizar reputação
+                    await fetchReputation();
+                  } catch (error: any) {
+                    toast.error("Erro ao avançar fase: " + error.message);
+                  } finally {
+                    setIsAdvancingPhase(false);
+                  }
+                }}
+                disabled={isAdvancingPhase}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isAdvancingPhase ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    A processar...
+                  </span>
+                ) : (
+                  "Sim, avançar fase"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1230,10 +1771,13 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
+  // 🎯 Domínios permitidos: sites do CyberPanel OU domínio do email selecionado
+  // Isso permite que clientes SEM site (apenas email corporativo) vejam seus contactos
   const allowedDomains = new Set(
     (sites || [])
       .map((s: any) => normalizeDomain(s?.domain))
       .filter(Boolean)
+      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio selecionado
   );
 
   const isPlatformDomain = (domain: string) =>
@@ -1343,6 +1887,47 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     if (!email) return;
 
     try {
+      // 🆕 VALIDAÇÃO DE EMAIL ANTES DE ADICIONAR
+      toast.loading('A validar email...');
+      
+      const validationResponse = await fetch(`/api/validate-emails?email=${encodeURIComponent(email)}`);
+      const validation = await validationResponse.json();
+      
+      toast.dismiss();
+      
+      if (!validation.success || !validation.isValid) {
+        const errors = validation.validation?.errors?.join(', ') || 'Email inválido';
+        const suggestions = validation.validation?.suggestions;
+        
+        let errorMsg = `Email inválido: ${errors}`;
+        if (suggestions && suggestions.length > 0) {
+          errorMsg += `\n\nQuis dizer: ${suggestions.join(', ')}?`;
+          
+          // Pergunta se quer usar a sugestão
+          const useSuggestion = window.confirm(
+            `⚠️ ${errorMsg}\n\nDeseja usar "${suggestions[0]}" em vez disso?`
+          );
+          
+          if (useSuggestion) {
+            setNewEmail(suggestions[0]);
+            return; // Para aqui para o user confirmar
+          }
+        } else {
+          toast.error(errorMsg);
+        }
+        return;
+      }
+      
+      // Verifica se é email de função (aviso, não bloqueia)
+      if (validation.validation?.isRoleBased) {
+        const proceed = window.confirm(
+          `⚠️ Este parece ser um email de função (${email}).\n` +
+          `Emails como admin@, info@, noreply@ têm menor taxa de abertura.\n\n` +
+          `Deseja continuar mesmo assim?`
+        );
+        if (!proceed) return;
+      }
+
       const payload = {
         email: email,
         full_name: newName || '',
@@ -1448,9 +2033,17 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               onChange={(e) => setSelectedSite(e.target.value)}
               className="h-10 rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 min-w-[220px]"
             >
-              {sites.map((site: any) => (
-                <option key={site.domain} value={site.domain}>{site.domain}</option>
-              ))}
+              {sites.length > 0 ? (
+                // Cliente tem sites no CyberPanel
+                sites.map((site: any) => (
+                  <option key={site.domain} value={site.domain}>{site.domain}</option>
+                ))
+              ) : selectedSite ? (
+                // Cliente sem site mas com domínio do email
+                <option value={selectedSite}>{selectedSite}</option>
+              ) : (
+                <option value="">Selecione um domínio</option>
+              )}
             </select>
           </div>
           {selectedSubscriberIds.length > 1 ? (
@@ -1490,28 +2083,103 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                 const text = event.target?.result as string;
                 const lines = text.split('\n');
                 let count = 0;
-
-                toast.loading("A importar contactos...");
-
+                let invalidCount = 0;
+                let duplicateCount = 0;
+                
+                // Coleta todos os emails primeiro
+                const emailsToImport: string[] = [];
                 for (let i = 1; i < lines.length; i++) {
                   const line = lines[i].trim();
                   if (!line) continue;
-
-                  const [email, name] = line.split(',');
+                  const [email] = line.split(',');
                   if (email && email.includes('@')) {
-                    try {
-                      const correctedEmail = normalizeEmailDomainTypos(email);
-                      await adicionarSubscritor({ email: correctedEmail, domain: selectedSite });
-                      count++;
-                    } catch (err) {
-                      console.error(`Erro ao importar ${email}`, err);
-                    }
+                    emailsToImport.push(normalizeEmailDomainTypos(email.trim()));
                   }
                 }
-
-                toast.dismiss();
-                toast.success(`${count} contactos importados com sucesso!`);
-                fetchSubs();
+                
+                if (emailsToImport.length === 0) {
+                  toast.error('Nenhum email válido encontrado no ficheiro');
+                  return;
+                }
+                
+                toast.loading(`A validar ${emailsToImport.length} emails...`);
+                
+                // 🆕 VALIDAÇÃO DE EMAILS ANTES DE IMPORTAR
+                try {
+                  const response = await fetch('/api/validate-emails', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: emailsToImport, mode: 'bulk' })
+                  });
+                  
+                  const validation = await response.json();
+                  
+                  if (!validation.success) {
+                    toast.error('Erro na validação de emails');
+                    return;
+                  }
+                  
+                  const { validEmails, invalidEmails, results } = validation.validation;
+                  const summary = validation.summary;
+                  
+                  toast.dismiss();
+                  
+                  // Mostra resumo da validação
+                  if (invalidEmails.length > 0) {
+                    const invalidDetails = results
+                      .filter((r: any) => !r.isValid)
+                      .map((r: any) => `${r.email} (${r.errors.join(', ')})`)
+                      .slice(0, 5);
+                    
+                    toast.warning(
+                      `${summary.valid} válidos, ${summary.invalid} inválidos. \n\nInválidos:\n${invalidDetails.join('\n')}${invalidEmails.length > 5 ? '\n...' : ''}`,
+                      { duration: 6000 }
+                    );
+                  }
+                  
+                  if (validEmails.length === 0) {
+                    toast.error('Nenhum email válido para importar');
+                    return;
+                  }
+                  
+                  // Confirmação se muitos inválidos
+                  if (summary.validPercentage < 70) {
+                    const proceed = window.confirm(
+                      `⚠️ ATENÇÃO: Apenas ${summary.validPercentage}% dos emails são válidos.\n\n` +
+                      `Válidos: ${summary.valid}\n` +
+                      `Inválidos: ${summary.invalid}\n\n` +
+                      `Deseja continuar a importar apenas os ${summary.valid} emails válidos?`
+                    );
+                    if (!proceed) return;
+                  }
+                  
+                  toast.loading(`A importar ${validEmails.length} contactos válidos...`);
+                  
+                  // Importa apenas emails válidos
+                  for (const email of validEmails) {
+                    try {
+                      await adicionarSubscritor({ email, domain: selectedSite });
+                      count++;
+                    } catch (err: any) {
+                      if (err.message?.includes('duplicate')) {
+                        duplicateCount++;
+                      } else {
+                        console.error(`Erro ao importar ${email}`, err);
+                      }
+                    }
+                  }
+                  
+                  toast.dismiss();
+                  const msg = `${count} contactos importados` + 
+                    (duplicateCount > 0 ? ` (${duplicateCount} duplicados ignorados)` : '') +
+                    (invalidEmails.length > 0 ? ` - ${invalidEmails.length} inválidos rejeitados` : '');
+                  toast.success(msg);
+                  fetchSubs();
+                  
+                } catch (err) {
+                  toast.dismiss();
+                  toast.error('Erro na validação: ' + (err as Error).message);
+                }
               };
               reader.readAsText(file);
             }}
