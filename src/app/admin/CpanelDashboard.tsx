@@ -7,7 +7,7 @@ import {
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
-  Wifi, Zap, BookOpen, Monitor, Archive, Eye
+  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout
 } from 'lucide-react'
 import type { CyberPanelWebsite, CyberPanelUser } from '@/lib/cyberpanel-api'
 
@@ -35,11 +35,12 @@ interface Props {
   users: CyberPanelUser[]
   isFetching: boolean
   onRefresh: () => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
 }
 
-export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDomain, sites, users, isFetching, onRefresh }: Props) {
+export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDomain, sites, users, isFetching, onRefresh, searchQuery = '', onSearchChange }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
-  const [search, setSearch] = useState('')
   const [diskInfo, setDiskInfo] = useState<{ used: string; total: string; percentage: string } | null>(null)
 
   React.useEffect(() => {
@@ -73,14 +74,32 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
 
   const sections: Section[] = [
     {
+      id: 'email', name: 'E-mails',
+      headerIcon: <Mail className="w-5 h-5" />,
+      color: 'text-cyan-700', bgColor: 'bg-cyan-50',
+      tools: [
+        { id: 'emails-new', name: 'Criar Email', icon: <PlusCircle className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-mgmt', name: 'Listar Emails', icon: <Mail className="w-9 h-9 text-cyan-500" /> },
+        { id: 'emails-webmail', name: 'Webmail', icon: <ExternalLink className="w-9 h-9 text-cyan-500" /> },
+        { id: 'newsletter', name: 'Email Marketing', icon: <Layout className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-delete', name: 'Apagar Email', icon: <Trash2 className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-forwarding', name: 'Encaminhamento', icon: <ArrowRight className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-catchall', name: 'Catch-All Email', icon: <Filter className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-pattern-fwd', name: 'Pattern Forwarding', icon: <Zap className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-plus-addr', name: 'Plus-Addressing', icon: <BookOpen className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-change-pass', name: 'Alterar Password', icon: <Key className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-dkim', name: 'DKIM Manager', icon: <Shield className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-limits', name: 'Limites de Email', icon: <Settings className="w-9 h-9 text-cyan-500" /> },
+        { id: 'setup-smtp', name: 'Configurar SMTP', icon: <Server className="w-9 h-9 text-red-500" /> },
+      ]
+    },
+    {
       id: 'ficheiros', name: 'Ficheiros',
       headerIcon: <FolderOpen className="w-5 h-5" />,
       color: 'text-amber-700', bgColor: 'bg-amber-50',
       tools: [
         { id: 'cp-filemanager', name: 'Gestor de Ficheiros', icon: <FolderOpen className="w-9 h-9 text-amber-500" /> },
         { id: 'cp-ftp', name: 'Contas FTP', icon: <Upload className="w-9 h-9 text-amber-500" /> },
-        { id: 'cp-wp-restore-backup', name: 'Restaurar Backup', icon: <RotateCcw className="w-9 h-9 text-amber-500" /> },
-        { id: 'cp-wp-remote-backup', name: 'Backup Remoto', icon: <Cloud className="w-9 h-9 text-amber-500" /> },
         { id: 'infrastructure', name: 'Estado do Servidor', icon: <Monitor className="w-9 h-9 text-amber-500" /> },
       ]
     },
@@ -101,6 +120,37 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       ]
     },
     {
+      id: 'wordpress', name: 'WordPress',
+      headerIcon: <Globe2 className="w-5 h-5" />,
+      color: 'text-indigo-700', bgColor: 'bg-indigo-50',
+      tools: [
+        { id: 'wordpress-install', name: 'Instalar WordPress', icon: <Globe className="w-9 h-9 text-blue-500" /> },
+        { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
+        { id: 'cp-wp-plugins', name: 'Gerir Plugins', icon: <Plug className="w-9 h-9 text-indigo-500" /> },
+      ]
+    },
+    {
+      id: 'backup', name: 'BackUp',
+      headerIcon: <Archive className="w-5 h-5" />,
+      color: 'text-violet-700', bgColor: 'bg-violet-50',
+      tools: [
+        { id: 'cp-wp-backup', name: 'Fazer Backup', icon: <Archive className="w-9 h-9 text-violet-500" /> },
+        { id: 'cp-wp-restore-backup', name: 'Restaurar Backup', icon: <RotateCcw className="w-9 h-9 text-violet-500" /> },
+        { id: 'cp-wp-remote-backup', name: 'Backup Remoto', icon: <Cloud className="w-9 h-9 text-violet-500" /> },
+        { id: 'backup-manager', name: 'Gestão de Backups', icon: <HardDrive className="w-9 h-9 text-violet-500" /> },
+      ]
+    },
+    {
+      id: 'databases', name: 'Databases',
+      headerIcon: <Database className="w-5 h-5" />,
+      color: 'text-orange-700', bgColor: 'bg-orange-50',
+      tools: [
+        { id: 'cp-databases', name: 'Criar Base de Dados', icon: <PlusCircle className="w-9 h-9 text-orange-500" /> },
+        { id: 'cp-databases', name: 'Gerir Bases de Dados', icon: <Database className="w-9 h-9 text-orange-500" /> },
+        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
+      ]
+    },
+    {
       id: 'dns', name: 'DNS',
       headerIcon: <Server className="w-5 h-5" />,
       color: 'text-amber-800', bgColor: 'bg-yellow-50',
@@ -113,56 +163,6 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
         { id: 'domains-dns', name: 'Adicionar Registos', icon: <FileText className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-cloudflare', name: 'CloudFlare', icon: <Cloud className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-reset', name: 'Reset DNS', icon: <RotateCcw className="w-9 h-9 text-amber-600" /> },
-      ]
-    },
-    {
-      id: 'email', name: 'E-mail',
-      headerIcon: <Mail className="w-5 h-5" />,
-      color: 'text-cyan-700', bgColor: 'bg-cyan-50',
-      tools: [
-        { id: 'emails-new', name: 'Criar Email', icon: <PlusCircle className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-mgmt', name: 'Listar Emails', icon: <Mail className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-delete', name: 'Apagar Email', icon: <Trash2 className="w-9 h-9 text-cyan-500" /> },
-        { id: 'emails-webmail', name: 'Webmail', icon: <ExternalLink className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-forwarding', name: 'Encaminhamento', icon: <ArrowRight className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-catchall', name: 'Catch-All Email', icon: <Filter className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-pattern-fwd', name: 'Pattern Forwarding', icon: <Zap className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-plus-addr', name: 'Plus-Addressing', icon: <BookOpen className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-change-pass', name: 'Alterar Password', icon: <Key className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-dkim', name: 'DKIM Manager', icon: <Shield className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-limits', name: 'Limites de Email', icon: <Settings className="w-9 h-9 text-cyan-500" /> },
-      ]
-    },
-    {
-      id: 'wordpress', name: 'WordPress',
-      headerIcon: <Globe2 className="w-5 h-5" />,
-      color: 'text-indigo-700', bgColor: 'bg-indigo-50',
-      tools: [
-        {
-          id: 'wordpress-install',
-          name: 'Instalar WordPress',
-          icon: <Globe className="w-9 h-9 text-blue-500" />
-        },
-        {
-          id: 'cp-wp-backup',
-          name: 'Fazer Backup WP',
-          icon: <Archive className="w-9 h-9 text-indigo-500" />
-        },
-        { id: 'wordpress-deploy', name: 'Deploy WordPress', icon: <Download className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-plugins', name: 'Gerir Plugins', icon: <Plug className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-restore-backup', name: 'Restaurar Backup WP', icon: <RotateCcw className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-remote-backup', name: 'Backup Remoto WP', icon: <Cloud className="w-9 h-9 text-indigo-500" /> },
-      ]
-    },
-    {
-      id: 'databases', name: 'Bases de Dados',
-      headerIcon: <Database className="w-5 h-5" />,
-      color: 'text-orange-700', bgColor: 'bg-orange-50',
-      tools: [
-        { id: 'cp-databases', name: 'Criar Base de Dados', icon: <PlusCircle className="w-9 h-9 text-orange-500" /> },
-        { id: 'cp-databases', name: 'Gerir Bases de Dados', icon: <Database className="w-9 h-9 text-orange-500" /> },
-        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
       ]
     },
     {
@@ -215,10 +215,10 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
     },
   ]
 
-  const filtered = search.trim()
+  const filtered = searchQuery.trim()
     ? sections.map(s => ({
       ...s,
-      tools: s.tools.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+      tools: s.tools.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
     })).filter(s => s.tools.length > 0)
     : sections
 
@@ -226,17 +226,6 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
     <div className="flex gap-6">
       {/* Main Grid */}
       <div className="flex-1 min-w-0 space-y-3">
-        {/* Search bar */}
-        <div className="relative mb-5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar ferramentas..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 shadow-sm"
-          />
-        </div>
-
         {filtered.map(section => (
           <div key={section.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <button

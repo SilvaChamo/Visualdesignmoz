@@ -1127,9 +1127,14 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       const result = await response.json();
       console.log("RESULTADO DA API:", result);
       if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
-      const sentCount = result?.details?.success ?? emailList.length;
-      const failedCount = result?.details?.failed ?? 0;
-      if (failedCount > 0) {
+      
+      // 🐛 CORREÇÃO: Verificar se realmente enviou algo
+      const sentCount = result?.details?.success ?? 0;
+      const failedCount = result?.details?.failed ?? emailList.length;
+      
+      if (sentCount === 0) {
+        throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+      } else if (failedCount > 0) {
         toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
       } else {
         toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);

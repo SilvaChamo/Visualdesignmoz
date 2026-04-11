@@ -1,0 +1,87 @@
+⚡ CONFIGURAÇÃO PHP - Copie para o CyberPanel
+
+1. Ligue-se ao servidor:
+   ssh ADMIN@109.199.104.22
+   (password: Meckito#77?*)
+
+2. Crie o ficheiro:
+   sudo tee /usr/local/CyberCP/public/setup-smtp.php << 'EOF'
+<?php
+header('Content-Type: text/plain; charset=utf-8');
+echo "=== CONFIGURACAO SMTP CYBERPANEL ===\n\n";
+
+// Verificar se é admin
+$auth = false;
+if (isset($_SERVER['PHP_AUTH_USER'])) {
+    if ($_SERVER['PHP_AUTH_USER'] === 'admin' && $_SERVER['PHP_AUTH_PW'] === 'EmailAdmin#2425') {
+        $auth = true;
+    }
+}
+
+if (!$auth) {
+    header('WWW-Authenticate: Basic realm="CyberPanel SMTP Setup"');
+    header('HTTP/1.0 401 Unauthorized');
+    echo "Acesso negado. Use: admin / EmailAdmin#2425\n";
+    exit;
+}
+
+echo "[1/6] A abrir portas no firewall...\n";
+passthru('sudo ufw allow 587/tcp 2>&1');
+passthru('sudo ufw allow 465/tcp 2>&1');
+passthru('sudo ufw reload 2>&1');
+
+echo "\n[2/6] A configurar Postfix...\n";
+passthru('sudo postconf -e "inet_interfaces=all" 2>&1');
+passthru('sudo postconf -e "smtpd_sasl_auth_enable=yes" 2>&1');
+passthru('sudo postconf -e "smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination" 2>&1');
+
+echo "\n[3/6] A adicionar submission na porta 587...\n";
+$master_cf = file_get_contents('/etc/postfix/master.cf');
+if (strpos($master_cf, '^submission') === false) {
+    $submission = "\nsubmission inet n       -       -       -       -       smtpd\n  -o smtpd_tls_security_level=encrypt\n  -o smtpd_sasl_auth_enable=yes\n  -o smtpd_client_restrictions=permit_sasl_authenticated,reject\n";
+    file_put_contents('/etc/postfix/master.cf', $submission, FILE_APPEND);
+    echo "✅ Porta 587 adicionada\n";
+} else {
+    echo "ℹ️ Porta 587 ja existe\n";
+}
+
+echo "\n[4/6] A reiniciar Postfix...\n";
+passthru('sudo systemctl restart postfix 2>&1 || sudo service postfix restart 2>&1');
+
+echo "\n[5/6] A verificar configuracao...\n";
+$output = [];
+exec('sudo netstat -tlnp 2>/dev/null | grep :587 || sudo ss -tlnp 2>/dev/null | grep :587', $output);
+if (count($output) > 0) {
+    echo "✅ SUCESSO! Porta 587 está aberta:\n";
+    echo implode("\n", $output) . "\n";
+} else {
+    echo "⚠️ ATENCAO: Porta 587 nao encontrada. Verifique manualmente.\n";
+}
+
+echo "\n[6/6] A verificar Postfix...\n";
+passthru('sudo postfix check 2>&1');
+
+echo "\n=== CONCLUSAO ===\n";
+echo "SMTP configurado no servidor 109.199.104.22\n";
+echo "Portas: 587 (STARTTLS), 465 (SSL)\n";
+echo "Credenciais: admin@visualdesigne.com / EmailAdmin#2425\n";
+echo "\nProximo passo: Abrir firewall no painel Contabo (TCP 587, 465)\n";
+echo "Teste: telnet 109.199.104.22 587\n";
+?>
+EOF
+
+3. Aceda no browser:
+   https://109.199.104.22:8090/setup-smtp.php
+   Login: admin
+   Password: EmailAdmin#2425
+
+4. O script executa automaticamente e mostra resultado.
+
+5. NO PAINEL CONTABO WEB:
+   - Aceda https://contabo.com → VPS Control → Firewall
+   - Adicione TCP: 587, 465
+
+6. TESTE:
+   telnet 109.199.104.22 587
+
+✅ CONCLUIDO!

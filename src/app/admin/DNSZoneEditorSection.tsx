@@ -592,7 +592,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3 w-24">TTL</th>
                 <th className="px-4 py-3 w-24">Tipo</th>
-                <th className="px-4 py-3">Registo</th>
+                <th className="px-4 py-3 min-w-[200px]">Registo</th>
                 <th className="px-4 py-3 w-40">Acções</th>
               </tr>
             </thead>

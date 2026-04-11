@@ -130,8 +130,18 @@ export default function AdminMessagesPage() {
             if (!response.ok) {
                 throw new Error(result.error || "Erro ao enviar mensagem");
             }
-
-            toast.success(`Mensagem enviada com sucesso para ${emailList.length} destinatários!`);
+            
+            // 🐛 CORREÇÃO: Verificar se realmente enviou
+            const sentCount = result?.details?.success ?? 0;
+            const failedCount = result?.details?.failed ?? 0;
+            
+            if (sentCount === 0) {
+                throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+            } else if (failedCount > 0) {
+                toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+            } else {
+                toast.success(`Mensagem enviada com sucesso para ${sentCount} destinatários!`);
+            }
             
             // Reset Form (except sender)
             setSubject("");

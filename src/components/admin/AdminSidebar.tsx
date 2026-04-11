@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { 
-  Home, Globe, Users, Mail, Shield, Database, Settings, Layout,
+  Home, Globe, Users, Mail, Shield, Database, Settings, Layout, Package,
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
@@ -22,12 +22,13 @@ interface AdminSidebarProps {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'emails-new', label: 'Gestão de E-mails', icon: Mail },
   { id: 'domains', label: 'Websites', icon: Globe },
+  { id: 'packages-list', label: 'Pacotes', icon: Package },
   { id: 'cp-users', label: 'Contas', icon: Users },
   { id: 'backup-manager', label: 'Backups', icon: Archive },
   { id: 'cp-databases', label: 'Databases', icon: Database },
   { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
-  { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
   { id: 'newsletter', label: 'Marketing / News', icon: Layout },
   { id: 'cp-ssl', label: 'SSL', icon: Lock },
   { id: 'cp-security', label: 'Segurança', icon: Shield },

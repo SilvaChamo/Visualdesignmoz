@@ -24,7 +24,8 @@ import {
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
-  WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
+  WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
+  SMTPConfigSection
 } from './CyberPanelSections'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -818,7 +819,7 @@ function ClientesSection() {
 
 export default function AdminPage() {
   const { t } = useI18n()
-  const [activeSection, setActiveSection] = useState('dashboard')
+  const [activeSection, setActiveSection] = useState('emails-new')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
@@ -868,6 +869,7 @@ export default function AdminPage() {
 
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
+  const [dashboardSearch, setDashboardSearch] = useState('')
 
   useEffect(() => {
     loadCyberPanelData()
@@ -954,6 +956,70 @@ export default function AdminPage() {
 
   const currentSidebarWidth = isCollapsed ? 80 : 250
 
+  const getSectionInfo = (section: string): { title: string; description: string } => {
+    const info: Record<string, { title: string; description: string }> = {
+      'dashboard': { title: 'Dashboard', description: 'Painel de controlo principal' },
+      'domains': { title: 'Dashboard', description: 'Gestão de websites e domínios' },
+      'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
+      'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
+      'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
+      'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros CyberPanel' },
+      'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
+      'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
+      'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
+      'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
+      'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
+      'cp-users': { title: 'Dashboard', description: 'Utilizadores CyberPanel' },
+      'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
+      'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
+      'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
+      'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
+      'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
+      'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
+      'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
+      'webmail': { title: 'Dashboard', description: 'Webmail' },
+      'cp-email-mgmt': { title: 'Dashboard', description: 'Listar contas de e-mail' },
+      'cp-email-delete': { title: 'Dashboard', description: 'Apagar e-mails' },
+      'cp-email-forwarding': { title: 'Dashboard', description: 'Encaminhamento de e-mails' },
+      'cp-email-catchall': { title: 'Dashboard', description: 'Catch-All' },
+      'cp-email-pattern-fwd': { title: 'Dashboard', description: 'Pattern Forwarding' },
+      'cp-email-plus-addr': { title: 'Dashboard', description: 'Plus Addressing' },
+      'cp-email-change-pass': { title: 'Dashboard', description: 'Alterar password de e-mail' },
+      'cp-email-dkim': { title: 'Dashboard', description: 'Gestão de DKIM' },
+      'cp-email-limits': { title: 'Dashboard', description: 'Limites de e-mail' },
+      'setup-smtp': { title: 'Dashboard', description: 'Configurar SMTP' },
+      'cp-wp-list': { title: 'Dashboard', description: 'Painel WordPress' },
+      'cp-wp-plugins': { title: 'Dashboard', description: 'Plugins WordPress' },
+      'cp-wp-backup': { title: 'Dashboard', description: 'Backup WordPress' },
+      'cp-wp-restore-backup': { title: 'Dashboard', description: 'Restaurar backup WordPress' },
+      'cp-wp-remote-backup': { title: 'Dashboard', description: 'Backup remoto WordPress' },
+      'wordpress-install': { title: 'Dashboard', description: 'Instalar WordPress' },
+      'wordpress-deploy': { title: 'Dashboard', description: 'Deploy WordPress' },
+      'cp-modify-website': { title: 'Dashboard', description: 'Modificar website' },
+      'cp-suspend-website': { title: 'Dashboard', description: 'Suspender website' },
+      'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
+      'domain-manager': { title: 'Dashboard', description: 'Gestor de domínios' },
+      'website-preview': { title: 'Dashboard', description: 'Preview de website' },
+      'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
+      'packages-list': { title: 'Dashboard', description: 'Listar pacotes' },
+      'packages-new': { title: 'Dashboard', description: 'Criar novo pacote' },
+      'cp-reseller': { title: 'Dashboard', description: 'Centro de revenda' },
+      'cp-dns-nameserver': { title: 'Dashboard', description: 'Nameservers' },
+      'cp-dns-default-ns': { title: 'Dashboard', description: 'NS padrão' },
+      'cp-dns-create-zone': { title: 'Dashboard', description: 'Criar zona DNS' },
+      'cp-dns-delete-zone': { title: 'Dashboard', description: 'Apagar zona DNS' },
+      'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
+      'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
+      'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
+      'newsletter': { title: 'Dashboard', description: 'Email marketing' },
+      'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
+      'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
+      'reports': { title: 'Dashboard', description: 'Relatórios' },
+      'analyses': { title: 'Dashboard', description: 'Análises' },
+    }
+    return info[section] || { title: 'Dashboard', description: 'Painel de controlo' }
+  }
+
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -965,6 +1031,8 @@ export default function AdminPage() {
           onRefresh={loadCyberPanelData}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
+          searchQuery={dashboardSearch}
+          onSearchChange={setDashboardSearch}
         />
       case 'domains':
       case 'domains-list':
@@ -1025,6 +1093,8 @@ export default function AdminPage() {
         return <EmailChangePasswordSection sites={filteredSites} />
       case 'cp-email-dkim':
         return <DKIMManagerSection sites={filteredSites} />
+      case 'setup-smtp':
+        return <SMTPConfigSection />
       case 'cp-users':
         return <CPUsersSection />
       case 'cp-reseller':
@@ -1097,31 +1167,44 @@ export default function AdminPage() {
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between">
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 ml-6">
-                {t('sidebar.home')}
+              <h1 className="text-2xl font-bold text-gray-900">
+                {getSectionInfo(activeSection).title}
               </h1>
-              <p className="text-xs text-gray-400 mt-0.5 ml-6">
-                {t('dash.welcome')}
+              <p className="text-sm text-gray-500 mt-0.5">
+                {getSectionInfo(activeSection).description}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleSync} disabled={syncing}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50" title={t('dash.sync')}>
-                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? t('dash.sync') + '...' : t('dash.sync')}
-              </button>
-              <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
-                <Globe size={13} /> {t('admin.settings.cyberpanel')}
-              </a>
-              <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title={t('sidebar.logout')}>
-                <LogOut size={13} />
-                {t('sidebar.logout')}
-              </button>
+            <div className="flex items-center gap-3">
+              {activeSection === 'dashboard' && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    value={dashboardSearch}
+                    onChange={e => setDashboardSearch(e.target.value)}
+                    placeholder="Pesquisar ferramentas..."
+                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <button onClick={handleSync} disabled={syncing}
+                  className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50" title={t('dash.sync')}>
+                  <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? t('dash.sync') + '...' : t('dash.sync')}
+                </button>
+                <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Globe size={13} /> {t('admin.settings.cyberpanel')}
+                </a>
+                <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
+                  className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors" title={t('sidebar.logout')}>
+                  <LogOut size={14} />
+                  <span>Sair da Conta</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>

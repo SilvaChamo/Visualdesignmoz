@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
+import https from 'https';
 import { 
   canSendEmail, 
   recordSuccessfulSends, 
@@ -16,14 +18,140 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-// Configuração do CyberPanel SMTP Master
-const CYBERPANEL_HOST = process.env.SMTP_HOST || '109.199.104.22';
-const CYBERPANEL_PORT = Number(process.env.SMTP_PORT || 465);
-const CYBERPANEL_SECURE = true;
+import { resend } from '@/lib/resend';
 
-// 🚀 CREDENCIAIS CYBERPANEL (configuradas)
-const CYBERPANEL_MASTER_EMAIL = process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
-const CYBERPANEL_MASTER_PASSWORD = process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425';
+// 🆕 FUNÇÃO FALLBACK 1: Enviar via CyberPanel PHP API (SMTP local)
+async function sendViaCyberPanelAPI(
+    to: string[], 
+    subject: string, 
+    content: string, 
+    fromEmail: string,
+    clientDomain: string,
+    warmupCheck: any
+) {
+    console.log(`🔄 CYBERPANEL API: Enviando para ${to.length} destinatários`);
+    
+    try {
+        // Chamar API PHP no CyberPanel
+        const response = await fetch(CYBERPANEL_API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`
+            },
+            body: JSON.stringify({
+                to: to.slice(0, 100), // Limitar a 100 por chamada
+                subject,
+                html: content,
+                from: fromEmail,
+                fromName: fromEmail.split('@')[0]
+            }),
+            // @ts-ignore - agent não está no tipo padrão mas funciona com node-fetch
+            agent: httpsAgent
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Falha na API CyberPanel');
+        }
+        
+        console.log('✅ Envio via CyberPanel API:', result);
+        
+        // Atualizar reputação
+        await recordSuccessfulSends(clientDomain, result.details?.success || 0);
+        
+        return NextResponse.json({
+            success: true,
+            message: `Enviados ${result.details?.success || 0} emails via CyberPanel API`,
+            details: result.details,
+            method: 'cyberpanel-api',
+            warmup: result.warmup,
+            reputation: warmupCheck.reputation
+        });
+        
+    } catch (error: any) {
+        console.error('❌ CyberPanel API falhou:', error);
+        // 🆕 FALLBACK 2: Tentar Resend
+        return await sendViaResend(to, subject, content, fromEmail, clientDomain, warmupCheck);
+    }
+}
+
+// 🆕 FUNÇÃO FALLBACK 2: Enviar via Resend quando CyberPanel falhar
+async function sendViaResend(
+    to: string[], 
+    subject: string, 
+    content: string, 
+    fromEmail: string,
+    clientDomain: string,
+    warmupCheck: any
+) {
+    console.log(`🔄 FALLBACK RESEND: Enviando para ${to.length} destinatários`);
+    
+    const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[]
+    };
+    
+    try {
+        // Resend Free: máximo 100/dia, limitar a 50 por chamada
+        const limitedTo = to.slice(0, 50);
+        
+        for (const recipient of limitedTo) {
+            try {
+                const { data, error } = await resend.emails.send({
+                    from: fromEmail || 'VisualDesign <noreply@visualdesigne.com>',
+                    to: [recipient],
+                    subject,
+                    html: content,
+                });
+                
+                if (error) {
+                    console.error(`❌ Erro Resend para ${recipient}:`, error);
+                    results.failed++;
+                    results.errors.push(`${recipient}: ${error.message}`);
+                } else {
+                    console.log(`✅ Resend: Enviado para ${recipient}`, data?.id);
+                    results.success++;
+                }
+            } catch (err: any) {
+                console.error(`❌ Exceção Resend para ${recipient}:`, err.message);
+                results.failed++;
+                results.errors.push(`${recipient}: ${err.message}`);
+            }
+        }
+        
+        // Atualizar reputação
+        await recordSuccessfulSends(clientDomain, results.success);
+        
+        return NextResponse.json({
+            success: true,
+            message: `Enviados ${results.success} emails via Resend (Free: 100/dia)`,
+            details: results,
+            method: 'resend',
+            reputation: warmupCheck.reputation,
+            limit: { plan: 'free', maxPerDay: 100 }
+        });
+        
+    } catch (error: any) {
+        console.error('❌ Fallback Resend falhou:', error);
+        return NextResponse.json({ 
+            error: 'Falha no envio via CyberPanel e Resend.',
+            code: 'ALL_METHODS_FAILED',
+            details: error.message
+        }, { status: 503 });
+    }
+}
+
+// Configuração da API CyberPanel
+const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php';
+const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token';
+
+// Agente HTTPS que ignora certificado inválido
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+});
 
 export async function POST(req: NextRequest) {
     try {
@@ -97,270 +225,22 @@ export async function POST(req: NextRequest) {
             }, { status: 429 });
         }
 
-        // Buscar conta de email de marketing do cliente no banco de dados
-        // Procura por email que comece com 'marketing@' e seja do tipo 'mailbox'
-        const { data: emailConta, error: contaError } = await supabaseAdmin
-            .from('email_contas')
-            .select('*')
-            .eq('domain', clientDomain)
-            .eq('tipo_conta', 'mailbox')
-            .ilike('email', 'marketing@%')
-            .single();
-
-        let smtpUser: string;
-        let smtpPass: string;
-        let fromEmail: string;
-        let replyToEmail: string;
-
-        if (emailConta && emailConta.password_smtp) {
-            // Usar conta dedicada do cliente
-            smtpUser = emailConta.email;
-            smtpPass = Buffer.from(emailConta.password_smtp, 'base64').toString('utf8');
-            fromEmail = emailConta.email;
-            replyToEmail = clientEmail || emailConta.email;
-            
-            console.log(`📧 Usando conta dedicada: ${smtpUser}`);
-        } else {
-            // Fallback: Usar conta master do CyberPanel com envelope personalizado
-            console.log(`⚠️ Conta de marketing não encontrada para ${clientDomain}, usando fallback`);
-            
-            smtpUser = CYBERPANEL_MASTER_EMAIL;
-            smtpPass = CYBERPANEL_MASTER_PASSWORD;
-            fromEmail = `marketing@${clientDomain}`;
-            replyToEmail = clientEmail || `geral@${clientDomain}`;
-            
-            console.log(`🔍 Fallback SMTP (CyberPanel):`, {
-                user: smtpUser,
-                host: CYBERPANEL_HOST,
-                port: CYBERPANEL_PORT,
-                secure: CYBERPANEL_SECURE,
-                hasPassword: !!smtpPass
-            });
-        }
+        // Configurar email de envio
+        const fromEmail = sender || `marketing@${clientDomain}`;
         
-        // � Verificação de credenciais
-        console.log(`📧 Configuração final SMTP:`, {
-            smtpUser,
-            host: CYBERPANEL_HOST,
-            port: CYBERPANEL_PORT,
-            fromEmail,
-            replyToEmail
-        });
-
-        const safeClientName = (clientName || '').toString().trim();
-        const safeClientEmail = (clientEmail || '').toString().trim();
-        const safeSender = (sender || '').toString().trim();
-
-        console.log(`🚀 CONFIGURAÇÃO SMTP CYBERPANEL:`, {
-            host: CYBERPANEL_HOST,
-            port: CYBERPANEL_PORT,
+        console.log(`� CONFIGURAÇÃO ENVIO:`, {
             domain: clientDomain,
+            from: fromEmail,
             phase: warmupCheck.reputation.currentPhase,
             dailyLimit: warmupCheck.dailyLimit,
             sending: to.length,
             remaining: warmupCheck.remainingToday
         });
 
-        // Configurar transporter CyberPanel
-        const transporter = nodemailer.createTransport({
-            host: CYBERPANEL_HOST,
-            port: CYBERPANEL_PORT,
-            secure: CYBERPANEL_SECURE,
-            auth: {
-                user: smtpUser,
-                pass: smtpPass
-            },
-            tls: { 
-                rejectUnauthorized: false,
-                servername: CYBERPANEL_HOST
-            },
-            connectionTimeout: 30000,
-            socketTimeout: 30000,
-            greetingTimeout: 30000
-        });
-
-        // Testar conexão
-        try {
-            console.log('🔍 Testando conexão SMTP:', {
-                host: CYBERPANEL_HOST,
-                port: CYBERPANEL_PORT,
-                user: smtpUser,
-                hasPassword: !!smtpPass
-            });
-            await transporter.verify();
-            console.log('✅ Conexão CyberPanel SMTP verificada');
-        } catch (verifyError: any) {
-            console.error('❌ Falha na verificação SMTP:', verifyError.message);
-            console.error('🔍 Detalhes do erro:', {
-                code: verifyError.code,
-                command: verifyError.command,
-                responseCode: verifyError.responseCode,
-                host: CYBERPANEL_HOST,
-                port: CYBERPANEL_PORT,
-                user: smtpUser
-            });
-            return NextResponse.json({ 
-                error: 'Falha na conexão com servidor de email. Tente novamente em alguns instantes.',
-                details: process.env.NODE_ENV === 'development' ? verifyError.message : undefined
-            }, { status: 503 });
-        }
-
-        console.log(`📤 Iniciando envio para ${to.length} contactos via CyberPanel (${clientDomain})...`);
-        console.log(`📊 Status Warm-up: ${warmupCheck.reputation.currentPhase} | Limite: ${warmupCheck.dailyLimit}/dia | Enviando: ${to.length}`);
-
-        // Envio individual para evitar que um e-mail inválido bloqueie todos
-        const results = {
-            success: 0,
-            failed: 0,
-            errors: [] as string[]
-        };
-        
-        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const LIKELY_TYPO_DOMAINS = new Set(['gail.com', 'gmial.com', 'gmai.com', 'hotnail.com', 'yaho.com']);
-
-        // Processamento em LOTES (Batches) para velocidade e segurança
-        // Warm-up: lotes menores para novos domínios
-        const getBatchSize = (phase: string) => {
-            if (phase === 'NEW') return 5;
-            if (phase === 'PHASE_1') return 8;
-            if (phase === 'PHASE_2') return 10;
-            return 15; // PHASE_3, PHASE_4, ESTABLISHED
-        };
-        
-        const BATCH_SIZE = getBatchSize(warmupCheck.reputation.currentPhase);
-        
-        // Delay entre lotes para aquecimento gradual
-        const getBatchDelay = (phase: string) => {
-            if (phase === 'NEW') return 2000; // 2s entre lotes
-            if (phase === 'PHASE_1') return 1500;
-            if (phase === 'PHASE_2') return 1000;
-            return 500; // 0.5s para domínios estabelecidos
-        };
-
-        for (let i = 0; i < to.length; i += BATCH_SIZE) {
-            const batch = to.slice(i, i + BATCH_SIZE);
-            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-            const totalBatches = Math.ceil(to.length / BATCH_SIZE);
-            
-            console.log(`📦 Lote ${batchNum}/${totalBatches}: ${batch.length} emails`);
-            
-            await Promise.all(batch.map(async (email: string) => {
-                try {
-                    const normalizedEmail = (email || '').toString().trim().toLowerCase();
-                    if (!EMAIL_REGEX.test(normalizedEmail)) {
-                        results.failed++;
-                        results.errors.push(`${normalizedEmail || 'destinatario_vazio'}: formato de email invalido`);
-                        await recordBounce(clientDomain);
-                        return;
-                    }
-                    
-                    const domainPart = normalizedEmail.split('@')[1] || '';
-                    if (LIKELY_TYPO_DOMAINS.has(domainPart)) {
-                        results.failed++;
-                        results.errors.push(`${normalizedEmail}: dominio parece incorreto (${domainPart})`);
-                        await recordBounce(clientDomain);
-                        return;
-                    }
-
-                    // Remetente personalizado do cliente
-                    const personalizedSender = safeSender || 
-                        (safeClientEmail ? `"${safeClientName || safeClientEmail}" <${safeClientEmail}>` : fromEmail);
-
-                    // Configuração de envelope para entrega profissional
-                    // O "from" visível usa o domínio do cliente, mas o envelope SMTP usa a conta autenticada
-                    const visibleFrom = safeClientName 
-                        ? `"${safeClientName}" <${fromEmail}>` 
-                        : fromEmail;
-
-                    const info = await transporter.sendMail({
-                        from: visibleFrom,
-                        replyTo: replyToEmail,
-                        to: normalizedEmail,
-                        subject: subject,
-                        html: content,
-                        headers: {
-                            'X-Mailer': 'VisualDesign Email Marketing',
-                            'X-Domain': clientDomain,
-                            'X-Campaign-Type': 'marketing'
-                        }
-                    });
-
-                    const accepted = (info.accepted || []).map(String).map((v: string) => v.toLowerCase());
-                    const rejected = (info.rejected || []).map(String).map((v: string) => v.toLowerCase());
-                    const acceptedCurrent = accepted.includes(normalizedEmail) || (accepted.length > 0 && rejected.length === 0);
-
-                    if (acceptedCurrent) {
-                        results.success++;
-                        console.log(`✅ Email aceite: ${normalizedEmail}`);
-                    } else {
-                        results.failed++;
-                        results.errors.push(`${normalizedEmail}: rejeitado pelo SMTP`);
-                        await recordBounce(clientDomain);
-                        console.error(`❌ SMTP rejeitou ${normalizedEmail}`, { accepted, rejected, response: info.response });
-                    }
-                } catch (err: any) {
-                    console.error(`❌ Falha ao enviar para ${email}:`, err.message);
-                    results.failed++;
-                    results.errors.push(`${email}: ${err.message}`);
-                    await recordBounce(clientDomain);
-                }
-            }));
-            
-            // Delay entre lotes (warm-up)
-            if (i + BATCH_SIZE < to.length) {
-                const delay = getBatchDelay(warmupCheck.reputation.currentPhase);
-                console.log(`⏱️ Aguardando ${delay}ms antes do próximo lote...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
-
-        // 📝 Registrar envios bem-sucedidos no sistema de warm-up
-        if (results.success > 0) {
-            await recordSuccessfulSends(clientDomain, results.success);
-        }
-
-        // 📊 Retornar resultado com informações de warm-up
-        const updatedReputation = await getDomainReputation(clientDomain);
-        const phaseInfo = getPhaseDisplay(updatedReputation.currentPhase);
-
-        if (results.success === 0) {
-            return NextResponse.json({
-                error: 'Nenhum email foi entregue.',
-                code: 'ALL_FAILED',
-                details: {
-                    ...results,
-                    domain: clientDomain,
-                    reputation: {
-                        phase: updatedReputation.currentPhase,
-                        phaseLabel: phaseInfo.label,
-                        dailyLimit: updatedReputation.dailyLimit,
-                        sentToday: updatedReputation.emailsSentToday,
-                        remainingToday: updatedReputation.dailyLimit - updatedReputation.emailsSentToday,
-                        score: updatedReputation.reputationScore
-                    }
-                }
-            }, { status: 500 });
-        }
-
-        return NextResponse.json({ 
-            success: true, 
-            message: `Processamento concluído: ${results.success} enviados, ${results.failed} falhas.`,
-            details: {
-                ...results,
-                domain: clientDomain,
-                reputation: {
-                    phase: updatedReputation.currentPhase,
-                    phaseLabel: phaseInfo.label,
-                    phaseDescription: phaseInfo.description,
-                    dailyLimit: updatedReputation.dailyLimit,
-                sentToday: updatedReputation.emailsSentToday,
-                remainingToday: updatedReputation.dailyLimit - updatedReputation.emailsSentToday,
-                    score: updatedReputation.reputationScore,
-                    daysActive: updatedReputation.daysSinceFirstSend,
-                    recommendations: getReputationRecommendations(updatedReputation)
-                }
-            }
-        });
+        // 🚀 USAR DIRETAMENTE CYBERPANEL API (MAIS FIÁVEL)
+        // O SMTP direto foi desativado - usamos a API PHP do CyberPanel que está configurada
+        console.log('🚀 Usando CyberPanel API diretamente (mais fiável)...');
+        return await sendViaCyberPanelAPI(to, subject, content, fromEmail, clientDomain, warmupCheck);
 
     } catch (error: any) {
         console.error('Erro na API de MailMarketing:', error);

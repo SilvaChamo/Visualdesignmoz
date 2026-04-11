@@ -94,6 +94,48 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
           console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
         }
       }
+      
+      // Fallback para DKIM - usar execução direta de comando
+      if (action === 'getDKIMStatus' || action === 'enableDKIM') {
+        console.log(`[FALLBACK] ${action} via server-exec API due to 500 error`);
+        try {
+          const domain = params?.domainName || params?.domain;
+          if (!domain) throw new Error('Domain required for DKIM');
+          
+          const isEnable = action === 'enableDKIM';
+          const cmdAction = isEnable ? 'enableDKIM' : 'getDKIMStatus';
+          
+          const res = await fetch('/api/server-exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: cmdAction, 
+              params: { domainName: domain }
+            })
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`[FALLBACK SUCCESS] ${action}:`, result);
+            
+            // Retornar no formato esperado pela UI
+            if (isEnable) {
+              return { success: result.success !== false, message: result.output || 'DKIM operation completed' };
+            } else {
+              // Para getDKIMStatus, parsear o resultado
+              const hasKey = result.output && result.output.includes('v=DKIM1');
+              return {
+                enabled: hasKey || result.success,
+                record: result.output || '',
+                selector: 'default',
+                publicKey: result.output || ''
+              };
+            }
+          }
+        } catch (fallbackError: any) {
+          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+        }
+      }
     }
     
     if (error.name === 'AbortError') {

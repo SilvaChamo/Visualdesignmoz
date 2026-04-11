@@ -67,11 +67,20 @@ export async function POST(req: NextRequest) {
     if (isResendAvailable && isTransactional && isAuthorizedDomain) {
       console.log('Using Resend for transactional email delivery...');
       try {
+        // 🎯 IMPORTANTE: Usar email do cliente como remetente, NUNCA VisualDesign
+        const senderEmail = from || 'noreply@visualdesigne.com';
+        
+        console.log('📧 RESEND - Enviando email:', {
+          from: senderEmail,
+          to: Array.isArray(to) ? to[0] : to,
+          subject: subject?.substring(0, 50)
+        });
+        
         const { data, error } = await resend.emails.send({
-          from: from || 'noreply@your-domain.com',
+          from: senderEmail,
           to, cc, bcc, subject,
           html: html || '',
-          replyTo: replyTo || from
+          replyTo: replyTo || senderEmail
         });
 
         if (!error) {

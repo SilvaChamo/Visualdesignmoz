@@ -40,6 +40,20 @@ class CacheService {
       }
     }
   }
+  
+  // 🆕 Limpar cache por padrão de chave
+  clearPattern(pattern: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+  
+  // 🆕 Listar todas as chaves (para debug)
+  getKeys(): string[] {
+    return Array.from(this.cache.keys());
+  }
 }
 
 export const cacheService = new CacheService();

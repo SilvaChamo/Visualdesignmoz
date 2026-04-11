@@ -1017,19 +1017,19 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
-                <th className="px-4 py-3 w-10">
+              <tr className="text-left text-xs font-bold text-gray-600 uppercase border-b bg-gray-100">
+                <th className="px-3 py-3 w-10">
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
                     onChange={e => handleToggleSelectAllVisible(e.target.checked, pageRecords)}
                   />
                 </th>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3 w-24">TTL</th>
-                <th className="px-4 py-3 w-24">Tipo</th>
-                <th className="px-4 py-3">Registo</th>
-                <th className="px-4 py-3 w-40">Acções</th>
+                <th className="px-3 py-3 whitespace-nowrap pr-6">Nome</th>
+                <th className="px-3 py-3 w-20 text-center pl-3">TTL</th>
+                <th className="px-3 py-3 w-24 text-center">Tipo</th>
+                <th className="px-3 py-3 flex-1">Registo</th>
+                <th className="px-3 py-3 w-32 text-center">Acções</th>
               </tr>
             </thead>
             <tbody>
@@ -1044,42 +1044,42 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                     : record.content
                 return (
                   <React.Fragment key={record.id}>
-                    <tr className="border-b border-gray-50 hover:bg-gray-50">
-                      <td className="px-4 py-3 align-top">
+                    <tr className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-3 py-3 align-middle">
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(record.id)}
                           onChange={e => handleToggleSelectOne(record.id, e.target.checked)}
                         />
                       </td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="font-medium text-gray-900 break-all">{record.name}</div>
+                      <td className="px-3 py-3 align-middle whitespace-nowrap pr-6">
+                        <div className="text-gray-900">{record.name}</div>
                       </td>
-                      <td className="px-4 py-3 align-top text-gray-600">{record.ttl || 0}</td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-3 py-3 align-middle text-gray-600 text-center pl-3">{record.ttl || 0}</td>
+                      <td className="px-3 py-3 align-middle text-center">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${typeColors[record.type] || 'bg-gray-100 text-gray-800'
+                          className={`inline-block px-3 py-1 rounded text-xs font-semibold ${typeColors[record.type] || 'bg-gray-200 text-gray-800'
                             }`}
                         >
                           {record.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 align-top text-gray-700 break-all">{displayContent}</td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="px-3 py-3 align-middle text-gray-700 break-all text-sm">{displayContent}</td>
+                      <td className="px-3 py-3 align-middle">
+                        <div className="flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => startEditRecord(record)}
-                            className="text-blue-600 hover:text-blue-800 text-xs font-bold"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 border border-blue-500 text-blue-600 hover:bg-blue-50 rounded text-xs font-medium transition-colors"
                           >
-                            Editar
+                            <Edit className="w-3 h-3" /> Editar
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteRecord(record)}
-                            className="text-red-600 hover:text-red-800 text-xs font-bold"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 border border-red-500 text-red-600 hover:bg-red-50 rounded text-xs font-medium transition-colors"
                           >
-                            Remover
+                            <Trash2 className="w-3 h-3" /> Remover
                           </button>
                         </div>
                       </td>
@@ -4106,7 +4106,18 @@ export function EmailChangePasswordSection({ sites }: { sites: CyberPanelWebsite
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const loadEmails = async (domain: string) => { if (!domain) return; setLoading(true); const data = await cyberPanelAPI.listEmails(domain); setEmails(data); setLoading(false) }
+  const loadEmails = async (domain: string) => { 
+    if (!domain) return; 
+    setLoading(true); 
+    try {
+      const data = await cyberPanelAPI.listEmails(domain); 
+      setEmails(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Erro ao carregar emails:', err);
+      setEmails([]);
+    }
+    setLoading(false);
+  }
 
   const handleChange = async () => {
     if (!selectedEmail || !newPass) return
@@ -4148,46 +4159,299 @@ export function EmailChangePasswordSection({ sites }: { sites: CyberPanelWebsite
 // ============================================================
 export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [selectedDomain, setSelectedDomain] = useState('')
-  const [dkim, setDkim] = useState<{ enabled: boolean; record: string } | null>(null)
+  const [dkim, setDkim] = useState<{ enabled: boolean; record: string; selector?: string; publicKey?: string; privateKey?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [enabling, setEnabling] = useState(false)
   const [msg, setMsg] = useState('')
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
-  const loadDKIM = async (domain: string) => { if (!domain) return; setLoading(true); const data = await cyberPanelAPI.getDKIMStatus(domain); setDkim(data); setLoading(false) }
-
-  const handleEnable = async () => {
-    if (!selectedDomain) return
-    setEnabling(true); setMsg('')
-    const ok = await cyberPanelAPI.enableDKIM(selectedDomain)
-    setMsg(ok ? 'DKIM enabled!' : 'Error enabling DKIM.')
-    setEnabling(false)
-    if (ok) loadDKIM(selectedDomain)
+  const loadDKIM = async (domain: string, autoGenerate = false) => { 
+    if (!domain) return; 
+    setLoading(true);
+    if (!autoGenerate) setMsg('');
+    try {
+      // Buscar dados do DKIM via API
+      const result = await cyberPanelAPI.getDKIMStatus(domain);
+      console.log('DKIM Status:', result);
+      
+      // Verificar se temos dados válidos
+      if (result?.record || result?.publicKey) {
+        // DKIM já existe - mostrar chaves
+        setDkim({
+          enabled: result.enabled || false,
+          record: result.record || result.publicKey || '',
+          selector: result.selector || 'default',
+          publicKey: result.publicKey || result.record || '',
+          privateKey: result.privateKey || ''
+        });
+      } else if (autoGenerate) {
+        // Auto-gerar apenas quando chamado explicitamente
+        setMsg('Gerando chaves DKIM...');
+        const generated = await cyberPanelAPI.enableDKIM(domain);
+        console.log('DKIM Generate result:', generated);
+        
+        if (generated?.success !== false) {
+          // Aguardar mais tempo para o CyberPanel gerar as chaves
+          await new Promise(r => setTimeout(r, 3000));
+          
+          // Tentar obter as chaves novamente
+          const updated = await cyberPanelAPI.getDKIMStatus(domain);
+          console.log('DKIM Updated after generate:', updated);
+          
+          if (updated?.record || updated?.publicKey) {
+            setDkim({
+              enabled: updated.enabled || true,
+              record: updated.record || updated.publicKey || '',
+              selector: updated.selector || 'default',
+              publicKey: updated.publicKey || updated.record || '',
+              privateKey: updated.privateKey || ''
+            });
+            setMsg('Chaves DKIM geradas! Configure no seu DNS e depois teste.');
+          } else {
+            setMsg('Chaves geradas mas ainda não disponíveis. Clique em Gerar novamente ou aguarde.');
+          }
+        } else {
+          setMsg('Não foi possível gerar chaves. Tente novamente.');
+        }
+      } else {
+        // Não auto-gerar ao selecionar - deixar usuário clicar no botão
+        setDkim(null);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar DKIM:', err);
+      if (!autoGenerate) {
+        setMsg('Erro ao comunicar com o servidor. Clique em "Gerar Chaves DKIM".');
+      }
+      setDkim(null);
+    }
+    setLoading(false);
   }
+
+  const handleGenerate = async () => {
+    if (!selectedDomain) return
+    setEnabling(true);
+    await loadDKIM(selectedDomain, true); // autoGenerate = true
+    setEnabling(false);
+  }
+
+  const handleTest = async () => {
+    if (!selectedDomain) return
+    setMsg('A verificar configuração DKIM...');
+    try {
+      // Abrir ferramenta externa de verificação
+      window.open(`https://mxtoolbox.com/dkim.aspx?domain=${selectedDomain}`, '_blank');
+      setMsg('Verificação aberta no MXToolbox. Verifique se o DKIM está válido.');
+    } catch (err) {
+      setMsg('Erro ao abrir ferramenta de teste.');
+    }
+  }
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  // Extrair dados do record DKIM
+  const getDKIMData = () => {
+    if (!dkim?.record) return null
+    // Formato: selector._domainkey.domain IN TXT "v=DKIM1; k=rsa; p=..."
+    const parts = dkim.record.split(' ')
+    const selector = dkim.selector || 'default'
+    const name = parts[0] || `${selector}._domainkey.${selectedDomain}`
+    const value = dkim.publicKey || parts.slice(2).join(' ').replace(/"/g, '') || dkim.record
+    const privateKey = dkim.privateKey || ''
+    return { name, value, selector, privateKey }
+  }
+
+  const dkimData = getDKIMData()
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">DKIM Manager</h1><p className="text-gray-500 mt-1">Manage DKIM (DomainKeys Identified Mail) for email authentication.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex gap-4 items-end mb-6">
-          <div className="flex-1 max-w-sm"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-              <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-            </select>
-          </div>
-          {selectedDomain && !loading && (
-            <button onClick={handleEnable} disabled={enabling} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-              {enabling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />} {dkim?.enabled ? 'Regenerate DKIM' : 'Enable DKIM'}
-            </button>
-          )}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center">
+          <Shield className="w-5 h-5 text-green-600" />
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('enabled') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        {loading ? <div className="py-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : dkim && (
-          <div>
-            <p className="text-sm mb-2">Status: <span className={`font-bold ${dkim.enabled ? 'text-green-600' : 'text-red-600'}`}>{dkim.enabled ? 'Enabled' : 'Disabled'}</span></p>
-            {dkim.record && <div className="bg-gray-50 border border-gray-200 rounded-lg p-3"><p className="text-xs font-bold text-gray-600 uppercase mb-1">DKIM Record</p><code className="text-xs font-mono text-gray-700 break-all">{dkim.record}</code></div>}
-          </div>
-        )}
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">DKIM Manager</h1>
+          <p className="text-xs text-gray-600">Gerar e gerir chaves DKIM para autenticação de email</p>
+        </div>
       </div>
+
+      {/* Seletor de Domínio */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <label className="text-xs font-bold text-gray-600 uppercase block mb-2">Selecionar Website</label>
+        <select 
+          value={selectedDomain} 
+          onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value, false) }} 
+          className="w-full max-w-md px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-500"
+        >
+          <option value="">Selecione um domínio...</option>
+          {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+        </select>
+      </div>
+
+      {loading && selectedDomain && (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center shadow-sm">
+          <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
+          <p className="text-sm text-gray-500 mt-3">A carregar chaves DKIM...</p>
+        </div>
+      )}
+
+      {msg && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 ${msg.includes('sucesso') || msg.includes('geradas') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {msg.includes('sucesso') || msg.includes('geradas') ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {msg}
+        </div>
+      )}
+
+      {/* Chaves DKIM - Layout tipo CyberPanel */}
+      {dkimData && selectedDomain && !loading && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          {/* Header com status e botões */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${dkim?.enabled ? 'bg-green-500' : 'bg-amber-500'}`} />
+              <h2 className="text-lg font-bold text-gray-900">Chaves DKIM - {selectedDomain}</h2>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleGenerate} 
+                disabled={enabling} 
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {enabling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />} 
+                {dkim?.enabled ? 'Regenerar Chaves' : 'Gerar Chaves'}
+              </button>
+              {dkim?.enabled && (
+                <button 
+                  onClick={handleTest} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" /> 
+                  Testar DKIM
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Grid com Private e Public Key */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Private Key */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-600" />
+                <h3 className="text-sm font-bold text-gray-800">PRIVATE KEY</h3>
+                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Mantenha segura</span>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <textarea 
+                  readOnly
+                  value={dkimData.privateKey || '-----BEGIN PRIVATE KEY-----\n[Chave privada gerada pelo servidor]\n-----END PRIVATE KEY-----'}
+                  className="w-full h-48 bg-white border border-gray-200 rounded p-3 text-xs font-mono text-gray-600 resize-none focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Public Key */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-gray-800">PUBLIC KEY</h3>
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Adicione ao DNS</span>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <textarea 
+                  readOnly
+                  value={dkimData.value}
+                  className="w-full h-48 bg-white border border-gray-200 rounded p-3 text-xs font-mono text-gray-600 resize-none focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Instruções de configuração DNS */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Configuração DNS - Registro TXT
+            </h4>
+            <div className="grid sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-xs text-blue-600 uppercase font-bold block mb-1">Nome / Host</span>
+                <div className="flex items-center gap-2">
+                  <code className="bg-white border border-blue-200 rounded px-2 py-1 text-xs font-mono flex-1 break-all">
+                    {dkimData.name}
+                  </code>
+                  <button 
+                    onClick={() => copyToClipboard(dkimData.name, 'name')}
+                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded"
+                    title="Copiar"
+                  >
+                    {copiedField === 'name' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-blue-600 uppercase font-bold block mb-1">Tipo</span>
+                <code className="bg-white border border-blue-200 rounded px-2 py-1 text-xs font-mono">TXT</code>
+              </div>
+              <div>
+                <span className="text-xs text-blue-600 uppercase font-bold block mb-1">TTL</span>
+                <code className="bg-white border border-blue-200 rounded px-2 py-1 text-xs font-mono">14400</code>
+              </div>
+            </div>
+            <div className="mt-4">
+              <span className="text-xs text-blue-600 uppercase font-bold block mb-1">Valor / Conteúdo (copie tudo)</span>
+              <div className="flex items-start gap-2">
+                <code className="bg-white border border-blue-200 rounded px-3 py-2 text-xs font-mono flex-1 break-all max-h-32 overflow-y-auto">
+                  {dkimData.value}
+                </code>
+                <button 
+                  onClick={() => copyToClipboard(dkimData.value, 'value')}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded"
+                  title="Copiar valor"
+                >
+                  {copiedField === 'value' ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Info adicional */}
+          <div className="mt-4 flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
+            <p className="text-xs text-yellow-800">
+              <strong>Importante:</strong> A propagação DNS pode levar até 48h. 
+              Verifique em <a href="https://mxtoolbox.com/dkim.aspx" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">MXToolbox DKIM</a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Estado sem chaves geradas ainda */}
+      {selectedDomain && !loading && !dkimData?.value && (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+          <Key className="w-16 h-16 mx-auto mb-4 text-gray-200" />
+          <p className="text-gray-500 mb-4">Nenhuma chave DKIM gerada para {selectedDomain}</p>
+          <button 
+            onClick={handleGenerate} 
+            disabled={enabling} 
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+          >
+            {enabling ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />} 
+            Gerar Chaves DKIM
+          </button>
+        </div>
+      )}
+
+      {/* Estado sem domínio selecionado */}
+      {!selectedDomain && !loading && (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-gray-200" />
+          <p className="text-gray-500">Selecione um domínio para ver as chaves DKIM</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -6606,6 +6870,107 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// SMTP CONFIG SECTION
+// ============================================================
+export function SMTPConfigSection() {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const configureSMTP = async () => {
+    setLoading(true)
+    setError(null)
+    setResult(null)
+
+    try {
+      const response = await fetch('/api/setup-smtp-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setResult(data)
+      } else {
+        setError(data.error || 'Falha na configuração')
+      }
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+          <Server className="w-5 h-5 text-blue-600" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Configurar SMTP</h1>
+          <p className="text-xs text-gray-600">Configuração do servidor de email CyberPanel</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Configuração Automática</h2>
+        <p className="text-gray-600 text-sm mb-6">
+          Configure o servidor CyberPanel (109.199.104.22) para aceitar ligações SMTP externas.
+        </p>
+
+        <button
+          onClick={configureSMTP}
+          disabled={loading}
+          className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
+        >
+          {loading ? (
+            <><RefreshCw className="w-5 h-5 animate-spin" /> Configurando...</>
+          ) : (
+            <><Server className="w-5 h-5" /> Configurar SMTP Automaticamente</>
+          )}
+        </button>
+      </div>
+
+      {result && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle className="w-6 h-6 text-green-600" />
+            <h3 className="text-lg font-semibold text-green-800">Configuração Executada!</h3>
+          </div>
+
+          <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-60 font-mono">
+            {result.output}
+          </pre>
+
+          {result.nextSteps && (
+            <div className="mt-4">
+              <h4 className="font-semibold text-gray-800 mb-2">Próximos passos:</h4>
+              <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                {result.nextSteps.map((step: string, i: number) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-6 h-6 text-red-600" />
+            <h3 className="text-lg font-semibold text-red-800">Erro</h3>
+          </div>
+          <p className="text-red-700 mt-2">{error}</p>
         </div>
       )}
     </div>
