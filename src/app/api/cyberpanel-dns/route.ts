@@ -108,26 +108,51 @@ export async function POST(request: Request) {
     }
     
     const cleanDomain = domainName.replace(/[^a-zA-Z0-9_.-]/g, '');
-    const cleanName = name.replace(/[^a-zA-Z0-9_.*@-]/g, '');
+    // Fix 1: Verificar se o nome já contém o domínio para evitar duplicação
+    let cleanName = name.replace(/[^a-zA-Z0-9_.*@-]/g, '');
+    if (cleanName.endsWith('.' + cleanDomain) || cleanName.endsWith('.')) {
+      // Já tem o domínio completo ou é root
+      cleanName = cleanName.replace(/\.$/, ''); // Remover ponto final se existir
+    }
+    
     const cleanType = type.replace(/[^A-Z]/g, '');
-    const cleanValue = type === 'MX' ? `${priority || 10} ${value}` : value;
+    let cleanValue = type === 'MX' ? `${priority || 10} ${value}` : value;
     const cleanTtl = parseInt(String(ttl)) || 14400;
+    
+    // Fix 2: Escapar aspas no valor para não quebrar a query SQL
+    // DKIM e outros records TXT podem ter aspas que precisam ser escapadas
+    const escapedValue = cleanValue.replace(/'/g, "'\\''").replace(/"/g, '\\"');
+    
+    // Determinar o nome completo do registro
+    const fullRecordName = cleanName.includes(cleanDomain) 
+      ? cleanName 
+      : (cleanName === '@' ? cleanDomain : `${cleanName}.${cleanDomain}`);
     
     // INSERT MySQL directo na tabela records do PowerDNS
     const insertQuery = `
       INSERT INTO records (domain_id, name, type, content, ttl, prio)
-      SELECT id, '${cleanName}.${cleanDomain}', '${cleanType}', '${cleanValue}', ${cleanTtl}, 0
+      SELECT id, '${fullRecordName}', '${cleanType}', '${escapedValue}', ${cleanTtl}, 0
       FROM domains WHERE name='${cleanDomain}'
     `;
     
     const raw = await execSSH(`mysql cyberpanel -e "${insertQuery}" 2>&1`);
     
-    const success = !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('duplicate');
+    // Fix 3: Melhor detecção de sucesso/erro
+    const rawLower = raw.toLowerCase();
+    const hasError = rawLower.includes('error') || rawLower.includes('failed') || rawLower.includes('syntax');
+    const isDuplicate = rawLower.includes('duplicate') || rawLower.includes('already exists');
+    const success = !hasError || isDuplicate;
+    
+    let message = 'Registo criado com sucesso!';
+    if (isDuplicate) message = 'Registo já existe (duplicado).';
+    else if (hasError) message = `Erro ao criar registo: ${raw}`;
+    
     return NextResponse.json({ 
       success, 
-      message: success ? 'Registo criado!' : 'Erro ao criar registo', 
+      message, 
       details: raw,
-      query: insertQuery
+      query: insertQuery.replace(/'[^']*'/g, "'***'"), // Não logar valores sensíveis
+      recordName: fullRecordName
     });
     
   } catch (error: any) {

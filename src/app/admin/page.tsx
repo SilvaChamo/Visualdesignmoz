@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { createClient } from '@/utils/supabase/server'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft
 } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
@@ -333,9 +333,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
               {/* Botões */}
               <div className="flex items-center gap-3">
-                {/* Botão Gerir — abre cards de gestão */}
+                {/* Botão Gerir — abre seção de gestão integrada */}
                 <button
-                  onClick={() => setExpandedSite(expandedSite === s.domain ? null : s.domain)}
+                  onClick={() => {
+                    // @ts-ignore
+                    window.__selectedManageDomain = s.domain;
+                    setActiveSection('manage-website');
+                  }}
                   className="bg-black hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
                   Gerir
                 </button>
@@ -817,9 +821,642 @@ function ClientesSection() {
   )
 }
 
+// ============================================================
+// MANAGE WEBSITE SECTION - CyberPanel Management Interface
+// ============================================================
+function ManageWebsiteSection({ 
+  domain, 
+  sites, 
+  setActiveSection, 
+  setFileManagerDomain, 
+  setSelectedDNSDomain,
+  packages = [],
+  onRefresh
+}: { 
+  domain: string
+  sites: CyberPanelWebsite[]
+  setActiveSection: (section: string) => void
+  setFileManagerDomain: (domain: string) => void
+  setSelectedDNSDomain: (domain: string) => void
+  packages?: CyberPanelPackage[]
+  onRefresh?: () => void
+}) {
+  const [siteData, setSiteData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  // Persistência no localStorage - chave única por domínio
+  const storageKey = `manageWebsiteSections_${domain}`
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(storageKey)
+      return saved ? JSON.parse(saved) : ['apps'] // Apenas primeiro aberto (ordem A-Z: 1-CLICK APPS)
+    }
+    return ['apps']
+  })
+
+  // Modal de criação de domínio
+  const [showDomainModal, setShowDomainModal] = useState(false)
+  const [domainForm, setDomainForm] = useState({ 
+    domain: '', 
+    email: '', 
+    packageName: packages[0]?.packageName || 'Default', 
+    php: '8.2' 
+  })
+  const [creatingDomain, setCreatingDomain] = useState(false)
+  const [domainMsg, setDomainMsg] = useState('')
+
+  // Modal de criação de email
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailForm, setEmailForm] = useState({
+    user: '',
+    password: '',
+    quota: '500'
+  })
+  const [creatingEmail, setCreatingEmail] = useState(false)
+  const [emailMsg, setEmailMsg] = useState('')
+
+  // Salvar estado no localStorage quando mudar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, JSON.stringify(expandedSections))
+    }
+  }, [expandedSections, storageKey])
+
+  useEffect(() => {
+    const site = sites.find(s => s.domain === domain)
+    setSiteData(site || { domain, state: 'Active' })
+    setLoading(false)
+  }, [domain, sites])
+
+  const toggleSection = (id: string) => {
+    setExpandedSections(prev => {
+      const isExpanding = !prev.includes(id)
+      const newState = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+      
+      // Se estiver expandindo, manter scroll na posição atual (não auto-scroll)
+      if (isExpanding) {
+        // Não fazer nada - página mantém-se fixa
+      }
+      
+      return newState
+    })
+  }
+
+  // Função para criar domínio
+  const handleCreateDomain = async () => {
+    if (!domainForm.domain || !domainForm.email) return
+    setCreatingDomain(true)
+    setDomainMsg('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createWebsite',
+          params: {
+            domain: domainForm.domain,
+            email: domainForm.email,
+            packageName: domainForm.packageName,
+            php: domainForm.php
+          }
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setDomainMsg('Domínio criado com sucesso!')
+        setDomainForm({ domain: '', email: '', packageName: packages[0]?.packageName || 'Default', php: '8.2' })
+        onRefresh?.()
+        setTimeout(() => setShowDomainModal(false), 1500)
+      } else {
+        setDomainMsg('Erro: ' + (data.error || 'Falha ao criar domínio'))
+      }
+    } catch (e: any) {
+      setDomainMsg('Erro: ' + e.message)
+    }
+    setCreatingDomain(false)
+  }
+
+  // Função para criar email
+  const handleCreateEmail = async () => {
+    if (!emailForm.user || !emailForm.password) return
+    setCreatingEmail(true)
+    setEmailMsg('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createEmail',
+          params: {
+            email: `${emailForm.user}@${domain}`,
+            password: emailForm.password
+          }
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEmailMsg('Email criado com sucesso!')
+        setEmailForm({ user: '', password: '', quota: '500' })
+        setTimeout(() => setShowEmailModal(false), 1500)
+      } else {
+        setEmailMsg('Erro: ' + (data.error || 'Falha ao criar email'))
+      }
+    } catch (e: any) {
+      setEmailMsg('Erro: ' + e.message)
+    }
+    setCreatingEmail(false)
+  }
+
+  const MenuItem = ({ 
+    icon: Icon, 
+    label, 
+    description, 
+    onClick, 
+    color = 'text-gray-600', 
+    bgColor = 'bg-white',
+    badge,
+    external = false,
+    href
+  }: { 
+    icon: any, 
+    label: string, 
+    description?: string,
+    onClick?: () => void,
+    color?: string,
+    bgColor?: string,
+    badge?: string,
+    external?: boolean,
+    href?: string
+  }) => {
+    const content = (
+      <div className={`flex flex-col items-center gap-2 p-4 rounded-xl hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-gray-200 ${bgColor} group`}>
+        <div className={`p-3 rounded-lg ${color} bg-white shadow-sm group-hover:scale-110 transition-transform`}>
+          <Icon className="w-6 h-6" />
+        </div>
+        <div className="text-center">
+          <span className="text-xs font-bold text-gray-700 block leading-tight">{label}</span>
+          {description && <span className="text-[10px] text-gray-400 block mt-0.5">{description}</span>}
+        </div>
+        {badge && (
+          <span className="absolute top-2 right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+            {badge}
+          </span>
+        )}
+      </div>
+    )
+
+    if (external && href) {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="relative">
+          {content}
+        </a>
+      )
+    }
+
+    return (
+      <button onClick={onClick} className="relative w-full text-left">
+        {content}
+      </button>
+    )
+  }
+
+  const SectionCard = ({ 
+    id, 
+    title, 
+    icon: Icon, 
+    color, 
+    bgColor, 
+    children 
+  }: { 
+    id: string, 
+    title: string, 
+    icon: any, 
+    color: string, 
+    bgColor: string,
+    children: React.ReactNode
+  }) => {
+    const isExpanded = expandedSections.includes(id)
+    
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+        >
+          <div className="flex items-center gap-3">
+            <div className={`${bgColor} ${color} p-2 rounded-lg`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800 text-sm">{title}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${color.replace('text-', 'bg-').replace('-600', '-500').replace('-700', '-500')}`}></span>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+        
+        {isExpanded && (
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {children}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="h-16 bg-gray-200 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-48 bg-gray-200 rounded-xl animate-pulse" />
+          <div className="h-48 bg-gray-200 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Header do Website */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900">{domain}</h1>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  siteData?.state === 'Active' || siteData?.state === 1 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {siteData?.state === 1 || siteData?.state === '1' ? 'Active' : siteData?.state || 'Active'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500">Gestão completa do website</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a 
+              href={`https://${domain}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Visitar Site
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* 1-Click Apps Section */}
+      <SectionCard 
+        id="apps"
+        title="1-CLICK APPS" 
+        icon={Zap} 
+        color="text-violet-700" 
+        bgColor="bg-violet-50"
+      >
+        <MenuItem icon={Globe2} label="WordPress" description="CMS popular" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon={Layers} label="Git Integration" description="Version control" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => setActiveSection('git-deploy')} />
+        <MenuItem icon={Globe} label="PrestaShop" description="E-commerce" color="text-pink-600" bgColor="bg-pink-50/50" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
+        <MenuItem icon={Mail} label="Mautic" description="Marketing automation" color="text-purple-600" bgColor="bg-purple-50/50" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=mautic`} />
+      </SectionCard>
+
+      {/* Backup Section */}
+      <SectionCard 
+        id="backup"
+        title="BACKUP" 
+        icon={Archive} 
+        color="text-teal-700" 
+        bgColor="bg-teal-50"
+      >
+        <MenuItem icon={Download} label="Create Backup" description="Criar" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-backup')} />
+        <MenuItem icon={RotateCcw} label="Restore Backup" description="Restaurar" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-restore-backup')} />
+        <MenuItem icon={Cloud} label="Remote Backup" description="Remoto" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-remote-backup')} />
+        <MenuItem icon={HardDrive} label="Backup Manager" description="Gestão" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('backup-manager')} />
+      </SectionCard>
+
+      {/* Configurations Section */}
+      <SectionCard 
+        id="configs"
+        title="CONFIGURATIONS" 
+        icon={Settings} 
+        color="text-cyan-700" 
+        bgColor="bg-cyan-50"
+      >
+        <MenuItem icon={Server} label="Apache Manager" description="Apache" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`} />
+        <MenuItem icon={FileCode} label="vHost Conf" description="Configuração" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/vhostTemplate/index?domain=${domain}`} />
+        <MenuItem icon={Edit} label="Rewrite Rules" description="Regras" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/website/rewriteRules?domain=${domain}`} />
+        <MenuItem icon={Lock} label="Add SSL" description="Certificado" color="text-cyan-600" bgColor="bg-cyan-50/50" onClick={() => setActiveSection('cp-ssl')} />
+        <MenuItem icon={Code} label="Change PHP" description="Versão PHP" color="text-cyan-600" bgColor="bg-cyan-50/50" onClick={() => setActiveSection('cp-php')} />
+      </SectionCard>
+
+      {/* Databases Section */}
+      <SectionCard 
+        id="databases"
+        title="DATABASES" 
+        icon={Database} 
+        color="text-orange-700" 
+        bgColor="bg-orange-50"
+      >
+        <MenuItem icon={Plus} label="Create Database" description="Criar BD" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
+        <MenuItem icon={Database} label="Manage Databases" description="Gerir BD" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
+        <MenuItem icon={ExternalLink} label="phpMyAdmin" description="Abrir phpMyAdmin" color="text-orange-600" bgColor="bg-orange-50/50" external href="https://109.199.104.22:8090/dataBases/phpMyAdmin" />
+      </SectionCard>
+
+      {/* DNS Section */}
+      <SectionCard 
+        id="dns"
+        title="DNS" 
+        icon={Server} 
+        color="text-yellow-700" 
+        bgColor="bg-yellow-50"
+      >
+        <MenuItem icon={Edit} label="Edit DNS Zone" description="Editar zona" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
+        <MenuItem icon={Plus} label="Create Zone" description="Criar zona" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => setActiveSection('cp-dns-create-zone')} />
+        <MenuItem icon={Trash2} label="Delete Zone" description="Apagar" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-dns-delete-zone')} />
+        <MenuItem icon={Cloud} label="CloudFlare" description="Integração" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => setActiveSection('cp-dns-cloudflare')} />
+      </SectionCard>
+
+      {/* Domains Section - Resumida */}
+      <SectionCard 
+        id="domains"
+        title="DOMAINS" 
+        icon={Globe} 
+        color="text-blue-700" 
+        bgColor="bg-blue-50"
+      >
+        <MenuItem icon={Plus} label="Add Domains" description="Adicionar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setShowDomainModal(true)} />
+        <MenuItem icon={List} label="List Domains" description="Listar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('domains-list')} />
+        <MenuItem icon={Globe2} label="Domain Alias" description="Aliases" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-list-subdomains')} />
+        <MenuItem icon={Zap} label="Cron Jobs" description="Agendadas" color="text-blue-600" bgColor="bg-blue-50/50" external href={`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`} />
+      </SectionCard>
+
+      {/* Email Marketing Section */}
+      <SectionCard 
+        id="email"
+        title="EMAIL MARKETING" 
+        icon={Mail} 
+        color="text-indigo-700" 
+        bgColor="bg-indigo-50"
+      >
+        <MenuItem icon={FileText} label="Create Lists" description="Criar listas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon={List} label="Manage Lists" description="Gerir listas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon={Server} label="SMTP Hosts" description="Configurar SMTP" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('setup-smtp')} />
+        <MenuItem icon={Edit} label="Compose" description="Escrever email" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon={Send} label="Send Emails" description="Campanhas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
+      </SectionCard>
+
+      {/* Emails Section */}
+      <SectionCard 
+        id="email-mgmt"
+        title="EMAILS" 
+        icon={Mail} 
+        color="text-rose-700" 
+        bgColor="bg-rose-50"
+      >
+        <MenuItem icon={Plus} label="Create Email" description="Criar conta" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => { setEmailForm({ user: '', password: '', quota: '500' }); setShowEmailModal(true); }} />
+        <MenuItem icon={List} label="List Emails" description="Listar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-mgmt')} />
+        <MenuItem icon={ExternalLink} label="Webmail" description="Aceder" color="text-rose-600" bgColor="bg-rose-50/50" external href={`https://${domain}:8090/snappymail`} />
+        <MenuItem icon={ArrowLeft} label="Forwarding" description="Encaminhar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-forwarding')} />
+        <MenuItem icon={Shield} label="DKIM Manager" description="DKIM" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-dkim')} />
+      </SectionCard>
+
+      {/* Files Section - Resumida */}
+      <SectionCard 
+        id="files"
+        title="FILES" 
+        icon={FolderOpen} 
+        color="text-emerald-700" 
+        bgColor="bg-emerald-50"
+      >
+        <MenuItem icon={FolderOpen} label="File Manager" description="Gestor de ficheiros" color="text-emerald-600" bgColor="bg-emerald-50/50" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
+        <MenuItem icon={Shield} label="open_basedir" description="Restrições" color="text-emerald-600" bgColor="bg-emerald-50/50" external href={`https://109.199.104.22:8090/website/openBasedir?domain=${domain}`} />
+        <MenuItem icon={Upload} label="Create FTP" description="Criar FTP" color="text-emerald-600" bgColor="bg-emerald-50/50" onClick={() => setActiveSection('cp-ftp')} />
+        <MenuItem icon={X} label="Delete FTP" description="Apagar FTP" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-ftp')} />
+      </SectionCard>
+
+      {/* Logs Section */}
+      <SectionCard 
+        id="logs"
+        title="LOGS" 
+        icon={FileText} 
+        color="text-amber-700" 
+        bgColor="bg-amber-50"
+      >
+        <MenuItem icon={FileCode} label="Access Logs" description="Logs de acesso" color="text-amber-600" bgColor="bg-amber-50/50" external href={`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`} />
+        <MenuItem icon={AlertCircle} label="Error Logs" description="Logs de erro" color="text-amber-600" bgColor="bg-amber-50/50" external href={`https://109.199.104.22:8090/websites/viewErrorLogs?domain=${domain}`} />
+      </SectionCard>
+
+      {/* Security Section */}
+      <SectionCard 
+        id="security"
+        title="SECURITY" 
+        icon={Shield} 
+        color="text-red-700" 
+        bgColor="bg-red-50"
+      >
+        <MenuItem icon={Lock} label="SSL / TLS" description="Certificados" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-ssl')} />
+        <MenuItem icon={Shield} label="Firewall" description="ModSecurity" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-security')} />
+        <MenuItem icon={AlertCircle} label="Blocked IPs" description="IPs bloqueados" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-security')} />
+        <MenuItem icon={Lock} label="Hotlink Protection" description="Proteção" color="text-red-600" bgColor="bg-red-50/50" external href={`https://109.199.104.22:8090/website/hotlinkProtection?domain=${domain}`} />
+      </SectionCard>
+
+      {/* WordPress Section */}
+      <SectionCard 
+        id="wordpress"
+        title="WORDPRESS" 
+        icon={Globe2} 
+        color="text-blue-700" 
+        bgColor="bg-blue-50"
+      >
+        <MenuItem icon={Download} label="Install WP" description="Instalar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon={ExternalLink} label="WP Admin" description="Painel WP" color="text-blue-600" bgColor="bg-blue-50/50" external href={`https://${domain}/wp-admin`} />
+        <MenuItem icon={Plug} label="Plugins" description="Gerir plugins" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-plugins')} />
+        <MenuItem icon={Archive} label="Backup" description="Backup WP" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-backup')} />
+        <MenuItem icon={RotateCcw} label="Restore" description="Restaurar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-restore-backup')} />
+      </SectionCard>
+
+      {/* Modal de Criação de Domínio */}
+      {showDomainModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowDomainModal(false)} />
+          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Novo Domínio</h2>
+                  <span className="text-[11px] text-gray-500 font-mono">Criar website no CyberPanel</span>
+                </div>
+              </div>
+              <button onClick={() => setShowDomainModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Nome do Domínio</label>
+                <input 
+                  value={domainForm.domain} 
+                  onChange={e => setDomainForm({...domainForm, domain: e.target.value})} 
+                  placeholder="exemplo.com" 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Email do Administrador</label>
+                <input 
+                  value={domainForm.email} 
+                  onChange={e => setDomainForm({...domainForm, email: e.target.value})} 
+                  placeholder="admin@exemplo.com" 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Pacote</label>
+                  <select 
+                    value={domainForm.packageName} 
+                    onChange={e => setDomainForm({...domainForm, packageName: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  >
+                    {packages.map(p => (
+                      <option key={p.packageName} value={p.packageName}>{p.packageName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Versão PHP</label>
+                  <select 
+                    value={domainForm.php} 
+                    onChange={e => setDomainForm({...domainForm, php: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  >
+                    <option value="7.4">PHP 7.4</option>
+                    <option value="8.0">PHP 8.0</option>
+                    <option value="8.1">PHP 8.1</option>
+                    <option value="8.2">PHP 8.2</option>
+                    <option value="8.3">PHP 8.3</option>
+                  </select>
+                </div>
+              </div>
+              {domainMsg && (
+                <div className={`p-3 rounded-lg text-sm ${domainMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  {domainMsg}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button onClick={() => setShowDomainModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
+                Cancelar
+              </button>
+              <button 
+                onClick={handleCreateDomain} 
+                disabled={creatingDomain || !domainForm.domain || !domainForm.email}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {creatingDomain ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Domínio'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criação de Email */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowEmailModal(false)} />
+          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center shadow-lg shadow-rose-500/20">
+                  <Mail className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Novo E-mail</h2>
+                  <span className="text-[11px] text-gray-500 font-mono">No domínio: {domain}</span>
+                </div>
+              </div>
+              <button onClick={() => setShowEmailModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    value={emailForm.user} 
+                    onChange={e => setEmailForm({...emailForm, user: e.target.value})} 
+                    placeholder="admin" 
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  />
+                  <span className="text-gray-500 text-sm">@{domain}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
+                  <input 
+                    type="password"
+                    value={emailForm.password} 
+                    onChange={e => setEmailForm({...emailForm, password: e.target.value})} 
+                    placeholder="••••••••" 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label>
+                  <select 
+                    value={emailForm.quota} 
+                    onChange={e => setEmailForm({...emailForm, quota: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  >
+                    <option value="500">500 MB</option>
+                    <option value="1000">1 GB</option>
+                    <option value="2000">2 GB</option>
+                    <option value="5000">5 GB</option>
+                    <option value="10000">10 GB</option>
+                    <option value="unlimited">Ilimitado</option>
+                  </select>
+                </div>
+              </div>
+              {emailMsg && (
+                <div className={`p-3 rounded-lg text-sm ${emailMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  {emailMsg}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button onClick={() => setShowEmailModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
+                Cancelar
+              </button>
+              <button 
+                onClick={handleCreateEmail} 
+                disabled={creatingEmail || !emailForm.user || !emailForm.password}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {creatingEmail ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const { t } = useI18n()
-  const [activeSection, setActiveSection] = useState('emails-new')
+  const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
@@ -827,6 +1464,7 @@ export default function AdminPage() {
   const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
+  const [selectedManageDomain, setSelectedManageDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   const searchParams = useSearchParams();
@@ -849,6 +1487,19 @@ export default function AdminPage() {
       window.__selectedDatabaseDomain = null;
     } else if (activeSection !== 'cp-databases') {
       setSelectedDatabaseDomain('');
+    }
+  }, [activeSection]);
+
+  // Efeito para capturar domínio vindo do botão "Gerir"
+  useEffect(() => {
+    // @ts-ignore
+    if (window.__selectedManageDomain && activeSection === 'manage-website') {
+      // @ts-ignore
+      setSelectedManageDomain(window.__selectedManageDomain);
+      // @ts-ignore
+      window.__selectedManageDomain = null;
+    } else if (activeSection !== 'manage-website') {
+      setSelectedManageDomain('');
     }
   }, [activeSection]);
 
@@ -931,8 +1582,11 @@ export default function AdminPage() {
     }
   }
 
-  // Definir domínio principal
-  const filteredSites = cyberPanelSites.filter(s => !s.domain.includes('contaboserver'))
+  // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
+  const filteredSites = cyberPanelSites.filter(s => 
+    !s.domain.includes('contaboserver') && 
+    !s.domain.toLowerCase().startsWith('mail.')
+  )
   const primaryDomain = filteredSites.length > 0
     ? filteredSites[0].domain
     : 'your-domain.com'
@@ -1000,6 +1654,7 @@ export default function AdminPage() {
       'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
       'domain-manager': { title: 'Dashboard', description: 'Gestor de domínios' },
       'website-preview': { title: 'Dashboard', description: 'Preview de website' },
+      'manage-website': { title: 'Gestão de Website', description: 'Gerir website e serviços' },
       'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
       'packages-list': { title: 'Dashboard', description: 'Listar pacotes' },
       'packages-new': { title: 'Dashboard', description: 'Criar novo pacote' },
@@ -1134,7 +1789,7 @@ export default function AdminPage() {
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
       case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={filteredSites} />
+        return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'git-deploy':
         return <GitDeploySection />
       case 'backup-manager':
@@ -1151,6 +1806,16 @@ export default function AdminPage() {
         return <DeploySection sites={cyberPanelSites} />
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
+      case 'manage-website':
+        return <ManageWebsiteSection 
+          domain={selectedManageDomain || primaryDomain}
+          sites={filteredSites}
+          setActiveSection={setActiveSection}
+          setFileManagerDomain={setFileManagerDomain}
+          setSelectedDNSDomain={setSelectedDNSDomain}
+          packages={cyberPanelPackages}
+          onRefresh={loadCyberPanelData}
+        />
       default:
         return <CpanelDashboard sites={filteredSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
     }

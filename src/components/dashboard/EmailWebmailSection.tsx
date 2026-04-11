@@ -28,7 +28,8 @@ export function EmailWebmailSection({
   emailOrigem: propEmailOrigem,
   sites = [],
   defaultCompose = false,
-  onCloseCompose
+  onCloseCompose,
+  onComposeStateChange
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
@@ -38,6 +39,7 @@ export function EmailWebmailSection({
   sites?: any[]
   defaultCompose?: boolean
   onCloseCompose?: () => void
+  onComposeStateChange?: (isActive: boolean) => void
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -51,9 +53,14 @@ export function EmailWebmailSection({
   const [compose, setCompose] = useState({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
   const [mostrarCompose, setMostrarCompose] = useState(defaultCompose)
 
+  // Notificar o componente pai quando o estado do compose muda
   useEffect(() => {
     if (defaultCompose) setMostrarCompose(true)
   }, [defaultCompose])
+
+  useEffect(() => {
+    onComposeStateChange?.(mostrarCompose)
+  }, [mostrarCompose, onComposeStateChange])
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [assinatura, setAssinatura] = useState('')
@@ -750,14 +757,14 @@ export function EmailWebmailSection({
 
   const botoesFormato = [
     { l: 'N', t: 'Negrito' }, { l: 'I', t: 'Itálico' }, { l: 'S', t: 'Sublinhado' },
-    { l: 'ab', t: 'Riscado' }, { l: 'x₂', t: 'Subscrito' }, { l: 'x²', t: 'Superscrito' },
+    { l: 'ab', t: 'Riscado' },
   ]
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] -mx-6 -mt-6">
 
-      {/* TOOLBAR PRINCIPAL */}
-      <div className="bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200">
+      {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo */}
+      <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${mostrarCompose ? 'hidden' : ''}`}>
         <button onClick={() => {
           setMostrarCompose(true)
           setEnviado(false)
@@ -791,8 +798,9 @@ export function EmailWebmailSection({
       </div>
 
       {/* LISTA DE EMAILS */}
-      <div className="flex-1 flex overflow-hidden bg-white">
-        <div className="w-72 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto">
+      <div className="flex-1 flex overflow-hidden bg-white relative">
+        {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo */}
+        <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto ${mostrarCompose ? 'hidden' : 'w-72'}`}>
           <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
           <div className="border-b border-gray-100">
@@ -878,7 +886,247 @@ export function EmailWebmailSection({
             )
           })}
         </div>
+        {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {mostrarCompose ? (
+            /* ========== VIEW COMPOSE (Página de Escrever) ========== */
+            <div className="flex-1 flex flex-col bg-white">
+              {/* Header do Compose */}
+              <div className="bg-gray-50 border-b border-gray-200 flex">
+                {/* Coluna esquerda — botão Enviar */}
+                <div className="flex flex-col border-r border-gray-200 shrink-0">
+                  <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
+                    className="flex-1 bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:opacity-40 text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm transition-all min-w-[110px] border-r border-green-800">
+                    {enviando
+                      ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
+                      : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
+                    }
+                  </button>
+                </div>
+                {/* Coluna direita — Campos */}
+                <div className="flex-1 flex flex-col">
+                  {/* Linha De + botão fechar */}
+                  <div className="flex items-center border-b border-gray-200 px-3 py-1">
+                    <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">De:</span>
+                    <select value={emailOrigem} onChange={e => setEmailOrigem(e.target.value)}
+                      className="bg-transparent text-gray-900 text-sm outline-none flex-1">
+                      <option value="" className="bg-white">Escolher email de origem...</option>
+                      {emailsOrigem.map(e => (
+                        <option key={e.email} value={e.email} className="bg-white">
+                          {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={() => setMostrarPopupFechar(true)}
+                      className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
+                  </div>
+                  {/* Linha Para */}
+                  <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                    <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Para:</span>
+                    <input list="contactos-list" value={compose.para} onChange={e => setCompose({ ...compose, para: e.target.value })}
+                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                    <datalist id="contactos-list">
+                      {contactos.map(c => <option key={c.email} value={c.email}>{c.nome}</option>)}
+                    </datalist>
+                    <button title="Seleccionar contacto" className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
+                    <button onClick={() => setMostrarCc(!mostrarCc)}
+                      className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarCc ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}>Cc</button>
+                    <button onClick={() => setMostrarBcc(!mostrarBcc)}
+                      className={`ml-1 text-xs px-2 py-0.5 rounded border transition-colors ${mostrarBcc ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}>Bcc</button>
+                  </div>
+                  {/* Linha Cc */}
+                  {mostrarCc && (
+                    <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                      <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Cc:</span>
+                      <input
+                        value={compose.cc}
+                        onChange={e => setCompose({ ...compose, cc: e.target.value })}
+                        className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                      />
+                      <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
+                    </div>
+                  )}
+                  {/* Linha Bcc */}
+                  {mostrarBcc && (
+                    <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
+                      <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Bcc:</span>
+                      <input
+                        value={compose.bcc}
+                        onChange={e => setCompose({ ...compose, bcc: e.target.value })}
+                        className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                      />
+                      <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
+                    </div>
+                  )}
+                  {/* Linha Assunto */}
+                  <div className="flex items-center px-3 py-1.5">
+                    <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Assunto:</span>
+                    <input
+                      value={compose.assunto}
+                      onChange={e => setCompose({ ...compose, assunto: e.target.value })}
+                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Toolbar de formatação - COMPLETA */}
+              <div className="bg-gray-100 px-3 py-1 flex items-center justify-between gap-1 flex-wrap border-b border-gray-200">
+                {/* Lado esquerdo — formatação */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button title="Desfazer (Ctrl+Z)" onMouseDown={(e) => { e.preventDefault(); execCmd('undo') }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors">
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M4.5 4.5l-3 3 3 3V8a5.5 5.5 0 1 1 5.5 5.5H6v1.5h4A7 7 0 1 0 4 5.6V4.5z" /></svg>
+                  </button>
+                  <button title="Refazer (Ctrl+Y)" onMouseDown={(e) => { e.preventDefault(); execCmd('redo') }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors">
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11.5 4.5l3 3-3 3V8a5.5 5.5 0 1 0-5.5 5.5H10v1.5H6A7 7 0 1 1 12 5.6V4.5z" /></svg>
+                  </button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded" onChange={(e) => execCmd('fontName', e.target.value)}>
+                    <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                  </select>
+                  <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14" onChange={(e) => {
+                    const mapeamento: Record<string, string> = { '11': '1', '12': '2', '14': '3', '16': '4', '18': '5' }
+                    execCmd('fontSize', mapeamento[e.target.value] || '3')
+                  }}>
+                    <option>11</option><option>12</option><option>14</option><option>16</option><option>18</option>
+                  </select>
+                  {/* Botão cor do texto */}
+                  <div className="relative">
+                    <button title="Cor do texto"
+                      onMouseDown={(e) => { e.preventDefault(); setMostrarPaletaCor(prev => prev === 'texto' ? null : 'texto') }}
+                      className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-white bg-white border border-gray-200 gap-0.5">
+                      <span className="text-gray-900 text-xs font-bold leading-none" style={{ color: corTexto === '#000000' ? '#111827' : corTexto }}>A</span>
+                      <div className="w-4 h-1 rounded-sm" style={{ backgroundColor: corTexto }} />
+                    </button>
+                    {mostrarPaletaCor === 'texto' && (
+                      <div className="absolute top-8 left-0 bg-white border border-gray-200 rounded shadow-xl p-2 z-50 w-48">
+                        <p className="text-gray-500 text-[10px] mb-1.5 font-bold uppercase">Cor do texto</p>
+                        <div className="grid grid-cols-8 gap-0.5">
+                          {CORES_PALETA.map(cor => (
+                            <button key={cor} title={cor}
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                const sel = window.getSelection()
+                                const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+                                setCorTexto(cor)
+                                setMostrarPaletaCor(null)
+                                if (range) { sel!.removeAllRanges(); sel!.addRange(range) }
+                                document.execCommand('foreColor', false, cor)
+                              }}
+                              className="w-4 h-4 rounded-sm border border-gray-100 hover:scale-125 transition-transform"
+                              style={{ backgroundColor: cor }} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Botão cor de fundo/realce */}
+                  <div className="relative">
+                    <button title="Realçar texto"
+                      onMouseDown={(e) => { e.preventDefault(); setMostrarPaletaCor(prev => prev === 'fundo' ? null : 'fundo') }}
+                      className="w-7 h-7 flex flex-col items-center justify-center rounded hover:bg-white bg-white border border-gray-200 gap-0.5">
+                      <span className="text-gray-900 text-xs leading-none">🖌</span>
+                      <div className="w-4 h-1 rounded-sm" style={{ backgroundColor: corFundo }} />
+                    </button>
+                    {mostrarPaletaCor === 'fundo' && (
+                      <div className="absolute top-8 left-0 bg-white border border-gray-200 rounded shadow-xl p-2 z-50 w-48">
+                        <p className="text-gray-500 text-[10px] mb-1.5 font-bold uppercase">Realçar texto</p>
+                        <div className="grid grid-cols-8 gap-0.5">
+                          {CORES_PALETA.map(cor => (
+                            <button key={cor} title={cor}
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                const sel = window.getSelection()
+                                const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+                                setCorFundo(cor)
+                                setMostrarPaletaCor(null)
+                                if (range) { sel!.removeAllRanges(); sel!.addRange(range) }
+                                document.execCommand('hiliteColor', false, cor)
+                              }}
+                              className="w-4 h-4 rounded-sm border border-gray-100 hover:scale-125 transition-transform"
+                              style={{ backgroundColor: cor }} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  {/* Botões de formatação: Negrito, Itálico, Sublinhado, etc */}
+                  {botoesFormato.map((b, i) => {
+                    const cmd =
+                      b.t === 'Negrito' ? 'bold' :
+                        b.t === 'Itálico' ? 'italic' :
+                          b.t === 'Sublinhado' ? 'underline' :
+                            b.t === 'Riscado' ? 'strikeThrough' :
+                              b.t === 'Subscrito' ? 'subscript' :
+                                b.t === 'Superscrito' ? 'superscript' : ''
+                    const activo = cmd ? document.queryCommandState(cmd) : false
+                    return (
+                      <button key={i} title={b.t}
+                        className={`text-sm px-2.5 py-1.5 rounded border relative group font-bold transition-colors
+        ${activo ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          if (!cmd) return
+                          if (b.t === 'Subscrito' && document.queryCommandState('superscript')) execCmd('superscript')
+                          if (b.t === 'Superscrito' && document.queryCommandState('subscript')) execCmd('subscript')
+                          execCmd(cmd)
+                        }}>
+                        {b.t === 'Itálico' ? <em>{b.l}</em> : b.t === 'Riscado' ? <s>{b.l}</s> : b.l}
+                        <span className="absolute top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">{b.t}</span>
+                      </button>
+                    )
+                  })}
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  {/* Alinhamento */}
+                  <button title="Alinhar à esquerda" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyLeft')}>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="1" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
+                  </button>
+                  <button title="Centrar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyCenter')}>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="3" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="4" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
+                  </button>
+                  <button title="Alinhar à direita" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyRight')}>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="5" y="5.5" width="10" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="7" y="12.5" width="8" height="1.5" rx="0.75" /></svg>
+                  </button>
+                  <button title="Justificar" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white border border-transparent hover:border-gray-200 text-gray-600 transition-colors" onClick={() => execCmd('justifyFull')}>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.75" /><rect x="1" y="5.5" width="14" height="1.5" rx="0.75" /><rect x="1" y="9" width="14" height="1.5" rx="0.75" /><rect x="1" y="12.5" width="14" height="1.5" rx="0.75" /></svg>
+                  </button>
+                  {/* Inserir */}
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <button title="Ligação" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => inserirLink()}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <span className="text-[10px]">Link</span>
+                  </button>
+                  <button title="Imagem" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => inserirImagem()}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    <span className="text-[10px]">Img</span>
+                  </button>
+                  <button title="Tabela" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => inserirTabela()}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                    <span className="text-[10px]">Tabela</span>
+                  </button>
+                  <button title="Anexo" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => inserirAnexo()}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.59a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    <span className="text-[10px]">Anexo</span>
+                  </button>
+                </div>
+              </div>
+              {/* Editor */}
+              <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+                <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-sm min-h-[400px]">
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="p-6 text-sm outline-none min-h-[400px] w-full"
+                    style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}
+                    onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ========== VIEW LISTA DE EMAILS ========== */
+            <>
           <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50">
             {modalEmail && (
               <button
@@ -1177,14 +1425,14 @@ export function EmailWebmailSection({
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
-
-
       </div>
-      {/* POPUP ESCREVER — FULLSCREEN */}
-      {
-        mostrarCompose && (
-          <div className="fixed inset-0 bg-white z-50 flex flex-col">
+
+      {/* ========== MODAL ANTIGO (DESATIVADO) ========== */}
+      {false && mostrarCompose && (
+        <div className="absolute top-0 right-0 bottom-0 left-72 bg-white z-40 flex flex-col hidden">
 
             {/* LINHA 1 — Layout 2 colunas */}
             <div className="bg-gray-50 border-b border-gray-200 flex">
@@ -1236,8 +1484,11 @@ export function EmailWebmailSection({
                 {mostrarCc && (
                   <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
                     <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Cc:</span>
-                    <input value={compose.cc} onChange={e => setCompose({ ...compose, cc: e.target.value })}
-                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                    <input
+                      value={compose.cc}
+                      onChange={e => setCompose({ ...compose, cc: e.target.value })}
+                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                    />
                     <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
                   </div>
                 )}
@@ -1245,16 +1496,22 @@ export function EmailWebmailSection({
                 {mostrarBcc && (
                   <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
                     <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Bcc:</span>
-                    <input value={compose.bcc} onChange={e => setCompose({ ...compose, bcc: e.target.value })}
-                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                    <input
+                      value={compose.bcc}
+                      onChange={e => setCompose({ ...compose, bcc: e.target.value })}
+                      className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                    />
                     <button className="text-gray-400 hover:text-gray-600 ml-2 text-xs border border-gray-300 rounded px-1.5 py-0.5">📖</button>
                   </div>
                 )}
                 {/* Linha Assunto */}
                 <div className="flex items-center px-3 py-1.5">
                   <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">Assunto:</span>
-                  <input value={compose.assunto} onChange={e => setCompose({ ...compose, assunto: e.target.value })}
-                    className="flex-1 bg-transparent text-gray-900 text-sm outline-none" />
+                  <input
+                    value={compose.assunto}
+                    onChange={e => setCompose({ ...compose, assunto: e.target.value })}
+                    className="flex-1 bg-transparent text-gray-900 text-sm outline-none"
+                  />
                 </div>
               </div>
             </div>
@@ -2070,7 +2327,7 @@ export function EmailWebmailSection({
           </div>
         )
       }
-    </div >
+    </div>
   )
 }
 

@@ -56,40 +56,46 @@ const templates = [
     },
     {
         id: 'promo',
-        name: 'Promoção',
-        description: 'Template para promoções de produtos, serviços ou eventos.',
+        name: 'Promoção Profissional',
+        description: 'Template otimizado para promoções - menos filtros de spam.',
         icon: Megaphone,
         color: 'orange',
         html: `
 <div style="margin:-20px;width:calc(100% + 40px);font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;">
   <!-- Header -->
-  <div style="background:linear-gradient(135deg,#ea580c,#f97316);padding:40px 24px;text-align:center;">
-    <p style="color:#fed7aa;font-size:11px;text-transform:uppercase;letter-spacing:3px;font-weight:800;margin:0 0 8px 0;">Oferta Especial</p>
-    <h1 style="color:#ffffff;font-size:28px;margin:0;font-weight:800;">🔥 [Título da Promoção]</h1>
-    <p style="color:#ffedd5;font-size:14px;margin-top:12px;">Válido por tempo limitado</p>
+  <div style="background:#f8fafc;padding:32px 24px;text-align:center;border-bottom:3px solid #f97316;">
+    <h1 style="color:#1e293b;font-size:24px;margin:0;font-weight:600;">[Nome da Empresa]</h1>
+    <p style="color:#64748b;font-size:13px;margin-top:8px;">Informação especial para si</p>
   </div>
   
   <!-- Body -->
-  <div style="padding:32px 24px;text-align:center;">
+  <div style="padding:32px 24px;">
+    <h2 style="color:#0f172a;font-size:20px;font-weight:600;margin:0 0 16px 0;">[Título da mensagem]</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 24px 0;">
-      [Descreva a promoção, produto ou serviço aqui. Inclua os benefícios principais e porquê o leitor deve agir agora.]
+      [Escreva aqui uma descrição natural do produto, serviço ou informação relevante. Use linguagem profissional e evite palavras como "grátis", "urgente", "limitado" ou muitos emojis.]
     </p>
     
-    <!-- CTA -->
-    <a href="#" style="display:inline-block;background:#ea580c;color:#fff;text-decoration:none;padding:14px 40px;border-radius:8px;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 14px rgba(234,88,12,0.3);">Aproveitar Agora →</a>
+    <!-- CTA simplificado -->
+    <div style="text-align:center;margin:32px 0;">
+      <a href="#" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:14px;font-weight:500;">Saber mais</a>
+    </div>
     
-    <!-- Details -->
-    <div style="margin-top:32px;padding:20px;background:#fff7ed;border-radius:12px;border:1px solid #fed7aa;">
-      <h3 style="color:#9a3412;font-size:14px;font-weight:700;margin:0 0 8px 0;">Detalhes</h3>
-      <p style="color:#c2410c;font-size:13px;line-height:1.5;margin:0;">[Condições, preços, datas relevantes]</p>
+    <!-- Info adicional -->
+    <div style="padding:20px;background:#f8fafc;border-radius:8px;border-left:4px solid #f97316;">
+      <p style="color:#64748b;font-size:13px;line-height:1.5;margin:0;">
+        <strong>Informação:</strong> [Adicione detalhes relevantes aqui de forma clara e profissional]
+      </p>
     </div>
   </div>
   
-  <!-- Footer -->
-  <div style="background:#1e293b;padding:24px;text-align:center;">
-    <p style="color:#94a3b8;font-size:11px;margin:0;">[Nome da Empresa] - Marketing & Emailing Profissional</p>
-    <p style="color:#64748b;font-size:10px;margin-top:8px;">
-      <a href="#" style="color:#64748b;">Desinscrever-se</a>
+  <!-- Footer profissional -->
+  <div style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
+    <p style="color:#64748b;font-size:12px;margin:0;">[Nome da Empresa] - [Contacto]</p>
+    <p style="color:#94a3b8;font-size:11px;margin-top:12px;">
+      Se não deseja receber estas mensagens, pode <a href="#" style="color:#64748b;text-decoration:underline;">remover subscrição aqui</a>
+    </p>
+    <p style="color:#94a3b8;font-size:10px;margin-top:8px;">
+      [Morada da empresa] | NIF: [NIF]
     </p>
   </div>
 </div>`

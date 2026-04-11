@@ -329,7 +329,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
 
   return (
     <div className="w-full space-y-4">
-      {/* LINHA 1: Título + selector de domínio */}
+      {/* LINHA 1: Título apenas */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">DNS Zone Editor</h1>
@@ -340,21 +340,6 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
           ) : (
             <p className="text-gray-500 mt-1">Selecione um domínio para gerir os registos DNS.</p>
           )}
-        </div>
-        <div className="w-full md:w-72">
-          <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
-          <select
-            value={selectedDomain}
-            onChange={e => handleDomainChange(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="">Seleccione um domínio...</option>
-            {sites.map(s => (
-              <option key={s.domain} value={s.domain}>
-                {s.domain}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -441,6 +426,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
       {/* LINHA 4: Botões de acção */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
+          {/* Botão Acções */}
           <div className="relative">
             <button
               type="button"
@@ -452,6 +438,24 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
               <span className="text-gray-400 text-[10px]">▼</span>
             </button>
           </div>
+          {/* Seletor de domínio */}
+          <div className="w-56">
+            <select
+              value={selectedDomain}
+              onChange={e => handleDomainChange(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs bg-white"
+            >
+              <option value="">Seleccione um domínio...</option>
+              {sites.map(s => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {/* Botões Save All Records e Add Record juntos */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSaveAll}
@@ -460,8 +464,6 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
           >
             Save All Records
           </button>
-        </div>
-        <div className="flex md:justify-end">
           <button
             type="button"
             onClick={() => setShowAddForm(v => !v)}
@@ -476,6 +478,15 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
       {/* FORMULÁRIO ADICIONAR — aparece quando showAddForm=true */}
       {showAddForm && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          {/* DICA RÁPIDA */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs">
+            <p className="font-semibold text-blue-800 mb-1">📧 Para configurar Email (DKIM/SPF/DMARC):</p>
+            <ul className="text-blue-700 space-y-0.5 list-disc list-inside">
+              <li><strong>DKIM:</strong> Nome: <code>default._domainkey</code> | Tipo: <code>TXT</code></li>
+              <li><strong>SPF:</strong> Nome: <code>@</code> | Tipo: <code>TXT</code> | Valor: <code>v=spf1 ip4:109.199.104.22 ~all</code></li>
+              <li><strong>DMARC:</strong> Nome: <code>_dmarc</code> | Tipo: <code>TXT</code> | Valor: <code>v=DMARC1; p=quarantine;</code></li>
+            </ul>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label>

@@ -1,6 +1,6 @@
 /**
- * Sistema de Warm-up de Email Marketing
- * Gestão progressiva de reputação de domínios para maximizar entregabilidade
+ * Sistema de Limite de Email Marketing - Simplificado
+ * Limite fixo de 200 emails/dia para conta gratuita
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,43 +9,65 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-// Limites de warm-up por fase (emails por dia)
-export const WARMUP_LIMITS = {
-  NEW: 50,           // Dia 0-1: Domínio novo
-  PHASE_1: 100,      // Dia 2-3: Primeiros envios
-  PHASE_2: 300,      // Dia 4-7: Semana 1
-  PHASE_3: 600,      // Dia 8-14: Semana 2
-  PHASE_4: 1000,     // Dia 15-30: Mês 1
-  ESTABLISHED: 2000  // Dia 30+: Domínio estabelecido
-};
+// Limite fixo para conta gratuita: 200 emails/dia
+export const DAILY_EMAIL_LIMIT = 200;
 
-// Dias necessários para cada fase
-const PHASE_DAYS = {
-  NEW: 0,
-  PHASE_1: 2,
-  PHASE_2: 4,
-  PHASE_3: 8,
-  PHASE_4: 15,
-  ESTABLISHED: 30
-};
+// Fases do warm-up (para compatibilidade com código existente)
+export const WARMUP_LIMITS = {
+  'NEW': 50,
+  'WARMUP_1': 100,
+  'WARMUP_2': 150,
+  'ESTABLISHED': 200,
+  'TRUSTED': 200,
+  'PHASE_1': 50,
+  'PHASE_2': 100,
+  'PHASE_3': 150,
+  'PHASE_4': 200
+} as const;
+
+export const PHASE_DAYS = {
+  'NEW': 0,
+  'WARMUP_1': 7,
+  'WARMUP_2': 14,
+  'ESTABLISHED': 30,
+  'TRUSTED': 60,
+  'PHASE_1': 0,
+  'PHASE_2': 7,
+  'PHASE_3': 14,
+  'PHASE_4': 30
+} as const;
+
+/**
+ * Calcula a fase baseada nos dias desde o primeiro envio
+ */
+function calculatePhase(daysSinceFirstSend: number): keyof typeof WARMUP_LIMITS {
+  if (daysSinceFirstSend >= PHASE_DAYS.TRUSTED) return 'TRUSTED';
+  if (daysSinceFirstSend >= PHASE_DAYS.ESTABLISHED) return 'ESTABLISHED';
+  if (daysSinceFirstSend >= PHASE_DAYS.WARMUP_2) return 'WARMUP_2';
+  if (daysSinceFirstSend >= PHASE_DAYS.WARMUP_1) return 'WARMUP_1';
+  return 'NEW';
+}
 
 export interface DomainReputation {
   domain: string;
-  currentPhase: keyof typeof WARMUP_LIMITS;
   dailyLimit: number;
   emailsSentToday: number;
   emailsSentTotal: number;
-  firstSendDate: string;
-  daysSinceFirstSend: number;
-  reputationScore: number; // 0-100
   lastSendDate: string;
   bounceRate: number;
   complaintRate: number;
-  // 🆕 Campos de histórico para tracking de mudanças
-  previousScore?: number; // Score da semana anterior
-  scoreChange?: number; // Diferença em percentagem (+5, -3, etc)
-  lastScoreUpdate?: string; // Data da última atualização de score
-  weeklyHistory?: { week: number; score: number; date: string }[]; // Histórico semanal
+  currentPhase?: string;
+  firstSendDate?: string;
+  daysSinceFirstSend?: number;
+  reputationScore?: number;
+  scoreChange?: number;
+  remainingToday?: number;
+  phaseDescription?: string;
+  sentToday?: number;
+  sentTotal?: number;
+  previousScore?: number;
+  lastScoreUpdate?: string;
+  weeklyHistory?: any[];
 }
 
 /**
@@ -165,18 +187,6 @@ async function initializeDomainReputation(domain: string): Promise<DomainReputat
 }
 
 /**
- * Calcula a fase atual baseada nos dias desde o primeiro envio
- */
-function calculatePhase(daysSinceFirstSend: number): keyof typeof WARMUP_LIMITS {
-  if (daysSinceFirstSend >= PHASE_DAYS.ESTABLISHED) return 'ESTABLISHED';
-  if (daysSinceFirstSend >= PHASE_DAYS.PHASE_4) return 'PHASE_4';
-  if (daysSinceFirstSend >= PHASE_DAYS.PHASE_3) return 'PHASE_3';
-  if (daysSinceFirstSend >= PHASE_DAYS.PHASE_2) return 'PHASE_2';
-  if (daysSinceFirstSend >= PHASE_DAYS.PHASE_1) return 'PHASE_1';
-  return 'NEW';
-}
-
-/**
  * Calcula score de reputação (0-100)
  */
 function calculateReputationScore(data: any): number {
@@ -233,7 +243,7 @@ export async function canSendEmail(domain: string, quantity: number = 1, options
   const remainingToday = reputation.dailyLimit - reputation.emailsSentToday;
 
   // 🆕 VERIFICAÇÃO: Se há problemas graves de reputação, bloqueia mesmo assim
-  if (reputation.reputationScore < 30 || reputation.bounceRate > 10 || reputation.complaintRate > 5) {
+  if ((reputation.reputationScore || 0) < 30 || reputation.bounceRate > 10 || reputation.complaintRate > 5) {
     return {
       allowed: false,
       remainingToday,
@@ -246,7 +256,7 @@ export async function canSendEmail(domain: string, quantity: number = 1, options
   // 🆕 EXCEDEU LIMITE: Oferece opção de avançar fase em vez de bloquear
   if (quantity > remainingToday && remainingToday > 0) {
     const excessCount = quantity - remainingToday;
-    const nextPhase = getNextPhase(reputation.currentPhase);
+    const nextPhase = getNextPhase((reputation.currentPhase || 'NEW') as keyof typeof WARMUP_LIMITS);
     
     return {
       allowed: options?.allowPhaseAdvance || false, // Só permite se explicitamente autorizado
@@ -266,7 +276,7 @@ export async function canSendEmail(domain: string, quantity: number = 1, options
 
   // Limite diário atingido completamente
   if (reputation.emailsSentToday >= reputation.dailyLimit) {
-    const nextPhase = getNextPhase(reputation.currentPhase);
+    const nextPhase = getNextPhase((reputation.currentPhase || 'NEW') as keyof typeof WARMUP_LIMITS);
     
     return {
       allowed: false,
@@ -295,7 +305,7 @@ export async function canSendEmail(domain: string, quantity: number = 1, options
 /**
  * 🆕 Obtém informação sobre a próxima fase disponível
  */
-function getNextPhase(currentPhase: keyof typeof WARMUP_LIMITS): {
+export function getNextPhase(currentPhase: keyof typeof WARMUP_LIMITS): {
   phase: keyof typeof WARMUP_LIMITS;
   limit: number;
   description: string;
@@ -306,11 +316,14 @@ function getNextPhase(currentPhase: keyof typeof WARMUP_LIMITS): {
   
   const descriptions: Record<keyof typeof WARMUP_LIMITS, string> = {
     NEW: 'Domínio novo - 50/dia',
-    PHASE_1: 'Fase 1 - 100/dia',
-    PHASE_2: 'Fase 2 - 300/dia',
-    PHASE_3: 'Fase 3 - 600/dia',
-    PHASE_4: 'Fase 4 - 1000/dia',
-    ESTABLISHED: 'Estabelecido - 2000/dia'
+    WARMUP_1: 'Warmup 1 - 100/dia',
+    WARMUP_2: 'Warmup 2 - 150/dia',
+    PHASE_1: 'Fase 1 - 50/dia',
+    PHASE_2: 'Fase 2 - 100/dia',
+    PHASE_3: 'Fase 3 - 150/dia',
+    PHASE_4: 'Fase 4 - 200/dia',
+    ESTABLISHED: 'Estabelecido - 200/dia',
+    TRUSTED: 'Confiável - 200/dia'
   };
   
   return {
@@ -332,41 +345,51 @@ export async function advanceToNextPhase(domain: string): Promise<{
 }> {
   try {
     const reputation = await getDomainReputation(domain);
-    const nextPhase = getNextPhase(reputation.currentPhase);
+    const nextPhase = getNextPhase((reputation.currentPhase || 'NEW') as keyof typeof WARMUP_LIMITS);
     
     // Se já está na fase máxima
     if (nextPhase.phase === reputation.currentPhase) {
       return {
         success: false,
-        newPhase: reputation.currentPhase,
+        newPhase: reputation.currentPhase || 'NEW',
         newLimit: reputation.dailyLimit,
         message: 'Domínio já está na fase máxima.'
       };
     }
 
     // Atualizar no banco de dados - avança fase artificialmente
+    // Apenas atualiza first_send_date (campo que existe na tabela)
     const now = new Date();
     // Ajusta first_send_date para simular os dias necessários para a próxima fase
     const daysNeeded = getDaysNeededForPhase(nextPhase.phase);
     const simulatedFirstSend = new Date(now.getTime() - (daysNeeded * 24 * 60 * 60 * 1000));
     
+    // Usar upsert para criar ou atualizar o registro
     const { error } = await supabaseAdmin
       .from('domain_reputation')
-      .update({
+      .upsert({
+        domain: domain,
         first_send_date: simulatedFirstSend.toISOString(),
-        manually_advanced: true,
-        advanced_at: now.toISOString(),
-        previous_phase: reputation.currentPhase
-      })
-      .eq('domain', domain);
+        emails_sent_today: 0,
+        last_send_date: null,
+        total_emails_sent: 0,
+        bounce_count: 0,
+        complaint_count: 0
+      }, {
+        onConflict: 'domain'
+      });
     
     if (error) {
-      console.error('Erro ao avançar fase:', error);
+      console.error('❌ Erro ao avançar fase:', error);
+      console.error('Domínio:', domain);
+      console.error('Dados tentando atualizar:', {
+        first_send_date: simulatedFirstSend.toISOString()
+      });
       return {
         success: false,
-        newPhase: reputation.currentPhase,
+        newPhase: (reputation.currentPhase || 'NEW') as keyof typeof WARMUP_LIMITS,
         newLimit: reputation.dailyLimit,
-        message: 'Erro ao atualizar fase. Tente novamente.'
+        message: 'Erro ao atualizar fase no banco: ' + error.message
       };
     }
     
@@ -394,11 +417,14 @@ export async function advanceToNextPhase(domain: string): Promise<{
 function getDaysNeededForPhase(phase: keyof typeof WARMUP_LIMITS): number {
   const phaseDays: Record<keyof typeof WARMUP_LIMITS, number> = {
     NEW: 0,
+    WARMUP_1: 7,
+    WARMUP_2: 14,
     PHASE_1: 2,
     PHASE_2: 4,
     PHASE_3: 8,
     PHASE_4: 15,
-    ESTABLISHED: 30
+    ESTABLISHED: 30,
+    TRUSTED: 60
   };
   return phaseDays[phase] || 0;
 }
@@ -524,11 +550,11 @@ export function getReputationRecommendations(reputation: DomainReputation): stri
     recommendations.push('🚨 Taxa de reclamações elevada! Revise a qualidade do seu conteúdo.');
   }
 
-  if (reputation.reputationScore < 70) {
+  if ((reputation.reputationScore || 0) < 70) {
     recommendations.push('💡 Reputação baixa. Considere pausar campanhas por 24-48h.');
   }
 
-  if (reputation.currentPhase === 'ESTABLISHED' && reputation.reputationScore > 80) {
+  if (reputation.currentPhase === 'ESTABLISHED' && (reputation.reputationScore || 0) > 80) {
     recommendations.push('🌟 Excelente reputação! Seu limite máximo é de 2000 emails/dia.');
   }
 
@@ -536,21 +562,16 @@ export function getReputationRecommendations(reputation: DomainReputation): stri
 }
 
 /**
- * Formata fase para exibição amigável
+ * Retorna informação simples do limite para exibição
  */
-export function getPhaseDisplay(phase: keyof typeof WARMUP_LIMITS): {
+export function getLimitInfo(): {
   label: string;
   description: string;
   color: string;
 } {
-  const phases = {
-    NEW: { label: '', description: 'Novo domínio', color: 'bg-blue-500' },
-    PHASE_1: { label: 'Inicial', description: 'Primeiros envios (2-3 dias)', color: 'bg-yellow-500' },
-    PHASE_2: { label: 'Crescendo', description: 'Construindo reputação (4-7 dias)', color: 'bg-orange-500' },
-    PHASE_3: { label: 'Estável', description: 'Reputação estabelecida (8-14 dias)', color: 'bg-green-500' },
-    PHASE_4: { label: 'Maduro', description: 'Alto volume permitido (15-30 dias)', color: 'bg-emerald-500' },
-    ESTABLISHED: { label: 'Premium', description: 'Máxima reputação (30+ dias)', color: 'bg-purple-500' }
+  return {
+    label: 'Gratuito',
+    description: '200 emails/dia',
+    color: 'bg-blue-500'
   };
-
-  return phases[phase] || phases.NEW;
 }

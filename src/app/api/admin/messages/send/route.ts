@@ -93,7 +93,7 @@ export async function POST(req: Request) {
                         subject,
                         html,
                         from: senderEmail,
-                        fromName: senderEmail.split('@')[0]
+                        fromName: ''  // Deixar vazio para evitar duplicação
                     }),
                     // @ts-ignore
                     agent: httpsAgent

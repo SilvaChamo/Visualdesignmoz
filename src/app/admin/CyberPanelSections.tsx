@@ -465,6 +465,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
   const [page, setPage] = useState(1)
   const perPage = 20
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
 
   const typeColors: Record<string, string> = {
     A: 'bg-blue-100 text-blue-800',
@@ -766,7 +767,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
 
   return (
     <div className="w-full space-y-4">
-      {/* LINHA 1: Título + selector de domínio */}
+      {/* LINHA 1: Título + Nameservers à direita */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">DNS Zone Editor</h1>
@@ -778,32 +779,16 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             <p className="text-gray-500 mt-1">Selecione um domínio para gerir os registos DNS.</p>
           )}
         </div>
-        <div className="w-full md:w-72">
-          <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
-          <select
-            value={selectedDomain}
-            onChange={e => handleDomainChange(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="">Seleccione um domínio...</option>
-            {sites.map(s => (
-              <option key={s.domain} value={s.domain}>
-                {s.domain}
-              </option>
-            ))}
-          </select>
+        {/* Nameservers à direita */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="uppercase font-semibold text-gray-500 mr-1">Nameservers:</span>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
+            ns1.contabo.net
+          </span>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
+            ns2.contabo.net
+          </span>
         </div>
-      </div>
-
-      {/* LINHA 2: Nameservers do domínio como tags cinzentas */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="uppercase font-semibold text-gray-500 mr-1">Nameservers:</span>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
-          ns1.contabo.net
-        </span>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
-          ns2.contabo.net
-        </span>
       </div>
 
       {/* LINHA 3: Filtros por tipo + pesquisa + paginação */}
@@ -877,17 +862,51 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
       {/* LINHA 4: Botões de acção */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
+          {/* Botão Acções com Dropdown */}
           <div className="relative">
             <button
               type="button"
               disabled={selectedIds.length === 0 || loading}
-              onClick={handleDeleteSelected}
+              onClick={() => setShowActionsDropdown(!showActionsDropdown)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-700 disabled:opacity-50"
             >
               Acções
               <span className="text-gray-400 text-[10px]">▼</span>
             </button>
+            {/* Dropdown de opções */}
+            {showActionsDropdown && selectedIds.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowActionsDropdown(false)
+                    handleDeleteSelected()
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg"
+                >
+                  🗑️ Remover ({selectedIds.length})
+                </button>
+              </div>
+            )}
           </div>
+          {/* Seletor de domínio */}
+          <div className="w-64">
+            <select
+              value={selectedDomain}
+              onChange={e => handleDomainChange(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-xs bg-white"
+            >
+              <option value="">Seleccione um domínio...</option>
+              {sites.map(s => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {/* Botões Save All Records e Add Record juntos */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSaveAll}
@@ -896,8 +915,6 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
           >
             Save All Records
           </button>
-        </div>
-        <div className="flex md:justify-end">
           <button
             type="button"
             onClick={() => setShowAddForm(v => !v)}

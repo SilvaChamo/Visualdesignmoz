@@ -771,10 +771,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [user, setUser] = useState<any>(null);
   const [showReputationInfo, setShowReputationInfo] = useState(false);
   
-  // 🆕 Estado para diálogo de avançar fase
-  const [showAdvancePhaseDialog, setShowAdvancePhaseDialog] = useState(false);
-  const [advancePhaseData, setAdvancePhaseData] = useState<any>(null);
-  const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
+  // Estado removido - sistema simplificado para 200 emails/dia fixo
   
   // 🆕 Estado para guardar dados do último envio (para reenvio)
   const [lastSendData, setLastSendData] = useState<any>(null);
@@ -1126,7 +1123,22 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       console.log("STATUS RESPONSE:", response.status);
       const result = await response.json();
       console.log("RESULTADO DA API:", result);
-      if (!response.ok) throw new Error(result.error || "Erro ao enviar mensagem");
+      console.log("RESPONSE OK?", response.ok, "CODE:", result.code);
+      
+      // ✅ VERIFICAR ERRO DE LIMITE
+      if (!response.ok) {
+        console.log("🔍 ERRO DA API:", result);
+        
+        // Se é erro de limite, mostrar toast informativo
+        if (result.code === 'DAILY_LIMIT_EXCEEDED') {
+          toast.error(`⚠️ ${result.error}`, { duration: 5000 });
+          setIsSending(false);
+          return;
+        }
+        
+        // Qualquer outro erro
+        throw new Error(result.error || result.message || "Erro ao enviar mensagem");
+      }
       
       // 🐛 CORREÇÃO: Verificar se realmente enviou algo
       const sentCount = result?.details?.success ?? 0;
@@ -1153,29 +1165,10 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       setShowSuccessDialog(true);
 
     } catch (error: any) {
-      console.error(error);
+      console.error("❌ ERRO:", error);
       
-      // 🆕 DETECTAR: Erro de limite com opção de avançar fase
-      if (error.message?.includes('CAN_ADVANCE_PHASE') || error.code === 'CAN_ADVANCE_PHASE') {
-        // Usar dados guardados do último envio
-        const sendData = lastSendData || {};
-        setAdvancePhaseData({
-          message: error.message,
-          excessCount: error.excessCount || 0,
-          currentPhase: error.options?.stay?.phase,
-          currentLimit: error.options?.stay?.limit,
-          nextPhase: error.options?.advance?.phase,
-          nextLimit: error.options?.advance?.limit,
-          emailList: sendData.emailList || [],
-          finalHtml: sendData.finalHtml || '',
-          targetDomain: sendData.targetDomain || selectedSite,
-          clientName: sendData.clientName || '',
-          clientEmail: sendData.clientEmail || ''
-        });
-        setShowAdvancePhaseDialog(true);
-      } else {
-        toast.error("Erro ao enviar mensagem: " + error.message);
-      }
+      // Sempre mostrar erro amigável
+      toast.error(error.message || "Erro ao enviar mensagem");
     } finally {
       setIsSending(false);
     }
@@ -1647,109 +1640,6 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         </div>
       )}
 
-      {/* 🆕 DIÁLOGO: Avançar de Fase */}
-      {showAdvancePhaseDialog && advancePhaseData && (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-[100] animate-in fade-in duration-300">
-          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4 border border-slate-200 animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">🚀 Limite Atingido</h3>
-              <button 
-                onClick={() => setShowAdvancePhaseDialog(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Você excedeu o limite da fase atual em{" "}
-                <strong className="text-orange-600">{advancePhaseData.excessCount} emails</strong>.
-              </p>
-              
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500">Fase atual:</span>
-                  <span className="text-xs font-bold text-slate-700">{advancePhaseData.currentPhase} ({advancePhaseData.currentLimit}/dia)</span>
-                </div>
-                <div className="flex justify-center">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                  </svg>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500">Próxima fase:</span>
-                  <span className="text-xs font-bold text-emerald-600">{advancePhaseData.nextPhase} ({advancePhaseData.nextLimit}/dia)</span>
-                </div>
-              </div>
-              
-              <p className="text-xs text-slate-500">
-                Deseja avançar para a próxima fase e enviar todos os emails? 
-                Os {advancePhaseData.excessCount} emails excedentes serão contabilizados na nova fase.
-              </p>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button 
-                onClick={() => setShowAdvancePhaseDialog(false)}
-                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
-              >
-                Não, agora não
-              </button>
-              <button 
-                onClick={async () => {
-                  setIsAdvancingPhase(true);
-                  try {
-                    // Reenviar com header especial para avançar fase
-                    const response = await fetch('/api/mailmarketing-send', {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        'x-advance-phase': 'true'
-                      },
-                      body: JSON.stringify({
-                        to: advancePhaseData.emailList,
-                        subject: subject,
-                        content: advancePhaseData.finalHtml,
-                        domain: advancePhaseData.targetDomain,
-                        clientName: advancePhaseData.clientName,
-                        clientEmail: advancePhaseData.clientEmail,
-                        sender: advancePhaseData.clientEmail ? `"${advancePhaseData.clientName || advancePhaseData.clientEmail}" <${advancePhaseData.clientEmail}>` : undefined
-                      })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (!response.ok) throw new Error(result.error || "Erro ao enviar");
-                    
-                    toast.success(`Campanha enviada! Fase avançada para ${result.newPhase || advancePhaseData.nextPhase}.`);
-                    setShowAdvancePhaseDialog(false);
-                    setShowSuccessDialog(true);
-                    
-                    // Atualizar reputação
-                    await fetchReputation();
-                  } catch (error: any) {
-                    toast.error("Erro ao avançar fase: " + error.message);
-                  } finally {
-                    setIsAdvancingPhase(false);
-                  }
-                }}
-                disabled={isAdvancingPhase}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-              >
-                {isAdvancingPhase ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    A processar...
-                  </span>
-                ) : (
-                  "Sim, avançar fase"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3617,6 +3507,9 @@ export default function AdminPage() {
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
 
+  // Estado para controlar visibilidade do header quando compose está ativo
+  const [isComposeActive, setIsComposeActive] = useState(false)
+
   // Obter sessão e perfil do usuário
   useEffect(() => {
     const getData = async () => {
@@ -3722,6 +3615,7 @@ export default function AdminPage() {
           sites={cyberPanelSites}
           defaultCompose={compondoEmail}
           onCloseCompose={() => setCompondoEmail(false)}
+          onComposeStateChange={setIsComposeActive}
         />
       case 'domains':
         return <ListWebsitesSection
@@ -4009,8 +3903,8 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 mb-0">
+        {/* Top Header - Escondido quando compose está ativo na seção de emails */}
+        <header className={`bg-white border-b border-gray-200 px-6 py-4 mb-0 transition-all ${isComposeActive && activeSection === 'emails-new' ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
@@ -4074,9 +3968,10 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <main className={`flex-1 overflow-y-auto bg-slate-50/50 ${isComposeActive && activeSection === 'emails-new' ? 'p-0' : 'p-6'}`}>
           <div
             key={activeSection}
+            className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full' : ''}`}
           >
             {renderSection()}
           </div>

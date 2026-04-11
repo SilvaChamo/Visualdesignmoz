@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { resend } from '@/lib/resend'
+import fetch from 'node-fetch'
+import https from 'https'
 
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
+
+// CyberPanel API Config
+const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php'
+const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token'
+const httpsAgent = new https.Agent({ rejectUnauthorized: false })
 
 // TAREFA 2: Idempotency — Map em memória para keys já processadas
 const processedKeys = new Map<string, { timestamp: number; messageId: string }>()
@@ -17,6 +24,56 @@ function cleanExpiredKeys() {
     if (value.timestamp < fiveMinutesAgo) {
       processedKeys.delete(key)
     }
+  }
+}
+
+// 🆕 FUNÇÃO: Enviar via CyberPanel API (mais fiável)
+async function sendViaCyberPanelAPI(
+  to: string | string[],
+  subject: string,
+  html: string,
+  from: string
+) {
+  try {
+    console.log('🚀 CYBERPANEL API: Enviando email via servidor...')
+    
+    const toArray = Array.isArray(to) ? to : [to]
+    
+    const response = await fetch(CYBERPANEL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: toArray,
+        subject,
+        html,
+        from,
+        fromName: ''
+      }),
+      // @ts-ignore
+      agent: httpsAgent
+    })
+    
+    const result = await response.json()
+    
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Falha na API CyberPanel')
+    }
+    
+    console.log('✅ CyberPanel API:', result)
+    
+    return {
+      success: true,
+      messageId: result.messageId || `cp-${Date.now()}`,
+      provider: 'cyberpanel-api',
+      details: result.details
+    }
+    
+  } catch (error: any) {
+    console.error('❌ CyberPanel API falhou:', error)
+    throw error
   }
 }
 
@@ -59,15 +116,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 1. Usar Resend APENAS para emails transacionais (recuperação de password, etc.)
+    // 🆕 1. PRIORIDADE: CyberPanel API (mais fiável - usa SMTP local do servidor)
+    if (from && to && subject) {
+      try {
+        console.log('🚀 PRIORIDADE 1: Tentando CyberPanel API...')
+        const result = await sendViaCyberPanelAPI(to, subject, html || '', from)
+        
+        if (result.success) {
+          // TAREFA 2: Registar idempotency key
+          if (idempotencyKey) {
+            processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: result.messageId })
+          }
+          return NextResponse.json({ 
+            success: true, 
+            messageId: result.messageId, 
+            provider: 'cyberpanel-api',
+            details: result.details 
+          });
+        }
+      } catch (cpError: any) {
+        console.error('CyberPanel API falhou, tentando outros métodos:', cpError.message)
+        // Continua para próximo método
+      }
+    }
+
+    // 2. SEGUNDA OPÇÃO: Resend APENAS para emails transacionais (recuperação de password, etc.)
     const isResendAvailable = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_placeholder';
     const isTransactional = category === 'transactional';
-    const isAuthorizedDomain = from?.toLowerCase().endsWith('@your-domain.com');
+    const isAuthorizedDomain = from?.toLowerCase().endsWith('@visualdesigne.com');
 
     if (isResendAvailable && isTransactional && isAuthorizedDomain) {
-      console.log('Using Resend for transactional email delivery...');
+      console.log('📧 PRIORIDADE 2: Usando Resend para transactional...');
       try {
-        // 🎯 IMPORTANTE: Usar email do cliente como remetente, NUNCA VisualDesign
         const senderEmail = from || 'noreply@visualdesigne.com';
         
         console.log('📧 RESEND - Enviando email:', {
@@ -84,7 +164,6 @@ export async function POST(req: NextRequest) {
         });
 
         if (!error) {
-          // TAREFA 2: Registar idempotency key
           if (idempotencyKey) {
             processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: data?.id || '' })
           }
@@ -96,7 +175,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Fallback para Nodemailer (SMTP Local) para tudo o resto
+    // 3. FALLBACK FINAL: Nodemailer (SMTP Direto) - só se tudo falhar
     if (!from || !to || !subject) {
       return NextResponse.json({
         error: 'Campos obrigatórios em falta (from, to, subject) para envio via SMTP.'
