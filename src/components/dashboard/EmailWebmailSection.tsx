@@ -890,7 +890,7 @@ export function EmailWebmailSection({
         <div className="flex-1 flex flex-col overflow-hidden">
           {mostrarCompose ? (
             /* ========== VIEW COMPOSE (Página de Escrever) ========== */
-            <div className="flex-1 flex flex-col bg-white">
+            <div className="flex-1 flex flex-col bg-gray-100">
               {/* Header do Compose */}
               <div className="bg-gray-50 border-b border-gray-200 flex">
                 {/* Coluna esquerda — botão Enviar */}
