@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
-import { resend } from '@/lib/resend'
-import https from 'https'
 
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
-// CyberPanel API Config
-const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php'
-const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token'
-const httpsAgent = new https.Agent({ rejectUnauthorized: false })
+// Configuração SMTP do CyberPanel
+const SMTP_HOST = 'mail.visualdesigne.com'
+const SMTP_PORT = 465
+const SMTP_SECURE = true
 
-// TAREFA 2: Idempotency — Map em memória para keys já processadas
+// TAREFA: Idempotency — Map em memória para keys já processadas
 const processedKeys = new Map<string, { timestamp: number; messageId: string }>()
 
 function cleanExpiredKeys() {
@@ -26,82 +23,42 @@ function cleanExpiredKeys() {
   }
 }
 
-// 🆕 FUNÇÃO: Enviar via CyberPanel API usando https nativo
-async function sendViaCyberPanelAPI(
+// 🆕 FUNÇÃO: Enviar via SMTP direto do CyberPanel
+async function sendViaSMTP(
   to: string | string[],
+  cc: string | string[],
+  bcc: string | string[],
   subject: string,
   html: string,
-  from: string
-): Promise<{ success: boolean; messageId?: string; details?: any }> {
-  return new Promise((resolve, reject) => {
-    console.log('🚀 CYBERPANEL API: Enviando email via servidor...')
-    
-    const toArray = Array.isArray(to) ? to : [to]
-    
-    const postData = JSON.stringify({
-      to: toArray,
-      subject,
-      html,
-      from,
-      fromName: ''
-    })
-
-    const options = {
-      hostname: '109.199.104.22',
-      port: 8090,
-      path: '/send-email-api.php',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`,
-        'Content-Length': Buffer.byteLength(postData)
-      },
-      rejectUnauthorized: false,
-      timeout: 30000
+  from: string,
+  fromPassword: string
+): Promise<{ success: boolean; messageId?: string }> {
+  console.log('� SMTP: Enviando email via CyberPanel...')
+  
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    auth: {
+      user: from,
+      pass: fromPassword
+    },
+    tls: {
+      rejectUnauthorized: false
     }
-
-    const req = https.request(options, (res) => {
-      let data = ''
-      res.on('data', (chunk) => { data += chunk })
-      res.on('end', () => {
-        try {
-          const result = JSON.parse(data)
-          console.log('✅ CyberPanel API response:', result)
-          
-          if (res.statusCode && res.statusCode >= 400) {
-            reject(new Error(result.error || `HTTP ${res.statusCode}`))
-            return
-          }
-          
-          if (!result.success) {
-            reject(new Error(result.error || 'API retornou success=false'))
-            return
-          }
-          
-          resolve({
-            success: true,
-            messageId: result.messageId || `cp_${Date.now()}`,
-            details: result.details
-          })
-        } catch (e: any) {
-          reject(new Error(`Resposta inválida: ${data.substring(0, 100)}`))
-        }
-      })
-    })
-
-    req.on('error', (error: any) => {
-      console.error('❌ CyberPanel API request error:', error.message)
-      reject(new Error(`Erro de conexão: ${error.message}`))
-    })
-
-    req.on('timeout', () => {
-      req.destroy()
-      reject(new Error('Timeout na conexão com CyberPanel'))
-    })
-
-    req.write(postData)
-    req.end()
   })
+
+  const info = await transporter.sendMail({
+    from,
+    to,
+    cc,
+    bcc,
+    subject,
+    html
+  })
+
+  console.log('✅ Email enviado:', info.messageId)
+  return { success: true, messageId: info.messageId }
 }
 
 export async function POST(req: NextRequest) {
@@ -143,90 +100,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🆕 1. PRIORIDADE: CyberPanel API (mais fiável - usa SMTP local do servidor)
-    if (from && to && subject) {
+    // 🆕 1. PRIORIDADE: SMTP direto do CyberPanel (mais fiável)
+    if (from && fromPassword && to && subject) {
       try {
-        console.log('🚀 PRIORIDADE 1: Tentando CyberPanel API...')
-        const result = await sendViaCyberPanelAPI(to, subject, html || '', from)
+        console.log('� PRIORIDADE 1: Enviando via SMTP CyberPanel...')
+        const result = await sendViaSMTP(to, cc || [], bcc || [], subject, html || '', from, fromPassword)
         
         if (result.success) {
           // TAREFA 2: Registar idempotency key
-          const finalMessageId = result.messageId || `cp-${Date.now()}`
+          const finalMessageId = result.messageId || `smtp-${Date.now()}`
           if (idempotencyKey) {
             processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: finalMessageId })
           }
           return NextResponse.json({ 
             success: true, 
             messageId: finalMessageId, 
-            provider: 'cyberpanel-api',
-            details: result.details 
+            provider: 'smtp-cyberpanel'
           });
         }
-      } catch (cpError: any) {
-        console.error('CyberPanel API falhou, tentando outros métodos:', cpError.message)
-        // Continua para próximo método
+      } catch (smtpError: any) {
+        console.error('SMTP falhou:', smtpError.message)
+        return NextResponse.json({ success: false, error: smtpError.message }, { status: 500 })
       }
     }
 
-    // 2. SEGUNDA OPÇÃO: Resend APENAS para emails transacionais (recuperação de password, etc.)
-    const isResendAvailable = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_placeholder';
-    const isTransactional = category === 'transactional';
-    const isAuthorizedDomain = from?.toLowerCase().endsWith('@visualdesigne.com');
-
-    if (isResendAvailable && isTransactional && isAuthorizedDomain) {
-      console.log('📧 PRIORIDADE 2: Usando Resend para transactional...');
-      try {
-        const senderEmail = from || 'noreply@visualdesigne.com';
-        
-        console.log('📧 RESEND - Enviando email:', {
-          from: senderEmail,
-          to: Array.isArray(to) ? to[0] : to,
-          subject: subject?.substring(0, 50)
-        });
-        
-        const { data, error } = await resend.emails.send({
-          from: senderEmail,
-          to, cc, bcc, subject,
-          html: html || '',
-          replyTo: replyTo || senderEmail
-        });
-
-        if (!error) {
-          if (idempotencyKey) {
-            processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: data?.id || '' })
-          }
-          return NextResponse.json({ success: true, messageId: data?.id, provider: 'resend' });
-        }
-        console.error('Resend error:', error);
-      } catch (resendErr) {
-        console.error('Resend exception:', resendErr);
-      }
+    // Se não tiver password, não pode enviar
+    if (!fromPassword) {
+      return NextResponse.json({
+        error: 'Senha do email não fornecida. Configure a senha SMTP da conta.'
+      }, { status: 400 })
     }
 
-    // 3. FALLBACK FINAL: Nodemailer (SMTP Direto) - só se tudo falhar
+    // FALLBACK: SMTP direto com configuração dinâmica
     if (!from || !to || !subject) {
       return NextResponse.json({
         error: 'Campos obrigatórios em falta (from, to, subject) para envio via SMTP.'
       }, { status: 400 })
     }
 
-    // Detectar configuração do domínio dinamicamente
-    const domainConfig = detectDomainConfig(from)
-    
-    // Se não tem password, usar conta SMTP master para autenticar
-    const smtpUser = fromPassword ? from : (process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com')
-    const smtpPass = fromPassword || process.env.SMTP_MASTER_PASSWORD || 'EmailAdmin#2425'
-
-    console.log('Using Nodemailer dynamic delivery...');
-    console.log('SMTP DEBUG - user:', smtpUser, '| host:', domainConfig.smtp, '| from:', from);
+    // Usar SMTP do CyberPanel
+    console.log('Using CyberPanel SMTP...');
+    console.log('SMTP DEBUG - user:', from, '| host:', SMTP_HOST);
     
     const transporter = nodemailer.createTransport({
-      host: domainConfig.smtp,
-      port: domainConfig.ports.smtp,
-      secure: domainConfig.ports.smtp === 465,
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
       auth: {
-        user: smtpUser,
-        pass: smtpPass
+        user: from,
+        pass: fromPassword
       },
       tls: { rejectUnauthorized: false },
       connectionTimeout: 10000,
@@ -255,9 +177,9 @@ export async function POST(req: NextRequest) {
         try {
           const { ImapFlow } = await import('imapflow')
           const imapClient = new ImapFlow({
-            host: domainConfig.imap,
-            port: domainConfig.ports.imap,
-            secure: domainConfig.ports.imap === 993,
+            host: 'mail.visualdesigne.com',
+            port: 993,
+            secure: true,
             auth: { user: from, pass: fromPassword },
             tls: { rejectUnauthorized: false },
             logger: false

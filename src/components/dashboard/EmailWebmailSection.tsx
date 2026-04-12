@@ -216,7 +216,15 @@ export function EmailWebmailSection({
           }
         })
 
-        if (allEmails.length > 0) {
+        // Filtrar apenas emails do domínio visualdesign para o painel admin
+        const filteredEmails = allEmails.filter((e: any) => 
+          e.email.includes('@visualdesign') || e.email.endsWith('@visualdesigne.com')
+        )
+        
+        if (filteredEmails.length > 0) {
+          setEmailsOrigem(filteredEmails)
+        } else if (allEmails.length > 0) {
+          // Se não houver emails do visualdesign, mostrar todos (fallback)
           setEmailsOrigem(allEmails)
         } else {
           // Segundo fallback se não vier nada do CyberPanel
@@ -395,6 +403,10 @@ export function EmailWebmailSection({
             const last = imgs[imgs.length - 1] as HTMLImageElement
             last.style.maxWidth = '100%'
             last.style.borderRadius = '4px'
+            last.style.cursor = 'pointer'
+            last.style.resize = 'both'
+            last.style.overflow = 'hidden'
+            makeImageResizable(last)
           }
         }, 50)
       }
@@ -402,6 +414,50 @@ export function EmailWebmailSection({
     }
     input.click()
   }
+
+  // Sistema simples de redimensionamento de imagens
+  const [imagemSelecionada, setImagemSelecionada] = useState<HTMLImageElement | null>(null)
+
+  const makeImageResizable = (img: HTMLImageElement) => {
+    img.style.cursor = 'pointer'
+    img.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setImagemSelecionada(img)
+    })
+  }
+
+  const resizeImagem = (tamanho: 'max' | 'med' | 'peq') => {
+    if (!imagemSelecionada) return
+    const img = imagemSelecionada
+    if (tamanho === 'max') { img.style.width = '100%'; img.style.height = 'auto'; }
+    else if (tamanho === 'med') { img.style.width = '50%'; img.style.height = 'auto'; }
+    else if (tamanho === 'peq') { img.style.width = '25%'; img.style.height = 'auto'; }
+  }
+
+  const alinharImagem = (align: 'left' | 'center' | 'right') => {
+    if (!imagemSelecionada) return
+    imagemSelecionada.style.float = align === 'left' ? 'left' : align === 'right' ? 'right' : 'none'
+    imagemSelecionada.style.display = align === 'center' ? 'block' : 'inline-block'
+    imagemSelecionada.style.margin = align === 'center' ? '0 auto' : '0'
+  }
+
+  const deletarImagem = () => {
+    if (!imagemSelecionada) return
+    imagemSelecionada.remove()
+    setImagemSelecionada(null)
+  }
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.img-toolbar') && !target.closest('.editor-content img')) {
+        setImagemSelecionada(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   const inserirAnexo = () => {
     const input = document.createElement('input')
@@ -417,21 +473,28 @@ export function EmailWebmailSection({
     input.click()
   }
 
-  const inserirTabela = () => {
+  const inserirTabela = (linhas = 2, colunas = 3) => {
     const table = document.createElement('table')
-    table.style.cssText = 'border-collapse:collapse;width:100%;margin:8px 0'
-    for (let r = 0; r < 3; r++) {
+    table.className = 'editable-table'
+    for (let r = 0; r < linhas; r++) {
       const tr = table.insertRow()
-      for (let c = 0; c < 3; c++) {
-        const td = tr.insertCell()
-        td.style.cssText = 'border:1px solid #9ca3af;padding:8px;min-width:60px'
-        td.innerHTML = '&nbsp;'
+      for (let c = 0; c < colunas; c++) {
+        const td = r === 0 ? document.createElement('th') : tr.insertCell()
+        if (r === 0) {
+          td.innerHTML = `Col ${c + 1}`
+          tr.appendChild(td)
+        } else {
+          td.innerHTML = '&nbsp;'
+        }
       }
     }
     const br = document.createElement('br')
     editorRef.current?.appendChild(table)
     editorRef.current?.appendChild(br)
   }
+
+  const [mostrarPopupTabela, setMostrarPopupTabela] = useState(false)
+  const [tabelaConfig, setTabelaConfig] = useState({ linhas: 3, colunas: 3 })
 
   const handleCloseModal = () => { setModalEmail(null); setModoResposta('none'); setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' }); setEnviado(false); setAnexos([]) }
 
@@ -741,7 +804,18 @@ export function EmailWebmailSection({
       clearTimeout(timeoutId)
 
       const data = await res.json()
-      if (data.success) setEnviado(true)
+      if (data.success) {
+        setEnviado(true)
+        // Fechar composer após 2 segundos
+        setTimeout(() => {
+          setMostrarCompose(false)
+          setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
+          setEnviado(false)
+          setAnexos([])
+          if (editorRef.current) editorRef.current.innerHTML = ''
+          if (onCloseCompose) onCloseCompose()
+        }, 2000)
+      }
       else alert('Erro ao enviar: ' + data.error)
     } catch (e: any) {
       if (e.name === 'AbortError') {
@@ -887,16 +961,16 @@ export function EmailWebmailSection({
           })}
         </div>
         {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex flex-col">
           {mostrarCompose ? (
             /* ========== VIEW COMPOSE (Página de Escrever) ========== */
-            <div className="flex-1 flex flex-col bg-gray-100">
+            <div className="flex flex-col bg-white">
               {/* Header do Compose */}
               <div className="bg-gray-50 border-b border-gray-200 flex">
                 {/* Coluna esquerda — botão Enviar */}
                 <div className="flex flex-col border-r border-gray-200 shrink-0">
                   <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
-                    className="flex-1 bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:opacity-40 text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm transition-all min-w-[110px] border-r border-green-800">
+                    className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
                     {enviando
                       ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
                       : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
@@ -1100,7 +1174,7 @@ export function EmailWebmailSection({
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                     <span className="text-[10px]">Img</span>
                   </button>
-                  <button title="Tabela" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => inserirTabela()}>
+                  <button title="Tabela" className="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-white border border-gray-200 text-gray-600 transition-colors text-xs font-medium" onClick={() => setMostrarPopupTabela(true)}>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
                     <span className="text-[10px]">Tabela</span>
                   </button>
@@ -1110,15 +1184,65 @@ export function EmailWebmailSection({
                   </button>
                 </div>
               </div>
+              {/* Preview de Anexos - acima do editor */}
+              {anexos.length > 0 && (
+                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-2">
+                  {anexos.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 shadow-sm">
+                      <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.59a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                      <span className="font-medium truncate max-w-[200px]">{f.name}</span>
+                      <span className="text-gray-400 text-xs">({(f.size / 1024).toFixed(1)} KB)</span>
+                      <button onClick={() => setAnexos(prev => prev.filter((_, j) => j !== i))}
+                        className="text-red-500 hover:text-red-700 font-bold ml-1 w-5 h-5 flex items-center justify-center rounded hover:bg-red-50">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Toolbar de Imagem */}
+              {imagemSelecionada && (
+                <div className="img-toolbar px-4 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-3">
+                  <span className="text-xs font-semibold text-blue-700">📷 Imagem:</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Máx</button>
+                    <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Méd</button>
+                    <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400 text-white rounded hover:bg-blue-500">Peq</button>
+                  </div>
+                  <div className="w-px h-4 bg-blue-300" />
+                  <div className="flex gap-1">
+                    <button onClick={() => alinharImagem('left')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Esquerda">←</button>
+                    <button onClick={() => alinharImagem('center')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Centro">↔</button>
+                    <button onClick={() => alinharImagem('right')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Direita">→</button>
+                  </div>
+                  <div className="w-px h-4 bg-blue-300" />
+                  <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar">🗑️</button>
+                  <button onClick={() => setImagemSelecionada(null)} className="ml-auto text-xs text-gray-500 hover:text-gray-700">✕</button>
+                </div>
+              )}
               {/* Editor */}
-              <div className="flex-1 overflow-y-auto bg-gray-50 p-4 min-h-0">
-                <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-sm min-h-[500px]">
+              <div className="overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 500px)' }}>
+                <style>{`
+                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; }
+                  .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
+                  .editor-content img:hover { outline: 2px solid #3b82f6; }
+                  .editor-content table { border-collapse: collapse; width: 100%; resize: both; overflow: auto; }
+                  .editor-content td, .editor-content th { border: 1px solid #d1d5db; padding: 4px 8px; min-width: 30px; min-height: 20px; resize: horizontal; overflow: auto; }
+                  .editor-content th { background: #f3f4f6; font-weight: bold; }
+                  .editor-content tr { height: auto; min-height: 20px; }
+                  .editor-content tr:hover { background: #f9fafb; }
+                  .editor-content table:hover { outline: 2px solid #3b82f6; }
+                  .editor-content td:hover, .editor-content th:hover { background: #eff6ff; cursor: text; }
+                `}</style>
+                <div className="editor-wrapper">
                   <div
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="p-6 text-sm outline-none min-h-[500px] w-full"
-                    style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}
+                    className="p-6 text-sm outline-none editor-content"
+                    style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      color: '#1f2937', 
+                      minHeight: '400px'
+                    }}
                     onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
                   />
                 </div>
@@ -1440,7 +1564,7 @@ export function EmailWebmailSection({
               {/* Coluna esquerda — só botão Enviar */}
               <div className="flex flex-col border-r border-gray-200 shrink-0">
                 <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
-                  className="flex-1 bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:opacity-40 text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm transition-all min-w-[110px] border-r border-green-800">
+                  className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
                   {enviando
                     ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
                     : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
@@ -1672,7 +1796,7 @@ export function EmailWebmailSection({
                     onClick={() => {
                       if (b.t === 'Ligação') inserirLink()
                       else if (b.t === 'Imagem') inserirImagem()
-                      else if (b.t === 'Tabela') inserirTabela()
+                      else if (b.t === 'Tabela') setMostrarPopupTabela(true)
                       else if (b.t === 'Anexo') inserirAnexo()
                     }}>
                     {b.l} <span className="text-gray-600 text-xs font-semibold">{b.t}</span>
@@ -1702,37 +1826,68 @@ export function EmailWebmailSection({
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col bg-gray-100 overflow-y-auto">
-                <style>{`
-  [contenteditable] ul { list-style-type: disc; padding-left: 1.5rem; color: #1f2937; }
-  [contenteditable] ol { list-style-type: decimal; padding-left: 1.5rem; color: #1f2937; }
-  [contenteditable] li { color: #1f2937; }
-`}</style>
-                <div className="flex-1 flex justify-center py-6 px-4">
-                  <div className="w-3/4 bg-white rounded-xl shadow-md">
+              <div className="flex flex-col bg-white h-auto">
+                {/* Toolbar de Imagem */}
+                {imagemSelecionada && (
+                  <div className="img-toolbar px-4 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-3">
+                    <span className="text-xs font-semibold text-blue-700">📷 Imagem:</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Máx</button>
+                      <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Méd</button>
+                      <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400 text-white rounded hover:bg-blue-500">Peq</button>
+                    </div>
+                    <div className="w-px h-4 bg-blue-300" />
+                    <div className="flex gap-1">
+                      <button onClick={() => alinharImagem('left')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Esquerda">←</button>
+                      <button onClick={() => alinharImagem('center')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Centro">↔</button>
+                      <button onClick={() => alinharImagem('right')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Direita">→</button>
+                    </div>
+                    <div className="w-px h-4 bg-blue-300" />
+                    <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar">🗑️</button>
+                    <button onClick={() => setImagemSelecionada(null)} className="ml-auto text-xs text-gray-500 hover:text-gray-700">✕</button>
+                  </div>
+                )}
+                <div className="overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 500px)' }}>
+                  <style>{`
+                    .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; }
+                    .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
+                    .editor-content img:hover { outline: 2px solid #3b82f6; }
+                    .editor-content table { border-collapse: collapse; width: 100%; resize: both; overflow: auto; }
+                    .editor-content td, .editor-content th { border: 1px solid #d1d5db; padding: 4px 8px; min-width: 30px; min-height: 20px; resize: horizontal; overflow: auto; }
+                    .editor-content th { background: #f3f4f6; font-weight: bold; }
+                    .editor-content tr { height: auto; min-height: 20px; }
+                    .editor-content tr:hover { background: #f9fafb; }
+                    .editor-content table:hover { outline: 2px solid #3b82f6; }
+                    .editor-content td:hover, .editor-content th:hover { background: #eff6ff; cursor: text; }
+                  `}</style>
+                  <div className="editor-wrapper">
                     <div
                       ref={editorRef}
                       contentEditable
                       suppressContentEditableWarning
-                      className="p-6 text-sm outline-none min-h-[400px] w-full"
-                      style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}
+                      className="p-6 text-sm outline-none editor-content"
+                      style={{ 
+                        whiteSpace: 'pre-wrap', 
+                        color: '#1f2937', 
+                        minHeight: '400px'
+                      }}
                       onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
                     />
-                    {anexos.length > 0 && (
-                      <div className="px-6 py-2 border-t border-gray-200 flex flex-wrap gap-2">
-                        {anexos.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs text-gray-700">
-                            📎 {f.name}
-                            <button onMouseDown={(e) => { e.preventDefault(); setAnexos(prev => prev.filter((_, j) => j !== i)) }}
-                              className="text-red-500 hover:text-red-700 font-bold ml-1">✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {assinatura && (
-                      <div className="px-6 py-3 border-t border-gray-200 text-xs text-gray-500 whitespace-pre-wrap">--{'\n'}{assinatura}</div>
-                    )}
                   </div>
+                {anexos.length > 0 && (
+                  <div className="px-6 py-2 border-t border-gray-200 flex flex-wrap gap-2 bg-white">
+                    {anexos.map((f, i) => (
+                      <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs text-gray-700">
+                        📎 {f.name}
+                        <button onMouseDown={(e) => { e.preventDefault(); setAnexos(prev => prev.filter((_, j) => j !== i)) }}
+                          className="text-red-500 hover:text-red-700 font-bold ml-1">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {assinatura && (
+                  <div className="px-6 py-3 border-t border-gray-200 text-xs text-gray-500 whitespace-pre-wrap bg-white">--{'\n'}{assinatura}</div>
+                )}
                 </div>
               </div>
             )}
@@ -1788,6 +1943,39 @@ export function EmailWebmailSection({
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-xs transition-colors">
                   💾 Guardar
                 </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        mostrarPopupTabela && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-80">
+              <p className="text-sm font-bold text-gray-800 mb-4">⊞ Inserir Tabela</p>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-600 w-16">Linhas:</label>
+                  <input type="number" min="1" max="20" value={tabelaConfig.linhas}
+                    onChange={e => setTabelaConfig(prev => ({ ...prev, linhas: parseInt(e.target.value) || 1 }))}
+                    className="w-20 border border-gray-300 rounded px-2 py-1 text-sm" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-600 w-16">Colunas:</label>
+                  <input type="number" min="1" max="10" value={tabelaConfig.colunas}
+                    onChange={e => setTabelaConfig(prev => ({ ...prev, colunas: parseInt(e.target.value) || 1 }))}
+                    className="w-20 border border-gray-300 rounded px-2 py-1 text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setMostrarPopupTabela(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button onClick={() => {
+                  inserirTabela(tabelaConfig.linhas, tabelaConfig.colunas)
+                  setMostrarPopupTabela(false)
+                }}
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg">Inserir</button>
               </div>
             </div>
           </div>

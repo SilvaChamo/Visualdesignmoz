@@ -1468,6 +1468,7 @@ export default function AdminPage() {
   const [selectedManageDomain, setSelectedManageDomain] = useState<string>('')
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
+  const [isComposeActive, setIsComposeActive] = useState(false)
 
   const searchParams = useSearchParams();
 
@@ -1737,7 +1738,11 @@ export default function AdminPage() {
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
-        return <EmailWebmailSection emailOrigem={sessionUser} />
+        return <EmailWebmailSection 
+          emailOrigem={sessionUser}
+          sites={filteredSites}
+          onComposeStateChange={setIsComposeActive}
+        />
       case 'emails-new':
       case 'cp-email-mgmt':
         return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} />
@@ -1847,8 +1852,8 @@ export default function AdminPage() {
         sessionUser={sessionUser}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        {/* Top Header - Escondido quando compose está ativo na seção de webmail */}
+        <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -1891,9 +1896,10 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'}`}>
           <div
             key={activeSection}
+            className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}
           >
             {renderSection()}
           </div>

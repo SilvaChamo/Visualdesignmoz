@@ -57,7 +57,8 @@ const pwaConfig = {
   disable: process.env.NODE_ENV === 'development',
   buildExcludes: [/middleware-manifest.json$/],
   fallbacks: {
-    document: '/offline'
+    document: '/offline.html',
+    image: '/offline.html'
   },
   runtimeCaching: [
     {
@@ -69,12 +70,15 @@ const pwaConfig = {
           maxEntries: 50,
           maxAgeSeconds: 24 * 60 * 60
         },
-        networkTimeoutSeconds: 10
+        networkTimeoutSeconds: 10,
+        cacheableResponse: {
+          statuses: [0, 200]
+        }
       }
     },
     {
       urlPattern: /\/_next\/static\/.*/i,
-      handler: 'StaleWhileRevalidate',
+      handler: 'CacheFirst',
       options: {
         cacheName: 'static-resources',
         expiration: {
@@ -91,6 +95,29 @@ const pwaConfig = {
         expiration: {
           maxEntries: 100,
           maxAgeSeconds: 30 * 24 * 60 * 60
+        }
+      }
+    },
+    {
+      urlPattern: /\/_next\/data\/.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'next-data',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 24 * 60 * 60
+        },
+        networkTimeoutSeconds: 10
+      }
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'google-fonts',
+        expiration: {
+          maxEntries: 20,
+          maxAgeSeconds: 365 * 24 * 60 * 60
         }
       }
     }
