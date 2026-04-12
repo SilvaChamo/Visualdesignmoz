@@ -61,6 +61,7 @@ export function EmailWebmailSection({
   useEffect(() => {
     onComposeStateChange?.(mostrarCompose)
   }, [mostrarCompose, onComposeStateChange])
+
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [assinatura, setAssinatura] = useState('')
@@ -73,6 +74,37 @@ export function EmailWebmailSection({
   const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string }[]>([])
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
+
+  // Configurar email e senha automaticamente quando abre o compositor
+  useEffect(() => {
+    if (mostrarCompose) {
+      const configurarEmailAutomatico = async () => {
+        // Se tem propEmailOrigem, usa ele
+        if (propEmailOrigem) {
+          setEmailOrigem(propEmailOrigem)
+          // Buscar senha da conta automaticamente
+          try {
+            const res = await fetch('/api/email-contas')
+            const data = await res.json()
+            if (data.success && data.contas) {
+              const conta = data.contas.find((c: any) => c.email === propEmailOrigem)
+              if (conta?.password_smtp) {
+                setEmailOrigemPassword(conta.password_smtp)
+              }
+            }
+          } catch { }
+        } else if (emailsOrigem.length > 0) {
+          // Se não tem prop, usa o primeiro email da lista
+          const primeiroEmail = emailsOrigem[0]
+          setEmailOrigem(primeiroEmail.email)
+          if (primeiroEmail.password) {
+            setEmailOrigemPassword(primeiroEmail.password)
+          }
+        }
+      }
+      configurarEmailAutomatico()
+    }
+  }, [mostrarCompose, propEmailOrigem, emailsOrigem])
   const [todasAsContas, setTodasAsContas] = useState(false)
   const [carregandoEmails, setCarregandoEmails] = useState(false)
   const [erroEmail, setErroEmail] = useState('')
@@ -774,6 +806,10 @@ export function EmailWebmailSection({
       alert('Selecciona uma conta de email')
       return
     }
+    if (!emailOrigemPassword) {
+      alert('Introduz a senha da conta de email. Clica no botão "Configurar" ao lado do campo "De:".')
+      return
+    }
     setEnviando(true)
     try {
       const htmlCorpo = editorRef.current?.innerHTML || ''
@@ -961,10 +997,10 @@ export function EmailWebmailSection({
           })}
         </div>
         {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
-        <div className="flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {mostrarCompose ? (
             /* ========== VIEW COMPOSE (Página de Escrever) ========== */
-            <div className="flex flex-col bg-white">
+            <div className="flex flex-col bg-white h-full overflow-hidden">
               {/* Header do Compose */}
               <div className="bg-gray-50 border-b border-gray-200 flex">
                 {/* Coluna esquerda — botão Enviar */}
@@ -1219,12 +1255,12 @@ export function EmailWebmailSection({
                 </div>
               )}
               {/* Editor */}
-              <div className="overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 500px)' }}>
+              <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
                 <style>{`
-                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; }
+                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 30px; border-radius: 6px; background: white; min-height: 1024px; }
                   .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                   .editor-content img:hover { outline: 2px solid #3b82f6; }
-                  .editor-content table { border-collapse: collapse; width: 100%; resize: both; overflow: auto; }
+                  .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }
                   .editor-content td, .editor-content th { border: 1px solid #d1d5db; padding: 4px 8px; min-width: 30px; min-height: 20px; resize: horizontal; overflow: auto; }
                   .editor-content th { background: #f3f4f6; font-weight: bold; }
                   .editor-content tr { height: auto; min-height: 20px; }
@@ -1241,7 +1277,7 @@ export function EmailWebmailSection({
                     style={{ 
                       whiteSpace: 'pre-wrap', 
                       color: '#1f2937', 
-                      minHeight: '400px'
+                      minHeight: '1024px'
                     }}
                     onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
                   />
@@ -1852,7 +1888,7 @@ export function EmailWebmailSection({
                     .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; }
                     .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                     .editor-content img:hover { outline: 2px solid #3b82f6; }
-                    .editor-content table { border-collapse: collapse; width: 100%; resize: both; overflow: auto; }
+                    .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }
                     .editor-content td, .editor-content th { border: 1px solid #d1d5db; padding: 4px 8px; min-width: 30px; min-height: 20px; resize: horizontal; overflow: auto; }
                     .editor-content th { background: #f3f4f6; font-weight: bold; }
                     .editor-content tr { height: auto; min-height: 20px; }

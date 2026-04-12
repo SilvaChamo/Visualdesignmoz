@@ -1851,7 +1851,7 @@ export default function AdminPage() {
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white">
         {/* Top Header - Escondido quando compose está ativo na seção de webmail */}
         <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
           <div className="flex items-start justify-between">
