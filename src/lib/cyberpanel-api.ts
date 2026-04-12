@@ -4,15 +4,6 @@ import { cacheService } from './cache-service';
 
 async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 30000) {
   try {
-    // Para listUsers, usar API CLI que funciona
-    if (action === 'listUsers') {
-      console.log(`[API CALL] ${action} via CLI (fallback)`);
-      const res = await fetch(`${CLI_EXEC}?action=${action}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      const j = await res.json();
-      if (!j.success) throw new Error(j.error || 'Request failed');
-      return j.data;
-    }
 
     // Mutation actions should NEVER be cached
     const isMutation = ['createUser', 'modifyUser', 'deleteUser', 'suspendUser', 'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail'].includes(action);
@@ -69,19 +60,6 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
     
     // Fallback para CLI em caso de erro 500
     if (error.message.includes('500')) {
-      if (action === 'listUsers') {
-        console.log(`[FALLBACK] ${action} via CLI due to 500 error`);
-        try {
-          const res = await fetch(`${CLI_EXEC}?action=${action}`);
-          if (res.ok) {
-            const j = await res.json();
-            if (j.success) return j.data;
-          }
-        } catch (fallbackError: any) {
-          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
-        }
-      }
-      
       if (action === 'listPackages') {
         console.log(`[FALLBACK] ${action} via dedicated packages API due to 500 error`);
         try {
@@ -261,7 +239,35 @@ const LONG_TIMEOUT = 120000; // 120s
 export const cyberPanelAPI = {
   // Websites
   listWebsites:            (timeoutMs?: number)  => runSites('listWebsites', {}, timeoutMs),
-  listPackages:            ()                    => run('listPackages'),
+  listPackages:            async ()              => {
+    // Tentar API dedicada de pacotes primeiro (mais confiável)
+    try {
+      console.log('[listPackages] Trying dedicated packages API...');
+      const res = await fetch('/api/cyberpanel-packages');
+      if (res.ok) {
+        const j = await res.json();
+        if (j.success && Array.isArray(j.packages)) {
+          console.log('[listPackages] Success via dedicated API:', j.packages.length, 'packages');
+          // Normalizar formato dos pacotes
+          return j.packages.map((p: any) => ({
+            id: p.id || p.name,
+            packageName: p.packageName || p.name || 'Unknown',
+            diskSpace: parseInt(p.diskSpace || p.disk || 0),
+            bandwidth: parseInt(p.bandwidth || 0),
+            emailAccounts: parseInt(p.emailAccounts || p.emails || 0),
+            dataBases: parseInt(p.dataBases || p.databases || 0),
+            ftpAccounts: parseInt(p.ftpAccounts || 0),
+            allowedDomains: parseInt(p.allowedDomains || 0)
+          }));
+        }
+      }
+    } catch (e: any) {
+      console.error('[listPackages] Dedicated API failed:', e.message);
+    }
+    // Fallback para server-exec
+    console.log('[listPackages] Falling back to server-exec...');
+    return run('listPackages');
+  },
   listUsers:               ()                    => run('listUsers'),
   createWebsite:           (p: any)              => run('createWebsite', p, LONG_TIMEOUT),
   suspendWebsite:          (domain: string)      => run('suspendWebsite', { domain }),

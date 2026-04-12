@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { resend } from '@/lib/resend'
-import fetch from 'node-fetch'
 import https from 'https'
 
 import { createClient } from '@/utils/supabase/server'
@@ -27,54 +26,82 @@ function cleanExpiredKeys() {
   }
 }
 
-// 🆕 FUNÇÃO: Enviar via CyberPanel API (mais fiável)
+// 🆕 FUNÇÃO: Enviar via CyberPanel API usando https nativo
 async function sendViaCyberPanelAPI(
   to: string | string[],
   subject: string,
   html: string,
   from: string
-) {
-  try {
+): Promise<{ success: boolean; messageId?: string; details?: any }> {
+  return new Promise((resolve, reject) => {
     console.log('🚀 CYBERPANEL API: Enviando email via servidor...')
     
     const toArray = Array.isArray(to) ? to : [to]
     
-    const response = await fetch(CYBERPANEL_API_URL, {
+    const postData = JSON.stringify({
+      to: toArray,
+      subject,
+      html,
+      from,
+      fromName: ''
+    })
+
+    const options = {
+      hostname: '109.199.104.22',
+      port: 8090,
+      path: '/send-email-api.php',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`
+        'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`,
+        'Content-Length': Buffer.byteLength(postData)
       },
-      body: JSON.stringify({
-        to: toArray,
-        subject,
-        html,
-        from,
-        fromName: ''
-      }),
-      // @ts-ignore
-      agent: httpsAgent
+      rejectUnauthorized: false,
+      timeout: 30000
+    }
+
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', (chunk) => { data += chunk })
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data)
+          console.log('✅ CyberPanel API response:', result)
+          
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(result.error || `HTTP ${res.statusCode}`))
+            return
+          }
+          
+          if (!result.success) {
+            reject(new Error(result.error || 'API retornou success=false'))
+            return
+          }
+          
+          resolve({
+            success: true,
+            messageId: result.messageId || `cp_${Date.now()}`,
+            details: result.details
+          })
+        } catch (e: any) {
+          reject(new Error(`Resposta inválida: ${data.substring(0, 100)}`))
+        }
+      })
     })
-    
-    const result = await response.json()
-    
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Falha na API CyberPanel')
-    }
-    
-    console.log('✅ CyberPanel API:', result)
-    
-    return {
-      success: true,
-      messageId: result.messageId || `cp-${Date.now()}`,
-      provider: 'cyberpanel-api',
-      details: result.details
-    }
-    
-  } catch (error: any) {
-    console.error('❌ CyberPanel API falhou:', error)
-    throw error
-  }
+
+    req.on('error', (error: any) => {
+      console.error('❌ CyberPanel API request error:', error.message)
+      reject(new Error(`Erro de conexão: ${error.message}`))
+    })
+
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Timeout na conexão com CyberPanel'))
+    })
+
+    req.write(postData)
+    req.end()
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -124,12 +151,13 @@ export async function POST(req: NextRequest) {
         
         if (result.success) {
           // TAREFA 2: Registar idempotency key
+          const finalMessageId = result.messageId || `cp-${Date.now()}`
           if (idempotencyKey) {
-            processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: result.messageId })
+            processedKeys.set(idempotencyKey, { timestamp: Date.now(), messageId: finalMessageId })
           }
           return NextResponse.json({ 
             success: true, 
-            messageId: result.messageId, 
+            messageId: finalMessageId, 
             provider: 'cyberpanel-api',
             details: result.details 
           });

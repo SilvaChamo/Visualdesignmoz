@@ -761,7 +761,7 @@ export function EmailWebmailSection({
   ]
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] -mx-6 -mt-6">
+    <div className="flex flex-col h-full w-full">
 
       {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo */}
       <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${mostrarCompose ? 'hidden' : ''}`}>
@@ -1111,13 +1111,13 @@ export function EmailWebmailSection({
                 </div>
               </div>
               {/* Editor */}
-              <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
-                <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-sm min-h-[400px]">
+              <div className="flex-1 overflow-y-auto bg-gray-50 p-4 min-h-0">
+                <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-sm min-h-[500px]">
                   <div
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="p-6 text-sm outline-none min-h-[400px] w-full"
+                    className="p-6 text-sm outline-none min-h-[500px] w-full"
                     style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}
                     onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
                   />

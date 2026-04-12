@@ -11,12 +11,27 @@ async function execSSH(command: string): Promise<string> {
     const conn = new Client();
     let out = '';
     const rawKey = process.env.SSH_PRIVATE_KEY || '';
+    
+    // Validate key format
+    if (!rawKey.includes('BEGIN') || !rawKey.includes('END')) {
+      return reject(new Error('SSH_PRIVATE_KEY appears to be invalid - missing BEGIN/END markers'));
+    }
+    
     const privateKey = rawKey.replace(/\\n/g, '\n');
+    const host = process.env.CYBERPANEL_IP || '109.199.104.22';
 
-    console.log('[SSH] Connecting to', process.env.CYBERPANEL_IP || '109.199.104.22', '- Key length:', privateKey.length);
+    console.log('[SSH] Connecting to', host, '- Key length:', privateKey.length);
+    console.log('[SSH] Key starts with:', privateKey.substring(0, 50));
     console.log('[SSH] Command:', command.substring(0, 150));
 
+    // Set a timeout for the entire operation
+    const timeout = setTimeout(() => {
+      conn.end();
+      reject(new Error('SSH operation timed out after 20 seconds'));
+    }, 20000);
+
     conn.on('ready', () => {
+      clearTimeout(timeout);
       console.log('[SSH] Connected! Executing command...');
       conn.exec(command, (err, stream) => {
         if (err) { conn.end(); return reject(err); }
@@ -31,14 +46,24 @@ async function execSSH(command: string): Promise<string> {
     });
 
     conn.on('error', (err) => {
+      clearTimeout(timeout);
       console.error('[SSH] Connection ERROR:', err.message);
       reject(err);
     });
+
     conn.connect({
-      host: process.env.CYBERPANEL_IP || '109.199.104.22',
+      host,
       port: 22,
       username: 'root',
-      privateKey,
+      privateKey: Buffer.from(privateKey),
+      readyTimeout: 15000,
+      keepaliveInterval: 5000,
+      keepaliveCountMax: 3,
+      debug: (msg: string) => {
+        if (msg.includes('error') || msg.includes('fail') || msg.includes('timeout')) {
+          console.log('[SSH Debug]', msg);
+        }
+      }
     });
   });
 }
@@ -46,6 +71,14 @@ async function execSSH(command: string): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const { action, params = {} } = await req.json();
+    console.log(`[server-exec] Action: ${action}, Params:`, JSON.stringify(params).substring(0, 200));
+    
+    // Check env vars
+    if (!process.env.SSH_PRIVATE_KEY) {
+      console.error('[server-exec] ERROR: SSH_PRIVATE_KEY not set');
+      return NextResponse.json({ success: false, error: 'SSH_PRIVATE_KEY not configured' }, { status: 500 });
+    }
+    
     let data: any = {};
 
     switch (action) {
@@ -122,20 +155,33 @@ done
       }
 
       case 'listPackages': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" -B -N 2>/dev/null`);
-        data = raw.split('\n').filter(Boolean).map(line => {
-          const parts = line.split('\t');
-          return {
-            id: parseInt(parts[0]) || null,
-            packageName: parts[1] || '',
-            diskSpace: parseInt(parts[2]) || 0,
-            bandwidth: parseInt(parts[3]) || 0,
-            emailAccounts: parseInt(parts[4]) || 0,
-            dataBases: parseInt(parts[5]) || 0,
-            ftpAccounts: parseInt(parts[6]) || 0,
-            allowedDomains: parseInt(parts[7]) || 0
-          };
-        });
+        try {
+          const raw = await execSSH(`mysql cyberpanel -e "SELECT id, packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" -B -N 2>/dev/null`);
+          console.log('[listPackages] Raw output:', raw.substring(0, 500));
+
+          if (!raw || raw.trim() === '') {
+            data = [];
+          } else {
+            data = raw.split('\n').filter(Boolean).map(line => {
+              const parts = line.split('\t');
+              if (parts.length < 8) return null;
+              return {
+                id: parseInt(parts[0]) || null,
+                packageName: parts[1] || '',
+                diskSpace: parseInt(parts[2]) || 0,
+                bandwidth: parseInt(parts[3]) || 0,
+                emailAccounts: parseInt(parts[4]) || 0,
+                dataBases: parseInt(parts[5]) || 0,
+                ftpAccounts: parseInt(parts[6]) || 0,
+                allowedDomains: parseInt(parts[7]) || 0
+              };
+            }).filter(Boolean);
+          }
+          console.log('[listPackages] Parsed packages:', data.length);
+        } catch (error: any) {
+          console.error('[listPackages] Error:', error);
+          data = [];
+        }
         break;
       }
 
@@ -210,13 +256,31 @@ print('ok')
       }
 
       case 'listUsers': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
-        console.log('[listUsers] Raw SSH output:', raw.substring(0, 500));
-        data = raw.split('\n').filter(Boolean).map(line => {
-          const [id, userName, email, type, state, firstName, lastName] = line.split('\t');
-          return { id: parseInt(id), userName, email, type, state, firstName, lastName };
-        });
-        console.log('[listUsers] Parsed users:', data.length, JSON.stringify(data).substring(0, 300));
+        try {
+          console.log('[listUsers] Starting MySQL query...');
+          const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+          console.log('[listUsers] Raw SSH output length:', raw.length);
+          console.log('[listUsers] Raw SSH output preview:', raw.substring(0, 500));
+          
+          if (!raw || raw.trim() === '') {
+            console.warn('[listUsers] Empty response from MySQL');
+            data = [];
+          } else {
+            data = raw.split('\n').filter(Boolean).map(line => {
+              const parts = line.split('\t');
+              if (parts.length < 2) {
+                console.warn('[listUsers] Malformed line:', line);
+                return null;
+              }
+              const [id, userName, email, type, state, firstName, lastName] = parts;
+              return { id: parseInt(id) || 0, userName: userName || '', email: email || '', type: type || '', state: state || '', firstName: firstName || '', lastName: lastName || '' };
+            }).filter(Boolean);
+          }
+          console.log('[listUsers] Parsed users:', data.length, JSON.stringify(data).substring(0, 300));
+        } catch (err: any) {
+          console.error('[listUsers] Error:', err.message);
+          throw err;
+        }
         break;
       }
 
@@ -267,18 +331,35 @@ print('ok')
         const email = params.email || params.adminEmail;
         const owner = params.owner || params.username || 'admin';
         const pkg = params.package || params.packageName || 'Default';
-        const php = params.php || params.phpVersion || 'PHP 8.2';
+        // CyberPanel espera apenas a versão numérica (ex: 8.2) não "PHP 8.2"
+        const phpRaw = params.php || params.phpVersion || 'PHP 8.2';
+        const php = phpRaw.replace(/^PHP\s*/, '').trim();
 
-        const raw = await execSSH(
-          `cyberpanel createWebsite ` +
+        console.log('[createWebsite] Params:', { domainName, email, owner, pkg, php });
+
+        const command = `cyberpanel createWebsite ` +
           `--domainName ${domainName} ` +
           `--email ${email} ` +
           `--owner ${owner} ` +
           `--package "${pkg}" ` +
           `--php "${php}" ` +
-          `--ssl 1 --dkim 1 2>&1`
-        );
-        data = { output: raw, success: !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('traceback') };
+          `--ssl 1 --dkim 1 2>&1`;
+
+        console.log('[createWebsite] Executing:', command);
+
+        const raw = await execSSH(command);
+        
+        console.log('[createWebsite] Output:', raw.substring(0, 500));
+        
+        const hasError = raw.toLowerCase().includes('error') || raw.toLowerCase().includes('traceback') || raw.toLowerCase().includes('failed');
+        const hasSuccess = raw.includes('success') || raw.includes('created') || raw.includes('ok') || raw.includes('website has been created');
+        
+        data = { 
+          output: raw, 
+          command: command,
+          success: hasSuccess || !hasError,
+          error: hasError ? raw : undefined
+        };
         break;
       }
 
@@ -350,8 +431,21 @@ print('ok')
       }
 
       case 'createUser': {
-        const raw = await execSSH(
-          `cyberpanel createAdministrator ` +
+        // DIAGNOSTIC: Test basic SSH connectivity first
+        console.log('[createUser] Testing SSH connectivity...');
+        const testConnection = await execSSH('echo "SSH_OK"');
+        console.log('[createUser] SSH test result:', testConnection.trim());
+        
+        // Use direct Python script path (more reliable than symlink)
+        const cyberpanelPath = '/usr/local/CyberCP/cli/cyberPanel.py';
+        console.log('[createUser] Using direct Python script path:', cyberpanelPath);
+        
+        // Check if file exists
+        const checkFile = await execSSH(`ls -la ${cyberpanelPath} 2>&1 || echo "FILE_NOT_FOUND"`);
+        console.log('[createUser] File check:', checkFile.trim());
+        
+        // First try: Use cyberpanel CLI command
+        const command = `python3 ${cyberpanelPath} createAdministrator ` +
           `--userName ${params.userName} ` +
           `--password '${params.password}' ` +
           `--email ${params.email} ` +
@@ -359,10 +453,64 @@ print('ok')
           `--lastName '${params.lastName || ''}' ` +
           `--selectedACL ${params.acl || 'user'} ` +
           `--websitesLimit ${params.websitesLimit ?? 0} ` +
-          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`
-        );
-        console.log('[createUser] Raw output:', raw);
-        const success = raw.includes('"status": 1') || raw.includes('successfully created') || raw.includes('Success') || raw.includes('created successfully');
+          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`;
+        
+        console.log('[createUser] Executing command:', command.substring(0, 200));
+        let raw = '';
+        let success = false;
+        
+        try {
+          raw = await execSSH(command);
+          console.log('[createUser] Raw output:', raw || '(empty)');
+          console.log('[createUser] Output length:', raw.length);
+          
+          // Check for various success indicators
+          success = raw.includes('"status": 1') || 
+                     raw.includes('successfully created') || 
+                     raw.includes('Success') || 
+                     raw.includes('created successfully') ||
+                     raw.includes('User created');
+        } catch (cmdError: any) {
+          console.error('[createUser] Command execution error:', cmdError.message);
+          raw = `Command failed: ${cmdError.message}`;
+        }
+        
+        // FALLBACK: If CLI failed, try direct MySQL insert
+        let finalOutput = raw;
+        if (!success) {
+          console.log('[createUser] CLI failed or returned empty, trying direct MySQL insert...');
+          try {
+            // Check if user already exists
+            const checkUser = await execSSH(`mysql cyberpanel -e "SELECT userName FROM loginSystem_administrator WHERE userName='${params.userName}';" -B -N 2>&1`);
+            console.log('[createUser] Check existing user:', checkUser.trim());
+            
+            if (checkUser.trim()) {
+              success = false;
+              finalOutput = `User '${params.userName}' already exists in CyberPanel.`;
+            } else {
+              // Hash password using Python (CyberPanel uses sha512_crypt)
+              const hashedPassword = await execSSH(
+                `python3 -c "from passlib.hash import sha512_crypt; print(sha512_crypt.hash('${params.password}'))" 2>&1`
+              );
+              console.log('[createUser] Password hashed, length:', hashedPassword.length);
+              
+              // Insert directly into CyberPanel database
+              const insertCmd = `mysql cyberpanel -e "INSERT INTO loginSystem_administrator (userName, password, email, firstName, lastName, type, state, initWebsitesLimit, securityLevel) VALUES ('${params.userName}', '${hashedPassword.trim()}', '${params.email}', '${params.firstName || ''}', '${params.lastName || ''}', 0, 'ACTIVE', ${params.websitesLimit ?? 0}, '${params.securityLevel || 'HIGH'}');" 2>&1`;
+              const insertResult = await execSSH(insertCmd);
+              console.log('[createUser] MySQL insert result:', insertResult.trim());
+              
+              if (!insertResult.toLowerCase().includes('error')) {
+                success = true;
+                finalOutput = 'User created via MySQL direct insert.';
+              } else {
+                finalOutput = `MySQL insert failed: ${insertResult}`;
+              }
+            }
+          } catch (mysqlError: any) {
+            console.error('[createUser] MySQL fallback error:', mysqlError.message);
+            finalOutput = `MySQL fallback error: ${mysqlError.message}. Original CLI output: ${raw}`;
+          }
+        }
         
         let supabaseAuthId = null;
         if (success) {
@@ -402,7 +550,13 @@ print('ok')
           }
         }
 
-        data = { output: raw, success, error: success ? null : raw, authSync: !!supabaseAuthId };
+        // If output is empty, likely SSH connection or command issue
+        let errorMsg = success ? null : finalOutput;
+        if (!success && !finalOutput.trim()) {
+          errorMsg = 'Command returned empty output. SSH connection may have failed or cyberpanel CLI not found.';
+        }
+        
+        data = { output: finalOutput, success, error: errorMsg, authSync: !!supabaseAuthId, cyberpanelPath };
         break;
       }
 
@@ -516,7 +670,7 @@ print('ok')
     return NextResponse.json({ success: true, data });
 
   } catch (e: any) {
-    console.error('[server-exec]', e.message);
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
+    console.error('[server-exec] CRITICAL ERROR:', e.message, e.stack);
+    return NextResponse.json({ success: false, error: e.message, stack: e.stack }, { status: 500 });
   }
 }

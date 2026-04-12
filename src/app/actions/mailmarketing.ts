@@ -128,6 +128,120 @@ export async function adminRemoverCampanha(id: string) {
     }
 }
 
+/**
+ * 🧹 LIMPA DADOS DE TESTE - Zera contadores de emails enviados
+ * Use apenas em ambiente de teste
+ */
+export async function adminLimparDadosCampanhas(ownerEmail?: string) {
+    try {
+        // Buscar todas as campanhas (ou apenas do owner especificado)
+        let query = supabaseAdmin
+            .from('email_campaigns')
+            .select('id, subject, recipient_count');
+        
+        if (ownerEmail) {
+            query = query.eq('sender_email', ownerEmail.toLowerCase().trim());
+        }
+        
+        const { data: campanhas, error: fetchError } = await query;
+        
+        if (fetchError) {
+            console.error('Erro ao buscar campanhas:', fetchError);
+            throw fetchError;
+        }
+        
+        // Zerar recipient_count de todas as campanhas encontradas
+        const updates = (campanhas || []).map(async (campanha: any) => {
+            const { error } = await supabaseAdmin
+                .from('email_campaigns')
+                .update({ 
+                    recipient_count: 0,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', campanha.id);
+            
+            if (error) {
+                console.error(`Erro ao zerar campanha ${campanha.id}:`, error);
+            }
+            return { id: campanha.id, subject: campanha.subject, success: !error };
+        });
+        
+        const resultados = await Promise.all(updates);
+        
+        console.log('[adminLimparDadosCampanhas] Dados zerados:', resultados);
+        return {
+            success: true,
+            message: `${resultados.length} campanha(s) limpa(s)`,
+            details: resultados
+        };
+        
+    } catch (error: any) {
+        console.error('Erro no Server Action adminLimparDadosCampanhas:', error);
+        throw error;
+    }
+}
+
+/**
+ * 🗑️ DELETAR TODAS AS CAMPANHAS - Use com cuidado!
+ * Apenas para limpeza completa em testes
+ */
+export async function adminDeletarTodasCampanhas(ownerEmail?: string) {
+    try {
+        let query = supabaseAdmin
+            .from('email_campaigns')
+            .delete();
+        
+        if (ownerEmail) {
+            query = query.eq('sender_email', ownerEmail.toLowerCase().trim());
+        }
+        
+        const { error, count } = await query;
+        
+        if (error) {
+            console.error('Erro ao deletar campanhas:', error);
+            throw error;
+        }
+        
+        return {
+            success: true,
+            message: `Todas as campanhas ${ownerEmail ? 'do usuário ' : ''}foram removidas`,
+            deletedCount: count
+        };
+        
+    } catch (error: any) {
+        console.error('Erro no Server Action adminDeletarTodasCampanhas:', error);
+        throw error;
+    }
+}
+
+// Função de validação de email
+function isValidEmail(email: string): { valid: boolean; error?: string } {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Verificar formato básico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+        return { valid: false, error: 'Formato de email inválido' };
+    }
+    
+    // Verificar TLD válido
+    const validTLDs = ['.com', '.net', '.org', '.edu', '.gov', '.io', '.co', '.pt', '.br', '.mz', '.ao', '.za', '.uk', '.fr', '.de', '.es', '.it', '.nl', '.be', '.ch', '.at', '.se', '.no', '.dk', '.fi', '.ie', '.pl', '.cz', '.sk', '.hu', '.ro', '.bg', '.hr', '.si', '.lt', '.lv', '.ee', '.lu', '.mt', '.cy', '.ee', '.is', '.li', '.mc', '.sm', '.va', '.ad'];
+    const hasValidTLD = validTLDs.some(tld => normalizedEmail.endsWith(tld));
+    if (!hasValidTLD) {
+        // Não rejeitar, apenas avisar
+        console.log('[Email Validation] TLD incomum:', normalizedEmail);
+    }
+    
+    // Verificar emails de função (role-based)
+    const roleBasedPatterns = ['admin@', 'info@', 'support@', 'sales@', 'marketing@', 'noreply@', 'no-reply@', 'contact@', 'help@', 'service@', 'webmaster@', 'postmaster@', 'hostmaster@', 'abuse@', 'security@'];
+    const isRoleBased = roleBasedPatterns.some(pattern => normalizedEmail.startsWith(pattern));
+    if (isRoleBased) {
+        return { valid: true, error: 'ROLE_BASED' }; // Válido mas é role-based
+    }
+    
+    return { valid: true };
+}
+
 export async function adminAdicionarSubscritor(dados: { email: string, full_name?: string, domain: string, list?: string }) {
     try {
         if (!supabaseUrl || !supabaseServiceKey) {
@@ -137,8 +251,56 @@ export async function adminAdicionarSubscritor(dados: { email: string, full_name
         const normalizedEmail = dados.email.toLowerCase().trim();
         const normalizedDomain = (dados.domain || 'default').toLowerCase();
         
-        // GRAVAÇÃO COM DOMÍNIO + ESCOPO CLIENTE: evita partilha com painel admin.
-        const { data, error } = await supabaseAdmin
+        // VALIDAÇÃO DE EMAIL
+        const validation = isValidEmail(normalizedEmail);
+        if (!validation.valid) {
+            throw new Error(validation.error || 'Email inválido');
+        }
+        
+        // Verificar se email já existe APENAS NESTE DOMÍNIO
+        const { data: existingInDomain, error: checkError } = await supabaseAdmin
+            .from('newsletter_subscribers')
+            .select('id, email')
+            .eq('email', normalizedEmail)
+            .eq('metadata->>domain', normalizedDomain)
+            .eq('metadata->>panel', PANEL_SCOPE_CLIENT)
+            .maybeSingle();
+        
+        if (checkError) {
+            console.error('[adminAdicionarSubscritor] Erro ao verificar duplicado:', checkError.message);
+        }
+        
+        // Se já existe neste domínio → ATUALIZAR
+        if (existingInDomain) {
+            console.log('[adminAdicionarSubscritor] Email exists in this domain, updating...');
+            
+            const { data: updated, error: updateError } = await supabaseAdmin
+                .from('newsletter_subscribers')
+                .update({
+                    metadata: {
+                        panel: PANEL_SCOPE_CLIENT,
+                        domain: normalizedDomain,
+                        list: dados.list || 'Contactos'
+                    },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingInDomain.id)
+                .select()
+                .single();
+            
+            if (updateError) {
+                console.error('ERRO SUPABASE UPDATE:', updateError.message);
+                throw new Error('Erro ao atualizar contacto existente.');
+            }
+            
+            return { success: true, updated: true, data: updated, isRoleBased: validation.error === 'ROLE_BASED' };
+        }
+        
+        // Se não existe neste domínio → INSERIR NOVO
+        // (pode existir noutros domínios, mas isso é permitido)
+        console.log('[adminAdicionarSubscritor] New email for this domain, inserting...');
+        
+        const { data: inserted, error: insertError } = await supabaseAdmin
             .from('newsletter_subscribers')
             .insert({
                 email: normalizedEmail,
@@ -150,16 +312,15 @@ export async function adminAdicionarSubscritor(dados: { email: string, full_name
                 updated_at: new Date().toISOString()
             })
             .select()
-
-        if (error) {
-            console.error('ERRO SUPABASE:', error.message);
-            if (error.code === '23505') {
-                throw new Error('Este email já existe nesta lista/painel.');
-            }
-            throw new Error(error.message);
+            .single();
+        
+        if (insertError) {
+            console.error('ERRO SUPABASE INSERT:', insertError.message);
+            throw new Error(insertError.message);
         }
-
-        return data?.[0] || { success: true };
+        
+        return { success: true, updated: false, data: inserted, isRoleBased: validation.error === 'ROLE_BASED' };
+        
     } catch (error: any) {
         console.error('ERRO CRÍTICO NO SERVIDOR:', error.message);
         throw error;

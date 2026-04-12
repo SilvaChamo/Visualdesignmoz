@@ -137,7 +137,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const sitesArray = Array.isArray(sites) ? sites : []
   const filtered = sitesArray.filter(s =>
     s.domain.toLowerCase().includes(search.toLowerCase()) &&
-    !s.domain.includes('contaboserver')
+    !s.domain.includes('contaboserver') &&
+    !s.domain.toLowerCase().startsWith('mail')
   )
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
@@ -1465,6 +1466,7 @@ export default function AdminPage() {
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
   const [selectedManageDomain, setSelectedManageDomain] = useState<string>('')
+  const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   const searchParams = useSearchParams();
@@ -1500,6 +1502,13 @@ export default function AdminPage() {
       window.__selectedManageDomain = null;
     } else if (activeSection !== 'manage-website') {
       setSelectedManageDomain('');
+    }
+  }, [activeSection]);
+
+  // Efeito para limpar preSelectedEmailDomain quando sair da seção de email
+  useEffect(() => {
+    if (!activeSection.includes('email') && !activeSection.includes('cp-email')) {
+      setPreSelectedEmailDomain('');
     }
   }, [activeSection]);
 
@@ -1731,7 +1740,7 @@ export default function AdminPage() {
         return <EmailWebmailSection emailOrigem={sessionUser} />
       case 'emails-new':
       case 'cp-email-mgmt':
-        return <EmailManagementSection sites={filteredSites} />
+        return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} />
       case 'cp-email-delete':
         return <EmailDeleteSection sites={filteredSites} />
       case 'cp-email-limits':
@@ -1800,7 +1809,14 @@ export default function AdminPage() {
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
-        return <DomainManagerSection sites={filteredSites} packages={cyberPanelPackages} />
+        return <DomainManagerSection 
+          sites={filteredSites} 
+          packages={cyberPanelPackages}
+          onCreateEmail={(domain) => {
+            setPreSelectedEmailDomain(domain)
+            setActiveSection('cp-email-mgmt')
+          }}
+        />
       case 'git-deploy':
       case 'deploy':
         return <DeploySection sites={cyberPanelSites} />

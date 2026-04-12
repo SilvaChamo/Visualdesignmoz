@@ -44,7 +44,8 @@ import {
   adminRemoverSubscritor as removerSubscritor,
   adminListarCampanhas as listarCampanhas,
   adminSalvarCampanha as salvarCampanha,
-  adminRemoverCampanha as removerCampanha
+  adminRemoverCampanha as removerCampanha,
+  adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 
@@ -739,15 +740,15 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   }, [selectedSite, pureSites, currentUserEmail]);
 
   return (
-    <div className="space-y-5 overflow-hidden">
-      <div className="relative">
-        <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
+    <div className="space-y-5 h-full overflow-auto">
+      <div className="relative min-h-full">
+        <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
+        <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'opacity-100 relative z-10' : 'opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
+        <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} onResend={(camp) => { setCampaignToResend(camp); setActiveTab('comp'); }} />
         </div>
       </div>
@@ -1310,119 +1311,48 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
               <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
             </div>
             
-            {/* 🚀 STATUS DE REPUTAÇÃO E WARM-UP */}
+            {/* 🚀 STATUS DE REPUTAÇÃO - SIMPLIFICADO */}
             {selectedSite && (
               <div className="mt-4 p-4 rounded-lg border border-slate-200/70 shadow-sm transition-all duration-300">
                 {loadingReputation ? (
                   <div className="flex items-center gap-2 text-slate-400">
                     <div className="w-4 h-4 border-2 border-slate-300 border-t-orange-500 rounded-full animate-spin" />
-                    <span className="text-[10px] font-medium">A verificar reputação...</span>
+                    <span className="text-[10px] font-medium">A carregar...</span>
                   </div>
                 ) : domainReputation ? (
-                  <div className={`mt-4 space-y-1 ${domainReputation.remainingToday <= 0 ? 'bg-red-50/50 border-red-200' : 'bg-green-50/50 border-green-200'} rounded-md p-2`}>
-                    {/* Linha 1: Status do domínio - SEM BULLET */}
-                    <div className="w-full pb-2 border-b border-slate-200/50">
-                      <span className="text-xs font-bold text-slate-700">{domainReputation.phaseDescription}</span>
+                  <div className="space-y-3">
+                    {/* Título e contador no lado esquerdo */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-slate-700">Limite Diário</span>
+                        <div className="text-[10px] text-red-500 font-medium">200 emails disponíveis</div>
+                      </div>
                     </div>
                     
-                    {/* Linha 2: Reputação - TÍTULO */}
-                    <div className="w-full leading-none">
-                      <span className="text-[10px] text-slate-500">Reputação próximos 7 dias:</span>
-                    </div>
-                    
-                    {/* Linha 3: Reputação - VALOR */}
-                    <div className="w-full leading-none">
-                      <span className={`text-sm font-black ${domainReputation.score >= 80 ? 'text-green-600' : domainReputation.score >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {domainReputation.score}/100
-                      </span>
-                    </div>
-                    
-                    {/* Espaço entre secções */}
-                    <div className="h-2" />
-                    
-                    {/* Linha 4: Status - TÍTULO */}
-                    <div className="w-full leading-none">
-                      <span className="text-[10px] text-slate-500">Status:</span>
-                    </div>
-                    
-                    {/* Linha 5: Status - VALOR */}
-                    <div className="w-full leading-none pb-2">
-                      <span className={`text-[10px] font-medium ${domainReputation.remainingToday <= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {domainReputation.remainingToday > 0 
-                          ? `${domainReputation.sentToday} / ${domainReputation.dailyLimit} enviados (${domainReputation.remainingToday} restantes)` 
-                          : 'Limite diário atingido'}
-                      </span>
-                    </div>
-                    
-                    {/* Linha 4: Barra de progresso */}
+                    {/* Barra de progresso */}
                     <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-slate-500">
+                        <span>0 enviados</span>
+                        <span>200 limite</span>
+                      </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            domainReputation.remainingToday <= 0 ? 'bg-red-500' : 
-                            domainReputation.sentToday / domainReputation.dailyLimit > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min((domainReputation.sentToday / domainReputation.dailyLimit) * 100, 100)}%` }}
-                        />
+                        {domainReputation.sentToday > 0 && (
+                          <div 
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              domainReputation.remainingToday <= 0 ? 'bg-red-500' : 
+                              domainReputation.sentToday / 200 > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min((domainReputation.sentToday / 200) * 100, 100)}%` }}
+                          />
+                        )}
                       </div>
                     </div>
                     
-                    {/* 🆕 Linha 4.5: Setas de controle de reputação */}
-                    {domainReputation.scoreChange !== undefined && domainReputation.scoreChange !== 0 && (
-                      <div className="flex items-center justify-center gap-4 py-1">
-                        <button
-                          onClick={() => domainReputation.scoreChange && domainReputation.scoreChange > 0 ? setShowReputationInfo(true) : null}
-                          className={`flex items-center gap-1 text-[10px] font-bold transition-all ${
-                            domainReputation.scoreChange && domainReputation.scoreChange > 0 
-                              ? 'text-green-600 hover:text-green-800 cursor-pointer' 
-                              : 'text-slate-300 cursor-default'
-                          }`}
-                          disabled={!domainReputation.scoreChange || domainReputation.scoreChange <= 0}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                          </svg>
-                          <span>{domainReputation.scoreChange && domainReputation.scoreChange > 0 ? `+${domainReputation.scoreChange}%` : '--'}</span>
-                        </button>
-                        
-                        <span className="text-[9px] text-slate-400">vs semana anterior</span>
-                        
-                        <button
-                          onClick={() => domainReputation.scoreChange && domainReputation.scoreChange < 0 ? setShowReputationInfo(true) : null}
-                          className={`flex items-center gap-1 text-[10px] font-bold transition-all ${
-                            domainReputation.scoreChange && domainReputation.scoreChange < 0 
-                              ? 'text-red-600 hover:text-red-800 cursor-pointer' 
-                              : 'text-slate-300 cursor-default'
-                          }`}
-                          disabled={!domainReputation.scoreChange || domainReputation.scoreChange >= 0}
-                        >
-                          <span>{domainReputation.scoreChange && domainReputation.scoreChange < 0 ? `${domainReputation.scoreChange}%` : '--'}</span>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Linha 5: Recomendações (quando necessário) */}
+                    {/* Alerta quando atingir limite */}
                     {domainReputation.remainingToday <= 0 && (
-                      <div className="mt-4 p-2 bg-red-100/50 rounded border border-red-200">
-                        <p className="text-[10px] text-red-700 font-medium">
-                          ⚠️ Limite diário atingido. Aguarde até amanhã para enviar mais emails.
-                        </p>
-                      </div>
-                    )}
-                    
-                    {domainReputation.score < 70 && domainReputation.remainingToday > 0 && (
-                      <div className="mt-4 p-2 bg-yellow-100/50 rounded border border-yellow-200">
-                        <p className="text-[10px] text-yellow-700 font-medium">
-                          💡 Reputação em recuperação. Envie apenas para contactos engajados.{" "}
-                          <button 
-                            onClick={() => setShowReputationInfo(true)}
-                            className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                          >
-                            Saber mais
-                          </button>
+                      <div className="p-2 bg-red-100/50 rounded border border-red-200">
+                        <p className="text-[10px] text-red-700 font-medium text-center">
+                          ⚠️ Limite diário atingido. Aguarde até amanhã.
                         </p>
                       </div>
                     )}
@@ -2313,17 +2243,51 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
 
   const filteredCampaigns = campaigns.filter(c => !searchTerm || c.subject?.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  const handleClearTestData = async () => {
+    if (!confirm('🧹 Limpar dados de teste?\n\nIsso vai zerar o contador de emails enviados em todas as campanhas.\n\nContinuar?')) return;
+    
+    try {
+      toast.loading('A limpar dados de teste...');
+      const result = await limparDadosCampanhas(currentUserEmail);
+      toast.dismiss();
+      
+      if (result.success) {
+        toast.success(`✅ ${result.message}`);
+        fetchCampaigns(); // Recarregar lista
+      } else {
+        toast.error('Erro ao limpar dados');
+      }
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error('Erro: ' + error.message);
+    }
+  };
+
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-500">
       {/* Header Panel */}
-      <div className="flex items-center gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-        <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
-          <BarChart3 className="w-5 h-5 text-orange-600" />
+      <div className="flex items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Histórico de Campanhas</h2>
+            <p className="text-sm text-slate-500 font-medium">Análise de desempenho e registo de mensagens enviadas.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Histórico de Campanhas</h2>
-          <p className="text-sm text-slate-500 font-medium">Análise de desempenho e registo de mensagens enviadas.</p>
-        </div>
+        
+        {/* Botão limpar dados de teste */}
+        <button
+          onClick={handleClearTestData}
+          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold transition-colors flex items-center gap-2"
+          title="Zerar contadores de emails (modo teste)"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Limpar Testes
+        </button>
       </div>
 
       {/* KPI Cards */}
@@ -3968,10 +3932,10 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 overflow-y-auto bg-slate-50/50 ${isComposeActive && activeSection === 'emails-new' ? 'p-0' : 'p-6'}`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'} bg-slate-50/50`}>
           <div
             key={activeSection}
-            className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full' : ''}`}
+            className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}
           >
             {renderSection()}
           </div>

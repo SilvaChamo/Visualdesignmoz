@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
 import path from 'path';
+import withPWA from '@ducanh2912/next-pwa';
 
 const nextConfig: NextConfig = {
+  turbopack: {},
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   outputFileTracingRoot: path.join(__dirname),
@@ -48,4 +50,51 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+const pwaConfig = {
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+  buildExcludes: [/middleware-manifest.json$/],
+  fallbacks: {
+    document: '/offline'
+  },
+  runtimeCaching: [
+    {
+      urlPattern: /^https?.*$/,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'pages',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 24 * 60 * 60
+        },
+        networkTimeoutSeconds: 10
+      }
+    },
+    {
+      urlPattern: /\/_next\/static\/.*/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'static-resources',
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 30 * 24 * 60 * 60
+        }
+      }
+    },
+    {
+      urlPattern: /\/_next\/image\?url=.*/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'next-image',
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 30 * 24 * 60 * 60
+        }
+      }
+    }
+  ]
+};
+
+export default withPWA(pwaConfig)(nextConfig);

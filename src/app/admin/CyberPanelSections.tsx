@@ -1458,8 +1458,8 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
 // ============================================================
 // EMAIL MANAGEMENT SECTION (Extended)
 // ============================================================
-export function EmailManagementSection({ sites }: { sites: CyberPanelWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('__ALL__')
+export function EmailManagementSection({ sites, preSelectedDomain }: { sites: CyberPanelWebsite[], preSelectedDomain?: string }) {
+  const [selectedDomain, setSelectedDomain] = useState(preSelectedDomain || '__ALL__')
   const [emails, setEmails] = useState<CyberPanelEmail[]>([])
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -2216,8 +2216,24 @@ export function CPUsersSection() {
         setMsg('✅ Utilizador criado com sucesso no CyberPanel!')
         setUserModal({ ...userModal, show: false })
       } else {
-        const errorDetail = res?.error || res?.output || 'Erro desconhecido'
-        setMsg(`❌ Falhou no CyberPanel: ${errorDetail.substring(0, 200)}`)
+        // Melhor diagnóstico do erro
+        const rawOutput = res?.output || ''
+        const errorMsg = res?.error || ''
+        console.log('[handleCreate] Failed. Raw output:', rawOutput)
+        console.log('[handleCreate] Error field:', errorMsg)
+        
+        // Tentar extrair mensagem de erro do JSON se existir
+        let parsedError = ''
+        try {
+          const jsonMatch = rawOutput.match(/\{[^}]+\}/)
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0])
+            parsedError = parsed.error_message || parsed.message || ''
+          }
+        } catch {}
+        
+        const errorDetail = parsedError || errorMsg || rawOutput || 'Verifique o console (F12) para detalhes'
+        setMsg(`❌ Falhou: ${errorDetail.substring(0, 250)}`)
       }
       loadUsers()
     } catch (e: any) {
@@ -2230,15 +2246,32 @@ export function CPUsersSection() {
   const handleRetrySync = async (u: any) => {
     setLoading(true); setMsg('')
     try {
-      console.log('[handleRetrySync] Syncing user:', u.userName, JSON.stringify(u).substring(0, 300))
-      const res = await cyberPanelAPI.createUser(u)
+      // Gerar password temporária se não existir (CyberPanel exige password)
+      const syncData = { ...u }
+      if (!syncData.password) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'
+        syncData.password = Array.from({ length: 16 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('')
+        syncData.confirmPassword = syncData.password
+      }
+      console.log('[handleRetrySync] Syncing user:', u.userName, JSON.stringify(syncData).substring(0, 300))
+      const res = await cyberPanelAPI.createUser(syncData)
       console.log('[handleRetrySync] Response:', JSON.stringify(res).substring(0, 500))
       if (res?.success === true) {
         setMsg(`✅ Utilizador ${u.userName} sincronizado com sucesso no CyberPanel!`)
         loadUsers()
       } else {
-        const errorDetail = res?.error || res?.output || 'Erro desconhecido'
-        setMsg(`❌ Erro de Sincronização: ${errorDetail.substring(0, 300)}`)
+        const rawOutput = res?.output || ''
+        const errorMsg = res?.error || ''
+        let parsedError = ''
+        try {
+          const jsonMatch = rawOutput.match(/\{[^}]+\}/)
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0])
+            parsedError = parsed.error_message || parsed.message || ''
+          }
+        } catch {}
+        const errorDetail = parsedError || errorMsg || rawOutput || 'Erro desconhecido'
+        setMsg(`❌ Erro: ${errorDetail.substring(0, 300)}`)
       }
     } catch (e: any) {
       console.error('[handleRetrySync] Exception:', e)
@@ -4720,6 +4753,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       if (data.success) {
         setMsg('Pacote criado com sucesso!')
         setForm({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5', ftpAccounts: '5', allowedDomains: '1' })
+        setShowCreateForm(false)
         onRefresh()
       } else {
         setMsg('Erro: ' + (data.error || 'Falha ao criar pacote'))
@@ -4944,7 +4978,16 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
             </table>
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-8">Nenhum pacote encontrado.</p>
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">Nenhum pacote encontrado ou erro ao carregar do CyberPanel.</p>
+            <button
+              onClick={onRefresh}
+              className="bg-black hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Sincronizar com CyberPanel
+            </button>
+          </div>
         )}
       </div>
 
@@ -6086,7 +6129,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
 }
 
 // Domain Manager Section
-export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPanelWebsite[], packages?: CyberPanelPackage[] }) {
+export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { sites: CyberPanelWebsite[], packages?: CyberPanelPackage[], onCreateEmail?: (domain: string) => void }) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
   const [domains, setDomains] = useState<any[]>([])
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
@@ -6094,14 +6137,22 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
-  // Formulário criar domínio
+  // Formulário criar domínio - atualizado para igual ao CyberPanel
+  const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
   const [newDomain, setNewDomain] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
   const [docRoot, setDocRoot] = useState('')
-  const [shareRoot, setShareRoot] = useState(false)
-  const [allowedDomains, setAllowedDomains] = useState(0)
-  const [ftpAccounts, setFtpAccounts] = useState(0)
-  const [selectedPackage, setSelectedPackage] = useState('Default')
+  const [openLiteSpeed, setOpenLiteSpeed] = useState(true)
   const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
+
+  // Modal de criação de email
+  const [emailModal, setEmailModal] = useState<{ show: boolean, domain: string }>({ show: false, domain: '' })
+  const [emailForm, setEmailForm] = useState({ user: '', password: '', confirmPassword: '', quota: '500' })
+  const [creatingEmail, setCreatingEmail] = useState(false)
+  const [showEmailPass, setShowEmailPass] = useState(false)
+
+  // Modal de criação de domínio
+  const [domainModal, setDomainModal] = useState(false)
 
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg(text); setMsgType(type)
@@ -6124,9 +6175,10 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
         
         // Filtro básico
         const filtered = sitesArray.filter((s: any) =>
-          s.domain && 
+          s.domain &&
           !s.domain.includes('contaboserver') &&
-          !s.domain.includes('localhost')
+          !s.domain.includes('localhost') &&
+          !s.domain.toLowerCase().startsWith('mail')
         );
         
         setDomains(filtered);
@@ -6167,31 +6219,73 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
   }, [newDomain])
 
   const handleCreate = async () => {
-    if (!newDomain) return
+    if (!newDomain || !adminEmail) return
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'createWebsite',
-        params: { 
-          domain: newDomain, 
-          email: 'admin@example.com', 
-          php: selectedPHP,
-          packageName: selectedPackage
-        }
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createWebsite',
+          params: {
+            domain: newDomain,
+            email: adminEmail,
+            php: selectedPHP,
+            openLiteSpeed: openLiteSpeed
+          }
+        })
       })
-    })
-    const data = await res.json()
-    const output = data.data?.output || ''
-    if (output.includes('success') || output.includes('created')) {
-      showMsg(`Domínio "${newDomain}" criado com sucesso!`)
-      setNewDomain(''); setDocRoot(''); setShareRoot(false)
-      setView('list')
-      await loadDomains()
-    } else {
-      showMsg('Erro: ' + output, 'error')
+      const data = await res.json()
+      const output = data.data?.output || ''
+      if (data.success || output.includes('success') || output.includes('created') || output.toLowerCase().includes('ok')) {
+        showMsg(`Domínio "${newDomain}" criado com sucesso!`)
+        setNewDomain(''); setAdminEmail(''); setDocRoot(''); setOpenLiteSpeed(true)
+        setView('list')
+        await loadDomains()
+      } else {
+        showMsg('Erro: ' + (data.error || output || 'Falha ao criar domínio'), 'error')
+      }
+    } catch (e: any) {
+      showMsg('Erro de conexão: ' + e.message, 'error')
     }
     setLoading(false)
+  }
+
+  // Função para criar email a partir do modal
+  const handleCreateEmail = async () => {
+    if (!emailForm.user || !emailForm.password) {
+      showMsg('Preencha todos os campos obrigatórios', 'error')
+      return
+    }
+    if (emailForm.password !== emailForm.confirmPassword) {
+      showMsg('As senhas não coincidem', 'error')
+      return
+    }
+    setCreatingEmail(true)
+    try {
+      const res = await fetch('/api/cyberpanel-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domainName: emailModal.domain,
+          userName: emailForm.user,
+          password: emailForm.password,
+          quota: parseInt(emailForm.quota)
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEmailModal({ show: false, domain: '' })
+        setEmailForm({ user: '', password: '', confirmPassword: '', quota: '500' })
+        showMsg(`Email ${emailForm.user}@${emailModal.domain} criado com sucesso!`)
+        // Navegar para lista de emails após sucesso
+        if (onCreateEmail) onCreateEmail(emailModal.domain)
+      } else {
+        showMsg('Erro: ' + (data.error || 'Falha ao criar email'), 'error')
+      }
+    } catch (e: any) {
+      showMsg('Erro: ' + e.message, 'error')
+    }
+    setCreatingEmail(false)
   }
 
   const handleRemove = async (domain: string) => {
@@ -6223,7 +6317,7 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
             className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Sincronizar
           </button>
-          <button onClick={() => setView('create')}
+          <button onClick={() => setDomainModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
             <Plus className="w-4 h-4" /> Adicionar Domínio
           </button>
@@ -6272,7 +6366,7 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
                       Gerenciar
                     </button>
                     <button onClick={() => {
-                      // Navegar para criar email com domínio pré-seleccionado
+                      setEmailModal({ show: true, domain: d.domain })
                     }}
                       className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                       Criar Email
@@ -6284,10 +6378,32 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
           </tbody>
         </table>
       </div>
+
+      {/* Modal de Criação de Email */}
+      <EmailCreateModal
+        show={emailModal.show}
+        domain={emailModal.domain}
+        onClose={() => setEmailModal({ show: false, domain: '' })}
+        onSuccess={() => {
+          setEmailModal({ show: false, domain: '' })
+          // Permanece na página atual - não redireciona
+        }}
+      />
+
+      {/* Modal de Criação de Domínio */}
+      <DomainCreateModal
+        show={domainModal}
+        onClose={() => setDomainModal(false)}
+        onSuccess={() => {
+          setDomainModal(false)
+          loadDomains()
+        }}
+        packages={packages}
+      />
     </div>
   )
 
-  // VISTA: CRIAR DOMÍNIO
+  // VISTA: CRIAR DOMÍNIO (mantida para compatibilidade)
   if (view === 'create') return (
     <div className="w-full space-y-4">
       <div className="flex items-center gap-3">
@@ -6313,104 +6429,117 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
         </div>
         <div className="px-6 py-6 space-y-6">
 
-          {/* Domain */}
+          {/* Domain Type */}
           <div>
-            <label className="block font-bold text-gray-800 mb-1">
-              Domain <span className="text-blue-500 cursor-help">?</span>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Domain Type
             </label>
-            <p className="text-sm text-gray-500 mb-2">Enter the domain that you would like to create:</p>
-            <input value={newDomain} onChange={e => setNewDomain(e.target.value)}
-              placeholder="exemplo.com"
-              className="w-full px-3 py-2.5 border border-blue-300 rounded-lg text-sm bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            <select
+              value={domainType}
+              onChange={e => setDomainType(e.target.value as any)}
+              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="addon">Addon Domain</option>
+              <option value="subdomain">Subdomain</option>
+              <option value="parked">Parked Domain</option>
+            </select>
           </div>
 
-          {/* Package and PHP */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-bold text-gray-800 mb-1 text-sm">
-                Select Package
-              </label>
-              <select value={selectedPackage} onChange={e => setSelectedPackage(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
-                <option value="Default">Default</option>
-                {packages.map((p: any) => (
-                  <option key={p.packageName} value={p.packageName}>{p.packageName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block font-bold text-gray-800 mb-1 text-sm">
-                Select PHP
-              </label>
-              <select value={selectedPHP} onChange={e => setSelectedPHP(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
-                <option>PHP 7.4</option>
-                <option>PHP 8.0</option>
-                <option>PHP 8.1</option>
-                <option>PHP 8.2</option>
-                <option>PHP 8.3</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Share document root */}
-          <div className="flex items-start gap-3">
-            <input type="checkbox" checked={shareRoot} onChange={e => setShareRoot(e.target.checked)}
-              className="mt-1 w-4 h-4 border-2 border-gray-400 rounded" />
-            <div>
-              <p className="font-bold text-gray-800 text-sm">
-                Share document root (/home/digital/public_html) with "example.com".
-                <span className="text-blue-500 cursor-help ml-1">?</span>
-              </p>
-              <p className="text-sm text-gray-500">
-                If the document root is shared then the created domain will serve the same content as "example.com".{' '}
-                <strong>This setting is permanent.</strong>
-              </p>
-            </div>
-          </div>
-
-          {/* Document Root */}
+          {/* Domain Name */}
           <div>
-            <label className="block font-bold text-gray-800 mb-1">
-              Document Root (File System Location) <span className="text-blue-500 cursor-help">?</span>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Domain Name
             </label>
-            <p className="text-sm text-gray-500 mb-2">Specify the directory where you want the files for this domain to exist.</p>
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-              <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-r border-gray-300">🏠 /public_html/</span>
-              <input value={docRoot} onChange={e => setDocRoot(e.target.value)}
-                className="flex-1 px-3 py-2.5 text-sm focus:outline-none" />
+            <input
+              value={newDomain}
+              onChange={e => setNewDomain(e.target.value)}
+              placeholder="subdomain.example.com or newdomain.com"
+              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Admin Email */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Admin Email
+            </label>
+            <input
+              value={adminEmail}
+              onChange={e => setAdminEmail(e.target.value)}
+              placeholder="admin@exemplo.com"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Document Root Path */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Document Root Path
+            </label>
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+              <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
+                /home/{newDomain || 'domain'}/
+              </span>
+              <input
+                value={docRoot || (newDomain ? `public_html/${newDomain}` : 'public_html/subdomain')}
+                onChange={e => setDocRoot(e.target.value)}
+                placeholder="public_html/subdomain"
+                className="flex-1 px-4 py-3 text-sm focus:outline-none"
+              />
             </div>
           </div>
 
-          {/* Subdomain */}
+          {/* Select PHP Version */}
           <div>
-            <label className="block font-bold text-gray-800 mb-1">
-              Subdomain <span className="text-blue-500 cursor-help">?</span>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Select PHP Version
             </label>
-            <p className="text-sm text-gray-500 mb-2">An addon domain requires a subdomain in order to use a separate document root.</p>
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-              <input value={newDomain}
-                className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-gray-50" readOnly />
-              <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-l border-gray-300">.example.com</span>
+            <select
+              value={selectedPHP}
+              onChange={e => setSelectedPHP(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option>PHP 7.4</option>
+              <option>PHP 8.0</option>
+              <option>PHP 8.1</option>
+              <option>PHP 8.2</option>
+              <option>PHP 8.3</option>
+            </select>
+          </div>
+
+          {/* Additional Features - OpenLiteSpeed */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Additional Features
+            </label>
+            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+              <input
+                type="checkbox"
+                checked={openLiteSpeed}
+                onChange={e => setOpenLiteSpeed(e.target.checked)}
+                className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">
+                  OpenLiteSpeed + Apache (Backend)
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Para Ubuntu 22, AlmaLinux 8 e AlmaLinux 9
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Botões */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex gap-3">
-              <button onClick={handleCreate} disabled={!newDomain || loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
-                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                Submitar
-              </button>
-              <button onClick={() => { setNewDomain(''); setDocRoot(''); setShareRoot(false) }}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">
-                Submit And Create Another
-              </button>
-            </div>
+          <div className="flex items-center justify-between pt-4">
+            <button onClick={handleCreate} disabled={!newDomain || !adminEmail || loading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md">
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Create Domain
+            </button>
             <button onClick={() => setView('list')}
-              className="text-blue-600 hover:underline text-sm">
-              ← Return To Domains
+              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+              ← Voltar para Lista
             </button>
           </div>
         </div>
@@ -6515,20 +6644,495 @@ export function DomainManagerSection({ sites, packages = [] }: { sites: CyberPan
               <h2 className="font-medium text-gray-700 text-sm">Additional Resources</h2>
             </div>
             <div className="divide-y divide-gray-50">
-              <button className="w-full text-left px-4 py-3 text-blue-600 hover:bg-gray-50 text-sm transition-colors">
-                Create An Email Address ↗
+              <button onClick={() => {
+                if (selectedDomain) setEmailModal({ show: true, domain: selectedDomain.domain })
+              }}
+                className="w-full text-left px-4 py-3 text-blue-600 hover:bg-gray-50 text-sm transition-colors flex items-center justify-between">
+                Criar Conta de Email ↗
               </button>
               <button className="w-full text-left px-4 py-3 text-blue-600 hover:bg-gray-50 text-sm transition-colors">
-                Modify The Redirects ↗
+                Modificar Redirects ↗
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal de Criação de Email */}
+      <EmailCreateModal
+        show={emailModal.show}
+        domain={emailModal.domain}
+        onClose={() => setEmailModal({ show: false, domain: '' })}
+        onSuccess={() => {
+          setEmailModal({ show: false, domain: '' })
+          // Permanece na página atual - não redireciona
+        }}
+      />
     </div>
   )
 
   return null
+}
+
+// Modal de Criação de Email (componente reutilizável)
+function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean, domain: string, onClose: () => void, onSuccess: () => void }) {
+  const [form, setForm] = useState({ user: '', password: '', confirmPassword: '', quota: '500' })
+  const [loading, setLoading] = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  const [error, setError] = useState('')
+
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
+    return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  }
+
+  const handleSubmit = async () => {
+    if (!form.user || !form.password) {
+      setError('Preencha todos os campos obrigatórios')
+      return
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('As senhas não coincidem')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/cyberpanel-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domainName: domain,
+          userName: form.user,
+          password: form.password,
+          quota: parseInt(form.quota)
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        onSuccess()
+      } else {
+        setError(data.error || 'Falha ao criar email')
+      }
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setLoading(false)
+  }
+
+  if (!show) return null
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Mail className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 block">Novo E-mail</h2>
+              <span className="text-[11px] text-gray-500 font-mono">No domínio: {domain}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
+            <div className="flex items-center gap-2">
+              <input
+                value={form.user}
+                onChange={e => setForm({ ...form, user: e.target.value })}
+                placeholder="admin"
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+              <span className="text-gray-400 text-sm">@{domain}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label>
+              <div className="relative">
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
+                />
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label>
+              <div className="relative">
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  value={form.confirmPassword}
+                  onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                  placeholder="Confirmar Senha"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label>
+            <select
+              value={form.quota}
+              onChange={e => setForm({ ...form, quota: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            >
+              <option value="250">250 MB</option>
+              <option value="500">500 MB</option>
+              <option value="1000">1 GB</option>
+              <option value="2000">2 GB</option>
+              <option value="5000">5 GB</option>
+              <option value="0">Ilimitado</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => {
+              const pass = generatePassword()
+              setForm({ ...form, password: pass, confirmPassword: pass })
+            }}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Gerar senha automática
+          </button>
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+          >
+            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Criar E-mail
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Modal de Criação de Domínio (componente reutilizável)
+function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boolean, onClose: () => void, onSuccess: () => void, packages?: any[] }) {
+  const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
+  const [newDomain, setNewDomain] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [docRoot, setDocRoot] = useState('')
+  const [openLiteSpeed, setOpenLiteSpeed] = useState(true)
+  const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (newDomain && !docRoot) {
+      setDocRoot(`public_html/${newDomain}`)
+    }
+  }, [newDomain])
+
+  const handleSubmit = async () => {
+    if (!newDomain || !adminEmail) {
+      setError('Preencha todos os campos obrigatórios')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      console.log('[DomainCreateModal] Enviando requisição:', { domain: newDomain, email: adminEmail, php: selectedPHP })
+      
+      // Timeout de 30 segundos
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      
+      const res = await fetch('/api/server-exec', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createWebsite',
+          params: {
+            domain: newDomain,
+            email: adminEmail,
+            php: selectedPHP,
+            openLiteSpeed: openLiteSpeed
+          }
+        }),
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText || 'Erro no servidor'}`)
+      }
+      
+      const data = await res.json()
+      console.log('[DomainCreateModal] Resposta:', data)
+      
+      const output = data.data?.output || ''
+      
+      // Verificar sucesso: data.success do backend OU parse do JSON no output
+      let isSuccess = data.success === true
+      
+      // Tentar fazer parse do JSON no output para verificar "success": 1
+      if (!isSuccess && output) {
+        try {
+          // Procurar por JSON no output (ex: {"success": 1, ...})
+          const jsonMatch = output.match(/\{[\s\S]*"success"\s*:\s*(\d+)[\s\S]*\}/)
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0])
+            if (parsed.success === 1 || parsed.success === true) {
+              isSuccess = true
+            }
+          }
+        } catch (e) {
+          // Ignora erro de parse
+        }
+      }
+      
+      // Fallback: verificar strings de sucesso no output
+      if (!isSuccess) {
+        isSuccess = output.includes('website has been created') || 
+                    output.includes('successfully') ||
+                    (output.includes('success') && !output.includes('success": 0'))
+      }
+      
+      console.log('[DomainCreateModal] isSuccess:', isSuccess)
+      
+      if (isSuccess) {
+        onSuccess()
+      } else {
+        // Tentar extrair mensagem de erro do JSON
+        let errorMsg = data.error || data.data?.error
+        
+        if (!errorMsg && output) {
+          try {
+            const jsonMatch = output.match(/\{[\s\S]*"errorMessage"\s*:\s*"([^"]+)"[\s\S]*\}/)
+            if (jsonMatch) {
+              errorMsg = jsonMatch[1]
+            }
+          } catch (e) {
+            // Ignora
+          }
+        }
+        
+        if (!errorMsg) errorMsg = output || data.message || 'Falha ao criar domínio'
+        
+        console.error('[DomainCreateModal] Erro:', errorMsg)
+        setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg))
+      }
+    } catch (e: any) {
+      console.error('[DomainCreateModal] Exceção:', e)
+      if (e.name === 'AbortError') {
+        setError('Timeout: O servidor demorou muito para responder. Tente novamente.')
+      } else {
+        setError(e.message || 'Erro de conexão com o servidor')
+      }
+    }
+    setLoading(false)
+  }
+
+  const resetForm = () => {
+    setDomainType('addon')
+    setNewDomain('')
+    setAdminEmail('')
+    setDocRoot('')
+    setOpenLiteSpeed(true)
+    setSelectedPHP('PHP 8.2')
+    setError('')
+  }
+
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
+
+  if (!show) return null
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
+      <div className="relative bg-indigo-50/95 border border-indigo-200 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-8 py-6 border-b border-indigo-100 bg-white/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Globe className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 block">Domain Details</h2>
+              <span className="text-xs text-gray-500">Criar novo domínio no servidor</span>
+            </div>
+          </div>
+          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6 relative">
+          {/* Loading Overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-3">
+                <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
+                <span className="text-sm text-gray-600 font-medium">Criando domínio...</span>
+                <span className="text-xs text-gray-400">Isso pode levar alguns segundos</span>
+              </div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 text-sm text-red-700 break-words">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Erro ao criar domínio</p>
+                  <p className="mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Domain Type */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Domain Type
+            </label>
+            <select
+              value={domainType}
+              onChange={e => setDomainType(e.target.value as any)}
+              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="addon">Addon Domain</option>
+              <option value="subdomain">Subdomain</option>
+              <option value="parked">Parked Domain</option>
+            </select>
+          </div>
+
+          {/* Domain Name */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Domain Name
+            </label>
+            <input
+              value={newDomain}
+              onChange={e => setNewDomain(e.target.value)}
+              placeholder="subdomain.example.com or newdomain.com"
+              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Admin Email */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Admin Email
+            </label>
+            <input
+              value={adminEmail}
+              onChange={e => setAdminEmail(e.target.value)}
+              placeholder="admin@exemplo.com"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Document Root Path */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Document Root Path
+            </label>
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+              <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
+                /home/{newDomain || 'domain'}/
+              </span>
+              <input
+                value={docRoot}
+                onChange={e => setDocRoot(e.target.value)}
+                placeholder="public_html/subdomain"
+                className="flex-1 px-4 py-3 text-sm focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Select PHP Version */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Select PHP Version
+            </label>
+            <select
+              value={selectedPHP}
+              onChange={e => setSelectedPHP(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option>PHP 7.4</option>
+              <option>PHP 8.0</option>
+              <option>PHP 8.1</option>
+              <option>PHP 8.2</option>
+              <option>PHP 8.3</option>
+            </select>
+          </div>
+
+          {/* Additional Features - OpenLiteSpeed */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Additional Features
+            </label>
+            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+              <input
+                type="checkbox"
+                checked={openLiteSpeed}
+                onChange={e => setOpenLiteSpeed(e.target.checked)}
+                className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">
+                  OpenLiteSpeed + Apache (Backend)
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Para Ubuntu 22, AlmaLinux 8 e AlmaLinux 9
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-8 py-6 bg-white/50 border-t border-indigo-100 flex items-center justify-between">
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !newDomain || !adminEmail}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md"
+          >
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Create Domain
+          </button>
+          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ============================================================
