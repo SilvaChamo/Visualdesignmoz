@@ -155,8 +155,9 @@ export const auth = {
   // Recuperar senha
   async resetPassword(email: string) {
     console.log('supabase-client auth.resetPassword: Sending email to:', email)
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://visualdesigne.com'
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`
+      redirectTo: `${origin}/auth/confirm?next=/auth/reset-password`
     })
 
     if (error) {

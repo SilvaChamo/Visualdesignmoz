@@ -36,18 +36,53 @@ export async function POST(req: NextRequest) {
     const pastasParaProcessar = multiFolders && Array.isArray(multiFolders) ? multiFolders : [singleFolder || 'INBOX']
 
     if (allAccounts && session) {
+      console.log(`📧 [read-emails] Modo allAccounts ativo para: ${session.user?.email}`)
+      
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
       const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
-      const { data: contas } = await supabaseAdmin.from('email_contas').select('email, senha_cyberpanel').eq('cliente_id', session.user.id).eq('status', 'activo')
-
+      
+      // Detectar se é admin
+      const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com']
+      const isAdmin = adminEmails.includes(session.user?.email || '') || session.user?.user_metadata?.role === 'admin'
+      console.log(`📧 [read-emails] isAdmin: ${isAdmin}`)
+      
+      // Se for admin, buscar TODAS as contas ativas. Se não, apenas as do cliente
+      // Suporta tanto 'active' quanto 'activo' para compatibilidade
+      let query = supabaseAdmin.from('email_contas').select('email, senha_cyberpanel')
+      if (!isAdmin) {
+        query = query.eq('cliente_id', session.user.id)
+      }
+      
+      const { data: contas, error: contasError } = await query.or('status.eq.active,status.eq.activo')
+      
+      if (contasError) {
+        console.error(`📧 [read-emails] Erro ao buscar contas:`, contasError)
+      }
+      
+      console.log(`📧 [read-emails] Contas encontradas: ${contas?.length || 0}`)
       if (contas && contas.length > 0) {
+        console.log(`📧 [read-emails] Emails:`, contas.map(c => c.email))
         const todosEmails: any[] = []
 
         const promises = contas.flatMap(conta =>
           pastasParaProcessar.map(async (folderPath) => {
             try {
-              const senhaDescriptada = decryptPassword(conta.senha_cyberpanel)
+              // Verificar se a conta tem senha
+              if (!conta.senha_cyberpanel) {
+                console.log(`📧 [read-emails] Conta ${conta.email} sem senha, pulando...`)
+                return []
+              }
+              
+              let senhaDescriptada: string
+              try {
+                senhaDescriptada = decryptPassword(conta.senha_cyberpanel)
+              } catch (decryptError) {
+                console.error(`📧 [read-emails] Erro ao descriptografar senha de ${conta.email}:`, decryptError)
+                return []
+              }
+              
+              console.log(`📧 [read-emails] Conectando a ${conta.email}...`)
               const client = new ImapFlow({
                 host: process.env.IMAP_HOST || '109.199.104.22',
                 port: 993,
@@ -141,6 +176,7 @@ export async function POST(req: NextRequest) {
         })
 
         finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        console.log(`📧 [read-emails] Retornando ${finalEmails.length} emails (limitado a ${limit * 2})`)
         return NextResponse.json({ success: true, emails: finalEmails.slice(0, limit * 2), total: finalEmails.length })
       }
     }

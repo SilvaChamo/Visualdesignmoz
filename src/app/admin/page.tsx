@@ -1471,9 +1471,22 @@ export default function AdminPage() {
   const [isComposeActive, setIsComposeActive] = useState(false)
 
   const searchParams = useSearchParams();
+  const initialLoadDone = useRef(false);
 
-  // Efeito para capturar section da URL
+  // Efeito para capturar section da URL - garantir dashboard como padrão
   useEffect(() => {
+    // Sempre definir dashboard como padrão na carga inicial/recarga da página
+    if (!initialLoadDone.current) {
+      setActiveSection('dashboard');
+      initialLoadDone.current = true;
+      // Limpar qualquer parâmetro section da URL ao recarregar
+      if (window.location.search.includes('section=')) {
+        window.history.replaceState({}, '', '/admin');
+      }
+      return;
+    }
+
+    // Após a carga inicial, permitir navegação por parâmetros de URL (ex: links externos)
     const section = searchParams.get('section');
     if (section) {
       setActiveSection(section);
@@ -1739,7 +1752,7 @@ export default function AdminPage() {
         return <FTPSection sites={filteredSites} />
       case 'webmail':
         return <EmailWebmailSection 
-          emailOrigem={sessionUser}
+          emailOrigem="geral@visualdesigne.com"
           sites={filteredSites}
           onComposeStateChange={setIsComposeActive}
         />
@@ -1842,11 +1855,20 @@ export default function AdminPage() {
     }
   }
 
+  // Função para navegar com domínio padrão para emails
+  const handleNavigate = (section: string) => {
+    // Se navegar para gestão de emails, definir domínio padrão visualdesigne.com
+    if (section === 'emails-new' || section === 'cp-email-mgmt') {
+      setPreSelectedEmailDomain('visualdesigne.com')
+    }
+    setActiveSection(section)
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <AdminSidebar 
         activeSection={activeSection}
-        onNavigate={setActiveSection}
+        onNavigate={handleNavigate}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}

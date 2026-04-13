@@ -12,6 +12,7 @@ import {
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, AlertCircle, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
 } from 'lucide-react'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
+import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
   '#ff0000', '#ff4500', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff',
@@ -62,6 +63,7 @@ export function EmailWebmailSection({
     onComposeStateChange?.(mostrarCompose)
   }, [mostrarCompose, onComposeStateChange])
 
+
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [assinatura, setAssinatura] = useState('')
@@ -74,6 +76,21 @@ export function EmailWebmailSection({
   const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string }[]>([])
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
+
+  // Mapa de credenciais padrão para emails do sistema
+  const CREDENCIAIS_PADRAO: Record<string, string> = {
+    'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+    'geral@visualdesigne.com': 'Ge.Vd#2425?*',
+    'admin@visualdesigne.com': 'EmailAdmin#2425',
+    'info@visualdesigne.com': 'Informação!#2020?*',
+    'suporte@visualdesigne.com': 'SupaEmail#2026?*',
+    'noreply@visualdesigne.com': 'VisualDesign#2026',
+    'eventos@oshercollective.com': 'xqqh[bLr5!&9jMv{',
+    'oshercollective@gmail.com': 'gce7G)S-1FfUX)-b',
+    'osher@oshercollective.com': 'gce7G)S-1FfUX)-b',
+    'admin@oshetcollective.com': 'v(E1mUy7P~Yeh?G5',
+    'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
+  }
 
   // Configurar email e senha automaticamente quando abre o compositor
   useEffect(() => {
@@ -90,21 +107,63 @@ export function EmailWebmailSection({
               const conta = data.contas.find((c: any) => c.email === propEmailOrigem)
               if (conta?.password_smtp) {
                 setEmailOrigemPassword(conta.password_smtp)
+              } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+                // Usar senha padrão do mapa
+                setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
               }
+            } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+              // Usar senha padrão do mapa
+              setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
             }
-          } catch { }
+          } catch {
+            // Fallback: usar senha padrão do mapa
+            if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+              setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
+            }
+          }
         } else if (emailsOrigem.length > 0) {
           // Se não tem prop, usa o primeiro email da lista
           const primeiroEmail = emailsOrigem[0]
           setEmailOrigem(primeiroEmail.email)
           if (primeiroEmail.password) {
             setEmailOrigemPassword(primeiroEmail.password)
+          } else if (CREDENCIAIS_PADRAO[primeiroEmail.email]) {
+            setEmailOrigemPassword(CREDENCIAIS_PADRAO[primeiroEmail.email])
           }
         }
       }
       configurarEmailAutomatico()
     }
   }, [mostrarCompose, propEmailOrigem, emailsOrigem])
+
+  // NOVO: Configurar email e senha quando o componente monta (para carregar caixa de entrada)
+  useEffect(() => {
+    const configurarEmailInicial = async () => {
+      // Se tem propEmailOrigem, configura imediatamente
+      if (propEmailOrigem) {
+        setEmailOrigem(propEmailOrigem)
+        // Tentar obter senha do mapa de credenciais padrão
+        if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+          setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
+        } else {
+          // Tentar buscar da API
+          try {
+            const res = await fetch('/api/email-contas')
+            const data = await res.json()
+            if (data.success && data.contas) {
+              const conta = data.contas.find((c: any) => c.email === propEmailOrigem)
+              if (conta?.password_smtp) {
+                setEmailOrigemPassword(conta.password_smtp)
+              }
+            }
+          } catch (e) {
+            console.error('Erro ao buscar senha:', e)
+          }
+        }
+      }
+    }
+    configurarEmailInicial()
+  }, [propEmailOrigem])
   const [todasAsContas, setTodasAsContas] = useState(false)
   const [carregandoEmails, setCarregandoEmails] = useState(false)
   const [erroEmail, setErroEmail] = useState('')
@@ -158,9 +217,9 @@ export function EmailWebmailSection({
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
   const toggleExpand = (email: string) => setExpandedMap(prev => ({ ...prev, [email]: !prev[email] }))
 
-  // Extrair domínio do emailOrigem para o webmail
+  // 🚀 Sempre usar IP direto do servidor - mais rápido e confiável
   const getWebmailUrl = () => {
-    return detectDomainConfig(emailOrigem).webmail
+    return 'https://109.199.104.22:8090/snappymail/index.php'
   }
 
   // Usar props ou valores locais
@@ -208,17 +267,39 @@ export function EmailWebmailSection({
   // Carregar contas reais do CyberPanel para as abas
   useEffect(() => {
     const carregarContas = async () => {
-      if (!sites || sites.length === 0) {
-        // Fallback: Tentar buscar todas as contas do Supabase ligadas ao cliente
-        try {
-          const res2 = await fetch('/api/email-contas')
-          const data2 = await res2.json()
-          if (data2.success && data2.contas?.length > 0) {
-            setEmailsOrigem(data2.contas.map((c: any) => ({
-              email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
-            })))
+      console.log('📧 [DEBUG] Iniciando carregamento de contas...')
+      console.log('📧 [DEBUG] sites:', sites)
+      
+      // SEMPRE tentar buscar do /api/email-contas primeiro (mais confiável)
+      try {
+        console.log('📧 [DEBUG] Buscando contas do /api/email-contas...')
+        const res2 = await fetch('/api/email-contas')
+        const data2 = await res2.json()
+        console.log('📧 [DEBUG] Resposta email-contas:', data2)
+        
+        if (data2.success && data2.contas?.length > 0) {
+          console.log(`📧 [DEBUG] Encontradas ${data2.contas.length} contas no Supabase`)
+          setEmailsOrigem(data2.contas.map((c: any) => ({
+            email: c.email, 
+            tipo: c.tipo_conta || 'webmail', 
+            nome: c.nome_conta || c.email.split('@')[0], 
+            password: ''
+          })))
+          // Se encontrou contas no Supabase, usar essas e não sobrescrever com CyberPanel
+          if (!sites || sites.length === 0) {
+            console.log('📧 [DEBUG] Sem sites, usando contas do Supabase')
+            return
           }
-        } catch { }
+        } else {
+          console.log('📧 [DEBUG] Nenhuma conta encontrada no Supabase:', data2)
+        }
+      } catch (e) {
+        console.error('📧 [DEBUG] Erro ao buscar email-contas:', e)
+      }
+
+      // Se não tem sites, parar aqui
+      if (!sites || sites.length === 0) {
+        console.log('📧 [DEBUG] Sem sites e sem contas do Supabase')
         return
       }
 
@@ -228,10 +309,12 @@ export function EmailWebmailSection({
         const promises = sites.map(site => 
           fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(site.domain)}`)
             .then(r => r.json())
-            .catch(() => ({ success: false }))
+            .catch((e) => { console.error(`📧 [DEBUG] Erro no dominio ${site.domain}:`, e); return { success: false } })
         )
         
         const results = await Promise.all(promises)
+        console.log('📧 [DEBUG] Resultados CyberPanel:', results)
+        
         const allEmails: any[] = []
         
         results.forEach((data, index) => {
@@ -248,28 +331,22 @@ export function EmailWebmailSection({
           }
         })
 
-        // Filtrar apenas emails do domínio visualdesign para o painel admin
-        const filteredEmails = allEmails.filter((e: any) => 
-          e.email.includes('@visualdesign') || e.email.endsWith('@visualdesigne.com')
-        )
+        console.log(`📧 [DEBUG] Total emails do CyberPanel: ${allEmails.length}`)
+        console.log('📧 [DEBUG] Emails:', allEmails.map(e => e.email))
         
-        if (filteredEmails.length > 0) {
-          setEmailsOrigem(filteredEmails)
-        } else if (allEmails.length > 0) {
-          // Se não houver emails do visualdesign, mostrar todos (fallback)
-          setEmailsOrigem(allEmails)
-        } else {
-          // Segundo fallback se não vier nada do CyberPanel
-          const res2 = await fetch('/api/email-contas')
-          const data2 = await res2.json()
-          if (data2.success && data2.contas?.length > 0) {
-            setEmailsOrigem(data2.contas.map((c: any) => ({
-              email: c.email, tipo: c.tipo_conta, nome: c.nome_conta, password: ''
-            })))
-          }
+        // REMOVIDO: Filtro restritivo que limitava apenas a visualdesign
+        // Agora mostra TODAS as contas de todos os domínios
+        if (allEmails.length > 0) {
+          setEmailsOrigem(prev => {
+            // Merge com contas existentes do Supabase (se houver)
+            const existing = new Set(prev.map(p => p.email))
+            const newEmails = allEmails.filter(e => !existing.has(e.email))
+            console.log(`📧 [DEBUG] Adicionando ${newEmails.length} novas contas do CyberPanel`)
+            return [...prev, ...newEmails]
+          })
         }
       } catch (e) {
-        console.error('Erro ao carregar contas:', e)
+        console.error('📧 [DEBUG] Erro ao carregar contas do CyberPanel:', e)
       }
       setCarregandoEmails(false)
     }
@@ -290,6 +367,10 @@ export function EmailWebmailSection({
     const payloadFolders = [pastaParaIMAP(pastaActiva)]
 
     const carregar = async () => {
+      console.log(`📧 [Frontend] Iniciando carregamento...`)
+      console.log(`📧 [Frontend] todasAsContas: ${todasAsContas}, emailsOrigem.length: ${emailsOrigem.length}`)
+      console.log(`📧 [Frontend] emailOrigem: ${emailOrigem}, pasta: ${pastaActiva}`)
+      
       setCarregandoEmails(true)
       setErroEmail('')
       try {
@@ -303,9 +384,20 @@ export function EmailWebmailSection({
         if (todasAsContas) {
           body.allAccounts = true
           body.emails = emailsOrigem.map(e => e.email)
+          console.log(`📧 [Frontend] Modo Todas as Contas - emails:`, body.emails)
+          
+          // Se não tem emails para buscar, não faz sentido chamar a API
+          if (body.emails.length === 0) {
+            console.log(`📧 [Frontend] Sem emails no modo allAccounts, pulando requisição`)
+            setCarregandoEmails(false)
+            setEmails([])
+            return
+          }
         } else {
           const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@your-domain.com') ? 'Ad.Vd#2425?*' : '')
+          console.log(`📧 [Frontend] Modo conta individual - email: ${emailOrigem}, temSenha: ${!!senhaImap}`)
           if (!emailOrigem || !senhaImap) {
+            console.log(`📧 [Frontend] Sem email ou senha, abortando`)
             setCarregandoEmails(false)
             return
           }
@@ -313,15 +405,24 @@ export function EmailWebmailSection({
           body.password = senhaImap
         }
 
+        console.log(`📧 [Frontend] Chamando API read-emails...`)
         const res = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         })
         const data = await res.json()
+        console.log(`📧 [Frontend] Resposta API:`, { success: data.success, total: data.total, emailsCount: data.emails?.length })
+        
         if (data.success) setEmails(data.emails)
-        else setErroEmail(data.error)
-      } catch (e: any) { setErroEmail(e.message) }
+        else {
+          console.error(`📧 [Frontend] Erro da API:`, data.error)
+          setErroEmail(data.error)
+        }
+      } catch (e: any) { 
+        console.error(`📧 [Frontend] Erro na requisição:`, e)
+        setErroEmail(e.message) 
+      }
       setCarregandoEmails(false)
     }
     carregar()
@@ -343,11 +444,133 @@ export function EmailWebmailSection({
   const [mostrarCc, setMostrarCc] = useState(false)
   const [mostrarBcc, setMostrarBcc] = useState(false)
   const [mostrarEditarAssinatura, setMostrarEditarAssinatura] = useState(false)
-  const [assinaturas, setAssinaturas] = useState([
-    { nome: 'Profissional', activa: true, texto: '', imagemUrl: '' },
-    { nome: 'Minimalista', activa: false, texto: '', imagemUrl: '' },
-  ])
+  const [modoEscuroAssinatura, setModoEscuroAssinatura] = useState(true) // Padrão: modo escuro
+  const assinaturaEditorRef = useRef<HTMLDivElement>(null)
+  // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaActiva: number, assinaturaPadrao: string } }
+  const STORAGE_KEY = 'webmail_assinaturas_v2'
+
+  const [assinaturasPorEmail, setAssinaturasPorEmail] = useState<Record<string, any>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch { }
+      }
+    }
+    return {}
+  })
+  // Ref para acessar valor atual sem causar re-render
+  const assinaturasPorEmailRef = useRef(assinaturasPorEmail)
+  useEffect(() => {
+    assinaturasPorEmailRef.current = assinaturasPorEmail
+  }, [assinaturasPorEmail])
+
+  // Assinaturas da conta atual - inicia vazio, carrega do localStorage por email
+  const [assinaturas, setAssinaturas] = useState<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>([])
   const [assinaturaActiva, setAssinaturaActiva] = useState(0)
+
+  // SINCRONIZAÇÃO INICIAL: Quando assinaturasPorEmail é carregado do localStorage
+  // e emailOrigem já está definido, sincronizar o estado assinaturas
+  useEffect(() => {
+    if (emailOrigem && assinaturasPorEmail[emailOrigem]) {
+      const config = assinaturasPorEmail[emailOrigem]
+      console.log('[DEBUG] Sincronização inicial:', emailOrigem, config)
+      setAssinaturas(config.assinaturas || [])
+      setAssinaturaActiva(config.assinaturaActiva || 0)
+    }
+  }, [assinaturasPorEmail, emailOrigem])
+
+  // Carregar assinaturas quando muda o email de origem
+  useEffect(() => {
+    console.log('[DEBUG] useEffect carregar assinaturas - emailOrigem:', emailOrigem)
+    if (emailOrigem) {
+      // Usar ref para evitar dependência circular
+      const configAtual = assinaturasPorEmailRef.current[emailOrigem]
+      console.log('[DEBUG] Config encontrada para', emailOrigem, ':', configAtual)
+      if (configAtual) {
+        // Carregar assinaturas salvas para esta conta
+        if (configAtual.assinaturas && configAtual.assinaturas.length > 0) {
+          setAssinaturas(configAtual.assinaturas)
+          setAssinaturaActiva(configAtual.assinaturaActiva || 0)
+          // Aplicar assinatura padrão automaticamente
+          if (configAtual.assinaturaPadrao) {
+            setAssinatura(configAtual.assinaturaPadrao)
+          } else if (configAtual.assinaturas[configAtual.assinaturaActiva || 0]?.texto) {
+            setAssinatura(configAtual.assinaturas[configAtual.assinaturaActiva || 0].texto)
+          }
+        } else {
+          // Conta tem config mas sem assinaturas
+          console.log('[DEBUG] Conta tem config mas sem assinaturas')
+          setAssinaturas([])
+          setAssinaturaActiva(0)
+          setAssinatura('')
+        }
+      } else {
+        // Não há assinaturas salvas para esta conta - iniciar vazio
+        console.log('[DEBUG] Nenhuma config encontrada para', emailOrigem)
+        setAssinaturas([])
+        setAssinaturaActiva(0)
+        setAssinatura('')
+      }
+    }
+  }, [emailOrigem])
+
+  // DESATIVADO: Salvamento automático causava conflitos
+  // Agora só salva manualmente quando muda de conta no dropdown
+  // useEffect(() => {
+  //   if (emailOrigem && typeof window !== 'undefined') {
+  //     const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+  //     const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
+  //     setAssinaturasPorEmail(novoEstado)
+  //     assinaturasPorEmailRef.current = novoEstado
+  //     localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
+  //   }
+  // }, [assinaturas, assinaturaActiva, assinatura, emailOrigem])
+
+  // Inserir assinatura automaticamente quando abre o compositor
+  const jaInseriuAssinaturaRef = useRef(false)
+  useEffect(() => {
+    // Só executar quando acabou de abrir o compositor (mudou de false para true)
+    if (mostrarCompose && !jaInseriuAssinaturaRef.current) {
+      jaInseriuAssinaturaRef.current = true
+      
+      // Aguardar o editor estar montado no DOM
+      setTimeout(() => {
+        if (!editorRef.current) return
+        
+        // Verificar se há uma assinatura ativa para a conta atual
+        const assinaturaAtivaObj = assinaturas.find((a, i) => i === assinaturaActiva && (a.texto || a.imagemUrl))
+        
+        if (assinaturaAtivaObj) {
+          if (assinaturaAtivaObj.imagemUrl) {
+            // Se for imagem, inserir no editor alinhado à esquerda com 2 linhas vazias acima
+            editorRef.current.innerHTML = `<div><br><br></div><div style="text-align:left;"><img src="${assinaturaAtivaObj.imagemUrl}" style="max-width:100%; max-height:200px; display:block; margin:0;" /></div>`
+          } else if (assinaturaAtivaObj.texto) {
+            // Se for texto, inserir no editor alinhado à esquerda com 2 linhas vazias acima
+            const textoFormatado = assinaturaAtivaObj.texto.replace(/\n/g, '<br>')
+            editorRef.current.innerHTML = `<div><br><br></div><div style="text-align:left;">--<br>${textoFormatado}</div>`
+          }
+          
+          // Focar no editor e posicionar cursor no inicio (antes da assinatura)
+          editorRef.current.focus()
+          const range = document.createRange()
+          const sel = window.getSelection()
+          if (editorRef.current && editorRef.current.firstChild) {
+            range.setStart(editorRef.current.firstChild, 0)
+            range.collapse(true)
+            sel?.removeAllRanges()
+            sel?.addRange(range)
+          }
+        }
+      }, 200) // Delay para garantir que o DOM está pronto
+    }
+    
+    // Resetar quando fecha o compositor para permitir inserir novamente na proxima vez
+    if (!mostrarCompose) {
+      jaInseriuAssinaturaRef.current = false
+    }
+  }, [mostrarCompose, assinaturas, assinaturaActiva])
 
   const execCmd = (cmd: string, value?: string) => {
     editorRef.current?.focus()
@@ -806,10 +1029,6 @@ export function EmailWebmailSection({
       alert('Selecciona uma conta de email')
       return
     }
-    if (!emailOrigemPassword) {
-      alert('Introduz a senha da conta de email. Clica no botão "Configurar" ao lado do campo "De:".')
-      return
-    }
     setEnviando(true)
     try {
       const htmlCorpo = editorRef.current?.innerHTML || ''
@@ -900,7 +1119,20 @@ export function EmailWebmailSection({
         </button>
       ))}
       <div className="ml-auto flex items-center gap-2">
-        <button onClick={() => setMostrarConfigAssinatura(true)}
+        <button onClick={() => {
+          // Sincronizar estado antes de abrir o modal
+          if (emailOrigem && assinaturasPorEmailRef.current[emailOrigem]) {
+            const config = assinaturasPorEmailRef.current[emailOrigem]
+            console.log('[DEBUG] Abrir modal - sincronizando:', emailOrigem, config)
+            setAssinaturas(config.assinaturas || [])
+            setAssinaturaActiva(config.assinaturaActiva || 0)
+          } else if (emailOrigem) {
+            console.log('[DEBUG] Abrir modal - sem assinaturas para:', emailOrigem)
+            setAssinaturas([])
+            setAssinaturaActiva(0)
+          }
+          setMostrarConfigAssinatura(true)
+        }}
           className="text-gray-600 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 font-medium bg-white">
           Assinatura
         </button>
@@ -976,7 +1208,14 @@ export function EmailWebmailSection({
                     className="px-3 py-2.5 hover:bg-white transition-colors">
                     <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                   </button>
-                  <button onClick={() => { setTodasAsContas(false); setEmailOrigem(c.email); setModalEmail(null); if (c.password) setEmailOrigemPassword(c.password) }}
+                  <button onClick={() => { 
+                      setTodasAsContas(false); 
+                      setEmailOrigem(c.email); 
+                      setModalEmail(null); 
+                      // Usar senha do objeto ou do mapa de credenciais padrão
+                      const senha = c.password || CREDENCIAIS_PADRAO[c.email] || ''
+                      if (senha) setEmailOrigemPassword(senha)
+                    }}
                     className={`flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors`}>
                     <span className={`text-sm truncate w-full block ${isSelected ? "text-red-600 font-bold" : "text-gray-700 font-medium"}`}>{c.email}</span>
                   </button>
@@ -984,7 +1223,15 @@ export function EmailWebmailSection({
                 {isExpanded && (
                   <div className="pl-5">
                     {pastasIcones.map(p => (
-                      <button key={p.nome} onClick={() => { setPastaActiva(p.nome); setTodasAsContas(false); setEmailOrigem(c.email); setModalEmail(null); if (c.password) setEmailOrigemPassword(c.password) }}
+                      <button key={p.nome} onClick={() => { 
+                          setPastaActiva(p.nome); 
+                          setTodasAsContas(false); 
+                          setEmailOrigem(c.email); 
+                          setModalEmail(null); 
+                          // Usar senha do objeto ou do mapa de credenciais padrão
+                          const senha = c.password || CREDENCIAIS_PADRAO[c.email] || ''
+                          if (senha) setEmailOrigemPassword(senha)
+                        }}
                         className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && emailOrigem === c.email ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
                         <span className="shrink-0">{p.icon}</span>
                         <span>{p.nome}</span>
@@ -1015,10 +1262,36 @@ export function EmailWebmailSection({
                 </div>
                 {/* Coluna direita — Campos */}
                 <div className="flex-1 flex flex-col">
-                  {/* Linha De + botão fechar */}
+                  {/* Linha De + Selector de Assinatura + botão fechar */}
                   <div className="flex items-center border-b border-gray-200 px-3 py-1">
                     <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">De:</span>
-                    <select value={emailOrigem} onChange={e => setEmailOrigem(e.target.value)}
+                    <select
+                      value={emailOrigem}
+                      onChange={e => {
+                        const novoEmail = e.target.value
+                        const emailAnterior = emailOrigem
+                        
+                        // Salvar assinaturas da conta anterior
+                        if (emailAnterior) {
+                          const configAnterior = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                          const estadoAtualizado = { ...assinaturasPorEmailRef.current, [emailAnterior]: configAnterior }
+                          assinaturasPorEmailRef.current = estadoAtualizado
+                          localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoAtualizado))
+                        }
+                        
+                        // Mudar para nova conta
+                        setEmailOrigem(novoEmail)
+                        
+                        // Carregar assinaturas da nova conta
+                        if (novoEmail && assinaturasPorEmailRef.current[novoEmail]) {
+                          const config = assinaturasPorEmailRef.current[novoEmail]
+                          setAssinaturas(config.assinaturas || [])
+                          setAssinaturaActiva(config.assinaturaActiva || 0)
+                        } else {
+                          setAssinaturas([])
+                          setAssinaturaActiva(0)
+                        }
+                      }}
                       className="bg-transparent text-gray-900 text-sm outline-none flex-1">
                       <option value="" className="bg-white">Escolher email de origem...</option>
                       {emailsOrigem.map(e => (
@@ -1218,6 +1491,39 @@ export function EmailWebmailSection({
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.59a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     <span className="text-[10px]">Anexo</span>
                   </button>
+                  {/* Botão Assinatura */}
+                  <div className="relative flex items-center gap-1">
+                    <span className="text-gray-500 text-xs font-medium">Assinatura:</span>
+                    <select
+                      value={assinaturaActiva}
+                      onChange={e => {
+                        const idx = parseInt(e.target.value)
+                        setAssinaturaActiva(idx)
+                        // Limpar ou inserir assinatura no editor
+                        if (editorRef.current) {
+                          if (idx === -1 || !assinaturas[idx]) {
+                            // Sem assinatura - limpar assinatura do editor
+                            editorRef.current.innerHTML = ''
+                          } else {
+                            const assinaturaSelecionada = assinaturas[idx]
+                            if (assinaturaSelecionada.imagemUrl) {
+                              editorRef.current.innerHTML = `<div><br><br></div><div style="text-align:left;"><img src="${assinaturaSelecionada.imagemUrl}" style="max-width:100%; max-height:200px; display:block; margin:0;" /></div>`
+                            } else if (assinaturaSelecionada.texto) {
+                              const textoFormatado = assinaturaSelecionada.texto.replace(/\n/g, '<br>')
+                              editorRef.current.innerHTML = `<div><br><br></div><div style="text-align:left;">--<br>${textoFormatado}</div>`
+                            }
+                          }
+                        }
+                      }}
+                      className="h-7 px-2 pr-6 text-xs rounded hover:bg-white border border-gray-200 text-gray-600 bg-transparent outline-none cursor-pointer appearance-none"
+                    >
+                      <option value={-1}>✍️ Sem assinatura</option>
+                      {assinaturas.map((s, i) => (
+                        <option key={i} value={i}>✍️ {s.nome}</option>
+                      ))}
+                    </select>
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none">▼</span>
+                  </div>
                 </div>
               </div>
               {/* Preview de Anexos - acima do editor */}
@@ -1838,7 +2144,20 @@ export function EmailWebmailSection({
                     {b.l} <span className="text-gray-600 text-xs font-semibold">{b.t}</span>
                   </button>
                 ))}
-                <button onClick={() => setMostrarConfigAssinatura(true)}
+                <button onClick={() => {
+                  // Sincronizar estado antes de abrir o modal
+                  if (emailOrigem && assinaturasPorEmailRef.current[emailOrigem]) {
+                    const config = assinaturasPorEmailRef.current[emailOrigem]
+                    console.log('[DEBUG] Toolbar - sincronizando:', emailOrigem, config)
+                    setAssinaturas(config.assinaturas || [])
+                    setAssinaturaActiva(config.assinaturaActiva || 0)
+                  } else if (emailOrigem) {
+                    console.log('[DEBUG] Toolbar - sem assinaturas para:', emailOrigem)
+                    setAssinaturas([])
+                    setAssinaturaActiva(0)
+                  }
+                  setMostrarConfigAssinatura(true)
+                }}
                   className="text-gray-700 text-sm px-2.5 py-1.5 rounded hover:bg-white border border-gray-200 hover:shadow-sm flex items-center gap-1.5">
                   ✍️ <span className="text-gray-600 text-xs font-semibold">Assinatura</span>
                 </button>
@@ -2021,55 +2340,66 @@ export function EmailWebmailSection({
       {
         mostrarConfigAssinatura && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-gray-200">
+            <div className={`rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
               {/* Header macOS style */}
-              <div className="bg-gray-50 px-5 py-3 flex items-center justify-between border-b border-gray-200">
+              <div className={`px-5 py-3 flex items-center justify-between border-b transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => setMostrarConfigAssinatura(false)} />
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <div className="w-3 h-3 rounded-full bg-gray-300" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
-                <h2 className="text-sm font-bold text-gray-900">Assinaturas</h2>
-                <button className="text-gray-600 hover:text-gray-900 text-xs px-3 py-1 rounded border border-gray-300 transition-colors">Mostrar Tudo</button>
+                <h2 className={`text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-900'}`}>Assinaturas</h2>
+                <button
+                  onClick={() => setModoEscuroAssinatura(!modoEscuroAssinatura)}
+                  title={modoEscuroAssinatura ? "Modo Claro" : "Modo Escuro"}
+                  className={`text-xs px-2 py-1 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600 text-white hover:bg-yellow-600' : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'}`}>
+                  {modoEscuroAssinatura ? '☀️ Claro' : '🌙 Escuro'}
+                </button>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div className={`p-6 space-y-5 transition-colors ${modoEscuroAssinatura ? 'bg-gray-900' : 'bg-white'}`}>
                 {/* Editar assinatura */}
                 <div>
-                  <h3 className="text-sm font-bold text-gray-800 mb-3">Editar assinatura:</h3>
-                  <div className="bg-white rounded-lg border border-gray-200 flex overflow-hidden" style={{ minHeight: '200px' }}>
+                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-800'}`}>Editar assinatura:</h3>
+                  <div className={`rounded-lg border flex overflow-hidden transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`} style={{ minHeight: '200px' }}>
                     {/* Lista */}
-                    <div className="w-52 border-r border-gray-200 flex flex-col bg-gray-50/50">
-                      <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-                        <p className="text-xs font-bold text-gray-500">Nome da assinatura</p>
+                    <div className={`w-52 border-r flex flex-col transition-colors ${modoEscuroAssinatura ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50/50 border-gray-200'}`}>
+                      <div className={`px-3 py-2 border-b transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+                        <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Nome da assinatura</p>
                       </div>
                       <div className="flex-1">
+                        {console.log('[DEBUG] Modal - listando assinaturas:', assinaturas.length, assinaturas)}
+                        {assinaturas.length === 0 && (
+                          <div className={`px-3 py-4 text-sm text-center transition-colors ${modoEscuroAssinatura ? 'text-gray-500' : 'text-gray-400'}`}>
+                            Nenhuma assinatura<br/>Clique em + para adicionar
+                          </div>
+                        )}
                         {assinaturas.map((s, i) => (
                           <div key={i} onClick={() => setAssinaturaActiva(i)}
-                            className={`px-3 py-2 cursor-pointer text-sm border-b border-gray-100 transition-colors ${assinaturaActiva === i ? 'bg-red-50 text-red-600 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}>
+                            className={`px-3 py-2 cursor-pointer text-sm border-b transition-colors ${assinaturaActiva === i ? 'bg-red-50 text-red-600 font-bold' : modoEscuroAssinatura ? 'text-gray-300 hover:bg-gray-700 border-gray-700' : 'text-gray-600 hover:bg-gray-100 border-gray-100'}`}>
                             {s.nome}
                           </div>
                         ))}
                       </div>
-                      <div className="flex items-center gap-1 p-2 border-t border-gray-200">
-                        <button onClick={() => setAssinaturas([...assinaturas, { nome: 'Nova Assinatura', activa: false, texto: '', imagemUrl: '' }])}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded font-bold transition-colors">+</button>
-                        <button onClick={() => setAssinaturas(assinaturas.filter((_, i) => i !== assinaturaActiva))}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded font-bold transition-colors">−</button>
+                      <div className={`flex items-center gap-1 p-2 border-t transition-colors ${modoEscuroAssinatura ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <button onClick={() => setAssinaturas(prev => [...prev, { nome: 'Nova Assinatura', activa: false, texto: '', imagemUrl: '' }])}
+                          className={`text-xs px-2 py-1 rounded font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>+</button>
+                        <button onClick={() => setAssinaturas(prev => prev.filter((_, i) => i !== assinaturaActiva))}
+                          className={`text-xs px-2 py-1 rounded font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>−</button>
                         <button onClick={() => { setMostrarConfigAssinatura(false); setMostrarEditarAssinatura(true) }}
-                          className="ml-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 text-xs px-3 py-1 rounded transition-colors">Editar</button>
+                          className={`ml-auto text-xs px-3 py-1 rounded transition-colors border ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-600'}`}>Editar</button>
                       </div>
                     </div>
                     {/* Preview */}
-                    <div className="flex-1 flex flex-col bg-white">
-                      <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-center">
-                        <p className="text-xs font-bold text-gray-500">Pré-visualização da Assinatura</p>
+                    <div className={`flex-1 flex-col flex transition-colors ${modoEscuroAssinatura ? 'bg-gray-800' : 'bg-white'}`}>
+                      <div className={`px-3 py-2 border-b text-center transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Pré-visualização da Assinatura</p>
                       </div>
-                      <div className="flex-1 bg-white p-4">
+                      <div className={`flex-1 p-4 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-700'}`}>
                         {assinaturas[assinaturaActiva]?.imagemUrl ? (
                           <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain" />
                         ) : (
-                          <div className="text-sm text-gray-700 whitespace-pre-wrap">{assinaturas[assinaturaActiva]?.texto || ''}</div>
+                          <div className="text-sm whitespace-pre-wrap">{assinaturas[assinaturaActiva]?.texto || ''}</div>
                         )}
                       </div>
                     </div>
@@ -2078,29 +2408,123 @@ export function EmailWebmailSection({
 
                 {/* Assinatura predefinida */}
                 <div>
-                  <h3 className="text-sm font-bold text-gray-800 mb-3">Selecionar assinatura predefinida:</h3>
-                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 space-y-3">
-                    {[
-                      { label: 'Conta:', valor: 'Silva Chamo (silva.chamo@gmail.com)' },
-                      { label: 'Novas mensagens:', valor: 'Nenhuma' },
-                      { label: 'Respostas/reenc.:', valor: 'Nenhuma' },
-                    ].map(({ label, valor }) => (
-                      <div key={label} className="flex items-center gap-4">
-                        <span className="text-gray-500 text-sm w-44 text-right shrink-0">{label}</span>
-                        <select className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none">
-                          <option>{valor}</option>
-                          {assinaturas.map(s => <option key={s.nome}>{s.nome}</option>)}
-                        </select>
-                      </div>
-                    ))}
+                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-800'}`}>Selecionar assinatura predefinida:</h3>
+                  <div className={`rounded-lg border p-4 space-y-3 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                    {/* Conta - Dropdown com todas as contas */}
+                    <div className="flex items-center gap-4">
+                      <span className={`text-sm w-44 text-right shrink-0 transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Conta:</span>
+                      <select
+                        value={emailOrigem}
+                        onChange={e => {
+                          const novoEmail = e.target.value
+                          const emailAnterior = emailOrigem
+                          console.log('[DEBUG] Dropdown mudou de', emailAnterior, 'para:', novoEmail)
+
+                          // Salvar assinaturas da conta anterior ANTES de mudar
+                          if (emailAnterior) {
+                            const configAnterior = {
+                              assinaturas,
+                              assinaturaActiva,
+                              assinaturaPadrao: assinatura
+                            }
+                            const estadoAtualizado = {
+                              ...assinaturasPorEmailRef.current,
+                              [emailAnterior]: configAnterior
+                            }
+                            assinaturasPorEmailRef.current = estadoAtualizado
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoAtualizado))
+                            console.log('[DEBUG] Salvo config para', emailAnterior, ':', configAnterior)
+                          }
+
+                          // Agora mudar para a nova conta
+                          setEmailOrigem(novoEmail)
+                        }}
+                        className={`flex-1 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                      >
+                        {emailsOrigem.length > 0 ? (
+                          emailsOrigem.map((conta) => (
+                            <option key={conta.email} value={conta.email}>
+                              {conta.nome ? `${conta.nome} (${conta.email})` : conta.email}
+                            </option>
+                          ))
+                        ) : (
+                          <option value={emailOrigem}>{emailOrigem || 'Nenhuma conta'}</option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Novas mensagens */}
+                    <div className="flex items-center gap-4">
+                      <span className={`text-sm w-44 text-right shrink-0 transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Novas mensagens:</span>
+                      <select
+                        value={assinaturaActiva}
+                        onChange={e => {
+                          const idx = parseInt(e.target.value)
+                          setAssinaturaActiva(idx)
+                          // Marcar como ativa (padrão)
+                          setAssinaturas(prev => prev.map((a, i) => ({
+                            ...a,
+                            activa: i === idx
+                          })))
+                          // Aplicar imediatamente - usar callback para obter valor atual
+                          setAssinatura(prev => assinaturas[idx]?.texto || '')
+                        }}
+                        className={`flex-1 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                      >
+                        <option value="">Nenhuma</option>
+                        {assinaturas.map((s, i) => (
+                          <option key={s.nome} value={i}>
+                            {s.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Respostas/reencaminhamentos */}
+                    <div className="flex items-center gap-4">
+                      <span className={`text-sm w-44 text-right shrink-0 transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Respostas/reenc.:</span>
+                      <select
+                        value={assinaturaActiva}
+                        onChange={e => {
+                          const idx = parseInt(e.target.value)
+                          setAssinaturaActiva(idx)
+                          // Marcar como ativa (padrão)
+                          setAssinaturas(prev => prev.map((a, i) => ({
+                            ...a,
+                            activa: i === idx
+                          })))
+                          // Aplicar imediatamente
+                          setAssinatura(prev => assinaturas[idx]?.texto || '')
+                        }}
+                        className={`flex-1 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
+                      >
+                        <option value="">Nenhuma</option>
+                        {assinaturas.map((s, i) => (
+                          <option key={s.nome} value={i}>
+                            {s.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-3">
-                  <button onClick={() => { if (assinaturas[assinaturaActiva]) setAssinatura(assinaturas[assinaturaActiva].texto); setMostrarConfigAssinatura(false) }}
+                  <button onClick={() => {
+                    // Salvar assinaturas da conta atual antes de fechar
+                    if (emailOrigem) {
+                      const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                      const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
+                      assinaturasPorEmailRef.current = novoEstado
+                      localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
+                      console.log('[DEBUG] Salvo ao fechar modal:', emailOrigem, config)
+                    }
+                    if (assinaturas[assinaturaActiva]) setAssinatura(assinaturas[assinaturaActiva].texto)
+                    setMostrarConfigAssinatura(false)
+                  }}
                     className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">Guardar</button>
                   <button onClick={() => setMostrarConfigAssinatura(false)}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                    className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}>Cancelar</button>
                 </div>
               </div>
             </div>
@@ -2110,89 +2534,163 @@ export function EmailWebmailSection({
       {
         mostrarEditarAssinatura && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden border border-gray-200">
-              {/* Header macOS style com título da assinatura */}
-              <div className="bg-gray-50 px-5 py-2 flex items-center gap-3 border-b border-gray-200">
+            <div className={`rounded-xl shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden border transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+              {/* Header macOS style - só botões de popup */}
+              <div className={`px-5 py-2 flex items-center justify-between border-b transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }} />
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
-                {/* Toolbar */}
-                <div className="flex items-center gap-1 flex-wrap ml-2">
-                  <button title="Colar" className="bg-white hover:bg-gray-50 text-gray-700 text-xs px-3 py-1.5 rounded border border-gray-200 flex items-center gap-1 transition-colors">📋 Colar</button>
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded outline-none">
-                    <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
-                  </select>
-                  <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14 outline-none">
-                    <option>11</option><option>12</option><option>14</option><option>16</option>
-                  </select>
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  {[{ l: 'N', t: 'Negrito' }, { l: 'I', t: 'Itálico' }, { l: 'S', t: 'Sublinhado' }, { l: 'ab', t: 'Riscado' }].map((b, i) => (
-                    <button key={i} title={b.t} className="text-gray-700 text-xs px-2 py-1.5 rounded hover:bg-gray-50 border border-gray-200 transition-colors font-bold">{b.l}</button>
-                  ))}
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  {[{ l: <><ImageIcon className="w-3.5 h-3.5 text-gray-600" /> <span className="text-gray-700 text-[10px] font-medium">Imagens</span></>, t: 'Imagens' }, { l: '🔗 Ligação', t: 'Ligação' }, { l: '⊞ Tabela', t: 'Tabela' }, { l: '🌙 Mudar Fundo', t: 'Mudar Fundo' }].map((b, i) => (
-                    <button key={i} title={b.t} className="text-gray-700 text-xs px-2 py-1.5 rounded hover:bg-gray-50 border border-gray-200 transition-colors">{b.l}</button>
-                  ))}
-                </div>
-                <span className="ml-auto text-gray-900 text-sm font-bold">{assinaturas[assinaturaActiva]?.nome}</span>
               </div>
 
               {/* Nome da assinatura */}
-              <div className="bg-gray-50 flex items-center border-b border-gray-200 px-5 py-2">
-                <span className="text-gray-500 text-sm w-40 shrink-0">Nome da Assinatura:</span>
-                <input value={assinaturas[assinaturaActiva]?.nome || ''}
-                  onChange={e => { const a = [...assinaturas]; a[assinaturaActiva].nome = e.target.value; setAssinaturas(a) }}
-                  className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400" />
+              <div className={`flex items-center gap-3 border-b px-5 py-2 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                <span className={`text-sm shrink-0 ${modoEscuroAssinatura ? 'text-gray-300' : 'text-gray-500'}`}>Nome da Assinatura:</span>
+                <input
+                  key={`assinatura-nome-${assinaturaActiva}`}
+                  defaultValue={assinaturas[assinaturaActiva]?.nome || ''}
+                  onBlur={e => {
+                    const novoNome = e.target.value
+                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, nome: novoNome } : a))
+                  }}
+                  className={`flex-1 border text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
               </div>
 
-              {/* Área de edição — fundo branco */}
+              {/* Toolbar - largura total embaixo do nome */}
+              <div className={`flex items-center gap-1 flex-wrap border-b px-5 py-2 transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                <select 
+                  onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontName', false, e.target.value) } }}
+                  className={`text-xs px-2 py-1.5 rounded outline-none ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-900'}`}>
+                  <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                </select>
+                <select 
+                  onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontSize', false, e.target.value) } }}
+                  className={`text-xs px-2 py-1.5 rounded w-14 outline-none ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-900'}`}>
+                  <option>11</option><option>12</option><option>14</option><option>16</option>
+                </select>
+                <div className={`w-px h-5 mx-1 ${modoEscuroAssinatura ? 'bg-gray-700' : 'bg-gray-300'}`} />
+                <button 
+                  onClick={() => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('bold') } }}
+                  title="Negrito" 
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors font-bold ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>N</button>
+                <button 
+                  onClick={() => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('italic') } }}
+                  title="Itálico" 
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors italic ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>I</button>
+                <button 
+                  onClick={() => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('underline') } }}
+                  title="Sublinhado" 
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors underline ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>S</button>
+                <button 
+                  onClick={() => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('strikeThrough') } }}
+                  title="Riscado" 
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors line-through ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>ab</button>
+                <div className={`w-px h-5 mx-1 ${modoEscuroAssinatura ? 'bg-gray-700' : 'bg-gray-300'}`} />
+                <button 
+                  onClick={() => {
+                    const url = prompt('URL do link:')
+                    if (url && assinaturaEditorRef.current) {
+                      assinaturaEditorRef.current.focus()
+                      document.execCommand('createLink', false, url)
+                    }
+                  }}
+                  title="Ligação" 
+                  className={`text-xs px-2 py-1.5 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>🔗 Ligação</button>
+                <div className="flex-1" />
+                <button 
+                  onClick={() => setModoEscuroAssinatura(!modoEscuroAssinatura)}
+                  title={modoEscuroAssinatura ? "Modo Claro" : "Modo Escuro"}
+                  className={`text-xs px-2 py-1.5 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600 text-white hover:bg-yellow-600' : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'}`}>{modoEscuroAssinatura ? '☀️ Claro' : '🌙 Escuro'}</button>
+              </div>
+
+              {/* Área de edição — fundo branco SEMPRE */}
               <div className="flex-1 flex flex-col bg-white overflow-hidden">
-                <textarea
-                  value={assinaturas[assinaturaActiva]?.texto || ''}
-                  onChange={e => { const a = [...assinaturas]; a[assinaturaActiva].texto = e.target.value; setAssinaturas(a) }}
-                  className="flex-1 p-6 text-sm text-gray-800 outline-none resize-none"
-                  placeholder="Escreve aqui a tua assinatura...&#10;&#10;Ex:&#10;Silva Chamo&#10;DR. GERAL — Portal Digital&#10;+258 82 52 88 318&#10;silva.chamo@your-domain.com&#10;https://your-domain.com" />
+                <div
+                  ref={assinaturaEditorRef}
+                  contentEditable
+                  onFocus={(e) => {
+                    // Garantir que existe conteúdo para posicionar o cursor
+                    const div = e.target as HTMLDivElement
+                    if (!div.innerHTML || div.innerHTML === '<br>') {
+                      div.innerHTML = '<div><br></div>'
+                    }
+                    // Posicionar cursor no final
+                    const range = document.createRange()
+                    const sel = window.getSelection()
+                    if (div.lastChild) {
+                      range.selectNodeContents(div.lastChild)
+                      range.collapse(false)
+                      sel?.removeAllRanges()
+                      sel?.addRange(range)
+                    }
+                  }}
+                  onInput={(e) => {
+                    const texto = (e.target as HTMLDivElement).innerHTML
+                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, texto } : a))
+                  }}
+                  className="flex-1 p-6 text-sm text-gray-800 outline-none overflow-y-auto text-left"
+                  style={{ backgroundColor: '#ffffff', direction: 'ltr', unicodeBidi: 'normal' }} />
 
                 {/* Imagem da assinatura */}
                 {assinaturas[assinaturaActiva]?.imagemUrl && (
-                  <div className="px-6 py-3 border-t border-gray-200">
+                  <div className="px-6 py-3 border-t border-gray-200 bg-white">
                     <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-h-32 object-contain" />
                   </div>
                 )}
 
                 {/* Upload / URL imagem */}
-                <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex items-center gap-3 flex-wrap">
-                  <span className="text-xs text-gray-600 font-medium">Imagem da assinatura:</span>
-                  <input type="file" accept="image/*"
-                    onChange={e => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        const reader = new FileReader()
-                        reader.onload = ev => { const a = [...assinaturas]; a[assinaturaActiva].imagemUrl = ev.target?.result as string; setAssinaturas(a) }
-                        reader.readAsDataURL(file)
-                      }
+                <div className={`border-t px-5 py-3 flex items-center gap-3 flex-wrap transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                  <span className={`text-xs font-medium ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-600'}`}>Imagem da assinatura:</span>
+                  <label className={`text-xs px-3 py-1.5 rounded cursor-pointer transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700' : 'bg-gray-800 text-white hover:bg-gray-700'}`}>
+                    Escolher ficheiro
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = ev => {
+                            const imagemUrl = ev.target?.result as string
+                            setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl } : a))
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }} />
+                  </label>
+                  <span className={`text-xs ${modoEscuroAssinatura ? 'text-gray-500' : 'text-gray-400'}`}>ou URL:</span>
+                  <input
+                    placeholder="https://url-da-imagem.png"
+                    defaultValue={assinaturas[assinaturaActiva]?.imagemUrl || ''}
+                    onBlur={e => {
+                      const url = e.target.value
+                      setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl: url } : a))
                     }}
-                    className="text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-gray-800 file:text-white hover:file:bg-gray-700 cursor-pointer" />
-                  <span className="text-xs text-gray-400">ou URL:</span>
-                  <input placeholder="https://url-da-imagem.png"
-                    onChange={e => { const a = [...assinaturas]; a[assinaturaActiva].imagemUrl = e.target.value; setAssinaturas(a) }}
-                    className="flex-1 min-w-40 text-xs border border-gray-300 rounded px-2 py-1.5 outline-none" />
+                    className={`flex-1 min-w-40 text-xs rounded px-2 py-1.5 outline-none ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 border' : 'bg-white border-gray-300 border'}`} />
                   {assinaturas[assinaturaActiva]?.imagemUrl && (
-                    <button onClick={() => { const a = [...assinaturas]; a[assinaturaActiva].imagemUrl = ''; setAssinaturas(a) }}
+                    <button onClick={() => setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl: '' } : a))}
                       className="text-xs text-red-500 hover:text-red-700 font-bold">✕ Remover</button>
                   )}
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="bg-gray-50 border-t border-gray-200 px-5 py-3 flex justify-end gap-3">
-                <button onClick={() => { setAssinatura(assinaturas[assinaturaActiva]?.texto || ''); setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
+              <div className={`border-t px-5 py-3 flex justify-end gap-3 transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                <button onClick={() => {
+                  // Salvar assinaturas da conta atual antes de voltar
+                  if (emailOrigem) {
+                    const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                    const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
+                    assinaturasPorEmailRef.current = novoEstado
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
+                    console.log('[DEBUG] Salvo ao guardar edição:', emailOrigem, config)
+                  }
+                  setAssinatura(assinaturas[assinaturaActiva]?.texto || '')
+                  setMostrarEditarAssinatura(false)
+                  setMostrarConfigAssinatura(true)
+                }}
                   className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
                 <button onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                  className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancelar</button>
               </div>
             </div>
           </div>
@@ -2253,300 +2751,6 @@ export function EmailWebmailSection({
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )
-      }
-
-      {
-        mostrarAdicionarConta && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-gray-200">
-
-              {/* Header macOS */}
-              <div className="bg-gray-50 px-5 py-3 flex items-center gap-3 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer" onClick={() => setMostrarAdicionarConta(false)} />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <div className="w-3 h-3 rounded-full bg-gray-300" />
-                </div>
-                {modalAdicionarPasso !== 'escolher' && (
-                  <button onClick={() => setModalAdicionarPasso('escolher')}
-                    className="text-gray-500 hover:text-gray-900 text-xs">← Voltar</button>
-                )}
-                <h2 className="text-sm font-bold text-gray-800 mx-auto">Contas da Internet</h2>
-              </div>
-
-              {/* PASSO 1 — Escolher tipo */}
-              {modalAdicionarPasso === 'escolher' && (
-                <div className="flex">
-                  {/* Lista esquerda — contas existentes */}
-                  <div className="w-56 border-r border-gray-200 p-3 space-y-1 min-h-64 bg-gray-50/50">
-                    <p className="text-xs text-gray-500 uppercase font-bold mb-2 px-2">Contas configuradas</p>
-                    {emailsOrigem.length === 0 ? (
-                      <p className="text-xs text-gray-400 px-2 italic">Nenhuma conta</p>
-                    ) : emailsOrigem.map((c, i) => (
-                      <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 cursor-pointer transition-colors shadow-sm-hover">
-                        <div className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
-                          {c.tipo === 'google' ? 'G' : c.tipo === 'hotmail' ? 'M' : '@'}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-800">{c.nome}</p>
-                          <p className="text-[10px] text-gray-500 truncate max-w-[130px]">{c.email}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Direita — escolher tipo */}
-                  <div className="flex-1 p-6 bg-white">
-                    <p className="text-sm text-gray-500 mb-6 font-medium">Escolhe o tipo de conta a adicionar:</p>
-                    <div className="space-y-3">
-                      {/* Google */}
-                      <button onClick={() => setModalAdicionarPasso('google')}
-                        className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl font-bold shrink-0 border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
-                          <span style={{ background: 'linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">Google</p>
-                          <p className="text-xs text-gray-500">Gmail, Google Workspace</p>
-                        </div>
-                      </button>
-
-                      {/* Hotmail */}
-                      <button onClick={() => setModalAdicionarPasso('hotmail')}
-                        className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shrink-0 border border-blue-400 shadow-sm group-hover:scale-110 transition-transform">
-                          <span className="text-white font-bold text-sm">M</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">Microsoft Exchange</p>
-                          <p className="text-xs text-gray-500">Outlook, Hotmail, MSN</p>
-                        </div>
-                      </button>
-
-                      {/* Webmail / Email executivo */}
-                      <button onClick={() => setModalAdicionarPasso('webmail')}
-                        className="w-full flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all text-left group">
-                        <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shrink-0 border border-red-400 shadow-sm group-hover:scale-110 transition-transform">
-                          <span className="text-white font-bold text-sm">@</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">Email Executivo</p>
-                          <p className="text-xs text-gray-500">Webmail, IMAP/SMTP personalizado</p>
-                        </div>
-                      </button>
-
-                      <div className="border-t border-gray-200 pt-3">
-                        <button className="w-full text-center text-xs text-gray-500 hover:text-gray-900 py-2 transition-colors">
-                          Adicionar outra conta...
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* PASSO 2a — Google OAuth */}
-              {modalAdicionarPasso === 'google' && (
-                <div className="p-8 flex flex-col items-center text-center bg-white">
-                  <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
-                    <span className="text-3xl">@</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Autenticação Google</h3>
-                  <p className="text-sm text-gray-500 mb-6 max-w-sm">
-                    O Google requer que a autenticação seja concluída no navegador da web. Após a autenticação, a conta será adicionada automaticamente.
-                  </p>
-                  <div className="flex gap-3">
-                    <button onClick={() => setModalAdicionarPasso('escolher')}
-                      className="px-6 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">
-                      Cancelar
-                    </button>
-                    <button onClick={() => {
-                      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-                      window.open(`${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin + '/auth/callback')}`, '_blank')
-                      // Após autenticação, simula adição da conta Google
-                      setTimeout(() => {
-                        const novasConta = { email: 'silva.chamo@gmail.com', tipo: 'google' as const, nome: 'Silva Chamo' }
-                        setEmailsOrigem(prev => [...prev.filter(e => e.email !== novasConta.email), novasConta])
-                        setMostrarAdicionarConta(false)
-                      }, 2000)
-                    }} className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow-lg shadow-blue-200">
-                      Abrir no Navegador
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* PASSO 2b — Microsoft/Hotmail */}
-              {modalAdicionarPasso === 'hotmail' && (
-                <div className="p-6 space-y-4 bg-white">
-                  <p className="text-sm text-gray-500 mb-2 font-medium">Configurar conta Microsoft</p>
-                  {[
-                    { label: 'Endereço de e-mail', field: 'email', placeholder: 'nome@hotmail.com' },
-                    { label: 'Nome de utilizador', field: 'nome', placeholder: 'Automático' },
-                    { label: 'Palavra-passe', field: 'password', placeholder: '••••••••', type: 'password' },
-                  ].map(f => (
-                    <div key={f.field} className="flex items-center gap-4">
-                      <span className="text-gray-500 text-sm w-44 text-right shrink-0">{f.label}:</span>
-                      <input type={f.type || 'text'} placeholder={f.placeholder}
-                        value={(novaContaForm as any)[f.field]}
-                        onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
-                        className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all" />
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-4">
-                    <span className="text-gray-500 text-sm w-44 text-right shrink-0">Tipo de conta:</span>
-                    <select className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm px-3 py-2 rounded-lg outline-none">
-                      <option>IMAP</option><option>POP3</option><option>Exchange</option>
-                    </select>
-                  </div>
-                  <p className="text-xs text-red-500 text-center">Não foi possível confirmar automaticamente — preenche os servidores manualmente.</p>
-                  <div className="flex justify-between pt-2">
-                    <button onClick={() => setModalAdicionarPasso('escolher')}
-                      className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">Anterior</button>
-                    <button onClick={() => {
-                      if (novaContaForm.email) {
-                        setEmailsOrigem(prev => [...prev, { email: novaContaForm.email, tipo: 'hotmail', nome: novaContaForm.nome || novaContaForm.email.split('@')[0] }])
-                        setEmailOrigem(novaContaForm.email)
-                        setMostrarAdicionarConta(false)
-                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
-                      }
-                    }}
-                      disabled={!novaContaForm.email}
-                      className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold">Iniciar sessão</button>
-                  </div>
-                </div>
-              )}
-
-              {/* PASSO 2c — Email Executivo / Webmail */}
-              {modalAdicionarPasso === 'webmail' && (
-                <div className="p-6 space-y-3 bg-white">
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-bold text-gray-500 ml-1">Endereço de e-mail</label>
-                      <div className="relative">
-                        <input type="email" placeholder="nome@empresa.com"
-                          value={novaContaForm.email}
-                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'email']: e.target.value })}
-                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all font-medium" />
-                        {autoconfigurando && (
-                          <div className="absolute right-3 top-2.5">
-                            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                          </div>
-                        )}
-                        {!autoconfigurando && novaContaForm.servidor && (
-                          <div className="absolute right-3 top-2.5 text-green-500 flex items-center gap-1.5 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Autoconfigurado</span>
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 ml-1">Nome de Exibição</label>
-                        <input type="text" placeholder="Silva Chamo"
-                          value={novaContaForm.nome}
-                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'nome']: e.target.value })}
-                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 font-medium" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-gray-500 ml-1">Palavra-passe</label>
-                        <input type="password" placeholder="••••••••"
-                          value={novaContaForm.password}
-                          onChange={e => setNovaContaForm({ ...novaContaForm, [ 'password']: e.target.value })}
-                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-red-400 font-medium" />
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                       <button onClick={() => setMostrarAvancado(!mostrarAvancado)}
-                        className="text-[11px] font-bold text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                        {mostrarAvancado ? '↓ Ocultar Definições Técnicas' : '↑ Configurações Avançadas (IMAP/SMTP)'}
-                      </button>
-
-                      {mostrarAvancado && (
-                        <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                          {[
-                            { label: 'Servidor IMAP', field: 'servidor' },
-                            { label: 'Porta IMAP', field: 'porta' },
-                            { label: 'Servidor SMTP', field: 'smtp' },
-                            { label: 'Porta SMTP', field: 'smtpPorta' }
-                          ].map(f => (
-                            <div key={f.field} className="flex flex-col gap-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase">{f.label}</label>
-                              <input type="text"
-                                value={(novaContaForm as any)[f.field]}
-                                onChange={e => setNovaContaForm({ ...novaContaForm, [f.field]: e.target.value })}
-                                className="w-full bg-white border border-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded-lg outline-none focus:border-red-300" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-3 mt-2">
-                      <p className="text-[11px] text-blue-700 font-bold mb-1 uppercase tracking-tight">Suporte VisualDesigne:</p>
-                      <p className="text-[11px] text-blue-600 leading-relaxed">Detectamos automaticamente as configurações de domínio para garantir um setup sem erros. Webmail e App prontos a usar após clicar em adicionar.</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <button onClick={() => setModalAdicionarPasso('escolher')}
-                      className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition-colors">Anterior</button>
-                    <button onClick={async () => {
-                      if (novaContaForm.email) {
-                        setCarregandoEmails(true)
-                        try {
-                          const res = await fetch('/api/email-contas', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              email: novaContaForm.email,
-                              password: novaContaForm.password,
-                              nome: novaContaForm.nome,
-                              tipo: 'webmail'
-                            })
-                          })
-                          const data = await res.json()
-                          if (data.success) {
-                            // Mostra credenciais prontas
-                            setCredenciaisNovas(data.credenciais)
-                            setMostrarCredenciais(true)
-                            // Adiciona à lista de contas
-                            setEmailsOrigem(prev => [...prev, {
-                              email: data.credenciais.email,
-                              tipo: 'webmail',
-                              nome: novaContaForm.nome || novaContaForm.email.split('@')[0],
-                              password: novaContaForm.password
-                            }])
-                            setEmailOrigem(data.credenciais.email)
-                            setEmailOrigemPassword(novaContaForm.password)
-                            
-                            // Forçar refresh conforme solicitado pelo utilizador
-                            setTimeout(() => {
-                              window.location.reload()
-                            }, 1500)
-                          }
-                        } catch (error: any) {
-                          alert('Erro ao criar conta: ' + error.message)
-                        }
-                        setCarregandoEmails(false)
-                        setMostrarAdicionarConta(false)
-                        setNovaContaForm({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
-                      }
-                    }}
-                      disabled={!novaContaForm.email || carregandoEmails}
-                      className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-red-100">
-                      {carregandoEmails ? '⏳ A sincronizar...' : 'Adicionar e Sincronizar'}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )

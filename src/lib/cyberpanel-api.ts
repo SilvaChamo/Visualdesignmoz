@@ -225,8 +225,10 @@ export interface CyberPanelEmail {
   email: string;
   domain?: string;
   quota?: number;
+  quota_mb?: number;
   usage?: string;
-  activo?: boolean;
+  status?: 'active' | 'suspended' | 'deleted';
+  cliente_id?: string | null;
 }
 export interface CyberPanelPHPConfig {
   domain: string;

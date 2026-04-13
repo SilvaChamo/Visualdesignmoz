@@ -6,6 +6,7 @@ export interface DomainEmailConfig {
   smtp: string;
   ports: { imap: number; smtp: number };
   ssl: boolean;
+  secure?: boolean; // true = SSL direto (465), false = STARTTLS (587)
   webmail: string;
 }
 
@@ -15,28 +16,30 @@ export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
     smtp: 'mail.aamihe.com',
     ports: { imap: 993, smtp: 465 },
     ssl: true,
-    webmail: 'https://aamihe.com:8090/snappymail/'
+    webmail: 'https://aamihe.com:8090/snappymail/index.php'
   },
   'oshercollective.com': {
     imap: 'mail.oshercollective.com',
     smtp: 'mail.oshercollective.com', 
     ports: { imap: 993, smtp: 465 },
     ssl: true,
-    webmail: 'https://oshercollective.com:8090/snappymail/'
+    webmail: 'https://oshercollective.com:8090/snappymail/index.php'
   },
   'visualdesigne.com': {
     imap: 'mail.visualdesigne.com',
     smtp: 'mail.visualdesigne.com',
-    ports: { imap: 993, smtp: 465 },
+    ports: { imap: 993, smtp: 587 },
     ssl: true,
-    webmail: 'https://visualdesigne.com:8090/snappymail/'
+    secure: false, // 587 = STARTTLS
+    webmail: 'https://visualdesigne.com:8090/snappymail/index.php'
   },
   'visualdesigne.pt': {
     imap: 'mail.visualdesigne.pt',
     smtp: 'mail.visualdesigne.pt',
-    ports: { imap: 993, smtp: 465 },
+    ports: { imap: 993, smtp: 587 },
     ssl: true,
-    webmail: 'https://visualdesigne.pt:8090/snappymail/'
+    secure: false, // 587 = STARTTLS
+    webmail: 'https://visualdesigne.pt:8090/snappymail/index.php'
   }
 };
 
@@ -50,9 +53,10 @@ export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
   return {
     imap: host,
     smtp: host,
-    ports: { imap: 993, smtp: 465 },
+    ports: { imap: 993, smtp: 587 },
     ssl: true,
-    webmail: domain ? `https://${domain}:8090/snappymail/` : 'https://109.199.104.22:8090/snappymail/'
+    secure: false, // 587 = STARTTLS
+    webmail: domain ? `https://${domain}:8090/snappymail/index.php` : 'https://109.199.104.22:8090/snappymail/index.php'
   };
 };
 

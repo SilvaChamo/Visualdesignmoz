@@ -41,42 +41,67 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 🚀 BUSCA SIMPLIFICADA: apenas por domínio do utilizador (evita locks)
+    // Detectar se é admin
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+    const isAdmin = isExplicitAdmin || session.user?.user_metadata?.role === 'admin';
+    
+    console.log(`� [API] Usuário: ${session.user?.email}, isAdmin: ${isAdmin}`);
+    
     let allEmails: any[] = [];
     
-    if (session.user?.email) {
-      const userDomain = session.user.email.split('@')[1];
-      console.log(`📧 Buscando emails do domínio: ${userDomain}`);
-      
-      if (userDomain) {
-        const { data: byDomain, error } = await supabaseAdmin
-          .from('email_contas')
-          .select('*')
-          .ilike('email', `%@${userDomain}`)
-          .limit(50); // Limitar para evitar timeouts
-        
-        if (error) {
-          console.error('📧 Erro na query:', error);
-        }
-        
-        if (byDomain && byDomain.length > 0) {
-          allEmails = byDomain;
-          console.log(`📧 Encontrados ${byDomain.length} emails para ${userDomain}`);
-        }
-      }
-    }
-    
-    // Se não encontrou nada, tentar por cliente_id como fallback
-    if (allEmails.length === 0) {
-      const { data: byClient, error } = await supabaseAdmin
+    // �🚀 ADMIN: Buscar TODAS as contas ativas
+    if (isAdmin) {
+      console.log(`📧 [API] Modo ADMIN - Buscando todas as contas`);
+      const { data: allContas, error } = await supabaseAdmin
         .from('email_contas')
         .select('*')
-        .eq('cliente_id', clienteId)
-        .limit(50);
+        .or('status.eq.active,status.eq.activo')
+        .limit(100);
       
-      if (!error && byClient) {
-        allEmails = byClient;
-        console.log(`📧 Encontrados ${byClient.length} emails por cliente_id`);
+      if (error) {
+        console.error('📧 [API] Erro ao buscar todas as contas:', error);
+      } else if (allContas && allContas.length > 0) {
+        allEmails = allContas;
+        console.log(`📧 [API] Encontradas ${allContas.length} contas no modo admin`);
+      }
+    } 
+    // 🚀 CLIENTE NORMAL: Busca por domínio ou cliente_id
+    else {
+      // Busca por domínio do utilizador
+      if (session.user?.email) {
+        const userDomain = session.user.email.split('@')[1];
+        console.log(`📧 [API] Buscando emails do domínio: ${userDomain}`);
+        
+        if (userDomain) {
+          const { data: byDomain, error } = await supabaseAdmin
+            .from('email_contas')
+            .select('*')
+            .ilike('email', `%@${userDomain}`)
+            .limit(50);
+          
+          if (error) {
+            console.error('📧 [API] Erro na query por domínio:', error);
+          }
+          
+          if (byDomain && byDomain.length > 0) {
+            allEmails = byDomain;
+            console.log(`📧 [API] Encontrados ${byDomain.length} emails para ${userDomain}`);
+          }
+        }
+      }
+      
+      // Se não encontrou nada, tentar por cliente_id como fallback
+      if (allEmails.length === 0) {
+        const { data: byClient, error } = await supabaseAdmin
+          .from('email_contas')
+          .select('*')
+          .eq('cliente_id', clienteId)
+          .limit(50);
+        
+        if (!error && byClient) {
+          allEmails = byClient;
+          console.log(`📧 [API] Encontrados ${byClient.length} emails por cliente_id`);
+        }
       }
     }
 
@@ -135,16 +160,9 @@ export async function POST(req: NextRequest) {
       .upsert({
         cliente_id,
         email,
-        nome_conta: nome || user,
-        servidor_imap: domainConfig.imap,
-        porta_imap: domainConfig.ports.imap,
-        servidor_smtp: domainConfig.smtp,
-        porta_smtp: domainConfig.ports.smtp,
-        ssl_imap: domainConfig.ssl,
-        ssl_smtp: domainConfig.ssl,
+        senha_cyberpanel: encrypt(password),
         tipo_conta: tipo,
-        password_smtp: encrypt(password),
-        activo: true
+        status: 'active'
       }, { onConflict: 'email' })
       .select()
       .single()
@@ -170,6 +188,7 @@ export async function POST(req: NextRequest) {
         password,
         domain,
         username: user,
+        quota_mb: 1024,
         quota: '1 GB',
         contactEmail: 'admin@visualdesigne.com'
       }
@@ -180,10 +199,11 @@ export async function POST(req: NextRequest) {
       const outlookConfig = generateOutlookConfigFile(accountInfo, serverConfig)
       const termsAndConditions = getWarmupTermsAndConditions()
 
+      // Porta 587 fixa - STARTTLS (nunca 465)
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || '109.199.104.22',
-        port: Number(process.env.SMTP_PORT || 465),
-        secure: true,
+        host: 'mail.visualdesigne.com',
+        port: 587,
+        secure: false, // 587 = STARTTLS
         auth: {
           user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
           pass: process.env.SMTP_MASTER_PASSWORD || ''
@@ -267,6 +287,62 @@ VisualDesign - ${new Date().getFullYear()}
       }
     })
   } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// 🆕 PUT: Atualizar/Sincronizar conta existente (para contas criadas diretamente no CyberPanel)
+export async function PUT(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  }
+
+  try {
+    const body = await req.json()
+    const { email, password, nome } = body
+
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email e senha são obrigatórios' }, { status: 400 })
+    }
+
+    const [user, domain] = email.split('@')
+    if (!user || !domain) {
+      return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    }
+
+    // Configuração padrão
+    const domainConfig = {
+      imap: `mail.${domain}`,
+      smtp: `mail.${domain}`,
+      ports: { imap: 993, smtp: 587 },
+      ssl: true,
+      webmail: `https://mail.${domain}`
+    }
+
+    // Upsert no Supabase (atualizar ou criar) - usando apenas colunas existentes
+    const { data, error } = await supabaseAdmin
+      .from('email_contas')
+      .upsert({
+        email,
+        tipo_conta: 'webmail',
+        senha_cyberpanel: encrypt(password),
+        status: 'active'
+      }, { onConflict: 'email' })
+      .select()
+
+    if (error) throw error
+
+    return NextResponse.json({
+      success: true,
+      message: 'Conta sincronizada com sucesso',
+      conta: data
+    })
+
+  } catch (error: any) {
+    console.error('Erro ao sincronizar conta:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
