@@ -1,8 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Client } from 'ssh2';
 
-// 🚀 Usar CyberPanel via HTTP API (não exec local)
-const CP_URL = 'https://109.199.104.22:8090/api';
-const CP_TOKEN = process.env.CYBERPANEL_API_TOKEN || '';
+// 🚀 SSH para conectar ao CyberPanel
+const CP_HOST = '109.199.104.22';
+const CP_PORT = 22;
+const CP_USER = 'root';
+
+async function execSSH(command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let out = '';
+    const rawKey = process.env.SSH_PRIVATE_KEY || '';
+    
+    if (!rawKey.includes('BEGIN') || !rawKey.includes('END')) {
+      return reject(new Error('SSH_PRIVATE_KEY inválida'));
+    }
+    
+    const privateKey = rawKey.replace(/\\n/g, '\n');
+
+    const timeout = setTimeout(() => {
+      conn.end();
+      reject(new Error('SSH timeout'));
+    }, 20000);
+
+    conn.on('ready', () => {
+      clearTimeout(timeout);
+      conn.exec(command, (err, stream) => {
+        if (err) { conn.end(); return reject(err); }
+        stream.on('data', (d: Buffer) => { out += d.toString(); });
+        stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
+        stream.on('close', () => { 
+          conn.end(); 
+          resolve(out); 
+        });
+      });
+    });
+
+    conn.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    conn.connect({
+      host: CP_HOST,
+      port: CP_PORT,
+      username: CP_USER,
+      privateKey: Buffer.from(privateKey),
+      readyTimeout: 15000,
+    });
+  });
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,30 +62,46 @@ export async function GET(req: NextRequest) {
   try {
     console.log(`🔍 [CP API] Buscando emails para ${domain}`);
     
-    // 🚀 Usar a API HTTP do CyberPanel via server-exec
-    const res = await fetch('/api/server-exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'listEmails',
-        params: { domainName: domain }
-      })
-    });
+    // 🚀 Buscar emails via SSH do CyberPanel
+    // 1. Tentar via MySQL do vmail (mais rápido)
+    const command = `mysql vmail -e "SELECT username FROM users WHERE domain='${domain}';" -B -N 2>/dev/null || echo ''`;
     
-    const data = await res.json();
-    console.log(`📧 [CP API] Resposta:`, data);
+    const raw = await execSSH(command);
+    console.log(`📧 [CP API] Raw output:`, raw);
     
     let emails: string[] = [];
     
-    if (data.success && data.data) {
-      // Parsear resposta do CyberPanel
-      if (Array.isArray(data.data)) {
-        emails = data.data.map((e: any) => {
-          if (typeof e === 'string') return e;
-          if (e.email) return e.email;
-          if (e.user) return `${e.user}@${domain}`;
-          return null;
-        }).filter(Boolean);
+    if (raw) {
+      emails = raw
+        .split('\n')
+        .filter(line => line.trim() && !line.includes(' '))
+        .map(line => `${line.trim()}@${domain}`);
+    }
+    
+    // Se não encontrou no vmail, tentar pelo CyberPanel CLI
+    if (emails.length === 0) {
+      try {
+        const cpCommand = `cyberpanel listEmails --domainName ${domain} 2>&1`;
+        const cpRaw = await execSSH(cpCommand);
+        console.log(`📧 [CP CLI] Output:`, cpRaw);
+        
+        // Tentar parsear JSON ou extrair emails
+        try {
+          const parsed = JSON.parse(cpRaw);
+          if (parsed.email_accounts) {
+            emails = parsed.email_accounts.map((e: any) => e.email || `${e.user}@${domain}`);
+          } else if (Array.isArray(parsed)) {
+            emails = parsed.map((e: any) => typeof e === 'string' ? e : (e.email || `${e.user}@${domain}`));
+          }
+        } catch {
+          // Extrair linhas que parecem emails
+          emails = cpRaw
+            .split('\n')
+            .filter(line => line.includes('@') && !line.includes(' '))
+            .map(line => line.trim().toLowerCase());
+        }
+      } catch (cliError) {
+        console.error(`📧 [CP CLI] Erro:`, cliError);
       }
     }
     
@@ -63,7 +126,7 @@ export async function GET(req: NextRequest) {
     console.error('❌ [CP API] Erro:', error);
     
     return NextResponse.json({
-      success: true,
+      success: false,
       domain,
       emails: [],
       count: 0,

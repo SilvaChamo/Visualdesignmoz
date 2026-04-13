@@ -7,6 +7,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, Search, Settings,
   LogOut, FolderOpen, MoreVertical, Download, Reply, Forward
 } from 'lucide-react'
+import { EmailWebmailSection } from './EmailWebmailSection'
 
 // Interface para contas de email
 interface EmailAccount {
@@ -35,6 +36,9 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
   const [showCompose, setShowCompose] = useState(false)
   const [iframeLoading, setIframeLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'iframe'>('list')
+  
+  // Estado para compose avançado (EmailWebmailSection)
+  const [showAdvancedCompose, setShowAdvancedCompose] = useState(false)
   
   // Estado para compose
   const [composeData, setComposeData] = useState({
@@ -409,7 +413,7 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
             {/* Nova Mensagem */}
             <div className="p-3">
               <button
-                onClick={() => setShowCompose(true)}
+                onClick={() => setShowAdvancedCompose(true)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors shadow-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -602,7 +606,7 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
         </div>
       )}
 
-      {/* Compose Modal */}
+      {/* Compose Modal Simples (fallback) */}
       {showCompose && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -679,6 +683,23 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
                 Enviar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Compose Avançado - EmailWebmailSection */}
+      {showAdvancedCompose && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full h-full sm:h-[90vh] flex flex-col overflow-hidden">
+            <EmailWebmailSection
+              sites={sites}
+              defaultCompose={true}
+              emailOrigem={selectedAccount || undefined}
+              onCloseCompose={() => setShowAdvancedCompose(false)}
+              onComposeStateChange={(isActive) => {
+                if (!isActive) setShowAdvancedCompose(false)
+              }}
+            />
           </div>
         </div>
       )}

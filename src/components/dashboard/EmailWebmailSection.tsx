@@ -329,6 +329,7 @@ export function EmailWebmailSection({
   useEffect(() => {
     const carregarContasCyberPanel = async () => {
       console.log('📧 [CP] Iniciando carregamento do CyberPanel...')
+      console.log('📧 [CP] sites:', sites)
       setCarregandoEmails(true)
       
       // 1. PRIMEIRO: Buscar emails DIRETAMENTE do CyberPanel (visualdesigne.com)
@@ -408,8 +409,10 @@ export function EmailWebmailSection({
       
       setCarregandoEmails(false)
     }
+    
+    // 🚀 SEMPRE executar na montagem do componente
     carregarContasCyberPanel()
-  }, [sites])
+  }, []) // Array vazio = executa apenas na montagem
 
   // Debounce para a pesquisa
   useEffect(() => {
