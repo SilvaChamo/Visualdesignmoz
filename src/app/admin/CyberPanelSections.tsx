@@ -4636,7 +4636,12 @@ export function GitDeploySection() {
                 </a>
                 <p className="text-xs text-gray-400">branch: <span className="font-mono font-bold text-gray-700">{repo.branch}</span> · {repo.lastPush ? new Date(repo.lastPush).toLocaleString('pt-PT') : ''}</p>
               </>
-            ) : <p className="text-sm text-amber-600">GitHub sem token — commits não visíveis (repositório público OK)</p>}
+            ) : (
+              <div className="text-sm text-amber-600">
+                <p className="font-medium">GitHub sem token</p>
+                <p className="text-xs text-amber-500">Commits públicos visíveis (limite: 60 req/hora) · Adicione GITHUB_TOKEN para mais acesso</p>
+              </div>
+            )}
           </div>
           <span className={`text-[10px] font-bold px-2 py-1 rounded-full border shrink-0 ${isLocal ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
             {isLocal ? '⚡ Local Dev' : '☁ Produção'}
@@ -4672,14 +4677,14 @@ export function GitDeploySection() {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex gap-2 justify-start">
               <button onClick={handleDeploy} disabled={deploying || !commitMsg.trim()}
-                className="bg-black hover:bg-green-700 text-white py-2 px-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Git Push...</> : <><Upload className="w-4 h-4" /> Git Push</>}
+                className="bg-black hover:bg-green-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
+                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Push...</> : <><Upload className="w-3.5 h-3.5" /> Push</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying || !commitMsg.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy All...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
+                className="bg-red-600 hover:bg-red-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
+                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Rocket className="w-3.5 h-3.5" /> Deploy</>}
               </button>
             </div>
             <p className="text-xs text-gray-500 text-left">
@@ -4688,14 +4693,16 @@ export function GitDeploySection() {
           </div>
         ) : (
           <div className="space-y-3">
-            <button onClick={handleDeploy} disabled={deploying}
-              className="w-full bg-black hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-              {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> A iniciar deploy...</> : <><Upload className="w-4 h-4" /> Trigger Vercel Deploy</>}
-            </button>
-            <button onClick={handleDeployAll} disabled={deploying}
-              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-              {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy All...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
-            </button>
+            <div className="flex gap-2 justify-start">
+              <button onClick={handleDeploy} disabled={deploying}
+                className="bg-black hover:bg-green-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
+                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Upload className="w-3.5 h-3.5" /> Vercel Deploy</>}
+              </button>
+              <button onClick={handleDeployAll} disabled={deploying}
+                className="bg-red-600 hover:bg-red-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
+                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Rocket className="w-3.5 h-3.5" /> Deploy</>}
+              </button>
+            </div>
             <p className="text-xs text-gray-500 text-left">
               <strong>Deploy Simultâneo:</strong> Atualiza GitHub + Site Online
             </p>

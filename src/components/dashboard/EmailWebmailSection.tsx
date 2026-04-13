@@ -222,6 +222,56 @@ export function EmailWebmailSection({
     return 'https://109.199.104.22:8090/snappymail/index.php'
   }
 
+  // 🔓 Auto-login no SnappyMail com a conta selecionada
+  const abrirWebmailAutoLogin = () => {
+    if (!emailOrigem) {
+      window.open(getWebmailUrl(), '_blank')
+      return
+    }
+
+    // Buscar senha da conta selecionada
+    const conta = contas.find(c => c.email === emailOrigem)
+    if (!conta) {
+      window.open(getWebmailUrl(), '_blank')
+      return
+    }
+
+    // Criar formulário de auto-login
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = 'https://109.199.104.22:8090/snappymail/index.php'
+    form.target = '_blank'
+    form.style.display = 'none'
+
+    // Email
+    const emailInput = document.createElement('input')
+    emailInput.type = 'hidden'
+    emailInput.name = 'Email'
+    emailInput.value = emailOrigem
+    form.appendChild(emailInput)
+
+    // Senha - tentar obter de várias fontes
+    const senha = conta.senha_cyberpanel || conta.senha || ''
+    const passInput = document.createElement('input')
+    passInput.type = 'hidden'
+    passInput.name = 'Password'
+    passInput.value = senha
+    form.appendChild(passInput)
+
+    // Action = Login
+    const actionInput = document.createElement('input')
+    actionInput.type = 'hidden'
+    actionInput.name = 'Action'
+    actionInput.value = 'Login'
+    form.appendChild(actionInput)
+
+    document.body.appendChild(form)
+    form.submit()
+    document.body.removeChild(form)
+
+    console.log('[WEBMAIL] Auto-login enviado para:', emailOrigem)
+  }
+
   // Usar props ou valores locais
   const mostrarAdicionarConta = propMostrarAdicionarConta || false
   const setMostrarAdicionarConta = propSetMostrarAdicionarConta || (() => { })
@@ -1107,10 +1157,10 @@ export function EmailWebmailSection({
           Escrever
         </button>
       
-      <a href={getWebmailUrl()} target="_blank"
+      <button onClick={abrirWebmailAutoLogin}
         className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
-        {emailOrigem ? 'Webmail' : 'Webmail'}
-      </a>
+        {emailOrigem ? '📧 Webmail' : 'Webmail'}
+      </button>
       <div className="w-px h-5 bg-gray-700 mx-1" />
       {pastas.map(p => (
         <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
@@ -2390,16 +2440,16 @@ export function EmailWebmailSection({
                           className={`ml-auto text-xs px-3 py-1 rounded transition-colors border ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-600'}`}>Editar</button>
                       </div>
                     </div>
-                    {/* Preview */}
-                    <div className={`flex-1 flex-col flex transition-colors ${modoEscuroAssinatura ? 'bg-gray-800' : 'bg-white'}`}>
+                    {/* Preview - fundo branco SEMPRE para simular email real */}
+                    <div className="flex-1 flex-col flex bg-white">
                       <div className={`px-3 py-2 border-b text-center transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                         <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Pré-visualização da Assinatura</p>
                       </div>
-                      <div className={`flex-1 p-4 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-700'}`}>
+                      <div className="flex-1 p-4 bg-white text-gray-700 flex items-center justify-center">
                         {assinaturas[assinaturaActiva]?.imagemUrl ? (
-                          <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain" />
+                          <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain mx-auto" />
                         ) : (
-                          <div className="text-sm whitespace-pre-wrap">{assinaturas[assinaturaActiva]?.texto || ''}</div>
+                          <div className="text-sm whitespace-pre-wrap w-full">{assinaturas[assinaturaActiva]?.texto || ''}</div>
                         )}
                       </div>
                     </div>
