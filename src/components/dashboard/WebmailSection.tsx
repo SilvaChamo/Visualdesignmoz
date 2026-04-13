@@ -466,9 +466,22 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
             </div>
           </div>
 
-          {/* Email List */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white">
-            {selectedEmail ? (
+          {/* Email List / Composer */}
+          <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+            {/* Composer Avançado - Inline */}
+            {showAdvancedCompose ? (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <EmailWebmailSection
+                  sites={sites}
+                  defaultCompose={true}
+                  emailOrigem={selectedAccount || undefined}
+                  onCloseCompose={() => setShowAdvancedCompose(false)}
+                  onComposeStateChange={(isActive) => {
+                    if (!isActive) setShowAdvancedCompose(false)
+                  }}
+                />
+              </div>
+            ) : selectedEmail ? (
               /* Email Detail View */
               <div className="flex-1 flex flex-col">
                 {/* Email Header */}
@@ -687,22 +700,6 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
         </div>
       )}
 
-      {/* Compose Avançado - EmailWebmailSection */}
-      {showAdvancedCompose && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full h-full sm:h-[90vh] flex flex-col overflow-hidden">
-            <EmailWebmailSection
-              sites={sites}
-              defaultCompose={true}
-              emailOrigem={selectedAccount || undefined}
-              onCloseCompose={() => setShowAdvancedCompose(false)}
-              onComposeStateChange={(isActive) => {
-                if (!isActive) setShowAdvancedCompose(false)
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
