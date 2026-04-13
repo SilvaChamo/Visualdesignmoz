@@ -203,9 +203,6 @@ export function EmailWebmailSection({
   const [novaContaForm, setNovaContaForm] = useState({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
   const [autoconfigurando, setAutoconfigurando] = useState(false)
   const [mostrarAvancado, setMostrarAvancado] = useState(false)
-  
-  // 🆕 FILTRO: Mostrar apenas emails do site principal
-  const [apenasSitePrincipal, setApenasSitePrincipal] = useState(true)
 
   // Autoconfiguração em tempo real
   useEffect(() => {
@@ -1260,18 +1257,8 @@ export function EmailWebmailSection({
       <div className="flex-1 flex overflow-hidden bg-white relative">
         {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo */}
         <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${mostrarCompose ? 'hidden' : 'w-72'}`}>
-          <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-3 py-2 border-b border-gray-200">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p>
-            {/* 🆕 Toggle filtro site principal */}
-            <label className="flex items-center gap-1.5 cursor-pointer" title="Mostrar apenas @visualdesigne.com">
-              <input
-                type="checkbox"
-                checked={apenasSitePrincipal}
-                onChange={(e) => setApenasSitePrincipal(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-gray-300 text-red-600 focus:ring-red-500"
-              />
-              <span className="text-[10px] text-gray-500 font-medium">Apenas site</span>
-            </label>
           </div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
           <div className="border-b border-gray-100">
@@ -1327,11 +1314,7 @@ export function EmailWebmailSection({
               </div>
             )}
           </div>
-          {/* 🆕 Lista de contas filtrada baseada no toggle */}
-          {(apenasSitePrincipal 
-            ? emailsOrigem.filter(c => c.email?.endsWith('@visualdesigne.com'))
-            : emailsOrigem
-          ).map(c => {
+          {emailsOrigem.map(c => {
             const isSelected = emailOrigem === c.email
             const isExpanded = !!expandedMap[c.email]
             return (

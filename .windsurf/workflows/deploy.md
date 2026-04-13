@@ -28,17 +28,37 @@ description: Deploy ou atualizar o site VisualDesign no servidor de produção
 bash /Users/macbook/Desktop/APP/visualdesign/deploy/instalar-no-servidor.sh
 ```
 
-## Atualização rápida (após alterações no código) ← USA ESTE
+## Atualização Robusta (RECOMMENDADO) ← USA ESTE
 
 // turbo
-2. Envia apenas o código novo e reconstrói:
+2. Corre o script de deploy robusto (limpa cache, build local, sincroniza, build servidor, reinicia PM2):
 ```bash
-rsync -avz --exclude node_modules --exclude .next --exclude .git --exclude "*.env*" \
+bash /Users/macbook/Desktop/APP/visualdesign/deploy/deploy-robusto.sh
+```
+
+**Ou manualmente se o script falhar:**
+
+```bash
+# 1. Limpar cache local
+rm -rf .next
+
+# 2. Build local para verificar erros
+npm run build
+
+# 3. Criar diretório no servidor se não existir
+ssh -i /Users/macbook/.ssh/visualdesign_cyberpanel_key root@109.199.104.22 \
+  "mkdir -p /home/visualdesign.ao/public_html"
+
+# 4. Sincronizar arquivos (com --delete para remover arquivos antigos)
+rsync -avz --delete \
+  --exclude node_modules --exclude .next --exclude .git --exclude "*.env*" \
   -e "ssh -i /Users/macbook/.ssh/visualdesign_cyberpanel_key" \
   /Users/macbook/Desktop/APP/visualdesign/ \
-  root@109.199.104.22:/home/visualdesign.ao/public_html/ && \
+  root@109.199.104.22:/home/visualdesign.ao/public_html/
+
+# 5. Build e reiniciar no servidor
 ssh -i /Users/macbook/.ssh/visualdesign_cyberpanel_key root@109.199.104.22 \
-  "cd /home/visualdesign.ao/public_html && npm run build && pm2 restart visualdesign && echo DONE"
+  "cd /home/visualdesign.ao/public_html && npm run build && pm2 delete visualdesign 2>/dev/null; pm2 start npm --name visualdesign -- start"
 ```
 
 ## Verificar estado do site no servidor
@@ -89,6 +109,50 @@ Este script dispara o GitHub Actions que faz deploy automático ao servidor.
 Websites → List Websites → Manage (visualdesign.ao) → SSL → Issue SSL
 ```
 Depois atualizar vhost.conf para redirecionar HTTP → HTTPS.
+
+## 🔧 Troubleshooting - Alterações não aparecem no site
+
+### Problema: Deploy feito mas site não atualiza
+
+**Causas comuns e soluções:**
+
+1. **Cache do Next.js (.next)**
+   ```bash
+   # Limpar cache local antes do build
+   rm -rf .next
+   npm run build
+   ```
+
+2. **Cache do navegador**
+   - Pressione `Ctrl+Shift+R` (Windows/Linux) ou `Cmd+Shift+R` (Mac) para hard refresh
+   - Ou abra em aba anônima (Private/Incognito)
+
+3. **PM2 usando processo antigo**
+   ```bash
+   # Solução: deletar e recriar o processo
+   ssh -i ~/.ssh/visualdesign_cyberpanel_key root@109.199.104.22 \
+     "pm2 delete visualdesign; cd /home/visualdesign.ao/public_html && pm2 start npm --name visualdesign -- start"
+   ```
+
+4. **Arquivos antigos não removidos**
+   - Usar `rsync --delete` no deploy para garantir sincronização completa
+   - Ou usar o script `deploy-robusto.sh` que já inclui `--delete`
+
+5. **Build falhou silenciosamente**
+   ```bash
+   # Verificar logs do build no servidor
+   ssh -i ~/.ssh/visualdesign_cyberpanel_key root@109.199.104.22 \
+     "cd /home/visualdesign.ao/public_html && cat .next/build.log 2>/dev/null || echo 'Build log não encontrado'"
+   ```
+
+### Verificar estado completo do servidor
+```bash
+ssh -i ~/.ssh/visualdesign_cyberpanel_key root@109.199.104.22 "
+echo '=== PM2 Status ===' && pm2 list && 
+echo '=== Porta 3002 ===' && netstat -tlnp | grep 3002 || ss -tlnp | grep 3002 &&
+echo '=== Últimas linhas do log ===' && pm2 logs visualdesign --lines 20
+"
+```
 
 ## Acesso
 - Site público: `http://visualdesign.ao`
