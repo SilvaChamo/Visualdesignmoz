@@ -56,16 +56,10 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
     
     return j.data;
   } catch (error: any) {
-    // Não logar erro crítico para erro 500 - será tratado por fallback
-    const is500Error = error.message?.includes('500');
-    if (!is500Error) {
-      console.error(`[API ERROR] ${action}:`, error.message);
-    } else {
-      console.log(`[API RETRY] ${action}: HTTP 500 - attempting fallback...`);
-    }
+    console.error(`[API ERROR] ${action}:`, error.message);
     
     // Fallback para CLI em caso de erro 500
-    if (is500Error) {
+    if (error.message?.includes('500')) {
       if (action === 'listPackages') {
         console.log(`[FALLBACK] ${action} via dedicated packages API due to 500 error`);
         try {
