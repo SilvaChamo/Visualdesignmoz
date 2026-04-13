@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
-const execAsync = promisify(exec);
-
-// Lista de admin emails para verificação
-const adminEmails = ['silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesigne.com'];
+// 🚀 Usar CyberPanel via HTTP API (não exec local)
+const CP_URL = 'https://109.199.104.22:8090/api';
+const CP_TOKEN = process.env.CYBERPANEL_API_TOKEN || '';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -16,52 +13,43 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Comando CyberPanel para listar emails do domínio
-    // cyberpanel listEmails --domainName DOMAIN
-    const command = `/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mailUtilities.py listEmails ${domain}`;
+    console.log(`🔍 [CP API] Buscando emails para ${domain}`);
     
-    console.log(`🔍 Executando: ${command}`);
+    // 🚀 Usar a API HTTP do CyberPanel via server-exec
+    const res = await fetch('/api/server-exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'listEmails',
+        params: { domainName: domain }
+      })
+    });
+    
+    const data = await res.json();
+    console.log(`📧 [CP API] Resposta:`, data);
     
     let emails: string[] = [];
     
-    try {
-      const { stdout, stderr } = await execAsync(command, { timeout: 30000 });
-      
-      console.log('📧 STDOUT:', stdout);
-      console.log('📧 STDERR:', stderr);
-      
-      if (stdout) {
-        // Tentar parsear JSON ou extrair emails do output
-        try {
-          const parsed = JSON.parse(stdout);
-          if (Array.isArray(parsed)) {
-            emails = parsed.map((e: any) => typeof e === 'string' ? e : e.email);
-          } else if (parsed.email_accounts) {
-            emails = parsed.email_accounts.map((e: any) => e.email || `${e.user}@${domain}`);
-          } else if (parsed.emails) {
-            emails = parsed.emails;
-          }
-        } catch {
-          // Se não é JSON, tentar extrair linhas que parecem emails
-          emails = stdout
-            .split('\n')
-            .filter(line => line.includes('@') && !line.includes(' '))
-            .map(line => line.trim().toLowerCase());
-        }
+    if (data.success && data.data) {
+      // Parsear resposta do CyberPanel
+      if (Array.isArray(data.data)) {
+        emails = data.data.map((e: any) => {
+          if (typeof e === 'string') return e;
+          if (e.email) return e.email;
+          if (e.user) return `${e.user}@${domain}`;
+          return null;
+        }).filter(Boolean);
       }
-    } catch (execError: any) {
-      console.error('❌ Erro ao executar comando CLI:', execError.message);
-      // Se falhar, não adicionar emails fictícios - retornar apenas emails reais
     }
     
-    // Garantir formato correto e remover duplicados
+    // Garantir formato correto
     emails = [...new Set(
       emails
         .filter((e: string) => e && e.includes('@'))
         .map((e: string) => e.toLowerCase().trim())
     )];
 
-    console.log(`✅ Emails reais encontrados para ${domain}:`, emails);
+    console.log(`✅ [CP API] Emails encontrados:`, emails);
 
     return NextResponse.json({
       success: true,
@@ -72,9 +60,8 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erro ao buscar emails do CyberPanel:', error);
+    console.error('❌ [CP API] Erro:', error);
     
-    // 🚀 Retornar array vazio em vez de emails falsos
     return NextResponse.json({
       success: true,
       domain,

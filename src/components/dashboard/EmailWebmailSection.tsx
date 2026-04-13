@@ -73,7 +73,7 @@ export function EmailWebmailSection({
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
-  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string }[]>([])
+  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string, senha_cyberpanel?: string }[]>([])
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
 
@@ -261,8 +261,8 @@ export function EmailWebmailSection({
     emailInput.value = emailOrigem
     form.appendChild(emailInput)
 
-    // Senha - tentar obter de várias fontes
-    const senha = conta.senha_cyberpanel || conta.senha || ''
+    // Senha - usar password da conta
+    const senha = conta.password || ''
     const passInput = document.createElement('input')
     passInput.type = 'hidden'
     passInput.name = 'Password'
@@ -325,93 +325,90 @@ export function EmailWebmailSection({
     }
   }, [modalEmail])
 
-  // Carregar contas reais do CyberPanel para as abas
+  // 🚀 Carregar contas DIRETAMENTE do CyberPanel (PRIMEIRO - prioridade máxima)
   useEffect(() => {
-    const carregarContas = async () => {
-      console.log('📧 [DEBUG] Iniciando carregamento de contas...')
-      console.log('📧 [DEBUG] sites:', sites)
+    const carregarContasCyberPanel = async () => {
+      console.log('📧 [CP] Iniciando carregamento do CyberPanel...')
+      setCarregandoEmails(true)
       
-      // SEMPRE tentar buscar do /api/email-contas primeiro (mais confiável)
+      // 1. PRIMEIRO: Buscar emails DIRETAMENTE do CyberPanel (visualdesigne.com)
       try {
-        console.log('📧 [DEBUG] Buscando contas do /api/email-contas...')
-        const res2 = await fetch('/api/email-contas')
-        const data2 = await res2.json()
-        console.log('📧 [DEBUG] Resposta email-contas:', data2)
+        console.log('📧 [CP] Buscando emails do CyberPanel...')
+        const res = await fetch('/api/cyberpanel-list-emails?domain=visualdesigne.com')
+        const data = await res.json()
+        console.log('📧 [CP] Resposta CyberPanel:', data)
         
-        if (data2.success && data2.contas?.length > 0) {
-          console.log(`📧 [DEBUG] Encontradas ${data2.contas.length} contas no Supabase`)
-          setEmailsOrigem(data2.contas.map((c: any) => ({
-            email: c.email, 
-            tipo: c.tipo_conta || 'webmail', 
-            nome: c.nome_conta || c.email.split('@')[0], 
+        if (data.success && data.emails?.length > 0) {
+          console.log(`📧 [CP] Encontrados ${data.emails.length} emails no CyberPanel`)
+          const contasFormatadas = data.emails.map((email: string) => ({
+            email: email,
+            tipo: 'webmail',
+            nome: email.split('@')[0],
             password: ''
-          })))
-          // Se encontrou contas no Supabase, usar essas e não sobrescrever com CyberPanel
-          if (!sites || sites.length === 0) {
-            console.log('📧 [DEBUG] Sem sites, usando contas do Supabase')
-            return
-          }
+          }))
+          setEmailsOrigem(contasFormatadas)
+          setCarregandoEmails(false)
+          return // Sucesso - não precisa fallback
         } else {
-          console.log('📧 [DEBUG] Nenhuma conta encontrada no Supabase:', data2)
+          console.log('📧 [CP] Nenhum email encontrado no CyberPanel:', data)
         }
       } catch (e) {
-        console.error('📧 [DEBUG] Erro ao buscar email-contas:', e)
+        console.error('📧 [CP] Erro ao buscar do CyberPanel:', e)
       }
 
-      // Se não tem sites, parar aqui
-      if (!sites || sites.length === 0) {
-        console.log('📧 [DEBUG] Sem sites e sem contas do Supabase')
-        return
-      }
-
-      setCarregandoEmails(true)
-      try {
-        // Carregar contas de TODOS os domínios do cliente em paralelo
-        const promises = sites.map(site => 
-          fetch(`/api/cyberpanel-email?domain=${encodeURIComponent(site.domain)}`)
-            .then(r => r.json())
-            .catch((e) => { console.error(`📧 [DEBUG] Erro no dominio ${site.domain}:`, e); return { success: false } })
-        )
-        
-        const results = await Promise.all(promises)
-        console.log('📧 [DEBUG] Resultados CyberPanel:', results)
-        
+      // 2. FALLBACK: Se falhou, tenta buscar de todos os domínios do cliente
+      if (sites && sites.length > 0) {
+        console.log('📧 [CP] Fallback: Buscando de todos os domínios...')
         const allEmails: any[] = []
         
-        results.forEach((data, index) => {
-          if (data.success && data.emails) {
-            data.emails.forEach((e: any) => {
-              allEmails.push({
-                email: e.email,
-                tipo: 'webmail',
-                nome: e.user || e.email.split('@')[0],
-                password: '',
-                domain: sites[index].domain
+        for (const site of sites) {
+          try {
+            const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(site.domain)}`)
+            const data = await res.json()
+            if (data.success && data.emails?.length > 0) {
+              data.emails.forEach((email: string) => {
+                allEmails.push({
+                  email,
+                  tipo: 'webmail',
+                  nome: email.split('@')[0],
+                  password: '',
+                  domain: site.domain
+                })
               })
-            })
+            }
+          } catch (e) {
+            console.error(`📧 [CP] Erro no domínio ${site.domain}:`, e)
           }
-        })
-
-        console.log(`📧 [DEBUG] Total emails do CyberPanel: ${allEmails.length}`)
-        console.log('📧 [DEBUG] Emails:', allEmails.map(e => e.email))
+        }
         
-        // REMOVIDO: Filtro restritivo que limitava apenas a visualdesign
-        // Agora mostra TODAS as contas de todos os domínios
         if (allEmails.length > 0) {
-          setEmailsOrigem(prev => {
-            // Merge com contas existentes do Supabase (se houver)
-            const existing = new Set(prev.map(p => p.email))
-            const newEmails = allEmails.filter(e => !existing.has(e.email))
-            console.log(`📧 [DEBUG] Adicionando ${newEmails.length} novas contas do CyberPanel`)
-            return [...prev, ...newEmails]
-          })
+          console.log(`📧 [CP] Total emails de todos os domínios: ${allEmails.length}`)
+          setEmailsOrigem(allEmails)
+          setCarregandoEmails(false)
+          return
+        }
+      }
+      
+      // 3. ÚLTIMO RECURSO: Supabase (apenas se CyberPanel falhou completamente)
+      console.log('📧 [CP] Último recurso: tentando Supabase...')
+      try {
+        const res = await fetch('/api/email-contas')
+        const data = await res.json()
+        if (data.success && data.contas?.length > 0) {
+          setEmailsOrigem(data.contas.map((c: any) => ({
+            email: c.email,
+            tipo: c.tipo_conta || 'webmail',
+            nome: c.nome_conta || c.email.split('@')[0],
+            password: ''
+          })))
         }
       } catch (e) {
-        console.error('📧 [DEBUG] Erro ao carregar contas do CyberPanel:', e)
+        console.error('📧 [CP] Erro no fallback Supabase:', e)
       }
+      
       setCarregandoEmails(false)
     }
-    carregarContas()
+    carregarContasCyberPanel()
   }, [sites])
 
   // Debounce para a pesquisa
@@ -458,7 +455,8 @@ export function EmailWebmailSection({
           // 🚀 Buscar senha dinamicamente se não estiver no estado
           let senhaImap = emailOrigemPassword
           if (!senhaImap && emailOrigem) {
-            senhaImap = await buscarSenhaDinamica(emailOrigem)
+            const senhaObtida = await buscarSenhaDinamica(emailOrigem)
+            senhaImap = senhaObtida || ''
           }
           if (!senhaImap) {
             senhaImap = CREDENCIAIS_PADRAO[emailOrigem || ''] || ''
@@ -2460,7 +2458,6 @@ export function EmailWebmailSection({
                         <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Nome da assinatura</p>
                       </div>
                       <div className="flex-1">
-                        {console.log('[DEBUG] Modal - listando assinaturas:', assinaturas.length, assinaturas)}
                         {assinaturas.length === 0 && (
                           <div className={`px-3 py-4 text-sm text-center transition-colors ${modoEscuroAssinatura ? 'text-gray-500' : 'text-gray-400'}`}>
                             Nenhuma assinatura<br/>Clique em + para adicionar
