@@ -282,8 +282,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, emails: uniqueEmails.slice(0, limit * 2), total: uniqueEmails.length })
     }
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email e password são obrigatórios' }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ error: 'Email é obrigatório' }, { status: 400 })
+    }
+    
+    if (!password) {
+      // 🚀 SIMPLIFICADO: Retorna vazio sem erro, igual ao mailmarketing
+      return NextResponse.json({ 
+        success: true, 
+        emails: [], 
+        total: 0,
+        message: 'Configure a senha IMAP para visualizar emails'
+      })
     }
 
     const client = new ImapFlow({

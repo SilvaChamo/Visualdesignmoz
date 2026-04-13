@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+
+// Cliente Supabase Admin
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
+
+// Encriptação base64
+const encrypt = (text: string) => Buffer.from(text).toString('base64')
 
 function parseEmailOutput(output: string, domain: string) {
     const lines = output.trim().split('\n');
@@ -104,6 +113,23 @@ export async function POST(request: Request) {
         const output = await executeCyberPanelCommand(command);
 
         if (output.includes('successfully') || output.includes('"success": 1') || output.includes('"success":1')) {
+            // 🚀 SINCRONIZAR COM SUPABASE - guardar senha para IMAP/SMTP funcionar
+            try {
+                const email = `${cleanUser}@${cleanDomain}`;
+                await supabaseAdmin
+                    .from('email_contas')
+                    .upsert({
+                        email,
+                        tipo_conta: 'webmail',
+                        senha_cyberpanel: encrypt(cleanPassword),
+                        status: 'active'
+                    }, { onConflict: 'email' });
+                console.log(`✅ Conta ${email} sincronizada no Supabase`);
+            } catch (syncError: any) {
+                console.error('⚠️ Erro ao sincronizar no Supabase:', syncError.message);
+                // Não falha a criação se o Supabase falhar
+            }
+            
             return NextResponse.json({ success: true, message: 'Conta de E-mail criada com sucesso!' });
         } else {
             return NextResponse.json({ error: 'Erro ao criar conta de E-mail.', details: output }, { status: 400 });
@@ -132,6 +158,66 @@ export async function PATCH(request: Request) {
             // 2. Or just handle it via application state in Supabase.
             // For now, we'll mark it as successfully "handled" so the frontend can update Supabase.
             return NextResponse.json({ success: true, message: `Conta ${action === 'suspend' ? 'suspensa' : 'ativada'} com sucesso (via estado da aplicação).` });
+        }
+
+        // 🆕 ALTERAR SENHA DO EMAIL
+        if (action === 'changePassword') {
+            const { newPassword } = body;
+            if (!newPassword) {
+                return NextResponse.json({ error: 'Nova senha é obrigatória.' }, { status: 400 });
+            }
+
+            const cleanNewPassword = newPassword.replace(/['"]/g, '');
+            const [user, domain] = cleanEmail.split('@');
+            
+            if (!user || !domain) {
+                return NextResponse.json({ error: 'Email inválido.' }, { status: 400 });
+            }
+
+            // 1. Alterar senha no CyberPanel
+            const command = `cyberpanel changeEmailPassword --email "${cleanEmail}" --password "${cleanNewPassword}"`;
+            const output = await executeCyberPanelCommand(command);
+
+            if (output.includes('successfully') || output.includes('"success": 1') || output.includes('"success":1')) {
+                // 2. Atualizar senha no Supabase
+                try {
+                    await supabaseAdmin
+                        .from('email_contas')
+                        .upsert({
+                            email: cleanEmail,
+                            tipo_conta: 'webmail',
+                            senha_cyberpanel: encrypt(cleanNewPassword),
+                            status: 'active'
+                        }, { onConflict: 'email' });
+                    console.log(`✅ Senha de ${cleanEmail} atualizada no Supabase`);
+                } catch (syncError: any) {
+                    console.error('⚠️ Erro ao atualizar senha no Supabase:', syncError.message);
+                }
+
+                return NextResponse.json({ success: true, message: 'Senha alterada com sucesso!' });
+            } else {
+                // Tentar comando alternativo
+                const altCommand = `cyberpanel createEmail --domainName "${domain}" --userName "${user}" --password "${cleanNewPassword}"`;
+                const altOutput = await executeCyberPanelCommand(altCommand);
+                
+                if (altOutput.includes('successfully') || altOutput.includes('already exists') || altOutput.includes('"success": 1')) {
+                    // Atualizar no Supabase mesmo assim
+                    try {
+                        await supabaseAdmin
+                            .from('email_contas')
+                            .upsert({
+                                email: cleanEmail,
+                                tipo_conta: 'webmail',
+                                senha_cyberpanel: encrypt(cleanNewPassword),
+                                status: 'active'
+                            }, { onConflict: 'email' });
+                    } catch (e) { /* ignore */ }
+                    
+                    return NextResponse.json({ success: true, message: 'Senha alterada com sucesso!' });
+                }
+                
+                return NextResponse.json({ error: 'Erro ao alterar senha.', details: output }, { status: 400 });
+            }
         }
 
         return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });

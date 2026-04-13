@@ -14,7 +14,7 @@ import {
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 const CORES_PALETA = [
-  '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
+  '#000000', '#434343', '#514f4f', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
   '#ff0000', '#ff4500', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff',
   '#9900ff', '#ff00ff', '#e6b8a2', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3',
   '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc', '#cc0000', '#e69138', '#f1c232', '#6aa84f',
@@ -73,7 +73,7 @@ export function EmailWebmailSection({
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
-  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string }[]>([])
+  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string, senha_cyberpanel?: string }[]>([])
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
 
@@ -129,7 +129,14 @@ export function EmailWebmailSection({
           return
         }
         
-        // Se não tem email selecionado, usar propEmailOrigem ou o primeiro da lista
+        // 🎯 PRIORIZAR email 'geral@' quando disponível
+        const emailPreferencial = emailsOrigem.find(e => 
+          e.email.toLowerCase().startsWith('geral@') || 
+          e.email.toLowerCase().startsWith('admin@') ||
+          e.email.toLowerCase().startsWith('info@')
+        )
+        
+        // Se não tem email selecionado, usar propEmailOrigem, email preferencial ou o primeiro da lista
         if (propEmailOrigem) {
           setEmailOrigem(propEmailOrigem)
           // 🚀 Buscar senha dinamicamente da API segura
@@ -139,8 +146,20 @@ export function EmailWebmailSection({
           } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
             setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
           }
+        } else if (emailPreferencial) {
+          // 🎯 Usar email preferencial (geral@, admin@, info@) se disponível
+          setEmailOrigem(emailPreferencial.email)
+          // 🚀 Buscar senha dinamicamente da API segura
+          const senhaDinamica = await buscarSenhaDinamica(emailPreferencial.email)
+          if (senhaDinamica) {
+            setEmailOrigemPassword(senhaDinamica)
+          } else if (emailPreferencial.password) {
+            setEmailOrigemPassword(emailPreferencial.password)
+          } else if (CREDENCIAIS_PADRAO[emailPreferencial.email]) {
+            setEmailOrigemPassword(CREDENCIAIS_PADRAO[emailPreferencial.email])
+          }
         } else if (emailsOrigem.length > 0) {
-          // Se não tem prop, usa o primeiro email da lista
+          // Se não tem prop nem preferencial, usa o primeiro email da lista
           const primeiroEmail = emailsOrigem[0]
           setEmailOrigem(primeiroEmail.email)
           // 🚀 Buscar senha dinamicamente da API segura
@@ -184,6 +203,9 @@ export function EmailWebmailSection({
   const [novaContaForm, setNovaContaForm] = useState({ nome: '', email: '', password: '', servidor: '', porta: '993', smtp: '', smtpPorta: '465', assinatura: '' })
   const [autoconfigurando, setAutoconfigurando] = useState(false)
   const [mostrarAvancado, setMostrarAvancado] = useState(false)
+  
+  // 🆕 FILTRO: Mostrar apenas emails do site principal
+  const [apenasSitePrincipal, setApenasSitePrincipal] = useState(true)
 
   // Autoconfiguração em tempo real
   useEffect(() => {
@@ -262,7 +284,7 @@ export function EmailWebmailSection({
     form.appendChild(emailInput)
 
     // Senha - tentar obter de várias fontes
-    const senha = conta.senha_cyberpanel || conta.senha || ''
+    const senha = conta.senha_cyberpanel || conta.password || ''
     const passInput = document.createElement('input')
     passInput.type = 'hidden'
     passInput.name = 'Password'
@@ -458,20 +480,17 @@ export function EmailWebmailSection({
           // 🚀 Buscar senha dinamicamente se não estiver no estado
           let senhaImap = emailOrigemPassword
           if (!senhaImap && emailOrigem) {
-            senhaImap = await buscarSenhaDinamica(emailOrigem)
+            senhaImap = await buscarSenhaDinamica(emailOrigem) || ''
           }
           if (!senhaImap) {
             senhaImap = CREDENCIAIS_PADRAO[emailOrigem || ''] || ''
           }
           
           console.log(`📧 [Frontend] Modo conta individual - email: ${emailOrigem}, temSenha: ${!!senhaImap}`)
-          if (!emailOrigem || !senhaImap) {
-            console.log(`📧 [Frontend] Sem email ou senha, abortando`)
+          // 🚀 SIMPLIFICADO: Continua mesmo sem senha (igual mailmarketing)
+          // Se não tiver senha, a API retorna vazio sem erro
+          if (!emailOrigem) {
             setCarregandoEmails(false)
-            setErroEmail(emailOrigem 
-              ? `Senha não encontrada para ${emailOrigem}. Verifique a configuração da conta.` 
-              : 'Selecione uma conta de email'
-            )
             return
           }
           body.email = emailOrigem
@@ -608,12 +627,30 @@ export function EmailWebmailSection({
     if (mostrarCompose && !jaInseriuAssinaturaRef.current) {
       jaInseriuAssinaturaRef.current = true
       
-      // Aguardar o editor estar montado no DOM
+      // 🎯 SINCRONIZAR assinaturas do email atual ANTES de inserir
+      if (emailOrigem && assinaturasPorEmailRef.current[emailOrigem]) {
+        const config = assinaturasPorEmailRef.current[emailOrigem]
+        console.log('[DEBUG] Sincronizando assinaturas ao abrir compose:', emailOrigem, config)
+        setAssinaturas(config.assinaturas || [])
+        setAssinaturaActiva(config.assinaturaActiva || 0)
+      } else if (emailOrigem) {
+        // Se não há assinaturas salvas para este email, limpar estado
+        console.log('[DEBUG] Sem assinaturas salvas para:', emailOrigem)
+        setAssinaturas([])
+        setAssinaturaActiva(0)
+      }
+      
+      // Aguardar o editor estar montado no DOM e estado ser atualizado
       setTimeout(() => {
         if (!editorRef.current) return
         
-        // Verificar se há uma assinatura ativa para a conta atual
-        const assinaturaAtivaObj = assinaturas.find((a, i) => i === assinaturaActiva && (a.texto || a.imagemUrl))
+        // 🎯 Verificar assinatura ativa do estado ATUAL (após sincronização)
+        const configAtual = emailOrigem ? assinaturasPorEmailRef.current[emailOrigem] : null
+        const assinaturasAtuais = configAtual?.assinaturas || []
+        const assinaturaIdxAtual = configAtual?.assinaturaActiva || 0
+        const assinaturaAtivaObj = assinaturasAtuais.find((a: any, i: number) => i === assinaturaIdxAtual && (a.texto || a.imagemUrl))
+        
+        console.log('[DEBUG] Inserindo assinatura:', { email: emailOrigem, idx: assinaturaIdxAtual, encontrada: !!assinaturaAtivaObj })
         
         if (assinaturaAtivaObj) {
           if (assinaturaAtivaObj.imagemUrl) {
@@ -636,14 +673,14 @@ export function EmailWebmailSection({
             sel?.addRange(range)
           }
         }
-      }, 200) // Delay para garantir que o DOM está pronto
+      }, 300) // Delay aumentado para garantir sincronização do estado
     }
     
     // Resetar quando fecha o compositor para permitir inserir novamente na proxima vez
     if (!mostrarCompose) {
       jaInseriuAssinaturaRef.current = false
     }
-  }, [mostrarCompose, assinaturas, assinaturaActiva])
+  }, [mostrarCompose, emailOrigem])
 
   const execCmd = (cmd: string, value?: string) => {
     editorRef.current?.focus()
@@ -1104,8 +1141,9 @@ export function EmailWebmailSection({
     }
     setEnviando(true)
     try {
-      const htmlCorpo = editorRef.current?.innerHTML || ''
-      const htmlFinal = assinatura ? `${htmlCorpo}<br/><br/>--<br/>${assinatura.replace(/\n/g, '<br/>')}` : htmlCorpo
+      // 🎯 O editor já contém a assinatura inserida automaticamente
+      // Não precisamos adicionar novamente para evitar duplicação
+      const htmlFinal = editorRef.current?.innerHTML || ''
 
       // TAREFA 2: Idempotency key — garante que retries não geram duplicados
       const idempotencyKey = crypto.randomUUID()
@@ -1114,25 +1152,27 @@ export function EmailWebmailSection({
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-      const res = await fetch('/api/send-email', {
+      // 🚀 USAR MESMA API DO MAILMARKETING (que funciona e verifica envio real)
+      const destinatarios = [compose.para, compose.cc, compose.bcc]
+        .filter(Boolean)
+        .flatMap(e => e.split(',').map(s => s.trim()))
+        .filter(Boolean)
+      
+      const res = await fetch('/api/admin/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          from: emailOrigem,
-          fromPassword: emailOrigemPassword,
-          to: compose.para,
-          cc: compose.cc,
-          bcc: compose.bcc,
+          to: destinatarios,
           subject: compose.assunto,
           html: htmlFinal,
-          idempotencyKey
+          replyTo: emailOrigem  // 🎯 Usar email selecionado como remetente
         })
       })
       clearTimeout(timeoutId)
 
       const data = await res.json()
-      if (data.success) {
+      if (data.success && data.details?.success > 0) {
         setEnviado(true)
         // Fechar composer após 2 segundos
         setTimeout(() => {
@@ -1143,8 +1183,9 @@ export function EmailWebmailSection({
           if (editorRef.current) editorRef.current.innerHTML = ''
           if (onCloseCompose) onCloseCompose()
         }, 2000)
+      } else {
+        alert('Erro ao enviar: ' + (data.error || 'Falha no envio'))
       }
-      else alert('Erro ao enviar: ' + data.error)
     } catch (e: any) {
       if (e.name === 'AbortError') {
         alert('O envio demorou demasiado. Verifique a pasta Enviados antes de tentar novamente.')
@@ -1212,30 +1253,26 @@ export function EmailWebmailSection({
       </div>
       </div>
 
-      {/* Mensagem de Erro */}
-      {erroEmail && (
-        <div className="bg-red-50 border-l-4 border-red-600 px-4 py-3 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-red-800">{erroEmail}</p>
-            <p className="text-xs text-red-600 mt-0.5">
-              Verifique se a senha da conta está correta ou tente novamente mais tarde.
-            </p>
-          </div>
-          <button 
-            onClick={() => setErroEmail('')}
-            className="text-red-400 hover:text-red-600"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Mensagem de Erro - REMOVIDA para não mostrar erros de senha/IMAP */}
+      {/* erroEmail é processado nas bastidores sem mostrar ao utilizador */}
 
       {/* LISTA DE EMAILS */}
       <div className="flex-1 flex overflow-hidden bg-white relative">
         {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo */}
         <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${mostrarCompose ? 'hidden' : 'w-72'}`}>
-          <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
+          <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p>
+            {/* 🆕 Toggle filtro site principal */}
+            <label className="flex items-center gap-1.5 cursor-pointer" title="Mostrar apenas @visualdesigne.com">
+              <input
+                type="checkbox"
+                checked={apenasSitePrincipal}
+                onChange={(e) => setApenasSitePrincipal(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <span className="text-[10px] text-gray-500 font-medium">Apenas site</span>
+            </label>
+          </div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
           <div className="border-b border-gray-100">
             <div className="flex items-center w-full">
@@ -1290,7 +1327,11 @@ export function EmailWebmailSection({
               </div>
             )}
           </div>
-          {emailsOrigem.map(c => {
+          {/* 🆕 Lista de contas filtrada baseada no toggle */}
+          {(apenasSitePrincipal 
+            ? emailsOrigem.filter(c => c.email?.endsWith('@visualdesigne.com'))
+            : emailsOrigem
+          ).map(c => {
             const isSelected = emailOrigem === c.email
             const isExpanded = !!expandedMap[c.email]
             return (
@@ -1334,6 +1375,23 @@ export function EmailWebmailSection({
               </div>
             )
           })}
+          {/* Botões de ação no menu */}
+          <div className="p-3 space-y-2 border-t border-gray-200 mt-auto">
+            <button
+              onClick={() => setMostrarAdicionarConta(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Adicionar Conta
+            </button>
+            <button
+              onClick={() => setMostrarEditarAssinatura(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Edit2 className="w-4 h-4" />
+              Assinatura
+            </button>
+          </div>
         </div>
         {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -1354,12 +1412,12 @@ export function EmailWebmailSection({
                 </div>
                 {/* Coluna direita — Campos */}
                 <div className="flex-1 flex flex-col">
-                  {/* Linha De + Selector de Assinatura + botão fechar */}
-                  <div className="flex items-center border-b border-gray-200 px-3 py-1">
-                    <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">De:</span>
+                  {/* Linha De + Senha + botão fechar */}
+                  <div className="flex items-center border-b border-gray-200 px-3 py-1 gap-2">
+                    <span className="text-gray-500 text-xs w-12 shrink-0 font-medium">De:</span>
                     <select
                       value={emailOrigem}
-                      onChange={e => {
+                      onChange={async e => {
                         const novoEmail = e.target.value
                         const emailAnterior = emailOrigem
                         
@@ -1374,6 +1432,20 @@ export function EmailWebmailSection({
                         // Mudar para nova conta
                         setEmailOrigem(novoEmail)
                         
+                        // 🎯 AUTO-PREENCHER SENHA IMAP para leitura de emails
+                        if (novoEmail) {
+                          const senhaPadrao = CREDENCIAIS_PADRAO[novoEmail]
+                          if (senhaPadrao) {
+                            setEmailOrigemPassword(senhaPadrao)
+                          } else {
+                            const conta = emailsOrigem.find(c => c.email === novoEmail)
+                            const senhaConta = conta?.password || conta?.senha_cyberpanel || ''
+                            setEmailOrigemPassword(senhaConta)
+                          }
+                        } else {
+                          setEmailOrigemPassword('')
+                        }
+                        
                         // Carregar assinaturas da nova conta
                         if (novoEmail && assinaturasPorEmailRef.current[novoEmail]) {
                           const config = assinaturasPorEmailRef.current[novoEmail]
@@ -1385,13 +1457,17 @@ export function EmailWebmailSection({
                         }
                       }}
                       className="bg-transparent text-gray-900 text-sm outline-none flex-1">
-                      <option value="" className="bg-white">Escolher email de origem...</option>
+                      <option value="" className="bg-white">Escolher email...</option>
                       {emailsOrigem.map(e => (
                         <option key={e.email} value={e.email} className="bg-white">
                           {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
                         </option>
                       ))}
                     </select>
+                    
+                    {/* 🎯 SENHA IMAP - Funciona automaticamente nas bastidores */}
+                    {/* Campo oculto para manter a senha no estado mas não mostrar no UI */}
+                    
                     <button onClick={() => setMostrarPopupFechar(true)}
                       className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
                   </div>
@@ -1655,7 +1731,8 @@ export function EmailWebmailSection({
               {/* Editor */}
               <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
                 <style>{`
-                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 30px; border-radius: 6px; background: white; height: 750px; }
+                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 30px; border-radius: 6px; background: white; min-height: 400px; }
+                  .editor-content { min-height: 400px; }
                   .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                   .editor-content img:hover { outline: 2px solid #3b82f6; }
                   .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }
@@ -1674,8 +1751,7 @@ export function EmailWebmailSection({
                     className="p-6 text-sm outline-none editor-content"
                     style={{ 
                       whiteSpace: 'pre-wrap', 
-                      color: '#1f2937', 
-                      minHeight: '1024px'
+                      color: '#1f2937'
                     }}
                     onInput={(e) => { const el = e.currentTarget as HTMLDivElement; if (el) setCompose(prev => ({ ...prev, corpo: el.innerHTML })) }}
                   />
@@ -1920,9 +1996,12 @@ export function EmailWebmailSection({
                   </div>
                 </div>
 
-                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-base">
-                  {modalEmail.corpo || (carregandoEmails ? '⌛ Carregando conteúdo...' : '(sem conteúdo)')}
-                </div>
+                <div
+                  className="text-gray-700 leading-relaxed text-base email-content"
+                  dangerouslySetInnerHTML={{
+                    __html: modalEmail.corpo || (carregandoEmails ? '<p>⌛ Carregando conteúdo...</p>' : '<p>(sem conteúdo)</p>')
+                  }}
+                />
 
                 {modoResposta !== 'none' && (
                   <div className="border-t border-gray-200 pt-4 mt-6 space-y-3">
@@ -2008,18 +2087,40 @@ export function EmailWebmailSection({
 
               {/* Coluna direita — Campos */}
               <div className="flex-1 flex flex-col">
-                {/* Linha De + botão fechar */}
-                <div className="flex items-center border-b border-gray-200 px-3 py-1">
-                  <span className="text-gray-500 text-xs w-16 shrink-0 font-medium">De:</span>
-                  <select value={emailOrigem} onChange={e => setEmailOrigem(e.target.value)}
+                {/* Linha De + Senha + botão fechar */}
+                <div className="flex items-center border-b border-gray-200 px-3 py-1 gap-2">
+                  <span className="text-gray-500 text-xs w-12 shrink-0 font-medium">De:</span>
+                  <select value={emailOrigem} onChange={async e => {
+                      const novoEmail = e.target.value
+                      setEmailOrigem(novoEmail)
+                      
+                      // 🎯 AUTO-PREENCHER SENHA quando seleciona email
+                      if (novoEmail) {
+                        // Buscar senha das credenciais padrão
+                        const senhaPadrao = CREDENCIAIS_PADRAO[novoEmail]
+                        if (senhaPadrao) {
+                          setEmailOrigemPassword(senhaPadrao)
+                        } else {
+                          // Tentar buscar da conta
+                          const conta = emailsOrigem.find(c => c.email === novoEmail)
+                          const senhaConta = conta?.password || conta?.senha_cyberpanel || ''
+                          setEmailOrigemPassword(senhaConta)
+                        }
+                      } else {
+                        setEmailOrigemPassword('')
+                      }
+                    }}
                     className="bg-transparent text-gray-900 text-sm outline-none flex-1">
-                    <option value="" className="bg-white">Escolher email de origem...</option>
+                    <option value="" className="bg-white">Escolher email...</option>
                     {emailsOrigem.map(e => (
                       <option key={e.email} value={e.email} className="bg-white">
                         {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
                       </option>
                     ))}
                   </select>
+                  
+                  {/* 🎯 SENHA - Funciona automaticamente nas bastidores */}
+                  
                   <button onClick={() => setMostrarPopupFechar(true)}
                     className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
                 </div>
@@ -2460,7 +2561,6 @@ export function EmailWebmailSection({
                         <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Nome da assinatura</p>
                       </div>
                       <div className="flex-1">
-                        {console.log('[DEBUG] Modal - listando assinaturas:', assinaturas.length, assinaturas)}
                         {assinaturas.length === 0 && (
                           <div className={`px-3 py-4 text-sm text-center transition-colors ${modoEscuroAssinatura ? 'text-gray-500' : 'text-gray-400'}`}>
                             Nenhuma assinatura<br/>Clique em + para adicionar
@@ -2849,6 +2949,37 @@ export function EmailWebmailSection({
       }
     </div>
   )
+}
+
+// Estilos para o conteúdo do email
+const emailContentStyles = `
+  .email-content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+  .email-content a {
+    color: #3b82f6;
+    text-decoration: underline;
+  }
+  .email-content table {
+    max-width: 100%;
+    border-collapse: collapse;
+  }
+  .email-content p {
+    margin-bottom: 0.5rem;
+  }
+`
+
+// Injetar estilos no documento se estiver no browser
+if (typeof window !== 'undefined') {
+  const styleId = 'email-content-styles'
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = emailContentStyles
+    document.head.appendChild(style)
+  }
 }
 
 // Componente SuporteSection

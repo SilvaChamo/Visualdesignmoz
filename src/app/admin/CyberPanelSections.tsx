@@ -1946,7 +1946,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
         }}
         onAccountAdded={(account) => {
           // Recarregar lista de emails
-          loadEmails()
+          loadEmails(selectedDomain)
         }}
       />
 
@@ -4665,7 +4665,7 @@ export function GitDeploySection() {
             {isLocal ? 'Modo local — commit + push → Vercel faz deploy automático.' : 'Modo produção — Vercel Deploy Hook.'}
           </p>
         </div>
-        <button onClick={loadStatus} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+        <button onClick={() => loadStatus()} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>
       </div>

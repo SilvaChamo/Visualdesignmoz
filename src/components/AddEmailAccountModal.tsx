@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Mail, ArrowLeft, Google, Monitor } from 'lucide-react'
+import { X, Mail, ArrowLeft, Monitor } from 'lucide-react'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 interface AddEmailAccountModalProps {
