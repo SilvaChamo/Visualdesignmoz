@@ -73,6 +73,33 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
         }
       }
       
+      // Fallback para listUsers via CLI
+      if (action === 'listUsers') {
+        console.log(`[FALLBACK] ${action} via server-exec API due to 500 error`);
+        try {
+          const res = await fetch('/api/server-exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'listUsers' })
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`[FALLBACK SUCCESS] ${action}:`, result);
+            
+            // server-exec retorna { success: true, data: [...] }
+            if (result.success && result.data) {
+              return result.data;
+            }
+          }
+        } catch (fallbackError: any) {
+          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+        }
+        // Retornar array vazio em vez de falhar
+        console.log(`[FALLBACK] Returning empty users array`);
+        return [];
+      }
+      
       // Fallback para DKIM - usar execução direta de comando
       if (action === 'getDKIMStatus' || action === 'enableDKIM') {
         console.log(`[FALLBACK] ${action} via server-exec API due to 500 error`);

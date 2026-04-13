@@ -77,7 +77,7 @@ export function EmailWebmailSection({
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
 
-  // Mapa de credenciais padrão para emails do sistema
+  // Mapa de credenciais padrão para emails do sistema (fallback)
   const CREDENCIAIS_PADRAO: Record<string, string> = {
     'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
     'geral@visualdesigne.com': 'Ge.Vd#2425?*',
@@ -92,40 +92,62 @@ export function EmailWebmailSection({
     'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
   }
 
-  // Configurar email e senha automaticamente quando abre o compositor
+  // 🚀 FUNÇÃO HELPER: Buscar senha dinamicamente da API segura
+  const buscarSenhaDinamica = async (email: string): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/email-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      const data = await res.json()
+      if (data.success && data.senha) {
+        return data.senha
+      }
+    } catch (e) {
+      console.error('[EmailWebmail] Erro ao buscar senha dinâmica:', e)
+    }
+    return null
+  }
+
+  // Configurar email e senha automaticamente quando abre o compositor (APENAS se não houver email selecionado)
   useEffect(() => {
     if (mostrarCompose) {
       const configurarEmailAutomatico = async () => {
-        // Se tem propEmailOrigem, usa ele
+        // SÓ configura automaticamente se NÃO houver email já selecionado
+        if (emailOrigem) {
+          // Já tem email selecionado - só garantir que temos a senha
+          if (!emailOrigemPassword) {
+            // 🚀 Buscar senha dinamicamente da API segura
+            const senhaDinamica = await buscarSenhaDinamica(emailOrigem)
+            if (senhaDinamica) {
+              setEmailOrigemPassword(senhaDinamica)
+            } else if (CREDENCIAIS_PADRAO[emailOrigem]) {
+              setEmailOrigemPassword(CREDENCIAIS_PADRAO[emailOrigem])
+            }
+          }
+          return
+        }
+        
+        // Se não tem email selecionado, usar propEmailOrigem ou o primeiro da lista
         if (propEmailOrigem) {
           setEmailOrigem(propEmailOrigem)
-          // Buscar senha da conta automaticamente
-          try {
-            const res = await fetch('/api/email-contas')
-            const data = await res.json()
-            if (data.success && data.contas) {
-              const conta = data.contas.find((c: any) => c.email === propEmailOrigem)
-              if (conta?.password_smtp) {
-                setEmailOrigemPassword(conta.password_smtp)
-              } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
-                // Usar senha padrão do mapa
-                setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
-              }
-            } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
-              // Usar senha padrão do mapa
-              setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
-            }
-          } catch {
-            // Fallback: usar senha padrão do mapa
-            if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
-              setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
-            }
+          // 🚀 Buscar senha dinamicamente da API segura
+          const senhaDinamica = await buscarSenhaDinamica(propEmailOrigem)
+          if (senhaDinamica) {
+            setEmailOrigemPassword(senhaDinamica)
+          } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+            setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
           }
         } else if (emailsOrigem.length > 0) {
           // Se não tem prop, usa o primeiro email da lista
           const primeiroEmail = emailsOrigem[0]
           setEmailOrigem(primeiroEmail.email)
-          if (primeiroEmail.password) {
+          // 🚀 Buscar senha dinamicamente da API segura
+          const senhaDinamica = await buscarSenhaDinamica(primeiroEmail.email)
+          if (senhaDinamica) {
+            setEmailOrigemPassword(senhaDinamica)
+          } else if (primeiroEmail.password) {
             setEmailOrigemPassword(primeiroEmail.password)
           } else if (CREDENCIAIS_PADRAO[primeiroEmail.email]) {
             setEmailOrigemPassword(CREDENCIAIS_PADRAO[primeiroEmail.email])
@@ -134,7 +156,7 @@ export function EmailWebmailSection({
       }
       configurarEmailAutomatico()
     }
-  }, [mostrarCompose, propEmailOrigem, emailsOrigem])
+  }, [mostrarCompose, propEmailOrigem, emailsOrigem, emailOrigem, emailOrigemPassword])
 
   // NOVO: Configurar email e senha quando o componente monta (para carregar caixa de entrada)
   useEffect(() => {
@@ -142,23 +164,12 @@ export function EmailWebmailSection({
       // Se tem propEmailOrigem, configura imediatamente
       if (propEmailOrigem) {
         setEmailOrigem(propEmailOrigem)
-        // Tentar obter senha do mapa de credenciais padrão
-        if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
+        // Tentar obter senha da API dinâmica primeiro
+        const senhaDinamica = await buscarSenhaDinamica(propEmailOrigem)
+        if (senhaDinamica) {
+          setEmailOrigemPassword(senhaDinamica)
+        } else if (CREDENCIAIS_PADRAO[propEmailOrigem]) {
           setEmailOrigemPassword(CREDENCIAIS_PADRAO[propEmailOrigem])
-        } else {
-          // Tentar buscar da API
-          try {
-            const res = await fetch('/api/email-contas')
-            const data = await res.json()
-            if (data.success && data.contas) {
-              const conta = data.contas.find((c: any) => c.email === propEmailOrigem)
-              if (conta?.password_smtp) {
-                setEmailOrigemPassword(conta.password_smtp)
-              }
-            }
-          } catch (e) {
-            console.error('Erro ao buscar senha:', e)
-          }
         }
       }
     }
@@ -230,7 +241,7 @@ export function EmailWebmailSection({
     }
 
     // Buscar senha da conta selecionada
-    const conta = contas.find(c => c.email === emailOrigem)
+    const conta = emailsOrigem.find(c => c.email === emailOrigem)
     if (!conta) {
       window.open(getWebmailUrl(), '_blank')
       return
@@ -444,11 +455,23 @@ export function EmailWebmailSection({
             return
           }
         } else {
-          const senhaImap = emailOrigemPassword || (emailOrigem?.endsWith('@your-domain.com') ? 'Ad.Vd#2425?*' : '')
+          // 🚀 Buscar senha dinamicamente se não estiver no estado
+          let senhaImap = emailOrigemPassword
+          if (!senhaImap && emailOrigem) {
+            senhaImap = await buscarSenhaDinamica(emailOrigem)
+          }
+          if (!senhaImap) {
+            senhaImap = CREDENCIAIS_PADRAO[emailOrigem || ''] || ''
+          }
+          
           console.log(`📧 [Frontend] Modo conta individual - email: ${emailOrigem}, temSenha: ${!!senhaImap}`)
           if (!emailOrigem || !senhaImap) {
             console.log(`📧 [Frontend] Sem email ou senha, abortando`)
             setCarregandoEmails(false)
+            setErroEmail(emailOrigem 
+              ? `Senha não encontrada para ${emailOrigem}. Verifique a configuração da conta.` 
+              : 'Selecione uma conta de email'
+            )
             return
           }
           body.email = emailOrigem
@@ -564,7 +587,7 @@ export function EmailWebmailSection({
         setAssinatura('')
       }
     }
-  }, [emailOrigem])
+  }, [emailOrigem, assinaturasPorEmail])
 
   // DESATIVADO: Salvamento automático causava conflitos
   // Agora só salva manualmente quando muda de conta no dropdown
@@ -1157,10 +1180,10 @@ export function EmailWebmailSection({
           Escrever
         </button>
       
-      <button onClick={abrirWebmailAutoLogin}
+      <a href={getWebmailUrl()} target="_blank"
         className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
-        {emailOrigem ? '📧 Webmail' : 'Webmail'}
-      </button>
+        {emailOrigem ? 'Webmail' : 'Webmail'}
+      </a>
       <div className="w-px h-5 bg-gray-700 mx-1" />
       {pastas.map(p => (
         <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
@@ -1189,10 +1212,29 @@ export function EmailWebmailSection({
       </div>
       </div>
 
+      {/* Mensagem de Erro */}
+      {erroEmail && (
+        <div className="bg-red-50 border-l-4 border-red-600 px-4 py-3 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800">{erroEmail}</p>
+            <p className="text-xs text-red-600 mt-0.5">
+              Verifique se a senha da conta está correta ou tente novamente mais tarde.
+            </p>
+          </div>
+          <button 
+            onClick={() => setErroEmail('')}
+            className="text-red-400 hover:text-red-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* LISTA DE EMAILS */}
       <div className="flex-1 flex overflow-hidden bg-white relative">
         {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo */}
-        <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto ${mostrarCompose ? 'hidden' : 'w-72'}`}>
+        <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${mostrarCompose ? 'hidden' : 'w-72'}`}>
           <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
           <div className="border-b border-gray-100">
@@ -1613,7 +1655,7 @@ export function EmailWebmailSection({
               {/* Editor */}
               <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
                 <style>{`
-                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 30px; border-radius: 6px; background: white; min-height: 1024px; }
+                  .editor-wrapper { border: 1px dashed #e5e7eb; margin: 30px; border-radius: 6px; background: white; height: 750px; }
                   .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                   .editor-content img:hover { outline: 2px solid #3b82f6; }
                   .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }
@@ -2254,7 +2296,7 @@ export function EmailWebmailSection({
                 )}
                 <div className="overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 500px)' }}>
                   <style>{`
-                    .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; }
+                    .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; height: 750px; }
                     .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                     .editor-content img:hover { outline: 2px solid #3b82f6; }
                     .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }

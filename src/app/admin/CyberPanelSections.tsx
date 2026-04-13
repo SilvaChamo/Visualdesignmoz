@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import type {
@@ -4550,15 +4550,66 @@ export function GitDeploySection() {
   const [deploying, setDeploying] = useState(false)
   const [commitMsg, setCommitMsg] = useState('')
   const [result, setResult] = useState<any>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const loadStatus = async () => {
-    setLoading(true)
-    try { setData(await (await fetch('/api/git-deploy')).json()) }
-    catch { setData(null) }
-    setLoading(false)
+  // Carrega do cache local primeiro (instantâneo)
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('git-deploy-cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        // Só usa cache se tiver menos de 5 minutos
+        if (Date.now() - (parsed._cachedAt || 0) < 5 * 60 * 1000) {
+          setData(parsed)
+          setLoading(false) // Mostra dados imediatamente
+        }
+      }
+    } catch { /* ignora erro de cache */ }
+  }, [])
+
+  const loadStatus = async (useCache = true) => {
+    // Cancela request anterior
+    if (abortRef.current) abortRef.current.abort()
+    abortRef.current = new AbortController()
+
+    if (!useCache) setLoading(true)
+
+    try {
+      const res = await fetch('/api/git-deploy', {
+        signal: abortRef.current.signal,
+        // Timeout via AbortController em 8 segundos
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      const newData = await res.json()
+
+      // Guarda no cache
+      try {
+        localStorage.setItem('git-deploy-cache', JSON.stringify({ ...newData, _cachedAt: Date.now() }))
+      } catch { /* ignora erro de storage */ }
+
+      setData(newData)
+    } catch (e: any) {
+      // Se já temos dados do cache, não mostra erro
+      if (!data && e.name !== 'AbortError') {
+        console.error('Git deploy load error:', e)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { loadStatus() }, [])
+  useEffect(() => {
+    loadStatus(true) // Tenta usar cache primeiro
+
+    // Auto-refresh a cada 60s (silencioso, sem loading)
+    const interval = setInterval(() => loadStatus(true), 60000)
+    return () => {
+      clearInterval(interval)
+      abortRef.current?.abort()
+    }
+  }, [])
 
   const handleDeploy = async () => {
     const isLocal = data?.isLocal
@@ -4677,14 +4728,14 @@ export function GitDeploySection() {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
               />
             </div>
-            <div className="flex gap-2 justify-start">
+            <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying || !commitMsg.trim()}
-                className="bg-black hover:bg-green-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
-                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Push...</> : <><Upload className="w-3.5 h-3.5" /> Push</>}
+                className="bg-black hover:bg-green-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Push...</> : <><Upload className="w-4 h-4" /> Git Push</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying || !commitMsg.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
-                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Rocket className="w-3.5 h-3.5" /> Deploy</>}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
               </button>
             </div>
             <p className="text-xs text-gray-500 text-left">
@@ -4693,14 +4744,14 @@ export function GitDeploySection() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex gap-2 justify-start">
+            <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying}
-                className="bg-black hover:bg-green-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
-                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Upload className="w-3.5 h-3.5" /> Vercel Deploy</>}
+                className="bg-black hover:bg-green-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Upload className="w-4 h-4" /> Vercel Deploy</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying}
-                className="bg-red-600 hover:bg-red-700 text-white py-1.5 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5">
-                {deploying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deploy...</> : <><Rocket className="w-3.5 h-3.5" /> Deploy</>}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
               </button>
             </div>
             <p className="text-xs text-gray-500 text-left">

@@ -384,6 +384,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length })
   } catch (error: any) {
     console.error('Erro ao ler emails:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Melhorar mensagem de erro para o cliente
+    let errorMessage = 'Erro ao conectar ao servidor de email'
+    
+    if (error.message?.includes('Authentication failed') || error.message?.includes('auth')) {
+      errorMessage = 'Autenticação falhou - verifique a senha da conta'
+    } else if (error.message?.includes('connect') || error.message?.includes('ECONNREFUSED')) {
+      errorMessage = 'Não foi possível conectar ao servidor IMAP - verifique se o email existe'
+    } else if (error.message?.includes('mailbox') || error.message?.includes('Mailbox')) {
+      errorMessage = 'Pasta de email não encontrada'
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    return NextResponse.json({ error: errorMessage, details: error.message }, { status: 500 })
   }
 }

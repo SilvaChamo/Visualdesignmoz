@@ -1751,6 +1751,7 @@ export default function AdminPage() {
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
+      case 'emails-webmail':
         return <EmailWebmailSection 
           emailOrigem="geral@visualdesigne.com"
           sites={filteredSites}
@@ -1918,7 +1919,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'}`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-0'}`}>
           <div
             key={activeSection}
             className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}

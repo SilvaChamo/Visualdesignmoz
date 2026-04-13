@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
+import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -3557,6 +3558,7 @@ export default function AdminPage() {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'domains', label: 'O Meu Site', icon: Globe },
     { id: 'emails-new', label: 'Email', icon: Mail },
+    { id: 'webmail', label: '📧 Webmail', icon: Globe, highlight: true },
     { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
     { id: 'tickets', label: 'Suporte', icon: Users },
     { id: 'faturas', label: 'Faturas', icon: FileText },
@@ -3633,6 +3635,12 @@ export default function AdminPage() {
         return <FacturacaoSection />
       case 'conta':
         return <ContaSection />
+      case 'webmail':
+        return <WebmailSection
+          sites={cyberPanelSites}
+          userEmail={sessionUser}
+          onBack={() => setActiveSection('emails-new')}
+        />
       case 'domains-new':
         // return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Criar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3822,24 +3830,39 @@ export default function AdminPage() {
               const Icon = item.icon
               const isActive = activeSection === item.id ||
                 (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
-                (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
+                (item.id === 'emails-new' && (activeSection.startsWith('cp-email') || activeSection === 'webmail')) ||
+                (item.id === 'webmail' && activeSection === 'webmail') ||
                 (item.id === 'cp-security' && activeSection === 'cp-security')
+              const isWebmail = item.id === 'webmail'
+              
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${isActive
-                    ? 'bg-red-50 text-red-600 font-bold'
-                    : 'hover:bg-gray-100 text-gray-600'
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${
+                    isActive
+                      ? isWebmail 
+                        ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-200' 
+                        : 'bg-red-50 text-red-600 font-bold'
+                      : isWebmail
+                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200'
+                        : 'hover:bg-gray-100 text-gray-600'
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={isActive ? 'text-red-600' : 'text-gray-500'} />
+                  <Icon size={22} className={
+                    isActive 
+                      ? isWebmail ? 'text-white' : 'text-red-600'
+                      : isWebmail ? 'text-blue-600' : 'text-gray-500'
+                  } />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
                   {!isCollapsed && isActive && (
-                    <ChevronRight size={14} className="ml-auto text-red-400" />
+                    <ChevronRight size={14} className={isWebmail ? 'ml-auto text-blue-200' : 'ml-auto text-red-400'} />
+                  )}
+                  {!isCollapsed && isWebmail && !isActive && (
+                    <span className="ml-auto text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">NEW</span>
                   )}
                 </button>
               )
@@ -3932,7 +3955,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'} bg-slate-50/50`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto p-0'} bg-slate-50/50`}>
           <div
             key={activeSection}
             className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}
