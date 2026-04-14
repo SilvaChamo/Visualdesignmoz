@@ -729,6 +729,7 @@ export function WebmailSection({
                 externalSetAssinaturaAtiva={setAssinaturaAtiva}
                 externalAssinaturasPorEmailRef={assinaturasPorEmailRef}
                 externalModoEscuro={modoEscuroAssinatura}
+                isAdmin={isAdmin}
               />
             </div>
           ) : viewMode === 'iframe' ? (
@@ -878,7 +879,6 @@ export function WebmailSection({
                   </div>
                 )}
               </div>
-         </>
             )}
           </div>
         </div>

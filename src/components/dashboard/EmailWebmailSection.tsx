@@ -21,117 +21,7 @@ const CORES_PALETA = [
   '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79', '#85200c', '#783f04', '#7f6000',
 ]
 
-// 🧪 Componente para testar caminho do email antes de enviar
-function TestarCaminhoButton({ from, to, fromPassword, disabled }: { from: string, to: string, fromPassword?: string, disabled: boolean }) {
-  const [testing, setTesting] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [showModal, setShowModal] = useState(false)
 
-  const testarCaminho = async () => {
-    if (!from || !to) return
-    setTesting(true)
-    setResult(null)
-    
-    try {
-      const res = await fetch('/api/test-email-path', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to, fromPassword })
-      })
-      const data = await res.json()
-      setResult(data)
-      setShowModal(true)
-    } catch (e: any) {
-      setResult({ success: false, error: e.message })
-      setShowModal(true)
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  return (
-    <>
-      <button 
-        onClick={testarCaminho}
-        disabled={disabled || testing}
-        className="flex-1 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 text-blue-700 font-medium px-2 py-2 text-xs flex flex-col items-center justify-center gap-0.5 border-t border-gray-200 transition-colors min-w-[110px]"
-      >
-        {testing ? (
-          <><span className="animate-spin">🔄</span><span className="text-[10px]">A testar...</span></>
-        ) : (
-          <><span>🧪</span><span className="text-[10px] uppercase">Testar Caminho</span></>
-        )}
-      </button>
-
-      {/* Modal de resultado */}
-      {showModal && result && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-5" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                result.status === 'ready' ? 'bg-green-100' : 
-                result.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100'
-              }`}>
-                {result.status === 'ready' ? '✅' : result.status === 'warning' ? '⚠️' : '❌'}
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900">Teste de Caminho</h3>
-                <p className={`text-sm ${
-                  result.status === 'ready' ? 'text-green-600' : 
-                  result.status === 'warning' ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {result.message}
-                </p>
-              </div>
-            </div>
-
-            {result.report?.stages && (
-              <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
-                {result.report.stages.map((stage: any, idx: number) => (
-                  <div key={idx} className={`p-3 rounded-lg text-sm ${
-                    stage.status === 'ok' ? 'bg-green-50 border border-green-200' :
-                    stage.status === 'warning' ? 'bg-yellow-50 border border-yellow-200' :
-                    'bg-red-50 border border-red-200'
-                  }`}>
-                    <div className="flex items-center gap-2 font-medium">
-                      <span>{stage.status === 'ok' ? '✓' : stage.status === 'warning' ? '!' : '✗'}</span>
-                      <span className="capitalize">{stage.name.replace(/_/g, ' ')}</span>
-                    </div>
-                    <p className="text-gray-600 mt-1">{stage.message}</p>
-                    {stage.factors && (
-                      <ul className="mt-2 space-y-1">
-                        {stage.factors.map((f: string, i: number) => (
-                          <li key={i} className="text-xs text-amber-700">• {f}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowModal(false)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Fechar
-              </button>
-              {result.canSend && (
-                <button 
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Prosseguir com Envio
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
 
 export function EmailWebmailSection({
   mostrarAdicionarConta: propMostrarAdicionarConta,
@@ -150,7 +40,8 @@ export function EmailWebmailSection({
   externalSetAssinaturas,
   externalSetAssinaturaAtiva,
   externalAssinaturasPorEmailRef,
-  externalModoEscuro
+  externalModoEscuro,
+  isAdmin = false
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
@@ -169,6 +60,7 @@ export function EmailWebmailSection({
   externalSetAssinaturaAtiva?: (index: number) => void
   externalAssinaturasPorEmailRef?: React.MutableRefObject<Record<string, any>>
   externalModoEscuro?: boolean
+  isAdmin?: boolean
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -1483,7 +1375,7 @@ export function EmailWebmailSection({
             <div className={`flex flex-col bg-white h-full min-h-0 ${hideSidebar ? 'w-full' : ''}`}>
               {/* Header do Compose - compacto, sem overflow */}
               <div className="bg-gray-50 border-b border-gray-200 flex shrink-0">
-                {/* Coluna esquerda — botões Enviar + Testar */}
+                {/* Coluna esquerda — botão Enviar */}
                 <div className="flex flex-col border-r border-gray-200 shrink-0">
                   <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
                     className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
@@ -1492,13 +1384,6 @@ export function EmailWebmailSection({
                       : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
                     }
                   </button>
-                  {/* 🧪 Botão Testar Caminho */}
-                  <TestarCaminhoButton 
-                    from={emailOrigem} 
-                    to={compose.para} 
-                    fromPassword={emailsOrigem.find(a => a.email === emailOrigem)?.password}
-                    disabled={!compose.para || !emailOrigem}
-                  />
                 </div>
                 {/* Coluna direita — Campos */}
                 <div className="flex-1 flex flex-col">
