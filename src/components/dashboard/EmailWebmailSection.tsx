@@ -2373,6 +2373,8 @@ export function EmailWebmailSection({
                   setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
                   setAnexos([])
                   if (editorRef.current) editorRef.current.innerHTML = ''
+                  // Notificar o componente pai que o compose foi fechado
+                  onCloseCompose?.()
                 }}
                   className="flex-1 bg-black/70 hover:bg-red-900 text-white font-bold py-2 rounded-lg text-xs transition-colors">
                   🗑️ Descartar

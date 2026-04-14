@@ -1,0 +1,20 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:02 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:04 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:06 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:07 --:--:--     0100   598    0   598    0     0     79      0 --:--:--  0:00:07 --:--:--   139
+HTTP/1.1 200 OK
+X-DNS-Prefetch-Control: on
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-XSS-Protection: 1; mode=block
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.supabase.co res.cloudinary.com; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co *.google.com accounts.google.com *.visualdesigne.com vps.visualdesigne.com; frame-src *.google.com accounts.google.com; object-src 'none';
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Tue, 14 Apr 2026 07:39:01 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"emails":[{"email":"admin@visualdesigne.com","user":"admin","domain":"visualdesigne.com","usage":"1"},{"email":"geral@visualdesigne.com","user":"geral","domain":"visualdesigne.com","usage":"11"},{"email":"info@visualdesigne.com","user":"info","domain":"visualdesigne.com","usage":"1"},{"email":"noreply@visualdesigne.com","user":"noreply","domain":"visualdesigne.com","usage":"1"},{"email":"silva.chamo@visualdesigne.com","user":"silva.chamo","domain":"visualdesigne.com","usage":"1"},{"email":"suporte@visualdesigne.com","user":"suporte","domain":"visualdesigne.com","usage":"1"}]}

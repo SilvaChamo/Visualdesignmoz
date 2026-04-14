@@ -408,8 +408,8 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
       ) : (
         /* Modo lista - Interface própria */
         <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar - Folders */}
-          <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
+          {/* Sidebar - Folders - Escondida SEM EFEITO quando compose está ativo */}
+          <div className={`bg-white border-r border-gray-200 flex flex-col shrink-0 ${showAdvancedCompose ? 'hidden' : 'w-56'}`}>
             {/* Nova Mensagem */}
             <div className="p-3">
               <button
