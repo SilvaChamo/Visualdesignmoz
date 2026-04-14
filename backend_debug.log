@@ -1044,3 +1044,120 @@ Using the user object as returned from supabase.auth.getSession() or from some s
  POST /api/email-senha 404 in 1092ms (compile: 3ms, render: 1089ms)
  POST /api/read-emails 200 in 3.4s (compile: 9ms, render: 3.4s)
  POST /api/read-emails 200 in 3.7s (compile: 191ms, render: 3.5s)
+🔍 [CP API] Buscando emails para visualdesigne.com
+Using the user object as returned from supabase.auth.getSession() or from some supabase.auth.onAuthStateChange() events could be insecure! This value comes directly from the storage medium (usually cookies on the server) and may not be authentic. Use supabase.auth.getUser() instead which authenticates the data by contacting the Supabase Auth server.
+Using the user object as returned from supabase.auth.getSession() or from some supabase.auth.onAuthStateChange() events could be insecure! This value comes directly from the storage medium (usually cookies on the server) and may not be authentic. Use supabase.auth.getUser() instead which authenticates the data by contacting the Supabase Auth server.
+Using the user object as returned from supabase.auth.getSession() or from some supabase.auth.onAuthStateChange() events could be insecure! This value comes directly from the storage medium (usually cookies on the server) and may not be authentic. Use supabase.auth.getUser() instead which authenticates the data by contacting the Supabase Auth server.
+ GET /api/cyberpanel-list-emails?domain=visualdesigne.com 200 in 5.0s (compile: 31ms, render: 5.0s)
+🔍 [CP API] Buscando emails para oshercollective.com
+🔍 [CP API] Buscando emails para visualdesigne.com
+ GET /api/cyberpanel-list-emails?domain=visualdesigne.com 200 in 12ms (compile: 4ms, render: 8ms)
+ GET /api/cyberpanel-list-emails?domain=oshercollective.com 200 in 5.0s (compile: 5ms, render: 5.0s)
+🔍 [CP API] Buscando emails para aamihe.com
+ POST /api/email-senha 404 in 10.5s (compile: 7ms, render: 10.5s)
+ POST /api/email-senha 404 in 10.5s (compile: 1874µs, render: 10.5s)
+ POST /api/email-senha 404 in 10.6s (compile: 6ms, render: 10.5s)
+ GET /api/cyberpanel-list-emails?domain=aamihe.com 200 in 5.0s (compile: 2ms, render: 5.0s)
+🔍 [CP API] Buscando emails para anap.co.mz
+🔍 [CP API] Buscando emails para aamihe.com
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+ GET /api/cyberpanel-list-emails?domain=anap.co.mz 200 in 5.0s (compile: 5ms, render: 5.0s)
+🔍 [CP API] Buscando emails para anap.co.mz
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+ GET /api/cyberpanel-list-emails?domain=anap.co.mz 200 in 14ms (compile: 3ms, render: 11ms)
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+❌ [CP API] Erro: Error: Timed out while waiting for handshake
+    at ignore-listed frames {
+  level: 'client-timeout'
+}
+Erro ao ler emails: Error: connect ETIMEDOUT 109.199.104.22:993
+    at <unknown> (Error: connect ETIMEDOUT 109.199.104.22:993) {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'connect',
+  address: '109.199.104.22',
+  port: 993
+}
+ POST /api/read-emails 500 in 28.3s (compile: 3ms, render: 28.3s)
+Erro ao ler emails: Error: connect ETIMEDOUT 109.199.104.22:993
+    at <unknown> (Error: connect ETIMEDOUT 109.199.104.22:993) {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'connect',
+  address: '109.199.104.22',
+  port: 993
+}
+ POST /api/read-emails 500 in 28.2s (compile: 2ms, render: 28.2s)
+Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: '19kqsim7r9lp8zb5bji3'
+}
+⨯ uncaughtException: Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: '19kqsim7r9lp8zb5bji3'
+}
+⨯ uncaughtException:  Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: '19kqsim7r9lp8zb5bji3'
+}
+Erro ao ler emails: Error: Unexpected close
+    at ignore-listed frames {
+  code: 'ClosedAfterConnectTLS'
+}
+ POST /api/read-emails 500 in 39.4s (compile: 2ms, render: 39.4s)
+Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: 'g7lbcq8q7gyhufutb3e4'
+}
+⨯ uncaughtException: Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: 'g7lbcq8q7gyhufutb3e4'
+}
+⨯ uncaughtException:  Error: read ETIMEDOUT
+    at ignore-listed frames {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'read',
+  _connId: 'g7lbcq8q7gyhufutb3e4'
+}
+Erro ao ler emails: Error: Unexpected close
+    at ignore-listed frames {
+  code: 'ClosedAfterConnectTLS'
+}
+ POST /api/read-emails 500 in 39.4s (compile: 3ms, render: 39.4s)

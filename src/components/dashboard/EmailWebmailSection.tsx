@@ -1156,8 +1156,8 @@ export function EmailWebmailSection({
   return (
     <div className="flex flex-col h-full w-full">
 
-      {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo */}
-      <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${mostrarCompose ? 'hidden' : ''}`}>
+      {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo ou hideSidebar=true */}
+      <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${(mostrarCompose || hideSidebar) ? 'hidden' : ''}`}>
         <button onClick={() => {
           setMostrarCompose(true)
           setEnviado(false)
