@@ -13,7 +13,7 @@ echo "=== CONFIGURACAO SMTP CYBERPANEL ===\n\n";
 // Verificar se é admin
 $auth = false;
 if (isset($_SERVER['PHP_AUTH_USER'])) {
-    if ($_SERVER['PHP_AUTH_USER'] === 'admin' && $_SERVER['PHP_AUTH_PW'] === 'EmailAdmin#2425') {
+    if ($_SERVER['PHP_AUTH_USER'] === 'admin' && $_SERVER['PHP_AUTH_PW'] === 'Ad.Vd#2425?*') {
         $auth = true;
     }
 }
@@ -21,7 +21,7 @@ if (isset($_SERVER['PHP_AUTH_USER'])) {
 if (!$auth) {
     header('WWW-Authenticate: Basic realm="CyberPanel SMTP Setup"');
     header('HTTP/1.0 401 Unauthorized');
-    echo "Acesso negado. Use: admin / EmailAdmin#2425\n";
+    echo "Acesso negado. Use: admin / Ad.Vd#2425?*\n";
     exit;
 }
 
@@ -64,7 +64,7 @@ passthru('sudo postfix check 2>&1');
 echo "\n=== CONCLUSAO ===\n";
 echo "SMTP configurado no servidor 109.199.104.22\n";
 echo "Portas: 587 (STARTTLS), 465 (SSL)\n";
-echo "Credenciais: admin@visualdesigne.com / EmailAdmin#2425\n";
+echo "Credenciais: admin@visualdesigne.com / Ad.Vd#2425?*\n";
 echo "\nProximo passo: Abrir firewall no painel Contabo (TCP 587, 465)\n";
 echo "Teste: telnet 109.199.104.22 587\n";
 ?>
@@ -72,8 +72,8 @@ EOF
 
 3. Aceda no browser:
    https://109.199.104.22:8090/setup-smtp.php
-   Login: admin
-   Password: EmailAdmin#2425
+    Login: admin
+    Password: Ad.Vd#2425?*
 
 4. O script executa automaticamente e mostra resultado.
 

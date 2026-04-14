@@ -1,55 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client } from 'ssh2';
+import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
 
-// 🚀 SSH para conectar ao CyberPanel
-const CP_HOST = '109.199.104.22';
-const CP_PORT = 22;
-const CP_USER = 'root';
-
-async function execSSH(command: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const conn = new Client();
-    let out = '';
-    const rawKey = process.env.SSH_PRIVATE_KEY || '';
-    
-    if (!rawKey.includes('BEGIN') || !rawKey.includes('END')) {
-      return reject(new Error('SSH_PRIVATE_KEY inválida'));
-    }
-    
-    const privateKey = rawKey.replace(/\\n/g, '\n');
-
-    const timeout = setTimeout(() => {
-      conn.end();
-      reject(new Error('SSH timeout'));
-    }, 20000);
-
-    conn.on('ready', () => {
-      clearTimeout(timeout);
-      conn.exec(command, (err, stream) => {
-        if (err) { conn.end(); return reject(err); }
-        stream.on('data', (d: Buffer) => { out += d.toString(); });
-        stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
-        stream.on('close', () => { 
-          conn.end(); 
-          resolve(out); 
-        });
-      });
-    });
-
-    conn.on('error', (err) => {
-      clearTimeout(timeout);
-      reject(err);
-    });
-
-    conn.connect({
-      host: CP_HOST,
-      port: CP_PORT,
-      username: CP_USER,
-      privateKey: Buffer.from(privateKey),
-      readyTimeout: 15000,
-    });
-  });
-}
+const ALLOWED_DOMAINS = [
+  'visualdesigne.com',
+  'anap.co.mz',
+  'entrecampos.co.mz'
+];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -62,57 +18,60 @@ export async function GET(req: NextRequest) {
   try {
     console.log(`🔍 [CP API] Buscando emails para ${domain}`);
     
-    // 🚀 Buscar emails via SSH do CyberPanel
-    // 1. Tentar via MySQL do vmail (mais rápido)
-    const command = `mysql vmail -e "SELECT username FROM users WHERE domain='${domain}';" -B -N 2>/dev/null || echo ''`;
+    const cleanDomain = domain.replace(/[^a-zA-Z0-9_.-]/g, '');
     
-    const raw = await execSSH(command);
+    // 🚀 Usar MySQL do CyberPanel para listar emails
+    const command = `mysql -D cyberpanel -e "SELECT email FROM e_users WHERE emailOwner_id='${cleanDomain}';" -B -N`;
+    
+    const raw = await executeCyberPanelCommand(command);
     console.log(`📧 [CP API] Raw output:`, raw);
     
     let emails: string[] = [];
     
-    if (raw) {
-      emails = raw
-        .split('\n')
-        .filter(line => line.trim() && !line.includes(' '))
-        .map(line => `${line.trim()}@${domain}`);
-    }
-    
-    // Se não encontrou no vmail, tentar pelo CyberPanel CLI
-    if (emails.length === 0) {
-      try {
-        const cpCommand = `cyberpanel listEmails --domainName ${domain} 2>&1`;
-        const cpRaw = await execSSH(cpCommand);
-        console.log(`📧 [CP CLI] Output:`, cpRaw);
-        
-        // Tentar parsear JSON ou extrair emails
-        try {
-          const parsed = JSON.parse(cpRaw);
-          if (parsed.email_accounts) {
-            emails = parsed.email_accounts.map((e: any) => e.email || `${e.user}@${domain}`);
-          } else if (Array.isArray(parsed)) {
-            emails = parsed.map((e: any) => typeof e === 'string' ? e : (e.email || `${e.user}@${domain}`));
-          }
-        } catch {
-          // Extrair linhas que parecem emails
-          emails = cpRaw
-            .split('\n')
-            .filter(line => line.includes('@') && !line.includes(' '))
-            .map(line => line.trim().toLowerCase());
+    if (raw && raw.trim()) {
+      const lines = raw.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.includes('ERROR') && !trimmed.includes('error')) {
+          emails.push(trimmed.toLowerCase());
         }
-      } catch (cliError) {
-        console.error(`📧 [CP CLI] Erro:`, cliError);
       }
     }
     
-    // Garantir formato correto
-    emails = [...new Set(
-      emails
-        .filter((e: string) => e && e.includes('@'))
-        .map((e: string) => e.toLowerCase().trim())
-    )];
+    // Remover duplicatas e emails inválidos/suspeitos
+    emails = [...new Set(emails)];
+    
+    // 🚫 FILTRO: Remover emails inválidos ou indesejados
+    const emailsInvalidos = [
+      'contato@joao.visualdesign.ao',  // Email do João - remover
+      'teste@',                         // Emails de teste
+      'exemplo@',                       // Emails de exemplo
+      'admin@your-domain.com',          // Template placeholder
+    ];
+    
+    emails = emails.filter((email) => {
+      // 1. Filtrar domínios permitidos
+      const emailDomain = email.split('@')[1];
+      if (!ALLOWED_DOMAINS.includes(emailDomain)) {
+        return false;
+      }
 
-    console.log(`✅ [CP API] Emails encontrados:`, emails);
+      // 2. Verificar se é um dos emails inválidos
+      const isInvalid = emailsInvalidos.some(invalid => 
+        email.toLowerCase().includes(invalid.toLowerCase())
+      );
+      
+      // 3. Verificar se contém padrões suspeitos
+      const isSuspicious = 
+        email.includes('joao') ||
+        email.includes('teste') ||
+        email.includes('exemplo') ||
+        email.includes('your-domain');
+      
+      return !isInvalid && !isSuspicious;
+    });
+
+    console.log(`✅ [CP API] Emails encontrados: ${emails.length}`, emails);
 
     return NextResponse.json({
       success: true,

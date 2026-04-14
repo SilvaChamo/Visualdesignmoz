@@ -18,7 +18,20 @@ export const authService = {
         },
       },
     })
-    
+
+    // If signUp succeeded, trigger server-side on-register to create profile and cyberpanel email
+    try {
+      if (data?.user?.email) {
+        await fetch('/api/on-register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: data.user.id, email: data.user.email, name })
+        })
+      }
+    } catch (e) {
+      console.warn('on-register hook failed:', e)
+    }
+
     return { data, error }
   },
 

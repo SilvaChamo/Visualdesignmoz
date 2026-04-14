@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Users, Search, Server as ServerIcon, Settings, Target, HelpCircle,
   Menu, Bell, ChevronDown, Check, CreditCard, ChevronDown as ChevronDownIcon,
   Search as SearchIcon, Paperclip as PaperclipIcon, Check as CheckIcon,
   MoreVertical as MoreVerticalIcon, Star as StarIcon, Reply as ReplyIcon,
   CornerUpRight as CornerUpRightIcon, Trash as TrashIcon, Download as DownloadIcon,
-  Plus as PlusIcon, LayoutGrid, Palette, Type, MousePointer, Box,
+  Plus, Plus as PlusIcon, LayoutGrid, Palette, Type, MousePointer, Box,
   Trash2 as Trash2Icon, RefreshCw as RefreshCwIcon, LogOut as LogOutIcon, X, Upload,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, AlertCircle, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
 } from 'lucide-react'
@@ -21,6 +21,118 @@ const CORES_PALETA = [
   '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79', '#85200c', '#783f04', '#7f6000',
 ]
 
+// 🧪 Componente para testar caminho do email antes de enviar
+function TestarCaminhoButton({ from, to, fromPassword, disabled }: { from: string, to: string, fromPassword?: string, disabled: boolean }) {
+  const [testing, setTesting] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [showModal, setShowModal] = useState(false)
+
+  const testarCaminho = async () => {
+    if (!from || !to) return
+    setTesting(true)
+    setResult(null)
+    
+    try {
+      const res = await fetch('/api/test-email-path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, fromPassword })
+      })
+      const data = await res.json()
+      setResult(data)
+      setShowModal(true)
+    } catch (e: any) {
+      setResult({ success: false, error: e.message })
+      setShowModal(true)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <>
+      <button 
+        onClick={testarCaminho}
+        disabled={disabled || testing}
+        className="flex-1 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 text-blue-700 font-medium px-2 py-2 text-xs flex flex-col items-center justify-center gap-0.5 border-t border-gray-200 transition-colors min-w-[110px]"
+      >
+        {testing ? (
+          <><span className="animate-spin">🔄</span><span className="text-[10px]">A testar...</span></>
+        ) : (
+          <><span>🧪</span><span className="text-[10px] uppercase">Testar Caminho</span></>
+        )}
+      </button>
+
+      {/* Modal de resultado */}
+      {showModal && result && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
+                result.status === 'ready' ? 'bg-green-100' : 
+                result.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100'
+              }`}>
+                {result.status === 'ready' ? '✅' : result.status === 'warning' ? '⚠️' : '❌'}
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Teste de Caminho</h3>
+                <p className={`text-sm ${
+                  result.status === 'ready' ? 'text-green-600' : 
+                  result.status === 'warning' ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {result.message}
+                </p>
+              </div>
+            </div>
+
+            {result.report?.stages && (
+              <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                {result.report.stages.map((stage: any, idx: number) => (
+                  <div key={idx} className={`p-3 rounded-lg text-sm ${
+                    stage.status === 'ok' ? 'bg-green-50 border border-green-200' :
+                    stage.status === 'warning' ? 'bg-yellow-50 border border-yellow-200' :
+                    'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 font-medium">
+                      <span>{stage.status === 'ok' ? '✓' : stage.status === 'warning' ? '!' : '✗'}</span>
+                      <span className="capitalize">{stage.name.replace(/_/g, ' ')}</span>
+                    </div>
+                    <p className="text-gray-600 mt-1">{stage.message}</p>
+                    {stage.factors && (
+                      <ul className="mt-2 space-y-1">
+                        {stage.factors.map((f: string, i: number) => (
+                          <li key={i} className="text-xs text-amber-700">• {f}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setShowModal(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                Fechar
+              </button>
+              {result.canSend && (
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Prosseguir com Envio
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export function EmailWebmailSection({
   mostrarAdicionarConta: propMostrarAdicionarConta,
   setMostrarAdicionarConta: propSetMostrarAdicionarConta,
@@ -31,7 +143,14 @@ export function EmailWebmailSection({
   defaultCompose = false,
   onCloseCompose,
   onComposeStateChange,
-  hideSidebar = false
+  hideSidebar = false,
+  // Props para assinaturas externas (quando usado inline)
+  externalAssinaturas,
+  externalAssinaturaAtiva,
+  externalSetAssinaturas,
+  externalSetAssinaturaAtiva,
+  externalAssinaturasPorEmailRef,
+  externalModoEscuro
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
@@ -43,6 +162,13 @@ export function EmailWebmailSection({
   onCloseCompose?: () => void
   onComposeStateChange?: (isActive: boolean) => void
   hideSidebar?: boolean
+  // Props para assinaturas externas
+  externalAssinaturas?: { nome: string, activa: boolean, texto: string, imagemUrl: string }[]
+  externalAssinaturaAtiva?: number
+  externalSetAssinaturas?: React.Dispatch<React.SetStateAction<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>>
+  externalSetAssinaturaAtiva?: (index: number) => void
+  externalAssinaturasPorEmailRef?: React.MutableRefObject<Record<string, any>>
+  externalModoEscuro?: boolean
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -79,11 +205,14 @@ export function EmailWebmailSection({
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
 
+  const memoEmailsOrigem = useMemo(() => emailsOrigem, [emailsOrigem])
+
   // Mapa de credenciais padrão para emails do sistema (fallback)
   const CREDENCIAIS_PADRAO: Record<string, string> = {
     'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+    'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
     'geral@visualdesigne.com': 'Ge.Vd#2425?*',
-    'admin@visualdesigne.com': 'EmailAdmin#2425',
+    'admin@visualdesigne.com': 'Ad.Vd#2425?*',
     'info@visualdesigne.com': 'Informação!#2020?*',
     'suporte@visualdesigne.com': 'SupaEmail#2026?*',
     'noreply@visualdesigne.com': 'VisualDesign#2026',
@@ -180,6 +309,10 @@ export function EmailWebmailSection({
   const [todasAsContas, setTodasAsContas] = useState(false)
   const [carregandoEmails, setCarregandoEmails] = useState(false)
   const [erroEmail, setErroEmail] = useState('')
+  const [mostrarAlterarSenhaModal, setMostrarAlterarSenhaModal] = useState(false)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmNovaSenha, setConfirmNovaSenha] = useState('')
+  const [alterandoSenha, setAlterandoSenha] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
   const [credenciaisNovas, setCredenciaisNovas] = useState<any>(null)
   const [mostrarCredenciais, setMostrarCredenciais] = useState(false)
@@ -327,7 +460,7 @@ export function EmailWebmailSection({
     }
   }, [modalEmail])
 
-  // 🚀 Carregar contas APENAS do CyberPanel - SEM SUPABASE
+  // 🚀 Carregar contas do CyberPanel + Supabase (consolidado)
   // ⚡ OTIMIZAÇÃO: Se hideSidebar=true e propEmailOrigem existe, não carregar todas as contas
   useEffect(() => {
     const carregarContasCyberPanel = async () => {
@@ -345,41 +478,43 @@ export function EmailWebmailSection({
         return
       }
 
-      console.log('📧 [CP] Iniciando carregamento do CyberPanel...')
+      console.log('📧 [Contacts] Iniciando carregamento de contactos (CyberPanel + Supabase)...')
       setCarregandoEmails(true)
       
-      // Buscar emails de TODOS os domínios dos sites
+      // Buscar emails consolidados (CyberPanel + Supabase)
       const allEmails: any[] = []
-      const dominiosValidos = sites?.map((s: any) => s.domain) || ['visualdesigne.com']
+      const dominiosValidos = ['visualdesigne.com', 'anap.co.mz', 'entrecampos.co.mz']
       
       // ⚡ Timeout para cada requisição (5 segundos max)
       const fetchWithTimeout = async (domain: string) => {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000)
         try {
-          const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(domain)}`, {
+          // Usar novo endpoint que combina CyberPanel + Supabase
+          const res = await fetch(`/api/get-all-contacts?domain=${encodeURIComponent(domain)}&includeSupabase=true`, {
             signal: controller.signal
           })
           clearTimeout(timeoutId)
           return await res.json()
         } catch (e) {
           clearTimeout(timeoutId)
+          // Silenciar AbortError (timeout expirado)
+          if (e instanceof DOMException && e.name === 'AbortError') {
+            console.log(`📧 [Contacts] Timeout ao buscar contactos do domínio ${domain}`)
+            return { success: false, emails: [] }
+          }
           throw e
         }
       }
       
       for (const domain of dominiosValidos) {
         try {
-          console.log(`📧 [CP] Buscando emails do domínio: ${domain}`)
+          console.log(`📧 [Contacts] Buscando contactos do domínio: ${domain}`)
           const data = await fetchWithTimeout(domain)
           
           if (data.success && data.emails?.length > 0) {
             data.emails.forEach((email: string) => {
-              // 🚫 FILTRO: Ignorar emails inválidos ou suspeitos
-              if (email.includes('joao') || email.includes('teste') || email.includes('exemplo')) {
-                return
-              }
-              // ✅ Apenas emails dos domínios válidos
+              // ✅ Emails já filtrados no backend (sem "joao", "teste", etc)
               const emailDomain = email.split('@')[1]
               if (dominiosValidos.includes(emailDomain)) {
                 allEmails.push({
@@ -392,12 +527,29 @@ export function EmailWebmailSection({
             })
           }
         } catch (e) {
-          console.error(`📧 [CP] Erro no domínio ${domain}:`, e)
+          // Silenciar AbortError (timeout expirado) - já tratado em fetchWithTimeout
+          if (e instanceof DOMException && e.name === 'AbortError') {
+            // Timeout silencioso - já logado em fetchWithTimeout
+          } else {
+            console.error(`📧 [Contacts] Erro no domínio ${domain}:`, e)
+          }
         }
       }
       
-      console.log(`📧 [CP] Total emails carregados: ${allEmails.length}`)
+      console.log(`📧 [Contacts] Total contactos carregados: ${allEmails.length}`)
       setEmailsOrigem(allEmails)
+      
+      // Selecionar o email automaticamente (preferência para silva.chamo@visualdesigne.com)
+      if (allEmails.length > 0 && !emailOrigem) {
+        const silvaAccount = allEmails.find(a => a.email === 'silva.chamo@visualdesigne.com')
+        const defaultAccount = silvaAccount || allEmails[0]
+        
+        console.log(`📧 [Contacts] Selecionando contacto padrão: ${defaultAccount.email}`)
+        setEmailOrigem(defaultAccount.email)
+        const senha = CREDENCIAIS_PADRAO[defaultAccount.email] || ''
+        if (senha) setEmailOrigemPassword(senha)
+      }
+      
       setCarregandoEmails(false)
     }
     
@@ -434,7 +586,7 @@ export function EmailWebmailSection({
 
         if (todasAsContas) {
           body.allAccounts = true
-          body.emails = emailsOrigem.map(e => e.email)
+          body.emails = memoEmailsOrigem.map(e => e.email)
           console.log(`📧 [Frontend] Modo Todas as Contas - emails:`, body.emails)
           
           // Se não tem emails para buscar, não faz sentido chamar a API
@@ -478,10 +630,12 @@ export function EmailWebmailSection({
         const data = await res.json()
         console.log(`📧 [Frontend] Resposta API:`, { success: data.success, total: data.total, emailsCount: data.emails?.length })
         
-        if (data.success) setEmails(data.emails)
-        else {
-          console.error(`📧 [Frontend] Erro da API:`, data.error)
-          setErroEmail(data.error)
+        if (data && data.success) {
+          setEmails(data.emails)
+        } else {
+          const errMsg = data?.error || data?.message || data?.details || 'Erro desconhecido ao carregar emails'
+          console.error(`📧 [Frontend] Erro da API:`, data)
+          setErroEmail(errMsg)
         }
       } catch (e: any) { 
         console.error(`📧 [Frontend] Erro na requisição:`, e)
@@ -510,7 +664,7 @@ export function EmailWebmailSection({
   const [mostrarEditarAssinatura, setMostrarEditarAssinatura] = useState(false)
   const [modoEscuroAssinatura, setModoEscuroAssinatura] = useState(true) // Padrão: modo escuro
   const assinaturaEditorRef = useRef<HTMLDivElement>(null)
-  // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaActiva: number, assinaturaPadrao: string } }
+  // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaAtiva: number, assinaturaPadrao: string } }
   const STORAGE_KEY = 'webmail_assinaturas_v2'
 
   const [assinaturasPorEmail, setAssinaturasPorEmail] = useState<Record<string, any>>(() => {
@@ -531,8 +685,14 @@ export function EmailWebmailSection({
   }, [assinaturasPorEmail])
 
   // Assinaturas da conta atual - inicia vazio, carrega do localStorage por email
-  const [assinaturas, setAssinaturas] = useState<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>([])
-  const [assinaturaActiva, setAssinaturaActiva] = useState(0)
+  // Usar estado externo quando disponível (quando usado inline no WebmailSection)
+  const [assinaturasInternal, setAssinaturasInternal] = useState<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>([])
+  const [assinaturaAtivaInternal, setAssinaturaAtivaInternal] = useState(0)
+  
+  const assinaturas = externalAssinaturas !== undefined ? externalAssinaturas : assinaturasInternal
+  const setAssinaturas = externalSetAssinaturas !== undefined ? externalSetAssinaturas : setAssinaturasInternal
+  const assinaturaAtiva = externalAssinaturaAtiva !== undefined ? externalAssinaturaAtiva : assinaturaAtivaInternal
+  const setAssinaturaAtiva = externalSetAssinaturaAtiva !== undefined ? externalSetAssinaturaAtiva : setAssinaturaAtivaInternal
 
   // SINCRONIZAÇÃO INICIAL: Quando assinaturasPorEmail é carregado do localStorage
   // e emailOrigem já está definido, sincronizar o estado assinaturas
@@ -541,7 +701,7 @@ export function EmailWebmailSection({
       const config = assinaturasPorEmail[emailOrigem]
       console.log('[DEBUG] Sincronização inicial:', emailOrigem, config)
       setAssinaturas(config.assinaturas || [])
-      setAssinaturaActiva(config.assinaturaActiva || 0)
+      setAssinaturaAtiva(config.assinaturaAtiva || 0)
     }
   }, [assinaturasPorEmail, emailOrigem])
 
@@ -556,25 +716,25 @@ export function EmailWebmailSection({
         // Carregar assinaturas salvas para esta conta
         if (configAtual.assinaturas && configAtual.assinaturas.length > 0) {
           setAssinaturas(configAtual.assinaturas)
-          setAssinaturaActiva(configAtual.assinaturaActiva || 0)
+          setAssinaturaAtiva(configAtual.assinaturaAtiva || 0)
           // Aplicar assinatura padrão automaticamente
           if (configAtual.assinaturaPadrao) {
             setAssinatura(configAtual.assinaturaPadrao)
-          } else if (configAtual.assinaturas[configAtual.assinaturaActiva || 0]?.texto) {
-            setAssinatura(configAtual.assinaturas[configAtual.assinaturaActiva || 0].texto)
+          } else if (configAtual.assinaturas[configAtual.assinaturaAtiva || 0]?.texto) {
+            setAssinatura(configAtual.assinaturas[configAtual.assinaturaAtiva || 0].texto)
           }
         } else {
           // Conta tem config mas sem assinaturas
           console.log('[DEBUG] Conta tem config mas sem assinaturas')
           setAssinaturas([])
-          setAssinaturaActiva(0)
+          setAssinaturaAtiva(0)
           setAssinatura('')
         }
       } else {
         // Não há assinaturas salvas para esta conta - iniciar vazio
         console.log('[DEBUG] Nenhuma config encontrada para', emailOrigem)
         setAssinaturas([])
-        setAssinaturaActiva(0)
+        setAssinaturaAtiva(0)
         setAssinatura('')
       }
     }
@@ -584,13 +744,13 @@ export function EmailWebmailSection({
   // Agora só salva manualmente quando muda de conta no dropdown
   // useEffect(() => {
   //   if (emailOrigem && typeof window !== 'undefined') {
-  //     const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+  //     const config = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
   //     const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
   //     setAssinaturasPorEmail(novoEstado)
   //     assinaturasPorEmailRef.current = novoEstado
   //     localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
   //   }
-  // }, [assinaturas, assinaturaActiva, assinatura, emailOrigem])
+  // }, [assinaturas, assinaturaAtiva, assinatura, emailOrigem])
 
   // Inserir assinatura automaticamente quando abre o compositor
   const jaInseriuAssinaturaRef = useRef(false)
@@ -604,7 +764,7 @@ export function EmailWebmailSection({
         if (!editorRef.current) return
         
         // Verificar se há uma assinatura ativa para a conta atual
-        const assinaturaAtivaObj = assinaturas.find((a, i) => i === assinaturaActiva && (a.texto || a.imagemUrl))
+        const assinaturaAtivaObj = assinaturas.find((a, i) => i === assinaturaAtiva && (a.texto || a.imagemUrl))
         
         if (assinaturaAtivaObj) {
           if (assinaturaAtivaObj.imagemUrl) {
@@ -634,7 +794,7 @@ export function EmailWebmailSection({
     if (!mostrarCompose) {
       jaInseriuAssinaturaRef.current = false
     }
-  }, [mostrarCompose, assinaturas, assinaturaActiva])
+  }, [mostrarCompose, assinaturas, assinaturaAtiva])
 
   const execCmd = (cmd: string, value?: string) => {
     editorRef.current?.focus()
@@ -1176,12 +1336,25 @@ export function EmailWebmailSection({
         {emailOrigem ? 'Webmail' : 'Webmail'}
       </a>
       <div className="w-px h-5 bg-gray-700 mx-1" />
-      {pastas.map(p => (
-        <button key={p} onClick={() => { setPastaActiva(p); setModalEmail(null); }}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pastaActiva === p ? 'text-red-600 bg-transparent' : 'text-gray-600 hover:text-red-500 bg-transparent'}`}>
-          {p}
-        </button>
-      ))}
+      {emailsOrigem.length > 0 ? (
+        <select 
+          value={emailOrigem || (emailsOrigem.length > 0 ? emailsOrigem[0].email : '')} 
+          onChange={e => { 
+            setEmailOrigem(e.target.value); 
+            setPastaActiva('Caixa de Entrada'); 
+            setModalEmail(null); 
+            const senha = CREDENCIAIS_PADRAO[e.target.value] || ''
+            if (senha) setEmailOrigemPassword(senha)
+          }} 
+          className="px-3 py-1.5 rounded-md text-sm border border-gray-300 bg-white font-medium"
+        >
+          {memoEmailsOrigem.map(e => (
+            <option key={e.email} value={e.email}>{e.email}</option>
+          ))}
+        </select>
+      ) : (
+        <div className="px-3 py-1.5 text-sm text-gray-500">Carregando emails...</div>
+      )}
       <div className="ml-auto flex items-center gap-2">
         <button onClick={() => {
           // Sincronizar estado antes de abrir o modal
@@ -1189,16 +1362,21 @@ export function EmailWebmailSection({
             const config = assinaturasPorEmailRef.current[emailOrigem]
             console.log('[DEBUG] Abrir modal - sincronizando:', emailOrigem, config)
             setAssinaturas(config.assinaturas || [])
-            setAssinaturaActiva(config.assinaturaActiva || 0)
+            setAssinaturaAtiva(config.assinaturaAtiva || 0)
           } else if (emailOrigem) {
             console.log('[DEBUG] Abrir modal - sem assinaturas para:', emailOrigem)
             setAssinaturas([])
-            setAssinaturaActiva(0)
+            setAssinaturaAtiva(0)
           }
           setMostrarConfigAssinatura(true)
         }}
           className="text-gray-600 hover:text-red-500 text-sm px-4 py-1.5 rounded-md border border-gray-300 hover:border-red-500 transition-colors flex items-center gap-2 font-medium bg-white">
           Assinatura
+        </button>
+        <button onClick={() => setMostrarAdicionarConta(true)}
+          className="bg-green-600 hover:bg-red-600 text-white text-sm px-4 py-1.5 rounded-md border border-green-600 hover:border-red-600 transition-colors flex items-center gap-2 font-medium">
+          <Plus className="w-4 h-4" />
+          Adicionar Conta
         </button>
       </div>
       </div>
@@ -1210,7 +1388,7 @@ export function EmailWebmailSection({
           <div className="flex-1">
             <p className="text-sm font-medium text-red-800">{erroEmail}</p>
             <p className="text-xs text-red-600 mt-0.5">
-              Verifique se a senha da conta está correta ou tente novamente mais tarde.
+              Verifique se a senha da conta está correta ou tente novamente mais tarde. <button className="text-sm underline font-semibold" onClick={() => setMostrarAlterarSenhaModal(true)}>senha</button>
             </p>
           </div>
           <button 
@@ -1281,59 +1459,31 @@ export function EmailWebmailSection({
               </div>
             )}
           </div>
-          {emailsOrigem.map(c => {
-            const isSelected = emailOrigem === c.email
-            const isExpanded = !!expandedMap[c.email]
-            return (
-              <div key={c.email} className="border-b border-gray-100">
-                <div className="flex items-center w-full">
-                  <button onClick={() => toggleExpand(c.email)}
-                    className="px-3 py-2.5 hover:bg-white transition-colors">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-                  </button>
-                  <button onClick={() => { 
-                      setTodasAsContas(false); 
-                      setEmailOrigem(c.email); 
-                      setModalEmail(null); 
-                      // Usar senha do objeto ou do mapa de credenciais padrão
-                      const senha = c.password || CREDENCIAIS_PADRAO[c.email] || ''
-                      if (senha) setEmailOrigemPassword(senha)
-                    }}
-                    className={`flex-1 py-2.5 pr-3 text-left hover:bg-white transition-colors`}>
-                    <span className={`text-sm truncate w-full block ${isSelected ? "text-red-600 font-bold" : "text-gray-700 font-medium"}`}>{c.email}</span>
-                  </button>
-                </div>
-                {isExpanded && (
-                  <div className="pl-5">
-                    {pastasIcones.map(p => (
-                      <button key={p.nome} onClick={() => { 
-                          setPastaActiva(p.nome); 
-                          setTodasAsContas(false); 
-                          setEmailOrigem(c.email); 
-                          setModalEmail(null); 
-                          // Usar senha do objeto ou do mapa de credenciais padrão
-                          const senha = c.password || CREDENCIAIS_PADRAO[c.email] || ''
-                          if (senha) setEmailOrigemPassword(senha)
-                        }}
-                        className={`flex items-center gap-1.5 w-full px-3 py-1 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome && emailOrigem === c.email ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
-                        <span className="shrink-0">{p.icon}</span>
-                        <span>{p.nome}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          <div className="border-b border-gray-100">
+            <div className="px-3 py-2"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Pastas</p></div>
+            <div className="pl-0">
+              {pastasIcones.map(p => (
+                <button key={p.nome} onClick={() => {
+                    setTodasAsContas(false)
+                    setPastaActiva(p.nome)
+                    setModalEmail(null)
+                  }}
+                  className={`flex items-center gap-1.5 w-full px-3 py-2 text-left text-sm hover:bg-white transition-colors ${pastaActiva === p.nome ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                  <span className="shrink-0">{p.icon}</span>
+                  <span>{p.nome}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
         <div className={`flex-1 flex flex-col overflow-hidden ${hideSidebar ? 'w-full' : ''}`}>
           {mostrarCompose ? (
             /* ========== VIEW COMPOSE (Página de Escrever) ========== */
-            <div className={`flex flex-col bg-white h-full overflow-hidden ${hideSidebar ? 'w-full' : ''}`}>
-              {/* Header do Compose */}
-              <div className="bg-gray-50 border-b border-gray-200 flex">
-                {/* Coluna esquerda — botão Enviar */}
+            <div className={`flex flex-col bg-white h-full min-h-0 ${hideSidebar ? 'w-full' : ''}`}>
+              {/* Header do Compose - compacto, sem overflow */}
+              <div className="bg-gray-50 border-b border-gray-200 flex shrink-0">
+                {/* Coluna esquerda — botões Enviar + Testar */}
                 <div className="flex flex-col border-r border-gray-200 shrink-0">
                   <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
                     className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
@@ -1342,6 +1492,13 @@ export function EmailWebmailSection({
                       : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
                     }
                   </button>
+                  {/* 🧪 Botão Testar Caminho */}
+                  <TestarCaminhoButton 
+                    from={emailOrigem} 
+                    to={compose.para} 
+                    fromPassword={emailsOrigem.find(a => a.email === emailOrigem)?.password}
+                    disabled={!compose.para || !emailOrigem}
+                  />
                 </div>
                 {/* Coluna direita — Campos */}
                 <div className="flex-1 flex flex-col">
@@ -1356,7 +1513,7 @@ export function EmailWebmailSection({
                         
                         // Salvar assinaturas da conta anterior
                         if (emailAnterior) {
-                          const configAnterior = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                          const configAnterior = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
                           const estadoAtualizado = { ...assinaturasPorEmailRef.current, [emailAnterior]: configAnterior }
                           assinaturasPorEmailRef.current = estadoAtualizado
                           localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoAtualizado))
@@ -1369,15 +1526,15 @@ export function EmailWebmailSection({
                         if (novoEmail && assinaturasPorEmailRef.current[novoEmail]) {
                           const config = assinaturasPorEmailRef.current[novoEmail]
                           setAssinaturas(config.assinaturas || [])
-                          setAssinaturaActiva(config.assinaturaActiva || 0)
+                          setAssinaturaAtiva(config.assinaturaAtiva || 0)
                         } else {
                           setAssinaturas([])
-                          setAssinaturaActiva(0)
+                          setAssinaturaAtiva(0)
                         }
                       }}
                       className="bg-transparent text-gray-900 text-sm outline-none flex-1">
                       <option value="" className="bg-white">Escolher email de origem...</option>
-                      {emailsOrigem.map(e => (
+                      {memoEmailsOrigem.map(e => (
                         <option key={e.email} value={e.email} className="bg-white">
                           {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
                         </option>
@@ -1578,10 +1735,10 @@ export function EmailWebmailSection({
                   <div className="relative flex items-center gap-1">
                     <span className="text-gray-500 text-xs font-medium">Assinatura:</span>
                     <select
-                      value={assinaturaActiva}
+                      value={assinaturaAtiva}
                       onChange={e => {
                         const idx = parseInt(e.target.value)
-                        setAssinaturaActiva(idx)
+                        setAssinaturaAtiva(idx)
                         // Limpar ou inserir assinatura no editor
                         if (editorRef.current) {
                           if (idx === -1 || !assinaturas[idx]) {
@@ -1979,6 +2136,55 @@ export function EmailWebmailSection({
         </div>
       </div>
 
+      {/* Modal: Alterar Senha (reaproveita flow admin email management) */}
+      {mostrarAlterarSenhaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Alterar Senha da Conta</h3>
+              <button onClick={() => { setMostrarAlterarSenhaModal(false); setNovaSenha(''); setConfirmNovaSenha('') }} className="p-2 text-gray-500 hover:text-gray-800">Fechar</button>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">Irá actualizar a senha no CyberPanel e sincronizar a conta aqui.</p>
+              <label className="block text-xs font-medium text-gray-700">Nova Senha</label>
+              <input type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className="w-full rounded-md border px-3 py-2" />
+              <label className="block text-xs font-medium text-gray-700">Confirmar Nova Senha</label>
+              <input type="password" value={confirmNovaSenha} onChange={e => setConfirmNovaSenha(e.target.value)} className="w-full rounded-md border px-3 py-2" />
+              <div className="flex justify-end gap-2 mt-3">
+                <button onClick={() => { setMostrarAlterarSenhaModal(false); setNovaSenha(''); setConfirmNovaSenha('') }} className="px-3 py-2 rounded-md border">Cancelar</button>
+                <button disabled={alterandoSenha} onClick={async () => {
+                  // Validations
+                  const targetEmail = emailOrigem || (erroEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || '')
+                  if (!targetEmail) { alert('Email alvo inválido'); return }
+                  if (!novaSenha || novaSenha !== confirmNovaSenha) { alert('Senhas não coincidem'); return }
+                  try {
+                    setAlterandoSenha(true)
+                    const res = await fetch('/api/cyberpanel-email', {
+                      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: targetEmail, action: 'changePassword', newPassword: novaSenha })
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      alert('Senha alterada com sucesso!')
+                      // Atualizar local: buscar nova senha encriptada no supabase via endpoint
+                      setMostrarAlterarSenhaModal(false)
+                      setNovaSenha('')
+                      setConfirmNovaSenha('')
+                      // Trigger reload of accounts to pick up updated senha
+                    } else {
+                      alert(data.error || data.message || JSON.stringify(data))
+                    }
+                  } catch (e: any) {
+                    console.error('Erro ao alterar senha:', e)
+                    alert('Erro ao alterar senha: ' + (e.message || e))
+                  } finally { setAlterandoSenha(false) }
+                }} className="px-4 py-2 bg-green-600 text-white rounded-md">Atualizar Senha</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========== MODAL ANTIGO (DESATIVADO) ========== */}
       {false && mostrarCompose && (
         <div className="absolute top-0 right-0 bottom-0 left-72 bg-white z-40 flex flex-col hidden">
@@ -2005,7 +2211,7 @@ export function EmailWebmailSection({
                   <select value={emailOrigem} onChange={e => setEmailOrigem(e.target.value)}
                     className="bg-transparent text-gray-900 text-sm outline-none flex-1">
                     <option value="" className="bg-white">Escolher email de origem...</option>
-                    {emailsOrigem.map(e => (
+                    {memoEmailsOrigem.map(e => (
                       <option key={e.email} value={e.email} className="bg-white">
                         {e.nome} ({e.email}) {e.tipo === 'google' ? '📧' : e.tipo === 'hotmail' ? '📨' : '🌐'}
                       </option>
@@ -2233,11 +2439,11 @@ export function EmailWebmailSection({
                     const config = assinaturasPorEmailRef.current[emailOrigem]
                     console.log('[DEBUG] Toolbar - sincronizando:', emailOrigem, config)
                     setAssinaturas(config.assinaturas || [])
-                    setAssinaturaActiva(config.assinaturaActiva || 0)
+                    setAssinaturaAtiva(config.assinaturaAtiva || 0)
                   } else if (emailOrigem) {
                     console.log('[DEBUG] Toolbar - sem assinaturas para:', emailOrigem)
                     setAssinaturas([])
-                    setAssinaturaActiva(0)
+                    setAssinaturaAtiva(0)
                   }
                   setMostrarConfigAssinatura(true)
                 }}
@@ -2287,7 +2493,7 @@ export function EmailWebmailSection({
                 )}
                 <div className="overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 500px)' }}>
                   <style>{`
-                    .editor-wrapper { border: 1px dashed #e5e7eb; margin: 20px 30px; border-radius: 6px; background: white; height: 750px; }
+                    .editor-wrapper { border: 1px dashed #e5e7eb; margin: 0 30px; border-radius: 6px; background: white; height: 750px; }
                     .editor-content img { cursor: pointer; max-width: 100%; border-radius: 4px; margin-left: 15px; margin-right: 15px; }
                     .editor-content img:hover { outline: 2px solid #3b82f6; }
                     .editor-content table { border-collapse: collapse; width: auto; min-width: 100px; resize: both; overflow: auto; max-width: 100%; }
@@ -2459,16 +2665,16 @@ export function EmailWebmailSection({
                           </div>
                         )}
                         {assinaturas.map((s, i) => (
-                          <div key={i} onClick={() => setAssinaturaActiva(i)}
-                            className={`px-3 py-2 cursor-pointer text-sm border-b transition-colors ${assinaturaActiva === i ? 'bg-red-50 text-red-600 font-bold' : modoEscuroAssinatura ? 'text-gray-300 hover:bg-gray-700 border-gray-700' : 'text-gray-600 hover:bg-gray-100 border-gray-100'}`}>
+                          <div key={i} onClick={() => setAssinaturaAtiva(i)}
+                            className={`px-3 py-2 cursor-pointer text-sm border-b transition-colors ${assinaturaAtiva === i ? 'bg-red-50 text-red-600 font-bold' : modoEscuroAssinatura ? 'text-gray-300 hover:bg-gray-700 border-gray-700' : 'text-gray-600 hover:bg-gray-100 border-gray-100'}`}>
                             {s.nome}
                           </div>
                         ))}
                       </div>
                       <div className={`flex items-center gap-1 p-2 border-t transition-colors ${modoEscuroAssinatura ? 'border-gray-700' : 'border-gray-200'}`}>
-                        <button onClick={() => setAssinaturas(prev => [...prev, { nome: 'Nova Assinatura', activa: false, texto: '', imagemUrl: '' }])}
+                        <button onClick={() => setAssinaturas((prev: { nome: string, activa: boolean, texto: string, imagemUrl: string }[]) => [...prev, { nome: 'Nova Assinatura', activa: false, texto: '', imagemUrl: '' }])}
                           className={`text-xs px-2 py-1 rounded font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>+</button>
-                        <button onClick={() => setAssinaturas(prev => prev.filter((_, i) => i !== assinaturaActiva))}
+                        <button onClick={() => setAssinaturas((prev: { nome: string, activa: boolean, texto: string, imagemUrl: string }[]) => prev.filter((_, i) => i !== assinaturaAtiva))}
                           className={`text-xs px-2 py-1 rounded font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>−</button>
                         <button onClick={() => { setMostrarConfigAssinatura(false); setMostrarEditarAssinatura(true) }}
                           className={`ml-auto text-xs px-3 py-1 rounded transition-colors border ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-600'}`}>Editar</button>
@@ -2480,10 +2686,10 @@ export function EmailWebmailSection({
                         <p className={`text-xs font-bold transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Pré-visualização da Assinatura</p>
                       </div>
                       <div className="flex-1 p-4 bg-white text-gray-700 flex items-center justify-center">
-                        {assinaturas[assinaturaActiva]?.imagemUrl ? (
-                          <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain mx-auto" />
+                        {assinaturas[assinaturaAtiva]?.imagemUrl ? (
+                          <img src={assinaturas[assinaturaAtiva].imagemUrl} alt="Assinatura" className="max-w-full max-h-32 object-contain mx-auto" />
                         ) : (
-                          <div className="text-sm whitespace-pre-wrap w-full">{assinaturas[assinaturaActiva]?.texto || ''}</div>
+                          <div className="text-sm whitespace-pre-wrap w-full">{assinaturas[assinaturaAtiva]?.texto || ''}</div>
                         )}
                       </div>
                     </div>
@@ -2508,7 +2714,7 @@ export function EmailWebmailSection({
                           if (emailAnterior) {
                             const configAnterior = {
                               assinaturas,
-                              assinaturaActiva,
+                              assinaturaAtiva,
                               assinaturaPadrao: assinatura
                             }
                             const estadoAtualizado = {
@@ -2526,7 +2732,7 @@ export function EmailWebmailSection({
                         className={`flex-1 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
                       >
                         {emailsOrigem.length > 0 ? (
-                          emailsOrigem.map((conta) => (
+                          memoEmailsOrigem.map((conta) => (
                             <option key={conta.email} value={conta.email}>
                               {conta.nome ? `${conta.nome} (${conta.email})` : conta.email}
                             </option>
@@ -2541,10 +2747,10 @@ export function EmailWebmailSection({
                     <div className="flex items-center gap-4">
                       <span className={`text-sm w-44 text-right shrink-0 transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Novas mensagens:</span>
                       <select
-                        value={assinaturaActiva}
+                        value={assinaturaAtiva}
                         onChange={e => {
                           const idx = parseInt(e.target.value)
-                          setAssinaturaActiva(idx)
+                          setAssinaturaAtiva(idx)
                           // Marcar como ativa (padrão)
                           setAssinaturas(prev => prev.map((a, i) => ({
                             ...a,
@@ -2568,10 +2774,10 @@ export function EmailWebmailSection({
                     <div className="flex items-center gap-4">
                       <span className={`text-sm w-44 text-right shrink-0 transition-colors ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-500'}`}>Respostas/reenc.:</span>
                       <select
-                        value={assinaturaActiva}
+                        value={assinaturaAtiva}
                         onChange={e => {
                           const idx = parseInt(e.target.value)
-                          setAssinaturaActiva(idx)
+                          setAssinaturaAtiva(idx)
                           // Marcar como ativa (padrão)
                           setAssinaturas(prev => prev.map((a, i) => ({
                             ...a,
@@ -2597,13 +2803,13 @@ export function EmailWebmailSection({
                   <button onClick={() => {
                     // Salvar assinaturas da conta atual antes de fechar
                     if (emailOrigem) {
-                      const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                      const config = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
                       const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
                       assinaturasPorEmailRef.current = novoEstado
                       localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
                       console.log('[DEBUG] Salvo ao fechar modal:', emailOrigem, config)
                     }
-                    if (assinaturas[assinaturaActiva]) setAssinatura(assinaturas[assinaturaActiva].texto)
+                    if (assinaturas[assinaturaAtiva]) setAssinatura(assinaturas[assinaturaAtiva].texto)
                     setMostrarConfigAssinatura(false)
                   }}
                     className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">Guardar</button>
@@ -2632,11 +2838,11 @@ export function EmailWebmailSection({
               <div className={`flex items-center gap-3 border-b px-5 py-2 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <span className={`text-sm shrink-0 ${modoEscuroAssinatura ? 'text-gray-300' : 'text-gray-500'}`}>Nome da Assinatura:</span>
                 <input
-                  key={`assinatura-nome-${assinaturaActiva}`}
-                  defaultValue={assinaturas[assinaturaActiva]?.nome || ''}
+                  key={`assinatura-nome-${assinaturaAtiva}`}
+                  defaultValue={assinaturas[assinaturaAtiva]?.nome || ''}
                   onBlur={e => {
                     const novoNome = e.target.value
-                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, nome: novoNome } : a))
+                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, nome: novoNome } : a))
                   }}
                   className={`flex-1 border text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
               </div>
@@ -2711,15 +2917,15 @@ export function EmailWebmailSection({
                   }}
                   onInput={(e) => {
                     const texto = (e.target as HTMLDivElement).innerHTML
-                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, texto } : a))
+                    setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, texto } : a))
                   }}
                   className="flex-1 p-6 text-sm text-gray-800 outline-none overflow-y-auto text-left"
                   style={{ backgroundColor: '#ffffff', direction: 'ltr', unicodeBidi: 'normal' }} />
 
                 {/* Imagem da assinatura */}
-                {assinaturas[assinaturaActiva]?.imagemUrl && (
+                {assinaturas[assinaturaAtiva]?.imagemUrl && (
                   <div className="px-6 py-3 border-t border-gray-200 bg-white">
-                    <img src={assinaturas[assinaturaActiva].imagemUrl} alt="Assinatura" className="max-h-32 object-contain" />
+                    <img src={assinaturas[assinaturaAtiva].imagemUrl} alt="Assinatura" className="max-h-32 object-contain" />
                   </div>
                 )}
 
@@ -2735,7 +2941,7 @@ export function EmailWebmailSection({
                           const reader = new FileReader()
                           reader.onload = ev => {
                             const imagemUrl = ev.target?.result as string
-                            setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl } : a))
+                            setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, imagemUrl } : a))
                           }
                           reader.readAsDataURL(file)
                         }
@@ -2744,14 +2950,14 @@ export function EmailWebmailSection({
                   <span className={`text-xs ${modoEscuroAssinatura ? 'text-gray-500' : 'text-gray-400'}`}>ou URL:</span>
                   <input
                     placeholder="https://url-da-imagem.png"
-                    defaultValue={assinaturas[assinaturaActiva]?.imagemUrl || ''}
+                    defaultValue={assinaturas[assinaturaAtiva]?.imagemUrl || ''}
                     onBlur={e => {
                       const url = e.target.value
-                      setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl: url } : a))
+                      setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, imagemUrl: url } : a))
                     }}
                     className={`flex-1 min-w-40 text-xs rounded px-2 py-1.5 outline-none ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200 border' : 'bg-white border-gray-300 border'}`} />
-                  {assinaturas[assinaturaActiva]?.imagemUrl && (
-                    <button onClick={() => setAssinaturas(prev => prev.map((a, i) => i === assinaturaActiva ? { ...a, imagemUrl: '' } : a))}
+                  {assinaturas[assinaturaAtiva]?.imagemUrl && (
+                    <button onClick={() => setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, imagemUrl: '' } : a))}
                       className="text-xs text-red-500 hover:text-red-700 font-bold">✕ Remover</button>
                   )}
                 </div>
@@ -2762,13 +2968,13 @@ export function EmailWebmailSection({
                 <button onClick={() => {
                   // Salvar assinaturas da conta atual antes de voltar
                   if (emailOrigem) {
-                    const config = { assinaturas, assinaturaActiva, assinaturaPadrao: assinatura }
+                    const config = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
                     const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
                     assinaturasPorEmailRef.current = novoEstado
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(novoEstado))
                     console.log('[DEBUG] Salvo ao guardar edição:', emailOrigem, config)
                   }
-                  setAssinatura(assinaturas[assinaturaActiva]?.texto || '')
+                  setAssinatura(assinaturas[assinaturaAtiva]?.texto || '')
                   setMostrarEditarAssinatura(false)
                   setMostrarConfigAssinatura(true)
                 }}
@@ -2839,6 +3045,36 @@ export function EmailWebmailSection({
           </div>
         )
       }
+
+      {/* Modal Adicionar Conta */}
+      {mostrarAdicionarConta && (
+        <AddEmailAccountModal 
+          isOpen={mostrarAdicionarConta}
+          onClose={() => setMostrarAdicionarConta(false)}
+          onAccountAdded={(account) => {
+            // Inserir nova conta na lista sem reload
+            setMostrarAdicionarConta(false)
+            if (account && account.email) {
+              setEmailsOrigem(prev => {
+                const exists = prev.find(p => p.email === account.email)
+                if (exists) return prev
+                const next = [{
+                  email: account.email,
+                  tipo: account.tipo === 'webmail' ? 'webmail' : (account.tipo === 'outlook' ? 'outlook' : 'google'),
+                  nome: account.nome || account.email.split('@')[0],
+                  password: account.password || ''
+                }, ...prev]
+                return next
+              })
+              // Selecionar a conta recém-adicionada
+              setTimeout(() => {
+                setEmailOrigem(account.email)
+                setPastaActiva('Caixa de Entrada')
+              }, 200)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

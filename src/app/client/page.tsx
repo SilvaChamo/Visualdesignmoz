@@ -1,18 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { supabase } from '@/lib/supabase-client'
+
+// 🚀 Lazy loading para seções pesadas
+const EmailWebmailSection = lazy(() => import('@/components/dashboard/EmailWebmailSection').then(m => ({ default: m.EmailWebmailSection })))
+const WebmailSection = lazy(() => import('@/components/dashboard/WebmailSection').then(m => ({ default: m.WebmailSection })))
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings, Target,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
-  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X
+  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell
 } from 'lucide-react'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
-import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -58,6 +60,20 @@ const CORES_PALETA = [
   '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc', '#cc0000', '#e69138', '#f1c232', '#6aa84f',
   '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79', '#85200c', '#783f04', '#7f6000',
 ]
+
+// 🚀 Componente de loading skeleton para seções
+function SectionLoader() {
+  return (
+    <div className="p-6 space-y-4 animate-pulse">
+      <div className="h-8 bg-gray-200 rounded-lg w-1/3" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="h-32 bg-gray-200 rounded-xl" />
+        <div className="h-32 bg-gray-200 rounded-xl" />
+      </div>
+      <div className="h-64 bg-gray-200 rounded-xl" />
+    </div>
+  )
+}
 
 // Componente ClienteDashboardHome
 function ClienteDashboardHome() {
@@ -154,7 +170,7 @@ function ClienteDashboardHome() {
     : null
 
   return (
-    <div className="flex gap-5">
+    <div className="flex gap-5 p-5">
       {/* Conteúdo principal */}
       <div className="flex-1 space-y-5">
 
@@ -216,6 +232,53 @@ function ClienteDashboardHome() {
             </div>
           </div>
         )}
+
+        {/* Recibos e Notificações */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <Bell className="w-4 h-4 text-red-600" />
+              Recibos e Notificações
+            </h2>
+            <button className="text-[10px] text-gray-500 hover:text-red-600 font-bold uppercase tracking-wider transition-colors">Ver Todos</button>
+          </div>
+          <div className="p-4 space-y-3">
+            {/* Notificação de Recibo */}
+            <div className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100 hover:bg-blue-50 transition-colors cursor-pointer group">
+              <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <FileText className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">Pagamento Confirmado</p>
+                <p className="text-xs text-gray-500 mt-0.5">Recibo #VD-2024-001 disponível para download</p>
+                <p className="text-[10px] text-gray-400 mt-1">Hoje, 14:30</p>
+              </div>
+              <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0"></span>
+            </div>
+            {/* Notificação de Domínio */}
+            <div className="flex items-start gap-3 p-3 bg-green-50/50 rounded-lg border border-green-100 hover:bg-green-50 transition-colors cursor-pointer group">
+              <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <Globe className="w-4 h-4 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">Domínio Ativo</p>
+                <p className="text-xs text-gray-500 mt-0.5">oshercollective.com foi ativado com sucesso</p>
+                <p className="text-[10px] text-gray-400 mt-1">Ontem, 09:15</p>
+              </div>
+            </div>
+            {/* Notificação de Segurança */}
+            <div className="flex items-start gap-3 p-3 bg-amber-50/50 rounded-lg border border-amber-100 hover:bg-amber-50 transition-colors cursor-pointer group">
+              <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+                <Shield className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">SSL Instalado</p>
+                <p className="text-xs text-gray-500 mt-0.5">Certificado SSL renovado automaticamente</p>
+                <p className="text-[10px] text-gray-400 mt-1">2 dias atrás</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Tickets recentes */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -3557,8 +3620,7 @@ export default function AdminPage() {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'domains', label: 'O Meu Site', icon: Globe },
-    { id: 'emails-new', label: 'Email', icon: Mail },
-    { id: 'webmail', label: '📧 Webmail', icon: Globe, highlight: true },
+    { id: 'webmail', label: 'Webmail', icon: Mail },
     { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
     { id: 'tickets', label: 'Suporte', icon: Users },
     { id: 'faturas', label: 'Faturas', icon: FileText },
@@ -3621,26 +3683,38 @@ export default function AdminPage() {
           }}
         />
       case 'mailmarketing':
-        return <MailMarketingSection
-          sites={cyberPanelSites}
-          currentUserEmail={cliente?.email}
-          activeTab={mailMarketingTab}
-          setActiveTab={setMailMarketingTab}
-          listas={mailMarketingListas}
-          setListas={setMailMarketingListas}
-          searchTerm={mailMarketingSearchTerm}
-          setSearchTerm={setMailMarketingSearchTerm}
-        />
+        return (
+          <Suspense fallback={<SectionLoader />}>
+            <MailMarketingSection
+              sites={cyberPanelSites}
+              currentUserEmail={cliente?.email}
+              activeTab={mailMarketingTab}
+              setActiveTab={setMailMarketingTab}
+              listas={mailMarketingListas}
+              setListas={setMailMarketingListas}
+              searchTerm={mailMarketingSearchTerm}
+              setSearchTerm={setMailMarketingSearchTerm}
+            />
+          </Suspense>
+        )
       case 'faturas':
         return <FacturacaoSection />
       case 'conta':
         return <ContaSection />
       case 'webmail':
-        return <WebmailSection
-          sites={cyberPanelSites}
-          userEmail={sessionUser}
-          onBack={() => setActiveSection('emails-new')}
-        />
+        return (
+          <Suspense fallback={<SectionLoader />}>
+            <WebmailSection
+              sites={cyberPanelSites}
+              userEmail={sessionUser}
+              onBack={() => setActiveSection('emails-new')}
+              mostrarAdicionarConta={mostrarAdicionarConta}
+              setMostrarAdicionarConta={setMostrarAdicionarConta}
+              modalAdicionarPasso={modalAdicionarPasso}
+              setModalAdicionarPasso={setModalAdicionarPasso}
+            />
+          </Suspense>
+        )
       case 'domains-new':
         // return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Criar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3830,10 +3904,9 @@ export default function AdminPage() {
               const Icon = item.icon
               const isActive = activeSection === item.id ||
                 (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
-                (item.id === 'emails-new' && (activeSection.startsWith('cp-email') || activeSection === 'webmail')) ||
+                (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
                 (item.id === 'webmail' && activeSection === 'webmail') ||
                 (item.id === 'cp-security' && activeSection === 'cp-security')
-              const isWebmail = item.id === 'webmail'
               
               return (
                 <button
@@ -3841,28 +3914,18 @@ export default function AdminPage() {
                   onClick={() => setActiveSection(item.id)}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${
                     isActive
-                      ? isWebmail 
-                        ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-200' 
-                        : 'bg-red-50 text-red-600 font-bold'
-                      : isWebmail
-                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200'
-                        : 'hover:bg-gray-100 text-gray-600'
+                      ? 'bg-red-50 text-red-600 font-bold'
+                      : 'hover:bg-gray-100 text-gray-600'
                     }`}
-                  title={isCollapsed ? item.label : ''}
                 >
                   <Icon size={22} className={
-                    isActive 
-                      ? isWebmail ? 'text-white' : 'text-red-600'
-                      : isWebmail ? 'text-blue-600' : 'text-gray-500'
+                    isActive ? 'text-red-600' : 'text-gray-500'
                   } />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
                   {!isCollapsed && isActive && (
-                    <ChevronRight size={14} className={isWebmail ? 'ml-auto text-blue-200' : 'ml-auto text-red-400'} />
-                  )}
-                  {!isCollapsed && isWebmail && !isActive && (
-                    <span className="ml-auto text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">NEW</span>
+                    <ChevronRight size={14} className="ml-auto text-red-400" />
                   )}
                 </button>
               )
@@ -3955,11 +4018,8 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto p-0'} bg-slate-50/50`}>
-          <div
-            key={activeSection}
-            className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}
-          >
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${activeSection === 'dashboard' ? 'p-0' : 'p-5'} bg-slate-50/50`}>
+          <div className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
         </main>

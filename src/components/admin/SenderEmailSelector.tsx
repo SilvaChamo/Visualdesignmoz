@@ -40,11 +40,20 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
     useEffect(() => {
         const saved = localStorage.getItem("platform_sender_emails");
         let list = [...DEFAULT_EMAILS];
-        
+
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                list = Array.from(new Set([...list, ...parsed]));
+                // 🧹 LIMPAR: Filtrar emails inválidos (joao, teste, exemplo, etc)
+                const validEmails = parsed.filter((email: string) => {
+                    const invalidPatterns = ['joao', 'teste', 'exemplo', 'your-domain', 'placeholder', '@example.com'];
+                    return !invalidPatterns.some(pattern => email.toLowerCase().includes(pattern));
+                });
+                if (validEmails.length !== parsed.length) {
+                    console.log('[SenderEmailSelector] Limpando emails inválidos do localStorage:', parsed.filter((e: string) => !validEmails.includes(e)));
+                    localStorage.setItem("platform_sender_emails", JSON.stringify(validEmails));
+                }
+                list = Array.from(new Set([...list, ...validEmails]));
             } catch (e) {
                 console.error("Failed to parse saved emails", e);
             }

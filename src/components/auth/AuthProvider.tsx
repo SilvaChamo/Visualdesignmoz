@@ -90,7 +90,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, nome: string, telefone?: string) => {
     try {
       setLoading(true)
-      await auth.signUp(email, password, { nome, telefone })
+      const result = await auth.signUp(email, password, { nome, telefone })
+
+      // Após o registo, tentar criar a conta de email no CyberPanel e sincronizar com Supabase
+      try {
+        const parts = email.split('@')
+        const user = parts[0]
+        const domain = parts[1]
+        if (user && domain) {
+          fetch('/api/cyberpanel-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domainName: domain, userName: user, password })
+          }).then(async res => {
+            try {
+              const data = await res.json()
+              console.log('CyberPanel create attempt result:', data)
+            } catch (e) {
+              console.log('CyberPanel create responded (no-json)')
+            }
+          }).catch(err => console.error('Erro ao chamar /api/cyberpanel-email:', err))
+        }
+      } catch (cpErr) {
+        console.error('Erro ao tentar criar conta no CyberPanel após registo:', cpErr)
+      }
     } catch (error) {
       throw error
     } finally {

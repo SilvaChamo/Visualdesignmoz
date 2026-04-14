@@ -25,7 +25,7 @@ const smtpPass = 'senha-do-cliente';
 ```javascript
 // Sempre usa conta master do sistema
 const smtpUser = 'admin@visualdesigne.com';
-const smtpPass = 'EmailAdmin#2425';
+const smtpPass = 'Ad.Vd#2425?*';
 ```
 
 **Vantagens:**

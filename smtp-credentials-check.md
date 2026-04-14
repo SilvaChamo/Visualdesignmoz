@@ -9,7 +9,7 @@ Invalid login: 535 5.7.8 Error: authentication failed: (reason unavailable)
 - **Host**: `mail.visualdesigne.com`
 - **Porta**: `465` (SSL)
 - **Usuário**: `admin@visualdesigne.com`
-- **Senha**: `EmailAdmin#2425`
+- **Senha**: `Ad.Vd#2425?*`
 
 ## Ações Necessárias
 
@@ -19,7 +19,7 @@ https://visualdesigne.com:8090/snappymail/
 
 **Login:**
 - Email: `admin@visualdesigne.com`
-- Senha: `EmailAdmin#2425`
+	- Senha: `Ad.Vd#2425?*`
 
 ### 2. Se o Login Falhar no Webmail
 A conta não existe ou a senha está incorreta.
@@ -45,7 +45,7 @@ SMTP_MASTER_PASSWORD=senha-correta
 2. Email -> Create Email
 3. Dominio: `visualdesigne.com`
 4. Usuario: `admin`
-5. Senha: `EmailAdmin#2425`
+5. Senha: `Ad.Vd#2425?*`
 4. Marque "Send Welcome Email"
 
 #### Opção C: Descobrir credenciais corretas

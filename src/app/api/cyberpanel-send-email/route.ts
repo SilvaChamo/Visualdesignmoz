@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 const CYBERPANEL_HOST = '109.199.104.22';
 const CYBERPANEL_PORT = '8090';
 const CYBERPANEL_ADMIN = 'admin';
-const CYBERPANEL_PASS = 'EmailAdmin#2425';
+const CYBERPANEL_PASS = 'Ad.Vd#2425?*';
 
 export async function POST(req: NextRequest) {
   try {

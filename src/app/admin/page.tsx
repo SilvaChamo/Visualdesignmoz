@@ -11,6 +11,7 @@ import {
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
+import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -1752,9 +1753,11 @@ export default function AdminPage() {
         return <FTPSection sites={filteredSites} />
       case 'webmail':
       case 'emails-webmail':
-        return <EmailWebmailSection 
-          emailOrigem="geral@visualdesigne.com"
+        return <WebmailSection 
+          userEmail={sessionUser}
           sites={filteredSites}
+          useCyberPanelAPI={true}
+          emailOrigem="geral@visualdesigne.com"
           onComposeStateChange={setIsComposeActive}
         />
       case 'emails-new':
@@ -1919,11 +1922,8 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-0'}`}>
-          <div
-            key={activeSection}
-            className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0 overflow-hidden' : 'min-h-full'}`}
-          >
+        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
+          <div className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
         </main>

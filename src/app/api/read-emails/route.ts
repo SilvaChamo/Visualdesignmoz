@@ -283,17 +283,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!email) {
-      return NextResponse.json({ error: 'Email é obrigatório' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Email é obrigatório' }, { status: 400 })
     }
-    
+
     if (!password) {
-      // 🚀 SIMPLIFICADO: Retorna vazio sem erro, igual ao mailmarketing
-      return NextResponse.json({ 
-        success: true, 
-        emails: [], 
-        total: 0,
-        message: 'Configure a senha IMAP para visualizar emails'
-      })
+      // Detectar contas Google/Gmail e sugerir OAuth/app password
+      const domain = (email || '').split('@')[1] || ''
+      if (domain.toLowerCase().includes('gmail') || domain.toLowerCase().includes('google')) {
+        return NextResponse.json({ success: false, error: 'Conta Google detectada - use Autenticação Google (OAuth) ou crie uma senha de app para IMAP', details: 'google-account-no-imap' }, { status: 400 })
+      }
+      // Sem senha configurada
+      return NextResponse.json({ success: false, error: 'Configure a senha IMAP para visualizar emails', details: 'no-imap-password' }, { status: 400 })
     }
 
     const client = new ImapFlow({
@@ -393,20 +393,21 @@ export async function POST(req: NextRequest) {
     finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length })
   } catch (error: any) {
-    console.error('Erro ao ler emails:', error)
+    console.error('Erro ao ler emails:', error, error?.stack)
     // Melhorar mensagem de erro para o cliente
     let errorMessage = 'Erro ao conectar ao servidor de email'
-    
-    if (error.message?.includes('Authentication failed') || error.message?.includes('auth')) {
+
+    const msg = (error && (error.message || '')) as string
+    if (msg.includes('Authentication failed') || msg.toLowerCase().includes('auth')) {
       errorMessage = 'Autenticação falhou - verifique a senha da conta'
-    } else if (error.message?.includes('connect') || error.message?.includes('ECONNREFUSED')) {
+    } else if (msg.toLowerCase().includes('connect') || msg.includes('ECONNREFUSED')) {
       errorMessage = 'Não foi possível conectar ao servidor IMAP - verifique se o email existe'
-    } else if (error.message?.includes('mailbox') || error.message?.includes('Mailbox')) {
+    } else if (msg.toLowerCase().includes('mailbox') || msg.toLowerCase().includes('mailbox')) {
       errorMessage = 'Pasta de email não encontrada'
-    } else if (error.message) {
-      errorMessage = error.message
+    } else if (msg) {
+      errorMessage = msg
     }
-    
-    return NextResponse.json({ error: errorMessage, details: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: false, error: errorMessage, details: msg }, { status: 500 })
   }
 }

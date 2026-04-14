@@ -1,97 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as https from 'https';
+import nodemailer from 'nodemailer';
 
-// 🚀 CYBERPANEL API - Servidor já tem as credenciais configuradas
-// Não precisamos de senha - o servidor resolve internamente
-const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php';
-const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token';
+// 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (CyberPanel/Postfix)
+const SMTP_HOST = process.env.SMTP_HOST || 'mail.visualdesigne.com';
+const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
+const SMTP_SECURE = false; // 587 usa STARTTLS (não SSL direto)
 
-// 🆕 FUNÇÃO: Enviar via CyberPanel PHP API (SMTP local) - SEM necessidade de senha
-async function sendViaCyberPanelAPI(
-    to: string | string[], 
-    subject: string, 
-    html: string, 
-    fromEmail: string
+// 🆕 FUNÇÃO: Enviar via SMTP direto usando Nodemailer
+async function sendViaSMTP(
+    to: string | string[],
+    subject: string,
+    html: string,
+    fromEmail: string,
+    fromPassword: string,
+    replyTo?: string
 ): Promise<any> {
-    console.log(`🔄 CYBERPANEL API: Enviando email de ${fromEmail} para ${Array.isArray(to) ? to.length : 1} destinatário(s)`);
-    
+    console.log(`🔄 SMTP: Enviando email de ${fromEmail} para ${Array.isArray(to) ? to.length : 1} destinatário(s)`);
+
     // Normalizar 'to' para array
     const toArray = Array.isArray(to) ? to : [to];
-    
-    return new Promise((resolve, reject) => {
-        const postData = JSON.stringify({
-            to: toArray.slice(0, 100),
-            subject,
-            html,
-            from: fromEmail,
-            fromName: ''
-        });
 
-        console.log('🔍 DEBUG - URL:', CYBERPANEL_API_URL);
-        console.log('🔍 DEBUG - From:', fromEmail);
-        console.log('🔍 DEBUG - To:', toArray);
-
-        const options = {
-            hostname: '109.199.104.22',
-            port: 8090,
-            path: '/send-email-api.php',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${CYBERPANEL_API_TOKEN}`,
-                'Content-Length': Buffer.byteLength(postData)
-            },
-            rejectUnauthorized: false,
-            timeout: 30000 // 30 segundos timeout
-        };
-
-        const req = https.request(options, (res) => {
-            console.log('🔍 DEBUG - Response status:', res.statusCode);
-            
-            let data = '';
-            res.on('data', (chunk) => {
-                data += chunk;
-            });
-            
-            res.on('end', () => {
-                console.log('🔍 DEBUG - Raw response:', data.substring(0, 500));
-                
-                try {
-                    const result = JSON.parse(data);
-                    console.log('🔍 DEBUG - Parsed result:', result);
-                    
-                    if (res.statusCode && res.statusCode >= 400) {
-                        reject(new Error(`HTTP ${res.statusCode}: ${result.error || 'Erro desconhecido'}`));
-                        return;
-                    }
-                    
-                    if (!result.success) {
-                        reject(new Error(result.error || 'API retornou success=false'));
-                        return;
-                    }
-                    
-                    resolve(result);
-                } catch (jsonError: any) {
-                    console.error('❌ JSON PARSE ERROR:', jsonError.message);
-                    reject(new Error(`Resposta inválida do servidor: ${data.substring(0, 100)}`));
-                }
-            });
-        });
-
-        req.on('error', (error: any) => {
-            console.error('❌ HTTPS REQUEST ERROR:', error.message, error.code);
-            reject(new Error(`Erro de conexão: ${error.message}. Verifique se o servidor está online.`));
-        });
-
-        req.on('timeout', () => {
-            console.error('❌ HTTPS REQUEST TIMEOUT');
-            req.destroy();
-            reject(new Error('Timeout na conexão com o servidor. Tente novamente.'));
-        });
-
-        req.write(postData);
-        req.end();
+    // Criar transporter SMTP
+    const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_SECURE, // false para STARTTLS na porta 587
+        requireTLS: true, // Forçar STARTTLS
+        auth: {
+            user: fromEmail,
+            pass: fromPassword
+        },
+        tls: {
+            rejectUnauthorized: false // Aceitar certificados autoassinados
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000
     });
+
+    // Verificar conexão antes de enviar
+    try {
+        await transporter.verify();
+        console.log('✅ Conexão SMTP verificada com sucesso');
+    } catch (verifyError: any) {
+        console.error('❌ Erro na verificação SMTP:', verifyError.message);
+        throw new Error(`Falha na conexão SMTP: ${verifyError.message}`);
+    }
+
+    // Enviar email
+    const info = await transporter.sendMail({
+        from: `"VisualDesigne" <${fromEmail}>`,
+        to: toArray,
+        subject,
+        html,
+        replyTo: replyTo || fromEmail
+    });
+
+    console.log('✅ Email enviado:', info.messageId);
+    console.log('📊 Resposta SMTP:', info.response);
+
+    return {
+        success: true,
+        messageId: info.messageId,
+        response: info.response
+    };
 }
 
 // 🆕 FUNÇÃO: Guardar email na pasta Sent via IMAP (fire and forget)
@@ -182,39 +154,45 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // 🎯 Enviar via CyberPanel API - NÃO precisa de senha para enviar!
+        // 🎯 Validar senha do remetente
+        if (!fromPassword) {
+            console.log('🚀 [send-email] Erro: Senha do remetente em falta');
+            return NextResponse.json({
+                error: 'Senha do remetente obrigatória para envio SMTP',
+                details: 'A senha da conta de email é necessária para autenticação SMTP'
+            }, { status: 400 });
+        }
+
+        // 🎯 Enviar via SMTP direto usando Nodemailer
         try {
-            console.log('📧 Enviando via CyberPanel API (sem senha)...');
-            const result = await sendViaCyberPanelAPI(to, subject, html || '', from);
-            
-            const messageId = `cp-${Date.now()}`;
-            console.log('✅ Email enviado com sucesso via CyberPanel API, ID:', messageId);
-            
+            console.log('📧 Enviando via SMTP direto...');
+            const result = await sendViaSMTP(to, subject, html || '', from, fromPassword, replyTo);
+
+            console.log('✅ Email enviado com sucesso via SMTP, ID:', result.messageId);
+
             // 🚀 FIRE AND FORGET: Guardar na pasta Sent via IMAP (não bloqueia resposta)
-            if (fromPassword) {
-                (async () => {
-                    try {
-                        await saveToSentFolder(from, fromPassword, to, subject, html || '');
-                    } catch (e) {
-                        console.error('❌ [Background] Erro ao guardar Sent:', e);
-                    }
-                })().catch(err => console.error('❌ [Background] IMAP error:', err));
-            } else {
-                console.log('ℹ️ Sem senha IMAP fornecida, email não será guardado na pasta Sent');
-            }
-            
-            return NextResponse.json({ 
-                success: true, 
-                messageId: messageId,
-                provider: 'cyberpanel-api',
-                savedToSent: !!fromPassword
+            (async () => {
+                try {
+                    await saveToSentFolder(from, fromPassword, to, subject, html || '');
+                } catch (e) {
+                    console.error('❌ [Background] Erro ao guardar Sent:', e);
+                }
+            })().catch(err => console.error('❌ [Background] IMAP error:', err));
+
+            return NextResponse.json({
+                success: true,
+                messageId: result.messageId,
+                provider: 'smtp-direct',
+                response: result.response,
+                savedToSent: true
             });
-            
-        } catch (apiError: any) {
-            console.error('❌ CyberPanel API falhou:', apiError.message);
-            return NextResponse.json({ 
-                success: false, 
-                error: apiError.message 
+
+        } catch (smtpError: any) {
+            console.error('❌ SMTP falhou:', smtpError.message);
+            return NextResponse.json({
+                success: false,
+                error: smtpError.message,
+                details: 'Falha no envio via SMTP. Verifique as credenciais e configurações do servidor.'
             }, { status: 500 });
         }
         

@@ -99,7 +99,7 @@ Depois de configurar o servidor, o site já está pronto:
 SMTP_HOST=109.199.104.22
 SMTP_PORT=587
 SMTP_MASTER_EMAIL=admin@visualdesigne.com
-SMTP_MASTER_PASSWORD=EmailAdmin#2425
+SMTP_MASTER_PASSWORD=Ad.Vd#2425?*
 ```
 
 ---
