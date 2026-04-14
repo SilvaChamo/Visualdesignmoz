@@ -32,6 +32,7 @@ interface WebmailSectionProps {
   useCyberPanelAPI?: boolean
   emailOrigem?: string
   onComposeStateChange?: (isActive: boolean) => void
+  isAdmin?: boolean
 }
 
 export function WebmailSection({ 
@@ -44,7 +45,8 @@ export function WebmailSection({
   setModalAdicionarPasso,
   useCyberPanelAPI = false,
   emailOrigem,
-  onComposeStateChange
+  onComposeStateChange,
+  isAdmin = false
 }: WebmailSectionProps) {
   // Estados principais
   const [accounts, setAccounts] = useState<EmailAccount[]>([])
@@ -170,51 +172,55 @@ export function WebmailSection({
     try {
       const allAccounts: EmailAccount[] = []
 
-      // 1. Buscar do Supabase
-      try {
-        // 🚀 NOVO: Usar endpoint consolidado que combina Supabase + CyberPanel
-        // Isso é mais eficiente e evita duplicatas
-        const res = await fetch('/api/email-contas')
-        const data = await res.json()
-        if (data.success && data.contas) {
-          data.contas.forEach((c: any) => {
-            allAccounts.push({
+      // 1. Buscar do Supabase (endpoint principal)
+      const fetchSupabase = async () => {
+        try {
+          const res = await fetch('/api/email-contas')
+          const data = await res.json()
+          if (data.success && data.contas) {
+            return data.contas.map((c: any) => ({
               email: c.email,
               name: c.nome_conta || c.email.split('@')[0],
               domain: c.email.split('@')[1],
               password: c.password_smtp || CREDENCIAIS_PADRAO[c.email],
               tipo: c.tipo_conta || 'webmail'
-            })
-          })
+            }))
+          }
+        } catch (e) {
+          console.error('Erro ao buscar do Supabase:', e)
         }
-      } catch (e) {
-        console.log('Erro ao buscar do Supabase:', e)
+        return []
       }
 
-      // 2. Buscar do CyberPanel para cada site (usando endpoint consolidado)
-      for (const site of sites || []) {
+      // 2. Buscar do CyberPanel para cada site em paralelo
+      const fetchContactsPromises = (sites || []).map(async (site: any) => {
         try {
-          // 🚀 NOVO: Usar endpoint consolidado que retorna contactos filtrados e consolidados
           const res = await fetch(`/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`)
           const data = await res.json()
           if (data.success && data.emails) {
-            data.emails.forEach((email: string) => {
-              // Verificar se já existe
-              if (!allAccounts.find(a => a.email === email)) {
-                allAccounts.push({
-                  email: email,
-                  name: email.split('@')[0],
-                  domain: site.domain,
-                  password: CREDENCIAIS_PADRAO[email],
-                  tipo: 'webmail'
-                })
-              }
-            })
+            return data.emails.map((email: string) => ({
+              email: email,
+              name: email.split('@')[0],
+              domain: site.domain,
+              password: CREDENCIAIS_PADRAO[email],
+              tipo: 'webmail'
+            }))
           }
         } catch (e) {
-          console.log(`Erro ao buscar contactos de ${site.domain}:`, e)
+          console.error(`Erro ao buscar contactos de ${site.domain}:`, e)
         }
-      }
+        return []
+      })
+
+      // Executar todas as promessas em paralelo
+      const results = await Promise.all([fetchSupabase(), ...fetchContactsPromises])
+      
+      // Consolidar resultados
+      results.flat().forEach(acc => {
+        if (!allAccounts.find(a => a.email === acc.email)) {
+          allAccounts.push(acc)
+        }
+      })
 
       // 3. Adicionar email do usuário logado se não estiver na lista
       if (userEmail && !allAccounts.find(a => a.email === userEmail)) {
@@ -228,11 +234,13 @@ export function WebmailSection({
         })
       }
 
-      // 🚫 FILTRO: Apenas domínios permitidos (remove clientes)
-      const filteredAccounts = allAccounts.filter(acc => {
-        const domain = acc.email.split('@')[1]
-        return ALLOWED_DOMAINS.includes(domain)
-      })
+      // 🚫 FILTRO: Apenas domínios permitidos se for ADMIN (remove clientes do painel de controle vd)
+      const filteredAccounts = isAdmin 
+        ? allAccounts.filter(acc => {
+            const domain = acc.email.split('@')[1]
+            return ALLOWED_DOMAINS.includes(domain)
+          })
+        : allAccounts // 🚀 CLIENTE: Vê todos os seus domínios
 
       setAccounts(filteredAccounts)
       
@@ -471,17 +479,20 @@ export function WebmailSection({
                 <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse" />
               </div>
             </div>
-            {/* Lista skeleton */}
+            {/* Lista skeleton com detalhes */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border-b border-gray-100">
-                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
-                  <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                    <div className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border-b border-gray-100 hover:bg-gray-50">
+                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
+                  <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-2.5 w-10 bg-gray-150 rounded animate-pulse" />
+                    </div>
+                    <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+                    <div className="h-2.5 w-4/5 bg-gray-100 rounded animate-pulse" />
                   </div>
-                  <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
                 </div>
               ))}
             </div>
@@ -500,24 +511,35 @@ export function WebmailSection({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                <div className="w-10 h-10 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-2.5 w-48 bg-gray-150 rounded animate-pulse" />
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
-                <div className="h-3 w-48 bg-gray-200 rounded animate-pulse" />
+                <div className="h-2.5 w-16 bg-gray-150 rounded animate-pulse" />
+                <div className="h-2.5 w-40 bg-gray-100 rounded animate-pulse" />
               </div>
             </div>
             {/* Corpo do email skeleton */}
-            <div className="flex-1 p-4 space-y-3">
-              <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-[95%] bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-[90%] bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-[85%] bg-gray-200 rounded animate-pulse" />
-              <div className="h-20 w-full bg-gray-200 rounded animate-pulse mt-4" />
-              <div className="h-4 w-[80%] bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-[92%] bg-gray-200 rounded animate-pulse" />
+            <div className="flex-1 p-4 space-y-2.5 overflow-y-auto">
+              <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+              <div className="h-3 w-[95%] bg-gray-150 rounded animate-pulse" />
+              <div className="h-3 w-[90%] bg-gray-150 rounded animate-pulse" />
+              <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+              <div className="h-3 w-[88%] bg-gray-150 rounded animate-pulse" />
+              <div className="h-3 w-[92%] bg-gray-150 rounded animate-pulse" />
+              <div className="mt-4 space-y-2.5">
+                <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+                <div className="h-3 w-[85%] bg-gray-150 rounded animate-pulse" />
+                <div className="h-20 w-full bg-gray-200 rounded animate-pulse" />
+              </div>
+              <div className="mt-4 space-y-2.5">
+                <div className="h-3 w-[80%] bg-gray-150 rounded animate-pulse" />
+                <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+                <div className="h-3 w-[92%] bg-gray-150 rounded animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
@@ -528,136 +550,110 @@ export function WebmailSection({
   return (
     <div className={`flex flex-col bg-gray-50 ${showAdvancedCompose ? 'h-screen' : 'h-[calc(100vh-120px)]'}`}>
       {/* Header - Escondido quando compositor avancado esta ativo */}
-      <div className={`bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0 ${showAdvancedCompose ? 'hidden' : ''}`}>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            <span className="font-medium">Voltar</span>
-          </button>
-          
-          <div className="h-6 w-px bg-gray-300" />
-          
-          <div className="flex items-center gap-2">
-            <h2 className="font-bold text-gray-900">Webmail</h2>
+      {!showAdvancedCompose && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span className="font-medium">Voltar</span>
+            </button>
+            
+            <div className="h-6 w-px bg-gray-300" />
+            
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-gray-900">Webmail</h2>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          {/* Selector de Conta */}
-          {accounts.length > 0 && (
+          <div className="flex items-center gap-3">
+            {/* Selector de Conta */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">Conta:</span>
               <select
                 value={selectedAccount}
                 onChange={(e) => setSelectedAccount(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                disabled={accounts.length === 0}
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
               >
-                {accounts.map(acc => (
-                  <option key={acc.email} value={acc.email}>
-                    {acc.name} ({acc.email})
-                  </option>
-                ))}
+                {accounts.length > 0 ? (
+                  accounts.map(acc => (
+                    <option key={acc.email} value={acc.email}>
+                      {acc.name} ({acc.email})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Nenhuma conta disponível</option>
+                )}
               </select>
             </div>
-          )}
 
-          {/* Toggle View Mode */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Lista
-            </button>
-            <button
-              onClick={() => setViewMode('iframe')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'iframe' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              SnappyMail
-            </button>
-          </div>
-
-          {/* Abrir SnappyMail Externo */}
-          <button
-            onClick={openSnappyMailAutoLogin}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Abrir Webmail Completo
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      {accounts.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Nenhuma conta de email encontrada</h3>
-            <p className="text-gray-500 mb-4">Não existem contas de email configuradas para os seus domínios.</p>
-            <button
-              onClick={onBack}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-            >
-              Voltar ao Email
-            </button>
-          </div>
-        </div>
-      ) : viewMode === 'iframe' ? (
-        /* Modo iframe - SnappyMail integrado */
-        <div className="flex-1 relative">
-          {iframeLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
-              <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">A carregar SnappyMail...</p>
-              </div>
+            {/* Toggle View Mode */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'list' 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Lista
+              </button>
+              <button
+                onClick={() => setViewMode('iframe')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'iframe' 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                SnappyMail
+              </button>
             </div>
-          )}
-          <iframe
-            src={getSnappyMailUrl()}
-            className="w-full h-full border-0"
-            onLoad={() => setIframeLoading(false)}
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-          />
+
+            {/* Abrir SnappyMail Externo */}
+            <button
+              onClick={openSnappyMailAutoLogin}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Abrir Webmail Completo
+            </button>
+          </div>
         </div>
-      ) : (
-        /* Modo lista - Interface própria */
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar - Folders - Escondida SEM EFEITO quando compose está ativo */}
-          <div className={`bg-white border-r border-gray-200 flex flex-col shrink-0 ${showAdvancedCompose ? 'hidden' : 'w-56'}`}>
-            {/* Nova Mensagem */}
+      )}
+
+      {/* Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar - Folders (Exibida sempre que não estiver no compose avançado) */}
+        {!showAdvancedCompose && (
+          <div className="bg-white border-r border-gray-200 flex flex-col shrink-0 w-56">
             <div className="p-3">
               <button
                 onClick={() => setShowAdvancedCompose(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-red-600 text-white rounded-lg font-medium transition-colors shadow-sm"
+                disabled={accounts.length === 0}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-red-600 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 Nova Mensagem
               </button>
             </div>
 
-            {/* Folders */}
             <div className="flex-1 overflow-y-auto py-2">
               {folders.map(folder => {
                 const Icon = folder.icon
                 const isActive = activeFolder === folder.id
-                const count = folder.id === 'INBOX' ? emails.filter(e => !e.read).length : 0
+                const count = (accounts.length > 0 && folder.id === 'INBOX') 
+                  ? emails.filter(e => !e.read).length 
+                  : 0
 
                 return (
                   <button
                     key={folder.id}
+                    disabled={accounts.length === 0}
                     onClick={() => {
                       setActiveFolder(folder.id)
                       setSelectedEmail(null)
@@ -666,7 +662,7 @@ export function WebmailSection({
                       isActive 
                         ? 'bg-red-50 text-red-700 font-medium border-r-2 border-r-red-600' 
                         : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-red-600' : 'text-gray-500'}`} />
                     <span className="flex-1 text-left">{folder.name}</span>
@@ -679,217 +675,210 @@ export function WebmailSection({
                 )
               })}
             </div>
-
-            {/* Refresh */}
-            <div className="p-3 border-t border-gray-200">
-              <button
-                onClick={loadEmails}
-                disabled={loadingEmails}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loadingEmails ? 'animate-spin' : ''}`} />
-                {loadingEmails ? 'A atualizar...' : 'Atualizar'}
-              </button>
-            </div>
+            
+            {/* Refresh Button at bottom of sidebar if accounts exist */}
+            {accounts.length > 0 && (
+              <div className="p-3 border-t border-gray-100">
+                <button
+                  onClick={loadEmails}
+                  disabled={loadingEmails}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-gray-500 hover:text-red-600 transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingEmails ? 'animate-spin' : ''}`} />
+                  Atualizar Pasta
+                </button>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Email List / Composer */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white relative">
-            {/* Composer Avançado - Inline */}
-            {showAdvancedCompose ? (
-              <div className="flex-1 flex flex-col overflow-hidden w-full h-full">
-                <EmailWebmailSection
-                  sites={sites}
-                  defaultCompose={true}
-                  emailOrigem={selectedAccount || undefined}
-                  onCloseCompose={() => setShowAdvancedCompose(false)}
-                  onComposeStateChange={(isActive) => {
-                    // Só fechar quando o compose era ativo e agora está inativo
-                    if (!isActive && showAdvancedCompose) {
-                      setShowAdvancedCompose(false)
-                    }
-                  }}
-                  hideSidebar={true}
-                  // Passar assinaturas do WebmailSection
-                  externalAssinaturas={assinaturas}
-                  externalAssinaturaAtiva={assinaturaAtiva}
-                  externalSetAssinaturas={setAssinaturas}
-                  externalSetAssinaturaAtiva={setAssinaturaAtiva}
-                  externalAssinaturasPorEmailRef={assinaturasPorEmailRef}
-                  externalModoEscuro={modoEscuroAssinatura}
-                />
+        {/* Main Workspace */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {accounts.length === 0 ? (
+            /* Empty State */
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Nenhuma conta encontrada</h3>
+                <p className="text-gray-500 mb-6 px-6 max-w-md mx-auto">
+                  Não existem contas de email configuradas para os domínios deste painel.
+                </p>
+                <button
+                  onClick={onBack}
+                  className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all shadow-md"
+                >
+                  Voltar ao Painel
+                </button>
               </div>
-            ) : selectedEmail ? (
-              /* Email Detail View */
-              <div className="flex-1 flex flex-col">
-                {/* Email Header */}
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-start justify-between mb-4">
-                    <button
-                      onClick={() => setSelectedEmail(null)}
-                      className="flex items-center gap-1 text-gray-500 hover:text-gray-900 text-sm"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      Voltar
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Reply className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Forward className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">{selectedEmail.subject}</h2>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                        {selectedEmail.from?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{selectedEmail.from}</p>
-                        <p className="text-sm text-gray-500">para {selectedAccount}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {new Date(selectedEmail.date).toLocaleString('pt-BR')}
-                    </span>
+            </div>
+          ) : showAdvancedCompose ? (
+            /* Advanced Composer */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <EmailWebmailSection
+                sites={sites}
+                defaultCompose={true}
+                emailOrigem={selectedAccount || undefined}
+                onCloseCompose={() => setShowAdvancedCompose(false)}
+                onComposeStateChange={(isActive) => {
+                  if (!isActive && showAdvancedCompose) setShowAdvancedCompose(false)
+                }}
+                hideSidebar={true}
+                externalAssinaturas={assinaturas}
+                externalAssinaturaAtiva={assinaturaAtiva}
+                externalSetAssinaturas={setAssinaturas}
+                externalSetAssinaturaAtiva={setAssinaturaAtiva}
+                externalAssinaturasPorEmailRef={assinaturasPorEmailRef}
+                externalModoEscuro={modoEscuroAssinatura}
+              />
+            </div>
+          ) : viewMode === 'iframe' ? (
+            /* SnappyMail View */
+            <div className="flex-1 relative">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">A carregar Webmail...</p>
                   </div>
                 </div>
-
-                {/* Email Body */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  <div 
-                    className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedEmail.body || selectedEmail.snippet || '<p class="text-gray-400 italic">Sem conteúdo</p>' }}
-                  />
-                </div>
-              </div>
-            ) : (
-              /* Email List View */
-              <>
-                {/* Toolbar */}
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              )}
+              <iframe
+                src={getSnappyMailUrl()}
+                className="w-full h-full border-0"
+                onLoad={() => setIframeLoading(false)}
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+              />
+            </div>
+          ) : (
+            /* Traditional List + Detail View */
+            <div className="flex-1 flex overflow-hidden">
+              {/* Email List Column */}
+              <div className={`w-80 border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900">
                       {folders.find(f => f.id === activeFolder)?.name}
-                    </h3>
-                    {loadingEmails && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                    </span>
+                    {loadingEmails && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Pesquisar emails..."
-                        className="pl-9 pr-4 py-1.5 bg-gray-100 border-0 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:bg-white transition-all w-64"
-                      />
-                    </div>
-                    
-                    {/* Botões Assinatura e Nova Conta */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          // Abrir modal de configuração de assinaturas
-                          const emailAtual = selectedAccount || accounts[0]?.email
-                          if (emailAtual) {
-                            // Carregar assinaturas salvas para este email
-                            const config = assinaturasPorEmailRef.current[emailAtual]
-                            if (config) {
-                              setAssinaturas(config.assinaturas || [])
-                              setAssinaturaAtiva(config.assinaturaAtiva || 0)
-                            } else {
-                              setAssinaturas([])
-                              setAssinaturaAtiva(0)
-                            }
-                          }
-                          setMostrarConfigAssinatura(true)
-                        }}
-                        className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Assinatura
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (setMostrarAdicionarConta && setModalAdicionarPasso) {
-                            setModalAdicionarPasso('escolher')
-                            setMostrarAdicionarConta(true)
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-white bg-gray-700 border border-gray-700 rounded-md hover:bg-red-600 hover:border-red-600 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Nova Conta
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={loadEmails} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
+                      <Filter className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
-                {/* Email List */}
                 <div className="flex-1 overflow-y-auto">
                   {loadingEmails ? (
-                    <div className="flex items-center justify-center h-64">
-                      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    <div className="space-y-px">
+                      {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="p-4 border-b border-gray-50">
+                          <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+                          <div className="h-3 w-40 bg-gray-100 rounded animate-pulse mb-1" />
+                          <div className="h-2 w-32 bg-gray-50 rounded animate-pulse" />
+                        </div>
+                      ))}
                     </div>
                   ) : emails.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                      <Mail className="w-12 h-12 mb-3 opacity-30" />
-                      <p>Caixa vazia</p>
+                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-400">
+                      <Mail className="w-10 h-10 mb-2 opacity-20" />
+                      <p className="text-sm font-medium">Vazio</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-gray-50">
                       {emails.map((email, idx) => (
                         <div
                           key={email.id || idx}
                           onClick={() => setSelectedEmail(email)}
-                          className={`px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50 ${
-                            !email.read ? 'bg-red-50/30' : ''
+                          className={`p-4 cursor-pointer transition-all border-l-4 ${
+                            selectedEmail?.id === email.id 
+                              ? 'bg-red-50 border-l-red-600' 
+                              : (!email.read ? 'bg-gray-50/50 border-l-red-600/30' : 'hover:bg-gray-50 border-l-transparent')
                           }`}
                         >
-                          <div className="flex items-start gap-3">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // Toggle star
-                              }}
-                              className="mt-0.5 text-gray-300 hover:text-yellow-400 transition-colors"
-                            >
-                              <Star className={`w-4 h-4 ${email.starred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                            </button>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className={`font-medium truncate ${!email.read ? 'text-gray-900' : 'text-gray-600'}`}>
-                                  {email.from}
-                                </span>
-                                <span className="text-xs text-gray-400 shrink-0">
-                                  {formatDate(email.date)}
-                                </span>
-                              </div>
-                              <p className={`text-sm truncate ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
-                                {email.subject}
-                              </p>
-                              <p className="text-sm text-gray-500 truncate">
-                                {email.snippet}
-                              </p>
-                            </div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-sm truncate pr-2 ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                              {email.from}
+                            </span>
+                            <span className="text-[10px] text-gray-400 shrink-0">
+                              {formatDate(email.date)}
+                            </span>
                           </div>
+                          <p className={`text-xs truncate ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                            {email.subject || '(Sem assunto)'}
+                          </p>
+                          <p className="text-[11px] text-gray-400 truncate mt-1">
+                            {email.snippet}
+                          </p>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-              </>
+              </div>
+
+              {/* Email View Column */}
+              <div className="flex-1 bg-white flex flex-col min-w-0">
+                {selectedEmail ? (
+                  /* Email Detail View */
+                  <div className="flex-1 flex flex-col">
+                    {/* Header Detail */}
+                    <div className="px-6 py-4 border-b border-gray-100">
+                      <div className="flex items-start justify-between mb-4">
+                        <button
+                          onClick={() => setSelectedEmail(null)}
+                          className="flex items-center gap-1 text-gray-500 hover:text-gray-900 text-sm md:hidden"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          Voltar
+                        </button>
+                        <div className="flex items-center gap-2 ml-auto">
+                          <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                            <Reply className="w-4 h-4" />
+                          </button>
+                          <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h2 className="text-xl font-bold text-gray-900 mb-3">{selectedEmail.subject}</h2>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {selectedEmail.from?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{selectedEmail.from}</p>
+                            <p className="text-sm text-gray-500">para {selectedAccount}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {new Date(selectedEmail.date).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6">
+                      <div 
+                        className="prose prose-sm max-w-none shadow-sm p-6 bg-white border border-gray-100 rounded-xl"
+                        dangerouslySetInnerHTML={{ __html: selectedEmail.body || selectedEmail.snippet || '<p class="text-gray-400 italic">Sem conteúdo</p>' }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* No Email Selected */
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30">
+                    <Mail className="w-16 h-16 mb-4 opacity-10" />
+                    <p className="text-sm font-medium">Selecione uma mensagem para ler</p>
+                  </div>
+                )}
+              </div>
+         </>
             )}
           </div>
         </div>

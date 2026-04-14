@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { supabase } from '@/lib/supabase-client'
 
-// 🚀 Lazy loading para seções pesadas
+// 🚀 Componente de carregamento direto para seções principais
+import { WebmailSection } from '@/components/dashboard/WebmailSection'
 const EmailWebmailSection = lazy(() => import('@/components/dashboard/EmailWebmailSection').then(m => ({ default: m.EmailWebmailSection })))
-const WebmailSection = lazy(() => import('@/components/dashboard/WebmailSection').then(m => ({ default: m.WebmailSection })))
 
 import {
   Home, Globe, Users, Mail, Shield, Database, Settings, Target,
@@ -3703,17 +3703,15 @@ export default function AdminPage() {
         return <ContaSection />
       case 'webmail':
         return (
-          <Suspense fallback={<SectionLoader />}>
-            <WebmailSection
-              sites={cyberPanelSites}
-              userEmail={sessionUser}
-              onBack={() => setActiveSection('emails-new')}
-              mostrarAdicionarConta={mostrarAdicionarConta}
-              setMostrarAdicionarConta={setMostrarAdicionarConta}
-              modalAdicionarPasso={modalAdicionarPasso}
-              setModalAdicionarPasso={setModalAdicionarPasso}
-            />
-          </Suspense>
+          <WebmailSection
+            sites={cyberPanelSites}
+            userEmail={sessionUser}
+            onBack={() => setActiveSection('emails-new')}
+            mostrarAdicionarConta={mostrarAdicionarConta}
+            setMostrarAdicionarConta={setMostrarAdicionarConta}
+            modalAdicionarPasso={modalAdicionarPasso}
+            setModalAdicionarPasso={setModalAdicionarPasso}
+          />
         )
       case 'domains-new':
         // return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
@@ -4018,7 +4016,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${activeSection === 'dashboard' ? 'p-0' : 'p-5'} bg-slate-50/50`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${activeSection === 'dashboard' || activeSection === 'webmail' ? 'p-0' : 'p-5'} bg-slate-50/50`}>
           <div className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>

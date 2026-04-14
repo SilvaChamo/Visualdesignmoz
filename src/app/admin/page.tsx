@@ -1759,6 +1759,7 @@ export default function AdminPage() {
           useCyberPanelAPI={true}
           emailOrigem="geral@visualdesigne.com"
           onComposeStateChange={setIsComposeActive}
+          isAdmin={true}
         />
       case 'emails-new':
       case 'cp-email-mgmt':
