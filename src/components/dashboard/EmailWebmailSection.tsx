@@ -328,8 +328,23 @@ export function EmailWebmailSection({
   }, [modalEmail])
 
   // 🚀 Carregar contas APENAS do CyberPanel - SEM SUPABASE
+  // ⚡ OTIMIZAÇÃO: Se hideSidebar=true e propEmailOrigem existe, não carregar todas as contas
   useEffect(() => {
     const carregarContasCyberPanel = async () => {
+      // 🎯 MODO RÁPIDO: Painel do cliente com email já selecionado
+      if (hideSidebar && propEmailOrigem) {
+        console.log('📧 [RÁPIDO] Modo cliente com email predefinido:', propEmailOrigem)
+        setEmailsOrigem([{
+          email: propEmailOrigem,
+          tipo: 'webmail',
+          nome: propEmailOrigem.split('@')[0],
+          password: ''
+        }])
+        setEmailOrigem(propEmailOrigem)
+        setCarregandoEmails(false)
+        return
+      }
+
       console.log('📧 [CP] Iniciando carregamento do CyberPanel...')
       setCarregandoEmails(true)
       
@@ -337,17 +352,31 @@ export function EmailWebmailSection({
       const allEmails: any[] = []
       const dominiosValidos = sites?.map((s: any) => s.domain) || ['visualdesigne.com']
       
+      // ⚡ Timeout para cada requisição (5 segundos max)
+      const fetchWithTimeout = async (domain: string) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+        try {
+          const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(domain)}`, {
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId)
+          return await res.json()
+        } catch (e) {
+          clearTimeout(timeoutId)
+          throw e
+        }
+      }
+      
       for (const domain of dominiosValidos) {
         try {
           console.log(`📧 [CP] Buscando emails do domínio: ${domain}`)
-          const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(domain)}`)
-          const data = await res.json()
+          const data = await fetchWithTimeout(domain)
           
           if (data.success && data.emails?.length > 0) {
             data.emails.forEach((email: string) => {
               // 🚫 FILTRO: Ignorar emails inválidos ou suspeitos
               if (email.includes('joao') || email.includes('teste') || email.includes('exemplo')) {
-                console.log(`🚫 Ignorando email inválido: ${email}`)
                 return
               }
               // ✅ Apenas emails dos domínios válidos
@@ -373,7 +402,7 @@ export function EmailWebmailSection({
     }
     
     carregarContasCyberPanel()
-  }, [sites])
+  }, [sites, hideSidebar, propEmailOrigem])
 
   // Debounce para a pesquisa
   useEffect(() => {
@@ -1298,10 +1327,10 @@ export function EmailWebmailSection({
           })}
         </div>
         {/* ÁREA DE CONTEÚDO: Alterna entre Lista de Emails e Compose */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={`flex-1 flex flex-col overflow-hidden ${hideSidebar ? 'w-full' : ''}`}>
           {mostrarCompose ? (
             /* ========== VIEW COMPOSE (Página de Escrever) ========== */
-            <div className="flex flex-col bg-white h-full overflow-hidden">
+            <div className={`flex flex-col bg-white h-full overflow-hidden ${hideSidebar ? 'w-full' : ''}`}>
               {/* Header do Compose */}
               <div className="bg-gray-50 border-b border-gray-200 flex">
                 {/* Coluna esquerda — botão Enviar */}

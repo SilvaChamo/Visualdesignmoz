@@ -470,7 +470,7 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
           <div className="flex-1 flex flex-col min-w-0 bg-white relative">
             {/* Composer Avançado - Inline */}
             {showAdvancedCompose ? (
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden w-full h-full">
                 <EmailWebmailSection
                   sites={sites}
                   defaultCompose={true}
