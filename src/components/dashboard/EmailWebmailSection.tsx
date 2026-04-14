@@ -30,7 +30,8 @@ export function EmailWebmailSection({
   sites = [],
   defaultCompose = false,
   onCloseCompose,
-  onComposeStateChange
+  onComposeStateChange,
+  hideSidebar = false
 }: {
   mostrarAdicionarConta?: boolean
   setMostrarAdicionarConta?: (value: boolean) => void
@@ -41,6 +42,7 @@ export function EmailWebmailSection({
   defaultCompose?: boolean
   onCloseCompose?: () => void
   onComposeStateChange?: (isActive: boolean) => void
+  hideSidebar?: boolean
 }) {
   const [pastaActiva, setPastaActiva] = useState('Caixa de Entrada')
   const [emails, setEmails] = useState<any[]>([])
@@ -325,94 +327,53 @@ export function EmailWebmailSection({
     }
   }, [modalEmail])
 
-  // 🚀 Carregar contas DIRETAMENTE do CyberPanel (PRIMEIRO - prioridade máxima)
+  // 🚀 Carregar contas APENAS do CyberPanel - SEM SUPABASE
   useEffect(() => {
     const carregarContasCyberPanel = async () => {
       console.log('📧 [CP] Iniciando carregamento do CyberPanel...')
-      console.log('📧 [CP] sites:', sites)
       setCarregandoEmails(true)
       
-      // 1. PRIMEIRO: Buscar emails DIRETAMENTE do CyberPanel (visualdesigne.com)
-      try {
-        console.log('📧 [CP] Buscando emails do CyberPanel...')
-        const res = await fetch('/api/cyberpanel-list-emails?domain=visualdesigne.com')
-        const data = await res.json()
-        console.log('📧 [CP] Resposta CyberPanel:', data)
-        
-        if (data.success && data.emails?.length > 0) {
-          console.log(`📧 [CP] Encontrados ${data.emails.length} emails no CyberPanel`)
-          const contasFormatadas = data.emails.map((email: string) => ({
-            email: email,
-            tipo: 'webmail',
-            nome: email.split('@')[0],
-            password: ''
-          }))
-          setEmailsOrigem(contasFormatadas)
-          setCarregandoEmails(false)
-          return // Sucesso - não precisa fallback
-        } else {
-          console.log('📧 [CP] Nenhum email encontrado no CyberPanel:', data)
-        }
-      } catch (e) {
-        console.error('📧 [CP] Erro ao buscar do CyberPanel:', e)
-      }
-
-      // 2. FALLBACK: Se falhou, tenta buscar de todos os domínios do cliente
-      if (sites && sites.length > 0) {
-        console.log('📧 [CP] Fallback: Buscando de todos os domínios...')
-        const allEmails: any[] = []
-        
-        for (const site of sites) {
-          try {
-            const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(site.domain)}`)
-            const data = await res.json()
-            if (data.success && data.emails?.length > 0) {
-              data.emails.forEach((email: string) => {
+      // Buscar emails de TODOS os domínios dos sites
+      const allEmails: any[] = []
+      const dominiosValidos = sites?.map((s: any) => s.domain) || ['visualdesigne.com']
+      
+      for (const domain of dominiosValidos) {
+        try {
+          console.log(`📧 [CP] Buscando emails do domínio: ${domain}`)
+          const res = await fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(domain)}`)
+          const data = await res.json()
+          
+          if (data.success && data.emails?.length > 0) {
+            data.emails.forEach((email: string) => {
+              // 🚫 FILTRO: Ignorar emails inválidos ou suspeitos
+              if (email.includes('joao') || email.includes('teste') || email.includes('exemplo')) {
+                console.log(`🚫 Ignorando email inválido: ${email}`)
+                return
+              }
+              // ✅ Apenas emails dos domínios válidos
+              const emailDomain = email.split('@')[1]
+              if (dominiosValidos.includes(emailDomain)) {
                 allEmails.push({
                   email,
                   tipo: 'webmail',
                   nome: email.split('@')[0],
-                  password: '',
-                  domain: site.domain
+                  password: ''
                 })
-              })
-            }
-          } catch (e) {
-            console.error(`📧 [CP] Erro no domínio ${site.domain}:`, e)
+              }
+            })
           }
-        }
-        
-        if (allEmails.length > 0) {
-          console.log(`📧 [CP] Total emails de todos os domínios: ${allEmails.length}`)
-          setEmailsOrigem(allEmails)
-          setCarregandoEmails(false)
-          return
+        } catch (e) {
+          console.error(`📧 [CP] Erro no domínio ${domain}:`, e)
         }
       }
       
-      // 3. ÚLTIMO RECURSO: Supabase (apenas se CyberPanel falhou completamente)
-      console.log('📧 [CP] Último recurso: tentando Supabase...')
-      try {
-        const res = await fetch('/api/email-contas')
-        const data = await res.json()
-        if (data.success && data.contas?.length > 0) {
-          setEmailsOrigem(data.contas.map((c: any) => ({
-            email: c.email,
-            tipo: c.tipo_conta || 'webmail',
-            nome: c.nome_conta || c.email.split('@')[0],
-            password: ''
-          })))
-        }
-      } catch (e) {
-        console.error('📧 [CP] Erro no fallback Supabase:', e)
-      }
-      
+      console.log(`📧 [CP] Total emails carregados: ${allEmails.length}`)
+      setEmailsOrigem(allEmails)
       setCarregandoEmails(false)
     }
     
-    // 🚀 SEMPRE executar na montagem do componente
     carregarContasCyberPanel()
-  }, []) // Array vazio = executa apenas na montagem
+  }, [sites])
 
   // Debounce para a pesquisa
   useEffect(() => {
@@ -1234,8 +1195,8 @@ export function EmailWebmailSection({
 
       {/* LISTA DE EMAILS */}
       <div className="flex-1 flex overflow-hidden bg-white relative">
-        {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo */}
-        <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${mostrarCompose ? 'hidden' : 'w-72'}`}>
+        {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo ou hideSidebar=true */}
+        <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${(mostrarCompose || hideSidebar) ? 'hidden' : 'w-72'}`}>
           <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
           <div className="border-b border-gray-100">
@@ -2850,5 +2811,3 @@ export function EmailWebmailSection({
     </div>
   )
 }
-
-// Componente SuporteSection

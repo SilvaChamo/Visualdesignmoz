@@ -479,6 +479,7 @@ export function WebmailSection({ sites, userEmail, onBack }: WebmailSectionProps
                   onComposeStateChange={(isActive) => {
                     if (!isActive) setShowAdvancedCompose(false)
                   }}
+                  hideSidebar={true}
                 />
               </div>
             ) : selectedEmail ? (
