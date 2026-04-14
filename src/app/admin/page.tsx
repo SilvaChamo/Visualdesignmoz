@@ -1923,8 +1923,8 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
-          <div className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
+        <main className={`flex-1 ${activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
+          <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
         </main>

@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'visualdesign',
       script: 'node_modules/.bin/next',
-      args: 'start -p 3002',
-      cwd: '/home/admin.visualdesign.ao/public_html',
+      args: 'start --port 3002',
+      cwd: '/home/visualdesign.ao/public_html',
       instances: 1,
       autorestart: true,
       watch: false,

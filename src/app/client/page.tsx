@@ -4016,7 +4016,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${activeSection === 'dashboard' || activeSection === 'webmail' ? 'p-0' : 'p-5'} bg-slate-50/50`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'emails-new', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50`}>
           <div className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
