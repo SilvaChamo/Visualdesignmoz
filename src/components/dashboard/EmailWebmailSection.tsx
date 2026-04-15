@@ -1266,7 +1266,7 @@ export function EmailWebmailSection({
           Assinatura
         </button>
         <button onClick={() => setMostrarAdicionarConta(true)}
-          className="bg-green-600 hover:bg-red-600 text-white text-sm px-4 py-1.5 rounded-md border border-green-600 hover:border-red-600 transition-colors flex items-center gap-2 font-medium">
+          className="bg-gray-500 hover:bg-gray-600 text-white text-sm px-4 py-1.5 rounded-md border border-gray-500 hover:border-gray-600 transition-colors flex items-center gap-2 font-medium">
           <Plus className="w-4 h-4" />
           Adicionar Conta
         </button>

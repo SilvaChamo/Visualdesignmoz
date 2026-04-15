@@ -2210,7 +2210,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 h-screen bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 h-screen bg-slate-900/40 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white text-slate-900">
               <h3 className="text-lg font-black tracking-tight">{editingSub ? 'Editar Contacto' : 'Novo Contacto'}</h3>

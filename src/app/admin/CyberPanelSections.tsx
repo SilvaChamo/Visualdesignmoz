@@ -111,7 +111,7 @@ const ConfirmModal = ({
   if (!show) return null
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onCancel} />
+      <div className="absolute inset-0 bg-white/40 animate-in fade-in duration-200" onClick={onCancel} />
       <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
         <div className="px-8 py-10 text-center space-y-4">
           <div className={cn(
@@ -2520,7 +2520,7 @@ export function CPUsersSection() {
       {/* Modal de Utilizador (Unified) */}
       {userModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUserModal({ ...userModal, show: false })} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setUserModal({ ...userModal, show: false })} />
           <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">

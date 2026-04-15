@@ -61,7 +61,29 @@ export function WebmailSection({
   const [showCompose, setShowCompose] = useState(false)
   const [iframeLoading, setIframeLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'iframe'>('list')
-  
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
+
+  // Estado para criação de e-mail no servidor
+  const [showCreateEmailModal, setShowCreateEmailModal] = useState(false)
+  const [creatingEmail, setCreatingEmail] = useState(false)
+  const [createEmailError, setCreateEmailError] = useState('')
+  const [createEmailSuccess, setCreateEmailSuccess] = useState('')
+  const [createEmailForm, setCreateEmailForm] = useState({
+    user: '',
+    password: '',
+    domain: '',
+    quota: '500'
+  })
+
+  // Debounce para pesquisa
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   // Estado para compose avançado (EmailWebmailSection)
   const [showAdvancedCompose, setShowAdvancedCompose] = useState(false)
   
@@ -143,7 +165,7 @@ export function WebmailSection({
     if (selectedAccount && viewMode === 'list') {
       loadEmails()
     }
-  }, [selectedAccount, activeFolder])
+  }, [selectedAccount, activeFolder, debouncedSearchQuery])
 
   // SINCRONIZAÇÃO: Carregar assinaturas quando email muda
   useEffect(() => {
@@ -277,7 +299,8 @@ export function WebmailSection({
           email: account.email,
           password: password,
           folders: [activeFolder],
-          limit: 50
+          limit: 50,
+          search: debouncedSearchQuery
         })
       })
 
@@ -289,6 +312,60 @@ export function WebmailSection({
       console.error('Erro ao carregar emails:', error)
     } finally {
       setLoadingEmails(false)
+    }
+  }
+
+  const handleCreateServerEmail = async () => {
+    if (!createEmailForm.user || !createEmailForm.password || !createEmailForm.domain) {
+      setCreateEmailError('Por favor, preencha todos os campos.')
+      return
+    }
+
+    setCreatingEmail(true)
+    setCreateEmailError('')
+    setCreateEmailSuccess('')
+
+    try {
+      const res = await fetch('/api/cyberpanel-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domainName: createEmailForm.domain,
+          userName: createEmailForm.user,
+          password: createEmailForm.password,
+          quota: createEmailForm.quota || 500
+        })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setCreateEmailSuccess('Conta de e-mail criada com sucesso!')
+        
+        // Sincronizar com o banco de dados via API
+        await fetch('/api/email-contas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: `${createEmailForm.user}@${createEmailForm.domain}`,
+            password: createEmailForm.password,
+            nome: createEmailForm.user,
+            tipo: 'webmail'
+          })
+        })
+
+        setTimeout(() => {
+          setShowCreateEmailModal(false)
+          setCreateEmailSuccess('')
+          setCreateEmailForm({ user: '', password: '', domain: '', quota: '500' })
+          window.location.reload()
+        }, 1500)
+      } else {
+        setCreateEmailError(data.error || 'Erro ao criar conta de e-mail.')
+      }
+    } catch (error: any) {
+      setCreateEmailError('Erro técnico: ' + error.message)
+    } finally {
+      setCreatingEmail(false)
     }
   }
 
@@ -623,7 +700,7 @@ export function WebmailSection({
                 <div className="h-3 w-[85%] bg-gray-150 rounded animate-pulse" />
                 <div className="h-20 w-full bg-gray-200 rounded animate-pulse" />
               </div>
-              <div className="mt-4 space-y-2.5">
+<div className="mt-4 space-y-2.5">
                 <div className="h-3 w-[80%] bg-gray-150 rounded animate-pulse" />
                 <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
                 <div className="h-3 w-[92%] bg-gray-150 rounded animate-pulse" />
@@ -637,34 +714,30 @@ export function WebmailSection({
 
   return (
     <div className={`flex flex-col bg-gray-50 ${showAdvancedCompose ? 'h-screen' : 'h-[calc(100vh-120px)]'}`}>
-      {/* Header - Escondido quando compositor avancado esta ativo */}
       {!showAdvancedCompose && (
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={onBack}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="font-medium">Voltar</span>
-            </button>
-            
-            <div className="h-6 w-px bg-gray-300" />
-            
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-gray-900">Webmail</h2>
-            </div>
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </button>
+            )}
+            <div className="w-px h-5 bg-gray-200" />
+            <span className="text-base font-bold text-gray-900">Webmail</span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Selector de Conta */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">Conta:</span>
               <select
                 value={selectedAccount}
                 onChange={(e) => setSelectedAccount(e.target.value)}
                 disabled={accounts.length === 0}
-                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {accounts.length > 0 ? (
                   accounts.map(acc => (
@@ -678,10 +751,9 @@ export function WebmailSection({
               </select>
             </div>
 
-            {/* Abrir SnappyMail Externo */}
             <button
               onClick={openSnappyMailAutoLogin}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               Abrir Webmail Completo
@@ -690,18 +762,16 @@ export function WebmailSection({
         </div>
       )}
 
-      {/* Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Folders (Exibida sempre que não estiver no compose avançado) */}
         {!showAdvancedCompose && (
           <div className="bg-white border-r border-gray-200 flex flex-col shrink-0 w-56">
-            <div className="p-3">
+            <div className="p-4 border-b border-gray-100">
               <button
                 onClick={() => setShowAdvancedCompose(true)}
                 disabled={accounts.length === 0}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-red-600 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-md transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5" />
                 Nova Mensagem
               </button>
             </div>
@@ -740,7 +810,6 @@ export function WebmailSection({
               })}
             </div>
             
-            {/* Refresh Button at bottom of sidebar if accounts exist */}
             {accounts.length > 0 && (
               <div className="p-3 border-t border-gray-100">
                 <button
@@ -756,10 +825,8 @@ export function WebmailSection({
           </div>
         )}
 
-        {/* Main Workspace */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {accounts.length === 0 ? (
-            /* Empty State */
             <div className="flex-1 flex items-center justify-center bg-gray-50">
               <div className="text-center">
                 <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -769,14 +836,13 @@ export function WebmailSection({
                 </p>
                 <button
                   onClick={onBack}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all shadow-md"
+                  className="px-6 py-2 bg-red-600 text-white rounded-md font-bold hover:bg-red-700 transition-all shadow-md"
                 >
                   Voltar ao Painel
                 </button>
               </div>
             </div>
           ) : showAdvancedCompose ? (
-            /* Advanced Composer */
             <div className="flex-1 flex flex-col overflow-hidden">
               <EmailWebmailSection
                 sites={sites}
@@ -797,7 +863,6 @@ export function WebmailSection({
               />
             </div>
           ) : viewMode === 'iframe' ? (
-            /* SnappyMail View */
             <div className="flex-1 relative">
               {iframeLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
@@ -815,10 +880,8 @@ export function WebmailSection({
               />
             </div>
           ) : (
-            /* Traditional List + Detail View */
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Unified Header Bar */}
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3 bg-white shrink-0">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -832,255 +895,208 @@ export function WebmailSection({
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                   />
-                  <span className="text-sm font-bold text-gray-900">
+                  <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
                     {folders.find(f => f.id === activeFolder)?.name}
                   </span>
                   {selectedEmails.size > 0 && (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded whitespace-nowrap">
                       {selectedEmails.size} selecionado(s)
                     </span>
                   )}
                   {loadingEmails && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />}
                 </div>
-                <div className="flex items-center gap-1">
-                  {selectedEmail && (
-                    <>
-                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
-                        <Reply className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder a todos">
-                        <ReplyAll className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Reencaminhar">
-                        <Forward className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleArchiveEmail(selectedEmail?.id)} className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors" title="Arquivar">
-                        <Archive className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteEmail(selectedEmail?.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Apagar">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="w-px h-4 bg-gray-300 mx-1" />
-                    </>
-                  )}
-                  {selectedEmails.size > 0 && (
-                    <>
-                      <button onClick={() => { selectedEmails.forEach(id => handleArchiveEmail(id)); setSelectedEmails(new Set()) }} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Arquivar selecionados">
-                        <Archive className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => { selectedEmails.forEach(id => handleDeleteEmail(id)); setSelectedEmails(new Set()) }} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Apagar selecionados">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="w-px h-4 bg-gray-300 mx-1" />
-                    </>
-                  )}
-                  <button onClick={loadEmails} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
-                    <RefreshCw className="w-3.5 h-3.5" />
+
+                <div className="w-px h-4 bg-gray-200" />
+
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={loadEmails} 
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Atualizar"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingEmails ? 'animate-spin' : ''}`} />
                   </button>
-                  <button className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
-                    <Filter className="w-3.5 h-3.5" />
+                  <button 
+                    className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Filtrar"
+                  >
+                    <Filter className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-              <div className="flex-1 flex overflow-hidden">
-              {/* Email List Column */}
-              <div className={`w-80 border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
-                <div className="sr-only">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedEmails.size === emails.length && emails.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedEmails(new Set(emails.map(email => email.id || email.uid)))
-                        } else {
-                          setSelectedEmails(new Set())
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                    />
-                    <span className="text-sm font-bold text-gray-900">
-                      {folders.find(f => f.id === activeFolder)?.name}
-                    </span>
-                    {selectedEmails.size > 0 && (
-                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                        {selectedEmails.size} selecionado(s)
-                      </span>
-                    )}
-                    {loadingEmails && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {selectedEmails.size > 0 && (
+
+                <div className="flex-1" />
+
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (selectedAccount && assinaturasPorEmailRef.current[selectedAccount]) {
+                        const config = assinaturasPorEmailRef.current[selectedAccount]
+                        setAssinaturas(config.assinaturas || [])
+                        setAssinaturaAtiva(config.assinaturaAtiva || 0)
+                      } else if (selectedAccount) {
+                        setAssinaturas([])
+                        setAssinaturaAtiva(0)
+                      }
+                      setMostrarConfigAssinatura(true)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 hover:text-red-500 hover:border-red-500 rounded-md text-xs font-medium transition-colors"
+                  >
+                    Assinatura
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedAccount && selectedAccount.includes('@')) {
+                        const domain = selectedAccount.split('@')[1]
+                        setCreateEmailForm(prev => ({ ...prev, domain }))
+                      } else if (sites.length > 0) {
+                        setCreateEmailForm(prev => ({ ...prev, domain: sites[0].domain }))
+                      }
+                      setShowCreateEmailModal(true)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md text-xs font-medium transition-colors shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nova Conta
+                  </button>
+                </div>
+
+                {(selectedEmail || selectedEmails.size > 0) && (
+                  <div className="ml-auto flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                    {selectedEmail && (
                       <>
-                        <button 
-                          onClick={() => {
-                            selectedEmails.forEach(id => handleArchiveEmail(id))
-                            setSelectedEmails(new Set())
-                          }}
-                          className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                          title="Arquivar selecionados"
-                        >
-                          <Archive className="w-3.5 h-3.5" />
+                        <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
+                          <Reply className="w-3.5 h-3.5" />
                         </button>
-                        <button 
-                          onClick={() => {
-                            selectedEmails.forEach(id => handleDeleteEmail(id))
-                            setSelectedEmails(new Set())
-                          }}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Apagar selecionados"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
+                        <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder a todos">
+                          <ReplyAll className="w-3.5 h-3.5" />
                         </button>
-                        <div className="w-px h-4 bg-gray-300 mx-1" />
+                        <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Reencaminhar">
+                          <Forward className="w-3.5 h-3.5" />
+                        </button>
                       </>
                     )}
-                    <button onClick={loadEmails} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
-                      <RefreshCw className="w-3.5 h-3.5" />
+                    <button 
+                      onClick={() => {
+                        if (selectedEmails.size > 0) {
+                          selectedEmails.forEach(id => handleArchiveEmail(id))
+                          setSelectedEmails(new Set())
+                        } else if (selectedEmail) {
+                          handleArchiveEmail(selectedEmail.id)
+                        }
+                      }} 
+                      className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors" 
+                      title="Arquivar"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
                     </button>
-                    <button className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
-                      <Filter className="w-3.5 h-3.5" />
+                    <button 
+                      onClick={() => {
+                        if (selectedEmails.size > 0) {
+                          selectedEmails.forEach(id => handleDeleteEmail(id))
+                          setSelectedEmails(new Set())
+                        } else if (selectedEmail) {
+                          handleDeleteEmail(selectedEmail.id)
+                        }
+                      }} 
+                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
+                      title="Apagar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1 flex overflow-hidden">
+                <div className={`w-80 border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
+                  <div className="flex-1 overflow-y-auto">
+                    {loadingEmails ? (
+                      <div className="space-y-px">
+                        {[1, 2, 3, 4, 5].map(i => (
+                          <div key={i} className="p-4 space-y-2 animate-pulse">
+                            <div className="h-4 bg-gray-100 rounded w-1/2" />
+                            <div className="h-3 bg-gray-50 rounded w-3/4" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : emails.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-gray-400">
+                        <Mail className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="text-sm">Nenhum email nesta pasta</p>
+                      </div>
+                    ) : (
+                      emails.map(email => (
+                        <button
+                          key={email.id || email.uid}
+                          onClick={() => setSelectedEmail(email)}
+                          className={`w-full p-4 text-left border-b border-gray-50 transition-colors hover:bg-gray-50 ${
+                            selectedEmail?.id === email.id ? 'bg-red-50/50 border-l-2 border-l-red-600' : ''
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className={`text-sm truncate ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                              {email.from}
+                            </span>
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                              {new Date(email.date).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                          <p className={`text-xs truncate mb-1 ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                            {email.subject}
+                          </p>
+                          <p className="text-[11px] text-gray-400 line-clamp-2">
+                            {email.snippet}
+                          </p>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
-                  {loadingEmails ? (
-                    <div className="space-y-px">
-                      {[1, 2, 3, 4, 5, 6].map(i => (
-                        <div key={i} className="p-4 border-b border-gray-50">
-                          <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
-                          <div className="h-3 w-40 bg-gray-100 rounded animate-pulse mb-1" />
-                          <div className="h-2 w-32 bg-gray-50 rounded animate-pulse" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : emails.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-gray-400">
-                      <Mail className="w-10 h-10 mb-2 opacity-20" />
-                      <p className="text-sm font-medium">Vazio</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-50">
-                      {emails.map((email, idx) => {
-                        const emailId = email.id || email.uid || idx
-                        const isSelected = selectedEmails.has(emailId)
-                        return (
-                          <div
-                            key={emailId}
-                            onClick={(e) => {
-                              // Não selecionar email se clicou no checkbox
-                              if ((e.target as HTMLElement).tagName === 'INPUT') return
-                              setSelectedEmail(email)
-                            }}
-                            className={`p-4 cursor-pointer transition-all border-l-4 ${
-                              selectedEmail?.id === email.id 
-                                ? 'bg-red-50 border-l-red-600' 
-                                : (!email.read ? 'bg-gray-50/50 border-l-red-600/30' : 'hover:bg-gray-50 border-l-transparent')
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  e.stopPropagation()
-                                  const newSelected = new Set(selectedEmails)
-                                  if (e.target.checked) {
-                                    newSelected.add(emailId)
-                                  } else {
-                                    newSelected.delete(emailId)
-                                  }
-                                  setSelectedEmails(newSelected)
-                                }}
-                                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 shrink-0"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className={`text-sm truncate pr-2 ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
-                                    {email.from}
-                                  </span>
-                                  <span className="text-[10px] text-gray-400 shrink-0">
-                                    {formatDate(email.date)}
-                                  </span>
-                                </div>
-                                <p className={`text-xs truncate ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
-                                  {email.subject || '(Sem assunto)'}
-                                </p>
-                                <p className="text-[11px] text-gray-400 truncate mt-1">
-                                  {email.snippet}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Email View Column */}
-              <div className="flex-1 bg-white flex flex-col min-w-0">
                 {selectedEmail ? (
-                  /* Email Detail View */
-                  <div className="flex-1 flex flex-col">
-                    {/* Header Detail */}
-                    <div className="px-6 py-4 border-b border-gray-100">
-                      <div className="flex items-start justify-between mb-4">
-                        <button
-                          onClick={() => setSelectedEmail(null)}
-                          className="flex items-center gap-1 text-gray-500 hover:text-gray-900 text-sm md:hidden"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                          Voltar
-                        </button>
-                        <div className="flex items-center gap-2 ml-auto">
-                          <button 
-                            onClick={() => setShowAdvancedCompose(true)}
-                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Responder"
-                          >
+                  <div className="flex-1 flex flex-col min-w-0 bg-white">
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">{selectedEmail.subject}</h2>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
                             <Reply className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => setShowAdvancedCompose(true)}
-                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Responder a todos"
-                          >
+                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder a todos">
                             <ReplyAll className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => setShowAdvancedCompose(true)}
-                            className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Reencaminhar"
-                          >
+                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Reencaminhar">
                             <Forward className="w-4 h-4" />
                           </button>
                           <div className="w-px h-4 bg-gray-300 mx-1" />
-                          <button 
-                            onClick={() => handleDeleteEmail(selectedEmail?.id)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Apagar"
-                          >
+                          <button onClick={() => handleDeleteEmail(selectedEmail?.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Apagar">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
-
-                      <h2 className="text-xl font-bold text-gray-900 mb-3">{selectedEmail.subject}</h2>
                       
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                            {selectedEmail.from?.charAt(0).toUpperCase() || '?'}
+                          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {selectedEmail.from?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{selectedEmail.from}</p>
-                            <p className="text-sm text-gray-500">para {selectedAccount}</p>
+                            <p className="text-sm font-bold text-gray-900">{selectedEmail.from}</p>
+                            <p className="text-xs text-gray-500">para {selectedAccount}</p>
                           </div>
                         </div>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-xs text-gray-400">
                           {new Date(selectedEmail.date).toLocaleString('pt-BR')}
                         </span>
                       </div>
@@ -1088,36 +1104,29 @@ export function WebmailSection({
 
                     <div className="flex-1 overflow-y-auto p-6">
                       <div 
-                        className="prose prose-sm max-w-none shadow-sm p-6 bg-white border border-gray-100 rounded-xl"
-                        dangerouslySetInnerHTML={{ __html: selectedEmail.body || selectedEmail.snippet || '<p class="text-gray-400 italic">Sem conteúdo</p>' }}
+                        className="prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: selectedEmail.body || selectedEmail.snippet || '' }}
                       />
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30">
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/20">
                     <Mail className="w-16 h-16 mb-4 opacity-10" />
-                    <p className="text-sm font-medium">Selecione uma mensagem para ler</p>
+                    <p className="text-sm">Selecione uma mensagem para ler</p>
                   </div>
                 )}
               </div>
-            </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Compose Modal Simples (fallback) */}
       {showCompose && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-bold text-gray-900">Nova Mensagem</h3>
-              <button 
-                onClick={() => setShowCompose(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowCompose(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             
             <div className="p-6 space-y-4 overflow-y-auto">
@@ -1181,6 +1190,122 @@ export function WebmailSection({
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criação de E-mail (Servidor) */}
+      {showCreateEmailModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateEmailModal(false)} />
+          <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-600 rounded-md flex items-center justify-center shadow-lg shadow-red-500/20">
+                  <Mail className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Novo E-mail</h2>
+                  <span className="text-[11px] text-gray-500 font-mono italic">Criar conta no servidor</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCreateEmailModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Domínio</label>
+                <select
+                  value={createEmailForm.domain}
+                  onChange={e => setCreateEmailForm({ ...createEmailForm, domain: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                >
+                  <option value="">Selecione o domínio...</option>
+                  {sites.map(s => (
+                    <option key={s.domain} value={s.domain}>{s.domain}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Utilizador (prefixo)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={createEmailForm.user}
+                    onChange={e => setCreateEmailForm({ ...createEmailForm, user: e.target.value })}
+                    placeholder="ex: comercial"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  />
+                  {createEmailForm.domain && <span className="text-gray-400 text-xs font-medium">@{createEmailForm.domain}</span>}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Palavra-passe</label>
+                <input
+                  type="password"
+                  value={createEmailForm.password}
+                  onChange={e => setCreateEmailForm({ ...createEmailForm, password: e.target.value })}
+                  placeholder="••••••••••••"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Quota (MB)</label>
+                  <select
+                    value={createEmailForm.quota}
+                    onChange={e => setCreateEmailForm({ ...createEmailForm, quota: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  >
+                    <option value="500">500 MB</option>
+                    <option value="1000">1 GB</option>
+                    <option value="2000">2 GB</option>
+                    <option value="5000">5 GB</option>
+                    <option value="unlimited">Ilimitado</option>
+                  </select>
+                </div>
+              </div>
+
+              {createEmailError && (
+                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-600 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {createEmailError}
+                </div>
+              )}
+
+              {createEmailSuccess && (
+                <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-600 text-xs font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {createEmailSuccess}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button 
+                onClick={() => setShowCreateEmailModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                disabled={creatingEmail}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleCreateServerEmail}
+                disabled={creatingEmail || !createEmailForm.user || !createEmailForm.password || !createEmailForm.domain}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {creatingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {creatingEmail ? 'A criar...' : 'Criar E-mail'}
               </button>
             </div>
           </div>
