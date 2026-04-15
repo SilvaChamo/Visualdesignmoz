@@ -165,7 +165,7 @@ function LoginPageContent() {
 
         {/* Modal de Erro OAuth */}
         {oauthError && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
             <div className="bg-zinc-900 border border-red-900/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-red-900/20 rounded-full flex items-center justify-center mb-4">
