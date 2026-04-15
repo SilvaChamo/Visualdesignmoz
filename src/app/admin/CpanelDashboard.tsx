@@ -7,7 +7,7 @@ import {
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
-  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout
+  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity
 } from 'lucide-react'
 import type { CyberPanelWebsite, CyberPanelUser } from '@/lib/cyberpanel-api'
 
@@ -92,6 +92,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
         { id: 'cp-email-dkim', name: 'DKIM Manager', icon: <Shield className="w-9 h-9 text-cyan-500" /> },
         { id: 'cp-email-limits', name: 'Limites de Email', icon: <Settings className="w-9 h-9 text-cyan-500" /> },
         { id: 'setup-smtp', name: 'Configurar SMTP', icon: <Server className="w-9 h-9 text-red-500" /> },
+        { id: 'email-diagnostico', name: 'Diagnóstico', icon: <Activity className="w-9 h-9 text-cyan-500" /> },
       ]
     },
     {

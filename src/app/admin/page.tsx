@@ -28,6 +28,7 @@ import {
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection
 } from './CyberPanelSections'
+import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -1784,6 +1785,8 @@ export default function AdminPage() {
         return <DKIMManagerSection sites={filteredSites} />
       case 'setup-smtp':
         return <SMTPConfigSection />
+      case 'email-diagnostico':
+        return <EmailDiagnosticoSection />
       case 'cp-users':
         return <CPUsersSection />
       case 'cp-reseller':

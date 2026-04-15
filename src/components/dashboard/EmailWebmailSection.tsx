@@ -1927,7 +1927,7 @@ export function EmailWebmailSection({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <p className={`text-xs truncate ${!e.lido ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
-                                  {e.tipo === 'enviado' ? `Para: ${e.para || e.de}` : (e.deNome || e.de)}
+                                  {pastaActiva === 'Enviados' ? `Para: ${e.para || e.to}` : (e.deNome || e.from || e.de)}
                                 </p>
                                 <p className="text-[10px] text-gray-400 shrink-0">
                                   {e.data ? new Date(e.data).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : ''}

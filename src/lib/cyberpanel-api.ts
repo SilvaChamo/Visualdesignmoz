@@ -2,7 +2,7 @@ const EXEC = '/api/server-exec';
 const CLI_EXEC = '/api/cyberpanel-cli';
 import { cacheService } from './cache-service';
 
-async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 30000) {
+async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 60000) {
   try {
 
     // Mutation actions should NEVER be cached
@@ -24,9 +24,9 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
       console.log(`[MUTATION] ${action} - cache cleared, executing fresh command`);
     }
     
-    // Fazer requisição
+    // Fazer requisição com timeout aumentado (60s)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(new Error(`Timeout: ${action} took longer than ${timeoutMs}ms`)), timeoutMs);
     
     console.log(`[API CALL] ${action}`, JSON.stringify(params).substring(0, 200));
     
