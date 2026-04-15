@@ -5,7 +5,7 @@ import {
   Mail, Inbox, Send, FileText, Trash2, Archive, Star, Filter, 
   RefreshCw, ChevronLeft, ChevronDown, Plus, ExternalLink,
   Loader2, AlertCircle, CheckCircle2, Search, Settings,
-  LogOut, FolderOpen, MoreVertical, Download, Reply, Forward, Pencil, Image as ImageIcon, X
+  LogOut, FolderOpen, MoreVertical, Download, Reply, ReplyAll, Forward, Pencil, Image as ImageIcon, X
 } from 'lucide-react'
 import { EmailWebmailSection } from './EmailWebmailSection'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
@@ -57,6 +57,7 @@ export function WebmailSection({
   const [emails, setEmails] = useState<any[]>([])
   const [loadingEmails, setLoadingEmails] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [showCompose, setShowCompose] = useState(false)
   const [iframeLoading, setIframeLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'iframe'>('list')
@@ -389,6 +390,93 @@ export function WebmailSection({
     }
   }
 
+  // 🗑️ Apagar email
+  const handleDeleteEmail = async (emailId?: string) => {
+    if (!emailId) return
+    
+    const account = accounts.find(a => a.email === selectedAccount)
+    if (!account) {
+      alert('Selecione uma conta primeiro')
+      return
+    }
+
+    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    if (!password) {
+      alert('Senha não disponível para esta conta')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/delete-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: account.email,
+          password: password,
+          emailId: emailId,
+          folder: activeFolder
+        })
+      })
+      
+      const data = await res.json()
+      if (data.success) {
+        // Atualizar lista local
+        setEmails(prev => prev.filter(e => e.id !== emailId && e.uid !== emailId))
+        setSelectedEmail(null)
+      } else {
+        alert('Erro ao apagar: ' + (data.error || 'Erro desconhecido'))
+      }
+    } catch (error) {
+      console.error('Erro ao apagar email:', error)
+      alert('Erro ao apagar email')
+    }
+  }
+
+  // 📦 Arquivar email
+  const handleArchiveEmail = async (emailId?: string) => {
+    if (!emailId) return
+    
+    const account = accounts.find(a => a.email === selectedAccount)
+    if (!account) {
+      alert('Selecione uma conta primeiro')
+      return
+    }
+
+    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    if (!password) {
+      alert('Senha não disponível para esta conta')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/archive-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: account.email,
+          password: password,
+          emailId: emailId,
+          fromFolder: activeFolder,
+          toFolder: 'Archive'
+        })
+      })
+      
+      const data = await res.json()
+      if (data.success) {
+        // Atualizar lista local
+        setEmails(prev => prev.filter(e => e.id !== emailId && e.uid !== emailId))
+        if (selectedEmail?.id === emailId) {
+          setSelectedEmail(null)
+        }
+      } else {
+        alert('Erro ao arquivar: ' + (data.error || 'Erro desconhecido'))
+      }
+    } catch (error) {
+      console.error('Erro ao arquivar email:', error)
+      alert('Erro ao arquivar email')
+    }
+  }
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
@@ -590,30 +678,6 @@ export function WebmailSection({
               </select>
             </div>
 
-            {/* Toggle View Mode */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Lista
-              </button>
-              <button
-                onClick={() => setViewMode('iframe')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'iframe' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                SnappyMail
-              </button>
-            </div>
-
             {/* Abrir SnappyMail Externo */}
             <button
               onClick={openSnappyMailAutoLogin}
@@ -752,17 +816,125 @@ export function WebmailSection({
             </div>
           ) : (
             /* Traditional List + Detail View */
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Unified Header Bar */}
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedEmails.size === emails.length && emails.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedEmails(new Set(emails.map(email => email.id || email.uid)))
+                      } else {
+                        setSelectedEmails(new Set())
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm font-bold text-gray-900">
+                    {folders.find(f => f.id === activeFolder)?.name}
+                  </span>
+                  {selectedEmails.size > 0 && (
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                      {selectedEmails.size} selecionado(s)
+                    </span>
+                  )}
+                  {loadingEmails && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />}
+                </div>
+                <div className="flex items-center gap-1">
+                  {selectedEmail && (
+                    <>
+                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
+                        <Reply className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder a todos">
+                        <ReplyAll className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Reencaminhar">
+                        <Forward className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleArchiveEmail(selectedEmail?.id)} className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors" title="Arquivar">
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteEmail(selectedEmail?.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Apagar">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="w-px h-4 bg-gray-300 mx-1" />
+                    </>
+                  )}
+                  {selectedEmails.size > 0 && (
+                    <>
+                      <button onClick={() => { selectedEmails.forEach(id => handleArchiveEmail(id)); setSelectedEmails(new Set()) }} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Arquivar selecionados">
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { selectedEmails.forEach(id => handleDeleteEmail(id)); setSelectedEmails(new Set()) }} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Apagar selecionados">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="w-px h-4 bg-gray-300 mx-1" />
+                    </>
+                  )}
+                  <button onClick={loadEmails} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
+                    <Filter className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 flex overflow-hidden">
               {/* Email List Column */}
               <div className={`w-80 border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div className="sr-only">
                   <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedEmails.size === emails.length && emails.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedEmails(new Set(emails.map(email => email.id || email.uid)))
+                        } else {
+                          setSelectedEmails(new Set())
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
                     <span className="text-sm font-bold text-gray-900">
                       {folders.find(f => f.id === activeFolder)?.name}
                     </span>
+                    {selectedEmails.size > 0 && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                        {selectedEmails.size} selecionado(s)
+                      </span>
+                    )}
                     {loadingEmails && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />}
                   </div>
                   <div className="flex items-center gap-1">
+                    {selectedEmails.size > 0 && (
+                      <>
+                        <button 
+                          onClick={() => {
+                            selectedEmails.forEach(id => handleArchiveEmail(id))
+                            setSelectedEmails(new Set())
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                          title="Arquivar selecionados"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            selectedEmails.forEach(id => handleDeleteEmail(id))
+                            setSelectedEmails(new Set())
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Apagar selecionados"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="w-px h-4 bg-gray-300 mx-1" />
+                      </>
+                    )}
                     <button onClick={loadEmails} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
@@ -790,32 +962,59 @@ export function WebmailSection({
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-50">
-                      {emails.map((email, idx) => (
-                        <div
-                          key={email.id || idx}
-                          onClick={() => setSelectedEmail(email)}
-                          className={`p-4 cursor-pointer transition-all border-l-4 ${
-                            selectedEmail?.id === email.id 
-                              ? 'bg-red-50 border-l-red-600' 
-                              : (!email.read ? 'bg-gray-50/50 border-l-red-600/30' : 'hover:bg-gray-50 border-l-transparent')
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-sm truncate pr-2 ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
-                              {email.from}
-                            </span>
-                            <span className="text-[10px] text-gray-400 shrink-0">
-                              {formatDate(email.date)}
-                            </span>
+                      {emails.map((email, idx) => {
+                        const emailId = email.id || email.uid || idx
+                        const isSelected = selectedEmails.has(emailId)
+                        return (
+                          <div
+                            key={emailId}
+                            onClick={(e) => {
+                              // Não selecionar email se clicou no checkbox
+                              if ((e.target as HTMLElement).tagName === 'INPUT') return
+                              setSelectedEmail(email)
+                            }}
+                            className={`p-4 cursor-pointer transition-all border-l-4 ${
+                              selectedEmail?.id === email.id 
+                                ? 'bg-red-50 border-l-red-600' 
+                                : (!email.read ? 'bg-gray-50/50 border-l-red-600/30' : 'hover:bg-gray-50 border-l-transparent')
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  e.stopPropagation()
+                                  const newSelected = new Set(selectedEmails)
+                                  if (e.target.checked) {
+                                    newSelected.add(emailId)
+                                  } else {
+                                    newSelected.delete(emailId)
+                                  }
+                                  setSelectedEmails(newSelected)
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`text-sm truncate pr-2 ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                                    {email.from}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 shrink-0">
+                                    {formatDate(email.date)}
+                                  </span>
+                                </div>
+                                <p className={`text-xs truncate ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                                  {email.subject || '(Sem assunto)'}
+                                </p>
+                                <p className="text-[11px] text-gray-400 truncate mt-1">
+                                  {email.snippet}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <p className={`text-xs truncate ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
-                            {email.subject || '(Sem assunto)'}
-                          </p>
-                          <p className="text-[11px] text-gray-400 truncate mt-1">
-                            {email.snippet}
-                          </p>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -837,10 +1036,33 @@ export function WebmailSection({
                           Voltar
                         </button>
                         <div className="flex items-center gap-2 ml-auto">
-                          <button className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                          <button 
+                            onClick={() => setShowAdvancedCompose(true)}
+                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Responder"
+                          >
                             <Reply className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <button 
+                            onClick={() => setShowAdvancedCompose(true)}
+                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Responder a todos"
+                          >
+                            <ReplyAll className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setShowAdvancedCompose(true)}
+                            className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Reencaminhar"
+                          >
+                            <Forward className="w-4 h-4" />
+                          </button>
+                          <div className="w-px h-4 bg-gray-300 mx-1" />
+                          <button 
+                            onClick={() => handleDeleteEmail(selectedEmail?.id)}
+                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Apagar"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -878,6 +1100,7 @@ export function WebmailSection({
                   </div>
                 )}
               </div>
+            </div>
             </div>
           )}
         </div>
