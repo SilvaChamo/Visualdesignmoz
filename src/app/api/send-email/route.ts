@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 // 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (CyberPanel/Postfix)
-const SMTP_HOST = process.env.SMTP_HOST || 'mail.visualdesigne.com';
+const SMTP_HOST = '109.199.104.22' // IP direto do servidor
 const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
 const SMTP_SECURE = false; // 587 usa STARTTLS (não SSL direto)
 
