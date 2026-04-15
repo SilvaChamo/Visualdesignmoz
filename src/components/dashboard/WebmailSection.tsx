@@ -1200,7 +1200,7 @@ export function WebmailSection({
       {showCreateEmailModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateEmailModal(false)} />
-          <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-600 rounded-md flex items-center justify-center shadow-lg shadow-red-500/20">
