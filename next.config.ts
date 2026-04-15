@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.supabase.co res.cloudinary.com; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co *.google.com accounts.google.com *.visualdesigne.com vps.visualdesigne.com; frame-src *.google.com accounts.google.com; object-src 'none';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.supabase.co res.cloudinary.com; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co *.google.com accounts.google.com *.visualdesigne.com vps.visualdesigne.com; frame-src *.google.com accounts.google.com https://109.199.104.22:8090; object-src 'none';"
           }
         ]
       }
