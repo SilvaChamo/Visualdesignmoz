@@ -170,14 +170,12 @@ export async function POST(req: NextRequest) {
 
             console.log('✅ Email enviado com sucesso via SMTP, ID:', result.messageId);
 
-            // 🚀 FIRE AND FORGET: Guardar na pasta Sent via IMAP (não bloqueia resposta)
-            (async () => {
-                try {
-                    await saveToSentFolder(from, fromPassword, to, subject, html || '');
-                } catch (e) {
-                    console.error('❌ [Background] Erro ao guardar Sent:', e);
-                }
-            })().catch(err => console.error('❌ [Background] IMAP error:', err));
+            // 🚀 Await the IMAP save, otherwise Next.js Serverless kills the process immediately before it finishes.
+            try {
+                await saveToSentFolder(from, fromPassword, to, subject, html || '');
+            } catch (e) {
+                console.error('❌ [Background] Erro ao guardar Sent:', e);
+            }
 
             return NextResponse.json({
                 success: true,
