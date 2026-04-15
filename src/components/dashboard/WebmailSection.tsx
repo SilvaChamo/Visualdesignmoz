@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { 
-  Mail, Inbox, Send, FileText, Trash2, Archive, Star, 
+  Mail, Inbox, Send, FileText, Trash2, Archive, Star, Filter, 
   RefreshCw, ChevronLeft, ChevronDown, Plus, ExternalLink,
   Loader2, AlertCircle, CheckCircle2, Search, Settings,
   LogOut, FolderOpen, MoreVertical, Download, Reply, Forward, Pencil, Image as ImageIcon, X
@@ -872,17 +872,16 @@ export function WebmailSection({
                     </div>
                   </div>
                 ) : (
-                  /* No Email Selected */
                   <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30">
                     <Mail className="w-16 h-16 mb-4 opacity-10" />
                     <p className="text-sm font-medium">Selecione uma mensagem para ler</p>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Compose Modal Simples (fallback) */}
       {showCompose && (
