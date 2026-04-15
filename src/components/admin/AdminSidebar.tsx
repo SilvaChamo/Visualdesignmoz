@@ -3,7 +3,10 @@
 import React from 'react';
 import { 
   Home, Globe, Users, Mail, Shield, Database, Settings, Layout, Package,
-  LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen
+  LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
+  RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
+  AlertCircle, ArrowRightLeft, Webhook,
+  Save, X, Filter
 } from 'lucide-react';
 
 interface MenuItem {

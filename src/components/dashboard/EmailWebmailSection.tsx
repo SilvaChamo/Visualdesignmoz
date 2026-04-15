@@ -1140,20 +1140,42 @@ export function EmailWebmailSection({
     }
   }
 
+  const [envioNotificacao, setEnvioNotificacao] = useState<{show: boolean, message: string, type: 'success' | 'error' | 'info'}>({show: false, message: '', type: 'info'})
+
   const handleSend = async () => {
     if (!emailOrigem) {
       alert('Selecciona uma conta de email')
       return
     }
-    setEnviando(true)
-    try {
-      const htmlCorpo = editorRef.current?.innerHTML || ''
-      const htmlFinal = assinatura ? `${htmlCorpo}<br/><br/>--<br/>${assinatura.replace(/\n/g, '<br/>')}` : htmlCorpo
 
-      // TAREFA 2: Idempotency key — garante que retries não geram duplicados
+    // 🚀 FECHAR COMPOSER IMEDIATAMENTE - envio em background
+    const emailData = {
+      from: emailOrigem,
+      fromPassword: emailOrigemPassword,
+      to: compose.para,
+      cc: compose.cc,
+      bcc: compose.bcc,
+      subject: compose.assunto,
+      html: editorRef.current?.innerHTML || '',
+      assinatura: assinatura
+    }
+
+    // Limpar e fechar composer
+    setMostrarCompose(false)
+    setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
+    setAnexos([])
+    if (editorRef.current) editorRef.current.innerHTML = ''
+    if (onCloseCompose) onCloseCompose()
+
+    // Mostrar notificação de envio
+    setEnvioNotificacao({show: true, message: 'A enviar email...', type: 'info'})
+
+    // 🔄 PROCESSAR ENVIO EM BACKGROUND
+    try {
+      const htmlCorpo = emailData.html
+      const htmlFinal = emailData.assinatura ? `${htmlCorpo}<br/><br/>--<br/>${emailData.assinatura.replace(/\n/g, '<br/>')}` : htmlCorpo
       const idempotencyKey = crypto.randomUUID()
 
-      // TAREFA 4: AbortController — timeout de 30s para evitar hang infinito
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
 
@@ -1162,12 +1184,12 @@ export function EmailWebmailSection({
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          from: emailOrigem,
-          fromPassword: emailOrigemPassword,
-          to: compose.para,
-          cc: compose.cc,
-          bcc: compose.bcc,
-          subject: compose.assunto,
+          from: emailData.from,
+          fromPassword: emailData.fromPassword,
+          to: emailData.to,
+          cc: emailData.cc,
+          bcc: emailData.bcc,
+          subject: emailData.subject,
           html: htmlFinal,
           idempotencyKey
         })
@@ -1176,26 +1198,22 @@ export function EmailWebmailSection({
 
       const data = await res.json()
       if (data.success) {
-        setEnviado(true)
-        // Fechar composer após 2 segundos
-        setTimeout(() => {
-          setMostrarCompose(false)
-          setCompose({ para: '', cc: '', bcc: '', assunto: '', corpo: '' })
-          setEnviado(false)
-          setAnexos([])
-          if (editorRef.current) editorRef.current.innerHTML = ''
-          if (onCloseCompose) onCloseCompose()
-        }, 2000)
+        setEnvioNotificacao({show: true, message: '✅ Email enviado com sucesso!', type: 'success'})
+      } else {
+        setEnvioNotificacao({show: true, message: '❌ Erro ao enviar: ' + data.error, type: 'error'})
       }
-      else alert('Erro ao enviar: ' + data.error)
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        alert('O envio demorou demasiado. Verifique a pasta Enviados antes de tentar novamente.')
+        setEnvioNotificacao({show: true, message: '⏳ Envio em andamento. Verifique a pasta Enviados.', type: 'info'})
       } else {
-        alert('Erro: ' + e.message)
+        setEnvioNotificacao({show: true, message: '❌ Erro: ' + e.message, type: 'error'})
       }
     }
-    setEnviando(false)
+
+    // Esconder notificação após 4 segundos
+    setTimeout(() => {
+      setEnvioNotificacao({show: false, message: '', type: 'info'})
+    }, 4000)
   }
 
   const pastas = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Arquivo', 'Lixo', 'Spam']
@@ -1206,7 +1224,21 @@ export function EmailWebmailSection({
   ]
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full relative">
+
+      {/* 🚀 NOTIFICAÇÃO DE ENVIO (Toast) */}
+      {envioNotificacao.show && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg border-l-4 flex items-center gap-3 transition-all ${
+          envioNotificacao.type === 'success' ? 'bg-green-50 border-green-500 text-green-700' :
+          envioNotificacao.type === 'error' ? 'bg-red-50 border-red-500 text-red-700' :
+          'bg-blue-50 border-blue-500 text-blue-700'
+        }`}>
+          <span className="text-lg">
+            {envioNotificacao.type === 'success' ? '✅' : envioNotificacao.type === 'error' ? '❌' : '⏳'}
+          </span>
+          <span className="text-sm font-medium">{envioNotificacao.message}</span>
+        </div>
+      )}
 
       {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo ou hideSidebar=true */}
       <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${(mostrarCompose || hideSidebar) ? 'hidden' : ''}`}>

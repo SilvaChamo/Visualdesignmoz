@@ -16,6 +16,7 @@ interface Tool {
   name: string
   icon: React.ReactNode
   external?: string
+  highlight?: boolean
 }
 
 interface Section {
@@ -156,6 +157,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       color: 'text-amber-800', bgColor: 'bg-yellow-50',
       tools: [
         { id: 'domains-dns', name: 'Editar DNS', icon: <Edit className="w-9 h-9 text-amber-600" /> },
+        { id: 'dns-central', name: 'DNS Central', icon: <Globe className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-nameserver', name: 'Criar Nameserver', icon: <Server className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-default-ns', name: 'Nameservers Padrão', icon: <Settings className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-create-zone', name: 'Criar Zona DNS', icon: <PlusCircle className="w-9 h-9 text-amber-600" /> },
@@ -250,15 +252,19 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
                   {section.tools.map((tool, i) =>
                     tool.external ? (
                       <a key={i} href={tool.external} target="_blank" rel="noopener noreferrer"
-                        className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all group text-center">
+                        className={`flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border transition-all group text-center ${
+                          tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                        }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
-                        <span className="text-xs text-gray-600 font-medium leading-tight">{tool.name}</span>
+                        <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </a>
                     ) : (
                       <button key={i} onClick={() => handleDNSNavigate(tool.id)}
-                        className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all group text-center w-full">
+                        className={`flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border transition-all group text-center w-full ${
+                          tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                        }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
-                        <span className="text-xs text-gray-600 font-medium leading-tight">{tool.name}</span>
+                        <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </button>
                     )
                   )}

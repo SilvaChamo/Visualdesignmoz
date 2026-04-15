@@ -467,6 +467,14 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
   const perPage = 20
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showActionsDropdown, setShowActionsDropdown] = useState(false)
+  
+  // Estados de sincronização Mozserver
+  const [syncStatus, setSyncStatus] = useState<{
+    mozserverRegistered: boolean | null
+    checking: boolean
+    syncing: boolean
+    lastCheck?: string
+  }>({ mozserverRegistered: null, checking: false, syncing: false })
 
   const typeColors: Record<string, string> = {
     A: 'bg-blue-100 text-blue-800',
@@ -534,6 +542,59 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
       setSelectedIds([])
       setEditingRecordId(null)
       setEditForm(null)
+      setSyncStatus({ mozserverRegistered: null, checking: false, syncing: false })
+    } else {
+      // Verificar sincronização quando muda de domínio
+      void checkDomainSync(domain)
+    }
+  }
+
+  // Verificar se domínio está sincronizado com Mozserver
+  const checkDomainSync = async (domain: string) => {
+    if (!domain) return
+    setSyncStatus(prev => ({ ...prev, checking: true }))
+    try {
+      const response = await fetch(`/api/dns-sync?action=status&domain=${encodeURIComponent(domain)}`)
+      const data = await response.json()
+      if (data.success) {
+        setSyncStatus({
+          mozserverRegistered: data.data.mozserverRegistered,
+          checking: false,
+          syncing: false,
+          lastCheck: new Date().toLocaleTimeString()
+        })
+      }
+    } catch (error) {
+      console.error('Error checking sync:', error)
+      setSyncStatus({ mozserverRegistered: null, checking: false, syncing: false })
+    }
+  }
+
+  // Sincronizar domínio com CyberPanel
+  const handleSyncDomain = async () => {
+    if (!selectedDomain) return
+    setSyncStatus(prev => ({ ...prev, syncing: true }))
+    setMsg('Sincronizando domínio...')
+    try {
+      const response = await fetch('/api/dns-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync', domain: selectedDomain }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMsg(`Domínio sincronizado com sucesso! ${data.message || ''}`)
+        // Recarregar registos
+        void fetchRecords(selectedDomain)
+        // Atualizar status
+        void checkDomainSync(selectedDomain)
+      } else {
+        setMsg(`Erro na sincronização: ${data.message || 'Falha desconhecida'}`)
+      }
+    } catch (error) {
+      setMsg('Erro de ligação ao sincronizar')
+    } finally {
+      setSyncStatus(prev => ({ ...prev, syncing: false }))
     }
   }
 
@@ -780,16 +841,103 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             <p className="text-gray-500 mt-1">Selecione um domínio para gerir os registos DNS.</p>
           )}
         </div>
-        {/* Nameservers à direita */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="uppercase font-semibold text-gray-500 mr-1">Nameservers:</span>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
-            ns1.contabo.net
-          </span>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
-            ns2.contabo.net
-          </span>
+        {/* Status Mozserver + Nameservers à direita */}
+        <div className="flex flex-col items-end gap-3">
+          {/* Status Mozserver */}
+          {selectedDomain && (
+            <div className="flex items-center gap-2">
+              {syncStatus.checking ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-xs">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  A verificar Mozserver...
+                </span>
+              ) : syncStatus.mozserverRegistered === true ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Registado na Mozserver
+                </span>
+              ) : syncStatus.mozserverRegistered === false ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Não registado na Mozserver
+                </span>
+              ) : null}
+              
+              {/* Botão Sincronizar */}
+              <button
+                onClick={handleSyncDomain}
+                disabled={syncStatus.syncing || !selectedDomain}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white text-xs font-medium transition-colors"
+              >
+                {syncStatus.syncing ? (
+                  <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> A sincronizar...</>
+                ) : (
+                  <><RefreshCw className="w-3.5 h-3.5" /> Sincronizar</>
+                )}
+              </button>
+            </div>
+          )}
+          
+          {/* Nameservers */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="uppercase font-semibold text-gray-500 mr-1">Nameservers:</span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
+              ns1.contabo.net
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">
+              ns2.contabo.net
+            </span>
+          </div>
         </div>
+      </div>
+
+      {/* LINHA 2: Cards rápidos (DNS Central, etc) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <a 
+          href="/admin?section=dns-central" 
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg hover:shadow-md transition-all group"
+        >
+          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+            <Globe className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-blue-900 text-sm group-hover:text-blue-700">DNS Central</h3>
+            <p className="text-xs text-blue-700 truncate">Ver histórico e sincronizar domínios</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-blue-400 group-hover:text-blue-600" />
+        </a>
+
+        <a 
+          href="https://mozserver.co.mz" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg hover:shadow-md transition-all group"
+        >
+          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
+            <Server className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-green-900 text-sm group-hover:text-green-700">Mozserver</h3>
+            <p className="text-xs text-green-700 truncate">Gerir domínios .mz e .co.mz</p>
+          </div>
+          <ExternalLink className="w-4 h-4 text-green-400 group-hover:text-green-600" />
+        </a>
+
+        <a 
+          href="https://109.199.104.22:8090" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg hover:shadow-md transition-all group"
+        >
+          <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center shrink-0">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-orange-900 text-sm group-hover:text-orange-700">CyberPanel</h3>
+            <p className="text-xs text-orange-700 truncate">Painel DNS Contabo (109.199.104.22)</p>
+          </div>
+          <ExternalLink className="w-4 h-4 text-orange-400 group-hover:text-orange-600" />
+        </a>
       </div>
 
       {/* LINHA 3: Filtros por tipo + pesquisa + paginação */}

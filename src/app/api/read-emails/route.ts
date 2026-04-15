@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
                         deNome: msg.envelope?.from?.[0]?.name || '',
                         para: msg.envelope?.to?.[0]?.address || '',
                         assunto: msg.envelope?.subject || '(sem assunto)',
-                        data: msg.envelope?.date?.toISOString() || '',
+                        data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
                         lido: msg.flags?.has('\\Seen') || false,
                         preview: ''
                       })
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
                       deNome: msg.envelope?.from?.[0]?.name || '',
                       para: msg.envelope?.to?.[0]?.address || '',
                       assunto: msg.envelope?.subject || '(sem assunto)',
-                      data: msg.envelope?.date?.toISOString() || '',
+                      data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
                       lido: msg.flags?.has('\\Seen') || false,
                       preview: ''
                     })
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
                       deNome: msg.envelope?.from?.[0]?.name || '',
                       para: msg.envelope?.to?.[0]?.address || '',
                       assunto: msg.envelope?.subject || '(sem assunto)',
-                      data: msg.envelope?.date?.toISOString() || '',
+                      data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
                       lido: msg.flags?.has('\\Seen') || false,
                       preview: ''
                     })

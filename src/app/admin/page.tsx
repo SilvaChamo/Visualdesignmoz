@@ -28,6 +28,7 @@ import {
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection
 } from './CyberPanelSections'
+import { DNSCentralSection } from './DNSCentralSection'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
@@ -1690,6 +1691,7 @@ export default function AdminPage() {
       'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
       'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
       'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
+      'dns-central': { title: 'DNS Central', description: 'Gestão unificada Mozserver ↔ Contabo' },
       'newsletter': { title: 'Dashboard', description: 'Email marketing' },
       'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
       'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
@@ -1820,6 +1822,8 @@ export default function AdminPage() {
         return <CloudFlareSection sites={filteredSites} />
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
+      case 'dns-central':
+        return <DNSCentralSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'git-deploy':
