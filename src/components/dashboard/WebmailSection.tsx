@@ -726,13 +726,8 @@ export function WebmailSection({
                 Voltar
               </button>
             )}
-            <div className="w-px h-5 bg-gray-200" />
-            <span className="text-base font-bold text-gray-900">Webmail</span>
-          </div>
-
-          <div className="flex items-center gap-3">
+            {onBack && <div className="w-px h-5 bg-gray-200" />}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">Conta:</span>
               <select
                 value={selectedAccount}
                 onChange={(e) => setSelectedAccount(e.target.value)}
@@ -750,13 +745,31 @@ export function WebmailSection({
                 )}
               </select>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2">
             <button
               onClick={openSnappyMailAutoLogin}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-red-600 rounded-md text-sm font-medium transition-colors"
+              title="Abrir Webmail Completo"
             >
               <ExternalLink className="w-4 h-4" />
-              Abrir Webmail Completo
+              <span className="hidden sm:inline">Abrir Webmail Completo</span>
+            </button>
+            <button
+              onClick={() => {
+                if (selectedAccount && selectedAccount.includes('@')) {
+                  const domain = selectedAccount.split('@')[1]
+                  setCreateEmailForm(prev => ({ ...prev, domain }))
+                } else if (sites.length > 0) {
+                  setCreateEmailForm(prev => ({ ...prev, domain: sites[0].domain }))
+                }
+                setShowCreateEmailModal(true)
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md text-sm font-bold transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Conta
             </button>
           </div>
         </div>
@@ -924,55 +937,8 @@ export function WebmailSection({
                   </button>
                 </div>
 
-                <div className="flex-1" />
-
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Pesquisar..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (selectedAccount && assinaturasPorEmailRef.current[selectedAccount]) {
-                        const config = assinaturasPorEmailRef.current[selectedAccount]
-                        setAssinaturas(config.assinaturas || [])
-                        setAssinaturaAtiva(config.assinaturaAtiva || 0)
-                      } else if (selectedAccount) {
-                        setAssinaturas([])
-                        setAssinaturaAtiva(0)
-                      }
-                      setMostrarConfigAssinatura(true)
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 hover:text-red-500 hover:border-red-500 rounded-md text-xs font-medium transition-colors"
-                  >
-                    Assinatura
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (selectedAccount && selectedAccount.includes('@')) {
-                        const domain = selectedAccount.split('@')[1]
-                        setCreateEmailForm(prev => ({ ...prev, domain }))
-                      } else if (sites.length > 0) {
-                        setCreateEmailForm(prev => ({ ...prev, domain: sites[0].domain }))
-                      }
-                      setShowCreateEmailModal(true)
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md text-xs font-medium transition-colors shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Nova Conta
-                  </button>
-                </div>
-
                 {(selectedEmail || selectedEmails.size > 0) && (
-                  <div className="ml-auto flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
                     {selectedEmail && (
                       <>
                         <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
@@ -1016,6 +982,36 @@ export function WebmailSection({
                     </button>
                   </div>
                 )}
+
+                <div className="flex-1" />
+
+                <div className="relative w-80">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (selectedAccount && assinaturasPorEmailRef.current[selectedAccount]) {
+                      const config = assinaturasPorEmailRef.current[selectedAccount]
+                      setAssinaturas(config.assinaturas || [])
+                      setAssinaturaAtiva(config.assinaturaAtiva || 0)
+                    } else if (selectedAccount) {
+                      setAssinaturas([])
+                      setAssinaturaAtiva(0)
+                    }
+                    setMostrarConfigAssinatura(true)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 hover:text-red-500 hover:border-red-500 rounded-md text-xs font-medium transition-colors"
+                >
+                  Assinatura
+                </button>
               </div>
               
               <div className="flex-1 flex overflow-hidden">
