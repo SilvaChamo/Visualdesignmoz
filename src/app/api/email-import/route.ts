@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
       logger: false
     }
 
-    // Configuração IMAP CyberPanel
+    // Configuração IMAP CyberPanel (servidor próprio)
     const cyberpanelConfig = {
-      host: 'mail.your-domain.com',
+      host: '109.199.104.22', // IP do servidor CyberPanel
       port: 993,
       secure: true,
       auth: {

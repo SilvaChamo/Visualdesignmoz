@@ -65,10 +65,24 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { domainName, userName, password } = body;
+        const { domainName, userName, password, requesterEmail } = body;
 
         if (!domainName || !userName || !password) {
             return NextResponse.json({ error: 'Missing required parameters (domainName, userName, password).' }, { status: 400 });
+        }
+
+        // 🚀 VERIFICAÇÃO: Se requesterEmail foi enviado, verificar se tem domínio gerenciado
+        if (requesterEmail) {
+            const requesterDomain = requesterEmail.split('@')[1]?.toLowerCase() || '';
+            const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'oshercollective.com', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
+            const isAdmin = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'].includes(requesterEmail);
+            
+            if (!managedDomains.includes(requesterDomain) && !isAdmin) {
+                return NextResponse.json({ 
+                    error: 'Não é possível criar contas de email',
+                    details: 'Apenas clientes com domínios gerenciados podem criar emails.'
+                }, { status: 403 });
+            }
         }
 
         const cleanDomain = domainName.replace(/[^a-zA-Z0-9_.-]/g, '');
@@ -113,12 +127,46 @@ export async function POST(request: Request) {
         const output = await executeCyberPanelCommand(command);
 
         if (output.includes('successfully') || output.includes('"success": 1') || output.includes('"success":1')) {
+            const email = `${cleanUser}@${cleanDomain}`;
+            
+            // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
+            let authUserId = ''
+            let authUserCreated = false
+            try {
+                const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+                const userExists = existingUser?.users?.find(u => u.email === email)
+                
+                if (!userExists) {
+                    const { data: newAuthUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                        email: email,
+                        password: cleanPassword,
+                        email_confirm: true,
+                        user_metadata: {
+                            nome: cleanUser,
+                            role: 'client',
+                            domain: cleanDomain
+                        }
+                    })
+                    
+                    if (!authError && newAuthUser?.user) {
+                        authUserId = newAuthUser.user.id
+                        authUserCreated = true
+                        console.log(`✅ Usuário Auth criado: ${email}`)
+                    }
+                } else {
+                    authUserId = userExists.id
+                    console.log(`ℹ️ Usuário Auth já existe: ${email}`)
+                }
+            } catch (authError: any) {
+                console.error('Erro na criação do usuário Auth:', authError)
+            }
+            
             // 🚀 SINCRONIZAR COM SUPABASE - guardar senha para IMAP/SMTP funcionar
             try {
-                const email = `${cleanUser}@${cleanDomain}`;
                 await supabaseAdmin
                     .from('email_contas')
                     .upsert({
+                        cliente_id: authUserId || null, // Vincula ao usuário Auth
                         email,
                         tipo_conta: 'webmail',
                         senha_cyberpanel: encrypt(cleanPassword),
@@ -130,7 +178,15 @@ export async function POST(request: Request) {
                 // Não falha a criação se o Supabase falhar
             }
             
-            return NextResponse.json({ success: true, message: 'Conta de E-mail criada com sucesso!' });
+            return NextResponse.json({ 
+                success: true, 
+                message: 'Conta de E-mail criada com sucesso!',
+                authUser: {
+                    created: authUserCreated,
+                    userId: authUserId,
+                    canLogin: true
+                }
+            });
         } else {
             return NextResponse.json({ error: 'Erro ao criar conta de E-mail.', details: output }, { status: 400 });
         }

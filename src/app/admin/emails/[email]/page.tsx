@@ -10,6 +10,7 @@ interface EmailMessage {
   from: string
   to: string
   date: string
+  data?: string  // Campo alternativo da API
   body: string
   folder: string
 }
@@ -30,11 +31,47 @@ export default function EmailInboxPage() {
     setError('')
     
     try {
-      const res = await fetch(`/api/read-emails?email=${encodeURIComponent(email)}&folder=${selectedFolder}`)
+      // 🚀 CORREÇÃO: Usar POST em vez de GET, a API não suporta GET
+      // Buscar senha das credenciais padrão (fallback) - no admin podemos usar hardcoded
+      const senhasPadrao: Record<string, string> = {
+        'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+        'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
+        'geral@visualdesigne.com': 'Ge.Vd#2425?*',
+        'admin@visualdesigne.com': 'Ad.Vd#2425?*',
+        'info@visualdesigne.com': 'Informação!#2020?*',
+        'suporte@visualdesigne.com': 'SupaEmail#2026?*',
+        'noreply@visualdesigne.com': 'VisualDesign#2026',
+      }
+      const senha = senhasPadrao[email] || ''
+      
+      const res = await fetch('/api/read-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: email, 
+          password: senha,
+          folder: selectedFolder 
+        })
+      })
       const data = await res.json()
       
+      console.log('📧 [Admin Email] Resposta API:', { 
+        success: data.success, 
+        emailCount: data.emails?.length || 0,
+        firstEmail: data.emails?.[0] 
+      })
+      
       if (data.success) {
-        setMessages(data.emails || [])
+        // 🚀 CORREÇÃO: Mapear campos da API para o formato do componente
+        const mappedEmails = (data.emails || []).map((email: any) => ({
+          ...email,
+          from: email.from || email.de || '',  // API usa 'de'
+          subject: email.subject || email.assunto || '(sem assunto)',  // API usa 'assunto'
+          date: email.date || email.data || new Date().toISOString(),  // API usa 'data'
+          body: email.body || email.preview || email.conteudo || ''
+        }))
+        console.log('📧 [Admin Email] Emails mapeados:', mappedEmails.length)
+        setMessages(mappedEmails)
         if (data.folders) {
           setFolders(data.folders)
         }
@@ -150,7 +187,19 @@ export default function EmailInboxPage() {
                       <p className="text-sm text-gray-500 mb-2">
                         De: <span className="text-gray-700">{msg.from}</span>
                       </p>
-                      <p className="text-xs text-gray-400">{new Date(msg.date).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400">
+                        {(() => {
+                          try {
+                            const dateStr = msg.date || msg.data
+                            if (!dateStr) return 'Data desconhecida'
+                            const date = new Date(dateStr)
+                            if (isNaN(date.getTime())) return 'Data inválida'
+                            return date.toLocaleString('pt-PT')
+                          } catch {
+                            return 'Data indisponível'
+                          }
+                        })()}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-gray-100">

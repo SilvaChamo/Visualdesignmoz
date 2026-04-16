@@ -134,8 +134,24 @@ export async function POST(req: NextRequest) {
 
     // Proteção: não deixar criar conta para outro cliente ID se não for admin
     const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    if (cliente_id !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isExplicitAdmin) {
+    const isAdmin = isExplicitAdmin || session.user?.user_metadata?.role === 'admin';
+    if (cliente_id !== session.user.id && !isAdmin) {
       return NextResponse.json({ error: 'Operação não autorizada' }, { status: 403 });
+    }
+
+    // 🚀 VERIFICAÇÃO: Só permite criar emails se o usuário tiver domínio gerenciado
+    // ou se for admin. Usuários com Gmail/Yahoo/etc não podem criar contas de email
+    if (!isAdmin) {
+      const userEmailDomain = session.user.email?.split('@')[1]?.toLowerCase() || '';
+      const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'oshercollective.com', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
+      const hasManagedDomain = managedDomains.includes(userEmailDomain);
+      
+      if (!hasManagedDomain) {
+        return NextResponse.json({ 
+          error: 'Não é possível criar contas de email', 
+          details: 'Apenas clientes com domínios gerenciados podem criar emails. Contas Gmail, Yahoo e similares não têm permissão para criar contas de email adicionais.'
+        }, { status: 403 });
+      }
     }
 
     // Detectar configurações ideais
@@ -154,11 +170,50 @@ export async function POST(req: NextRequest) {
       console.error('Erro ao criar no CyberPanel:', cpError);
     }
 
+    // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
+    let authUserId = cliente_id
+    let authUserCreated = false
+    try {
+      // Verificar se usuário já existe
+      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+      const userExists = existingUser?.users?.find(u => u.email === email)
+      
+      if (!userExists) {
+        // Criar novo usuário no Supabase Auth
+        const { data: newAuthUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: password,
+          email_confirm: true, // Auto-confirma email
+          user_metadata: {
+            nome: nome || user,
+            role: 'client', // Padrão: cliente
+            domain: domain
+          }
+        })
+        
+        if (authError) {
+          console.error('Erro ao criar usuário Auth:', authError)
+        } else if (newAuthUser?.user) {
+          authUserId = newAuthUser.user.id
+          authUserCreated = true
+          console.log(`✅ Usuário Auth criado: ${email} (ID: ${authUserId})`)
+        }
+      } else {
+        // Usuário já existe, usar ID existente
+        authUserId = userExists.id
+        console.log(`ℹ️ Usuário Auth já existe: ${email} (ID: ${authUserId})`)
+      }
+    } catch (authError: any) {
+      console.error('Erro na criação do usuário Auth:', authError)
+      // Continuar mesmo se falhar - a conta de email ainda é criada
+    }
+
     // Guarda no Supabase com configurações AUTOMÁTICAS
+    // Usa authUserId para vincular ao usuário do sistema
     const { data, error } = await supabaseAdmin
       .from('email_contas')
       .upsert({
-        cliente_id,
+        cliente_id: authUserId, // Vincula ao usuário Auth criado
         email,
         senha_cyberpanel: encrypt(password),
         tipo_conta: tipo,
@@ -275,8 +330,14 @@ VisualDesign - ${new Date().getFullYear()}
     return NextResponse.json({
       success: true,
       conta: data,
+      authUser: {
+        created: authUserCreated,
+        userId: authUserId,
+        canLogin: true
+      },
       credenciais: {
         email,
+        password, // Incluir senha para mostrar no modal de confirmação
         servidor_entrada: domainConfig.imap,
         porta_imap: domainConfig.ports.imap,
         servidor_saida: domainConfig.smtp,
@@ -322,10 +383,42 @@ export async function PUT(req: NextRequest) {
       webmail: `https://mail.${domain}`
     }
 
+    // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
+    let authUserId = session.user.id
+    let authUserCreated = false
+    try {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+      const userExists = existingUser?.users?.find(u => u.email === email)
+      
+      if (!userExists) {
+        const { data: newAuthUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: password,
+          email_confirm: true,
+          user_metadata: {
+            nome: nome || user,
+            role: 'client',
+            domain: domain
+          }
+        })
+        
+        if (!authError && newAuthUser?.user) {
+          authUserId = newAuthUser.user.id
+          authUserCreated = true
+          console.log(`✅ Usuário Auth criado via PUT: ${email}`)
+        }
+      } else {
+        authUserId = userExists.id
+      }
+    } catch (authError: any) {
+      console.error('Erro na criação do usuário Auth (PUT):', authError)
+    }
+
     // Upsert no Supabase (atualizar ou criar) - usando apenas colunas existentes
     const { data, error } = await supabaseAdmin
       .from('email_contas')
       .upsert({
+        cliente_id: authUserId, // Vincula ao usuário Auth
         email,
         tipo_conta: 'webmail',
         senha_cyberpanel: encrypt(password),
@@ -338,7 +431,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Conta sincronizada com sucesso',
-      conta: data
+      conta: data,
+      authUser: {
+        created: authUserCreated,
+        userId: authUserId,
+        canLogin: true
+      }
     })
 
   } catch (error: any) {

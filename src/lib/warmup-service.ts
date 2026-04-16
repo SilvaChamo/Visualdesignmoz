@@ -1,6 +1,6 @@
 /**
- * Sistema de Limite de Email Marketing - SIMPLIFICADO
- * Sem tabela domain_reputation - apenas limites fixos por conta
+ * Sistema de Warm-up e Roteamento Inteligente de Emails
+ * Detecta Gmail vs Servidor Próprio e aplica regras diferentes
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,8 +9,61 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-// Limite fixo: 200 emails/dia por conta
+// ============================================
+// CONFIGURAÇÕES DE LIMITE
+// ============================================
+
+// Gmail (conta gratuita): 500 emails/dia
+export const GMAIL_DAILY_LIMIT = 500;
+
+// Servidor próprio: Ilimitado (mas vamos usar 2000 para segurança)
+export const OWN_SERVER_DAILY_LIMIT = 2000;
+
+// Compatibilidade com código existente
 export const DAILY_EMAIL_LIMIT = 200;
+
+// ============================================
+// SISTEMA DE WARM-UP PARA GMAIL
+// ============================================
+
+// Fases de aquecimento progressivo
+export const WARMUP_PHASES = [
+  { phase: 'PHASE_1', days: 1, limit: 20, description: 'Fase 1: 20 emails/dia (Dia 1)' },
+  { phase: 'PHASE_2', days: 2, limit: 50, description: 'Fase 2: 50 emails/dia (Dias 2-3)' },
+  { phase: 'PHASE_3', days: 4, limit: 100, description: 'Fase 3: 100 emails/dia (Dias 4-7)' },
+  { phase: 'PHASE_4', days: 8, limit: 250, description: 'Fase 4: 250 emails/dia (Dias 8-14)' },
+  { phase: 'ACTIVE', days: 15, limit: 500, description: 'Fase Ativa: 500 emails/dia (Após 15 dias)' },
+] as const;
+
+export type WarmupPhase = typeof WARMUP_PHASES[number]['phase'];
+
+// ============================================
+// INTERFACES
+// ============================================
+
+export interface SenderConfig {
+  email: string;
+  type: 'gmail' | 'own_server';
+  dailyLimit: number;
+  smtpHost: string;
+  smtpPort: number;
+  auth: {
+    user: string;
+    pass: string;
+  };
+}
+
+export interface WarmupStatus {
+  senderEmail: string;
+  firstSendDate: string;
+  daysActive: number;
+  currentPhase: WarmupPhase;
+  dailyLimit: number;
+  sentToday: number;
+  remainingToday: number;
+  phaseDescription: string;
+  isGmail: boolean;
+}
 
 export interface DomainReputation {
   domain: string;

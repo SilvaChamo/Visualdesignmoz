@@ -16,7 +16,7 @@ interface EmailAccount {
   name: string
   domain: string
   password?: string
-  tipo: 'webmail' | 'google' | 'hotmail'
+  tipo: 'webmail' | 'google' | 'hotmail' | 'imported'
 }
 
 interface WebmailSectionProps {
@@ -50,6 +50,7 @@ export function WebmailSection({
 }: WebmailSectionProps) {
   // Estados principais
   const [accounts, setAccounts] = useState<EmailAccount[]>([])
+  const [allAccounts, setAllAccounts] = useState<EmailAccount[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const hasLoadedAccounts = useRef(false)
@@ -59,6 +60,8 @@ export function WebmailSection({
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [showCompose, setShowCompose] = useState(false)
+  const [showImportGmail, setShowImportGmail] = useState(false)
+  const [showPasswordHelp, setShowPasswordHelp] = useState(false)
   const [iframeLoading, setIframeLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'iframe'>('list')
   const [searchQuery, setSearchQuery] = useState('')
@@ -265,6 +268,7 @@ export function WebmailSection({
           })
         : allAccounts // 🚀 CLIENTE: Vê todos os seus domínios
 
+      setAllAccounts(allAccounts)
       setAccounts(filteredAccounts)
       
       // Selecionar a conta por defeito (silva.chamo > conta do usuário > primeira da lista)
@@ -534,7 +538,7 @@ export function WebmailSection({
           password: password,
           emailId: emailId,
           fromFolder: activeFolder,
-          toFolder: 'Archive'
+          toFolder: 'INBOX.Archive'
         })
       })
       
@@ -574,10 +578,10 @@ export function WebmailSection({
 
   const folders = [
     { id: 'INBOX', name: 'Caixa de Entrada', icon: Inbox },
-    { id: 'Sent', name: 'Enviados', icon: Send },
-    { id: 'Drafts', name: 'Rascunhos', icon: FileText },
-    { id: 'Archive', name: 'Arquivo', icon: Archive },
-    { id: 'Trash', name: 'Lixo', icon: Trash2 },
+    { id: 'INBOX.Sent', name: 'Enviados', icon: Send },
+    { id: 'INBOX.Drafts', name: 'Rascunhos', icon: FileText },
+    { id: 'INBOX.Archive', name: 'Arquivo', icon: Archive },
+    { id: 'INBOX.Trash', name: 'Lixo', icon: Trash2 },
   ]
 
   if (loading) {
@@ -744,6 +748,22 @@ export function WebmailSection({
                   <option value="">Nenhuma conta disponível</option>
                 )}
               </select>
+              
+              {/* Botão Importar Conta ao lado do seletor */}
+              <button
+                onClick={() => setShowImportGmail(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-md transition-colors border border-blue-200"
+                title="Importar conta de Email"
+              >
+                {/* Ícone Google com cores oficiais */}
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Importar conta
+              </button>
             </div>
           </div>
 
@@ -1015,64 +1035,123 @@ export function WebmailSection({
               </div>
               
               <div className="flex-1 flex overflow-hidden">
-                <div className={`w-80 border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
+                {/* Lista de emails - escondida quando um email está selecionado */}
+                <div className={`w-full border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden' : 'flex'}`}>
                   <div className="flex-1 overflow-y-auto">
                     {loadingEmails ? (
                       <div className="space-y-px">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <div key={i} className="p-4 space-y-2 animate-pulse">
-                            <div className="h-4 bg-gray-100 rounded w-1/2" />
-                            <div className="h-3 bg-gray-50 rounded w-3/4" />
+                        {[...Array(8)].map((_, i) => (
+                          <div key={i} className="p-4 border-b border-gray-50">
+                            <div className="h-4 bg-gray-100 rounded w-3/4 mb-2 animate-pulse" />
+                            <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse" />
                           </div>
                         ))}
                       </div>
                     ) : emails.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-gray-400">
+                      <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
                         <Mail className="w-12 h-12 mb-3 opacity-20" />
-                        <p className="text-sm">Nenhum email nesta pasta</p>
+                        <p className="text-sm text-center">Nenhuma mensagem</p>
                       </div>
                     ) : (
                       emails.map(email => (
-                        <button
+                        <div
                           key={email.id || email.uid}
-                          onClick={() => setSelectedEmail(email)}
-                          className={`w-full p-4 text-left border-b border-gray-50 transition-colors hover:bg-gray-50 ${
+                          className={`w-full p-3 text-left border-b border-gray-50 transition-colors hover:bg-gray-50 flex items-start gap-3 group cursor-pointer ${
                             selectedEmail?.id === email.id ? 'bg-red-50/50 border-l-2 border-l-red-600' : ''
-                          }`}
+                          } ${!email.lido ? 'bg-blue-50/30' : ''}`}
+                          onClick={() => setSelectedEmail(email)}
                         >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className={`text-sm truncate ${!email.read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
-                              {email.from}
-                            </span>
-                            <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                              {new Date(email.date).toLocaleDateString('pt-BR')}
-                            </span>
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={selectedEmails.has(email.id || email.uid)}
+                            onClick={(ev) => ev.stopPropagation()}
+                            onChange={(ev) => {
+                              ev.stopPropagation()
+                              const emailId = email.id || email.uid
+                              if (ev.target.checked) {
+                                setSelectedEmails(prev => new Set([...prev, emailId]))
+                              } else {
+                                setSelectedEmails(prev => {
+                                  const newSet = new Set(prev)
+                                  newSet.delete(emailId)
+                                  return newSet
+                                })
+                              }
+                            }}
+                            className="w-4 h-4 cursor-pointer mt-1"
+                          />
+                          
+                          {/* Avatar */}
+                          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0">
+                            {email.de?.charAt(0).toUpperCase()}
                           </div>
-                          <p className={`text-xs truncate mb-1 ${!email.read ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
-                            {email.subject}
-                          </p>
-                          <p className="text-[11px] text-gray-400 line-clamp-2">
-                            {email.snippet}
-                          </p>
-                        </button>
+                          
+                          {/* Informação do email */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-0.5">
+                              <span className={`text-sm truncate ${!email.lido ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                                {activeFolder === 'INBOX.Sent' ? `Para: ${email.para || 'Desconhecido'}` : email.de}
+                              </span>
+                              <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                                {email.data ? new Date(email.data).toLocaleDateString('pt-BR') : ''}
+                              </span>
+                            </div>
+                            <p className={`text-xs truncate ${!email.lido ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                              {email.assunto}
+                            </p>
+                            <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">
+                              {email.preview}
+                            </p>
+                          </div>
+                          
+                          {/* Ações ao passar mouse */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <button
+                              onClick={(ev) => { ev.stopPropagation(); handleArchiveEmail(email.id || email.uid); }}
+                              className="p-1.5 rounded-md hover:bg-orange-100 text-orange-600 transition-colors"
+                              title="Arquivar"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(ev) => { ev.stopPropagation(); handleDeleteEmail(email.id || email.uid); }}
+                              className="p-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       ))
                     )}
                   </div>
                 </div>
 
+                {/* Conteúdo do email - ocupa tela inteira quando selecionado */}
                 {selectedEmail ? (
-                  <div className="flex-1 flex flex-col min-w-0 bg-white">
+                  <div className="flex-1 flex flex-col w-full bg-white">
                     <div className="p-6 border-b border-gray-100">
                       <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">{selectedEmail.subject}</h2>
+                        <div className="flex items-center gap-3">
+                          {/* Botão Voltar para lista */}
+                          <button 
+                            onClick={() => setSelectedEmail(null)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Voltar para lista"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                            <span className="text-sm font-medium">Voltar</span>
+                          </button>
+                          <h2 className="text-xl font-bold text-gray-900">{selectedEmail.assunto}</h2>
+                        </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
                             <Reply className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder a todos">
-                            <ReplyAll className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Reencaminhar">
+                          <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Encaminhar">
                             <Forward className="w-4 h-4" />
                           </button>
                           <div className="w-px h-4 bg-gray-300 mx-1" />
@@ -1085,15 +1164,15 @@ export function WebmailSection({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">
-                            {selectedEmail.from?.charAt(0).toUpperCase()}
+                            {selectedEmail.de?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-gray-900">{selectedEmail.from}</p>
+                            <p className="text-sm font-bold text-gray-900">{selectedEmail.de}</p>
                             <p className="text-xs text-gray-500">para {selectedAccount}</p>
                           </div>
                         </div>
                         <span className="text-xs text-gray-400">
-                          {new Date(selectedEmail.date).toLocaleString('pt-BR')}
+                          {selectedEmail.data ? new Date(selectedEmail.data).toLocaleString('pt-BR') : ''}
                         </span>
                       </div>
                     </div>
@@ -1101,7 +1180,7 @@ export function WebmailSection({
                     <div className="flex-1 overflow-y-auto p-6">
                       <div 
                         className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: selectedEmail.body || selectedEmail.snippet || '' }}
+                        dangerouslySetInnerHTML={{ __html: selectedEmail.preview || '' }}
                       />
                     </div>
                   </div>
@@ -1723,6 +1802,151 @@ export function WebmailSection({
                 className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
               <button onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
                 className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Importação de Email */}
+      {showImportGmail && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                {/* Ícone Google com cores reais */}
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Importar Conta de Email
+              </h3>
+              <button
+                onClick={() => setShowImportGmail(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Banner com link para instruções */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700">
+                  💡 <strong>Dica:</strong> Para Gmail, precisa de uma <strong>Senha de App</strong>.
+                </p>
+                <button 
+                  onClick={() => setShowPasswordHelp(!showPasswordHelp)}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-flex items-center gap-1"
+                >
+                  Como obter a Senha de App
+                  <svg className={`w-3 h-3 transition-transform ${showPasswordHelp ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Painel deslizante com instruções */}
+                <div className={`overflow-hidden transition-all duration-300 ${showPasswordHelp ? 'max-h-96 mt-3' : 'max-h-0'}`}>
+                  <div className="bg-white border border-blue-200 rounded-lg p-3 text-sm">
+                    <h4 className="font-semibold text-blue-800 mb-2">Como obter a Senha de App:</h4>
+                    <ol className="space-y-2 text-gray-700 text-xs">
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">1</span>
+                        <span>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">myaccount.google.com/apppasswords</a></span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">2</span>
+                        <span>Faça login na sua conta Google</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">3</span>
+                        <span>Em "Selecionar app", escolha "Email"</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">4</span>
+                        <span>Em "Selecionar dispositivo", escolha "Outro"</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">5</span>
+                        <span>Digite um nome (ex: "VisualDesign")</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">6</span>
+                        <span>Clique em "Gerar" e copie a senha de 16 caracteres</span>
+                      </li>
+                    </ol>
+                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-xs">
+                      ⚠️ A senha de app só é visível uma vez. Guarde-a com segurança!
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  id="gmailSourceEmail"
+                  placeholder="seu.email@gmail.com (ou qualquer outro)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                <input
+                  type="password"
+                  id="gmailSourcePassword"
+                  placeholder="Senha de App (Gmail) ou senha normal"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Gmail: Use Senha de App. Outros provedores: Use sua senha normal.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowImportGmail(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  const sourceEmail = (document.getElementById('gmailSourceEmail') as HTMLInputElement)?.value
+                  const sourcePassword = (document.getElementById('gmailSourcePassword') as HTMLInputElement)?.value
+                  
+                  if (!sourceEmail || !sourcePassword) {
+                    alert('Preencha todos os campos')
+                    return
+                  }
+                  
+                  // Detectar domínio
+                  const domain = sourceEmail.split('@')[1] || 'unknown'
+                  
+                  // Adicionar conta importada à lista
+                  const importedAccount: EmailAccount = {
+                    email: sourceEmail,
+                    name: sourceEmail.split('@')[0],
+                    domain: domain,
+                    password: sourcePassword,
+                    tipo: 'imported'
+                  }
+                  
+                  // Adicionar à lista de contas
+                  setAccounts(prev => [...prev, importedAccount])
+                  setAllAccounts(prev => [...prev, importedAccount])
+                  
+                  alert(`✅ Conta ${sourceEmail} importada com sucesso!`)
+                  setShowImportGmail(false)
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Importar Conta
+              </button>
             </div>
           </div>
         </div>

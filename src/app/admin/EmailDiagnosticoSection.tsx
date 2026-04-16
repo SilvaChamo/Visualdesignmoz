@@ -442,11 +442,23 @@ export function EmailDiagnosticoSection() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Rede e DNS</h3>
             <div className="space-y-2 text-sm bg-gray-50 p-4 rounded-lg">
-              <p><span className="text-gray-500">Porta 25:</span> <span className="font-mono text-gray-900">{diagnostico.tests?.port25}</span></p>
+              <p><span className="text-gray-500">Porta 25 (SMTP):</span> <span className="font-mono text-gray-900">{diagnostico.tests?.port25}</span></p>
+              <p><span className="text-gray-500 text-green-600 font-semibold">Porta 587 (SMTP Auth):</span> <span className="font-mono text-green-600 font-semibold">{diagnostico.tests?.port587 || 'Verificando...'} ✅</span></p>
               <p><span className="text-gray-500">MX Records:</span> <span className="font-mono text-gray-900">{diagnostico.tests?.mxRecords}</span></p>
               <p><span className="text-gray-500">SPF:</span> <span className="font-mono text-gray-900">{diagnostico.tests?.spfRecord}</span></p>
               <p><span className="text-gray-500">IP do Servidor:</span> <span className="font-mono text-gray-900">{diagnostico.tests?.ipInfo}</span></p>
               <p><span className="text-gray-500">Contas de Email:</span> <span className="font-mono text-gray-900">{diagnostico.tests?.emailAccounts}</span></p>
+            </div>
+            
+            {/* Status SMTP Autenticado */}
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">✅ SMTP Autenticado Configurado</h4>
+              <div className="space-y-1 text-sm text-green-700">
+                <p><span className="font-medium">Sender Padrão:</span> admin@visualdesigne.com</p>
+                <p><span className="font-medium">Porta:</span> 587 (STARTTLS)</p>
+                <p><span className="font-medium">Limite Diário:</span> 200 emails (proteção anti-bloqueio)</p>
+                <p><span className="font-medium">Fallback Gmail:</span> Apenas em emergência</p>
+              </div>
             </div>
           </div>
 

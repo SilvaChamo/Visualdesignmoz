@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS cyberpanel_users (
   email          TEXT DEFAULT '',
   acl            TEXT DEFAULT 'user',
   websites_limit INTEGER DEFAULT 0,
+  emails_limit   INTEGER DEFAULT 0,
   status         TEXT DEFAULT 'Active',
   synced_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS cyberpanel_packages (
   databases       INTEGER DEFAULT 1,
   ftp_accounts    INTEGER DEFAULT 1,
   allowed_domains INTEGER DEFAULT 1,
+  synced_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

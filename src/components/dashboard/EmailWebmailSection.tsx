@@ -359,13 +359,16 @@ export function EmailWebmailSection({
       // 🎯 MODO RÁPIDO: Painel do cliente com email já selecionado
       if (hideSidebar && propEmailOrigem) {
         console.log('📧 [RÁPIDO] Modo cliente com email predefinido:', propEmailOrigem)
+        // Buscar senha das credenciais padrão ou deixar vazio para buscar dinamicamente
+        const senhaPadrao = CREDENCIAIS_PADRAO[propEmailOrigem] || ''
         setEmailsOrigem([{
           email: propEmailOrigem,
           tipo: 'webmail',
           nome: propEmailOrigem.split('@')[0],
-          password: ''
+          password: senhaPadrao
         }])
         setEmailOrigem(propEmailOrigem)
+        if (senhaPadrao) setEmailOrigemPassword(senhaPadrao)
         setCarregandoEmails(false)
         return
       }
@@ -375,7 +378,11 @@ export function EmailWebmailSection({
       
       // Buscar emails consolidados (CyberPanel + Supabase)
       const allEmails: any[] = []
-      const dominiosValidos = ['visualdesigne.com', 'anap.co.mz', 'entrecampos.co.mz']
+      // 🎯 NO MODO CLIENTE (hideSidebar=true): mostrar apenas emails do domínio do cliente logado
+      // No modo admin: mostrar apenas domínios da VisualDesigne
+      const dominiosValidos = hideSidebar && propEmailOrigem 
+        ? [propEmailOrigem.split('@')[1]]  // Apenas domínio do cliente logado
+        : ['visualdesigne.com', 'anap.co.mz', 'entrecampos.co.mz']  // Apenas domínios admin
       
       // ⚡ Timeout para cada requisição (5 segundos max)
       const fetchWithTimeout = async (domain: string) => {

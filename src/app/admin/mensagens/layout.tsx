@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { Mail, Users, History, LogOut } from 'lucide-react';
@@ -13,6 +13,7 @@ export default function MensagensLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sessionUser, setSessionUser] = useState<string | null>(null);
 
@@ -41,8 +42,10 @@ export default function MensagensLayout({
       <AdminSidebar 
         activeSection="newsletter"
         onNavigate={(section) => {
-          if (section !== 'newsletter') {
-            window.location.href = `/admin?section=${section}`;
+          if (section === 'newsletter') {
+            router.push('/admin/mensagens');
+          } else {
+            router.push(`/admin?section=${section}`);
           }
         }}
         isCollapsed={isCollapsed}
