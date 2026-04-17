@@ -6,8 +6,9 @@ import {
   RefreshCw, ChevronLeft, ChevronDown, Plus, ExternalLink,
   Loader2, AlertCircle, CheckCircle2, Search, Settings,
   LogOut, FolderOpen, MoreVertical, Download, Reply, ReplyAll, Forward, Pencil, Image as ImageIcon, X,
-  AlertTriangle
+  AlertTriangle, Activity
 } from 'lucide-react'
+import Link from 'next/link'
 import { EmailWebmailSection } from './EmailWebmailSection'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 
@@ -583,11 +584,11 @@ export function WebmailSection({
 
   const folders = [
     { id: 'INBOX', name: 'Caixa de Entrada', icon: Inbox },
-    { id: 'INBOX.Sent', name: 'Enviados', icon: Send },
-    { id: 'INBOX.Drafts', name: 'Rascunhos', icon: FileText },
-    { id: 'INBOX.Archive', name: 'Arquivo', icon: Archive },
-    { id: 'INBOX.Spam', name: 'Spam', icon: AlertTriangle },
-    { id: 'INBOX.Trash', name: 'Lixo', icon: Trash2 },
+    { id: 'Sent', name: 'Enviados', icon: Send },
+    { id: 'Drafts', name: 'Rascunhos', icon: FileText },
+    { id: 'Archive', name: 'Arquivo', icon: Archive },
+    { id: 'Junk', name: 'Spam', icon: AlertTriangle },
+    { id: 'Trash', name: 'Lixo', icon: Trash2 },
   ]
 
   if (loading) {
@@ -766,6 +767,14 @@ export function WebmailSection({
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/email-diagnostico"
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-cyan-600 rounded-md text-sm font-medium transition-colors"
+              title="Diagnóstico IMAP"
+            >
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">Diagnóstico</span>
+            </Link>
             <button
               onClick={openSnappyMailAutoLogin}
               className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-red-600 rounded-md text-sm font-medium transition-colors"

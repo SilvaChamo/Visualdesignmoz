@@ -15,23 +15,44 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
+// Função para criar pasta IMAP se não existir
+const createMailboxIfNotExists = async (client: any, folderPath: string): Promise<boolean> => {
+  try {
+    console.log(`📧 [read-emails] Criando pasta: ${folderPath}`)
+    await client.mailboxCreate(folderPath)
+    console.log(`📧 [read-emails] Pasta criada com sucesso: ${folderPath}`)
+    return true
+  } catch (e: any) {
+    console.log(`📧 [read-emails] Erro ao criar pasta ${folderPath}:`, e.message)
+    return false
+  }
+}
+
 // Função para tentar diferentes variações de nomes de pastas IMAP
 // cPanel pode usar "Sent" ou "INBOX.Sent", "Trash" ou "INBOX.Trash", etc.
-const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
+const getMailboxWithFallback = async (client: any, folderPath: string, createIfMissing: boolean = true): Promise<{ lock: any; actualPath: string } | null> => {
   console.log(`📧 [read-emails] getMailboxWithFallback chamada para: ${folderPath}`)
   const tentativas = [folderPath]
+  
+  // Tratamento especial para INBOX - sempre deve existir
+  const isInbox = folderPath.toUpperCase() === 'INBOX'
   
   // Se começa com INBOX., tentar sem o prefixo
   if (folderPath.startsWith('INBOX.')) {
     tentativas.push(folderPath.replace('INBOX.', ''))
-  } else if (folderPath !== 'INBOX') {
-    // Se não começa com INBOX., tentar com o prefixo
+  } else if (!isInbox) {
+    // Se não começa com INBOX., tentar com o prefixo (exceto para INBOX pura)
     tentativas.push(`INBOX.${folderPath}`)
   }
   
   // Variações específicas para Spam
   if (folderPath.toLowerCase().includes('spam')) {
     tentativas.push('Junk', 'INBOX.Junk', 'Spam', 'INBOX.Spam')
+  }
+  
+  // Variações específicas para Trash
+  if (folderPath.toLowerCase().includes('trash')) {
+    tentativas.push('Trash', 'INBOX.Trash', 'Deleted Items', 'INBOX.Deleted Items')
   }
   
   for (const tentativa of tentativas) {
@@ -43,6 +64,26 @@ const getMailboxWithFallback = async (client: any, folderPath: string): Promise<
       console.log(`📧 [read-emails] Pasta não existe: ${tentativa}`)
       // Continua para próxima tentativa
     }
+  }
+  
+  // Se não encontrou e createIfMissing está ativado, tenta criar
+  // NOTA: INBOX nunca deve ser criada, ela sempre existe no servidor IMAP
+  if (createIfMissing && !isInbox) {
+    console.log(`📧 [read-emails] Pasta não encontrada, tentando criar: ${folderPath}`)
+    const created = await createMailboxIfNotExists(client, folderPath)
+    if (created) {
+      try {
+        const lock = await client.getMailboxLock(folderPath)
+        console.log(`📧 [read-emails] Pasta criada e aberta: ${folderPath}`)
+        return { lock, actualPath: folderPath }
+      } catch (e: any) {
+        console.log(`📧 [read-emails] Erro ao abrir pasta criada:`, e.message)
+      }
+    }
+  }
+  
+  if (isInbox) {
+    console.log(`📧 [read-emails] ERRO CRÍTICO: INBOX não encontrada! Verificar conexão IMAP.`)
   }
   
   return null
