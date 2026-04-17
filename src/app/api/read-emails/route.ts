@@ -296,6 +296,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Configure a senha IMAP para visualizar emails', details: 'no-imap-password' }, { status: 400 })
     }
 
+    console.log(`📧 [read-emails] Conectando ao IMAP: ${process.env.IMAP_HOST || '109.199.104.22'}:${993}`)
+    console.log(`📧 [read-emails] Email: ${email}, Pastas: ${pastasParaProcessar.join(', ')}`)
+    
     const client = new ImapFlow({
       host: process.env.IMAP_HOST || '109.199.104.22',
       port: 993,
@@ -306,6 +309,7 @@ export async function POST(req: NextRequest) {
     })
 
     await client.connect()
+    console.log(`📧 [read-emails] Conectado ao IMAP com sucesso`)
     const emails: any[] = []
 
     for (const fPath of pastasParaProcessar) {
@@ -320,6 +324,7 @@ export async function POST(req: NextRequest) {
           }
 
           const total = client.mailbox ? client.mailbox.exists || 0 : 0
+          console.log(`📧 [read-emails] Pasta ${fPath}: ${total} emails totais`)
           
           if (search) {
             // Se for busca, ordenamos os UIDs (mais recentes primeiro) e paginamos
@@ -373,6 +378,7 @@ export async function POST(req: NextRequest) {
       }
     }
     await client.logout()
+    console.log(`📧 [read-emails] Total de emails carregados: ${emails.length}`)
 
     // Deduplicação final inteligente
     const finalEmails: any[] = []
@@ -391,6 +397,7 @@ export async function POST(req: NextRequest) {
     })
 
     finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    console.log(`📧 [read-emails] Retornando ${finalEmails.length} emails únicos`)
     return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length })
   } catch (error: any) {
     console.error('Erro ao ler emails:', error, error?.stack)

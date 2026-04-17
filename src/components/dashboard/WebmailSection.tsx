@@ -309,8 +309,11 @@ export function WebmailSection({
       })
 
       const data = await res.json()
+      console.log('📧 [WebmailSection] Resposta API:', { success: data.success, total: data.total, emailsCount: data.emails?.length, error: data.error })
       if (data.success) {
         setEmails(data.emails || [])
+      } else {
+        console.error('📧 [WebmailSection] Erro da API:', data.error)
       }
     } catch (error) {
       console.error('Erro ao carregar emails:', error)
@@ -586,7 +589,7 @@ export function WebmailSection({
 
   if (loading) {
     return (
-      <div className="flex flex-col bg-gray-50 h-[calc(100vh-120px)]">
+      <div className="flex flex-col bg-gray-50 h-[calc(100vh-80px)]">
         {/* Header Skeleton */}
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
@@ -717,7 +720,7 @@ export function WebmailSection({
   }
 
   return (
-    <div className={`flex flex-col bg-gray-50 ${showAdvancedCompose ? 'h-screen' : 'h-[calc(100vh-120px)]'}`}>
+    <div className={`flex flex-col bg-gray-50 ${showAdvancedCompose ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
       {!showAdvancedCompose && (
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
