@@ -48,7 +48,16 @@ async function execSSH(command: string): Promise<string> {
     conn.on('error', (err) => {
       clearTimeout(timeout);
       console.error('[SSH] Connection ERROR:', err.message);
-      reject(err);
+      // Melhorar mensagem de erro para o usuário
+      let errorMessage = err.message;
+      if (err.message.includes('handshake')) {
+        errorMessage = 'Falha na conexão SSH: handshake timeout. Verifique se a chave SSH está configurada corretamente no servidor CyberPanel (109.199.104.22) e se a porta 22 está aberta.';
+      } else if (err.message.includes('connect')) {
+        errorMessage = 'Não foi possível conectar ao servidor. Verifique se o IP 109.199.104.22 está acessível e se o serviço SSH está em execução.';
+      } else if (err.message.includes('authentication')) {
+        errorMessage = 'Autenticação SSH falhou. Verifique se a chave privada está correta e se o usuário root tem acesso via SSH.';
+      }
+      reject(new Error(errorMessage));
     });
 
     conn.connect({

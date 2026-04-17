@@ -238,6 +238,105 @@ ${body}
       return NextResponse.json({ success: !hasErrors, output });
     }
 
+    // NOVAS AÇÕES: Correção de problemas específicos
+    
+    if (action === 'fixSASL') {
+      // Corrigir configuração SASL para autenticação funcionar
+      const output = await execSSH(`
+        # Fazer backup da configuração
+        cp /etc/postfix/main.cf /etc/postfix/main.cf.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+        
+        # Remover parâmetros não utilizados que causam warnings
+        postconf -# mua_client_restrictions 2>/dev/null || true
+        postconf -# mua_helo_restrictions 2>/dev/null || true
+        postconf -# mua_sender_restrictions 2>/dev/null || true
+        postconf -# dovecot_destination_recipient_limit 2>/dev/null || true
+        
+        # Configurar SASL corretamente
+        postconf -e 'smtpd_sasl_auth_enable = yes'
+        postconf -e 'smtpd_sasl_type = dovecot'
+        postconf -e 'smtpd_sasl_path = private/auth'
+        postconf -e 'smtpd_sasl_local_domain ='
+        postconf -e 'smtpd_sasl_security_options = noanonymous'
+        postconf -e 'broken_sasl_auth_clients = yes'
+        
+        # Configurar restrições de submission
+        postconf -e 'smtpd_client_restrictions = permit_sasl_authenticated,reject'
+        postconf -e 'smtpd_helo_restrictions = permit_mynetworks,permit_sasl_authenticated,reject_invalid_helo_hostname,reject_non_fqdn_helo_hostname'
+        postconf -e 'smtpd_sender_restrictions = permit_sasl_authenticated,reject_unknown_sender_domain'
+        postconf -e 'smtpd_recipient_restrictions = permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination'
+        
+        # Recarregar Postfix
+        postfix reload 2>&1 || postfix start 2>&1
+        
+        echo "✅ Configuração SASL corrigida"
+        echo "Parâmetros removidos: mua_*_restrictions, dovecot_destination_recipient_limit"
+        echo "SASL configurado: type=dovecot, path=private/auth"
+        postfix check 2>&1 | head -5
+      `);
+      return NextResponse.json({ success: !output.includes('fatal') && !output.includes('error'), output });
+    }
+
+    if (action === 'fixMainCf') {
+      // Limpar main.cf removendo parâmetros problemáticos
+      const output = await execSSH(`
+        # Backup
+        cp /etc/postfix/main.cf /etc/postfix/main.cf.clean.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+        
+        # Remover linhas problemáticas
+        sed -i '/^mua_client_restrictions/d' /etc/postfix/main.cf 2>/dev/null || true
+        sed -i '/^mua_helo_restrictions/d' /etc/postfix/main.cf 2>/dev/null || true
+        sed -i '/^mua_sender_restrictions/d' /etc/postfix/main.cf 2>/dev/null || true
+        sed -i '/^dovecot_destination_recipient_limit/d' /etc/postfix/main.cf 2>/dev/null || true
+        
+        # Verificar se há erros de configuração
+        postfix check 2>&1
+        
+        echo "✅ main.cf limpo - parâmetros não utilizados removidos"
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'testReceive') {
+      // Testar se o servidor está recebendo emails (verificar logs de entrega)
+      const output = await execSSH(`
+        echo "=== Teste de Recebimento de Email ==="
+        echo ""
+        echo "1. Verificando logs de entrega recentes:"
+        grep -i "delivered\|deliver\|saved\|inbox" /var/log/maillog 2>/dev/null | tail -10 || echo "Nenhum log de entrega encontrado"
+        echo ""
+        echo "2. Verificando fila de emails:"
+        mailq 2>&1 | head -5
+        echo ""
+        echo "3. Verificando diretório de emails do usuário:"
+        ls -la /home/*/Maildir/new/ 2>/dev/null | head -5 || ls -la /var/vmail/*/new/ 2>/dev/null | head -5 || echo "Diretório de emails não encontrado"
+        echo ""
+        echo "4. Status do serviço de delivery (Dovecot LDA):"
+        systemctl status dovecot --no-pager 2>&1 | head -3
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'checkDeliver') {
+      // Verificar configuração de entrega local (mailbox_command, LDA)
+      const output = await execSSH(`
+        echo "=== Configuração de Entrega de Email ==="
+        echo ""
+        echo "1. Configurações de entrega no Postfix:"
+        postconf -n 2>&1 | grep -E "(mailbox_command|home_mailbox|mail_spool_directory|virtual_|dovecot)" | head -15
+        echo ""
+        echo "2. Configuração do Dovecot LDA:"
+        cat /etc/dovecot/conf.d/15-lda.conf 2>/dev/null | grep -v "^#" | grep -v "^$" | head -10 || echo "Arquivo 15-lda.conf não encontrado"
+        echo ""
+        echo "3. Protocolos do Dovecot:"
+        doveconf protocols 2>/dev/null || echo "doveconf não disponível"
+        echo ""
+        echo "4. Verificar permissões de entrega:"
+        ls -la /var/run/dovecot/auth-master 2>/dev/null || ls -la /var/spool/postfix/private/auth 2>/dev/null || echo "Socket de auth não encontrado"
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

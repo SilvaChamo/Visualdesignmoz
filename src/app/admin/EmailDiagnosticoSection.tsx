@@ -320,7 +320,7 @@ export function EmailDiagnosticoSection() {
               Estas ações resolvem problemas quando o Postfix não inicia devido a processos travados ou lock files.
             </p>
             
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <MaintenanceButton
                 icon={Trash2}
                 label="Matar Processos"
@@ -353,13 +353,41 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'fixPermissions'}
                 description="postfix set-permissions"
               />
+            </div>
+            
+            {/* Botões de Correção de Configuração */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <MaintenanceButton
-                icon={FolderOpen}
-                label="Verificar Pastas IMAP"
+                icon={Shield}
+                label="Corrigir SASL"
+                color="blue"
+                onClick={() => runMaintenanceAction('fixSASL')}
+                loading={maintenanceLoading === 'fixSASL'}
+                description="Configura autenticação Dovecot"
+              />
+              <MaintenanceButton
+                icon={FileCheck}
+                label="Limpar main.cf"
+                color="green"
+                onClick={() => runMaintenanceAction('fixMainCf')}
+                loading={maintenanceLoading === 'fixMainCf'}
+                description="Remove parâmetros inválidos"
+              />
+              <MaintenanceButton
+                icon={Mail}
+                label="Testar Recebimento"
                 color="purple"
-                onClick={checkImapFolders}
-                loading={imapFoldersLoading}
-                description="Lista todas as pastas"
+                onClick={() => runMaintenanceAction('testReceive')}
+                loading={maintenanceLoading === 'testReceive'}
+                description="Verifica logs de entrega"
+              />
+              <MaintenanceButton
+                icon={Server}
+                label="Config Entrega"
+                color="orange"
+                onClick={() => runMaintenanceAction('checkDeliver')}
+                loading={maintenanceLoading === 'checkDeliver'}
+                description="Verifica LDA/Dovecot"
               />
             </div>
 
@@ -370,6 +398,65 @@ export function EmailDiagnosticoSection() {
                   {maintenanceResult.success ? '✓ Ação concluída' : '✗ Ação falhou'}
                 </p>
                 <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border overflow-auto max-h-40">
+                  {maintenanceResult.output || maintenanceResult.error}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* Ações de Correção de Configuração */}
+          <div className="bg-blue-50 rounded-xl border border-blue-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              Correção de Configuração
+              <span className="ml-auto text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">Resolver problemas de autenticação</span>
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Estas ações corrigem problemas específicos de autenticação SASL e configuração do Postfix que impedem o recebimento de emails.
+            </p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <MaintenanceButton
+                icon={Shield}
+                label="Corrigir SASL"
+                color="blue"
+                onClick={() => runMaintenanceAction('fixSASL')}
+                loading={maintenanceLoading === 'fixSASL'}
+                description="Configura autenticação Dovecot"
+              />
+              <MaintenanceButton
+                icon={FileCheck}
+                label="Limpar main.cf"
+                color="green"
+                onClick={() => runMaintenanceAction('fixMainCf')}
+                loading={maintenanceLoading === 'fixMainCf'}
+                description="Remove parâmetros inválidos"
+              />
+              <MaintenanceButton
+                icon={Mail}
+                label="Testar Recebimento"
+                color="purple"
+                onClick={() => runMaintenanceAction('testReceive')}
+                loading={maintenanceLoading === 'testReceive'}
+                description="Verifica logs de entrega"
+              />
+              <MaintenanceButton
+                icon={Server}
+                label="Config Entrega"
+                color="orange"
+                onClick={() => runMaintenanceAction('checkDeliver')}
+                loading={maintenanceLoading === 'checkDeliver'}
+                description="Verifica LDA/Dovecot"
+              />
+            </div>
+
+            {/* Resultado da ação de correção */}
+            {maintenanceResult && (
+              <div className={`p-4 rounded-lg ${maintenanceResult.success ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                <p className={`font-medium ${maintenanceResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                  {maintenanceResult.success ? '✓ Ação concluída' : '✗ Ação falhou'}
+                </p>
+                <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border overflow-auto max-h-60">
                   {maintenanceResult.output || maintenanceResult.error}
                 </pre>
               </div>

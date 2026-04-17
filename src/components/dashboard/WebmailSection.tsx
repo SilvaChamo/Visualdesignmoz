@@ -97,6 +97,11 @@ export function WebmailSection({
   const [mostrarConfigAssinatura, setMostrarConfigAssinatura] = useState(false)
   const [mostrarEditarAssinatura, setMostrarEditarAssinatura] = useState(false)
   const [modoEscuroAssinatura, setModoEscuroAssinatura] = useState(true) // Padrão: modo escuro
+
+  // Estados para diagnóstico IMAP
+  const [showDiagnostico, setShowDiagnostico] = useState(false)
+  const [diagnosticoResult, setDiagnosticoResult] = useState<any>(null)
+  const [diagnosticoLoading, setDiagnosticoLoading] = useState(false)
   const assinaturaEditorRef = useRef<HTMLDivElement>(null)
   // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaAtiva: number, assinaturaPadrao: string } }
   const STORAGE_KEY = 'webmail_assinaturas_v2'
@@ -381,6 +386,41 @@ export function WebmailSection({
 
   const getSnappyMailUrl = () => {
     return 'https://109.199.104.22:8090/snappymail/index.php'
+  }
+
+  const runDiagnostico = async () => {
+    setDiagnosticoLoading(true)
+    setDiagnosticoResult(null)
+    
+    const account = accounts.find(a => a.email === selectedAccount)
+    if (!account) {
+      setDiagnosticoResult({ error: 'Selecione uma conta de email primeiro' })
+      setDiagnosticoLoading(false)
+      return
+    }
+    
+    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    if (!password) {
+      setDiagnosticoResult({ error: 'Senha não disponível para esta conta' })
+      setDiagnosticoLoading(false)
+      return
+    }
+    
+    try {
+      const res = await fetch('/api/debug-imap-folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: account.email, 
+          password: password 
+        })
+      })
+      const data = await res.json()
+      setDiagnosticoResult(data)
+    } catch (e) {
+      setDiagnosticoResult({ error: 'Falha ao executar diagnóstico' })
+    }
+    setDiagnosticoLoading(false)
   }
 
   const openSnappyMailAutoLogin = () => {
@@ -767,14 +807,18 @@ export function WebmailSection({
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/admin/email-diagnostico"
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-cyan-600 rounded-md text-sm font-medium transition-colors"
+            <button
+              onClick={() => {
+                setShowDiagnostico(true)
+                runDiagnostico()
+              }}
+              disabled={diagnosticoLoading}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-cyan-600 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
               title="Diagnóstico IMAP"
             >
-              <Activity className="w-4 h-4" />
+              {diagnosticoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
               <span className="hidden sm:inline">Diagnóstico</span>
-            </Link>
+            </button>
             <button
               onClick={openSnappyMailAutoLogin}
               className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-red-600 rounded-md text-sm font-medium transition-colors"
@@ -1909,7 +1953,7 @@ export function WebmailSection({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Gmail: Use Senha de App. Outros provedores: Use sua senha normal.
+                  Gmail: Use Senha de App. E-mail Corporativo: Use sua senha normal.
                 </p>
               </div>
             </div>
@@ -1954,6 +1998,136 @@ export function WebmailSection({
               >
                 Importar Conta
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Diagnóstico IMAP */}
+      {showDiagnostico && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-cyan-600" />
+                Diagnóstico IMAP - {selectedAccount}
+              </h3>
+              <button
+                onClick={() => setShowDiagnostico(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {diagnosticoLoading && (
+                <div className="flex items-center justify-center gap-2 py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
+                  <span className="text-gray-600">Verificando pastas IMAP...</span>
+                </div>
+              )}
+              
+              {diagnosticoResult && (
+                <>
+                  {diagnosticoResult.error ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-800 font-medium">Erro</p>
+                      <p className="text-red-600 text-sm mt-1">{diagnosticoResult.error}</p>
+                    </div>
+                  ) : (
+                    <>
+                      {diagnosticoResult.success && (
+                        <div className="space-y-4">
+                          <p className="text-sm text-gray-600">
+                            Total de pastas encontradas: <span className="font-semibold text-gray-900">{diagnosticoResult.allFolders?.length}</span>
+                          </p>
+                          
+                          {/* Pastas Comuns */}
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3">Status das Pastas Padrão:</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {Object.entries(diagnosticoResult.commonFolders || {}).map(([name, status]: [string, any]) => (
+                                <div
+                                  key={name}
+                                  className={`p-3 rounded-lg border ${
+                                    status.exists
+                                      ? 'bg-green-50 border-green-200'
+                                      : 'bg-red-50 border-red-200'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className={`font-medium text-sm ${status.exists ? 'text-green-800' : 'text-red-800'}`}>
+                                      {name}
+                                    </span>
+                                    {status.exists ? (
+                                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                      <AlertCircle className="w-4 h-4 text-red-600" />
+                                    )}
+                                  </div>
+                                  {status.exists && (
+                                    <p className="text-xs text-green-600 mt-1">
+                                      {status.total} emails
+                                    </p>
+                                  )}
+                                  {!status.exists && (
+                                    <p className="text-xs text-red-500 mt-1">
+                                      Não existe
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Todas as Pastas */}
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3">Todas as Pastas no Servidor:</h4>
+                            <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-60">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-gray-400 border-b border-gray-700">
+                                    <th className="text-left py-2 px-3">Caminho</th>
+                                    <th className="text-left py-2 px-3">Flags</th>
+                                    <th className="text-left py-2 px-3">Uso Especial</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {diagnosticoResult.allFolders?.map((folder: any, idx: number) => (
+                                    <tr key={idx} className="text-gray-300 border-b border-gray-800">
+                                      <td className="py-2 px-3 font-mono text-cyan-400">{folder.path}</td>
+                                      <td className="py-2 px-3">{folder.flags?.join(', ') || '-'}</td>
+                                      <td className="py-2 px-3">{folder.specialUse || '-'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+              
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowDiagnostico(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Fechar
+                </button>
+                <button
+                  onClick={runDiagnostico}
+                  disabled={diagnosticoLoading}
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  {diagnosticoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {diagnosticoLoading ? 'Verificando...' : 'Verificar Novamente'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
