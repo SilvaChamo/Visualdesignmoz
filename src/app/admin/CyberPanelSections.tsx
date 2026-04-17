@@ -16,7 +16,7 @@ import {
   RefreshCw, Globe, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield,
   Server, HardDrive, Key, Settings, Code, AlertCircle, CheckCircle, Eye, EyeOff,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw,
-  Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X
+  Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X, Clock, Loader2
 } from 'lucide-react'
 
 // ============================================================
@@ -7837,4 +7837,278 @@ export function SMTPConfigSection() {
       )}
     </div>
   )
+}
+
+// ============================================================
+// WATCHDOG SECTION - Email Services Monitor
+// ============================================================
+export function WatchdogSection() {
+  const [status, setStatus] = useState({
+    opendkim: 'unknown',
+    postfix: 'unknown',
+    watchdogInstalled: false,
+    loading: true
+  });
+  const [logs, setLogs] = useState('');
+  const [showLogs, setShowLogs] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+
+  const checkStatus = async () => {
+    setStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/watchdog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkStatus' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus({
+          ...data.services,
+          loading: false
+        });
+      }
+    } catch (err) {
+      setStatus(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const installWatchdog = async () => {
+    setActionLoading('install');
+    try {
+      const res = await fetch('/api/watchdog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'installWatchdog' })
+      });
+      const data = await res.json();
+      setMessage(data.message || (data.success ? 'Watchdog instalado!' : 'Erro ao instalar'));
+      checkStatus();
+    } catch (err: any) {
+      setMessage('Erro: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const restartServices = async () => {
+    setActionLoading('restart');
+    try {
+      const res = await fetch('/api/watchdog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restartServices' })
+      });
+      const data = await res.json();
+      setMessage(data.success ? 'Serviços reiniciados!' : 'Erro ao reiniciar');
+      checkStatus();
+    } catch (err: any) {
+      setMessage('Erro: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getLogs = async () => {
+    setActionLoading('logs');
+    try {
+      const res = await fetch('/api/watchdog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getLogs' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLogs(data.logs);
+        setShowLogs(true);
+      }
+    } catch (err: any) {
+      setMessage('Erro ao obter logs: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const removeWatchdog = async () => {
+    if (!confirm('Tem certeza que deseja remover o watchdog?')) return;
+    setActionLoading('remove');
+    try {
+      const res = await fetch('/api/watchdog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'removeWatchdog' })
+      });
+      const data = await res.json();
+      setMessage(data.message || 'Watchdog removido');
+      checkStatus();
+    } catch (err: any) {
+      setMessage('Erro: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+  }, []);
+
+  const getStatusColor = (s: string) => {
+    if (s === 'active') return 'bg-green-100 text-green-700 border-green-200';
+    if (s === 'inactive' || s === 'unknown') return 'bg-red-100 text-red-700 border-red-200';
+    return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <Shield className="w-6 h-6 text-red-600" />
+          Monitor de Serviços de Email
+        </h2>
+        <button
+          onClick={checkStatus}
+          disabled={status.loading}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${status.loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </button>
+      </div>
+
+      {/* Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* OpenDKIM */}
+        <div className={`p-4 rounded-xl border ${getStatusColor(status.opendkim)}`}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-3 h-3 rounded-full ${status.opendkim === 'active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <h3 className="font-semibold">OpenDKIM</h3>
+          </div>
+          <p className="text-sm opacity-90">
+            {status.opendkim === 'active' ? '✅ Em execução' : 
+             status.opendkim === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
+          </p>
+          <p className="text-xs mt-2 opacity-75">Assinatura DKIM para emails</p>
+        </div>
+
+        {/* Postfix */}
+        <div className={`p-4 rounded-xl border ${getStatusColor(status.postfix)}`}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-3 h-3 rounded-full ${status.postfix === 'active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <h3 className="font-semibold">Postfix</h3>
+          </div>
+          <p className="text-sm opacity-90">
+            {status.postfix === 'active' ? '✅ Em execução' : 
+             status.postfix === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
+          </p>
+          <p className="text-xs mt-2 opacity-75">Servidor SMTP</p>
+        </div>
+
+        {/* Watchdog */}
+        <div className={`p-4 rounded-xl border ${status.watchdogInstalled ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className={`w-5 h-5 ${status.watchdogInstalled ? 'text-blue-600' : 'text-gray-400'}`} />
+            <h3 className="font-semibold">Watchdog</h3>
+          </div>
+          <p className="text-sm opacity-90">
+            {status.watchdogInstalled ? '✅ Instalado (a cada 2 min)' : '❌ Não instalado'}
+          </p>
+          <p className="text-xs mt-2 opacity-75">Auto-reinício de serviços</p>
+        </div>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg ${message.includes('Erro') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+          {message}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={restartServices}
+          disabled={actionLoading === 'restart'}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
+        >
+          {actionLoading === 'restart' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
+          Reiniciar Serviços
+        </button>
+
+        {!status.watchdogInstalled ? (
+          <button
+            onClick={installWatchdog}
+            disabled={actionLoading === 'install'}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
+          >
+            {actionLoading === 'install' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Shield className="w-4 h-4" />
+            )}
+            Instalar Watchdog
+          </button>
+        ) : (
+          <button
+            onClick={removeWatchdog}
+            disabled={actionLoading === 'remove'}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+          >
+            {actionLoading === 'remove' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <X className="w-4 h-4" />
+            )}
+            Remover Watchdog
+          </button>
+        )}
+
+        <button
+          onClick={getLogs}
+          disabled={actionLoading === 'logs'}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+        >
+          {actionLoading === 'logs' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileText className="w-4 h-4" />
+          )}
+          Ver Logs
+        </button>
+      </div>
+
+      {/* Logs Modal */}
+      {showLogs && (
+        <div className="bg-gray-900 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white font-medium">Logs do Watchdog</h4>
+            <button
+              onClick={() => setShowLogs(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <pre className="text-green-400 text-xs font-mono overflow-auto max-h-80 whitespace-pre-wrap">
+            {logs || 'Sem logs disponíveis'}
+          </pre>
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-semibold text-blue-800 mb-2">ℹ️ Sobre o Watchdog</h4>
+        <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+          <li>Verifica a cada <strong>2 minutos</strong> se OpenDKIM e Postfix estão rodando</li>
+          <li>Reinicia automaticamente qualquer serviço que estiver parado</li>
+          <li>Registra todas as ações em <code>/var/log/watchdog.log</code></li>
+          <li>Essencial para garantir entrega de emails 24/7</li>
+        </ul>
+      </div>
+    </div>
+  );
 }

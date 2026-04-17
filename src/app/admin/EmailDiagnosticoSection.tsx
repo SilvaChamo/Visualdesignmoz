@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Mail, Server, AlertCircle, CheckCircle, RefreshCw, Activity, Play, Square, RotateCcw, Wrench, Trash2, Shield, FileCheck } from 'lucide-react';
+import { Loader2, Mail, Server, AlertCircle, CheckCircle, RefreshCw, Activity, Play, Square, RotateCcw, Wrench, Trash2, Shield, FileCheck, FolderOpen } from 'lucide-react';
 
 export function EmailDiagnosticoSection() {
   const [diagnostico, setDiagnostico] = useState<any>(null);
@@ -12,6 +12,8 @@ export function EmailDiagnosticoSection() {
   const [serviceAction, setServiceAction] = useState<string | null>(null);
   const [maintenanceResult, setMaintenanceResult] = useState<any>(null);
   const [maintenanceLoading, setMaintenanceLoading] = useState<string | null>(null);
+  const [imapFoldersResult, setImapFoldersResult] = useState<any>(null);
+  const [imapFoldersLoading, setImapFoldersLoading] = useState(false);
 
   async function runDiagnostico() {
     setLoading(true);
@@ -118,6 +120,26 @@ export function EmailDiagnosticoSection() {
       setMaintenanceResult({ action, error: 'Falha na ação de manutenção' });
     }
     setMaintenanceLoading(null);
+  }
+
+  async function checkImapFolders() {
+    setImapFoldersLoading(true);
+    setImapFoldersResult(null);
+    try {
+      const res = await fetch('/api/debug-imap-folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'silva.chamo@visualdesigne.com',
+          password: 'Meckito#1977?*'
+        })
+      });
+      const data = await res.json();
+      setImapFoldersResult(data);
+    } catch (e) {
+      setImapFoldersResult({ error: 'Falha ao verificar pastas IMAP' });
+    }
+    setImapFoldersLoading(false);
   }
 
   return (
@@ -298,7 +320,7 @@ export function EmailDiagnosticoSection() {
               Estas ações resolvem problemas quando o Postfix não inicia devido a processos travados ou lock files.
             </p>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <MaintenanceButton
                 icon={Trash2}
                 label="Matar Processos"
@@ -331,6 +353,14 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'fixPermissions'}
                 description="postfix set-permissions"
               />
+              <MaintenanceButton
+                icon={FolderOpen}
+                label="Verificar Pastas IMAP"
+                color="purple"
+                onClick={checkImapFolders}
+                loading={imapFoldersLoading}
+                description="Lista todas as pastas"
+              />
             </div>
 
             {/* Resultado da ação de manutenção */}
@@ -342,6 +372,40 @@ export function EmailDiagnosticoSection() {
                 <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border overflow-auto max-h-40">
                   {maintenanceResult.output || maintenanceResult.error}
                 </pre>
+              </div>
+            )}
+
+            {/* Resultado do diagnóstico IMAP */}
+            {imapFoldersResult && (
+              <div className={`p-4 rounded-lg ${imapFoldersResult.success ? 'bg-blue-100 border border-blue-300' : 'bg-red-100 border border-red-300'}`}>
+                <p className={`font-medium ${imapFoldersResult.success ? 'text-blue-800' : 'text-red-800'}`}>
+                  {imapFoldersResult.success ? '📁 Pastas IMAP encontradas' : '✗ Erro ao listar pastas'}
+                </p>
+                {imapFoldersResult.success && (
+                  <div className="mt-2 text-sm">
+                    <p className="font-medium text-blue-700 mb-2">Total de pastas: {imapFoldersResult.allFolders?.length}</p>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {Object.entries(imapFoldersResult.commonFolders || {}).map(([name, status]: [string, any]) => (
+                        <div key={name} className={`p-2 rounded text-xs ${status.exists ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
+                          {name}: {status.exists ? `${status.total} emails` : 'Não existe'}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-blue-600 hover:text-blue-800">Ver todas as pastas</summary>
+                      <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border overflow-auto max-h-60">
+                        {JSON.stringify(imapFoldersResult.allFolders, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                )}
+                {imapFoldersResult.error && (
+                  <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border text-red-600">
+                    {imapFoldersResult.error}
+                  </pre>
+                )}
               </div>
             )}
           </div>
@@ -507,6 +571,7 @@ function MaintenanceButton({
     orange: 'bg-orange-100 hover:bg-orange-200 text-orange-700 border-orange-300',
     blue: 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-300',
     green: 'bg-green-100 hover:bg-green-200 text-green-700 border-green-300',
+    purple: 'bg-purple-100 hover:bg-purple-200 text-purple-700 border-purple-300',
   };
 
   return (

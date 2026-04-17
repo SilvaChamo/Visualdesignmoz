@@ -15,6 +15,39 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
+// Função para tentar diferentes variações de nomes de pastas IMAP
+// cPanel pode usar "Sent" ou "INBOX.Sent", "Trash" ou "INBOX.Trash", etc.
+const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
+  console.log(`📧 [read-emails] getMailboxWithFallback chamada para: ${folderPath}`)
+  const tentativas = [folderPath]
+  
+  // Se começa com INBOX., tentar sem o prefixo
+  if (folderPath.startsWith('INBOX.')) {
+    tentativas.push(folderPath.replace('INBOX.', ''))
+  } else if (folderPath !== 'INBOX') {
+    // Se não começa com INBOX., tentar com o prefixo
+    tentativas.push(`INBOX.${folderPath}`)
+  }
+  
+  // Variações específicas para Spam
+  if (folderPath.toLowerCase().includes('spam')) {
+    tentativas.push('Junk', 'INBOX.Junk', 'Spam', 'INBOX.Spam')
+  }
+  
+  for (const tentativa of tentativas) {
+    try {
+      const lock = await client.getMailboxLock(tentativa)
+      console.log(`📧 [read-emails] Pasta encontrada: ${tentativa} (tentativa para ${folderPath})`)
+      return { lock, actualPath: tentativa }
+    } catch (e: any) {
+      console.log(`📧 [read-emails] Pasta não existe: ${tentativa}`)
+      // Continua para próxima tentativa
+    }
+  }
+  
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { 
@@ -93,7 +126,13 @@ export async function POST(req: NextRequest) {
               })
 
               await client.connect()
-              const lock = await client.getMailboxLock(folderPath)
+              const mailboxResult = await getMailboxWithFallback(client, folderPath)
+              if (!mailboxResult) {
+                console.error(`📧 [read-emails] Não foi possível abrir nenhuma pasta para ${folderPath}`)
+                await client.logout()
+                return []
+              }
+              const { lock, actualPath } = mailboxResult
               const emailsTemp: any[] = []
 
               try {
@@ -113,7 +152,7 @@ export async function POST(req: NextRequest) {
                       emailsTemp.push({
                         id: msg.uid,
                         seq: msg.seq,
-                        tipo: determinarTipo(folderPath),
+                        tipo: determinarTipo(actualPath),
                         conta: conta.email,
                         messageId: msg.envelope?.messageId || '',
                         de: msg.envelope?.from?.[0]?.address || '',
@@ -195,7 +234,13 @@ export async function POST(req: NextRequest) {
               logger: false
             })
             await client.connect()
-            const lock = await client.getMailboxLock(fPath)
+            const mailboxResult = await getMailboxWithFallback(client, fPath)
+            if (!mailboxResult) {
+              console.error(`📧 [read-emails] Não foi possível abrir nenhuma pasta para ${fPath}`)
+              await client.logout()
+              return []
+            }
+            const { lock, actualPath } = mailboxResult
             const emailsTemp: any[] = []
             try {
               let uids: number[] = []
@@ -213,7 +258,7 @@ export async function POST(req: NextRequest) {
                     emailsTemp.push({
                       id: msg.uid,
                       seq: msg.seq,
-                      tipo: determinarTipo(fPath),
+                      tipo: determinarTipo(actualPath),
                       conta: mEmail,
                       messageId: msg.envelope?.messageId || '',
                       de: msg.envelope?.from?.[0]?.address || '',
@@ -233,7 +278,7 @@ export async function POST(req: NextRequest) {
                   emailsTemp.push({
                     id: msg.uid,
                     seq: msg.seq,
-                    tipo: determinarTipo(fPath),
+                    tipo: determinarTipo(actualPath),
                     conta: mEmail,
                     messageId: msg.envelope?.messageId || '',
                     de: msg.envelope?.from?.[0]?.address || '',
@@ -314,7 +359,12 @@ export async function POST(req: NextRequest) {
 
     for (const fPath of pastasParaProcessar) {
       try {
-        const lock = await client.getMailboxLock(fPath)
+        const mailboxResult = await getMailboxWithFallback(client, fPath)
+        if (!mailboxResult) {
+          console.error(`📧 [read-emails] Não foi possível abrir nenhuma pasta para ${fPath}`)
+          continue
+        }
+        const { lock, actualPath } = mailboxResult
         try {
           let uids: number[] = []
           if (search) {
@@ -324,7 +374,7 @@ export async function POST(req: NextRequest) {
           }
 
           const total = client.mailbox ? client.mailbox.exists || 0 : 0
-          console.log(`📧 [read-emails] Pasta ${fPath}: ${total} emails totais`)
+          console.log(`📧 [read-emails] Pasta ${actualPath}: ${total} emails totais`)
           
           if (search) {
             // Se for busca, ordenamos os UIDs (mais recentes primeiro) e paginamos
@@ -337,7 +387,7 @@ export async function POST(req: NextRequest) {
                 emails.push({
                   id: msg.uid,
                   seq: msg.seq,
-                  tipo: determinarTipo(fPath),
+                  tipo: determinarTipo(actualPath),
                   messageId: msg.envelope?.messageId || '',
                   de: msg.envelope?.from?.[0]?.address || '',
                   deNome: msg.envelope?.from?.[0]?.name || '',
@@ -358,7 +408,7 @@ export async function POST(req: NextRequest) {
               emails.push({
                 id: msg.uid,
                 seq: msg.seq,
-                tipo: determinarTipo(fPath),
+                tipo: determinarTipo(actualPath),
                 messageId: msg.envelope?.messageId || '',
                 de: msg.envelope?.from?.[0]?.address || '',
                 deNome: msg.envelope?.from?.[0]?.name || '',

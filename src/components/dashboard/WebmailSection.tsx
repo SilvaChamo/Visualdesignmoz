@@ -5,7 +5,8 @@ import {
   Mail, Inbox, Send, FileText, Trash2, Archive, Star, Filter, 
   RefreshCw, ChevronLeft, ChevronDown, Plus, ExternalLink,
   Loader2, AlertCircle, CheckCircle2, Search, Settings,
-  LogOut, FolderOpen, MoreVertical, Download, Reply, ReplyAll, Forward, Pencil, Image as ImageIcon, X
+  LogOut, FolderOpen, MoreVertical, Download, Reply, ReplyAll, Forward, Pencil, Image as ImageIcon, X,
+  AlertTriangle
 } from 'lucide-react'
 import { EmailWebmailSection } from './EmailWebmailSection'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
@@ -296,6 +297,7 @@ export function WebmailSection({
         return
       }
 
+      console.log(`📧 [WebmailSection] Carregando pasta: ${activeFolder}`)
       const res = await fetch('/api/read-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -584,6 +586,7 @@ export function WebmailSection({
     { id: 'INBOX.Sent', name: 'Enviados', icon: Send },
     { id: 'INBOX.Drafts', name: 'Rascunhos', icon: FileText },
     { id: 'INBOX.Archive', name: 'Arquivo', icon: Archive },
+    { id: 'INBOX.Spam', name: 'Spam', icon: AlertTriangle },
     { id: 'INBOX.Trash', name: 'Lixo', icon: Trash2 },
   ]
 
@@ -614,17 +617,17 @@ export function WebmailSection({
           </div>
         </div>
 
-        {/* Content Skeleton - Layout 3 colunas (Sidebar | Lista | Preview) */}
+        {/* Content Skeleton - Layout 2 colunas (Sidebar | Lista/Conteúdo único) */}
         <div className="flex-1 flex overflow-hidden">
           {/* Sidebar Skeleton */}
-          <div className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
+          <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
             {/* Botão Nova Mensagem skeleton */}
             <div className="p-4">
               <div className="h-10 w-full bg-gray-200 rounded-lg animate-pulse" />
             </div>
             {/* Lista de Folders skeleton */}
             <div className="flex-1 px-3 space-y-2">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
                   <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
                   <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
@@ -670,47 +673,39 @@ export function WebmailSection({
             </div>
           </div>
 
-          {/* Painel de Preview Skeleton */}
-          <div className="w-[45%] bg-white border-l border-gray-200 flex flex-col shrink-0">
-            {/* Header do email skeleton */}
-            <div className="p-4 border-b border-gray-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="h-5 w-48 bg-gray-200 rounded animate-pulse" />
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
-                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
-                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
-                </div>
-              </div>
+          {/* Skeleton do Conteúdo Único (sem painel lateral - layout alterna entre lista e conteúdo) */}
+          <div className="flex-1 bg-white flex flex-col min-w-0">
+            {/* Barra de ferramentas skeleton */}
+            <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-2.5 w-48 bg-gray-150 rounded animate-pulse" />
-                </div>
+                <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-16 bg-gray-150 rounded animate-pulse" />
-                <div className="h-2.5 w-40 bg-gray-100 rounded animate-pulse" />
-              </div>
+              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse ml-auto" />
             </div>
-            {/* Corpo do email skeleton */}
-            <div className="flex-1 p-4 space-y-2.5 overflow-y-auto">
-              <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-              <div className="h-3 w-[95%] bg-gray-150 rounded animate-pulse" />
-              <div className="h-3 w-[90%] bg-gray-150 rounded animate-pulse" />
-              <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-              <div className="h-3 w-[88%] bg-gray-150 rounded animate-pulse" />
-              <div className="h-3 w-[92%] bg-gray-150 rounded animate-pulse" />
-              <div className="mt-4 space-y-2.5">
-                <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-                <div className="h-3 w-[85%] bg-gray-150 rounded animate-pulse" />
-                <div className="h-20 w-full bg-gray-200 rounded animate-pulse" />
-              </div>
-<div className="mt-4 space-y-2.5">
-                <div className="h-3 w-[80%] bg-gray-150 rounded animate-pulse" />
-                <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-                <div className="h-3 w-[92%] bg-gray-150 rounded animate-pulse" />
+            {/* Lista de emails skeleton */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border-b border-gray-100">
+                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
+                  <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-2.5 w-10 bg-gray-150 rounded animate-pulse" />
+                    </div>
+                    <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
+                    <div className="h-2.5 w-4/5 bg-gray-100 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Paginação skeleton */}
+            <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse" />
+                <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse" />
               </div>
             </div>
           </div>

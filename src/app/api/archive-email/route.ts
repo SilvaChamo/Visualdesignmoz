@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 
+// Função para tentar diferentes variações de nomes de pastas IMAP
+const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
+  const tentativas = [folderPath]
+  
+  // Se começa com INBOX., tentar sem o prefixo
+  if (folderPath.startsWith('INBOX.')) {
+    tentativas.push(folderPath.replace('INBOX.', ''))
+  } else if (folderPath !== 'INBOX') {
+    // Se não começa com INBOX., tentar com o prefixo
+    tentativas.push(`INBOX.${folderPath}`)
+  }
+  
+  for (const tentativa of tentativas) {
+    try {
+      const lock = await client.getMailboxLock(tentativa)
+      console.log(`📧 [archive] Pasta encontrada: ${tentativa}`)
+      return { lock, actualPath: tentativa }
+    } catch (e: any) {
+      console.log(`📧 [archive] Pasta não existe: ${tentativa}`)
+    }
+  }
+  
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password, emailId, fromFolder, toFolder = 'INBOX.Archive' } = await req.json()
@@ -39,8 +64,13 @@ export async function POST(req: NextRequest) {
 
     // Mover para pasta de arquivo
     const archiveFolder = toFolder // Usar toFolder ou padrão
-    const lock = await client.getMailboxLock(fromFolder)
-    console.log(`1. ${fromFolder} aberta para arquivar`)
+    const mailboxResult = await getMailboxWithFallback(client, fromFolder)
+    if (!mailboxResult) {
+      await client.logout()
+      return NextResponse.json({ error: `Pasta ${fromFolder} não encontrada`, success: false }, { status: 400 })
+    }
+    const { lock, actualPath } = mailboxResult
+    console.log(`1. ${actualPath} aberta para arquivar`)
     try {
       const archiveFolders = [archiveFolder, 'INBOX.Archive', 'Archive']
       let movedToArchive = false

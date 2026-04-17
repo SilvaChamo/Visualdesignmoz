@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 
+// Função para tentar diferentes variações de nomes de pastas IMAP
+const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
+  const tentativas = [folderPath]
+  
+  // Se começa com INBOX., tentar sem o prefixo
+  if (folderPath.startsWith('INBOX.')) {
+    tentativas.push(folderPath.replace('INBOX.', ''))
+  } else if (folderPath !== 'INBOX') {
+    // Se não começa com INBOX., tentar com o prefixo
+    tentativas.push(`INBOX.${folderPath}`)
+  }
+  
+  for (const tentativa of tentativas) {
+    try {
+      const lock = await client.getMailboxLock(tentativa)
+      console.log(`📧 [delete] Pasta encontrada: ${tentativa}`)
+      return { lock, actualPath: tentativa }
+    } catch (e: any) {
+      console.log(`📧 [delete] Pasta não existe: ${tentativa}`)
+    }
+  }
+  
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password, emailId, folder } = await req.json()
@@ -54,14 +79,19 @@ export async function POST(req: NextRequest) {
     }
     // -------------------------------------------------------------------------
 
-    let lock = await client.getMailboxLock(folder)
-    console.log(`1. ${folder} aberta`)
+    const mailboxResult = await getMailboxWithFallback(client, folder)
+    if (!mailboxResult) {
+      await client.logout()
+      return NextResponse.json({ error: `Pasta ${folder} não encontrada`, success: false }, { status: 400 })
+    }
+    const { lock, actualPath } = mailboxResult
+    console.log(`1. ${actualPath} aberta`)
     try {
       // Pastas de Lixeira a tentar, por ordem de prioridade
       const trashFolders = ['INBOX.Deleted Items', 'INBOX.Trash', 'Trash', 'Deleted Items']
 
       // Se já estiver na lixeira, apagar permanentemente
-      if (trashFolders.includes(folder)) {
+      if (trashFolders.includes(actualPath) || trashFolders.includes(folder)) {
         await client.messageDelete([emailId], { uid: true })
         console.log('3. Deletado permanentemente via messageDelete')
         await client.mailboxClose()
