@@ -479,8 +479,19 @@ except:
         LOCALPART=$(echo "${email}" | cut -d'@' -f1)
         echo "Localpart: $LOCALPART"
         
-        # Verificar em /etc/postfix/virtual
-        grep "${email}" /etc/postfix/virtual 2>/dev/null || echo "Não encontrado em virtual"
+        # Verificar no MySQL (CyberPanel)
+        MYSQL_RESULT=$(mysql -u cyberpanel -pdBSzMuQ5CLq7Dz cyberpanel -se "SELECT email FROM e_users WHERE email='${email}';" 2>/dev/null)
+        if [ -n "$MYSQL_RESULT" ]; then
+          echo "✅ Conta encontrada no MySQL: $MYSQL_RESULT"
+        else
+          echo "❌ Conta não encontrada no MySQL"
+        fi
+        POSTMAP_RESULT=$(postmap -q "${email}" mysql:/etc/postfix/mysql-virtual_mailboxes.cf 2>/dev/null)
+        if [ -n "$POSTMAP_RESULT" ]; then
+          echo "✅ Postfix reconhece a conta: $POSTMAP_RESULT"
+        else
+          echo "❌ Postfix não reconhece a conta"
+        fi
         
         # Verificar diretório da conta
         echo "Diretórios encontrados:"
