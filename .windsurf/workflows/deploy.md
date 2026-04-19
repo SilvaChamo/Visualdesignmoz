@@ -65,11 +65,17 @@ Vai a: `https://github.com/SilvaChamo/Visualdesigne/settings/secrets/actions` �
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | `sb_publishable_NkNwKuVE-AyGgyxKB6zpmQ_b-HdjWOA` |
 
 ### Configurar token GitHub (só uma vez)
-1. Cria token em `https://github.com/settings/tokens/new` com scope `repo`
-2. Adiciona ao `.env.local` local:
+1. Cria token em `https://github.com/settings/personal-access-tokens/new` (fine-grained PAT)
+2. Seleciona o repositório `SilvaChamo/Visualdesigne`
+3. Permissões necessárias:
+   - **Contents**: Read and write
+   - **Metadata**: Read
+4. Adiciona ao `.env.local` local:
 ```
-GITHUB_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXX
+GITHUB_TOKEN=github_pat_XXXXXXXXXXXXXXXXXXXX
 ```
+
+**Nota**: Tokens clássicos (`ghp_`) também funcionam com scope `repo`.
 
 ### Usar deploy automático
 Após fazer `git push origin main`, corre:
