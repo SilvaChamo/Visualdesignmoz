@@ -39,7 +39,9 @@ import { EmailTemplates } from "@/components/admin/EmailTemplates"
 import { toast } from "sonner"
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import ClientDashboardSkeleton from '@/components/dashboard/ClientDashboardSkeleton'
+import { NovoTicketModal } from '@/components/dashboard/NovoTicketModal'
 import { supabase as createClientInstance } from '@/lib/supabase'
+import { useSupabaseQueue } from '@/lib/supabase-queue'
 import {
   adminListarSubscritores as listarSubscritores,
   adminAdicionarSubscritor as adicionarSubscritor,
@@ -75,51 +77,32 @@ function SectionLoader() {
   )
 }
 
-// Componente ClienteDashboardHome
-function ClienteDashboardHome() {
-  const [cliente, setCliente] = useState<any>(null)
-  const [cyberPanelSites, setCyberPanelSites] = useState<any[]>([])
+// Componente ClienteDashboardHome - Recebe dados do componente pai para evitar race conditions
+function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clienteProp: any, sitesProp: any[], isLoading: boolean }) {
   const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
   const [tickets, setTickets] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [showTicketModal, setShowTicketModal] = useState(false)
+  const [localLoading, setLocalLoading] = useState(true)
+  const dataFetchedRef = useRef(false)
 
   useEffect(() => {
-    fetchClientData()
+    // Evitar chamadas duplicadas (React StrictMode)
+    if (dataFetchedRef.current) return
+    dataFetchedRef.current = true
+    
+    fetchAdditionalData()
   }, [])
 
-  const fetchClientData = async () => {
-    setLoading(true)
+  const fetchAdditionalData = async () => {
+    setLocalLoading(true)
     try {
+      // Buscar apenas faturas e tickets - usuário e sites vêm do pai
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
-      const email = user.email
 
-      // 1. Carregar Perfil
-      const { data: profile, error: profileError } = await createClientInstance
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (profileError) {
-        console.warn('Perfil não encontrado, usando metadados do usuário:', profileError.message)
-      }
-
-      setCliente({
-        nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
-        empresa: profile?.empresa || 'Cliente Individual',
-        email: user.email,
-        avatar: '/assets/simbolo.png'
-      })
-
-      // 2. Carregar Sites (via API do CyberPanel filtrada)
-      const sites = await cyberPanelAPI.listWebsites().catch(() => [])
-      const allSites = Array.isArray(sites) ? sites : []
-      const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
-      setCyberPanelSites(filteredSites)
-
-      // 3. Carregar Faturas (apenas se tabela existir)
+      // 1. Carregar Faturas (apenas se tabela existir) - com delay entre chamadas
       try {
+        await new Promise(resolve => setTimeout(resolve, 100))
         const { data: inv, error: invError } = await createClientInstance
           .from('pagamentos')
           .select('*')
@@ -135,8 +118,9 @@ function ClienteDashboardHome() {
         console.warn('Tabela pagamentos não existe:', err)
       }
 
-      // 4. Carregar Tickets (apenas se tabela existir)
+      // 2. Carregar Tickets (apenas se tabela existir) - com delay entre chamadas
       try {
+        await new Promise(resolve => setTimeout(resolve, 100))
         const { data: tkt, error: tktError } = await createClientInstance
           .from('tickets_suporte')
           .select('*')
@@ -152,13 +136,16 @@ function ClienteDashboardHome() {
       }
 
     } catch (error) {
-      console.error('Erro ao carregar dados do cliente:', error)
+      console.error('Erro ao carregar dados adicionais:', error)
     } finally {
-      setLoading(false)
+      setLocalLoading(false)
     }
   }
 
-  if (loading || !cliente) return <ClientDashboardSkeleton />
+  const cliente = clienteProp
+  const cyberPanelSites = sitesProp
+
+  if (isLoading || localLoading || !cliente) return <ClientDashboardSkeleton />
 
   const hoje = new Date()
   const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
@@ -233,7 +220,18 @@ function ClienteDashboardHome() {
           </div>
         )}
 
-        {/* Recibos e Notificações */}
+        {/* Tickets recentes - Agora em cima */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-bold text-gray-700">Tickets de Suporte</h2>
+            <button onClick={() => setShowTicketModal(true)} className="text-xs text-red-600 hover:underline font-bold">+ Abrir Ticket</button>
+          </div>
+          <div className="p-5 text-center text-gray-400 text-sm">
+            {tickets.length > 0 ? `${tickets.length} tickets no total` : '0 tickets abertos'}
+          </div>
+        </div>
+
+        {/* Recibos e Notificações - Agora embaixo com apenas 2 itens */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
             <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -266,28 +264,6 @@ function ClienteDashboardHome() {
                 <p className="text-[10px] text-gray-400 mt-1">Ontem, 09:15</p>
               </div>
             </div>
-            {/* Notificação de Segurança */}
-            <div className="flex items-start gap-3 p-3 bg-amber-50/50 rounded-lg border border-amber-100 hover:bg-amber-50 transition-colors cursor-pointer group">
-              <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
-                <Shield className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">SSL Instalado</p>
-                <p className="text-xs text-gray-500 mt-0.5">Certificado SSL renovado automaticamente</p>
-                <p className="text-[10px] text-gray-400 mt-1">2 dias atrás</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tickets recentes */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-sm font-bold text-gray-700">Tickets de Suporte</h2>
-            <button className="text-xs text-red-600 hover:underline font-bold">+ Abrir Ticket</button>
-          </div>
-          <div className="p-5 text-center text-gray-400 text-sm">
-            {tickets.length > 0 ? `${tickets.length} tickets no total` : '0 tickets abertos'}
           </div>
         </div>
       </div>
@@ -318,6 +294,25 @@ function ClienteDashboardHome() {
           <button className="w-full !bg-red-600 hover:!bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-lg transition-all !opacity-100">Adicionar Fundos</button>
         </div>
       </div>
+
+      {/* Modal de Novo Ticket */}
+      <NovoTicketModal 
+        isOpen={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        cliente={cliente}
+        sites={cyberPanelSites}
+        onTicketCreated={() => {
+          const fetchTickets = async () => {
+            try {
+              const { data: { user } } = await createClientInstance.auth.getUser()
+              if (!user) return
+              const { data } = await createClientInstance.from('tickets_suporte').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+              if (data) setTickets(data)
+            } catch (err) { console.error('Erro ao recarregar tickets:', err) }
+          }
+          fetchTickets()
+        }}
+      />
     </div>
   )
 }
@@ -378,9 +373,12 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const fetchTickets = async () => {
     setLoading(true)
     try {
+      // Delay para evitar conflito com outras chamadas
+      await new Promise(resolve => setTimeout(resolve, 150))
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
 
+      await new Promise(resolve => setTimeout(resolve, 100))
       const { data } = await createClientInstance
         .from('tickets_suporte')
         .select('*')
@@ -2617,15 +2615,19 @@ function FacturacaoSection() {
   const fetchFaturas = async () => {
     setLoading(true)
     try {
+      // Delay para evitar conflito com outras chamadas
+      await new Promise(resolve => setTimeout(resolve, 200))
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
 
+      await new Promise(resolve => setTimeout(resolve, 100))
       const { data: pendentes } = await createClientInstance
         .from('pagamentos')
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'pending')
 
+      await new Promise(resolve => setTimeout(resolve, 100))
       const { data: historico } = await createClientInstance
         .from('pagamentos')
         .select('*')
@@ -2822,8 +2824,11 @@ function ContaSection() {
   const fetchProfile = async () => {
     setLoading(true)
     try {
+      // Delay para evitar conflito com outras chamadas
+      await new Promise(resolve => setTimeout(resolve, 250))
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
+      await new Promise(resolve => setTimeout(resolve, 100))
       const { data: profile } = await createClientInstance
         .from('profiles')
         .select('*')
@@ -2867,6 +2872,8 @@ function ContaSection() {
 
   const guardar = async () => {
     try {
+      // Delay para evitar conflito com outras chamadas
+      await new Promise(resolve => setTimeout(resolve, 100))
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) {
         setSavedMsg('Erro: Sessão expirada. Faz login novamente.')
@@ -3542,11 +3549,14 @@ export default function AdminPage() {
   useEffect(() => {
     const getData = async () => {
       try {
+        // Delay para evitar conflito com outras chamadas
+        await new Promise(resolve => setTimeout(resolve, 100))
         const { data: { user } } = await createClientInstance.auth.getUser()
         if (user) {
           setSessionUser(user.email || null)
 
           // Buscar perfil
+          await new Promise(resolve => setTimeout(resolve, 100))
           const { data: profile } = await createClientInstance
             .from('profiles')
             .select('*')
@@ -3566,7 +3576,11 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    loadCyberPanelData()
+    // Delay para garantir que getData execute primeiro
+    const timer = setTimeout(() => {
+      loadCyberPanelData()
+    }, 300)
+    return () => clearTimeout(timer)
   }, [])
 
   const handleSync = async () => {
@@ -3589,6 +3603,8 @@ export default function AdminPage() {
   const loadCyberPanelData = async () => {
     setIsFetchingCyberPanel(true)
     try {
+      // Delay para evitar conflito com outras chamadas ao auth
+      await new Promise(resolve => setTimeout(resolve, 50))
       const { data: { user } } = await createClientInstance.auth.getUser()
       const email = user?.email
 
@@ -3632,7 +3648,7 @@ export default function AdminPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <ClienteDashboardHome />
+        return <ClienteDashboardHome clienteProp={cliente} sitesProp={cyberPanelSites} isLoading={isFetchingCyberPanel} />
       case 'emails-new':
         return <EmailWebmailSection
           mostrarAdicionarConta={mostrarAdicionarConta}

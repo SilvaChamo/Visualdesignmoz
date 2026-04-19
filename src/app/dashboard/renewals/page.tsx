@@ -49,9 +49,13 @@ export default function RenewalsPage() {
       const res = await fetch('/api/renewals')
       const data = await res.json()
       
+      if (data.error === "Não autorizado") {
+        window.location.href = "/login"
+        return
+      }
       if (data.success) {
-        setDomains(data.domains)
-        setHosting(data.hosting)
+        setDomains(data.domains || [])
+        setHosting(data.hosting || [])
         setStats(data.stats)
       }
     } catch (error) {

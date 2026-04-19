@@ -850,18 +850,51 @@ except Exception as e:
       return NextResponse.json({ success: true, output, domain });
     }
 
-    if (action === 'getLog') {
-      const logType = params?.logType || 'maillog';
-      const commands: Record<string, string> = {
-        'maillog': 'tail -100 /var/log/maillog',
-        'auth': 'grep "authentication\|login\|auth" /var/log/maillog | tail -50',
-        'postfix-status': 'systemctl status postfix',
-        'network': 'netstat -tlnp | grep -E ":25|:587|:993|:995" || ss -tlnp | grep -E ":25|:587|:993|:995"',
-        'dovecot': 'systemctl status dovecot',
-        'cyberpanel': 'tail -50 /var/log/cyberpanel/error-logs.txt'
-      };
-      const output = await execSSH(commands[logType] || commands['maillog']);
-      return NextResponse.json({ success: true, output, logType });
+    if (action === 'checkCyberPanelStatus') {
+      const output = await execSSH(`
+        echo "=== Verificação do CyberPanel ==="
+        echo ""
+        
+        # 1. Verificar se serviço está rodando
+        echo "1. Status do serviço CyberPanel:"
+        systemctl status lscpd 2>/dev/null | head -5 || service lscpd status 2>/dev/null | head -5 || echo "Serviço não encontrado"
+        echo ""
+        
+        # 2. Verificar porta 8090
+        echo "2. Porta 8090 (CyberPanel):"
+        netstat -tlnp 2>/dev/null | grep ":8090" || ss -tlnp | grep ":8090" || echo "Porta 8090 não está ouvindo"
+        echo ""
+        
+        # 3. Testar API local
+        echo "3. Teste de API local:"
+        curl -s -k https://localhost:8090/api/login -m 5 2>&1 | head -3 || echo "Não foi possível conectar na API"
+        echo ""
+        
+        # 4. Verificar IP e blacklist
+        echo "4. Verificação de IP e Blacklist:"
+        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+        echo "IP do servidor: $IP"
+        echo ""
+        
+        # Verificar blacklists DNS
+        REVERSE_IP=$(echo $IP | awk -F. '{print $4".$3".$2".$1}')
+        echo "Verificando blacklists:"
+        host \${REVERSE_IP}.zen.spamhaus.org 2>/dev/null && echo "❌ LISTADO: Spamhaus ZEN" || echo "✓ OK: Spamhaus ZEN"
+        host \${REVERSE_IP}.b.barracudacentral.org 2>/dev/null && echo "❌ LISTADO: Barracuda" || echo "✓ OK: Barracuda"
+        host \${REVERSE_IP}.bl.spamcop.net 2>/dev/null && echo "❌ LISTADO: SpamCop" || echo "✓ OK: SpamCop"
+        host \${REVERSE_IP}.dnsbl.sorbs.net 2>/dev/null && echo "❌ LISTADO: Sorbs" || echo "✓ OK: Sorbs"
+        host \${REVERSE_IP}.dnsbl-1.uceprotect.net 2>/dev/null && echo "❌ LISTADO: UCEPROTECT" || echo "✓ OK: UCEPROTECT"
+        echo ""
+        
+        # 5. Logs recentes do CyberPanel
+        echo "5. Logs recentes do CyberPanel:"
+        tail -10 /var/log/cyberpanel/error-logs.txt 2>/dev/null || echo "Arquivo de log não encontrado"
+        echo ""
+        
+        echo "=== Fim da verificação ==="
+        echo "Verificação online completa: https://mxtoolbox.com/blacklists.aspx?ip=$IP"
+      `);
+      return NextResponse.json({ success: true, output });
     }
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });

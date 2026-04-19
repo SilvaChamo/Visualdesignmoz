@@ -25,7 +25,7 @@ const RenewalAlerts: React.FC = () => {
       // Buscar alertas do arquivo gerado pelo script Python
       const response = await fetch('/api/renewal-alerts');
       const data = await response.json();
-      setAlerts(data);
+      setAlerts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao buscar alertas:', error);
     } finally {
