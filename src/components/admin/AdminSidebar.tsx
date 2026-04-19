@@ -6,7 +6,7 @@ import {
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
   RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
   AlertCircle, ArrowRightLeft, Webhook,
-  Save, X, Filter
+  Save, X, Filter, Bell, Calendar
 } from 'lucide-react';
 
 interface MenuItem {
@@ -33,6 +33,8 @@ const menuItems: MenuItem[] = [
   { id: 'cp-databases', label: 'Databases', icon: Database },
   { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
   { id: 'newsletter', label: 'Marketing / News', icon: Layout },
+  { id: 'notifications', label: 'Notificações', icon: Bell },
+  { id: 'renewals', label: 'Renovações', icon: Calendar },
   { id: 'cp-ssl', label: 'SSL', icon: Lock },
   { id: 'cp-security', label: 'Segurança', icon: Shield },
   { id: 'cp-php', label: 'PHP', icon: Server },

@@ -121,7 +121,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { action, to, from, subject, body, service } = await req.json();
+    const { action, to, from, subject, body, service, params } = await req.json();
     
     if (action === 'sendTest') {
       // Enviar email de teste via comando mail ou sendmail
@@ -335,6 +335,533 @@ ${body}
         ls -la /var/run/dovecot/auth-master 2>/dev/null || ls -la /var/spool/postfix/private/auth 2>/dev/null || echo "Socket de auth não encontrado"
       `);
       return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'checkDomainExists') {
+      const domain = params?.domain;
+      if (!domain) {
+        return NextResponse.json({ error: 'Domínio não especificado' }, { status: 400 });
+      }
+      
+      // Verificar se domínio existe no CyberPanel
+      const output = await execSSH(`
+        echo "=== Verificação de Domínio no CyberPanel ==="
+        echo "Domínio: ${domain}"
+        echo ""
+        
+        # Verificar se domínio existe na configuração do Postfix
+        echo "1. Verificando domínio no Postfix:"
+        postconf -n | grep -i "${domain}" || echo "Domínio não encontrado na configuração do Postfix"
+        
+        # Verificar se domínio existe no diretório de email
+        echo ""
+        echo "2. Verificando diretório de email:"
+        ls -la /home/*/mail/${domain} 2>/dev/null || ls -la /home/*/mail/${domain} 2>/dev/null || echo "Diretório de email não encontrado"
+        
+        # Verificar configuração virtual
+        echo ""
+        echo "3. Verificando tabelas virtuais:"
+        postmap -s hash:/etc/postfix/virtual 2>/dev/null | grep "${domain}" || echo "Não encontrado em virtual"
+        
+        # Verificar se website existe no CyberPanel via Django
+        echo ""
+        echo "4. Verificando no CyberPanel (Django):"
+        cd /usr/local/CyberCP && /usr/local/CyberPanel/bin/python -c "
+import django
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
+from websiteFunctions.models import Websites
+try:
+    site = Websites.objects.get(domain='${domain}')
+    print(f'Site encontrado: {site.domain} (state={site.state})')
+except:
+    print('Site NÃO encontrado no CyberPanel')
+" 2>/dev/null || echo "Erro ao consultar Django"
+        
+        # Verificar logs de email recentes para este domínio
+        echo ""
+        echo "5. Logs recentes para ${domain}:"
+        grep "${domain}" /var/log/maillog 2>/dev/null | tail -10 || echo "Nenhum log encontrado"
+      `);
+      return NextResponse.json({ success: true, output, domain });
+    }
+
+    if (action === 'checkEmailDelivery') {
+      const domain = params?.domain;
+      if (!domain) {
+        return NextResponse.json({ error: 'Domínio não especificado' }, { status: 400 });
+      }
+      
+      // Verificar entrega de email para um domínio específico
+      const output = await execSSH(`
+        echo "=== Diagnóstico de Entrega de Email: ${domain} ==="
+        echo ""
+        
+        # 1. Verificar logs de erro específicos para o domínio
+        echo "1. Logs de erro para ${domain}:"
+        grep -i "${domain}" /var/log/maillog 2>/dev/null | grep -i "error\\|fail\\|reject\\|bounce\\|deferred" | tail -15 || echo "Nenhum erro encontrado nos logs"
+        echo ""
+        
+        # 2. Verificar fila de emails para o domínio
+        echo "2. Emails na fila para ${domain}:"
+        mailq 2>/dev/null | grep -A 2 "${domain}" | head -10 || echo "Nenhum email na fila"
+        echo ""
+        
+        # 3. Verificar configuração de transporte
+        echo "3. Configuração de transporte no Postfix:"
+        postconf -n 2>/dev/null | grep -E "(transport|relay)" | head -5 || echo "Nenhuma configuração especial de transporte"
+        echo ""
+        
+        # 4. Verificar se domínio está em mydestination
+        echo "4. Domínios locais (mydestination):"
+        postconf mydestination 2>/dev/null || echo "Não foi possível verificar"
+        echo ""
+        
+        # 5. Verificar emails recentes recebidos
+        echo "5. Tentativas de entrega recentes:"
+        grep "${domain}" /var/log/maillog 2>/dev/null | grep -E "(status=sent|status=bounced|status=deferred)" | tail -10 || echo "Nenhuma tentativa de entrega recente"
+        echo ""
+        
+        # 6. Verificar diretório de email do domínio
+        echo "6. Diretório de emails do domínio:"
+        find /home -path "*/mail/${domain}/*" -type d 2>/dev/null | head -5 || echo "Diretório não encontrado em /home/*/mail/${domain}"
+        find /home -path "*/${domain}/Maildir" -type d 2>/dev/null | head -5 || echo "Maildir não encontrado"
+        echo ""
+        
+        # 7. Verificar permissões
+        echo "7. Permissões do diretório de email:"
+        ls -la /home/*/mail/${domain} 2>/dev/null | head -3 || echo "Não foi possível verificar permissões"
+      `);
+      return NextResponse.json({ success: true, output, domain });
+    }
+
+    if (action === 'checkEmailReception') {
+      const domain = params?.domain || 'visualdesigne.com';
+      const email = params?.email || `silva.chamo@${domain}`;
+      
+      const output = await execSSH(`
+        echo "=== Diagnóstico de Recebimento de Email ==="
+        echo "Domínio: ${domain}"
+        echo "Email: ${email}"
+        echo ""
+        
+        # 1. Verificar se domínio está em mydestination
+        echo "1. Configuração mydestination:"
+        postconf mydestination 2>/dev/null | grep "${domain}" || echo "Domínio NÃO encontrado em mydestination!"
+        postconf mydestination 2>/dev/null
+        echo ""
+        
+        # 2. Verificar mailbox_transport
+        echo "2. Configuração de entrega local:"
+        postconf mailbox_transport 2>/dev/null
+        postconf local_transport 2>/dev/null
+        postconf virtual_transport 2>/dev/null
+        echo ""
+        
+        # 3. Verificar logs de emails recebidos recentemente
+        echo "3. Emails recebidos nas últimas 24h:"
+        grep "${domain}" /var/log/maillog 2>/dev/null | grep "from=<" | tail -10 || echo "Nenhum email recebido encontrado nos logs"
+        echo ""
+        
+        # 4. Verificar status de entrega
+        echo "4. Status de entrega para ${domain}:"
+        grep "${domain}" /var/log/maillog 2>/dev/null | grep -E "(status=|delivered to|saved to)" | tail -10 || echo "Nenhuma entrega encontrada"
+        echo ""
+        
+        # 5. Verificar fila de emails
+        echo "5. Emails na fila para ${domain}:"
+        mailq 2>/dev/null | grep -A 2 "${domain}" | head -15 || echo "Nenhum email na fila"
+        echo ""
+        
+        # 6. Verificar se conta de email existe
+        echo "6. Verificando conta ${email}:"
+        LOCALPART=$(echo "${email}" | cut -d'@' -f1)
+        echo "Localpart: $LOCALPART"
+        
+        # Verificar em /etc/postfix/virtual
+        grep "${email}" /etc/postfix/virtual 2>/dev/null || echo "Não encontrado em virtual"
+        
+        # Verificar diretório da conta
+        echo "Diretórios encontrados:"
+        find /home -type d -name "mail" 2>/dev/null | head -5
+        find /home -path "*/${domain}/$LOCALPART*" -type d 2>/dev/null | head -5 || echo "Diretório da conta não encontrado"
+        echo ""
+        
+        # 7. Verificar permissões do diretório de email
+        echo "7. Permissões:"
+        ls -la /home/*/mail/${domain} 2>/dev/null | head -5 || ls -la /home/*/mail/ 2>/dev/null | head -5 || echo "Não foi possível listar diretórios"
+        echo ""
+        
+        # 8. Testar entrega local
+        echo "8. Testando entrega local:"
+        echo "Test email" | mail -s "Test $(date)" -r "root@localhost" "${email}" 2>&1 || echo "Comando mail não disponível"
+        echo ""
+        
+        # 9. Verificar se há erro de alias
+        echo "9. Verificando aliases:"
+        postmap -q "${email}" hash:/etc/postfix/virtual 2>/dev/null || echo "Nenhum alias virtual configurado"
+        postalias -q "${email}" 2>/dev/null || echo "Nenhum alias em /etc/aliases"
+        echo ""
+        
+        # 10. Verificar DNS MX do domínio
+        echo "10. DNS MX para ${domain}:"
+        dig MX ${domain} +short 2>/dev/null || nslookup -type=MX ${domain} 2>/dev/null || echo "Não foi possível consultar MX"
+        echo ""
+        
+        # 11. Verificar IP do servidor
+        echo "11. IP do servidor:"
+        ip route get 1 2>/dev/null | awk '{print $7; exit}' || hostname -I | awk '{print $1}'
+        echo ""
+        
+        # 12. Verificar portas de email
+        echo "12. Portas de email ouvindo:"
+        netstat -tlnp 2>/dev/null | grep -E ":25|:587|:993|:995|:110|:143" | head -5 || ss -tlnp | grep -E ":25|:587|:993|:995|:110|:143" | head -5 || echo "Nenhuma porta de email encontrada"
+        echo ""
+        
+        # 13. Verificar firewall
+        echo "13. Status do firewall:"
+        ufw status 2>/dev/null | head -5 || iptables -L -n 2>/dev/null | head -5 || echo "Não foi possível verificar firewall"
+        echo ""
+        
+        # 14. Verificar SPF do domínio
+        echo "14. Registro SPF para ${domain}:"
+        dig TXT ${domain} +short 2>/dev/null | grep "v=spf" || echo "Nenhum SPF encontrado"
+        echo ""
+        
+        # 15. Verificar resolução reversa (PTR)
+        echo "15. Resolução reversa (PTR):"
+        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+        dig -x $IP +short 2>/dev/null || echo "Não foi possível consultar PTR"
+        echo ""
+        
+        # 16. Teste de conexão SMTP local
+        echo "16. Teste SMTP local na porta 25:"
+        timeout 3 bash -c 'echo "QUIT" | nc localhost 25' 2>&1 | head -3 || echo "Não foi possível conectar na porta 25"
+        echo ""
+        
+        # 17. Verificar se IP está em blacklist (via SSH)
+        echo "17. Verificação de blacklist (via SSH):"
+        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+        # 18. Verificar tentativas de conexão externa rejeitadas
+        echo "18. Tentativas de conexão externa (últimas 24h):"
+        grep "connect from" /var/log/maillog 2>/dev/null | tail -10 || echo "Nenhuma tentativa de conexão externa nos logs"
+        echo ""
+        
+        # 19. Verificar erros de conexão
+        echo "19. Erros de conexão SMTP:"
+        grep "reject\|refused\|timeout\|Connection refused" /var/log/maillog 2>/dev/null | grep "$(date +%b\\\ %d)" | tail -10 || echo "Nenhum erro de conexão hoje"
+        echo ""
+        
+        # 20. Verificar logs do firewall (se existir)
+        echo "20. Logs de firewall (tentativas bloqueadas):"
+        grep -i "blocked\|dropped\|denied" /var/log/ufw.log 2>/dev/null | grep "$(date +%Y-%m-%d)" | head -5 || echo "Nenhum log de firewall ou porta 25 não está bloqueada"
+        echo ""
+        
+        echo "=== Fim do diagnóstico ==="
+      `);
+      return NextResponse.json({ success: true, output, domain, email });
+    }
+
+    if (action === 'resetAdminPassword') {
+      const newPassword = params?.password || 'Admin123!';
+      const output = await execSSH(`
+        echo "=== Resetando senha do admin do CyberPanel ==="
+        cd /usr/local/CyberCP
+        
+        # Usar Django shell para resetar senha
+        /usr/local/CyberPanel/bin/python -c "
+import django
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
+from loginSystem.models import Administrator
+from django.contrib.auth.hashers import make_password
+
+try:
+    admin = Administrator.objects.get(userName='admin')
+    admin.password = make_password('${newPassword}')
+    admin.save()
+    print('Senha do admin resetada com sucesso!')
+    print('Nova senha: ${newPassword}')
+except Exception as e:
+    print(f'Erro: {e}')
+"
+        
+        echo ""
+        echo "=== Verificando acesso ==="
+        curl -k -s https://localhost:8090/api/login -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"${newPassword}"}' | head -c 200
+      `);
+      return NextResponse.json({ success: true, output, newPassword });
+    }
+
+    if (action === 'checkCyberPanelLogin') {
+      // Diagnosticar problema de login no CyberPanel
+      const output = await execSSH(`
+        echo "=== Diagnóstico do CyberPanel Login ==="
+        echo ""
+        
+        # 1. Verificar se o CyberPanel está rodando
+        echo "1. Status do CyberPanel:"
+        systemctl status lscpd 2>/dev/null | head -5 || echo "lscpd não encontrado"
+        systemctl status cyberpanel 2>/dev/null | head -5 || echo "cyberpanel service não encontrado"
+        echo ""
+        
+        # 2. Verificar logs do CyberPanel
+        echo "2. Logs recentes do CyberPanel:"
+        tail -20 /var/log/cyberpanel/error-logs.txt 2>/dev/null || echo "Arquivo de logs não encontrado"
+        echo ""
+        
+        # 3. Verificar se o admin existe no banco
+        echo "3. Verificando usuário admin no banco:"
+        cd /usr/local/CyberCP
+        /usr/local/CyberPanel/bin/python -c "
+import django
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
+from loginSystem.models import Administrator
+try:
+    admin = Administrator.objects.get(userName='admin')
+    print(f'Admin encontrado: id={admin.id}, username={admin.userName}')
+    print(f'Password hash presente: {bool(admin.password)}')
+except Exception as e:
+    print(f'Erro ao buscar admin: {e}')
+" 2>/dev/null || echo "Erro ao executar Django"
+        echo ""
+        
+        # 4. Verificar permissões dos arquivos
+        echo "4. Permissões do CyberPanel:"
+        ls -la /usr/local/CyberCP/ | head -5
+        echo ""
+        
+        # 5. Verificar se há processos rodando
+        echo "5. Processos do CyberPanel:"
+        ps aux | grep -i cyberpanel | grep -v grep | head -5 || echo "Nenhum processo encontrado"
+        echo ""
+        
+        # 6. Teste de conexão na porta 8090
+        echo "6. Teste de conexão na porta 8090:"
+        netstat -tlnp | grep 8090 || ss -tlnp | grep 8090 || echo "Porta 8090 não está ouvindo"
+        echo ""
+        
+        # 7. Tentar reiniciar o CyberPanel
+        echo "7. Tentando reiniciar CyberPanel:"
+        systemctl restart lscpd 2>&1 && echo "lscpd reiniciado com sucesso" || echo "Falha ao reiniciar lscpd"
+        systemctl restart lsws 2>&1 && echo "LiteSpeed reiniciado com sucesso" || echo "Falha ao reiniciar lsws"
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'fixPostfixStartup') {
+      // Corrigir problema de startup do Postfix
+      const output = await execSSH(`
+        echo "=== Corrigindo Postfix Startup ==="
+        echo ""
+        
+        # 1. Remover lock files
+        echo "1. Removendo lock files..."
+        rm -f /var/lib/postfix/master.lock 2>/dev/null
+        rm -f /var/spool/postfix/pid/master.pid 2>/dev/null
+        rm -f /var/run/postfix.pid 2>/dev/null
+        echo "Lock files removidos"
+        echo ""
+        
+        # 2. Parar todos os processos Postfix
+        echo "2. Parando processos Postfix..."
+        pkill -9 master 2>/dev/null || echo "Nenhum processo master rodando"
+        pkill -9 postfix 2>/dev/null || echo "Nenhum processo postfix rodando"
+        sleep 2
+        echo "Processos parados"
+        echo ""
+        
+        # 3. Corrigir configuração - remover parâmetros inválidos
+        echo "3. Corrigindo main.cf..."
+        postconf -e "compatibility_level=3.6" 2>/dev/null || echo "Não foi possível definir compatibility_level"
+        
+        # Remover parâmetros problemáticos
+        postconf -# mua_helo_restrictions 2>/dev/null || echo "mua_helo_restrictions não existe"
+        postconf -# mua_sender_restrictions 2>/dev/null || echo "mua_sender_restrictions não existe"
+        postconf -# mua_client_restrictions 2>/dev/null || echo "mua_client_restrictions não existe"
+        
+        # Verificar se há parâmetros inválidos
+        postconf -n 2>&1 | grep "unused parameter" || echo "Nenhum parâmetro inválido encontrado"
+        echo ""
+        
+        # 4. Verificar permissões
+        echo "4. Corrigindo permissões..."
+        chown -R postfix:postfix /var/spool/postfix 2>/dev/null
+        chown -R postfix:postfix /var/lib/postfix 2>/dev/null
+        echo "Permissões corrigidas"
+        echo ""
+        
+        # 5. Testar configuração
+        echo "5. Testando configuração..."
+        postfix check 2>&1 || echo "Avisos na configuração"
+        echo ""
+        
+        # 6. Iniciar Postfix
+        echo "6. Iniciando Postfix..."
+        systemctl stop postfix 2>/dev/null
+        sleep 2
+        systemctl start postfix 2>&1
+        sleep 2
+        systemctl status postfix --no-pager 2>/dev/null | head -10
+        echo ""
+        
+        # 7. Verificar se está rodando
+        echo "7. Verificando status..."
+        ps aux | grep "[p]ostfix" | head -5 || echo "Postfix não está rodando"
+        netstat -tlnp | grep :25 || ss -tlnp | grep :25 || echo "Porta 25 não está ouvindo"
+        echo ""
+        
+        echo "=== Correção concluída ==="
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'fixCyberPanelLogin') {
+      // Tentar corrigir o problema de login
+      const output = await execSSH(`
+        echo "=== Corrigindo Problema de Login do CyberPanel ==="
+        echo ""
+        
+        # 1. Verificar e corrigir permissões
+        echo "1. Corrigindo permissões..."
+        chown -R cyberpanel:cyberpanel /usr/local/CyberCP 2>/dev/null || chown -R root:root /usr/local/CyberCP 2>/dev/null
+        chmod 755 /usr/local/CyberCP
+        echo "Permissões corrigidas"
+        echo ""
+        
+        # 2. Verificar instalação do CyberPanel
+        echo "2. Verificando instalação..."
+        cd /usr/local/CyberCP
+        /usr/local/CyberPanel/bin/python -c "import django; print(f'Django: {django.VERSION}')" 2>/dev/null || echo "Django não encontrado"
+        echo ""
+        
+        # 3. Recriar usuário admin se necessário
+        echo "3. Verificando/Criando usuário admin..."
+        /usr/local/CyberPanel/bin/python -c "
+import django
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+django.setup()
+from loginSystem.models import Administrator
+from django.contrib.auth.hashers import make_password
+
+try:
+    admin = Administrator.objects.get(userName='admin')
+    print(f'Admin existe: {admin.userName}')
+except Administrator.DoesNotExist:
+    print('Criando novo usuário admin...')
+    admin = Administrator(userName='admin', password=make_password('Admin123!'))
+    admin.save()
+    print('Admin criado com sucesso')
+except Exception as e:
+    print(f'Erro: {e}')
+" 2>/dev/null
+        echo ""
+        
+        # 4. Limpar cache
+        echo "4. Limpando cache..."
+        rm -rf /usr/local/CyberCP/__pycache__ 2>/dev/null
+        rm -rf /usr/local/CyberCP/*/__pycache__ 2>/dev/null
+        echo "Cache limpo"
+        echo ""
+        
+        # 5. Reiniciar serviços
+        echo "5. Reiniciando serviços..."
+        systemctl restart lscpd 2>&1
+        systemctl restart lsws 2>&1
+        echo "Serviços reiniciados"
+        echo ""
+        
+        echo "=== Correção concluída ==="
+        echo "Tente fazer login novamente em: https://109.199.104.22:8090"
+        echo "Usuário: admin"
+        echo "Senha: Admin123! (ou a senha que você definiu)"
+      `);
+      return NextResponse.json({ success: true, output });
+    }
+
+    if (action === 'checkNetwork') {
+      const domain = params?.domain || 'visualdesigne.com';
+      const output = await execSSH(`
+        echo "=== Diagnóstico de Rede e Conectividade ==="
+        echo ""
+        
+        # 1. Verificar IP do servidor
+        echo "1. IP do servidor:"
+        ip addr show | grep "inet " | head -3
+        echo ""
+        
+        # 2. Verificar portas abertas
+        echo "2. Portas de email abertas:"
+        netstat -tlnp 2>/dev/null | grep -E ":25|:587|:993|:995|:110|:143" || ss -tlnp | grep -E ":25|:587|:993|:995|:110|:143"
+        echo ""
+        
+        # 3. Verificar DNS MX do domínio
+        echo "3. Registros MX para ${domain}:"
+        dig MX ${domain} +short 2>/dev/null || nslookup -type=MX ${domain} 2>/dev/null | grep "mail exchanger" || echo "Não foi possível consultar MX"
+        echo ""
+        
+        # 4. Verificar DNS A do domínio
+        echo "4. Registros A para ${domain}:"
+        dig A ${domain} +short 2>/dev/null || nslookup -type=A ${domain} 2>/dev/null | grep "Address:" | tail -3 || echo "Não foi possível consultar A"
+        echo ""
+        
+        # 5. Verificar hostname
+        echo "5. Hostname do servidor:"
+        hostname
+        hostname -f
+        echo ""
+        
+        # 6. Verificar resolução reversa (PTR)
+        echo "6. Resolução reversa (PTR):"
+        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+        echo "IP: $IP"
+        dig -x $IP +short 2>/dev/null || echo "Não foi possível consultar PTR"
+        echo ""
+        
+        # 7. Verificar firewall
+        echo "7. Status do firewall:"
+        ufw status 2>/dev/null || iptables -L -n | head -10 || echo "Não foi possível verificar firewall"
+        echo ""
+        
+        # 8. Teste de conexão SMTP
+        echo "8. Teste de conexão SMTP local:"
+        echo "QUIT" | nc -v localhost 25 2>&1 | head -5 || telnet localhost 25 2>&1 | head -5 || echo "Não foi possível testar conexão"
+        echo ""
+        
+        # 9. Verificar se IP está em blacklist (simplificado)
+        echo "9. Verificação de blacklist (básica):"
+        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+        echo "IP a verificar: $IP"
+        echo "Verificar manualmente em: https://mxtoolbox.com/blacklists.aspx?ip=$IP"
+        echo ""
+        
+        # 10. Verificar SPF do domínio
+        echo "10. Registro SPF para ${domain}:"
+        dig TXT ${domain} +short 2>/dev/null | grep "v=spf" || echo "Nenhum SPF encontrado"
+        echo ""
+        
+        echo "=== Fim do diagnóstico de rede ==="
+      `);
+      return NextResponse.json({ success: true, output, domain });
+    }
+
+    if (action === 'getLog') {
+      const logType = params?.logType || 'maillog';
+      const commands: Record<string, string> = {
+        'maillog': 'tail -100 /var/log/maillog',
+        'auth': 'grep "authentication\|login\|auth" /var/log/maillog | tail -50',
+        'postfix-status': 'systemctl status postfix',
+        'network': 'netstat -tlnp | grep -E ":25|:587|:993|:995" || ss -tlnp | grep -E ":25|:587|:993|:995"',
+        'dovecot': 'systemctl status dovecot',
+        'cyberpanel': 'tail -50 /var/log/cyberpanel/error-logs.txt'
+      };
+      const output = await execSSH(commands[logType] || commands['maillog']);
+      return NextResponse.json({ success: true, output, logType });
     }
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });

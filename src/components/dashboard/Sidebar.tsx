@@ -93,33 +93,16 @@ export default function DashboardSidebar() {
 
     const menuItems = [
         { icon: Home, label: t('sidebar.home'), href: '/dashboard' },
-        { icon: Package, label: t('sidebar.myPlans'), href: '/dashboard/servicos' },
+        { icon: Globe, label: t('sidebar.renewals'), href: '/dashboard/renewals', isNew: true },
         {
-            icon: Globe, label: t('sidebar.domains'), href: '#', subItems: [
-                { label: t('sidebar.myDomains'), href: '/dashboard/dominios' },
-                { label: t('sidebar.dnsManagement'), href: '/admin?section=domains-dns' },
-                { label: t('sidebar.websitePreview'), href: '/admin?section=website-preview' },
-                { label: t('sidebar.emailImport'), href: '/admin?section=email-import' }
-            ]
-        },
-        {
-            icon: Globe,
-            label: t('sidebar.wordpress'),
-            href: '#',
-            isNew: true,
-            subItems: [
+            icon: Package, label: t('sidebar.wordpress'), href: '#', subItems: [
                 { label: t('sidebar.deployWp'), href: '/dashboard/wordpress' },
-                { label: t('sidebar.listWp'), href: '/dashboard/wordpress/list' },
-                { label: t('sidebar.configPlugins'), href: '/dashboard/wordpress/plugins' },
-                { label: t('sidebar.restoreBackups'), href: '/dashboard/wordpress/restore' },
-                { label: t('sidebar.remoteBackup'), href: '/dashboard/wordpress/remote-backup' }
+                { label: t('sidebar.installWp'), href: '/dashboard/wordpress/install' }
             ]
         },
         { icon: ShoppingBag, label: t('sidebar.store'), href: '/dashboard/marketplace' },
-        { icon: CreditCard, label: t('sidebar.invoices'), href: '/dashboard/faturas' },
-        { icon: Settings, label: t('sidebar.settings'), href: '/dashboard/definicoes' },
-        { icon: LifeBuoy, label: t('sidebar.support'), href: '/dashboard/suporte' },
-        { icon: Globe, label: t('sidebar.viewClient'), href: '/client' },
+        { icon: Settings, label: t('sidebar.settings'), href: '/client-dashboard' },
+        { icon: LifeBuoy, label: t('sidebar.support'), href: '/contacto' },
     ]
 
     return (

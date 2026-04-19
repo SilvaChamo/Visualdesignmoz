@@ -1,7 +1,58 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Mail, Server, AlertCircle, CheckCircle, RefreshCw, Activity, Play, Square, RotateCcw, Wrench, Trash2, Shield, FileCheck, FolderOpen } from 'lucide-react';
+import { Loader2, Mail, Server, AlertCircle, CheckCircle, RefreshCw, Activity, Play, Square, RotateCcw, Wrench, Trash2, Shield, FileCheck, FolderOpen, FileText, Globe } from 'lucide-react';
+
+// Componente para botões de Log (visualização)
+function LogButton({ icon: Icon, label, onClick, description, loading }: { icon: any, label: string, onClick: () => void, description?: string, loading?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="flex flex-col items-center p-4 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
+    >
+      {loading ? (
+        <Loader2 className="w-6 h-6 text-blue-600 mb-2 animate-spin" />
+      ) : (
+        <Icon className="w-6 h-6 text-blue-600 mb-2" />
+      )}
+      <span className="text-sm font-medium text-gray-900">{loading ? 'Carregando...' : label}</span>
+      {description && <span className="text-xs text-gray-500 mt-1">{description}</span>}
+    </button>
+  );
+}
+
+// Componente para botões de Ação (execução)
+function ActionButton({ icon: Icon, label, color, onClick, loading, description }: { icon: any, label: string, color: string, onClick: () => void, loading?: boolean, description?: string }) {
+  const colorClasses = {
+    red: 'bg-red-50 border-red-200 hover:bg-red-100',
+    orange: 'bg-orange-50 border-orange-200 hover:bg-orange-100',
+    blue: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+    green: 'bg-green-50 border-green-200 hover:bg-green-100',
+  };
+  const iconColors = {
+    red: 'text-red-600',
+    orange: 'text-orange-600',
+    blue: 'text-blue-600',
+    green: 'text-green-600',
+  };
+  
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={`flex flex-col items-center p-4 rounded-lg border transition-colors ${colorClasses[color as keyof typeof colorClasses]} disabled:opacity-50`}
+    >
+      {loading ? (
+        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+      ) : (
+        <Icon className={`w-6 h-6 ${iconColors[color as keyof typeof iconColors]} mb-2`} />
+      )}
+      <span className="text-sm font-medium text-gray-900">{loading ? 'Executando...' : label}</span>
+      {description && <span className="text-xs text-gray-500 mt-1">{description}</span>}
+    </button>
+  );
+}
 
 export function EmailDiagnosticoSection() {
   const [diagnostico, setDiagnostico] = useState<any>(null);
@@ -14,6 +65,12 @@ export function EmailDiagnosticoSection() {
   const [maintenanceLoading, setMaintenanceLoading] = useState<string | null>(null);
   const [imapFoldersResult, setImapFoldersResult] = useState<any>(null);
   const [imapFoldersLoading, setImapFoldersLoading] = useState(false);
+  const [checkDomain, setCheckDomain] = useState('visualdesigne.com');
+  
+  // Estados para visualização de logs
+  const [activeLog, setActiveLog] = useState<string | null>(null);
+  const [logContent, setLogContent] = useState<string>('');
+  const [logLoading, setLogLoading] = useState(false);
 
   async function runDiagnostico() {
     setLoading(true);
@@ -102,13 +159,61 @@ export function EmailDiagnosticoSection() {
     setServiceAction(null);
   }
 
-  async function runMaintenanceAction(action: string) {
+  // Funções para visualização de logs
+  async function loadLogContent(logType: string) {
+    setActiveLog(logType);
+    setLogLoading(true);
+    setLogContent('');
+    
+    try {
+      const res = await fetch('/api/email-diagnostico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getLog', logType })
+      });
+      const data = await res.json();
+      setLogContent(data.output || data.error || 'Nenhum conteúdo');
+    } catch (e) {
+      setLogContent('Erro ao carregar log');
+    }
+    setLogLoading(false);
+  }
+
+  async function refreshLog(logType: string) {
+    setLogLoading(true);
+    try {
+      const res = await fetch('/api/email-diagnostico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getLog', logType })
+      });
+      const data = await res.json();
+      setLogContent(data.output || data.error || 'Nenhum conteúdo');
+    } catch (e) {
+      setLogContent('Erro ao atualizar log');
+    }
+    setLogLoading(false);
+  }
+
+  function getLogTitle(logType: string) {
+    const titles: Record<string, string> = {
+      'maillog': 'Logs de Email (/var/log/maillog)',
+      'auth': 'Logs de Autenticação',
+      'postfix-status': 'Status do Postfix',
+      'network': 'Conexões de Rede',
+      'dovecot': 'Status do Dovecot',
+      'cyberpanel': 'Logs do CyberPanel'
+    };
+    return titles[logType] || `Log: ${logType}`;
+  }
+
+  async function runMaintenanceAction(action: string, params?: any) {
     setMaintenanceLoading(action);
     try {
       const res = await fetch('/api/email-diagnostico', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action, params })
       });
       const data = await res.json();
       setMaintenanceResult({ action, ...data });
@@ -309,19 +414,92 @@ export function EmailDiagnosticoSection() {
             </div>
           </div>
 
-          {/* Ações de Manutenção */}
+          {/* SEÇÃO 1: VISUALIZAR LOGS E HISTÓRICO */}
+          <div className="bg-blue-50 rounded-xl border border-blue-200 shadow-sm p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Visualizar Logs e Histórico
+              <span className="ml-auto text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">Mostra ao clicar</span>
+            </h3>
+            <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>ℹ️ Estes botões mostram o conteúdo IMEDIATAMENTE ao clicar.</strong><br/>
+                Não precisa clicar em "Executar". O conteúdo aparece automaticamente abaixo.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <LogButton
+                icon={Mail}
+                label="Logs de Email"
+                onClick={() => loadLogContent('maillog')}
+                loading={logLoading && activeLog === 'maillog'}
+                description="/var/log/maillog"
+              />
+              <LogButton
+                icon={Shield}
+                label="Logs de Auth"
+                onClick={() => loadLogContent('auth')}
+                loading={logLoading && activeLog === 'auth'}
+                description="Tentativas de login"
+              />
+              <LogButton
+                icon={Server}
+                label="Status Postfix"
+                onClick={() => loadLogContent('postfix-status')}
+                loading={logLoading && activeLog === 'postfix-status'}
+                description="systemctl status"
+              />
+              <LogButton
+                icon={Globe}
+                label="Conexões Rede"
+                onClick={() => loadLogContent('network')}
+                loading={logLoading && activeLog === 'network'}
+                description="Portas e conexões"
+              />
+            </div>
+
+            {/* Conteúdo expandido dos logs */}
+            {activeLog && (
+              <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-semibold text-blue-900">{getLogTitle(activeLog)}</h4>
+                  <button 
+                    onClick={() => setActiveLog(null)}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <pre className="text-xs bg-gray-100 p-3 rounded overflow-auto max-h-60 font-mono whitespace-pre-wrap">
+                  {logContent || 'Carregando...'}
+                </pre>
+                <button
+                  onClick={() => refreshLog(activeLog)}
+                  className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                >
+                  Atualizar
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* SEÇÃO 2: AÇÕES DE EXECUÇÃO */}
           <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Wrench className="w-5 h-5 text-amber-600" />
-              Ações de Manutenção Avançada
-              <span className="ml-auto text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded">Use com cuidado</span>
+              Ações de Execução
+              <span className="ml-auto text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded">Executa comandos</span>
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Estas ações resolvem problemas quando o Postfix não inicia devido a processos travados ou lock files.
-            </p>
+            <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-amber-800">
+                <strong>⚠️ Estes botões EXECUTAM comandos no servidor.</strong><br/>
+                Clique em um botão para executar e ver o resultado. Gera novo histórico a cada execução.
+              </p>
+            </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <MaintenanceButton
+              <ActionButton
                 icon={Trash2}
                 label="Matar Processos"
                 color="red"
@@ -329,7 +507,7 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'killProcesses'}
                 description="pkill postfix/master"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={Shield}
                 label="Limpar Locks"
                 color="orange"
@@ -337,7 +515,7 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'cleanLocks'}
                 description="Remove .pid e .lock"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={RotateCcw}
                 label="Reset Postfix"
                 color="blue"
@@ -345,7 +523,7 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'resetPostfix'}
                 description="Stop + Clean + Start"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={FileCheck}
                 label="Corrigir Permissões"
                 color="green"
@@ -354,10 +532,10 @@ export function EmailDiagnosticoSection() {
                 description="postfix set-permissions"
               />
             </div>
-            
-            {/* Botões de Correção de Configuração */}
+
+            {/* 4 Botões de Configuração (movidos para cima) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <MaintenanceButton
+              <ActionButton
                 icon={Shield}
                 label="Corrigir SASL"
                 color="blue"
@@ -365,7 +543,7 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'fixSASL'}
                 description="Configura autenticação Dovecot"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={FileCheck}
                 label="Limpar main.cf"
                 color="green"
@@ -373,7 +551,7 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'fixMainCf'}
                 description="Remove parâmetros inválidos"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={Mail}
                 label="Testar Recebimento"
                 color="purple"
@@ -381,19 +559,136 @@ export function EmailDiagnosticoSection() {
                 loading={maintenanceLoading === 'testReceive'}
                 description="Verifica logs de entrega"
               />
-              <MaintenanceButton
+              <ActionButton
                 icon={Server}
-                label="Config Entrega"
-                color="orange"
-                onClick={() => runMaintenanceAction('checkDeliver')}
-                loading={maintenanceLoading === 'checkDeliver'}
-                description="Verifica LDA/Dovecot"
+                label="Corrigir Postfix"
+                color="red"
+                onClick={() => runMaintenanceAction('fixPostfixStartup')}
+                loading={maintenanceLoading === 'fixPostfixStartup'}
+                description="Corrige locks e config"
               />
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Diagnóstico Recebimento */}
+              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <h4 className="text-sm font-semibold text-orange-900 mb-2">
+                  Diagnóstico Recebimento
+                </h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="visualdesigne.com"
+                    value={checkDomain}
+                    onChange={(e) => setCheckDomain(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={() => runMaintenanceAction('checkEmailReception', { domain: checkDomain })}
+                    disabled={maintenanceLoading === 'checkEmailReception' || !checkDomain}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                  >
+                    {maintenanceLoading === 'checkEmailReception' ? 'Verificando...' : 'Diagnóstico Receb.'}
+                  </button>
+                </div>
+                <p className="text-xs text-orange-700 mt-2">
+                  Diagnostica problemas de recebimento de emails do domínio: {checkDomain || 'digite o domínio'}
+                </p>
+              </div>
 
-            {/* Resultado da ação de manutenção */}
+              {/* Verificar Entrega */}
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <h4 className="text-sm font-semibold text-yellow-900 mb-2">
+                  Verificar Entrega
+                </h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="visualdesigne.com"
+                    value={checkDomain}
+                    onChange={(e) => setCheckDomain(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={() => runMaintenanceAction('checkEmailDelivery', { domain: checkDomain })}
+                    disabled={maintenanceLoading === 'checkEmailDelivery' || !checkDomain}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                  >
+                    {maintenanceLoading === 'checkEmailDelivery' ? 'Verificando...' : 'Verificar Entrega'}
+                  </button>
+                </div>
+                <p className="text-xs text-yellow-700 mt-2">
+                  Verifica configuração de entrega de emails para o domínio: {checkDomain || 'digite o domínio'}
+                </p>
+              </div>
+            </div>
+
+            {/* Botões para CyberPanel Login e Resetar Senha */}
+            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <h4 className="text-sm font-semibold text-purple-900 mb-3">
+                🔧 Problemas de Login e Acesso CyberPanel
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Diagnóstico Login */}
+                <div className="p-3 bg-white rounded-lg border border-purple-200">
+                  <p className="text-xs text-purple-700 mb-2">
+                    Erro "not enough values to unpack"
+                  </p>
+                  <button
+                    onClick={() => runMaintenanceAction('checkCyberPanelLogin')}
+                    disabled={maintenanceLoading === 'checkCyberPanelLogin'}
+                    className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+                  >
+                    {maintenanceLoading === 'checkCyberPanelLogin' ? 'Verificando...' : 'Diagnóstico Login'}
+                  </button>
+                </div>
+                
+                {/* Corrigir Login */}
+                <div className="p-3 bg-white rounded-lg border border-purple-200">
+                  <p className="text-xs text-purple-700 mb-2">
+                    Corrigir erro de login
+                  </p>
+                  <button
+                    onClick={() => runMaintenanceAction('fixCyberPanelLogin')}
+                    disabled={maintenanceLoading === 'fixCyberPanelLogin'}
+                    className="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                  >
+                    {maintenanceLoading === 'fixCyberPanelLogin' ? 'Corrigindo...' : 'Corrigir Login'}
+                  </button>
+                </div>
+                
+                {/* Resetar Senha */}
+                <div className="p-3 bg-white rounded-lg border border-purple-200">
+                  <p className="text-xs text-purple-700 mb-2">
+                    Nova senha (vazio = Admin123!)
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Senha..."
+                      id="newAdminPassword"
+                      className="flex-1 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const newPass = (document.getElementById('newAdminPassword') as HTMLInputElement)?.value || 'Admin123!';
+                        runMaintenanceAction('resetAdminPassword', { password: newPass });
+                      }}
+                      disabled={maintenanceLoading === 'resetAdminPassword'}
+                      className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                    >
+                      {maintenanceLoading === 'resetAdminPassword' ? 'Resetando...' : 'Resetar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-purple-700 mt-3">
+                Após "Corrigir Login" ou "Resetar", tente entrar em https://109.199.104.22:8090
+              </p>
+            </div>
+
+            {/* Resultado da ação (no fim de todos os botões) */}
             {maintenanceResult && (
-              <div className={`p-4 rounded-lg ${maintenanceResult.success ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+              <div className={`p-4 rounded-lg mt-4 ${maintenanceResult.success ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
                 <p className={`font-medium ${maintenanceResult.success ? 'text-green-800' : 'text-red-800'}`}>
                   {maintenanceResult.success ? '✓ Ação concluída' : '✗ Ação falhou'}
                 </p>
@@ -404,65 +699,8 @@ export function EmailDiagnosticoSection() {
             )}
           </div>
 
-          {/* Ações de Correção de Configuração */}
-          <div className="bg-blue-50 rounded-xl border border-blue-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-600" />
-              Correção de Configuração
-              <span className="ml-auto text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">Resolver problemas de autenticação</span>
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Estas ações corrigem problemas específicos de autenticação SASL e configuração do Postfix que impedem o recebimento de emails.
-            </p>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <MaintenanceButton
-                icon={Shield}
-                label="Corrigir SASL"
-                color="blue"
-                onClick={() => runMaintenanceAction('fixSASL')}
-                loading={maintenanceLoading === 'fixSASL'}
-                description="Configura autenticação Dovecot"
-              />
-              <MaintenanceButton
-                icon={FileCheck}
-                label="Limpar main.cf"
-                color="green"
-                onClick={() => runMaintenanceAction('fixMainCf')}
-                loading={maintenanceLoading === 'fixMainCf'}
-                description="Remove parâmetros inválidos"
-              />
-              <MaintenanceButton
-                icon={Mail}
-                label="Testar Recebimento"
-                color="purple"
-                onClick={() => runMaintenanceAction('testReceive')}
-                loading={maintenanceLoading === 'testReceive'}
-                description="Verifica logs de entrega"
-              />
-              <MaintenanceButton
-                icon={Server}
-                label="Config Entrega"
-                color="orange"
-                onClick={() => runMaintenanceAction('checkDeliver')}
-                loading={maintenanceLoading === 'checkDeliver'}
-                description="Verifica LDA/Dovecot"
-              />
-            </div>
-
-            {/* Resultado da ação de correção */}
-            {maintenanceResult && (
-              <div className={`p-4 rounded-lg ${maintenanceResult.success ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                <p className={`font-medium ${maintenanceResult.success ? 'text-green-800' : 'text-red-800'}`}>
-                  {maintenanceResult.success ? '✓ Ação concluída' : '✗ Ação falhou'}
-                </p>
-                <pre className="mt-2 text-xs font-mono bg-white p-3 rounded border overflow-auto max-h-60">
-                  {maintenanceResult.output || maintenanceResult.error}
-                </pre>
-              </div>
-            )}
-
-            {/* Resultado do diagnóstico IMAP */}
+          {/* Resultado do diagnóstico IMAP */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             {imapFoldersResult && (
               <div className={`p-4 rounded-lg ${imapFoldersResult.success ? 'bg-blue-100 border border-blue-300' : 'bg-red-100 border border-red-300'}`}>
                 <p className={`font-medium ${imapFoldersResult.success ? 'text-blue-800' : 'text-red-800'}`}>
@@ -645,34 +883,6 @@ export function EmailDiagnosticoSection() {
         </div>
       )}
     </div>
-  );
-}
-
-function MaintenanceButton({ 
-  icon: Icon, label, color, onClick, loading, description 
-}: { 
-  icon: any, label: string, color: string, onClick: () => void, loading: boolean, description: string 
-}) {
-  const colorClasses: Record<string, string> = {
-    red: 'bg-red-100 hover:bg-red-200 text-red-700 border-red-300',
-    orange: 'bg-orange-100 hover:bg-orange-200 text-orange-700 border-orange-300',
-    blue: 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-300',
-    green: 'bg-green-100 hover:bg-green-200 text-green-700 border-green-300',
-    purple: 'bg-purple-100 hover:bg-purple-200 text-purple-700 border-purple-300',
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className={`p-3 rounded-lg border text-left transition-colors ${colorClasses[color]} disabled:opacity-50`}
-    >
-      <div className="flex items-center gap-2 mb-1">
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
-        <span className="font-medium text-sm">{label}</span>
-      </div>
-      <span className="text-xs opacity-75">{description}</span>
-    </button>
   );
 }
 

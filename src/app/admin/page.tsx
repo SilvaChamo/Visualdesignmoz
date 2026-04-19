@@ -29,6 +29,8 @@ import {
   SMTPConfigSection
 } from './CyberPanelSections'
 import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
+import { NotificationsSection } from './NotificationsSection'
+import { RenewalsSection } from './RenewalsSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -1787,6 +1789,10 @@ export default function AdminPage() {
         return <SMTPConfigSection />
       case 'email-diagnostico':
         return <EmailDiagnosticoSection />
+      case 'notifications':
+        return <NotificationsSection />
+      case 'renewals':
+        return <RenewalsSection />
       case 'cp-users':
         return <CPUsersSection />
       case 'cp-reseller':

@@ -58,6 +58,7 @@ export function WebmailSection({
   const hasLoadedAccounts = useRef(false)
   const [activeFolder, setActiveFolder] = useState('INBOX')
   const [emails, setEmails] = useState<any[]>([])
+  const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
   const [loadingEmails, setLoadingEmails] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
@@ -174,6 +175,7 @@ export function WebmailSection({
   useEffect(() => {
     if (selectedAccount && viewMode === 'list') {
       loadEmails()
+      loadFolderCounts()
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery])
 
@@ -327,6 +329,43 @@ export function WebmailSection({
       console.error('Erro ao carregar emails:', error)
     } finally {
       setLoadingEmails(false)
+    }
+  }
+
+  // Carregar contagem de emails de TODAS as pastas
+  const loadFolderCounts = async () => {
+    try {
+      const account = accounts.find(a => a.email === selectedAccount)
+      if (!account) return
+
+      const password = account.password || CREDENCIAIS_PADRAO[account.email]
+      if (!password) return
+
+      const folderList = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Archive']
+      const counts: Record<string, number> = {}
+
+      for (const folder of folderList) {
+        try {
+          const res = await fetch('/api/read-emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: account.email,
+              password: password,
+              folders: [folder],
+              limit: 1
+            })
+          })
+          const data = await res.json()
+          counts[folder] = data.total || 0
+        } catch {
+          counts[folder] = 0
+        }
+      }
+
+      setFolderCounts(counts)
+    } catch (error) {
+      console.error('Erro ao carregar contagens:', error)
     }
   }
 
@@ -864,9 +903,8 @@ export function WebmailSection({
               {folders.map(folder => {
                 const Icon = folder.icon
                 const isActive = activeFolder === folder.id
-                const count = (accounts.length > 0 && folder.id === 'INBOX') 
-                  ? emails.filter(e => !e.read).length 
-                  : 0
+                // Usar contagem real da pasta, não da pasta ativa
+                const count = folderCounts[folder.id] || 0
 
                 return (
                   <button
