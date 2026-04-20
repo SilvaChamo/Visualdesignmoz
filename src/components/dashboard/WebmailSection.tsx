@@ -989,7 +989,7 @@ export function WebmailSection({
                     <span className="flex-1 text-left">{folder.name}</span>
                     {/* 🆕 Badge mostra apenas NÃO LIDOS */}
                     {unreadCount > 0 && (
-                      <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-red-600 text-xs font-bold">
                         {unreadCount}
                       </span>
                     )}
@@ -1238,7 +1238,7 @@ export function WebmailSection({
                           />
                           
                           {/* Avatar */}
-                          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0">
+                          <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0">
                             {email.de?.charAt(0).toUpperCase()}
                           </div>
                           
@@ -1318,7 +1318,7 @@ export function WebmailSection({
                       
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">
+                          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">
                             {selectedEmail.de?.charAt(0).toUpperCase()}
                           </div>
                           <div>
