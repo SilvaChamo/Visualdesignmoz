@@ -8,7 +8,7 @@ export default function EmailDiagnosticoPage() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('silva.chamo@visualdesigne.com');
-  const [password, setPassword] = useState('Meckito#1977?*');
+  const [password, setPassword] = useState('Meckito#77?*');
 
   async function checkFolders() {
     setLoading(true);

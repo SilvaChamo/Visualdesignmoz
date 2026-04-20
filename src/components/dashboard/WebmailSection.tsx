@@ -145,7 +145,7 @@ export function WebmailSection({
 
   // Credenciais padrão (mesmas do EmailWebmailSection)
   const CREDENCIAIS_PADRAO: Record<string, string> = {
-    'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+    'silva.chamo@visualdesigne.com': 'Meckito#77?*',
     'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
     'geral@visualdesigne.com': 'Ge.Vd#2425?*',
     'admin@visualdesigne.com': 'Ad.Vd#2425?*',

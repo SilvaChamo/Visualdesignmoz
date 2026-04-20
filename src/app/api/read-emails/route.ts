@@ -38,7 +38,12 @@ const getPersistentClient = async (email: string, pass: string, cfg: any): Promi
     globalAny.imapClients.set(cacheKey, { client, lastUsed: Date.now() })
     return client
   } catch (err: any) {
-    console.error(`📧 [read-emails] Falha ao ligar novo cliente para ${email}:`, err.message)
+    const errorPrefix = `📧 [read-emails] Falha ao ligar ${email}: `
+    if (err.message.includes('Command failed')) {
+      console.error(`${errorPrefix} Servidor rejeitou o login. Possível excesso de conexões ou senha incorreta.`)
+    } else {
+      console.error(`${errorPrefix}`, err.message)
+    }
     return null
   }
 }
@@ -133,7 +138,7 @@ export async function POST(req: NextRequest) {
     // --- CAMINHO 1: ALL ACCOUNTS ---
     if (allAccounts && session) {
       const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-      const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com']
+      const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com']
       const isAdmin = adminEmails.includes(session.user?.email || '')
       let query = supabaseAdmin.from('email_contas').select('email, senha_cyberpanel')
       if (!isAdmin) query = query.eq('cliente_id', session.user.id)
@@ -202,7 +207,11 @@ export async function POST(req: NextRequest) {
     const client = await getPersistentClient(email, password, resolveImapConfig(email))
 
     if (!client || !client.usable) {
-       return NextResponse.json({ success: false, error: 'Não foi possível ligar ao servidor de e-mail. Verifique a senha.', details: 'persistent-connection-failed' })
+       return NextResponse.json({ 
+         success: false, 
+         error: 'Falha na ligação IMAP. O servidor pode estar ocupado ou a senha é inválida.', 
+         details: 'persistent-connection-failed' 
+       })
     }
 
     const emails: any[] = []

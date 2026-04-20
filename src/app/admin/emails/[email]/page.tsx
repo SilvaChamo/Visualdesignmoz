@@ -34,7 +34,7 @@ export default function EmailInboxPage() {
       // 🚀 CORREÇÃO: Usar POST em vez de GET, a API não suporta GET
       // Buscar senha das credenciais padrão (fallback) - no admin podemos usar hardcoded
       const senhasPadrao: Record<string, string> = {
-        'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+        'silva.chamo@visualdesigne.com': 'Meckito#77?*',
         'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
         'geral@visualdesigne.com': 'Ge.Vd#2425?*',
         'admin@visualdesigne.com': 'Ad.Vd#2425?*',
