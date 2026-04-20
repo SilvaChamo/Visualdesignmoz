@@ -400,7 +400,13 @@ export async function POST(req: NextRequest) {
       logger: false
     })
 
-    await client.connect()
+    try {
+      await client.connect()
+    } catch (connectError: any) {
+      console.log(`📧 [read-emails] Falha ao conectar (${connectError.message}). Tentando novamente em 500ms...`)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await client.connect() // Segunda tentativa
+    }
     console.log(`📧 [read-emails] Conectado ao IMAP com sucesso`)
     const emails: any[] = []
 
@@ -439,20 +445,24 @@ export async function POST(req: NextRequest) {
             const pagedUids = uids.slice(startIdx, startIdx + limit)
             
             if (pagedUids.length > 0) {
-              for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
-                emails.push({
-                  id: msg.uid,
-                  seq: msg.seq,
-                  tipo: determinarTipo(actualPath),
-                  messageId: msg.envelope?.messageId || '',
-                  de: msg.envelope?.from?.[0]?.address || '',
-                  deNome: msg.envelope?.from?.[0]?.name || '',
-                  para: msg.envelope?.to?.[0]?.address || '',
-                  assunto: msg.envelope?.subject || '(sem assunto)',
-                  data: msg.envelope?.date?.toISOString() || '',
-                  lido: msg.flags?.has('\\Seen') || false,
-                  preview: ''
-                })
+              try {
+                for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
+                  emails.push({
+                    id: msg.uid,
+                    seq: msg.seq,
+                    tipo: determinarTipo(actualPath),
+                    messageId: msg.envelope?.messageId || '',
+                    de: msg.envelope?.from?.[0]?.address || '',
+                    deNome: msg.envelope?.from?.[0]?.name || '',
+                    para: msg.envelope?.to?.[0]?.address || '',
+                    assunto: msg.envelope?.subject || '(sem assunto)',
+                    data: msg.envelope?.date?.toISOString() || '',
+                    lido: msg.flags?.has('\\Seen') || false,
+                    preview: ''
+                  })
+                }
+              } catch (fetchErr: any) {
+                console.log(`📧 [read-emails] Erro ao pesquisar os pagedUids: ${fetchErr.message}`)
               }
             }
           } else {
