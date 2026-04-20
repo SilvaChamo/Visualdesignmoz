@@ -4833,12 +4833,15 @@ export function GitDeploySection() {
                   className="font-bold text-gray-900 hover:text-blue-600 flex items-center gap-1 text-sm">
                   {repo.fullName} <ExternalLink className="w-3 h-3" />
                 </a>
-                <p className="text-xs text-gray-400">branch: <span className="font-mono font-bold text-gray-700">{repo.branch}</span> · {repo.lastPush ? new Date(repo.lastPush).toLocaleString('pt-PT') : ''}</p>
+                <p className="text-xs text-gray-400">
+                  branch: <span className="font-mono font-bold text-gray-700">{repo.branch}</span> · {repo.lastPush ? new Date(repo.lastPush).toLocaleString('pt-PT') : ''}
+                  {data?.hasGithubToken && <span className="text-green-600 ml-1">· Token configurado</span>}
+                </p>
               </>
             ) : (
               <div className="text-sm text-amber-600">
-                <p className="font-medium">GitHub sem token</p>
-                <p className="text-xs text-amber-500">Commits públicos visíveis (limite: 60 req/hora) · Adicione GITHUB_TOKEN para mais acesso</p>
+                <p className="font-medium">GitHub sem acesso</p>
+                <p className="text-xs text-amber-500">Commits públicos visíveis (limite: 60 req/hora) · Adicione GITHUB_TOKEN no .env.local</p>
               </div>
             )}
           </div>
