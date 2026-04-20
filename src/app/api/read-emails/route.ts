@@ -255,8 +255,9 @@ export async function POST(req: NextRequest) {
              const p = ePaths.has(v) ? rPaths.get(v) : ePaths.has(`inbox.${v}`) ? rPaths.get(`inbox.${v}`) : null
              if (p) {
                try {
-                 const status = await client.status(p, { messages: true })
-                 folderTotals[spf] = status.messages || 0
+                 // 🔴 Contar apenas NÃO LIDOS (unseen) em vez de totais
+                 const status = await client.status(p, { unseen: true })
+                 folderTotals[spf] = status.unseen || 0
                } catch (e) {}
              }
           }

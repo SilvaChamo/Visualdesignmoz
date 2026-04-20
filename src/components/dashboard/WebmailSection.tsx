@@ -159,6 +159,20 @@ export function WebmailSection({
     'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
   }
 
+  // 🎨 Função para gerar cor do avatar baseada na letra inicial
+  const getAvatarColor = (letter: string): string => {
+    const colors = [
+      'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500', 
+      'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500',
+      'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500',
+      'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+      'bg-rose-500', 'bg-slate-500', 'bg-gray-500', 'bg-zinc-500'
+    ]
+    if (!letter) return 'bg-gray-400'
+    const code = letter.charCodeAt(0)
+    return colors[code % colors.length]
+  }
+
   // Carregar contas apenas uma vez na montagem do componente
   useEffect(() => {
     if ((sites.length > 0 || userEmail) && !hasLoadedAccounts.current) {
@@ -174,9 +188,38 @@ export function WebmailSection({
     }
   }, [showAdvancedCompose, onComposeStateChange])
 
+  // ⚡ CACHE LOCAL para carregamento instantâneo
+  const getCacheKey = (account: string, folder: string) => `webmail_${account}_${folder}`
+  const getCachedData = (account: string, folder: string) => {
+    try {
+      const cached = localStorage.getItem(getCacheKey(account, folder))
+      if (cached) {
+        const { emails, counts, timestamp } = JSON.parse(cached)
+        // Cache válido por 2 minutos
+        if (Date.now() - timestamp < 2 * 60 * 1000) {
+          return { emails, counts }
+        }
+      }
+    } catch {}
+    return null
+  }
+  const setCachedData = (account: string, folder: string, emails: any[], counts: any) => {
+    try {
+      localStorage.setItem(getCacheKey(account, folder), JSON.stringify({
+        emails, counts, timestamp: Date.now()
+      }))
+    } catch {}
+  }
+
   // Carregar emails quando mudar conta ou pasta
   useEffect(() => {
     if (selectedAccount && viewMode === 'list') {
+      // ⚡ Mostrar cache imediatamente enquanto busca novos
+      const cached = getCachedData(selectedAccount, activeFolder)
+      if (cached) {
+        setEmails(cached.emails)
+        setFolderCounts(prev => ({ ...prev, ...cached.counts }))
+      }
       loadEmails()
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery])
@@ -401,14 +444,18 @@ export function WebmailSection({
       const data = await res.json()
       
       if (data.success) {
-        setEmails(data.emails || [])
+        const newEmails = data.emails || []
+        const newCounts = data.folderTotals || {}
+        setEmails(newEmails)
         // Atualizar contagens das pastas na mesma resposta
         if (data.folderTotals) {
           setFolderCounts(prev => ({
             ...prev,
-            ...data.folderTotals
+            ...newCounts
           }))
         }
+        // ⚡ Guardar no cache para carregamento instantâneo
+        setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
       } else {
         console.error('📧 [WebmailSection] Erro da API:', data.error)
       }
@@ -933,7 +980,7 @@ export function WebmailSection({
                 }
                 setShowCreateEmailModal(true)
               }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md text-sm font-bold transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-md transition-colors border border-blue-200"
             >
               <Plus className="w-4 h-4" />
               Nova Conta
@@ -949,7 +996,7 @@ export function WebmailSection({
               <button
                 onClick={() => setShowAdvancedCompose(true)}
                 disabled={accounts.length === 0}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-md transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-md transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-5 h-5" />
                 Nova Mensagem
@@ -970,6 +1017,8 @@ export function WebmailSection({
                     onClick={() => {
                       setActiveFolder(folder.id)
                       setSelectedEmail(null)
+                      // ⚡ Carregamento imediato sem delay
+                      setTimeout(() => loadEmails(), 0)
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                       isActive 
@@ -980,7 +1029,7 @@ export function WebmailSection({
                     <Icon className={`w-4 h-4 ${isActive ? 'text-red-600' : 'text-gray-500'}`} />
                     <span className="flex-1 text-left">{folder.name}</span>
                     {count > 0 && (
-                      <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                      <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-medium min-w-[20px] text-center">
                         {count}
                       </span>
                     )}
@@ -1205,7 +1254,19 @@ export function WebmailSection({
                           className={`w-full p-3 text-left border-b border-gray-50 transition-colors hover:bg-gray-50 flex items-start gap-3 group cursor-pointer ${
                             selectedEmail?.id === email.id ? 'bg-red-50/50 border-l-2 border-l-red-600' : ''
                           } ${!email.lido ? 'bg-blue-50/30' : ''}`}
-                          onClick={() => setSelectedEmail(email)}
+                          onClick={() => {
+                            // Se email não lido, marcar como lido e decrementar contagem
+                            if (!email.lido) {
+                              setEmails(prev => prev.map(e => 
+                                (e.id === email.id || e.uid === email.uid) ? { ...e, lido: true } : e
+                              ))
+                              setFolderCounts(prev => ({
+                                ...prev,
+                                [activeFolder]: Math.max(0, (prev[activeFolder] || 0) - 1)
+                              }))
+                            }
+                            setSelectedEmail(email)
+                          }}
                         >
                           {/* Checkbox */}
                           <input
@@ -1228,22 +1289,22 @@ export function WebmailSection({
                             className="w-4 h-4 cursor-pointer mt-1"
                           />
                           
-                          {/* Avatar */}
-                          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0">
+                          {/* Avatar com cor dinâmica */}
+                          <div className={`w-8 h-8 ${getAvatarColor(email.de?.charAt(0))} rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0`}>
                             {email.de?.charAt(0).toUpperCase()}
                           </div>
                           
                           {/* Informação do email */}
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start mb-0.5">
-                              <span className={`text-sm truncate ${!email.lido ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                              <span className={`text-sm truncate text-gray-700`}>
                                 {activeFolder === 'INBOX.Sent' ? `Para: ${email.para || 'Desconhecido'}` : email.de}
                               </span>
                               <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
                                 {email.data ? new Date(email.data).toLocaleDateString('pt-BR') : ''}
                               </span>
                             </div>
-                            <p className={`text-xs truncate ${!email.lido ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                            <p className={`text-xs truncate text-gray-500`}>
                               {email.assunto}
                             </p>
                             <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">
@@ -1309,7 +1370,7 @@ export function WebmailSection({
                       
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">
+                          <div className={`w-10 h-10 ${getAvatarColor(selectedEmail.de?.charAt(0))} rounded-full flex items-center justify-center text-white font-bold`}>
                             {selectedEmail.de?.charAt(0).toUpperCase()}
                           </div>
                           <div>
