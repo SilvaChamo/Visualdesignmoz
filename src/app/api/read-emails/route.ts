@@ -15,78 +15,76 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
-// Função para criar pasta IMAP se não existir
-const createMailboxIfNotExists = async (client: any, folderPath: string): Promise<boolean> => {
-  try {
-    console.log(`📧 [read-emails] Criando pasta: ${folderPath}`)
-    await client.mailboxCreate(folderPath)
-    console.log(`📧 [read-emails] Pasta criada com sucesso: ${folderPath}`)
-    return true
-  } catch (e: any) {
-    console.log(`📧 [read-emails] Erro ao criar pasta ${folderPath}:`, e.message)
-    return false
-  }
-}
-
-// Função para tentar diferentes variações de nomes de pastas IMAP
-// cPanel pode usar "Sent" ou "INBOX.Sent", "Trash" ou "INBOX.Trash", etc.
+// Função para abrir pasta IMAP com fallback de nomes
+// USA client.list() primeiro para descobrir pastas existentes — evita o loop de
+// getMailboxLock() que causava "AbortError: Lock broken by another request with the steal option"
 const getMailboxWithFallback = async (client: any, folderPath: string, createIfMissing: boolean = true): Promise<{ lock: any; actualPath: string } | null> => {
   console.log(`📧 [read-emails] getMailboxWithFallback chamada para: ${folderPath}`)
-  const tentativas = [folderPath]
-  
-  // Tratamento especial para INBOX - sempre deve existir
   const isInbox = folderPath.toUpperCase() === 'INBOX'
-  
-  // Se começa com INBOX., tentar sem o prefixo
-  if (folderPath.startsWith('INBOX.')) {
-    tentativas.push(folderPath.replace('INBOX.', ''))
-  } else if (!isInbox) {
-    // Se não começa com INBOX., tentar com o prefixo (exceto para INBOX pura)
-    tentativas.push(`INBOX.${folderPath}`)
-  }
-  
-  // Variações específicas para Spam
-  if (folderPath.toLowerCase().includes('spam')) {
-    tentativas.push('Junk', 'INBOX.Junk', 'Spam', 'INBOX.Spam')
-  }
-  
-  // Variações específicas para Trash
-  if (folderPath.toLowerCase().includes('trash')) {
-    tentativas.push('Trash', 'INBOX.Trash', 'Deleted Items', 'INBOX.Deleted Items')
-  }
-  
-  for (const tentativa of tentativas) {
-    try {
-      const lock = await client.getMailboxLock(tentativa)
-      console.log(`📧 [read-emails] Pasta encontrada: ${tentativa} (tentativa para ${folderPath})`)
-      return { lock, actualPath: tentativa }
-    } catch (e: any) {
-      console.log(`📧 [read-emails] Pasta não existe: ${tentativa}`)
-      // Continua para próxima tentativa
+
+  try {
+    // Passo 1: Listar todas as pastas existentes (1 chamada, sem risco de AbortError)
+    const mailboxList = await client.list()
+    const existingPaths = new Set<string>(mailboxList.map((m: any) => m.path))
+
+    // Passo 2: Construir variações possíveis para o nome da pasta
+    const variations: string[] = [folderPath]
+    if (folderPath.startsWith('INBOX.')) {
+      variations.push(folderPath.replace('INBOX.', ''))
+    } else if (!isInbox) {
+      variations.push(`INBOX.${folderPath}`)
     }
-  }
-  
-  // Se não encontrou e createIfMissing está ativado, tenta criar
-  // NOTA: INBOX nunca deve ser criada, ela sempre existe no servidor IMAP
-  if (createIfMissing && !isInbox) {
-    console.log(`📧 [read-emails] Pasta não encontrada, tentando criar: ${folderPath}`)
-    const created = await createMailboxIfNotExists(client, folderPath)
-    if (created) {
+    if (folderPath.toLowerCase().includes('spam') || folderPath.toLowerCase().includes('junk')) {
+      variations.push('Junk', 'INBOX.Junk', 'Spam', 'INBOX.Spam')
+    }
+    if (folderPath.toLowerCase().includes('trash') || folderPath.toLowerCase().includes('deleted')) {
+      variations.push('Trash', 'INBOX.Trash', 'Deleted Items', 'INBOX.Deleted Items')
+    }
+    if (folderPath.toLowerCase().includes('sent')) {
+      variations.push('Sent', 'INBOX.Sent', 'Sent Items', 'INBOX.Sent Items')
+    }
+    if (folderPath.toLowerCase().includes('draft')) {
+      variations.push('Drafts', 'INBOX.Drafts', 'Draft', 'INBOX.Draft')
+    }
+    if (folderPath.toLowerCase().includes('archive')) {
+      variations.push('Archive', 'INBOX.Archive', 'Archived', 'INBOX.Archived')
+    }
+
+    // Passo 3: Encontrar a primeira variação que existe no servidor
+    const matchedPath = variations.find(v => existingPaths.has(v))
+
+    if (matchedPath) {
+      console.log(`📧 [read-emails] Pasta encontrada: ${matchedPath} (pedido: ${folderPath})`)
+      // getMailboxLock chamado APENAS UMA VEZ — sem loop, sem risco de AbortError
+      const lock = await client.getMailboxLock(matchedPath)
+      return { lock, actualPath: matchedPath }
+    }
+
+    // Passo 4: Pasta não existe — criar se permitido (exceto INBOX)
+    if (createIfMissing && !isInbox) {
+      console.log(`📧 [read-emails] Pasta não encontrada, a criar: ${folderPath}`)
       try {
+        await client.mailboxCreate(folderPath)
+        console.log(`📧 [read-emails] Pasta criada: ${folderPath}`)
         const lock = await client.getMailboxLock(folderPath)
-        console.log(`📧 [read-emails] Pasta criada e aberta: ${folderPath}`)
         return { lock, actualPath: folderPath }
-      } catch (e: any) {
-        console.log(`📧 [read-emails] Erro ao abrir pasta criada:`, e.message)
+      } catch (createErr: any) {
+        console.log(`📧 [read-emails] Erro ao criar/abrir pasta: ${createErr.message}`)
+        return null
       }
     }
+
+    if (isInbox) {
+      console.log(`📧 [read-emails] ERRO CRÍTICO: INBOX não encontrada no servidor IMAP!`)
+    } else {
+      console.log(`📧 [read-emails] Pasta não encontrada: ${folderPath}`)
+    }
+    return null
+
+  } catch (e: any) {
+    console.log(`📧 [read-emails] getMailboxWithFallback erro inesperado: ${e.message}`)
+    return null
   }
-  
-  if (isInbox) {
-    console.log(`📧 [read-emails] ERRO CRÍTICO: INBOX não encontrada! Verificar conexão IMAP.`)
-  }
-  
-  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -158,7 +156,7 @@ export async function POST(req: NextRequest) {
               
               console.log(`📧 [read-emails] Conectando a ${conta.email}...`)
               const client = new ImapFlow({
-                host: process.env.IMAP_HOST || '109.199.104.22',
+                host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
                 port: 993,
                 secure: true,
                 auth: { user: conta.email, pass: senhaDescriptada },
@@ -275,7 +273,7 @@ export async function POST(req: NextRequest) {
         pastasParaProcessar.map(async (fPath) => {
           try {
             const client = new ImapFlow({
-              host: process.env.IMAP_HOST || '109.199.104.22',
+              host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
               port: 993,
               secure: true,
               auth: { user: mEmail, pass: multiPasswords?.[idx] || 'Ad.Vd#2425?*' },
@@ -394,7 +392,7 @@ export async function POST(req: NextRequest) {
     console.log(`📧 [read-emails] Email: ${email}, Pastas: ${pastasParaProcessar.join(', ')}`)
     
     const client = new ImapFlow({
-      host: process.env.IMAP_HOST || '109.199.104.22',
+      host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
       port: 993,
       secure: true,
       auth: { user: email, pass: password },
@@ -417,9 +415,14 @@ export async function POST(req: NextRequest) {
         try {
           let uids: number[] = []
           if (search) {
-            // Busca no servidor
-            const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
-            uids = Array.isArray(searchResult) ? searchResult : []
+            // Busca no servidor — protegido com try/catch para não deixar sessão IMAP inconsistente
+            try {
+              const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
+              uids = Array.isArray(searchResult) ? searchResult : []
+            } catch (searchError: any) {
+              console.log(`📧 [read-emails] Busca IMAP falhou (retornando vazio): ${searchError.message}`)
+              uids = []
+            }
           }
 
           const total = client.mailbox ? client.mailbox.exists || 0 : 0
@@ -494,7 +497,9 @@ export async function POST(req: NextRequest) {
         console.error(`Erro ao ler pasta ${fPath}:`, e)
       }
     }
-    await client.logout()
+    try { await client.logout() } catch (logoutErr: any) {
+      console.log(`📧 [read-emails] Logout error (ignorado): ${logoutErr.message}`)
+    }
     console.log(`📧 [read-emails] Total de emails carregados: ${emails.length}`)
 
     // Deduplicação final inteligente
