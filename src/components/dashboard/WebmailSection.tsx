@@ -59,6 +59,8 @@ export function WebmailSection({
   const [activeFolder, setActiveFolder] = useState('INBOX')
   const [emails, setEmails] = useState<any[]>([])
   const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
+  // 🆕 Contagem de NÃO LIDOS por pasta (calculado localmente)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
   const [loadingEmails, setLoadingEmails] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
@@ -82,12 +84,9 @@ export function WebmailSection({
     quota: '500'
   })
 
-  // Debounce para pesquisa
+  // ⚡ SEM debounce - pesquisa instantânea para zero delay
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 500)
-    return () => clearTimeout(timer)
+    setDebouncedSearchQuery(searchQuery)
   }, [searchQuery])
 
   // Estado para compose avançado (EmailWebmailSection)
@@ -175,9 +174,51 @@ export function WebmailSection({
   useEffect(() => {
     if (selectedAccount && viewMode === 'list') {
       loadEmails()
-      loadFolderCounts()
+      // ⚡ Não chamar loadFolderCounts - usar contagem local de não lidos
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery])
+
+  // 🆕 Buscar corpo completo do email quando selecionado
+  useEffect(() => {
+    if (selectedAccount && selectedEmail && !selectedEmail.corpo) {
+      const carregarCorpo = async () => {
+        try {
+          const account = accounts.find(a => a.email === selectedAccount)
+          const password = account?.password || CREDENCIAIS_PADRAO[selectedAccount]
+          
+          if (!password) {
+            console.error('Senha não disponível para:', selectedAccount)
+            return
+          }
+
+          const res = await fetch('/api/read-email-detail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: selectedAccount,
+              password: password,
+              emailId: selectedEmail.id || selectedEmail.uid,
+              folder: activeFolder
+            })
+          })
+          
+          const data = await res.json()
+          if (data.success) {
+            setSelectedEmail((prev: any) => ({ 
+              ...prev, 
+              corpo: data.corpo, 
+              anexos: data.anexos 
+            }))
+          } else {
+            console.error('Erro ao carregar corpo:', data.error)
+          }
+        } catch (e) {
+          console.error('Erro ao carregar corpo do email:', e)
+        }
+      }
+      carregarCorpo()
+    }
+  }, [selectedEmail?.id, selectedEmail?.uid, selectedAccount, activeFolder])
 
   // SINCRONIZAÇÃO: Carregar assinaturas quando email muda
   useEffect(() => {
@@ -321,7 +362,11 @@ export function WebmailSection({
       const data = await res.json()
       console.log('📧 [WebmailSection] Resposta API:', { success: data.success, total: data.total, emailsCount: data.emails?.length, error: data.error })
       if (data.success) {
-        setEmails(data.emails || [])
+        const loadedEmails = data.emails || []
+        setEmails(loadedEmails)
+        // 🆕 Calcular não lidos da pasta atual localmente (zero delay)
+        const naoLidos = loadedEmails.filter((e: any) => !e.lido).length
+        setUnreadCounts(prev => ({ ...prev, [activeFolder]: naoLidos }))
       } else {
         console.error('📧 [WebmailSection] Erro da API:', data.error)
       }
@@ -643,6 +688,26 @@ export function WebmailSection({
     }
   }
 
+  // 👁️ Marcar email como lido ao clicar (atualização local imediata)
+  const handleEmailClick = (email: any) => {
+    // Se já está lido, só seleciona
+    if (email.lido) {
+      setSelectedEmail(email)
+      return
+    }
+    
+    // Marcar como lido localmente (zero delay)
+    const updatedEmail = { ...email, lido: true }
+    setEmails(prev => prev.map(e => (e.id === email.id || e.uid === email.uid) ? updatedEmail : e))
+    setSelectedEmail(updatedEmail)
+    
+    // Decrementar contagem de não lidos
+    setUnreadCounts(prev => ({
+      ...prev,
+      [activeFolder]: Math.max(0, (prev[activeFolder] || 0) - 1)
+    }))
+  }
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
@@ -903,8 +968,8 @@ export function WebmailSection({
               {folders.map(folder => {
                 const Icon = folder.icon
                 const isActive = activeFolder === folder.id
-                // Usar contagem real da pasta, não da pasta ativa
-                const count = folderCounts[folder.id] || 0
+                // 🆕 Mostrar apenas NÃO LIDOS (nunca o total)
+                const unreadCount = unreadCounts[folder.id] || 0
 
                 return (
                   <button
@@ -922,9 +987,10 @@ export function WebmailSection({
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-red-600' : 'text-gray-500'}`} />
                     <span className="flex-1 text-left">{folder.name}</span>
-                    {count > 0 && (
-                      <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                        {count}
+                    {/* 🆕 Badge mostra apenas NÃO LIDOS */}
+                    {unreadCount > 0 && (
+                      <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                        {unreadCount}
                       </span>
                     )}
                   </button>
@@ -1144,11 +1210,11 @@ export function WebmailSection({
                     ) : (
                       emails.map(email => (
                         <div
-                          key={email.id || email.uid}
+                          key={`${email.id || email.uid || email.messageId || email.seq}-${email.conta || 'local'}`}
                           className={`w-full p-3 text-left border-b border-gray-50 transition-colors hover:bg-gray-50 flex items-start gap-3 group cursor-pointer ${
-                            selectedEmail?.id === email.id ? 'bg-red-50/50 border-l-2 border-l-red-600' : ''
+                            (selectedEmail?.id === email.id || selectedEmail?.uid === email.uid || selectedEmail?.id === email.uid || selectedEmail?.uid === email.id) ? 'bg-red-50/50 border-l-2 border-l-red-600' : ''
                           } ${!email.lido ? 'bg-blue-50/30' : ''}`}
-                          onClick={() => setSelectedEmail(email)}
+                          onClick={() => handleEmailClick(email)}
                         >
                           {/* Checkbox */}
                           <input
@@ -1267,10 +1333,17 @@ export function WebmailSection({
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6">
-                      <div 
-                        className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: selectedEmail.preview || '' }}
-                      />
+                      {selectedEmail.corpo ? (
+                        <div 
+                          className="prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: selectedEmail.corpo }}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-400">
+                          <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                          <span className="text-sm">Carregando conteúdo...</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (

@@ -101,7 +101,7 @@ export function EmailWebmailSection({
 
   // Mapa de credenciais padrão para emails do sistema (fallback)
   const CREDENCIAIS_PADRAO: Record<string, string> = {
-    'silva.chamo@visualdesigne.com': 'Meckito#1977?*',
+    'silva.chamo@visualdesigne.com': 'Meckito#77?*',
     'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
     'geral@visualdesigne.com': 'Ge.Vd#2425?*',
     'admin@visualdesigne.com': 'Ad.Vd#2425?*',
@@ -335,7 +335,16 @@ export function EmailWebmailSection({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               email: emailOrigem || (todasAsContas ? modalEmail.conta : ''),
-              password: emailOrigemPassword || (emailOrigem?.endsWith('@your-domain.com') ? 'YourSecurePass' : ''),
+              password: emailOrigemPassword || (() => {
+                const senhas: Record<string, string> = {
+                  'geral@visualdesigne.com': 'Ge.Vd#2425?*',
+                  'silva.chamo@visualdesigne.com': 'Meckito#77?*',
+                  'admin@visualdesigne.com': 'Ad.Vd#2425?*',
+                  'noreply@visualdesigne.com': 'VisualDesign#2026',
+                  'suporte@visualdesigne.com': 'SupaEmail#2026?*',
+                }
+                return senhas[emailOrigem || ''] || ''
+              })(),
               emailId: modalEmail.id,
               folder: pastaParaIMAP(pastaActiva)
             })

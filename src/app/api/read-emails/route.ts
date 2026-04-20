@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
                     : 1;
                   const end = total > 0 ? total : itemsToFetch;
                   console.log(`📧 [read-emails] Fetch range: ${start}:${end} (total=${total}, itemsToFetch=${itemsToFetch})`)
-                  for await (const msg of client.fetch(`${start}:${end}`, { envelope: true, flags: true })) {
+                  for await (const msg of client.fetch(`${start}:${end}`, { envelope: true, flags: true, uid: true })) {
                     emailsTemp.push({
                       id: msg.uid,
                       seq: msg.seq,
@@ -323,7 +323,7 @@ export async function POST(req: NextRequest) {
               } else if (total > 0) {
                 const itemsToFetch = multiFolders ? 10 : limit
                 const start = Math.max(1, total - itemsToFetch + 1)
-                for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+                for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
                   emailsTemp.push({
                     id: msg.uid,
                     seq: msg.seq,
@@ -461,7 +461,12 @@ export async function POST(req: NextRequest) {
             console.log(`📧 [read-emails] Fetch range: ${fetchRange} (total=${total}, itemsToFetch=${itemsToFetch})`)
             
             try {
-              for await (const msg of client.fetch(fetchRange, { envelope: true, flags: true })) {
+              // Obter UIDs reais primeiro
+              const allUids = await client.search({ all: true }, { uid: true })
+              const uidsArray = Array.isArray(allUids) ? allUids : []
+              const slicedUids = uidsArray.slice(-itemsToFetch)
+              if (slicedUids.length > 0) {
+              for await (const msg of client.fetch(slicedUids, { envelope: true, flags: true }, { uid: true })) {
                 emails.push({
                   id: msg.uid,
                   seq: msg.seq,
@@ -476,9 +481,10 @@ export async function POST(req: NextRequest) {
                   preview: ''
                 })
               }
+              }
             } catch (fetchError: any) {
               // Se der erro no fetch (pasta vazia), apenas logamos
-              console.log(`📧 [read-emails] Fetch retornou vazio ou erro: ${fetchError.message}`)
+              console.log(`📧 [read-emails] Fetch retornou vazio ou erro: ${fetchError.message} | stack: ${fetchError.stack} | code: ${fetchError.code} | response: ${JSON.stringify(fetchError.response)}`)
             }
           }
         } finally {

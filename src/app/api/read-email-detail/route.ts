@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = new ImapFlow({
-      host: process.env.IMAP_HOST || '109.199.104.22',
+      host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
       port: 993,
       secure: true,
       auth: { user: email, pass: password },
