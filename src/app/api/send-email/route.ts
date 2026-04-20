@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// Resolve o servidor SMTP correto com base no domínio do email remetente
+const resolveSmtpConfig = (fromEmail: string) => {
+  const domain = fromEmail.split('@')[1]?.toLowerCase() || ''
+
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    return { host: 'smtp.gmail.com', port: 587, secure: false }
+  }
+  if (['outlook.com', 'hotmail.com', 'hotmail.pt', 'live.com', 'live.pt', 'msn.com'].includes(domain)) {
+    return { host: 'smtp-mail.outlook.com', port: 587, secure: false }
+  }
+  if (domain === 'yahoo.com' || domain === 'ymail.com') {
+    return { host: 'smtp.mail.yahoo.com', port: 465, secure: true }
+  }
+  if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
+    return { host: 'smtp.mail.me.com', port: 587, secure: false }
+  }
+  if (domain === 'zoho.com') {
+    return { host: 'smtp.zoho.com', port: 587, secure: false }
+  }
+
+  // Genérico / CyberPanel — usa IP direto do servidor
+  return { host: process.env.SMTP_HOST || '109.199.104.22', port: 587, secure: false }
+}
+
 // 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (CyberPanel/Postfix)
 const SMTP_HOST = '109.199.104.22' // IP direto do servidor
 const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
@@ -15,23 +39,22 @@ async function sendViaSMTP(
     fromPassword: string,
     replyTo?: string
 ): Promise<any> {
-    console.log(`🔄 SMTP: Enviando email de ${fromEmail} para ${Array.isArray(to) ? to.length : 1} destinatário(s)`);
+    const smtpCfg = resolveSmtpConfig(fromEmail)
+    console.log(`🔄 SMTP: Enviando email de ${fromEmail} → ${smtpCfg.host}:${smtpCfg.port}`);
 
-    // Normalizar 'to' para array
     const toArray = Array.isArray(to) ? to : [to];
 
-    // Criar transporter SMTP
     const transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_SECURE, // false para STARTTLS na porta 587
-        requireTLS: true, // Forçar STARTTLS
+        host: smtpCfg.host,
+        port: smtpCfg.port,
+        secure: smtpCfg.secure,
+        requireTLS: !smtpCfg.secure,
         auth: {
             user: fromEmail,
             pass: fromPassword
         },
         tls: {
-            rejectUnauthorized: false // Aceitar certificados autoassinados
+            rejectUnauthorized: false
         },
         connectionTimeout: 30000,
         greetingTimeout: 30000,
@@ -83,8 +106,13 @@ async function saveToSentFolder(
         console.log('📁 [IMAP] A guardar email na pasta Sent...');
         const { ImapFlow } = await import('imapflow');
         
+        // Derivar host IMAP do domínio do remetente automaticamente
+        // Funciona para qualquer domínio alojado no mesmo servidor CyberPanel
+        const senderDomain = from.split('@')[1] || 'visualdesigne.com'
+        const imapHost = process.env.IMAP_HOST || `mail.${senderDomain}`
+        
         const imapClient = new ImapFlow({
-            host: 'mail.visualdesigne.com',
+            host: imapHost,
             port: 993,
             secure: true,
             auth: { user: from, pass: password },
@@ -99,7 +127,7 @@ async function saveToSentFolder(
         
         const toArray = Array.isArray(to) ? to : [to];
         const toStr = toArray.join(', ');
-        const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@visualdesigne.com>`;
+        const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${senderDomain}>`;
         const dateStr = new Date().toUTCString();
         
         // Construir mensagem RFC822 completa

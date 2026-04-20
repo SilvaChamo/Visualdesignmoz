@@ -41,7 +41,7 @@ export interface MozserverDomain {
 
 const MOZSERVER_CONFIG = {
   baseURL: 'https://mozserver.co.mz/api',
-  token: 'JI9ZP78LANWNSAU38BC60OX3TM0PQP3G',
+  token: process.env.MOZSERVER_TOKEN || '',
 };
 
 async function mozserverCall(endpoint: string, method: string = 'GET', payload?: any) {

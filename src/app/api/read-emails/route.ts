@@ -15,6 +15,46 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
+// Resolve o host e porta IMAP corretos com base no domínio do email
+// Suporta Gmail, Outlook, Yahoo, iCloud e domínios CyberPanel genéricos
+const resolveImapConfig = (email: string): { host: string; port: number; secure: boolean } => {
+  // Se existe variável de ambiente global, usar sempre ela (override)
+  if (process.env.IMAP_HOST) {
+    return { host: process.env.IMAP_HOST, port: 993, secure: true }
+  }
+
+  const domain = email.split('@')[1]?.toLowerCase() || ''
+
+  // Gmail
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    return { host: 'imap.gmail.com', port: 993, secure: true }
+  }
+  // Outlook / Hotmail / Live / Microsoft
+  if (['outlook.com', 'hotmail.com', 'hotmail.pt', 'hotmail.co.uk',
+       'live.com', 'live.pt', 'msn.com', 'microsoft.com'].includes(domain)) {
+    return { host: 'outlook.office365.com', port: 993, secure: true }
+  }
+  // Yahoo
+  if (domain === 'yahoo.com' || domain === 'yahoo.co.uk' || domain === 'ymail.com') {
+    return { host: 'imap.mail.yahoo.com', port: 993, secure: true }
+  }
+  // iCloud / Apple
+  if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
+    return { host: 'imap.mail.me.com', port: 993, secure: true }
+  }
+  // Zoho
+  if (domain === 'zoho.com' || domain.endsWith('.zoho.com')) {
+    return { host: 'imap.zoho.com', port: 993, secure: true }
+  }
+  // ProtonMail (via bridge local — só funciona com ProtonMail Bridge instalado)
+  if (domain === 'protonmail.com' || domain === 'proton.me') {
+    return { host: '127.0.0.1', port: 1143, secure: false }
+  }
+
+  // Genérico / CyberPanel — deriva mail.{domínio}
+  return { host: `mail.${domain}`, port: 993, secure: true }
+}
+
 // Função para abrir pasta IMAP com fallback de nomes
 // USA client.list() primeiro para descobrir pastas existentes — evita o loop de
 // getMailboxLock() que causava "AbortError: Lock broken by another request with the steal option"
@@ -96,16 +136,20 @@ export async function POST(req: NextRequest) {
       passwords: multiPasswords, 
       allAccounts = false, 
       folder: singleFolder, 
-      folders: multiFolders, 
+      folders: foldersParam,  // array de pastas enviado pelo frontend
       page = 1, 
       limit = 20,
-      search = '' // Novo parâmetro de busca
+      search = ''
     } = await req.json()
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
+    const folderTotals: Record<string, number> = {}
+
     // Preparar lista de pastas para processar
-    const pastasParaProcessar = multiFolders && Array.isArray(multiFolders) ? multiFolders : [singleFolder || 'INBOX']
+    const pastasParaProcessar = foldersParam && Array.isArray(foldersParam) ? foldersParam : [singleFolder || 'INBOX']
+    // Boolean: true apenas quando há MAIS de uma pasta (modo unificado)
+    const isMultiFolders = pastasParaProcessar.length > 1
 
     if (allAccounts && session) {
       console.log(`📧 [read-emails] Modo allAccounts ativo para: ${session.user?.email}`)
@@ -155,10 +199,12 @@ export async function POST(req: NextRequest) {
               }
               
               console.log(`📧 [read-emails] Conectando a ${conta.email}...`)
+              const imapCfg = resolveImapConfig(conta.email)
+              console.log(`📧 [read-emails] IMAP host: ${imapCfg.host}:${imapCfg.port}`)
               const client = new ImapFlow({
-                host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
-                port: 993,
-                secure: true,
+                host: imapCfg.host,
+                port: imapCfg.port,
+                secure: imapCfg.secure,
                 auth: { user: conta.email, pass: senhaDescriptada },
                 tls: { rejectUnauthorized: false },
                 logger: false
@@ -205,32 +251,57 @@ export async function POST(req: NextRequest) {
                       })
                     }
                   }
-                } else if (total > 0 || total === 0) {
-                  // Fetch headers only for high performance
-                  // Workaround: quando total é 0 (bug CyberPanel), tentar fetch de 1:50
-                  const itemsToFetch = total > 0 
-                    ? (multiFolders ? 10 : limit)
-                    : 50; // fallback: tentar 50 emails quando total reporta 0
-                  const start = total > 0 
-                    ? Math.max(1, total - itemsToFetch + 1)
-                    : 1;
-                  const end = total > 0 ? total : itemsToFetch;
-                  console.log(`📧 [read-emails] Fetch range: ${start}:${end} (total=${total}, itemsToFetch=${itemsToFetch})`)
-                  for await (const msg of client.fetch(`${start}:${end}`, { envelope: true, flags: true, uid: true })) {
-                    emailsTemp.push({
-                      id: msg.uid,
-                      seq: msg.seq,
-                      tipo: determinarTipo(folderPath),
-                      conta: conta.email,
-                      messageId: msg.envelope?.messageId || '',
-                      de: msg.envelope?.from?.[0]?.address || '',
-                      deNome: msg.envelope?.from?.[0]?.name || '',
-                      para: msg.envelope?.to?.[0]?.address || '',
-                      assunto: msg.envelope?.subject || '(sem assunto)',
-                      data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
-                      lido: msg.flags?.has('\\Seen') || false,
-                      preview: ''
-                    })
+                }
+
+                const folderTotal = client.mailbox ? client.mailbox.exists || 0 : 0
+                folderTotals[`${conta.email}:${folderPath}`] = folderTotal
+                  
+                if (!search) {
+                  try {
+                    // Tentar obter UIDs para listagem multiconta (mais estável)
+                    const allUids = await client.search({ all: true }, { uid: true })
+                    const uidsArray = (Array.isArray(allUids) ? allUids : []).sort((a: any, b: any) => Number(a) - Number(b))
+                    const slicedUids = uidsArray.slice(-itemsToFetch).reverse()
+                    
+                    if (slicedUids.length > 0) {
+                      for await (const msg of client.fetch(slicedUids, { envelope: true, flags: true }, { uid: true })) {
+                        emailsTemp.push({
+                          id: msg.uid,
+                          seq: msg.seq,
+                          tipo: determinarTipo(actualPath),
+                          conta: conta.email,
+                          messageId: msg.envelope?.messageId || '',
+                          de: msg.envelope?.from?.[0]?.address || '',
+                          deNome: msg.envelope?.from?.[0]?.name || '',
+                          para: msg.envelope?.to?.[0]?.address || '',
+                          assunto: msg.envelope?.subject || '(sem assunto)',
+                          data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
+                          lido: msg.flags?.has('\\Seen') || false,
+                          preview: ''
+                        })
+                      }
+                    } else if (total > 0) {
+                      // Fallback para Sequence Range se UIDs falharem
+                      const start = Math.max(1, total - itemsToFetch + 1)
+                      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
+                        emailsTemp.push({
+                          id: msg.uid,
+                          seq: msg.seq,
+                          tipo: determinarTipo(actualPath),
+                          conta: conta.email,
+                          messageId: msg.envelope?.messageId || '',
+                          de: msg.envelope?.from?.[0]?.address || '',
+                          deNome: msg.envelope?.from?.[0]?.name || '',
+                          para: msg.envelope?.to?.[0]?.address || '',
+                          assunto: msg.envelope?.subject || '(sem assunto)',
+                          data: msg.envelope?.date ? new Date(msg.envelope.date).toISOString() : new Date().toISOString(),
+                          lido: msg.flags?.has('\\Seen') || false,
+                          preview: ''
+                        })
+                      }
+                    }
+                  } catch (fetchError: any) {
+                    console.log(`📧 [read-emails] Erro ao listar emails (multi): ${fetchError.message}`)
                   }
                 }
               } finally {
@@ -247,13 +318,13 @@ export async function POST(req: NextRequest) {
         const results = await Promise.all(promises)
         results.forEach(emails => todosEmails.push(...emails))
 
-        // Deduplicação Inteligente
+        // Dedupóplicação Inteligente — inclui pasta e conta para não misturar emails de pastas/contas diferentes
         const finalEmails: any[] = []
         const seenKeys = new Set()
         todosEmails.forEach(e => {
-          const idKey = e.messageId ? `msgid-${e.messageId}` : null
+          const idKey = e.messageId ? `msgid-${e.messageId}-${e.conta}-${e.tipo}` : null
           const dateMinute = e.data ? e.data.substring(0, 16) : ''
-          const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+          const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}-${e.conta}-${e.tipo}`
           if ((idKey && !seenKeys.has(idKey)) || (!idKey && !seenKeys.has(fuzzyKey))) {
             if (idKey) seenKeys.add(idKey)
             seenKeys.add(fuzzyKey)
@@ -263,7 +334,7 @@ export async function POST(req: NextRequest) {
 
         finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
         console.log(`📧 [read-emails] Retornando ${finalEmails.length} emails (limitado a ${limit * 2})`)
-        return NextResponse.json({ success: true, emails: finalEmails.slice(0, limit * 2), total: finalEmails.length })
+        return NextResponse.json({ success: true, emails: finalEmails.slice(0, limit * 2), total: finalEmails.length, folderTotals })
       }
     }
 
@@ -272,10 +343,11 @@ export async function POST(req: NextRequest) {
       const promises = multiEmails.flatMap((mEmail, idx) =>
         pastasParaProcessar.map(async (fPath) => {
           try {
+            const multiImapCfg = resolveImapConfig(mEmail)
             const client = new ImapFlow({
-              host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
-              port: 993,
-              secure: true,
+              host: multiImapCfg.host,
+              port: multiImapCfg.port,
+              secure: multiImapCfg.secure,
               auth: { user: mEmail, pass: multiPasswords?.[idx] || 'Ad.Vd#2425?*' },
               tls: { rejectUnauthorized: false },
               logger: false
@@ -319,7 +391,7 @@ export async function POST(req: NextRequest) {
                   }
                 }
               } else if (total > 0) {
-                const itemsToFetch = multiFolders ? 10 : limit
+                const itemsToFetch = isMultiFolders ? 10 : limit
                 const start = Math.max(1, total - itemsToFetch + 1)
                 for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
                   emailsTemp.push({
@@ -351,17 +423,14 @@ export async function POST(req: NextRequest) {
       const results = await Promise.all(promises)
       results.forEach(emails => todosEmails.push(...emails))
 
-      // Deduplicação Inteligente (Message-ID ou Assunto + Data truncada ao minuto)
+      // Deduplicação Inteligente — inclui pasta e conta para não misturar emails de pastas/contas diferentes
       const uniqueEmails: any[] = []
       const seenKeys = new Set()
       
       todosEmails.forEach(e => {
-        // Chave 1: Message-ID (se existir)
-        const idKey = e.messageId ? `msgid-${e.messageId}` : null
-        
-        // Chave 2: Fuzzy Key (Assunto + Remetente + Data/Minuto)
-        const dateMinute = e.data ? e.data.substring(0, 16) : '' // YYYY-MM-DDTHH:mm
-        const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+        const idKey = e.messageId ? `msgid-${e.messageId}-${e.conta}-${e.tipo}` : null
+        const dateMinute = e.data ? e.data.substring(0, 16) : ''
+        const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}-${e.conta}-${e.tipo}`
         
         if ((idKey && !seenKeys.has(idKey)) || (!idKey && !seenKeys.has(fuzzyKey))) {
           if (idKey) seenKeys.add(idKey)
@@ -388,25 +457,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Configure a senha IMAP para visualizar emails', details: 'no-imap-password' }, { status: 400 })
     }
 
-    console.log(`📧 [read-emails] Conectando ao IMAP: ${process.env.IMAP_HOST || '109.199.104.22'}:${993}`)
-    console.log(`📧 [read-emails] Email: ${email}, Pastas: ${pastasParaProcessar.join(', ')}`)
+    const imapCfg = resolveImapConfig(email)
+    console.log(`📧 [read-emails] Conectando ao IMAP: ${imapCfg.host}:${imapCfg.port} (${email})`)
+    console.log(`📧 [read-emails] Pastas: ${pastasParaProcessar.join(', ')}`)
     
     const client = new ImapFlow({
-      host: process.env.IMAP_HOST || 'mail.visualdesigne.com',
-      port: 993,
-      secure: true,
+      host: imapCfg.host,
+      port: imapCfg.port,
+      secure: imapCfg.secure,
       auth: { user: email, pass: password },
       tls: { rejectUnauthorized: false },
       logger: false
     })
 
-    try {
-      await client.connect()
-    } catch (connectError: any) {
-      console.log(`📧 [read-emails] Falha ao conectar (${connectError.message}). Tentando novamente em 500ms...`)
-      await new Promise(resolve => setTimeout(resolve, 500))
-      await client.connect() // Segunda tentativa
-    }
+    await client.connect()
     console.log(`📧 [read-emails] Conectado ao IMAP com sucesso`)
     const emails: any[] = []
 
@@ -419,38 +483,29 @@ export async function POST(req: NextRequest) {
         }
         const { lock, actualPath } = mailboxResult
         try {
+          const total = client.mailbox ? client.mailbox.exists || 0 : 0
+          folderTotals[fPath] = total
+          console.log(`📧 [read-emails] Pasta ${actualPath}: ${total} emails totais`)
+          
+          const itemsToFetch = isMultiFolders ? 10 : limit
           let uids: number[] = []
+          
           if (search) {
-            // Busca no servidor — protegido com try/catch para não deixar sessão IMAP inconsistente
             try {
               const searchResult = await client.search({ or: [{ subject: search }, { body: search }, { from: search }, { to: search }] }, { uid: true })
               uids = Array.isArray(searchResult) ? searchResult : []
-            } catch (searchError: any) {
-              console.log(`📧 [read-emails] Busca IMAP falhou (retornando vazio): ${searchError.message}`)
-              uids = []
-            }
-          }
-
-          const total = client.mailbox ? client.mailbox.exists || 0 : 0
-          console.log(`📧 [read-emails] Pasta ${actualPath}: ${total} emails totais`)
-          
-          // WORKAROUND: CyberPanel às vezes reporta 0 emails mesmo quando existem
-          // Sempre tentamos buscar emails, mesmo com total=0
-          const itemsToFetch = multiFolders ? 10 : limit
-          
-          if (search) {
-            // Se for busca, ordenamos os UIDs (mais recentes primeiro) e paginamos
-            uids.reverse()
-            const startIdx = (page - 1) * limit
-            const pagedUids = uids.slice(startIdx, startIdx + limit)
-            
-            if (pagedUids.length > 0) {
-              try {
+              uids.reverse() // Mais recentes primeiro
+              
+              const startIdx = (page - 1) * limit
+              const pagedUids = uids.slice(startIdx, startIdx + limit)
+              
+              if (pagedUids.length > 0) {
                 for await (const msg of client.fetch(pagedUids, { envelope: true, flags: true }, { uid: true })) {
                   emails.push({
                     id: msg.uid,
                     seq: msg.seq,
                     tipo: determinarTipo(actualPath),
+                    conta: email,
                     messageId: msg.envelope?.messageId || '',
                     de: msg.envelope?.from?.[0]?.address || '',
                     deNome: msg.envelope?.from?.[0]?.name || '',
@@ -461,48 +516,73 @@ export async function POST(req: NextRequest) {
                     preview: ''
                   })
                 }
-              } catch (fetchErr: any) {
-                console.log(`📧 [read-emails] Erro ao pesquisar os pagedUids: ${fetchErr.message}`)
               }
-            }
-          } else {
-            // Sempre tentar buscar emails, mesmo com total=0
-            const start = Math.max(1, total - (page * itemsToFetch) + 1)
-            const end = Math.max(total, itemsToFetch) // Garantir que end >= itemsToFetch quando total=0
-            const fetchRange = total > 0 ? `${start}:${end}` : `1:${itemsToFetch}`
-            
-            console.log(`📧 [read-emails] Fetch range: ${fetchRange} (total=${total}, itemsToFetch=${itemsToFetch})`)
-            
-            try {
-              // Obter UIDs reais primeiro
-              const allUids = await client.search({ all: true }, { uid: true })
-              const uidsArray = Array.isArray(allUids) ? allUids : []
-              const slicedUids = uidsArray.slice(-itemsToFetch)
-              if (slicedUids.length > 0) {
-              for await (const msg of client.fetch(slicedUids, { envelope: true, flags: true }, { uid: true })) {
-                emails.push({
-                  id: msg.uid,
-                  seq: msg.seq,
-                  tipo: determinarTipo(actualPath),
-                  messageId: msg.envelope?.messageId || '',
-                  de: msg.envelope?.from?.[0]?.address || '',
-                  deNome: msg.envelope?.from?.[0]?.name || '',
-                  para: msg.envelope?.to?.[0]?.address || '',
-                  assunto: msg.envelope?.subject || '(sem assunto)',
-                  data: msg.envelope?.date?.toISOString() || '',
-                  lido: msg.flags?.has('\\Seen') || false,
-                  preview: ''
-                })
-              }
-              }
-            } catch (fetchError: any) {
-              // Se der erro no fetch (pasta vazia), apenas logamos
-              console.log(`📧 [read-emails] Fetch retornou vazio ou erro: ${fetchError.message} | stack: ${fetchError.stack} | code: ${fetchError.code} | response: ${JSON.stringify(fetchError.response)}`)
+            } catch (searchError: any) {
+              console.log(`📧 [read-emails] Erro na procura IMAP: ${searchError.message}`)
             }
           }
-        } finally {
-          lock.release()
-        }
+          
+          if (!search) {
+            try {
+              // 1. Tentar obter UIDs (mais performante e fiável para paginação)
+              const allUids = await client.search({ all: true }, { uid: true })
+              const uidsArray = (Array.isArray(allUids) ? allUids : []).sort((a: any, b: any) => Number(a) - Number(b))
+              
+              const startIdx = Math.max(0, uidsArray.length - (page * itemsToFetch))
+              const endIdx = Math.max(0, uidsArray.length - ((page - 1) * itemsToFetch))
+              let slicedUids = uidsArray.slice(startIdx, endIdx).reverse()
+              
+              console.log(`📧 [read-emails] UIDs encontrados: ${uidsArray.length}, a processar slice: ${startIdx}:${endIdx} (página ${page})`)
+
+              // 2. Se a pesquisa de UIDs falhar mas o mailbox disser que tem emails, usar fallback de Sequência
+              if (slicedUids.length === 0 && total > 0) {
+                console.log(`📧 [read-emails] Fallback para Sequence Range (search regressou vazio para total=${total})`)
+                const seqStart = Math.max(1, total - (page * itemsToFetch) + 1)
+                const seqEnd = Math.max(1, total - ((page - 1) * itemsToFetch))
+                const fetchRange = `${seqStart}:${seqEnd}`
+                
+                for await (const msg of client.fetch(fetchRange, { envelope: true, flags: true }, { uid: true })) {
+                  emails.push({
+                    id: msg.uid,
+                    seq: msg.seq,
+                    tipo: determinarTipo(actualPath),
+                    conta: email,
+                    messageId: msg.envelope?.messageId || '',
+                    de: msg.envelope?.from?.[0]?.address || '',
+                    deNome: msg.envelope?.from?.[0]?.name || '',
+                    para: msg.envelope?.to?.[0]?.address || '',
+                    assunto: msg.envelope?.subject || '(sem assunto)',
+                    data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
+                    lido: msg.flags?.has('\\Seen') || false,
+                    preview: ''
+                  })
+                }
+              } else if (slicedUids.length > 0) {
+                // 3. Caso normal: buscar os UIDs paginados
+                for await (const msg of client.fetch(slicedUids, { envelope: true, flags: true }, { uid: true })) {
+                  emails.push({
+                    id: msg.uid,
+                    seq: msg.seq,
+                    tipo: determinarTipo(actualPath),
+                    conta: email,
+                    messageId: msg.envelope?.messageId || '',
+                    de: msg.envelope?.from?.[0]?.address || '',
+                    deNome: msg.envelope?.from?.[0]?.name || '',
+                    para: msg.envelope?.to?.[0]?.address || '',
+                    assunto: msg.envelope?.subject || '(sem assunto)',
+                    data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
+                    lido: msg.flags?.has('\\Seen') || false,
+                    preview: ''
+                  })
+                }
+              }
+            } catch (fetchError: any) {
+              console.log(`📧 [read-emails] Erro ao listar emails (single account): ${fetchError.message}`)
+            }
+          }
+            } finally {
+              lock.release()
+            }
       } catch (e) {
         console.error(`Erro ao ler pasta ${fPath}:`, e)
       }
@@ -512,14 +592,17 @@ export async function POST(req: NextRequest) {
     }
     console.log(`📧 [read-emails] Total de emails carregados: ${emails.length}`)
 
-    // Deduplicação final inteligente
+    // Deduplicação final — inclui tipo (pasta) para não misturar emails de pastas diferentes
     const finalEmails: any[] = []
     const finalSeenKeys = new Set()
     
     emails.forEach(e => {
-      const idKey = e.messageId ? `msgid-${e.messageId}` : null
+      const idKey = e.messageId ? `msgid-${e.messageId}-${e.conta || email}-${e.tipo}` : null
       const dateMinute = e.data ? e.data.substring(0, 16) : ''
-      const fuzzyKey = `fuzzy-${e.assunto}-${e.de}-${dateMinute}`
+      // Fuzzy key mais robusta incluindo assunto e remetente para evitar colisões erradas
+      const assuntoNormalizado = (e.assunto || '').toLowerCase().trim()
+      const remetenteNormalizado = (e.de || '').toLowerCase().trim()
+      const fuzzyKey = `fuzzy-${assuntoNormalizado}-${remetenteNormalizado}-${dateMinute}-${e.conta || email}-${e.tipo}`
       
       if ((idKey && !finalSeenKeys.has(idKey)) || (!idKey && !finalSeenKeys.has(fuzzyKey))) {
         if (idKey) finalSeenKeys.add(idKey)
@@ -530,7 +613,7 @@ export async function POST(req: NextRequest) {
 
     finalEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     console.log(`📧 [read-emails] Retornando ${finalEmails.length} emails únicos`)
-    return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length })
+    return NextResponse.json({ success: true, emails: finalEmails, total: finalEmails.length, folderTotals })
   } catch (error: any) {
     console.error('Erro ao ler emails:', error, error?.stack)
     // Melhorar mensagem de erro para o cliente

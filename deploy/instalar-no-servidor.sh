@@ -82,27 +82,40 @@ echo -e "${GREEN}✓ Código enviado${NC}"
 echo ""
 
 echo -e "${BLUE}Passo 4/5 — Configurar ambiente e instalar dependências...${NC}"
+# Carregar variáveis de ambiente locais se existirem (.env.production ou .env.local)
+if [ -f "${LOCAL_PROJECT}/.env.production" ]; then
+    export $(grep -v '^#' "${LOCAL_PROJECT}/.env.production" | xargs)
+elif [ -f "${LOCAL_PROJECT}/.env.local" ]; then
+    echo -e "${YELLOW}AVISO: Usando variáveis de .env.local (certifica-te que são as de produção!)${NC}"
+    export $(grep -v '^#' "${LOCAL_PROJECT}/.env.local" | xargs)
+fi
+
+# Validar variáveis obrigatórias
+if [ -z "$CYBERPANEL_PASS" ]; then
+    echo -e "${YELLOW}ERRO: CYBERPANEL_PASS não está definida. Define-a no teu ambiente ou num ficheiro .env.production${NC}"
+    exit 1
+fi
+
 $SSH_CMD << REMOTE
 cd ${APP_DIR}
 
-# Cria o ficheiro .env.local para produção
+# Cria o ficheiro .env.local para produção (sem passwords hardcoded no script)
 cat > .env.local << 'ENVFILE'
-NEXT_PUBLIC_SUPABASE_URL=https://gwankhxcbkrtgxopbxwd.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_NkNwKuVE-AyGgyxKB6zpmQ_b-HdjWOA
-CYBERPANEL_URL=https://localhost:8090/api
-CYBERPANEL_PASS=Vgz5Zat4uMyFt2tb
-CYBERPANEL_USER=admin
-CYBERPANEL_IP=127.0.0.1
-CYBERPANEL_SSH_USER=root
+NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://gwankhxcbkrtgxopbxwd.supabase.co}
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
+CYBERPANEL_URL=${CYBERPANEL_URL:-https://localhost:8090/api}
+CYBERPANEL_PASS=${CYBERPANEL_PASS}
+CYBERPANEL_USER=${CYBERPANEL_USER:-admin}
+CYBERPANEL_IP=${CYBERPANEL_IP:-127.0.0.1}
+CYBERPANEL_SSH_USER=${CYBERPANEL_SSH_USER:-root}
 CYBERPANEL_USE_LOCAL_EXEC=true
 ENVFILE
-
+REMOTE
 echo "Instalando dependências (pode demorar 2-3 minutos)..."
 npm install --production=false
 
 echo "Compilando o site (pode demorar 2-3 minutos)..."
 npm run build
-REMOTE
 
 echo -e "${GREEN}✓ Site compilado com sucesso${NC}"
 echo ""

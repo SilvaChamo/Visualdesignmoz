@@ -1,10 +1,10 @@
 // API Integration com MozServer
 const MOZSERVER_CONFIG = {
   baseURL: 'https://mozserver.co.mz/api',
-  token: 'JI9ZP78LANWNSAU38BC60OX3TM0PQP3G',
+  token: process.env.MOZSERVER_TOKEN || '',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer JI9ZP78LANWNSAU38BC60OX3TM0PQP3G`
+    'Authorization': `Bearer ${process.env.MOZSERVER_TOKEN || ''}`
   }
 }
 

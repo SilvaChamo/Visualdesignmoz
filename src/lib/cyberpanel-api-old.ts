@@ -103,7 +103,7 @@ export interface CyberPanelResellerACL {
 class CyberPanelAPI {
     private baseUrl: string;
     private adminUser: string = 'admin'; // Default administrator
-    private adminPass: string = 'Vgz5Zat4uMyFt2tb';      // Set from user provided credentials
+    private adminPass: string = process.env.CYBERPANEL_PASS || '';      // Set from environment variables
 
     constructor() {
         this.baseUrl = 'https://109.199.104.22:8090/api';

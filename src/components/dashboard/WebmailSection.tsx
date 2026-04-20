@@ -322,6 +322,26 @@ export function WebmailSection({
       setAllAccounts(allAccounts)
       setAccounts(filteredAccounts)
       
+      // 4. Carregar contas importadas manualmente (ex: Gmail) do localStorage
+      const IMPORTED_KEY = 'webmail_imported_accounts_v1'
+      try {
+        const savedImported = localStorage.getItem(IMPORTED_KEY)
+        if (savedImported) {
+          const importedList: EmailAccount[] = JSON.parse(savedImported)
+          importedList.forEach(acc => {
+            if (!filteredAccounts.find(a => a.email === acc.email)) {
+              filteredAccounts.push(acc)
+              allAccounts.push(acc)
+            }
+          })
+          // Re-aplicar após mesclar importadas
+          setAllAccounts([...allAccounts])
+          setAccounts([...filteredAccounts])
+        }
+      } catch (e) {
+        console.error('Erro ao carregar contas importadas:', e)
+      }
+      
       // Selecionar a conta por defeito (silva.chamo > conta do usuário > primeira da lista)
       if (filteredAccounts.length > 0) {
         const silvaAccount = filteredAccounts.find(a => a.email === 'silva.chamo@visualdesigne.com')
@@ -374,7 +394,7 @@ export function WebmailSection({
     }
   }
 
-  // Carregar contagem de emails de TODAS as pastas
+  // Carregar contagem de emails de TODAS as pastas — UMA única chamada à API
   const loadFolderCounts = async () => {
     try {
       const account = accounts.find(a => a.email === selectedAccount)
@@ -386,23 +406,27 @@ export function WebmailSection({
       const folderList = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Archive']
       const counts: Record<string, number> = {}
 
-      for (const folder of folderList) {
-        try {
-          const res = await fetch('/api/read-emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: account.email,
-              password: password,
-              folders: [folder],
-              limit: 1
-            })
+      // Uma única ligação IMAP com todas as pastas para evitar sobrecarga de concorrência
+      try {
+        const res = await fetch('/api/read-emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: account.email,
+            password: password,
+            folders: folderList,  // todas as pastas de uma vez
+            limit: 5              // poucos emails por pasta — apenas para contar
           })
-          const data = await res.json()
-          counts[folder] = data.total || 0
-        } catch {
-          counts[folder] = 0
+        })
+        const data = await res.json()
+        if (data.success && data.folderTotals) {
+          folderList.forEach(f => {
+            counts[f] = data.folderTotals[f] || 0
+          })
         }
+      } catch (error) {
+        console.error('Erro na chamada de contagens:', error)
+        folderList.forEach(f => counts[f] = 0)
       }
 
       setFolderCounts(counts)
@@ -2054,18 +2078,43 @@ export function WebmailSection({
               </button>
               <button
                 onClick={async () => {
-                  const sourceEmail = (document.getElementById('gmailSourceEmail') as HTMLInputElement)?.value
+                  const sourceEmail = (document.getElementById('gmailSourceEmail') as HTMLInputElement)?.value?.trim()
                   const sourcePassword = (document.getElementById('gmailSourcePassword') as HTMLInputElement)?.value
                   
                   if (!sourceEmail || !sourcePassword) {
-                    alert('Preencha todos os campos')
+                    alert('Preencha o email e a senha')
+                    return
+                  }
+
+                  const domain = sourceEmail.split('@')[1] || 'unknown'
+                  const btn = document.getElementById('btnImportarConta') as HTMLButtonElement
+                  if (btn) { btn.disabled = true; btn.textContent = 'A verificar...' }
+
+                  // Testar ligação IMAP antes de guardar
+                  try {
+                    const testRes = await fetch('/api/read-emails', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: sourceEmail,
+                        password: sourcePassword,
+                        folders: ['INBOX'],
+                        limit: 1
+                      })
+                    })
+                    const testData = await testRes.json()
+
+                    if (!testData.success) {
+                      alert(`❌ Não foi possível ligar à conta:\n${testData.error || 'Credenciais inválidas'}\n\nPara Gmail use uma Senha de App de 16 caracteres.`)
+                      if (btn) { btn.disabled = false; btn.textContent = 'Importar Conta' }
+                      return
+                    }
+                  } catch (e) {
+                    alert('❌ Erro ao verificar a conta. Tente novamente.')
+                    if (btn) { btn.disabled = false; btn.textContent = 'Importar Conta' }
                     return
                   }
                   
-                  // Detectar domínio
-                  const domain = sourceEmail.split('@')[1] || 'unknown'
-                  
-                  // Adicionar conta importada à lista
                   const importedAccount: EmailAccount = {
                     email: sourceEmail,
                     name: sourceEmail.split('@')[0],
@@ -2074,14 +2123,30 @@ export function WebmailSection({
                     tipo: 'imported'
                   }
                   
-                  // Adicionar à lista de contas
-                  setAccounts(prev => [...prev, importedAccount])
-                  setAllAccounts(prev => [...prev, importedAccount])
+                  // Guardar no localStorage para persistir entre recarregamentos
+                  const IMPORTED_KEY = 'webmail_imported_accounts_v1'
+                  try {
+                    const saved = localStorage.getItem(IMPORTED_KEY)
+                    const list: EmailAccount[] = saved ? JSON.parse(saved) : []
+                    // Substituir se já existir, senão adicionar
+                    const idx = list.findIndex(a => a.email === sourceEmail)
+                    if (idx >= 0) list[idx] = importedAccount
+                    else list.push(importedAccount)
+                    localStorage.setItem(IMPORTED_KEY, JSON.stringify(list))
+                  } catch (e) {
+                    console.error('Erro ao guardar conta importada:', e)
+                  }
+
+                  // Adicionar à lista de contas em memória
+                  setAccounts(prev => prev.find(a => a.email === sourceEmail) ? prev : [...prev, importedAccount])
+                  setAllAccounts(prev => prev.find(a => a.email === sourceEmail) ? prev : [...prev, importedAccount])
+                  setSelectedAccount(sourceEmail)
                   
-                  alert(`✅ Conta ${sourceEmail} importada com sucesso!`)
+                  alert(`✅ Conta ${sourceEmail} importada e ligada com sucesso!`)
                   setShowImportGmail(false)
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                id="btnImportarConta"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 Importar Conta
               </button>
