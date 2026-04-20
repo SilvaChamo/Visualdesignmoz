@@ -104,6 +104,9 @@ export function WebmailSection({
   const [diagnosticoResult, setDiagnosticoResult] = useState<any>(null)
   const [diagnosticoLoading, setDiagnosticoLoading] = useState(false)
   const assinaturaEditorRef = useRef<HTMLDivElement>(null)
+  const loadEmailsAbortControllerRef = useRef<AbortController | null>(null)
+  const loadCountsAbortControllerRef = useRef<AbortController | null>(null)
+  
   // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaAtiva: number, assinaturaPadrao: string } }
   const STORAGE_KEY = 'webmail_assinaturas_v2'
 
@@ -175,7 +178,6 @@ export function WebmailSection({
   useEffect(() => {
     if (selectedAccount && viewMode === 'list') {
       loadEmails()
-      loadFolderCounts()
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery])
 
@@ -221,8 +223,14 @@ export function WebmailSection({
     }
   }, [selectedEmail?.id, selectedEmail?.uid, selectedAccount, activeFolder])
 
-  // SINCRONIZAÇÃO: Carregar assinaturas quando email muda
+  // SINCRONIZAÇÃO: Carregar assinaturas e LIMPAR estados quando email muda
   useEffect(() => {
+    // Limpar estados para evitar "flashing" de dados da conta anterior
+    setEmails([])
+    setFolderCounts({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
+    setSelectedEmail(null)
+    setSelectedEmails(new Set())
+    
     if (selectedAccount && assinaturasPorEmail[selectedAccount]) {
       const config = assinaturasPorEmail[selectedAccount]
       setAssinaturas(config.assinaturas || [])
@@ -356,6 +364,14 @@ export function WebmailSection({
   }
 
   const loadEmails = async () => {
+    // Cancelar pedido anterior se houver
+    if (loadEmailsAbortControllerRef.current) {
+      loadEmailsAbortControllerRef.current.abort()
+    }
+    
+    const controller = new AbortController()
+    loadEmailsAbortControllerRef.current = controller
+    
     setLoadingEmails(true)
     try {
       const account = accounts.find(a => a.email === selectedAccount)
@@ -367,7 +383,7 @@ export function WebmailSection({
         return
       }
 
-      console.log(`📧 [WebmailSection] Carregando pasta: ${activeFolder}`)
+      console.log(`📧 [WebmailSection] Carregando e-mails e contagens para: ${activeFolder}`)
       const res = await fetch('/api/read-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -376,62 +392,37 @@ export function WebmailSection({
           password: password,
           folders: [activeFolder],
           limit: 50,
-          search: debouncedSearchQuery
-        })
+          search: debouncedSearchQuery,
+          includeTotals: true // UNIFICAÇÃO: Pedir contagens na mesma ligação
+        }),
+        signal: controller.signal
       })
 
       const data = await res.json()
-      console.log('📧 [WebmailSection] Resposta API:', { success: data.success, total: data.total, emailsCount: data.emails?.length, error: data.error })
+      
       if (data.success) {
         setEmails(data.emails || [])
+        // Atualizar contagens das pastas na mesma resposta
+        if (data.folderTotals) {
+          setFolderCounts(prev => ({
+            ...prev,
+            ...data.folderTotals
+          }))
+        }
       } else {
         console.error('📧 [WebmailSection] Erro da API:', data.error)
       }
-    } catch (error) {
-      console.error('Erro ao carregar emails:', error)
-    } finally {
-      setLoadingEmails(false)
-    }
-  }
-
-  // Carregar contagem de emails de TODAS as pastas — UMA única chamada à API
-  const loadFolderCounts = async () => {
-    try {
-      const account = accounts.find(a => a.email === selectedAccount)
-      if (!account) return
-
-      const password = account.password || CREDENCIAIS_PADRAO[account.email]
-      if (!password) return
-
-      const folderList = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Archive']
-      const counts: Record<string, number> = {}
-
-      // Uma única ligação IMAP com todas as pastas para evitar sobrecarga de concorrência
-      try {
-        const res = await fetch('/api/read-emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: account.email,
-            password: password,
-            folders: folderList,  // todas as pastas de uma vez
-            limit: 5              // poucos emails por pasta — apenas para contar
-          })
-        })
-        const data = await res.json()
-        if (data.success && data.folderTotals) {
-          folderList.forEach(f => {
-            counts[f] = data.folderTotals[f] || 0
-          })
-        }
-      } catch (error) {
-        console.error('Erro na chamada de contagens:', error)
-        folderList.forEach(f => counts[f] = 0)
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('📧 [WebmailSection] Pedido otimizado cancelado (novo disparado).')
+      } else {
+        console.error('Erro ao carregar emails:', error)
       }
-
-      setFolderCounts(counts)
-    } catch (error) {
-      console.error('Erro ao carregar contagens:', error)
+    } finally {
+      if (loadEmailsAbortControllerRef.current === controller) {
+        setLoadingEmails(false)
+        loadEmailsAbortControllerRef.current = null
+      }
     }
   }
 
