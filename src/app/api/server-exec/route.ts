@@ -264,6 +264,66 @@ print('ok')
         break;
       }
 
+      case 'fixSnappyMailPermissions': {
+        // Agora apenas configura o nativo - instalação manual foi removida
+        try {
+          console.log('[fixSnappyMailPermissions] Configurando SnappyMail nativo do CyberPanel...');
+          
+          const configCmd = [
+            'echo "=== CONFIGURANDO SNAPPYMAIL NATIVO ==="',
+            'chown -R lscpd:lscpd /usr/local/lscp/cyberpanel/snappymail/',
+            'chmod -R 755 /usr/local/lscp/cyberpanel/snappymail/',
+            'chmod -R 777 /usr/local/lscp/cyberpanel/snappymail/data/ 2>/dev/null || true',
+            '',
+            'echo "=== LIMPANDO INSTALACAO MANUAL (SE EXISTIR) ==="',
+            'rm -rf /usr/local/CyberCP/public/snappymail 2>/dev/null || true',
+            '',
+            'echo "=== STATUS ==="',
+            'ls -la /usr/local/lscp/cyberpanel/snappymail/ | head -5',
+            'echo "✅ SnappyMail nativo configurado!"'
+          ].join(' && ');
+          
+          const output = await execSSH(configCmd);
+          console.log('[fixSnappyMailPermissions] Output:', output);
+          
+          data = { 
+            success: true, 
+            output: output,
+            message: 'SnappyMail nativo configurado. Use https://109.199.104.22:8090/snappymail/' 
+          };
+          
+        } catch (err: any) {
+          console.error('[fixSnappyMailPermissions] Error:', err.message);
+          data = { success: false, error: err.message };
+        }
+        break;
+      }
+
+      case 'cleanupSnappyMailManual': {
+        try {
+          console.log('[cleanupSnappyMailManual] Removendo instalação manual...');
+          
+          const cleanupCmd = [
+            'echo "=== REMOVENDO INSTALACAO MANUAL DO SNAPPYMAIL ==="',
+            'rm -rf /usr/local/CyberCP/public/snappymail',
+            'rm -f /usr/local/CyberCP/public/snappymail.php',
+            'echo "✅ Instalação manual removida. SnappyMail nativo em uso: https://109.199.104.22:8090/snappymail/"'
+          ].join(' && ');
+          
+          const output = await execSSH(cleanupCmd);
+          
+          data = { 
+            success: true, 
+            output: output,
+            message: 'Instalação manual removida' 
+          };
+          
+        } catch (err: any) {
+          data = { success: false, error: err.message };
+        }
+        break;
+      }
+
       case 'listUsers': {
         try {
           console.log('[listUsers] Starting MySQL query...');
@@ -670,6 +730,72 @@ print('ok')
         const raw = await execSSH(`du -sh /home/${domain} 2>/dev/null | cut -f1`)
         data = { usage: raw.trim() || '0' }
         break
+      }
+
+      case 'fixSnappyMailStaticPaths': {
+        // Corrigir caminhos estáticos do SnappyMail nativo
+        // O erro "/snappymail/v/snappymail/static/" indica que precisa de link simbólico
+        try {
+          console.log('[fixSnappyMailStaticPaths] Corrigindo caminhos estáticos...');
+          
+          const fixCmd = [
+            'echo "=== VERIFICANDO SNAPPYMAIL NATIVO ==="',
+            'SNAPPY_PATH="/usr/local/lscp/cyberpanel/snappymail"',
+            'V_PATH="$SNAPPY_PATH/snappymail/v"',
+            '',
+            'if [ -d "$V_PATH" ]; then',
+            '  echo "Conteúdo de $V_PATH:"',
+            '  ls -la "$V_PATH/" | head -10',
+            '  ',
+            '  # Detectar versão real (diretório numérico)',
+            '  VERSION_DIR=$(ls -1 "$V_PATH/" 2>/dev/null | grep -E "^[0-9]+\\.[0-9]" | head -1)',
+            '  ',
+            '  if [ -n "$VERSION_DIR" ] && [ -d "$V_PATH/$VERSION_DIR" ]; then',
+            '    echo "Versão detectada: $VERSION_DIR"',
+            '    ',
+            '    # Remover link antigo se existir',
+            '    if [ -L "$V_PATH/snappymail" ]; then',
+            '      rm -f "$V_PATH/snappymail"',
+            '      echo "Link antigo removido"',
+            '    fi',
+            '    ',
+            '    # Criar novo link simbólico: snappymail -> versão real',
+            '    cd "$V_PATH" && ln -s "$VERSION_DIR" snappymail',
+            '    echo "✅ Link criado: snappymail -> $VERSION_DIR"',
+            '    ',
+            '    # Ajustar permissões',
+            '    chown -R lscpd:lscpd "$V_PATH/"',
+            '    chmod -R 755 "$V_PATH/"',
+            '    chmod -R 777 "$SNAPPY_PATH/data/" 2>/dev/null || true',
+            '    ',
+            '    # Verificar resultado',
+            '    echo ""',
+            '    echo "=== STATUS FINAL ==="',
+            '    ls -la "$V_PATH/" | head -5',
+            '  else',
+            '    echo "❌ Versão não detectada em $V_PATH"',
+            '    echo "Conteúdo:"',
+            '    ls -la "$V_PATH/" 2>/dev/null || echo "Diretório não existe"',
+            '  fi',
+            'else',
+            '  echo "❌ Diretório $V_PATH não existe"',
+            'fi'
+          ].join('\n');
+          
+          const output = await execSSH(fixCmd);
+          console.log('[fixSnappyMailStaticPaths] Output:', output);
+          
+          data = { 
+            success: true, 
+            output: output,
+            message: 'Caminhos estáticos corrigidos. Recarregue a página do SnappyMail.' 
+          };
+          
+        } catch (err: any) {
+          console.error('[fixSnappyMailStaticPaths] Error:', err.message);
+          data = { success: false, error: err.message };
+        }
+        break;
       }
 
       default:

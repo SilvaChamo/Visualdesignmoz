@@ -58,7 +58,7 @@ export function WebmailSection({
   const hasLoadedAccounts = useRef(false)
   const [activeFolder, setActiveFolder] = useState('INBOX')
   const [emails, setEmails] = useState<any[]>([])
-  const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
+  const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Junk: 0, Archive: 0 })
   const [loadingEmails, setLoadingEmails] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
@@ -188,38 +188,17 @@ export function WebmailSection({
     }
   }, [showAdvancedCompose, onComposeStateChange])
 
-  // ⚡ CACHE LOCAL para carregamento instantâneo
-  const getCacheKey = (account: string, folder: string) => `webmail_${account}_${folder}`
-  const getCachedData = (account: string, folder: string) => {
-    try {
-      const cached = localStorage.getItem(getCacheKey(account, folder))
-      if (cached) {
-        const { emails, counts, timestamp } = JSON.parse(cached)
-        // Cache válido por 2 minutos
-        if (Date.now() - timestamp < 2 * 60 * 1000) {
-          return { emails, counts }
-        }
-      }
-    } catch {}
-    return null
-  }
-  const setCachedData = (account: string, folder: string, emails: any[], counts: any) => {
-    try {
-      localStorage.setItem(getCacheKey(account, folder), JSON.stringify({
-        emails, counts, timestamp: Date.now()
-      }))
-    } catch {}
-  }
+  // ⚡ CACHE LOCAL - DESATIVADO TEMPORARIAMENTE (Problema de mistura de dados)
+  // const getCacheKey = (account: string, folder: string) => `webmail_${account}_${folder}`
+  // const getCachedData = (account: string, folder: string) => { ... }
+  // const setCachedData = (account: string, folder: string, emails: any[], counts: any) => { ... }
+  const setCachedData = (_a?: string, _f?: string, _e?: any[], _c?: any) => {} // Função vazia para compatibilidade
+  const getCachedData = () => null // Sempre retorna null
 
   // Carregar emails quando mudar conta ou pasta
   useEffect(() => {
     if (selectedAccount && viewMode === 'list') {
-      // ⚡ Mostrar cache imediatamente enquanto busca novos
-      const cached = getCachedData(selectedAccount, activeFolder)
-      if (cached) {
-        setEmails(cached.emails)
-        setFolderCounts(prev => ({ ...prev, ...cached.counts }))
-      }
+      // 🔄 Sempre buscar dados frescos do servidor (cache desativado)
       loadEmails()
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery])
@@ -266,11 +245,37 @@ export function WebmailSection({
     }
   }, [selectedEmail?.id, selectedEmail?.uid, selectedAccount, activeFolder])
 
+  // 🔧 CORREÇÃO ÚNICA: Permissões do SnappyMail (executa apenas 1x na sessão)
+  useEffect(() => {
+    // Limpar flag para forçar nova execução após atualização do código
+    sessionStorage.removeItem('snappymail_permissions_fixed')
+    
+    const fixed = sessionStorage.getItem('snappymail_permissions_fixed')
+    if (fixed) return
+    
+    console.log('[WebmailSection] Corrigindo permissões SnappyMail...')
+    fetch('/api/server-exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'fixSnappyMailPermissions' })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        console.log('[WebmailSection] Permissões corrigidas:', d.output)
+        sessionStorage.setItem('snappymail_permissions_fixed', 'true')
+      } else {
+        console.error('[WebmailSection] Falha:', d.error)
+      }
+    })
+    .catch(e => console.error('[WebmailSection] Erro:', e))
+  }, [])
+
   // SINCRONIZAÇÃO: Carregar assinaturas e LIMPAR estados quando email muda
   useEffect(() => {
     // Limpar estados para evitar "flashing" de dados da conta anterior
     setEmails([])
-    setFolderCounts({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Spam: 0, Archive: 0 })
+    setFolderCounts({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Junk: 0, Archive: 0 })
     setSelectedEmail(null)
     setSelectedEmails(new Set())
     
@@ -443,16 +448,19 @@ export function WebmailSection({
 
       const data = await res.json()
       
+      console.log(`📊 [FRONT] Recebido de API para ${activeFolder}:`, data.folderTotals)
+      
       if (data.success) {
         const newEmails = data.emails || []
         const newCounts = data.folderTotals || {}
         setEmails(newEmails)
-        // Atualizar contagens das pastas na mesma resposta
-        if (data.folderTotals) {
-          setFolderCounts(prev => ({
-            ...prev,
-            ...newCounts
-          }))
+        // 🔄 Atualizar TODAS as contagens de pastas de uma vez (não só a ativa)
+        if (data.folderTotals && Object.keys(newCounts).length > 0) {
+          setFolderCounts(prev => {
+            const updated = { ...prev, ...newCounts }
+            console.log(`📊 [FRONT] folderCounts atualizado:`, updated)
+            return updated
+          })
         }
         // ⚡ Guardar no cache para carregamento instantâneo
         setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
@@ -470,6 +478,37 @@ export function WebmailSection({
         setLoadingEmails(false)
         loadEmailsAbortControllerRef.current = null
       }
+    }
+  }
+
+  // 🔄 Função para recarregar contagens de TODAS as pastas
+  const refreshAllFolderCounts = async () => {
+    const account = accounts.find(a => a.email === selectedAccount)
+    if (!account) return
+
+    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    if (!password) return
+
+    try {
+      const res = await fetch('/api/read-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: account.email,
+          password: password,
+          folders: ['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive'],
+          limit: 1,
+          includeTotals: true
+        })
+      })
+
+      const data = await res.json()
+      if (data.success && data.folderTotals) {
+        setFolderCounts(data.folderTotals)
+        // Cache desativado - não atualizar
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar contagens:', e)
     }
   }
 
@@ -566,7 +605,7 @@ export function WebmailSection({
     setDiagnosticoLoading(false)
   }
 
-  const openSnappyMailAutoLogin = () => {
+  const openSnappyMailAutoLogin = async () => {
     const account = accounts.find(a => a.email === selectedAccount)
     if (!account) {
       window.open(getSnappyMailUrl(), '_blank')
@@ -579,7 +618,32 @@ export function WebmailSection({
       return
     }
 
-    // Criar formulário de auto-login
+    try {
+      // Tentar SSO via API token primeiro
+      const res = await fetch('/api/snappymail-sso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: account.email,
+          password: password
+        })
+      })
+
+      const data = await res.json()
+      
+      if (data.success && data.ssoUrl && !data.fallback) {
+        // Redirecionar para URL com token
+        window.open(data.ssoUrl, '_blank')
+        return
+      }
+      
+      // Fallback: form POST direto
+      console.log('[SnappyMail SSO] Usando fallback form POST')
+    } catch (e) {
+      console.log('[SnappyMail SSO] Erro no token, usando fallback:', e)
+    }
+
+    // Criar formulário de auto-login (fallback)
     const form = document.createElement('form')
     form.method = 'POST'
     form.action = getSnappyMailUrl()
@@ -770,7 +834,7 @@ export function WebmailSection({
     { id: 'Sent', name: 'Enviados', icon: Send },
     { id: 'Drafts', name: 'Rascunhos', icon: FileText },
     { id: 'Archive', name: 'Arquivo', icon: Archive },
-    { id: 'Junk', name: 'Spam', icon: AlertTriangle },
+    { id: 'Junk', name: 'Spam', icon: AlertTriangle },  // ← ID 'Junk' para coincidir com API
     { id: 'Trash', name: 'Lixo', icon: Trash2 },
   ]
 
@@ -792,12 +856,12 @@ export function WebmailSection({
           {/* Selector de Conta skeleton */}
           <div className="flex items-center gap-2">
             <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
-            <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
           </div>
           {/* Botões direita skeleton */}
           <div className="flex items-center gap-2">
-            <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse" />
-            <div className="h-8 w-32 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+            <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
           </div>
         </div>
 
@@ -807,12 +871,12 @@ export function WebmailSection({
           <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
             {/* Botão Nova Mensagem skeleton */}
             <div className="p-4">
-              <div className="h-10 w-full bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
             </div>
             {/* Lista de Folders skeleton */}
             <div className="flex-1 px-3 space-y-2">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
+                <div key={i} className="flex items-center gap-3 p-2 rounded">
                   <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
                   <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
                   <div className="ml-auto h-4 w-6 bg-gray-200 rounded animate-pulse" />
@@ -821,7 +885,7 @@ export function WebmailSection({
             </div>
             {/* Botão Atualizar skeleton */}
             <div className="p-3 border-t border-gray-200">
-              <div className="h-9 w-full bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-9 w-full bg-gray-200 rounded animate-pulse" />
             </div>
           </div>
 
@@ -834,14 +898,14 @@ export function WebmailSection({
                 <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse" />
-                <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse" />
+                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
               </div>
             </div>
             {/* Lista skeleton com detalhes */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border-b border-gray-100 hover:bg-gray-50">
+                <div key={i} className="flex items-start gap-3 p-3 rounded border-b border-gray-100 hover:bg-gray-50">
                   <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
                   <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
                   <div className="flex-1 min-w-0 space-y-1.5">
@@ -865,12 +929,12 @@ export function WebmailSection({
                 <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
                 <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
               </div>
-              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse ml-auto" />
+              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse ml-auto" />
             </div>
             {/* Lista de emails skeleton */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border-b border-gray-100">
+                <div key={i} className="flex items-start gap-3 p-3 rounded border-b border-gray-100">
                   <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
                   <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
                   <div className="flex-1 min-w-0 space-y-1.5">
@@ -888,8 +952,8 @@ export function WebmailSection({
             <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
               <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse" />
-                <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse" />
+                <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
+                <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
               </div>
             </div>
           </div>
@@ -906,10 +970,10 @@ export function WebmailSection({
             {onBack && (
               <button
                 onClick={onBack}
-                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 hover:border-gray-400 rounded text-sm font-medium transition-all duration-200"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Voltar
+                Sair
               </button>
             )}
             {onBack && <div className="w-px h-5 bg-gray-200" />}
@@ -918,7 +982,7 @@ export function WebmailSection({
                 value={selectedAccount}
                 onChange={(e) => setSelectedAccount(e.target.value)}
                 disabled={accounts.length === 0}
-                className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {accounts.length > 0 ? (
                   accounts.map(acc => (
@@ -934,7 +998,7 @@ export function WebmailSection({
               {/* Botão Importar Conta ao lado do seletor */}
               <button
                 onClick={() => setShowImportGmail(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-md transition-colors border border-blue-200"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-400 rounded text-sm font-medium transition-all duration-200"
                 title="Importar conta de Email"
               >
                 {/* Ícone Google com cores oficiais */}
@@ -950,21 +1014,10 @@ export function WebmailSection({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setShowDiagnostico(true)
-                runDiagnostico()
-              }}
-              disabled={diagnosticoLoading}
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-cyan-600 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-              title="Diagnóstico IMAP"
-            >
-              {diagnosticoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-              <span className="hidden sm:inline">Diagnóstico</span>
-            </button>
+
             <button
               onClick={openSnappyMailAutoLogin}
-              className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:text-red-600 rounded-md text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-400 rounded text-sm font-medium transition-all duration-200"
               title="Abrir Webmail Completo"
             >
               <ExternalLink className="w-4 h-4" />
@@ -980,7 +1033,7 @@ export function WebmailSection({
                 }
                 setShowCreateEmailModal(true)
               }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-md transition-colors border border-blue-200"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 hover:border-green-400 rounded text-sm font-medium transition-all duration-200"
             >
               <Plus className="w-4 h-4" />
               Nova Conta
@@ -996,7 +1049,7 @@ export function WebmailSection({
               <button
                 onClick={() => setShowAdvancedCompose(true)}
                 disabled={accounts.length === 0}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-md transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-400 text-sm font-bold rounded transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-5 h-5" />
                 Nova Mensagem
@@ -1038,18 +1091,7 @@ export function WebmailSection({
               })}
             </div>
             
-            {accounts.length > 0 && (
-              <div className="p-3 border-t border-gray-100">
-                <button
-                  onClick={loadEmails}
-                  disabled={loadingEmails}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-gray-500 hover:text-red-600 transition-colors"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingEmails ? 'animate-spin' : ''}`} />
-                  Atualizar Pasta
-                </button>
-              </div>
-            )}
+
           </div>
         )}
 
@@ -1064,7 +1106,7 @@ export function WebmailSection({
                 </p>
                 <button
                   onClick={onBack}
-                  className="px-6 py-2 bg-red-600 text-white rounded-md font-bold hover:bg-red-700 transition-all shadow-md"
+                  className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-all shadow-md"
                 >
                   Voltar ao Painel
                 </button>
@@ -1139,13 +1181,13 @@ export function WebmailSection({
                 <div className="flex items-center gap-1.5">
                   <button 
                     onClick={loadEmails} 
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                     title="Atualizar"
                   >
                     <RefreshCw className={`w-4 h-4 ${loadingEmails ? 'animate-spin' : ''}`} />
                   </button>
                   <button 
-                    className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
                     title="Filtrar"
                   >
                     <Filter className="w-4 h-4" />
@@ -1153,7 +1195,7 @@ export function WebmailSection({
                 </div>
 
                 {(selectedEmail || selectedEmails.size > 0) && (
-                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-200">
                     {selectedEmail && (
                       <>
                         <button onClick={() => setShowAdvancedCompose(true)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Responder">
@@ -1207,7 +1249,7 @@ export function WebmailSection({
                     placeholder="Pesquisar..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
                   />
                 </div>
 
@@ -1223,7 +1265,7 @@ export function WebmailSection({
                     }
                     setMostrarConfigAssinatura(true)
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 hover:text-red-500 hover:border-red-500 rounded-md text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-400 rounded text-xs font-medium transition-all duration-200"
                 >
                   Assinatura
                 </button>
@@ -1266,6 +1308,8 @@ export function WebmailSection({
                               }))
                             }
                             setSelectedEmail(email)
+                            // 🔄 Atualizar contagens de todas as pastas após abrir email
+                            setTimeout(() => refreshAllFolderCounts(), 500)
                           }}
                         >
                           {/* Checkbox */}
@@ -1316,14 +1360,14 @@ export function WebmailSection({
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                             <button
                               onClick={(ev) => { ev.stopPropagation(); handleArchiveEmail(email.id || email.uid); }}
-                              className="p-1.5 rounded-md hover:bg-orange-100 text-orange-600 transition-colors"
+                              className="p-1.5 rounded hover:bg-orange-100 text-orange-600 transition-colors"
                               title="Arquivar"
                             >
                               <Archive className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={(ev) => { ev.stopPropagation(); handleDeleteEmail(email.id || email.uid); }}
-                              className="p-1.5 rounded-md hover:bg-red-100 text-red-600 transition-colors"
+                              className="p-1.5 rounded hover:bg-red-100 text-red-600 transition-colors"
                               title="Excluir"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1344,7 +1388,7 @@ export function WebmailSection({
                           {/* Botão Voltar para lista */}
                           <button 
                             onClick={() => setSelectedEmail(null)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Voltar para lista"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1412,7 +1456,7 @@ export function WebmailSection({
 
       {showCompose && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-bold text-gray-900">Nova Mensagem</h3>
               <button onClick={() => setShowCompose(false)} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -1424,7 +1468,7 @@ export function WebmailSection({
                 <select
                   value={selectedAccount}
                   onChange={(e) => setSelectedAccount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
                   {accounts.map(acc => (
                     <option key={acc.email} value={acc.email}>{acc.email}</option>
@@ -1438,7 +1482,7 @@ export function WebmailSection({
                   type="email"
                   value={composeData.to}
                   onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   placeholder="email@exemplo.com"
                 />
               </div>
@@ -1449,7 +1493,7 @@ export function WebmailSection({
                   type="text"
                   value={composeData.subject}
                   onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   placeholder="Assunto do email"
                 />
               </div>
@@ -1460,7 +1504,7 @@ export function WebmailSection({
                   value={composeData.body}
                   onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
                   rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                   placeholder="Escreva sua mensagem..."
                 />
               </div>
@@ -1469,14 +1513,14 @@ export function WebmailSection({
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowCompose(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={sendEmail}
                 disabled={!composeData.to || !composeData.subject}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Enviar
               </button>
@@ -1489,10 +1533,10 @@ export function WebmailSection({
       {showCreateEmailModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreateEmailModal(false)} />
-          <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="relative bg-white border border-gray-200 rounded w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-600 rounded-md flex items-center justify-center shadow-lg shadow-red-500/20">
+                <div className="w-10 h-10 bg-red-600 rounded flex items-center justify-center shadow-lg shadow-red-500/20">
                   <Mail className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -1514,7 +1558,7 @@ export function WebmailSection({
                 <select
                   value={createEmailForm.domain}
                   onChange={e => setCreateEmailForm({ ...createEmailForm, domain: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                 >
                   <option value="">Selecione o domínio...</option>
                   {sites.map(s => (
@@ -1531,7 +1575,7 @@ export function WebmailSection({
                     value={createEmailForm.user}
                     onChange={e => setCreateEmailForm({ ...createEmailForm, user: e.target.value })}
                     placeholder="ex: comercial"
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                   />
                   {createEmailForm.domain && <span className="text-gray-400 text-xs font-medium">@{createEmailForm.domain}</span>}
                 </div>
@@ -1544,7 +1588,7 @@ export function WebmailSection({
                   value={createEmailForm.password}
                   onChange={e => setCreateEmailForm({ ...createEmailForm, password: e.target.value })}
                   placeholder="••••••••••••"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                 />
               </div>
 
@@ -1554,7 +1598,7 @@ export function WebmailSection({
                   <select
                     value={createEmailForm.quota}
                     onChange={e => setCreateEmailForm({ ...createEmailForm, quota: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                   >
                     <option value="500">500 MB</option>
                     <option value="1000">1 GB</option>
@@ -1566,14 +1610,14 @@ export function WebmailSection({
               </div>
 
               {createEmailError && (
-                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-600 text-xs font-medium flex items-center gap-2">
+                <div className="p-3 rounded bg-red-50 border border-red-200 text-red-600 text-xs font-medium flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
                   {createEmailError}
                 </div>
               )}
 
               {createEmailSuccess && (
-                <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-600 text-xs font-medium flex items-center gap-2">
+                <div className="p-3 rounded bg-green-50 border border-green-200 text-green-600 text-xs font-medium flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
                   {createEmailSuccess}
                 </div>
@@ -1591,7 +1635,7 @@ export function WebmailSection({
               <button 
                 onClick={handleCreateServerEmail}
                 disabled={creatingEmail || !createEmailForm.user || !createEmailForm.password || !createEmailForm.domain}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {creatingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 {creatingEmail ? 'A criar...' : 'Criar E-mail'}
@@ -1631,14 +1675,14 @@ export function WebmailSection({
       {/* MODAL: Gerenciar Assinaturas - Estilo dark igual ao EmailWebmailSection */}
       {mostrarConfigAssinatura && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className={`${modoEscuroAssinatura ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'} border rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto`}>
+          <div className={`${modoEscuroAssinatura ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'} border rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto`}>
             {/* Header */}
             <div className={`flex items-center justify-between px-6 py-4 border-b ${modoEscuroAssinatura ? 'border-slate-700' : 'border-gray-200'}`}>
               <h3 className={`text-lg font-semibold ${modoEscuroAssinatura ? 'text-white' : 'text-gray-900'}`}>Assinaturas</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setModoEscuroAssinatura(!modoEscuroAssinatura)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
                     modoEscuroAssinatura 
                       ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
                       : 'bg-slate-700 text-white hover:bg-slate-600'
@@ -1648,7 +1692,7 @@ export function WebmailSection({
                 </button>
                 <button
                   onClick={() => setMostrarConfigAssinatura(false)}
-                  className={`p-2 rounded-lg transition-colors ${modoEscuroAssinatura ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                  className={`p-2 rounded transition-colors ${modoEscuroAssinatura ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1660,7 +1704,7 @@ export function WebmailSection({
               {/* Seção: Editar Assinatura */}
               <div>
                 <h4 className={`text-sm font-semibold mb-3 ${modoEscuroAssinatura ? 'text-slate-300' : 'text-gray-700'}`}>Editar assinatura:</h4>
-                <div className={`rounded-lg border ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} overflow-hidden`}>
+                <div className={`rounded border ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} overflow-hidden`}>
                   {/* Lista de assinaturas com preview */}
                   <div className="grid grid-cols-3 gap-0">
                     {/* Coluna 1: Lista */}
@@ -1770,13 +1814,13 @@ export function WebmailSection({
               {/* Seção: Selecionar assinatura predefinida */}
               <div>
                 <h4 className={`text-sm font-semibold mb-3 ${modoEscuroAssinatura ? 'text-slate-300' : 'text-gray-700'}`}>Selecionar assinatura predefinida:</h4>
-                <div className={`rounded-lg border ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} p-4 space-y-3`}>
+                <div className={`rounded border ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} p-4 space-y-3`}>
                   <div className="grid grid-cols-[100px_1fr] items-center gap-3">
                     <label className={`text-sm ${modoEscuroAssinatura ? 'text-slate-400' : 'text-gray-600'}`}>Conta:</label>
                     <select 
                       value={selectedAccount || ''}
                       onChange={(e) => setSelectedAccount(e.target.value)}
-                      className={`px-3 py-2 rounded-lg text-sm border ${
+                      className={`px-3 py-2 rounded text-sm border ${
                         modoEscuroAssinatura 
                           ? 'bg-slate-700 border-slate-600 text-white' 
                           : 'bg-white border-gray-300 text-gray-900'
@@ -1790,7 +1834,7 @@ export function WebmailSection({
                   <div className="grid grid-cols-[100px_1fr] items-center gap-3">
                     <label className={`text-sm ${modoEscuroAssinatura ? 'text-slate-400' : 'text-gray-600'}`}>Novas mensagens:</label>
                     <select 
-                      className={`px-3 py-2 rounded-lg text-sm border ${
+                      className={`px-3 py-2 rounded text-sm border ${
                         modoEscuroAssinatura 
                           ? 'bg-slate-700 border-slate-600 text-white' 
                           : 'bg-white border-gray-300 text-gray-900'
@@ -1805,7 +1849,7 @@ export function WebmailSection({
                   <div className="grid grid-cols-[100px_1fr] items-center gap-3">
                     <label className={`text-sm ${modoEscuroAssinatura ? 'text-slate-400' : 'text-gray-600'}`}>Respostas/reenv.:</label>
                     <select 
-                      className={`px-3 py-2 rounded-lg text-sm border ${
+                      className={`px-3 py-2 rounded text-sm border ${
                         modoEscuroAssinatura 
                           ? 'bg-slate-700 border-slate-600 text-white' 
                           : 'bg-white border-gray-300 text-gray-900'
@@ -1825,7 +1869,7 @@ export function WebmailSection({
             <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} rounded-b-xl`}>
               <button
                 onClick={() => setMostrarConfigAssinatura(false)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-4 py-2 rounded font-medium transition-colors ${
                   modoEscuroAssinatura 
                     ? 'text-slate-300 hover:bg-slate-700' 
                     : 'text-gray-600 hover:bg-gray-200'
@@ -1845,7 +1889,7 @@ export function WebmailSection({
                   }
                   setMostrarConfigAssinatura(false)
                 }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
               >
                 Guardar
               </button>
@@ -1857,7 +1901,7 @@ export function WebmailSection({
       {/* MODAL: Editar/Criar Assinatura - Estilo dark com editor igual ao EmailWebmailSection */}
       {mostrarEditarAssinatura && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
-          <div className={`rounded-xl shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden border transition-colors ${modoEscuroAssinatura ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+          <div className={`rounded-lg shadow-2xl w-full max-w-4xl mx-4 h-[85vh] flex flex-col overflow-hidden border transition-colors ${modoEscuroAssinatura ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
             {/* Header macOS style */}
             <div className={`px-5 py-2 flex items-center justify-between border-b transition-colors ${modoEscuroAssinatura ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
               <div className="flex items-center gap-2 shrink-0">
@@ -2013,9 +2057,9 @@ export function WebmailSection({
                 setMostrarEditarAssinatura(false)
                 setMostrarConfigAssinatura(true)
               }}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded text-sm font-bold transition-colors shadow-sm">Guardar</button>
               <button onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancelar</button>
+                className={`px-6 py-2 rounded text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancelar</button>
             </div>
           </div>
         </div>
@@ -2024,7 +2068,7 @@ export function WebmailSection({
       {/* Modal de Importação de Email */}
       {showImportGmail && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded shadow-xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 {/* Ícone Google com cores reais */}
@@ -2046,7 +2090,7 @@ export function WebmailSection({
             
             <div className="p-6 space-y-4">
               {/* Banner com link para instruções */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
                 <p className="text-sm text-blue-700">
                   💡 <strong>Dica:</strong> Para Gmail, precisa de uma <strong>Senha de App</strong>.
                 </p>
@@ -2062,7 +2106,7 @@ export function WebmailSection({
                 
                 {/* Painel deslizante com instruções */}
                 <div className={`overflow-hidden transition-all duration-300 ${showPasswordHelp ? 'max-h-96 mt-3' : 'max-h-0'}`}>
-                  <div className="bg-white border border-blue-200 rounded-lg p-3 text-sm">
+                  <div className="bg-white border border-blue-200 rounded p-3 text-sm">
                     <h4 className="font-semibold text-blue-800 mb-2">Como obter a Senha de App:</h4>
                     <ol className="space-y-2 text-gray-700 text-xs">
                       <li className="flex gap-2">
@@ -2103,7 +2147,7 @@ export function WebmailSection({
                   type="email"
                   id="gmailSourceEmail"
                   placeholder="seu.email@gmail.com (ou qualquer outro)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
@@ -2113,7 +2157,7 @@ export function WebmailSection({
                   type="password"
                   id="gmailSourcePassword"
                   placeholder="Senha de App (Gmail) ou senha normal"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Gmail: Use Senha de App. E-mail Corporativo: Use sua senha normal.
@@ -2124,7 +2168,7 @@ export function WebmailSection({
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => setShowImportGmail(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded font-medium transition-colors"
               >
                 Cancelar
               </button>
@@ -2198,7 +2242,7 @@ export function WebmailSection({
                   setShowImportGmail(false)
                 }}
                 id="btnImportarConta"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors disabled:opacity-50"
               >
                 Importar Conta
               </button>
@@ -2210,7 +2254,7 @@ export function WebmailSection({
       {/* Modal de Diagnóstico IMAP */}
       {showDiagnostico && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded shadow-xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-cyan-600" />
@@ -2235,7 +2279,7 @@ export function WebmailSection({
               {diagnosticoResult && (
                 <>
                   {diagnosticoResult.error ? (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="bg-red-50 border border-red-200 rounded p-4">
                       <p className="text-red-800 font-medium">Erro</p>
                       <p className="text-red-600 text-sm mt-1">{diagnosticoResult.error}</p>
                     </div>
@@ -2254,7 +2298,7 @@ export function WebmailSection({
                               {Object.entries(diagnosticoResult.commonFolders || {}).map(([name, status]: [string, any]) => (
                                 <div
                                   key={name}
-                                  className={`p-3 rounded-lg border ${
+                                  className={`p-3 rounded border ${
                                     status.exists
                                       ? 'bg-green-50 border-green-200'
                                       : 'bg-red-50 border-red-200'
@@ -2288,7 +2332,7 @@ export function WebmailSection({
                           {/* Todas as Pastas */}
                           <div>
                             <h4 className="text-sm font-semibold text-gray-700 mb-3">Todas as Pastas no Servidor:</h4>
-                            <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-60">
+                            <div className="bg-gray-900 rounded p-4 overflow-auto max-h-60">
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="text-gray-400 border-b border-gray-700">
@@ -2326,7 +2370,7 @@ export function WebmailSection({
                 <button
                   onClick={runDiagnostico}
                   disabled={diagnosticoLoading}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors flex items-center gap-2"
                 >
                   {diagnosticoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   {diagnosticoLoading ? 'Verificando...' : 'Verificar Novamente'}

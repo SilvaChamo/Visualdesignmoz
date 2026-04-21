@@ -176,6 +176,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
         { id: 'cp-ssl', name: 'SSL / TLS', icon: <Lock className="w-9 h-9 text-red-500" /> },
         { id: 'cp-security', name: 'Firewall & ModSecurity', icon: <Shield className="w-9 h-9 text-red-500" /> },
         { id: 'cp-security', name: 'IPs Bloqueados', icon: <AlertCircle className="w-9 h-9 text-red-500" /> },
+        { id: 'cp-api', name: 'Configurações API', icon: <Settings className="w-9 h-9 text-red-500" /> },
       ]
     },
     {
@@ -184,7 +185,6 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       color: 'text-purple-700', bgColor: 'bg-purple-50',
       tools: [
         { id: 'cp-php', name: 'Configuração PHP', icon: <Code className="w-9 h-9 text-purple-500" /> },
-        { id: 'cp-api', name: 'API Token', icon: <Key className="w-9 h-9 text-purple-500" /> },
       ]
     },
     {
@@ -230,13 +230,13 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       {/* Main Grid */}
       <div className="flex-1 min-w-0 space-y-3">
         {filtered.map(section => (
-          <div key={section.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div key={section.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <button
               onClick={() => toggle(section.id)}
               className={`w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors border-b ${collapsed[section.id] ? 'border-transparent' : 'border-gray-100'}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`${section.bgColor} ${section.color} p-1.5 rounded-lg`}>
+                <div className={`${section.bgColor} ${section.color} p-1.5 rounded`}>
                   {section.headerIcon}
                 </div>
                 <span className="font-bold text-gray-800 text-sm">{section.name}</span>
@@ -253,17 +253,15 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
                   {section.tools.map((tool, i) =>
                     tool.external ? (
                       <a key={i} href={tool.external} target="_blank" rel="noopener noreferrer"
-                        className={`flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border transition-all group text-center ${
-                          tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
-                        }`}>
+                        className={`flex flex-col items-center gap-2 p-3 rounded hover:bg-gray-50 border transition-all group text-center ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                          }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
                         <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </a>
                     ) : (
                       <button key={i} onClick={() => handleDNSNavigate(tool.id)}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 border transition-all group text-center w-full ${
-                          tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
-                        }`}>
+                        className={`flex flex-col items-center gap-2 p-3 rounded hover:bg-gray-50 border transition-all group text-center w-full ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                          }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
                         <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </button>
@@ -279,12 +277,10 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       {/* Right Sidebar */}
       <div className="w-60 shrink-0 space-y-4">
         {/* Server Info */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4">
+        <div className="bg-white rounded border border-gray-200 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Servidor</p>
-            <button onClick={onRefresh} className="text-gray-400 hover:text-gray-600">
-              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-            </button>
+
           </div>
           <div className="space-y-3 text-sm">
             <div>
@@ -320,13 +316,13 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
             </div>
           </div>
           <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
-            className="w-full bg-black hover:bg-red-600 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
+            className="w-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
             <ExternalLink className="w-3.5 h-3.5" /> Abrir CyberPanel
           </a>
         </div>
 
         {/* Quick Access */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+        <div className="bg-white rounded border border-gray-200 shadow-sm p-4">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Acesso Rápido</p>
           <div className="space-y-1">
             {[
@@ -339,7 +335,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
               { label: 'Zona DNS', id: 'cp-dns-create-zone', icon: <Server className="w-3.5 h-3.5" /> },
             ].map((item, i) => (
               <button key={i} onClick={() => onNavigate(item.id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-red-600 rounded-lg transition-colors text-left font-medium">
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-red-600 rounded transition-colors text-left font-medium">
                 <span className="text-gray-400">{item.icon}</span>
                 {item.label}
               </button>
@@ -349,7 +345,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
 
         {/* Sites list */}
         {sites.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded border border-gray-200 shadow-sm p-4">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Websites ({sites.length})</p>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {sites.map((s, i) => (

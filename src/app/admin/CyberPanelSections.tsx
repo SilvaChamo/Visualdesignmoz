@@ -23,7 +23,7 @@ import {
 // SHARED UTILITIES & SKELETONS
 // ============================================================
 const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn("animate-pulse bg-gray-200 rounded-md", className)} />
+  <div className={cn("animate-pulse bg-gray-200 rounded", className)} />
 )
 
 const TableSkeleton = ({ columns, rows = 5 }: { columns: number, rows?: number }) => (
@@ -43,25 +43,25 @@ const EmailFormSkeleton = () => (
     {/* Website / Domínio */}
     <div className="space-y-1.5">
       <Skeleton className="h-3 w-32" />
-      <Skeleton className="h-10 w-full rounded-lg" />
+      <Skeleton className="h-10 w-full rounded" />
     </div>
     {/* Email Username */}
     <div className="space-y-1.5">
       <Skeleton className="h-3 w-28" />
       <div className="flex gap-2">
-        <Skeleton className="h-10 flex-1 rounded-lg" />
-        <Skeleton className="h-10 w-24 rounded-lg" />
+        <Skeleton className="h-10 flex-1 rounded" />
+        <Skeleton className="h-10 w-24 rounded" />
       </div>
     </div>
     {/* Senha e Confirmar Senha */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
       <div className="space-y-1.5">
         <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded" />
       </div>
       <div className="space-y-1.5">
         <Skeleton className="h-3 w-28" />
-        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded" />
       </div>
     </div>
   </div>
@@ -71,19 +71,19 @@ const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" 
   if (count === 0) return null
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 duration-300">
-      <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10 ring-1 ring-black">
+      <div className="bg-gray-900  px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10 ring-1 ring-black">
         <div className="flex items-center gap-3 pr-6 border-r border-white/10">
-          <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">{count}</div>
+          <div className="w-6 h-6 bg-red-50 border border-red-300 text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">{count}</div>
           <span className="text-sm font-medium">{count} {label}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => onAction('delete')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-xs font-bold">
+          <button onClick={() => onAction('delete')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/20 text-red-400 rounded transition-colors text-xs font-bold">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
-          <button onClick={() => onAction('suspend')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors text-xs font-bold">
+          <button onClick={() => onAction('suspend')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-gray-300 rounded transition-colors text-xs font-bold">
             <Pause className="w-3.5 h-3.5" /> Suspender
           </button>
-          <button onClick={onClear} className="ml-2 text-xs text-gray-500 hover:text-white transition-colors">Cancelar</button>
+          <button onClick={onClear} className="ml-2 text-xs text-gray-500 hover: transition-colors">Cancelar</button>
         </div>
       </div>
     </div>
@@ -112,7 +112,7 @@ const ConfirmModal = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/40 animate-in fade-in duration-200" onClick={onCancel} />
-      <div className="relative bg-white border border-gray-200 rounded-md w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
+      <div className="relative bg-white border border-gray-200 rounded w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
         <div className="px-8 py-10 text-center space-y-4">
           <div className={cn(
             "w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-4 transition-transform hover:scale-105 duration-300",
@@ -135,8 +135,8 @@ const ConfirmModal = ({
           <button 
             onClick={() => { onConfirm(); onCancel(); }} 
             className={cn(
-              "px-4 py-2 text-xs font-bold text-white rounded transition-all active:scale-95",
-              isDanger ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+              "px-4 py-2 text-xs font-bold  rounded transition-all active:scale-95",
+              isDanger ? "bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700" : "bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
             )}
           >
             {confirmText}
@@ -204,12 +204,12 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[200px]">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione um domínio...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
@@ -218,9 +218,9 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo Subdomínio</label>
             <div className="flex gap-2">
               <input value={newSub} onChange={(e) => setNewSub(e.target.value)} placeholder="blog"
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
               <button onClick={handleCreate} disabled={creating || !selectedDomain || !newSub.trim()}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
                 Criar
               </button>
@@ -228,7 +228,7 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
         </div>
 
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         {loading && <TableSkeleton columns={4} rows={5} />}
         {!loading && selectedDomain && subdomains.length === 0 ? (
@@ -325,14 +325,14 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Website
             </label>
             <select
               value={selectedDomain}
               onChange={(e) => setSelectedDomain(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-gray-50 transition-all"
+              className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-gray-50 transition-all"
             >
               <option value="">Selecione...</option>
               {sites.map((site) => (
@@ -345,7 +345,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
             <button
               onClick={handleRefresh}
               disabled={!selectedDomain || screenshotLoading}
-              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 transition-all text-sm font-bold shadow-sm"
+              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded hover:bg-red-100 hover:text-red-700 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-sm font-bold shadow-sm"
             >
               <RefreshCw size={16} className={screenshotLoading ? 'animate-spin' : ''} />
               Atualizar
@@ -353,7 +353,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
           </div>
 
           {selectedDomain && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                 Ações Rápidas
               </label>
@@ -361,7 +361,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
                 href={`https://${selectedDomain}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
+                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors border border-gray-100"
               >
                 <span>Visitar Site</span>
                 <ExternalLink size={14} className="text-gray-400" />
@@ -371,7 +371,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
         </div>
 
         <div className="lg:col-span-3">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden min-h-[500px] flex flex-col">
             {screenshotLoading && (
               <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50">
                 <RefreshCw size={40} className="text-red-600 animate-spin mb-4" />
@@ -389,7 +389,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
                 <p className="text-gray-600 max-w-xs mx-auto mb-6">{screenshotError}</p>
                 <button
                   onClick={handleRefresh}
-                  className="px-6 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-bold text-sm shadow-sm"
+                  className="px-6 py-2 bg-white border border-red-200 text-red-600 rounded hover:bg-red-50 transition-colors font-bold text-sm shadow-sm"
                 >
                   Tentar novamente
                 </button>
@@ -402,10 +402,10 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
                   <img
                     src={screenshotUrl}
                     alt={`Preview de ${selectedDomain}`}
-                    className="w-full rounded-lg border border-gray-300 shadow-xl bg-white"
+                    className="w-full rounded border border-gray-300 shadow-xl bg-white"
                     onError={() => setScreenshotError('Não foi possível processar a imagem do servidor thum.io')}
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none rounded-lg" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none rounded" />
                 </div>
               </div>
             )}
@@ -867,7 +867,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               <button
                 onClick={handleSyncDomain}
                 disabled={syncStatus.syncing || !selectedDomain}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white text-xs font-medium transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:bg-gray-300  text-xs font-medium transition-colors"
               >
                 {syncStatus.syncing ? (
                   <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> A sincronizar...</>
@@ -895,10 +895,10 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <a 
           href="/admin?section=dns-central" 
-          className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg hover:shadow-md transition-all group"
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded hover:shadow-md transition-all group"
         >
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-            <Globe className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-blue-50 border border-blue-300 text-blue-600 rounded flex items-center justify-center shrink-0">
+            <Globe className="w-5 h-5 " />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-blue-900 text-sm group-hover:text-blue-700">DNS Central</h3>
@@ -911,10 +911,10 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
           href="https://mozserver.co.mz" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg hover:shadow-md transition-all group"
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded hover:shadow-md transition-all group"
         >
-          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
-            <Server className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-green-50 border border-green-300 text-green-600 rounded flex items-center justify-center shrink-0">
+            <Server className="w-5 h-5 " />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-green-900 text-sm group-hover:text-green-700">Mozserver</h3>
@@ -927,10 +927,10 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
           href="https://109.199.104.22:8090" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg hover:shadow-md transition-all group"
+          className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded hover:shadow-md transition-all group"
         >
-          <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center shrink-0">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-orange-50 border border-orange-300 text-orange-600 rounded flex items-center justify-center shrink-0">
+            <Shield className="w-5 h-5 " />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-orange-900 text-sm group-hover:text-orange-700">CyberPanel</h3>
@@ -948,7 +948,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               key={f}
               type="button"
               onClick={() => handleFilterChange(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold border ${filter === f ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              className={`px-4 py-2 rounded text-xs font-semibold border ${filter === f ? 'bg-red-50 border border-red-300 text-red-600  border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                 }`}
             >
               {f}
@@ -962,7 +962,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               value={search}
               onChange={e => handleSearchChange(e.target.value)}
               placeholder="Filter by name"
-              className="w-full sm:w-64 px-3 py-2.5 border border-gray-300 rounded-lg text-sm pl-3"
+              className="w-full sm:w-64 px-3 py-2.5 border border-gray-300 rounded text-sm pl-3"
             />
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600">
@@ -1017,14 +1017,14 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               type="button"
               disabled={selectedIds.length === 0 || loading}
               onClick={() => setShowActionsDropdown(!showActionsDropdown)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-gray-300 bg-white text-xs font-semibold text-gray-700 disabled:opacity-50"
             >
               Acções
               <span className="text-gray-400 text-[10px]">▼</span>
             </button>
             {/* Dropdown de opções */}
             {showActionsDropdown && selectedIds.length > 0 && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-10">
                 <button
                   type="button"
                   onClick={() => {
@@ -1043,7 +1043,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             <select
               value={selectedDomain}
               onChange={e => handleDomainChange(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-gray-300 text-xs bg-white"
+              className="w-full px-3 py-2 rounded border border-gray-300 text-xs bg-white"
             >
               <option value="">Seleccione um domínio...</option>
               {sites.map(s => (
@@ -1060,7 +1060,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             type="button"
             onClick={handleSaveAll}
             disabled={loading || !selectedDomain}
-            className="inline-flex items-center px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+            className="inline-flex items-center px-3 py-2 rounded bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-semibold disabled:opacity-50"
           >
             Save All Records
           </button>
@@ -1068,7 +1068,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             type="button"
             onClick={() => setShowAddForm(v => !v)}
             disabled={!selectedDomain}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-semibold disabled:opacity-50"
           >
             + Add Record
           </button>
@@ -1077,7 +1077,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
 
       {/* FORMULÁRIO ADICIONAR — aparece quando showAddForm=true */}
       {showAddForm && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="bg-white border border-gray-200 rounded p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label>
@@ -1086,7 +1086,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                 value={newRecord.name}
                 onChange={e => setNewRecord({ ...newRecord, name: e.target.value })}
                 placeholder={`sub.${selectedDomain || 'example.com'}`}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
               />
             </div>
             <div>
@@ -1095,7 +1095,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                 type="number"
                 value={newRecord.ttl}
                 onChange={e => setNewRecord({ ...newRecord, ttl: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
               />
             </div>
             <div>
@@ -1108,7 +1108,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                     type: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
               >
                 <option value="A">A</option>
                 <option value="CNAME">CNAME</option>
@@ -1127,7 +1127,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                   type="number"
                   value={newRecord.priority}
                   onChange={e => setNewRecord({ ...newRecord, priority: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
               ) : (
                 <div className="text-xs text-gray-400 mt-2">MX only</div>
@@ -1140,7 +1140,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               type="text"
               value={newRecord.value}
               onChange={e => setNewRecord({ ...newRecord, value: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
               placeholder={
                 newRecord.type === 'A'
                   ? '192.0.2.1'
@@ -1154,7 +1154,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700"
+              className="px-4 py-2 rounded border border-gray-300 text-xs font-semibold text-gray-700"
             >
               Cancelar
             </button>
@@ -1162,7 +1162,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
               type="button"
               disabled={loading || !selectedDomain}
               onClick={handleCreateRecord}
-              className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50"
+              className="px-4 py-2 rounded bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-semibold disabled:opacity-50"
             >
               Guardar
             </button>
@@ -1171,7 +1171,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
       )}
 
       {/* TABELA DE REGISTOS */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
@@ -1262,7 +1262,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                   type="text"
                                   value={editForm.name}
                                   onChange={e => setEditForm({ ...(editForm || newRecord), name: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                 />
                               </div>
                               <div>
@@ -1271,7 +1271,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                   type="number"
                                   value={editForm.ttl}
                                   onChange={e => setEditForm({ ...(editForm || newRecord), ttl: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                 />
                               </div>
                               <div>
@@ -1284,7 +1284,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                       type: e.target.value,
                                     })
                                   }
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                 >
                                   <option value="A">A</option>
                                   <option value="CNAME">CNAME</option>
@@ -1308,7 +1308,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                         priority: e.target.value,
                                       })
                                     }
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                   />
                                 ) : (
                                   <div className="text-xs text-gray-400 mt-2">MX only</div>
@@ -1323,14 +1323,14 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                 type="text"
                                 value={editForm.value}
                                 onChange={e => setEditForm({ ...(editForm || newRecord), value: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                               />
                             </div>
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
                                 onClick={cancelEditRecord}
-                                className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700"
+                                className="px-4 py-2 rounded border border-gray-300 text-xs font-semibold text-gray-700"
                               >
                                 Cancelar
                               </button>
@@ -1338,7 +1338,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
                                 type="button"
                                 disabled={loading}
                                 onClick={handleSaveEditRecord}
-                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+                                className="px-4 py-2 rounded bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-semibold disabled:opacity-50"
                               >
                                 Guardar
                               </button>
@@ -1357,7 +1357,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
 
       {msg && (
         <div
-          className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.toLowerCase().includes('erro')
+          className={`px-4 py-2.5 rounded text-sm font-medium ${msg.toLowerCase().includes('erro')
             ? 'bg-red-50 text-red-700 border border-red-200'
             : 'bg-green-50 text-green-700 border border-green-200'
             }`}
@@ -1433,38 +1433,38 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Bases de Dados</h1><p className="text-gray-500 mt-1">Crie e gira bases de dados MySQL para os seus websites.</p></div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadDBs(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome da BD</label>
-            <input value={dbName} onChange={(e) => setDbName(e.target.value)} placeholder="minha_bd" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input value={dbName} onChange={(e) => setDbName(e.target.value)} placeholder="minha_bd" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Utilizador BD</label>
-            <input value={dbUser} onChange={(e) => setDbUser(e.target.value)} placeholder="db_user" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input value={dbUser} onChange={(e) => setDbUser(e.target.value)} placeholder="db_user" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha BD</label>
-            <input type="password" value={dbPass} onChange={(e) => setDbPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input type="password" value={dbPass} onChange={(e) => setDbPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
         </div>
         <button onClick={handleCreate} disabled={creating || !selectedDomain || !dbName || !dbUser || !dbPass}
-          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+          className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} Criar Base de Dados
         </button>
 
-        {msg && <div className={`mt-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mt-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         {lastCreated && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm">
             <p className="font-bold text-blue-800 mb-2">Credenciais da Base de Dados Criada:</p>
             <div className="grid grid-cols-3 gap-3 font-mono text-xs">
               <div><span className="text-blue-600 font-bold">BD:</span> {lastCreated.dbName}</div>
@@ -1472,7 +1472,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
               <div><span className="text-blue-600 font-bold">Pass:</span> {lastCreated.dbPass}</div>
             </div>
             <div className="mt-2 flex gap-2">
-              <a href="https://109.199.104.22:8090/dataBases/phpMyAdmin" target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded font-bold">Abrir phpMyAdmin</a>
+              <a href="https://109.199.104.22:8090/dataBases/phpMyAdmin" target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-50 border border-orange-300 text-orange-600  px-3 py-1.5 rounded font-bold">Abrir phpMyAdmin</a>
               <button onClick={() => setLastCreated(null)} className="text-xs text-blue-600 hover:underline">Fechar</button>
             </div>
           </div>
@@ -1554,35 +1554,35 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Contas FTP</h1><p className="text-gray-500 mt-1">Gira contas FTP para transferência de ficheiros.</p></div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadFTP(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Utilizador FTP</label>
-            <input value={ftpUser} onChange={(e) => setFtpUser(e.target.value)} placeholder="ftp_user" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input value={ftpUser} onChange={(e) => setFtpUser(e.target.value)} placeholder="ftp_user" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha</label>
-            <input type="password" value={ftpPass} onChange={(e) => setFtpPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input type="password" value={ftpPass} onChange={(e) => setFtpPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Caminho</label>
-            <input value={ftpPath} onChange={(e) => setFtpPath(e.target.value)} placeholder="/" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            <input value={ftpPath} onChange={(e) => setFtpPath(e.target.value)} placeholder="/" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
           </div>
         </div>
         <button onClick={handleCreate} disabled={creating || !selectedDomain || !ftpUser || !ftpPass}
-          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+          className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />} Criar Conta FTP
         </button>
 
-        {msg && <div className={`mt-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mt-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         {loading && <TableSkeleton columns={3} rows={5} />}
         {!loading && accounts.length > 0 && (
@@ -2013,7 +2013,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
             <Mail className="w-5 h-5 text-blue-600" />
           </div>
           <div>
@@ -2021,7 +2021,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
             <p className="text-xs text-gray-600">Cria, elimina e configura contas de e-mail corporativo</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-1.5 rounded border border-gray-200">
           <span className="text-gray-900 font-semibold">∞</span> Disponíveis
           <span className="mx-2 text-gray-400">|</span>
           <span className="text-gray-900 font-semibold">{emails.length}</span> Usadas
@@ -2033,7 +2033,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
         <select
           value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
-          className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
+          className="bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
         >
           <option value="__ALL__">Todos os domínios</option>
           {sites.length > 0
@@ -2046,13 +2046,13 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Pesquisar contas..."
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-red-500"
+            className="w-full bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-red-500"
           />
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => loadEmails(selectedDomain)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-all font-bold"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-200 transition-all font-bold"
           >
             <RefreshCw className="w-4 h-4" /> Atualizar
           </button>
@@ -2062,13 +2062,13 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
               mode: 'create',
               data: { user: '', password: '', quota_mb: 500, status: 'active', cliente_id: '' }
             })}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20"
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600  rounded text-sm font-bold hover:bg-red-100 hover:text-red-700 transition-all "
           >
             <Plus className="w-4 h-4" /> Criar E-mail
           </button>
           <button
             onClick={() => { setMostrarAdicionarConta(true); setModalAdicionarPasso('escolher') }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 text-blue-600  rounded text-sm font-bold hover:bg-blue-100 hover:text-blue-700 transition-all "
           >
             <Plus className="w-4 h-4" /> Sincronizar Conta
           </button>
@@ -2077,7 +2077,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
 
       {/* Mensagem de feedback */}
       {msg && (
-        <div className={`flex items-center gap-2 text-xs px-4 py-3 rounded-lg mb-4 border font-medium ${msgType === 'success'
+        <div className={`flex items-center gap-2 text-xs px-4 py-3 rounded mb-4 border font-medium ${msgType === 'success'
           ? 'text-green-700 bg-green-50 border-green-200'
           : 'text-red-700 bg-red-50 border-red-200'
           }`}>
@@ -2099,7 +2099,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
       />
 
       {/* Tabela */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-3 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">
           <div className="flex items-center">
             <input
@@ -2143,7 +2143,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200">
+                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200">
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
@@ -2175,7 +2175,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                   href={`https://example.com/webmail/?user=${encodeURIComponent(emailStr)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-all"
                   title="Webmail"
                 >
                   <ExternalLink className="w-4 h-4" />
@@ -2186,7 +2186,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                     mode: 'edit',
                     data: { ...email, password: '' }
                   })}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
                   title="Gerir"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -2194,7 +2194,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                 <button
                   onClick={() => handleDelete(emailStr)}
                   disabled={deleting === emailStr}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-all"
                 >
                   {deleting === emailStr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
@@ -2208,10 +2208,10 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
       {emailModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setEmailModal({ ...emailModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20"><Mail className="w-5 h-5 text-white" /></div>
+                <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Mail className="w-5 h-5 " /></div>
                 <div><h2 className="text-sm font-bold text-gray-900 block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
               </div>
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
@@ -2227,7 +2227,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                       <select 
                         value={selectedDomain} 
                         onChange={e => setSelectedDomain(e.target.value)} 
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="">Selecione um website</option>
                         {sites.map(site => (
@@ -2242,7 +2242,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                           value={emailModal.data.user} 
                           onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, user: e.target.value}})} 
                           placeholder="admin" 
-                          className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" 
+                          className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" 
                         />
                         <span className="text-gray-400 text-sm">@{selectedDomain || 'dominio.com'}</span>
                       </div>
@@ -2250,12 +2250,12 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
               {emailModal.mode === 'edit' && (
-                <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
+                <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
                   <button onClick={() => setEmailModal({...emailModal, data: {...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active'}})} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
@@ -2263,7 +2263,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
             )}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
-              <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
+              <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 rounded text-xs font-bold  transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
             </div>
           </div>
         </div>
@@ -2568,19 +2568,19 @@ export function CPUsersSection() {
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-gray-900">Utilizadores CyberPanel</h1><p className="text-gray-500 mt-1 text-sm font-medium">Gira acessos e permissões do servidor.</p></div>
         <div className="flex gap-2">
-          <button onClick={loadUsers} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
+          <button onClick={loadUsers} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
           <button 
             onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })} 
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"
+            className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"
           >
             <PlusCircle className="w-4 h-4" /> Novo Utilizador
           </button>
         </div>
       </div>
 
-      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
+      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden relative">
         {loading && <TableSkeleton columns={5} rows={8} />}
         {!loading && users.length === 0 ? (
           <div className="py-12 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum utilizador encontrado.</p></div>
@@ -2648,13 +2648,13 @@ export function CPUsersSection() {
                     <div className="flex items-center justify-end gap-1">
                        <button
                          onClick={() => setUserModal({ show: true, mode: 'edit', data: { ...u, password: '' } })}
-                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
                          title="Gerir Utilizador"
                        >
                          <Edit2 className="w-4 h-4" />
                        </button>
                        {u.userName !== 'admin' && (
-                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
+                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
                        )}
                     </div>
                   </td>
@@ -2669,21 +2669,21 @@ export function CPUsersSection() {
       {userModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setUserModal({ ...userModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20"><Users className="w-5 h-5 text-white" /></div>
+                <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Users className="w-5 h-5 " /></div>
                 <div><h2 className="text-sm font-bold text-gray-900 block">{userModal.mode === 'create' ? 'Novo Utilizador' : 'Editar Utilizador'}</h2><span className="text-[11px] text-gray-500 font-mono">{userModal.mode === 'create' ? 'Configurar acesso ao servidor' : `Gerir: ${userModal.data.userName}`}</span></div>
               </div>
               <button onClick={() => setUserModal({ ...userModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Access Control List (ACL)</label><select value={userModal.data.acl || 'user'} onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all">{(typeof acls !== 'undefined' && Array.isArray(acls) ? acls : ['user', 'reseller', 'admin']).map(a => <option key={a} value={a}>{a}</option>)}</select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione a permissão para este utilizador</p></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Access Control List (ACL)</label><select value={userModal.data.acl || 'user'} onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all">{(typeof acls !== 'undefined' && Array.isArray(acls) ? acls : ['user', 'reseller', 'admin']).map(a => <option key={a} value={a}>{a}</option>)}</select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione a permissão para este utilizador</p></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-600">Username</label>
                   <input 
@@ -2694,7 +2694,7 @@ export function CPUsersSection() {
                       setUserModal({...userModal, data: {...userModal.data, userName: val}})
                     }} 
                     placeholder="ex: provisual" 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
                   />
                   <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha um username único para login (apenas letras e números)</p>
                 </div>
@@ -2707,7 +2707,7 @@ export function CPUsersSection() {
                         value={userModal.data.password || ''} 
                         onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
                         placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
+                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
                       />
                       <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                         {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -2718,27 +2718,27 @@ export function CPUsersSection() {
                       let p = ''; 
                       for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length)); 
                       setUserModal({...userModal, data: {...userModal.data, password: p, confirmPassword: p}}) 
-                    }} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1">
+                    }} className="px-3 py-2 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 rounded text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1">
                       <RefreshCw className="w-3 h-3" /> Gerar
                     </button>
                   </div>
                   {userModal.mode === 'edit' && <p className="text-[9px] text-gray-400 mt-1 italic">Vazio = Manter a password atual (o CyberPanel não permite ler a password antiga).</p>}
                 </div>
-                <div className="space-y-1.5 lg:col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label><div className="relative"><input type={showUserPass ? 'text' : 'password'} value={userModal.data.confirmPassword || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Password" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" /></div></div>
-                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
+                <div className="space-y-1.5 lg:col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label><div className="relative"><input type={showUserPass ? 'text' : 'password'} value={userModal.data.confirmPassword || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Password" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" /></div></div>
+                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
               </div>
               {userModal.mode === 'edit' && (
-                <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
+                <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
                   <button onClick={() => setUserModal({...userModal, data: {...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended'}})} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-              {msg && <div className={`mb-3 px-4 py-2.5 rounded-lg text-sm font-medium border ${msg.includes('✅') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
+              {msg && <div className={`mb-3 px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('✅') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
               <div className="flex items-center justify-end gap-3">
                 <button onClick={() => setUserModal({ ...userModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
-                <button onClick={() => { if (userModal.mode === 'create') handleCreate(userModal.data); else handleUpdate(userModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {userModal.mode === 'create' ? 'Criar Utilizador' : 'Guardar Alterações'}</button>
+                <button onClick={() => { if (userModal.mode === 'create') handleCreate(userModal.data); else handleUpdate(userModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 rounded text-xs font-bold  transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {userModal.mode === 'create' ? 'Criar Utilizador' : 'Guardar Alterações'}</button>
               </div>
             </div>
           </div>
@@ -2798,17 +2798,17 @@ export function ResellerSection() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div><h1 className="text-3xl font-bold text-gray-900">Centro de Revenda</h1><p className="text-gray-500 mt-1">Gira ACLs (Access Control Lists) e permissões de revendedores.</p></div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova ACL</button>
+        <button onClick={() => setShowForm(!showForm)} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova ACL</button>
       </div>
 
-      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
           <h3 className="font-bold text-gray-900 mb-4">Criar Nova ACL</h3>
           <div className="mb-4">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome da ACL</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm" placeholder="reseller_basic" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm" placeholder="reseller_basic" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
             {[
@@ -2818,23 +2818,23 @@ export function ResellerSection() {
               { key: 'deleteEmail', label: 'Eliminar E-mail' }, { key: 'createDNS', label: 'Gerir DNS' },
               { key: 'createDatabase', label: 'Criar BD' }, { key: 'createFTP', label: 'Criar FTP' },
             ].map(p => (
-              <label key={p.key} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+              <label key={p.key} className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-50 border border-gray-100">
                 <input type="checkbox" checked={(form as any)[p.key]} onChange={() => toggleField(p.key)} className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500" />
                 <span className="text-sm text-gray-700">{p.label}</span>
               </label>
             ))}
           </div>
-          <button onClick={handleCreate} disabled={creating || !form.name} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50">
+          <button onClick={handleCreate} disabled={creating || !form.name} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">
             {creating ? 'Criando...' : 'Criar ACL'}
           </button>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {(Array.isArray(acls) ? acls : []).map((acl, i) => (
-              <div key={i} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50">
+              <div key={i} className="border border-gray-200 rounded p-4 flex items-center justify-between hover:bg-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><Shield className="w-5 h-5 text-gray-600" /></div>
                   <span className="font-bold text-sm">{acl}</span>
@@ -2895,12 +2895,12 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Configurações PHP</h1><p className="text-gray-500 mt-1">Configure a versão PHP e parâmetros de execução por website.</p></div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[200px]">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadConfig(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
@@ -2909,15 +2909,15 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
             <div className="flex gap-2">
               <select value={phpVersion} onChange={(e) => setPhpVersion(e.target.value)}
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm">
                 <option>PHP 7.4</option><option>PHP 8.0</option><option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
               </select>
-              <button onClick={handleChangePHP} disabled={saving || !selectedDomain} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50">Alterar</button>
+              <button onClick={handleChangePHP} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">Alterar</button>
             </div>
           </div>
         </div>
 
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('!') && !msg.includes('Erro') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('!') && !msg.includes('Erro') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : config && (
           <>
@@ -2933,11 +2933,11 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 <div key={f.key}>
                   <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{f.label}</label>
                   <input value={(config as any)[f.key] || ''} onChange={(e) => updateConfig(f.key, e.target.value)}
-                    placeholder={f.placeholder} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+                    placeholder={f.placeholder} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
                 </div>
               ))}
             </div>
-            <button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+            <button onClick={handleSave} disabled={saving} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Settings className="w-4 h-4" />} Guardar Configurações PHP
             </button>
           </>
@@ -2945,14 +2945,14 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
       </div>
 
       {/* PHP Extensions */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
           <a href="https://109.199.104.22:8090/php/phpExtensions" target="_blank" rel="noopener noreferrer"
-            className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center gap-2">
             <ExternalLink className="w-3.5 h-3.5" /> Gerir no CyberPanel
           </a>
         </div>
@@ -2974,7 +2974,7 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
             { name: 'exif', desc: 'Metadados imagens', wp: true },
             { name: 'fileinfo', desc: 'Info de ficheiros', wp: true },
           ].map(ext => (
-            <div key={ext.name} className={`flex flex-col gap-1 p-3 rounded-xl border ${ext.wp ? 'border-indigo-100 bg-indigo-50/50' : 'border-gray-100 bg-gray-50'}`}>
+            <div key={ext.name} className={`flex flex-col gap-1 p-3 rounded-lg border ${ext.wp ? 'border-indigo-100 bg-indigo-50/50' : 'border-gray-100 bg-gray-50'}`}>
               <div className="flex items-center justify-between">
                 <code className="text-xs font-bold text-gray-800">{ext.name}</code>
                 {ext.wp && <span className="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-1 rounded">WP</span>}
@@ -3068,12 +3068,12 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Segurança & Firewall</h1><p className="text-gray-500 mt-1">Gira firewall, ModSecurity e IPs bloqueados.</p></div>
 
-      {msg && <div className="px-4 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+      {msg && <div className="px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
 
       {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Firewall */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${firewallOn ? 'bg-green-100' : 'bg-red-100'}`}>
@@ -3085,27 +3085,27 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
                 </div>
               </div>
               <button onClick={handleToggleFirewall} disabled={toggling}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${firewallOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                className={`px-4 py-2 rounded text-sm font-bold transition-all ${firewallOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
                 {toggling ? <RefreshCw className="w-4 h-4 animate-spin" /> : firewallOn ? 'Desativar' : 'Ativar'}
               </button>
             </div>
           </div>
 
           {/* ModSecurity */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
             <h3 className="font-bold text-gray-900 mb-4">ModSecurity (WAF)</h3>
             <div className="flex gap-3 items-end mb-4">
               <div className="flex-1">
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
                 <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadModSec(e.target.value) }}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
                   <option value="">Seleccione...</option>
                   {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
                 </select>
               </div>
               {selectedDomain && (
                 <button onClick={handleToggleModSec} disabled={modsecLoading}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${modsecOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                  className={`px-4 py-2.5 rounded text-sm font-bold transition-all ${modsecOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
                   {modsecLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : modsecOn ? 'Desativar' : 'Ativar'}
                 </button>
               )}
@@ -3114,16 +3114,16 @@ export function SecuritySection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
 
           {/* Blocked IPs */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:col-span-2">
+          <div className="bg-white rounded shadow-sm border border-gray-200 p-6 lg:col-span-2">
             <h3 className="font-bold text-gray-900 mb-4">IPs Bloqueados</h3>
             <div className="flex gap-2 mb-4">
-              <input value={newIP} onChange={(e) => setNewIP(e.target.value)} placeholder="192.168.1.100" className="flex-1 max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" />
-              <button onClick={handleBlockIP} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2"><Lock className="w-4 h-4" /> Bloquear</button>
+              <input value={newIP} onChange={(e) => setNewIP(e.target.value)} placeholder="192.168.1.100" className="flex-1 max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" />
+              <button onClick={handleBlockIP} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2.5 rounded text-sm font-bold transition-all flex items-center gap-2"><Lock className="w-4 h-4" /> Bloquear</button>
             </div>
             {blockedIPs.length === 0 ? <p className="text-sm text-gray-400">Nenhum IP bloqueado.</p> : (
               <div className="flex flex-wrap gap-2">
                 {blockedIPs.map((ip, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg">
+                  <div key={i} className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded">
                     <span className="text-sm font-mono text-red-700">{ip}</span>
                     <button onClick={() => handleUnblockIP(ip)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
@@ -3216,29 +3216,29 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Certificados SSL</h1><p className="text-gray-500 mt-1">Emita certificados SSL Let&apos;s Encrypt para os seus websites.</p></div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[250px]">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => setSelectedDomain(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione um domínio...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <button onClick={handleIssueSSL} disabled={issuing || !selectedDomain}
-            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
             {issuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />} Emitir SSL
           </button>
         </div>
 
-        {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         <div className="mt-6">
           <h3 className="font-bold text-gray-900 mb-3">Estado SSL dos Websites</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {sites.map(s => (
-              <div key={s.domain} className={`flex items-center gap-3 p-4 border rounded-lg
+              <div key={s.domain} className={`flex items-center gap-3 p-4 border rounded
                 ${s.ssl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                 {s.ssl
                   ? <Lock className="w-5 h-5 text-green-500" />
@@ -3295,18 +3295,18 @@ export function APIConfigSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* API Token */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><Key className="w-5 h-5 text-gray-600" /></div>
             <h3 className="font-bold text-gray-900">Token de API</h3>
           </div>
           <p className="text-sm text-gray-500 mb-4">Gere um token para aceder à API do CyberPanel externamente.</p>
           <button onClick={handleGenerate} disabled={generating}
-            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2 mb-4">
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2 mb-4">
             {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />} Gerar Token
           </button>
           {token && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2">
+            <div className="bg-gray-50 border border-gray-200 rounded p-3 flex items-center gap-2">
               <code className="flex-1 text-xs font-mono text-gray-700 break-all">{token}</code>
               <button onClick={handleCopy} className="text-gray-500 hover:text-gray-700 shrink-0">
                 {copied ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
@@ -3316,12 +3316,12 @@ export function APIConfigSection() {
 
           <div className="mt-6 pt-4 border-t">
             <h4 className="text-xs font-bold text-gray-600 uppercase mb-2">Endpoint Base</h4>
-            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded-lg block text-gray-700">https://109.199.104.22:8090/api/</code>
+            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded block text-gray-700">https://109.199.104.22:8090/api/</code>
           </div>
         </div>
 
         {/* Server Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center"><Server className="w-5 h-5 text-green-600" /></div>
@@ -3368,11 +3368,11 @@ export function ListSubdomainsSection({ sites }: { sites: CyberPanelWebsite[] })
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">List Sub/Addon Domains</h1><p className="text-gray-500 mt-1">View all subdomains and addon domains for a website.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
-            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
             <option value="">Select a domain...</option>
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
@@ -3415,30 +3415,30 @@ export function ModifyWebsiteSection({ sites, packages }: { sites: CyberPanelWeb
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Modify Website</h1><p className="text-gray-500 mt-1">Change package and PHP version for a website.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); const s = sites.find(x => x.domain === e.target.value); if (s && s.package) setPackageName(s.package) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"><option value="">Select...</option>
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"><option value="">Select...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Package</label>
-            <select value={packageName} onChange={(e) => setPackageName(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={packageName} onChange={(e) => setPackageName(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">PHP Version</label>
-            <select value={phpVersion} onChange={(e) => setPhpVersion(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={phpVersion} onChange={(e) => setPhpVersion(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option>PHP 7.4</option><option>PHP 8.0</option><option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
             </select>
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleModify} disabled={saving || !selectedDomain} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleModify} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />} Modify Website
         </button>
       </div>
@@ -3474,8 +3474,8 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: CyberPanelW
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Suspender / Activar Websites</h1><p className="text-gray-500 mt-1">Suspende ou reactiva websites.</p></div>
-      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50"><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3">SSL</th><th className="px-4 py-3 w-40">Acções</th></tr></thead>
           <tbody>{sites.map((s, i) => (
@@ -3504,10 +3504,10 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: CyberPanelW
               <td className="px-4 py-3">
                 <button onClick={() => handleToggle(s.domain, parseState(s.state))}
                   disabled={loading === s.domain}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-50
+                  className={`px-4 py-2 rounded text-xs font-bold  transition-colors disabled:opacity-50
                     ${parseState(s.state) === 'Active'
-                      ? 'bg-orange-500 hover:bg-orange-600'
-                      : 'bg-green-600 hover:bg-green-700'}`}>
+                      ? 'bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-50 border border-orange-300 text-orange-600'
+                      : 'bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700'}`}>
                   {parseState(s.state) === 'Active' ? '⏸ Suspender' : '▶ Activar'}
                 </button>
               </td>
@@ -3542,8 +3542,8 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: CyberPanelWe
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Website</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: Deleting a website is permanent and cannot be undone.</p></div>
-      {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50"><th className="px-4 py-3">Domain</th><th className="px-4 py-3">Package</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3 w-32">Action</th></tr></thead>
           <tbody>{sites.map((s, i) => (
@@ -3552,7 +3552,7 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: CyberPanelWe
               <td className="px-4 py-3 text-gray-600">{s.package}</td>
               <td className="px-4 py-3 text-gray-600">{s.owner}</td>
               <td className="px-4 py-3">
-                <button onClick={() => handleDelete(s.domain)} disabled={deleting === s.domain} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
+                <button onClick={() => handleDelete(s.domain)} disabled={deleting === s.domain} className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
                   {deleting === s.domain ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete
                 </button>
               </td>
@@ -3602,9 +3602,9 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {allSites.map((s, i) => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
+            <div key={i} className="bg-white rounded border border-gray-200 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                   <Globe className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div className="min-w-0">
@@ -3616,7 +3616,7 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
                 <a
                   href={`https://${s.domain}/wp-admin`}
                   target="_blank" rel="noopener noreferrer"
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
+                  className="w-full bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
                   <ExternalLink className="w-3.5 h-3.5" /> Abrir WP Admin
                 </a>
                 <button
@@ -3624,13 +3624,13 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
                     if (setFileManagerDomain) setFileManagerDomain(s.domain)
                     setTimeout(() => { if (setActiveSection) setActiveSection('file-manager') }, 50)
                   }}
-                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-4 rounded-lg border border-amber-200 transition-all flex items-center justify-center gap-2">
+                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-4 rounded border border-amber-200 transition-all flex items-center justify-center gap-2">
                   <FolderOpen className="w-3.5 h-3.5" /> Ficheiros WordPress
                 </button>
                 <button
                   onClick={() => handleInstallLiteSpeed(s.domain)}
                   disabled={installingLS === s.domain}
-                  className="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold py-2 px-4 rounded-lg border border-green-200 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  className="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold py-2 px-4 rounded border border-green-200 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                   {installingLS === s.domain
                     ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> A instalar...</>
                     : <><Layers className="w-3.5 h-3.5" /> Instalar LiteSpeed Cache</>}
@@ -3684,24 +3684,24 @@ export function WPPluginsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Configure Plugins</h1><p className="text-gray-500 mt-1">Manage WordPress plugins for your websites.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadPlugins(e.target.value) }}
-            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm"><option value="">Select...</option>
+            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm"><option value="">Select...</option>
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('!') && !msg.includes('Error') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('!') && !msg.includes('Error') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : plugins.length > 0 ? (
           <div className="space-y-2">{plugins.map((p, i) => (
-            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50">
               <div className="flex items-center gap-3">
                 <Plug className="w-5 h-5 text-gray-400" />
                 <div><p className="font-bold text-sm">{p.name || p.pluginName}</p><p className="text-xs text-gray-500">{p.version || ''}</p></div>
               </div>
               <button onClick={() => handleToggle(p.name || p.pluginName, !p.active)} disabled={toggling === (p.name || p.pluginName)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${p.active ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${p.active ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
                 {toggling === (p.name || p.pluginName) ? <RefreshCw className="w-3 h-3 animate-spin" /> : p.active ? 'Deactivate' : 'Activate'}
               </button>
             </div>
@@ -3741,20 +3741,20 @@ export function WPRestoreBackupSection({ sites }: { sites: CyberPanelWebsite[] }
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Restore Backups</h1><p className="text-gray-500 mt-1">Restore WordPress from a previous backup.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadBackups(e.target.value) }}
-            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm"><option value="">Select...</option>
+            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm"><option value="">Select...</option>
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : backups.length > 0 ? (
           <div className="space-y-2">{backups.map((b, i) => (
-            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50">
               <div className="flex items-center gap-3"><Download className="w-5 h-5 text-gray-400" /><span className="font-mono text-sm">{b}</span></div>
-              <button onClick={() => handleRestore(b)} disabled={restoring === b} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
+              <button onClick={() => handleRestore(b)} disabled={restoring === b} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
                 {restoring === b ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Restore
               </button>
             </div>
@@ -3785,22 +3785,22 @@ export function WPRemoteBackupSection({ sites }: { sites: CyberPanelWebsite[] })
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Remote Backup</h1><p className="text-gray-500 mt-1">Create a remote backup of your WordPress site.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => setSelectedDomain(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"><option value="">Select...</option>
+              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"><option value="">Select...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Destination (optional)</label>
-            <input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="s3://bucket or sftp://..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+            <input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="s3://bucket or sftp://..." className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('initiated') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleCreate} disabled={creating || !selectedDomain} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('initiated') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleCreate} disabled={creating || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Create Remote Backup
         </button>
       </div>
@@ -3831,23 +3831,23 @@ export function DNSNameserverSection({ sites }: { sites: CyberPanelWebsite[] }) 
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Create Nameserver</h1><p className="text-gray-500 mt-1">Create child nameservers for your domain.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="lg:col-span-3">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); setNs1(`ns1.${e.target.value}`); setNs2(`ns2.${e.target.value}`) }}
-              className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm"><option value="">Select...</option>
+              className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm"><option value="">Select...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1 IP</label><input value={ns1IP} onChange={(e) => setNs1IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1 IP</label><input value={ns1IP} onChange={(e) => setNs1IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
           <div></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2</label><input value={ns2} onChange={(e) => setNs2(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2 IP</label><input value={ns2IP} onChange={(e) => setNs2IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2</label><input value={ns2} onChange={(e) => setNs2(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2 IP</label><input value={ns2IP} onChange={(e) => setNs2IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleCreate} disabled={saving || !selectedDomain} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleCreate} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />} Create Nameservers
         </button>
       </div>
@@ -3875,13 +3875,13 @@ export function DNSDefaultNSSection() {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Config Default Nameservers</h1><p className="text-gray-500 mt-1">Set the default nameservers for new websites.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nameserver 1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.yourdomain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nameserver 2</label><input value={ns2} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.yourdomain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nameserver 1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.yourdomain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nameserver 2</label><input value={ns2} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.yourdomain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleSave} disabled={saving || !ns1 || !ns2} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleSave} disabled={saving || !ns1 || !ns2} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Settings className="w-4 h-4" />} Save Configuration
         </button>
       </div>
@@ -3908,19 +3908,19 @@ export function DNSCreateZoneSection({ sites }: { sites: CyberPanelWebsite[] }) 
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Create DNS Zone</h1><p className="text-gray-500 mt-1">Create a new DNS zone for a domain.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <button onClick={handleCreate} disabled={saving || !domain} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+          <button onClick={handleCreate} disabled={saving || !domain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />} Create Zone
           </button>
         </div>
-        {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       </div>
     </div>
   )
@@ -3942,19 +3942,19 @@ export function DNSDeleteZoneSection({ sites }: { sites: CyberPanelWebsite[] }) 
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Zone</h1><p className="text-gray-500 mt-1">Delete a DNS zone for a domain.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <button onClick={handleDelete} disabled={deleting || !domain} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+          <button onClick={handleDelete} disabled={deleting || !domain} className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
             {deleting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete Zone
           </button>
         </div>
-        {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('deleted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('deleted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       </div>
     </div>
   )
@@ -3981,18 +3981,18 @@ export function CloudFlareSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">CloudFlare</h1><p className="text-gray-500 mt-1">Configure CloudFlare integration for your domain.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => setSelectedDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={selectedDomain} onChange={(e) => setSelectedDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">CloudFlare Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">API Key</label><input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">CloudFlare Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">API Key</label><input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleSave} disabled={saving || !selectedDomain || !email || !apiKey} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleSave} disabled={saving || !selectedDomain || !email || !apiKey} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />} Configure CloudFlare
         </button>
       </div>
@@ -4019,19 +4019,19 @@ export function DNSResetSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Reset DNS Configurations</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: This will reset all DNS records to default.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <button onClick={handleReset} disabled={resetting || !domain} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+          <button onClick={handleReset} disabled={resetting || !domain} className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
             {resetting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Reset DNS
           </button>
         </div>
-        {msg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('reset') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('reset') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       </div>
     </div>
   )
@@ -4061,18 +4061,18 @@ export function EmailDeleteSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Delete Email</h1><p className="text-gray-500 mt-1">Delete email accounts from a domain.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
             <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('deleted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('deleted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : emails.length > 0 ? (
           <div className="space-y-2">{emails.map((em, i) => (
-            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50">
               <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-red-500" /><span className="font-bold text-sm">{em.email}</span></div>
-              <button onClick={() => handleDelete(em.email)} disabled={deleting === em.email} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
+              <button onClick={() => handleDelete(em.email)} disabled={deleting === em.email} className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1">
                 {deleting === em.email ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete
               </button>
             </div>
@@ -4107,24 +4107,24 @@ export function EmailLimitsSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Email Limits</h1><p className="text-gray-500 mt-1">Set sending limits for email accounts.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
             <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('updated') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('updated') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : emails.length > 0 ? (
           <div className="space-y-2">{emails.map((em, i) => (
-            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50">
               <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-gray-400" /><span className="font-bold text-sm">{em.email}</span></div>
               {editingEmail === em.email ? (
                 <div className="flex items-center gap-2">
                   <input value={limit} onChange={(e) => setLimit(e.target.value)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="500" />
-                  <button onClick={() => handleSave(em.email)} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold">Save</button>
+                  <button onClick={() => handleSave(em.email)} disabled={saving} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-3 py-1 rounded text-xs font-bold">Save</button>
                 </div>
               ) : (
-                <button onClick={() => { setEditingEmail(em.email); setLimit('500') }} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md font-medium">Set Limit</button>
+                <button onClick={() => { setEditingEmail(em.email); setLimit('500') }} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded font-medium">Set Limit</button>
               )}
             </div>
           ))}</div>
@@ -4164,16 +4164,16 @@ export function EmailForwardingSection({ sites }: { sites: CyberPanelWebsite[] }
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Email Forwarding</h1><p className="text-gray-500 mt-1">Configure email forwarding rules.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
             <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className="mb-4 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+        {msg && <div className="mb-4 px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
         {loading ? <div className="py-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : emails.length > 0 ? (
           <div className="space-y-2">{emails.map((em, i) => (
-            <div key={i} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+            <div key={i} className="border border-gray-200 rounded p-3 hover:bg-gray-50">
               <div className="flex items-center justify-between cursor-pointer" onClick={() => loadForwards(em.email)}>
                 <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-gray-400" /><span className="font-bold text-sm">{em.email}</span></div>
                 <ArrowRight className="w-4 h-4 text-gray-400" />
@@ -4181,8 +4181,8 @@ export function EmailForwardingSection({ sites }: { sites: CyberPanelWebsite[] }
               {selectedEmail === em.email && (
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex gap-2 mb-2">
-                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="forward@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                    <button onClick={handleAdd} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Add</button>
+                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="forward@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
+                    <button onClick={handleAdd} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold">Add</button>
                   </div>
                   {forwards.length > 0 && <div className="flex flex-wrap gap-1">{forwards.map((f, fi) => <span key={fi} className="bg-gray-100 px-2 py-1 rounded text-xs">{f}</span>)}</div>}
                 </div>
@@ -4218,20 +4218,20 @@ export function CatchAllEmailSection({ sites }: { sites: CyberPanelWebsite[] }) 
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Catch-All Email</h1><p className="text-gray-500 mt-1">Configure a catch-all email address that receives all unmatched emails.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadCatchAll(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadCatchAll(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Catch-All Email</label>
             {loading ? <div className="py-2"><RefreshCw className="w-4 h-4 animate-spin text-gray-400" /></div> :
-              <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />}
+              <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />}
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleSave} disabled={saving || !selectedDomain} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleSave} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Catch-All'}
         </button>
       </div>
@@ -4262,18 +4262,18 @@ export function PatternForwardingSection({ sites }: { sites: CyberPanelWebsite[]
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Forward emails matching a pattern to a destination.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadPatterns(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadPatterns(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pattern</label><input value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="sales-*" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Destination</label><input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="team@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pattern</label><input value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="sales-*" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Destination</label><input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="team@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
         </div>
-        {msg && <div className="mb-4 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
-        <button onClick={handleAdd} disabled={!selectedDomain || !pattern || !destination} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 mb-4">Add Pattern</button>
+        {msg && <div className="mb-4 px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+        <button onClick={handleAdd} disabled={!selectedDomain || !pattern || !destination} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 mb-4">Add Pattern</button>
         {loading ? <div className="py-4 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : patterns.length > 0 && (
           <div className="space-y-2">{patterns.map((p, i) => <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded text-sm"><span className="font-mono">{p.pattern || p.source}</span><ArrowRight className="w-4 h-4 text-gray-400" /><span>{p.destination || p.target}</span></div>)}</div>
         )}
@@ -4306,21 +4306,21 @@ export function PlusAddressingSection({ sites }: { sites: CyberPanelWebsite[] })
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Plus-Addressing</h1><p className="text-gray-500 mt-1">Enable plus-addressing (user+tag@domain.com) for email accounts.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-4 items-end mb-6">
           <div className="flex-1 max-w-sm"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadStatus(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadStatus(e.target.value) }} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           {selectedDomain && !loading && (
-            <button onClick={handleToggle} disabled={toggling} className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${enabled ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+            <button onClick={handleToggle} disabled={toggling} className={`px-4 py-2.5 rounded text-sm font-bold transition-all ${enabled ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
               {toggling ? <RefreshCw className="w-4 h-4 animate-spin" /> : enabled ? 'Disable' : 'Enable'}
             </button>
           )}
         </div>
         {loading && <div className="py-4"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div>}
-        {msg && <div className="px-4 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+        {msg && <div className="px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
         {selectedDomain && !loading && <p className="text-sm text-gray-600">Plus-addressing is currently <span className={`font-bold ${enabled ? 'text-green-600' : 'text-red-600'}`}>{enabled ? 'enabled' : 'disabled'}</span> for {selectedDomain}.</p>}
       </div>
     </div>
@@ -4363,23 +4363,23 @@ export function EmailChangePasswordSection({ sites }: { sites: CyberPanelWebsite
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold text-gray-900">Change Password</h1><p className="text-gray-500 mt-1">Change the password for an email account.</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Account</label>
             {loading ? <div className="py-2"><RefreshCw className="w-4 h-4 animate-spin text-gray-400" /></div> :
-              <select value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+              <select value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
                 <option value="">Select...</option>{emails.map(em => <option key={em.email} value={em.email}>{em.email}</option>)}
               </select>}
           </div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">New Password</label><input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">New Password</label><input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('changed') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleChange} disabled={saving || !selectedEmail || !newPass} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('changed') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleChange} disabled={saving || !selectedEmail || !newPass} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />} Change Password
         </button>
       </div>
@@ -4502,7 +4502,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center">
           <Shield className="w-5 h-5 text-green-600" />
         </div>
         <div>
@@ -4512,12 +4512,12 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
       </div>
 
       {/* Seletor de Domínio */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <label className="text-xs font-bold text-gray-600 uppercase block mb-2">Selecionar Website</label>
         <select 
           value={selectedDomain} 
           onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value, false) }} 
-          className="w-full max-w-md px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-500"
+          className="w-full max-w-md px-3 py-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-red-500"
         >
           <option value="">Selecione um domínio...</option>
           {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
@@ -4525,14 +4525,14 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
       </div>
 
       {loading && selectedDomain && (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm">
           <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
           <p className="text-sm text-gray-500 mt-3">A carregar chaves DKIM...</p>
         </div>
       )}
 
       {msg && (
-        <div className={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 ${msg.includes('sucesso') || msg.includes('geradas') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`px-4 py-3 rounded text-sm font-medium flex items-center gap-2 ${msg.includes('sucesso') || msg.includes('geradas') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {msg.includes('sucesso') || msg.includes('geradas') ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {msg}
         </div>
@@ -4540,7 +4540,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Chaves DKIM - Layout tipo CyberPanel */}
       {dkimData && selectedDomain && !loading && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
           {/* Header com status e botões */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
@@ -4551,7 +4551,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
               <button 
                 onClick={handleGenerate} 
                 disabled={enabling} 
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {enabling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />} 
                 {dkim?.enabled ? 'Regenerar Chaves' : 'Gerar Chaves'}
@@ -4559,7 +4559,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
               {dkim?.enabled && (
                 <button 
                   onClick={handleTest} 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                  className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-sm font-bold transition-colors flex items-center gap-2"
                 >
                   <ExternalLink className="w-4 h-4" /> 
                   Testar DKIM
@@ -4577,7 +4577,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 <h3 className="text-sm font-bold text-gray-800">PRIVATE KEY</h3>
                 <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Mantenha segura</span>
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="bg-gray-50 border border-gray-200 rounded p-4">
                 <textarea 
                   readOnly
                   value={dkimData.privateKey || '-----BEGIN PRIVATE KEY-----\n[Chave privada gerada pelo servidor]\n-----END PRIVATE KEY-----'}
@@ -4593,7 +4593,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 <h3 className="text-sm font-bold text-gray-800">PUBLIC KEY</h3>
                 <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Adicione ao DNS</span>
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="bg-gray-50 border border-gray-200 rounded p-4">
                 <textarea 
                   readOnly
                   value={dkimData.value}
@@ -4604,7 +4604,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
 
           {/* Instruções de configuração DNS */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded">
             <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
               <ExternalLink className="w-4 h-4" />
               Configuração DNS - Registro TXT
@@ -4652,7 +4652,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
 
           {/* Info adicional */}
-          <div className="mt-4 flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mt-4 flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
             <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
             <p className="text-xs text-yellow-800">
               <strong>Importante:</strong> A propagação DNS pode levar até 48h. 
@@ -4664,13 +4664,13 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Estado sem chaves geradas ainda */}
       {selectedDomain && !loading && !dkimData?.value && (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
           <Key className="w-16 h-16 mx-auto mb-4 text-gray-200" />
           <p className="text-gray-500 mb-4">Nenhuma chave DKIM gerada para {selectedDomain}</p>
           <button 
             onClick={handleGenerate} 
             disabled={enabling} 
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-6 py-3 rounded text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
           >
             {enabling ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />} 
             Gerar Chaves DKIM
@@ -4680,7 +4680,7 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Estado sem domínio selecionado */}
       {!selectedDomain && !loading && (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
           <Shield className="w-16 h-16 mx-auto mb-4 text-gray-200" />
           <p className="text-gray-500">Selecione um domínio para ver as chaves DKIM</p>
         </div>
@@ -4813,16 +4813,16 @@ export function GitDeploySection() {
             {isLocal ? 'Modo local — commit + push → Vercel faz deploy automático.' : 'Modo produção — Vercel Deploy Hook.'}
           </p>
         </div>
-        <button onClick={() => loadStatus()} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+        <button onClick={() => loadStatus()} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>
       </div>
 
       {/* Repo info */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-5">
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center shrink-0">
+            <svg className="w-6 h-6 " viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
             </svg>
           </div>
@@ -4852,7 +4852,7 @@ export function GitDeploySection() {
 
         {/* Local git status */}
         {isLocal && localGit && (
-          <div className={`rounded-lg p-3 border text-sm ${localGit.hasChanges ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+          <div className={`rounded p-3 border text-sm ${localGit.hasChanges ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
             <p className="font-bold text-xs uppercase text-gray-500 mb-1.5">Estado Git Local · branch <span className="font-mono text-gray-700">{localGit.branch}</span></p>
             {localGit.hasChanges ? (
               <div className="space-y-0.5 max-h-28 overflow-y-auto">
@@ -4876,16 +4876,16 @@ export function GitDeploySection() {
                 onChange={e => setCommitMsg(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !deploying && handleDeploy()}
                 placeholder="ex: feat: melhoria no painel de clientes"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
               />
             </div>
             <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying || !commitMsg.trim()}
-                className="bg-black hover:bg-green-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-black hover:bg-green-100 hover:text-green-700  py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Push...</> : <><Upload className="w-4 h-4" /> Git Push</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying || !commitMsg.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
               </button>
             </div>
@@ -4897,11 +4897,11 @@ export function GitDeploySection() {
           <div className="space-y-3">
             <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying}
-                className="bg-black hover:bg-green-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-black hover:bg-green-100 hover:text-green-700  py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Upload className="w-4 h-4" /> Vercel Deploy</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying}
-                className="bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Rocket className="w-4 h-4" /> Deploy Simultâneo</>}
               </button>
             </div>
@@ -4913,7 +4913,7 @@ export function GitDeploySection() {
 
         {/* Result */}
         {result && (
-          <div className={`p-4 rounded-xl border ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className={`p-4 rounded-lg border ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
             <div className="flex items-start gap-2">
               {result.success ? <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />}
               <div className="space-y-1 flex-1">
@@ -4932,7 +4932,7 @@ export function GitDeploySection() {
       </div>
 
       {/* Recent commits */}
-      <div className="bg-white rounded-lg border border-indigo-100 shadow-sm p-6">
+      <div className="bg-white rounded border border-indigo-100 shadow-sm p-6">
         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Commits Recentes</h3>
         {loading ? (
           <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
@@ -4940,7 +4940,7 @@ export function GitDeploySection() {
           <div className="space-y-1">
             {commits.map((c, i) => (
               <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 group transition-colors">
+                className="flex items-start gap-3 p-3 rounded hover:bg-gray-50 border border-transparent hover:border-gray-200 group transition-colors">
                 <code className="text-[10px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded mt-0.5 shrink-0">{c.sha}</code>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-800 font-medium truncate group-hover:text-blue-600">{c.message}</p>
@@ -5080,11 +5080,11 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       <div><h1 className="text-3xl font-bold text-gray-900">Pacotes</h1><p className="text-gray-500 mt-1">Crie e gerencie pacotes de hospedagem.</p></div>
 
       {/* Criar Pacote - Botão no topo */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white rounded shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-100">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+            className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors"
           >
             <Plus className="w-4 h-4" />
             {showCreateForm ? 'Cancelar' : 'Criar Novo Pacote'}
@@ -5095,15 +5095,15 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Detalhes do Pacote</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Espaço em Disco (MB)</label><input type="number" value={form.diskSpace} onChange={e => setForm({ ...form, diskSpace: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({ ...form, bandwidth: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({ ...form, emailAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({ ...form, dataBases: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas FTP</label><input type="number" value={form.ftpAccounts} onChange={e => setForm({ ...form, ftpAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Máximo de Domínios</label><input type="number" value={form.allowedDomains} onChange={e => setForm({ ...form, allowedDomains: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Espaço em Disco (MB)</label><input type="number" value={form.diskSpace} onChange={e => setForm({ ...form, diskSpace: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({ ...form, bandwidth: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({ ...form, emailAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({ ...form, dataBases: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas FTP</label><input type="number" value={form.ftpAccounts} onChange={e => setForm({ ...form, ftpAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Máximo de Domínios</label><input type="number" value={form.allowedDomains} onChange={e => setForm({ ...form, allowedDomains: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
             </div>
-            <button onClick={handleCreate} disabled={creating || !form.packageName.trim()} className="bg-green-600 hover:bg-green-700 text-white py-2.5 px-6 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+            <button onClick={handleCreate} disabled={creating || !form.packageName.trim()} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 py-2.5 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
               {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />} Criar Pacote
             </button>
           </div>
@@ -5111,7 +5111,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       </div>
 
       {/* Lista de Pacotes */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Pacotes Existentes</h2>
         {packages && packages.length > 0 ? (
           <div className="overflow-x-auto">
@@ -5226,7 +5226,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
             <p className="text-gray-500 mb-4">Nenhum pacote encontrado ou erro ao carregar do CyberPanel.</p>
             <button
               onClick={onRefresh}
-              className="bg-black hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
+              className="bg-black hover:bg-red-50 border border-red-300 text-red-600  px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
             >
               <RefreshCw className="w-4 h-4" />
               Sincronizar com CyberPanel
@@ -5235,7 +5235,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         )}
       </div>
 
-      {msg && <div className={`p-4 rounded-lg border ${msg.includes('sucesso') ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{msg}</div>}
+      {msg && <div className={`p-4 rounded border ${msg.includes('sucesso') ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{msg}</div>}
     </div>
   )
 }
@@ -5317,13 +5317,13 @@ export function FileManagerSection({ domain, sites }: {
         {/* Selector de domínio */}
         <select value={selectedDomain}
           onChange={e => { setSelectedDomain(e.target.value); setPath(`/home/${e.target.value}/public_html`) }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          className="px-3 py-2 border border-gray-300 rounded text-sm">
           {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
         </select>
       </div>
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-sm bg-white border border-gray-200 rounded-lg px-4 py-2">
+      <div className="flex items-center gap-1 text-sm bg-white border border-gray-200 rounded px-4 py-2">
         <button onClick={() => setPath(`/home/${selectedDomain}/public_html`)}
           className="text-blue-500 hover:text-blue-700 font-medium">home</button>
         {pathParts.map((part, i) => (
@@ -5342,7 +5342,7 @@ export function FileManagerSection({ domain, sites }: {
       </div>
 
       {/* Tabela de ficheiros */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
@@ -5562,18 +5562,18 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
         <div className="flex items-center gap-3">
           <select value={selectedDomain}
             onChange={e => setSelectedDomain(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-52">
+            className="px-3 py-2 border border-gray-300 rounded text-sm w-52">
             <option value="">Seleccionar domínio...</option>
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
           <button onClick={() => loadBackups(selectedDomain)}
             disabled={!selectedDomain || loading}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50">
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <button onClick={handleCreate} disabled={!selectedDomain || creating}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
             {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {creating ? 'A criar...' : 'Criar Backup'}
           </button>
@@ -5582,14 +5582,14 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 
       {/* Mensagem */}
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success'
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success'
           ? 'bg-green-50 text-green-700 border-green-200'
           : 'bg-red-50 text-red-700 border-red-200'
           }`}>{msg}</div>
       )}
 
       {/* Tabs */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200 bg-gray-50">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
@@ -5638,11 +5638,11 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleRestore(b.filename, b.path)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors">
+                      className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
                       <RefreshCw className="w-3 h-3" /> Restaurar
                     </button>
                     <button onClick={() => handleDownload(b.path, b.filename)}
-                      className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors">
+                      className="bg-gray-700 hover:bg-gray-800  px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
                       ↓ Download
                     </button>
                     <button onClick={async () => {
@@ -5659,7 +5659,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
                       showMsg('Backup eliminado!')
                       setLoading(false)
                     }}
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors">
+                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
                       <Trash2 className="w-3 h-3" /> Eliminar
                     </button>
                   </div>
@@ -5801,18 +5801,18 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
       </div>
 
       {message && (
-        <div className={`p-4 rounded-lg ${success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`p-4 rounded ${success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           <div className="flex items-center gap-2">
             {success ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
             <span>{message}</span>
           </div>
           {success && (
             <div className="mt-3 flex gap-3">
-              <a href={`${getFinalURL()}/wp-admin`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+              <a href={`${getFinalURL()}/wp-admin`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600  px-4 py-2 rounded text-sm font-medium hover:bg-blue-100 hover:text-blue-700 transition-colors">
                 <ExternalLink className="w-4 h-4" />
                 WP Admin
               </a>
-              <a href={getFinalURL()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors">
+              <a href={getFinalURL()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-gray-600  px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
                 <Globe className="w-4 h-4" />
                 Ver Site
               </a>
@@ -5823,7 +5823,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Configuração do Software */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded shadow-sm border border-gray-200">
           <div className="border-b border-blue-500 px-6 py-4">
             <h2 className="text-lg font-semibold text-gray-900">Configuração do Software</h2>
           </div>
@@ -5833,7 +5833,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               <select
                 value={form.protocol}
                 onChange={(e) => setForm({ ...form, protocol: e.target.value as 'http' | 'https' })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               >
                 <option value="http">http://</option>
                 <option value="https">https://</option>
@@ -5845,7 +5845,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               <select
                 value={form.domain}
                 onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               >
                 <option value="">Selecione um domínio</option>
                 {sites.map((site) => (
@@ -5863,7 +5863,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.directory}
                 onChange={(e) => setForm({ ...form, directory: e.target.value })}
                 placeholder="wp (vazio para raiz)"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -5872,7 +5872,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               <select
                 value={form.version}
                 onChange={(e) => setForm({ ...form, version: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               >
                 {wordpressVersions.map((version) => (
                   <option key={version} value={version}>
@@ -5882,7 +5882,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               </select>
             </div>
 
-            <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="p-3 bg-gray-50 rounded">
               <div className="text-xs font-bold text-gray-600 uppercase mb-1">URL Final</div>
               <div className="text-sm font-mono text-blue-600">{getFinalURL()}</div>
             </div>
@@ -5890,7 +5890,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
         </div>
 
         {/* Configurações do Site */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded shadow-sm border border-gray-200">
           <div className="border-b border-blue-500 px-6 py-4">
             <h2 className="text-lg font-semibold text-gray-900">Configurações do Site</h2>
           </div>
@@ -5902,7 +5902,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.siteName}
                 onChange={(e) => setForm({ ...form, siteName: e.target.value })}
                 placeholder="Meu Site WordPress"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -5913,7 +5913,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 onChange={(e) => setForm({ ...form, siteDescription: e.target.value })}
                 placeholder="Um site WordPress incrível"
                 rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -5946,7 +5946,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.adminUsername}
                 onChange={(e) => setForm({ ...form, adminUsername: e.target.value })}
                 placeholder="admin"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -5958,7 +5958,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                   value={form.adminPassword}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="Senha forte"
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-sm"
                 />
                 <button
                   type="button"
@@ -5982,14 +5982,14 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.adminEmail}
                 onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
                 placeholder="admin@exemplo.com"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Base de Dados */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded shadow-sm border border-gray-200">
           <div className="border-b border-blue-500 px-6 py-4">
             <h2 className="text-lg font-semibold text-gray-900">Base de Dados</h2>
           </div>
@@ -6001,7 +6001,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.databaseName}
                 onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
                 placeholder="digital_wp"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -6012,7 +6012,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.databaseUser}
                 onChange={(e) => setForm({ ...form, databaseUser: e.target.value })}
                 placeholder="digital_wpuser"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -6024,7 +6024,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                   value={form.databasePassword}
                   onChange={(e) => setForm({ ...form, databasePassword: e.target.value })}
                   placeholder="Senha do banco de dados"
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-sm"
                 />
                 <button
                   type="button"
@@ -6036,7 +6036,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               </div>
             </div>
 
-            <div className="p-3 bg-blue-50 rounded-lg">
+            <div className="p-3 bg-blue-50 rounded">
               <p className="text-sm text-blue-700">
                 <strong>Nota:</strong> A base de dados e o utilizador serão criados automaticamente no servidor
               </p>
@@ -6045,11 +6045,11 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
         </div>
 
         {/* Botão Instalar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
           <button
             onClick={handleInstall}
             disabled={installing || !form.domain || !form.siteName || !form.adminUsername || !form.adminPassword || !form.adminEmail}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 disabled:bg-gray-400  px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2"
           >
             {installing ? (
               <>
@@ -6195,7 +6195,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
       </div>
 
       {message && (
-        <div className={`p-4 rounded-lg ${message.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`p-4 rounded ${message.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           <div className="flex items-center gap-2">
             {message.includes('sucesso') ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
             <span>{message}</span>
@@ -6205,7 +6205,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Configuração de Backup */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded shadow-sm border border-gray-200">
           <div className="border-b border-blue-500 px-6 py-4">
             <h2 className="text-lg font-semibold text-gray-900">Configurar Backup</h2>
           </div>
@@ -6215,7 +6215,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
               <select
                 value={selectedSite}
                 onChange={(e) => setSelectedSite(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               >
                 <option value="">Selecione um website</option>
                 {sites.map((site) => (
@@ -6261,7 +6261,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 onChange={(e) => setBackupNote(e.target.value)}
                 placeholder="Descrição deste backup..."
                 rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               />
             </div>
 
@@ -6270,7 +6270,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
               <select
                 value={backupLocation}
                 onChange={(e) => setBackupLocation(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
               >
                 {backupLocations.map((location) => (
                   <option key={location} value={location}>
@@ -6283,7 +6283,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
             <button
               onClick={handleBackup}
               disabled={backingUp || !selectedSite}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 disabled:bg-gray-400  px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2"
             >
               {backingUp ? (
                 <>
@@ -6302,7 +6302,7 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
         {/* Informações WordPress */}
         {wpInfo && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white rounded shadow-sm border border-gray-200">
             <div className="border-b border-blue-500 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">Informações</h2>
             </div>
@@ -6337,14 +6337,14 @@ export function WPBackupSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
         {/* Lista de Backups */}
         {backups.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 lg:col-span-2">
+          <div className="bg-white rounded shadow-sm border border-gray-200 lg:col-span-2">
             <div className="border-b border-blue-500 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">Backups Disponíveis</h2>
             </div>
             <div className="p-6">
               <div className="space-y-3">
                 {backups.map((backup) => (
-                  <div key={backup.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={backup.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                     <div>
                       <div className="font-medium text-sm">{backup.filename}</div>
                       <div className="text-xs text-gray-500">{backup.date} - {backup.size}</div>
@@ -6558,22 +6558,22 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadDomains} disabled={loading}
-            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
+            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Sincronizar
           </button>
           <button onClick={() => setDomainModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+            className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors">
             <Plus className="w-4 h-4" /> Adicionar Domínio
           </button>
         </div>
       </div>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
           }`}>{msg}</div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
@@ -6606,13 +6606,13 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button onClick={() => { setSelectedDomain(d); setView('manage') }}
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-xs font-bold transition-colors">
                       Gerenciar
                     </button>
                     <button onClick={() => {
                       setEmailModal({ show: true, domain: d.domain })
                     }}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-xs font-bold transition-colors">
                       Criar Email
                     </button>
                   </div>
@@ -6663,11 +6663,11 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
       <p className="text-sm text-gray-500">Use this interface to manage your domains.</p>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
           }`}>{msg}</div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-800">Criar um Novo Domínio</h2>
         </div>
@@ -6681,7 +6681,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
             <select
               value={domainType}
               onChange={e => setDomainType(e.target.value as any)}
-              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option value="addon">Addon Domain</option>
               <option value="subdomain">Subdomain</option>
@@ -6698,7 +6698,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
               placeholder="subdomain.example.com or newdomain.com"
-              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
           </div>
 
@@ -6711,7 +6711,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="admin@exemplo.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
           </div>
 
@@ -6720,7 +6720,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Document Root Path
             </label>
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+            <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white">
               <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
                 /home/{newDomain || 'domain'}/
               </span>
@@ -6741,7 +6741,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
             <select
               value={selectedPHP}
               onChange={e => setSelectedPHP(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option>PHP 7.4</option>
               <option>PHP 8.0</option>
@@ -6756,7 +6756,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Additional Features
             </label>
-            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded">
               <input
                 type="checkbox"
                 checked={openLiteSpeed}
@@ -6777,7 +6777,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
           {/* Botões */}
           <div className="flex items-center justify-between pt-4">
             <button onClick={handleCreate} disabled={!newDomain || !adminEmail || loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md">
+              className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md">
               {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create Domain
             </button>
@@ -6808,14 +6808,14 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
       </h1>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
           }`}>{msg}</div>
       )}
 
       <div className="grid grid-cols-3 gap-4">
         {/* Update Domain */}
         <div className="col-span-2 space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
               <h2 className="font-bold text-gray-700 uppercase text-xs tracking-wide">Update The Domain</h2>
             </div>
@@ -6825,14 +6825,14 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
                   New Document Root <span className="text-blue-500">?</span>
                 </label>
                 <p className="text-xs text-gray-500 mb-2">Update the directory where you want the files for this domain to exist.</p>
-                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                <div className="flex items-center border border-gray-300 rounded overflow-hidden">
                   <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-r border-gray-300">🏠 /public_html/</span>
                   <input defaultValue={selectedDomain.name}
                     className="flex-1 px-3 py-2.5 text-sm focus:outline-none" />
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded text-sm font-bold transition-colors">
                   Update
                 </button>
                 <button onClick={() => setView('list')}
@@ -6844,7 +6844,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
           </div>
 
           {/* Remove Domain */}
-          <div className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg border border-red-200 shadow-sm overflow-hidden">
             <div className="px-6 py-3 border-b border-red-100 bg-red-50">
               <h2 className="font-bold text-red-700 uppercase text-xs tracking-wide">Remove The Domain</h2>
             </div>
@@ -6853,7 +6853,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
                 <strong>Warning:</strong> If you remove the <strong>"{selectedDomain.domain}"</strong> domain, it will permanently delete the domain from your account. You cannot undo this action.
               </p>
               <button onClick={() => handleRemove(selectedDomain.domain)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors">
                 <Trash2 className="w-4 h-4" /> Remove Domain
               </button>
             </div>
@@ -6862,7 +6862,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
 
         {/* Domain Information */}
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <h2 className="font-bold text-gray-700 uppercase text-xs tracking-wide">Domain Information</h2>
             </div>
@@ -6883,7 +6883,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
           </div>
 
           {/* Additional Resources */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100">
               <h2 className="font-medium text-gray-700 text-sm">Additional Resources</h2>
             </div>
@@ -6969,11 +6969,11 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Mail className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-indigo-50 border border-indigo-300 text-indigo-600 rounded flex items-center justify-center ">
+              <Mail className="w-5 h-5 " />
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900 block">Novo E-mail</h2>
@@ -6987,7 +6987,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
 
         <div className="p-6 space-y-5">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+            <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -6999,7 +6999,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
                 value={form.user}
                 onChange={e => setForm({ ...form, user: e.target.value })}
                 placeholder="admin"
-                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               />
               <span className="text-gray-400 text-sm">@{domain}</span>
             </div>
@@ -7014,7 +7014,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -7029,7 +7029,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
                   value={form.confirmPassword}
                   onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                   placeholder="Confirmar Senha"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all pr-12"
                 />
               </div>
             </div>
@@ -7040,7 +7040,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
             <select
               value={form.quota_mb}
               onChange={e => setForm({ ...form, quota_mb: parseInt(e.target.value) })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
             >
               <option value="250">250 MB</option>
               <option value="500">500 MB</option>
@@ -7069,7 +7069,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+            className="px-6 py-2 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  rounded text-xs font-bold  transition-all flex items-center gap-2"
           >
             {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
             Criar E-mail
@@ -7219,11 +7219,11 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
-      <div className="relative bg-indigo-50/95 border border-indigo-200 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-indigo-50/95 border border-indigo-200 rounded-lg w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-8 py-6 border-b border-indigo-100 bg-white/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Globe className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-indigo-50 border border-indigo-300 text-indigo-600 rounded flex items-center justify-center ">
+              <Globe className="w-5 h-5 " />
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 block">Domain Details</h2>
@@ -7267,7 +7267,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <select
               value={domainType}
               onChange={e => setDomainType(e.target.value as any)}
-              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option value="addon">Addon Domain</option>
               <option value="subdomain">Subdomain</option>
@@ -7284,7 +7284,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
               placeholder="subdomain.example.com or newdomain.com"
-              className="w-full px-4 py-3 border border-indigo-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
           </div>
 
@@ -7297,7 +7297,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="admin@exemplo.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
           </div>
 
@@ -7306,7 +7306,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Document Root Path
             </label>
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+            <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white">
               <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
                 /home/{newDomain || 'domain'}/
               </span>
@@ -7327,7 +7327,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <select
               value={selectedPHP}
               onChange={e => setSelectedPHP(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             >
               <option>PHP 7.4</option>
               <option>PHP 8.0</option>
@@ -7342,7 +7342,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Additional Features
             </label>
-            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded">
               <input
                 type="checkbox"
                 checked={openLiteSpeed}
@@ -7365,7 +7365,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
           <button
             onClick={handleSubmit}
             disabled={loading || !newDomain || !adminEmail}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md"
+            className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Create Domain
@@ -7433,13 +7433,13 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
       <div className="flex items-center gap-3">
         <select value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
-          className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+          className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm">
           {activeSites.map(s => (
             <option key={s.domain} value={s.domain}>{s.domain}</option>
           ))}
         </select>
         <button onClick={handleDeploy} disabled={deploying}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
+          className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  px-6 py-2.5 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
           {deploying
             ? <><RefreshCw className="w-4 h-4 animate-spin" /> A fazer deploy...</>
             : <><Upload className="w-4 h-4" /> Deploy</>
@@ -7449,7 +7449,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Status */}
       {status !== 'idle' && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${status === 'success'
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${status === 'success'
           ? 'bg-green-50 text-green-700 border-green-200'
           : 'bg-red-50 text-red-700 border-red-200'
           }`}>
@@ -7459,7 +7459,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       <div className="grid grid-cols-2 gap-4">
         {/* Git Log */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-700">Últimos Commits</h2>
             <button onClick={loadGitLog}
@@ -7477,7 +7477,7 @@ export function DeploySection({ sites }: { sites: CyberPanelWebsite[] }) {
         </div>
 
         {/* Deploy Log */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
             <h2 className="text-sm font-bold text-gray-700">Log do Deploy</h2>
           </div>
@@ -7578,7 +7578,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
       </div>
 
       {showInstructions && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-bold text-blue-900 mb-4">Como gerar App Password do Gmail</h3>
           <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
             <li>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" className="underline">myaccount.google.com/apppasswords</a></li>
@@ -7591,7 +7591,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Coluna Esquerda - Gmail */}
           <div className="space-y-4">
@@ -7604,7 +7604,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 value={gmailUser}
                 onChange={(e) => setGmailUser(e.target.value)}
                 placeholder="seuemail@gmail.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
               />
             </div>
 
@@ -7616,7 +7616,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
                   value={gmailAppPassword}
                   onChange={(e) => setGmailAppPassword(e.target.value)}
                   placeholder="Senha de 16 caracteres"
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
                 />
                 <button
                   type="button"
@@ -7638,7 +7638,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
               <select
                 value={destinationEmail}
                 onChange={(e) => setDestinationEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
               >
                 <option value="">Selecione um email...</option>
                 {availableEmails.map(email => (
@@ -7654,7 +7654,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
                 value={destinationPassword}
                 onChange={(e) => setDestinationPassword(e.target.value)}
                 placeholder="Password do email Digital Services"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
               />
             </div>
           </div>
@@ -7664,7 +7664,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
           <button
             onClick={handleImport}
             disabled={importing || !gmailUser || !gmailAppPassword || !destinationEmail || !destinationPassword}
-            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2"
+            className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:bg-gray-300  px-8 py-3 rounded font-bold transition-all flex items-center gap-2"
           >
             {importing ? (
               <>
@@ -7683,7 +7683,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
       {/* Progresso e Resultados */}
       {importing && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
           <h3 className="font-bold text-gray-900 mb-4">Progresso da Importação</h3>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
@@ -7696,7 +7696,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                className="bg-red-50 border border-red-300 text-red-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress.total > 0 ? (progress.copied / progress.total) * 100 : 0}%` }}
               />
             </div>
@@ -7705,7 +7705,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
       )}
 
       {result && !importing && (
-        <div className={`border rounded-xl p-6 ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+        <div className={`border rounded-lg p-6 ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
           }`}>
           <h3 className={`font-bold mb-4 ${result.success ? 'text-green-900' : 'text-red-900'
             }`}>
@@ -7718,7 +7718,7 @@ export function EmailImportSection({ sites }: { sites: CyberPanelWebsite[] }) {
             {result.message && <p className="text-gray-700">{result.message}</p>}
 
             {result.errors && result.errors.length > 0 && (
-              <div className="mt-4 p-3 bg-white border border-red-100 rounded-lg shadow-inner">
+              <div className="mt-4 p-3 bg-white border border-red-100 rounded shadow-inner">
                 <button 
                   onClick={() => setShowErrors(!showErrors)}
                   className="flex items-center gap-2 font-bold text-red-700 mb-2 hover:underline w-full text-left"
@@ -7777,7 +7777,7 @@ export function SMTPConfigSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
           <Server className="w-5 h-5 text-blue-600" />
         </div>
         <div>
@@ -7786,7 +7786,7 @@ export function SMTPConfigSection() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Configuração Automática</h2>
         <p className="text-gray-600 text-sm mb-6">
           Configure o servidor CyberPanel (109.199.104.22) para aceitar ligações SMTP externas.
@@ -7795,7 +7795,7 @@ export function SMTPConfigSection() {
         <button
           onClick={configureSMTP}
           disabled={loading}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
+          className="w-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:opacity-50  py-3 px-4 rounded font-bold flex items-center justify-center gap-2 transition-colors"
         >
           {loading ? (
             <><RefreshCw className="w-5 h-5 animate-spin" /> Configurando...</>
@@ -7806,13 +7806,13 @@ export function SMTPConfigSection() {
       </div>
 
       {result && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle className="w-6 h-6 text-green-600" />
             <h3 className="text-lg font-semibold text-green-800">Configuração Executada!</h3>
           </div>
 
-          <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-60 font-mono">
+          <pre className="bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-60 font-mono">
             {result.output}
           </pre>
 
@@ -7830,7 +7830,7 @@ export function SMTPConfigSection() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-6 h-6 text-red-600" />
             <h3 className="text-lg font-semibold text-red-800">Erro</h3>
@@ -7972,7 +7972,7 @@ export function WatchdogSection() {
         <button
           onClick={checkStatus}
           disabled={status.loading}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${status.loading ? 'animate-spin' : ''}`} />
           Atualizar
@@ -7982,7 +7982,7 @@ export function WatchdogSection() {
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* OpenDKIM */}
-        <div className={`p-4 rounded-xl border ${getStatusColor(status.opendkim)}`}>
+        <div className={`p-4 rounded-lg border ${getStatusColor(status.opendkim)}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className={`w-3 h-3 rounded-full ${status.opendkim === 'active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
             <h3 className="font-semibold">OpenDKIM</h3>
@@ -7995,7 +7995,7 @@ export function WatchdogSection() {
         </div>
 
         {/* Postfix */}
-        <div className={`p-4 rounded-xl border ${getStatusColor(status.postfix)}`}>
+        <div className={`p-4 rounded-lg border ${getStatusColor(status.postfix)}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className={`w-3 h-3 rounded-full ${status.postfix === 'active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
             <h3 className="font-semibold">Postfix</h3>
@@ -8008,7 +8008,7 @@ export function WatchdogSection() {
         </div>
 
         {/* Watchdog */}
-        <div className={`p-4 rounded-xl border ${status.watchdogInstalled ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+        <div className={`p-4 rounded-lg border ${status.watchdogInstalled ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
           <div className="flex items-center gap-3 mb-2">
             <Clock className={`w-5 h-5 ${status.watchdogInstalled ? 'text-blue-600' : 'text-gray-400'}`} />
             <h3 className="font-semibold">Watchdog</h3>
@@ -8022,7 +8022,7 @@ export function WatchdogSection() {
 
       {/* Message */}
       {message && (
-        <div className={`p-4 rounded-lg ${message.includes('Erro') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+        <div className={`p-4 rounded ${message.includes('Erro') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
           {message}
         </div>
       )}
@@ -8032,7 +8032,7 @@ export function WatchdogSection() {
         <button
           onClick={restartServices}
           disabled={actionLoading === 'restart'}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:bg-red-400  rounded font-medium transition-colors"
         >
           {actionLoading === 'restart' ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -8046,7 +8046,7 @@ export function WatchdogSection() {
           <button
             onClick={installWatchdog}
             disabled={actionLoading === 'install'}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 disabled:bg-blue-400  rounded font-medium transition-colors"
           >
             {actionLoading === 'install' ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -8059,7 +8059,7 @@ export function WatchdogSection() {
           <button
             onClick={removeWatchdog}
             disabled={actionLoading === 'remove'}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400  rounded font-medium transition-colors"
           >
             {actionLoading === 'remove' ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -8073,7 +8073,7 @@ export function WatchdogSection() {
         <button
           onClick={getLogs}
           disabled={actionLoading === 'logs'}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium transition-colors"
         >
           {actionLoading === 'logs' ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -8086,12 +8086,12 @@ export function WatchdogSection() {
 
       {/* Logs Modal */}
       {showLogs && (
-        <div className="bg-gray-900 rounded-lg p-4">
+        <div className="bg-gray-900 rounded p-4">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-white font-medium">Logs do Watchdog</h4>
+            <h4 className=" font-medium">Logs do Watchdog</h4>
             <button
               onClick={() => setShowLogs(false)}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:"
             >
               <X className="w-5 h-5" />
             </button>
@@ -8103,7 +8103,7 @@ export function WatchdogSection() {
       )}
 
       {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded p-4">
         <h4 className="font-semibold text-blue-800 mb-2">ℹ️ Sobre o Watchdog</h4>
         <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
           <li>Verifica a cada <strong>2 minutos</strong> se OpenDKIM e Postfix estão rodando</li>

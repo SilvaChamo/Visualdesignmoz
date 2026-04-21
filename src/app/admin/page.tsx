@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { createClient } from '@/utils/supabase/server'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle
 } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
@@ -31,12 +31,21 @@ import {
 import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
 import { NotificationsSection } from './NotificationsSection'
 import { RenewalsSection } from './RenewalsSection'
+import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
+import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
+
+// Helper global para parse de state
+const parseState = (state: any): string => {
+  if (state === 1 || state === '1' || state === 'Active') return 'Active'
+  if (state === 0 || state === '0' || state === 'Suspended') return 'Suspended'
+  return state || 'Active'
+}
 
 // Secções que precisam de criar websites
 function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPackage[], onRefresh: () => void }) {
@@ -64,27 +73,427 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
   return (
     <div className="space-y-6 w-full">
       <div><h1 className="text-3xl font-bold text-gray-900">{t('admin.sites.new')}</h1><p className="text-gray-500 mt-1">{t('admin.sites.newDesc')}</p></div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.domain')}</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.email.title')}</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.domain')}</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.email.title')}</label><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="admin@exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.package')}</label>
-            <select value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option value="Default">Default</option>
               {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
             </select>
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">PHP Version</label>
-            <select value={form.php} onChange={e => setForm({ ...form, php: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+            <select value={form.php} onChange={e => setForm({ ...form, php: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
               <option>7.4</option><option>8.0</option><option>8.1</option><option>8.2</option><option>8.3</option>
             </select>
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-        <button onClick={handleCreate} disabled={creating || !form.domain || !form.email} className="bg-black hover:bg-red-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        <button onClick={handleCreate} disabled={creating || !form.domain || !form.email} className="bg-black hover:bg-red-600  px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} {creating ? t('admin.sites.newDesc').split(' ')[0] + '...' : t('admin.sites.new')}
         </button>
       </div>
+    </div>
+  )
+}
+
+// Simple domain list section - shows only domain names
+function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
+  sites: CyberPanelWebsite[],
+  onRefresh: () => void,
+  setActiveSection: (section: string) => void
+}) {
+  const [search, setSearch] = useState('')
+
+  const filteredSites = search
+    ? sites.filter(s => s.domain.toLowerCase().includes(search.toLowerCase()))
+    : sites
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">Lista de Domínios</h2>
+        <button onClick={onRefresh} className="text-gray-400 hover:text-blue-600 transition-colors">
+          <RefreshCw className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Pesquisar domínios..."
+            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-64" />
+        </div>
+        <span className="text-sm text-gray-500">{filteredSites.length} domínio(s)</span>
+      </div>
+
+      {/* Simple Domain List */}
+      <div className="bg-white border border-gray-200 rounded overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-4 py-3 font-bold text-gray-700">Domínio</th>
+              <th className="text-left px-4 py-3 font-bold text-gray-700">Status</th>
+              <th className="text-left px-4 py-3 font-bold text-gray-700">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredSites.map((site) => (
+              <tr key={site.domain} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium text-gray-900">{site.domain}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(site.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {parseState(site.state) === 'Active' ? 'Activo' : 'Suspenso'}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        // @ts-ignore
+                        window.__selectedManageDomain = site.domain;
+                        setActiveSection('manage-website');
+                      }}
+                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1 rounded text-xs font-bold transition-all"
+                    >
+                      Gerir
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// WordPress sites list section - shows only WordPress sites with expandable cards
+function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManagerDomain, setSelectedDNSDomain }: {
+  sites: CyberPanelWebsite[],
+  onRefresh: () => void,
+  setActiveSection: (section: string) => void,
+  setFileManagerDomain?: (domain: string) => void,
+  setSelectedDNSDomain?: (domain: string) => void
+}) {
+  const [expandedSite, setExpandedSite] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 4
+  const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (expandedSite && !siteDiskInfo[expandedSite]) {
+      const fetchUsage = async () => {
+        try {
+          const res = await fetch('/api/server-exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
+          })
+          const data = await res.json()
+          if (data.success) {
+            setSiteDiskInfo(prev => ({ ...prev, [expandedSite]: data.data.usage }))
+          }
+        } catch (e) { console.error(e) }
+      }
+      fetchUsage()
+    }
+  }, [expandedSite])
+
+  // Filter only WordPress sites
+  const wordPressSites = sites.filter(s => s.siteType === 'wordpress')
+  const filtered = wordPressSites.filter(s =>
+    s.domain.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedSites = filtered.slice(startIndex, startIndex + itemsPerPage)
+
+  // Expandir automaticamente o primeiro site ao carregar
+  useEffect(() => {
+    if (paginatedSites.length > 0 && !expandedSite) {
+      setExpandedSite(paginatedSites[0].domain)
+    }
+  }, [paginatedSites, expandedSite])
+
+  const handleDelete = async (domain: string) => {
+    if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL!`)) return
+    setLoading(domain)
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
+      })
+      const data = await res.json()
+      if (data.success) {
+        await onRefresh()
+      } else {
+        alert('Erro ao apagar: ' + (data.data?.output || data.error || 'Erro desconhecido'))
+      }
+    } catch (e: any) {
+      alert('Erro de ligação: ' + e.message)
+    }
+    setLoading(null)
+  }
+
+  const handleSuspend = async (domain: string, state: string) => {
+    setLoading(domain)
+    const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
+    await fetch('/api/server-exec', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params: { domain } })
+    })
+    await onRefresh()
+    setLoading(null)
+  }
+
+  return (
+    <div className="w-full space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-base font-bold text-gray-900">Sites WordPress ({filtered.length})</span>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress Only</span>
+        </div>
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Pesquisar sites WordPress..."
+            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-52" />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded border border-gray-200">
+          <p className="text-gray-500">Nenhum site WordPress encontrado</p>
+        </div>
+      ) : (
+        <>
+          {/* Lista de sites como cards expansíveis */}
+          <div className="space-y-2">
+            {paginatedSites.map((s, i) => (
+              <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
+
+                {/* Linha do site com botões explícitos */}
+                <div className="flex items-center justify-between px-4 py-4">
+
+                  {/* Info do site */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setExpandedSite(expandedSite === s.domain ? null : s.domain)}
+                      className="p-1 rounded hover:bg-gray-100 transition-colors"
+                      title="Expandir/Colapsar"
+                    >
+                      <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedSite === s.domain ? 'rotate-90' : ''}`} />
+                    </button>
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    <a href={`https://${s.domain}`} target="_blank"
+                      className="text-blue-600 hover:underline font-bold text-sm">
+                      {s.domain}
+                    </a>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(s.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {parseState(s.state) || 'Active'}
+                    </span>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>
+                    {s.ssl ? (
+                      <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
+                        <Lock className="w-3.5 h-3.5" /> SSL Activo
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-red-500 text-xs font-bold">
+                        <LockOpen className="w-3.5 h-3.5" /> Sem SSL
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Botões */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        // @ts-ignore
+                        window.__selectedManageDomain = s.domain;
+                        setActiveSection('manage-website');
+                      }}
+                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-1.5 rounded text-xs font-bold transition-all">
+                      Gerir
+                    </button>
+                    <a href={`https://${s.domain}/wp-admin`} target="_blank" rel="noopener noreferrer"
+                      className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 px-4 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
+                      <ExternalLink className="w-3 h-3" /> WP Admin
+                    </a>
+                  </div>
+                </div>
+
+                {/* Detalhes expandidos */}
+                {expandedSite === s.domain && (
+                  <div className="border-t border-gray-100 p-4 space-y-4">
+
+                    {/* Grid de 7 cards: 1 screenshot + 6 info cards */}
+                    <div className="grid grid-cols-4 gap-3">
+
+                      {/* COLUNA 1 — Screenshot */}
+                      <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
+                        <img
+                          src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
+                          alt={s.domain}
+                          className="w-full h-full object-cover rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/placeholder-site.png'
+                          }}
+                        />
+                      </div>
+
+                      {/* COLUNA 2 — State + Disk Usage */}
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">State</p>
+                          <p className="text-sm font-bold text-gray-900">{parseState(s.state) || 'Active'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
+                          <p className="text-sm font-bold text-gray-900">{siteDiskInfo[s.domain] || '...'}</p>
+                        </div>
+                      </div>
+
+                      {/* COLUNA 3 — IP + Package */}
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
+                          <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Package</p>
+                          <p className="text-sm font-bold text-gray-900">{(s as any).package || 'Default'}</p>
+                        </div>
+                      </div>
+
+                      {/* COLUNA 4 — PHP + Owner */}
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">PHP Version</p>
+                          <p className="text-sm font-bold text-gray-900">{(s as any).phpVersion || 'PHP 8.2'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Owner</p>
+                          <p className="text-sm font-bold text-gray-900">{(s as any).owner || 'admin'}</p>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Botões de acção */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                      <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-xs font-bold transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
+                      </a>
+                      <button
+                        onClick={async () => {
+                          setLoading(s.domain)
+                          try {
+                            const res = await fetch('/api/server-exec', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'issueSSL', params: { domain: s.domain } })
+                            })
+                            const data = await res.json()
+                            alert(data.success ? '✅ SSL emitido com sucesso!' : '❌ Erro: ' + (data.data?.output || data.error))
+                          } catch (e: any) {
+                            alert('Erro: ' + e.message)
+                          }
+                          setLoading(null)
+                        }}
+                        disabled={loading === s.domain}
+                        className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
+                        {loading === s.domain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                        Issue SSL
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (setFileManagerDomain) setFileManagerDomain(s.domain);
+                          setTimeout(() => { if (setSelectedDNSDomain) setSelectedDNSDomain(s.domain) }, 50);
+                          setActiveSection('file-manager');
+                        }}
+                        className="flex items-center gap-1.5 bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-4 py-2 rounded text-xs font-bold transition-colors">
+                        <FolderOpen className="w-3.5 h-3.5" /> Ficheiros
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (setSelectedDNSDomain) setSelectedDNSDomain(s.domain);
+                          setActiveSection('domains-dns');
+                        }}
+                        className="flex items-center gap-1.5 bg-fuchsia-50 border border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-100 px-4 py-2 rounded text-xs font-bold transition-colors">
+                        <Globe2 className="w-3.5 h-3.5" /> Editar DNS
+                      </button>
+                      <button
+                        onClick={() => setActiveSection('backup-manager')}
+                        className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded text-xs font-bold transition-colors">
+                        <Archive className="w-3.5 h-3.5" /> Backup
+                      </button>
+                      <button
+                        onClick={() => setActiveSection('databases')}
+                        className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-300 text-cyan-600 hover:bg-cyan-100 px-4 py-2 rounded text-xs font-bold transition-colors">
+                        <Database className="w-3.5 h-3.5" /> Base de Dados
+                      </button>
+                      <button
+                        onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
+                        disabled={loading === s.domain}
+                        className="flex items-center gap-1.5 bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-100 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
+                        {loading === s.domain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                        {parseState(s.state) === 'Active' ? 'Suspender' : 'Reactivar'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(s.domain)}
+                        disabled={loading === s.domain}
+                        className="flex items-center gap-1.5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
+                        {loading === s.domain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        Apagar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 rounded text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 rounded text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Próximo
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -100,11 +509,6 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   syncing: boolean,
   handleSync: () => void
 }) {
-  const parseState = (state: any) => {
-    if (state === 1 || state === '1' || state === 'Active') return 'Active'
-    if (state === 0 || state === '0' || state === 'Suspended') return 'Suspended'
-    return state || 'Active'
-  }
   const [expandedSite, setExpandedSite] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<{ domain: string, field: string } | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -225,7 +629,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const EditableField = ({ domain, field, value, label }: { domain: string, field: string, value: string, label: string }) => {
     const isEditing = editingField?.domain === domain && editingField?.field === field
     return (
-      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+      <div className="bg-gray-50 rounded p-3 border border-gray-200">
         <p className="text-xs font-bold text-gray-400 uppercase mb-1">{label}</p>
         {isEditing ? (
           <div className="flex items-center gap-2">
@@ -246,7 +650,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 className="text-sm border border-gray-300 rounded px-2 py-1 flex-1" />
             )}
             <button onClick={() => handleSaveField(domain, field, editValue)}
-              className="text-xs bg-black text-white px-2 py-1 rounded font-bold">✓</button>
+              className="text-xs bg-black  px-2 py-1 rounded font-bold">✓</button>
             <button onClick={() => setEditingField(null)}
               className="text-xs bg-gray-200 px-2 py-1 rounded">✕</button>
           </div>
@@ -269,13 +673,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-base font-bold text-gray-900">Websites ({filtered.length})</span>
-          <button onClick={handleSync} disabled={syncing}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'A sincronizar...' : 'Sincronizar'}
-          </button>
+
           <button onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition-all">
             <Plus className="w-3 h-3" /> Criar Website
           </button>
           <button onClick={() => {
@@ -283,7 +683,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             sites.forEach(s => rows.push([s.domain, '109.199.104.22', s.state || 'Active', (s as any).package || 'Default']))
             const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'websites.csv'; a.click()
-          }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold">
+          }} className="bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 px-4 py-2 rounded text-xs font-bold transition-all">
             ↓ Exportar CSV
           </button>
         </div>
@@ -291,16 +691,16 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Pesquisar websites..."
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm w-52" />
+            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-52" />
         </div>
       </div>
 
-      {msg && <div className="px-4 py-2.5 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
+      {msg && <div className="px-4 py-2.5 rounded text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
 
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
         {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded-xl border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
+          <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
 
             {/* Linha do site com botões explícitos */}
             <div className="flex items-center justify-between px-4 py-4">
@@ -324,7 +724,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 </span>
                 {/* Badge por tipo de site */}
                 {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
-                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black text-white rounded-full text-xs font-bold">Next.js</span>}
+                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black  rounded-full text-xs font-bold">Next.js</span>}
                 {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
                 {s.ssl ? (
                   <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
@@ -346,7 +746,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     window.__selectedManageDomain = s.domain;
                     setActiveSection('manage-website');
                   }}
-                  className="bg-black hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-1.5 rounded text-xs font-bold transition-all">
                   Gerir
                 </button>
 
@@ -370,11 +770,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 <div className="grid grid-cols-4 gap-3">
 
                   {/* COLUNA 1 — Screenshot */}
-                  <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-36 relative">
+                  <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
                     <img
                       src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
                       alt={s.domain}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover rounded"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/placeholder-site.png'
                       }}
@@ -384,7 +784,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   {/* COLUNA 2 — State + Disk Usage */}
                   <div className="flex flex-col gap-3">
                     <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
                       <p className="text-sm font-bold text-gray-900">{siteDiskInfo[s.domain] || '...'}</p>
                     </div>
@@ -392,7 +792,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
                   {/* COLUNA 3 — IP + Package */}
                   <div className="flex flex-col gap-3">
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
                       <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
                     </div>
@@ -402,7 +802,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   {/* COLUNA 4 — PHP + Owner */}
                   <div className="flex flex-col gap-3">
                     <EditableField domain={s.domain} field="php" value={(s as any).phpVersion || 'PHP 8.2'} label="PHP Version" />
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">Owner</p>
                       <p className="text-sm font-bold text-gray-900">{(s as any).owner || 'admin'}</p>
                     </div>
@@ -413,7 +813,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 {/* Botões de acção numa linha */}
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                   <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
+                    className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-xs font-bold transition-colors">
                     <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
                   </a>
                   <button
@@ -467,7 +867,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                       }
                       setLoading(null)
                     }} disabled={loading === s.domain + '-ssl'}
-                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
+                    className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
                     <Lock className="w-3.5 h-3.5" /> {loading === s.domain + '-ssl' ? 'A verificar...' : 'Issue SSL'}
                   </button>
                   <button
@@ -475,7 +875,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                       setSelectedDNSDomain(s.domain)
                       setActiveSection('domains-dns')
                     }}
-                    className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
+                    className="flex items-center gap-1.5 bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 hover:text-purple-700 px-4 py-2 rounded text-xs font-bold transition-colors">
                     <Server className="w-3.5 h-3.5" /> Editar DNS
                   </button>
                   <button onClick={async () => {
@@ -495,7 +895,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     setLoading(null)
                   }}
                     disabled={loading === s.domain + '-backup'}
-                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
+                    className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
                     {loading === s.domain + '-backup'
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       : <Archive className="w-3.5 h-3.5" />
@@ -509,17 +909,17 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                       window.__selectedDatabaseDomain = s.domain;
                       setActiveSection('cp-databases');
                     }}
-                    className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                    className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-300 text-cyan-600 hover:bg-cyan-100 hover:text-cyan-700 px-4 py-2 rounded text-xs font-bold transition-colors"
                   >
                     <Database className="w-3.5 h-3.5" /> Base de Dados
                   </button>
 
                   <button onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
-                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
+                    className="flex items-center gap-1.5 bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-100 hover:text-orange-700 px-4 py-2 rounded text-xs font-bold transition-colors">
                     <Power className="w-3.5 h-3.5" /> {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
                   </button>
                   <button onClick={() => handleDelete(s.domain)} disabled={loading === s.domain}
-                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
+                    className="flex items-center gap-1.5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
                     <Trash2 className="w-3.5 h-3.5" /> {loading === s.domain ? 'A apagar...' : 'Apagar'}
                   </button>
                 </div>
@@ -535,7 +935,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           <button
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Anterior
           </button>
@@ -545,8 +945,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${currentPage === page
-                  ? 'bg-red-600 text-white'
+                className={`w-8 h-8 rounded text-xs font-bold transition-colors ${currentPage === page
+                  ? 'bg-red-600 '
                   : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
               >
@@ -558,7 +958,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           <button
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded text-xs font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Próximo
           </button>
@@ -568,7 +968,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {/* Modal de criação de website */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded shadow-2xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-gray-900">Criar Novo Website</h2>
               <button onClick={() => { setShowCreateModal(false); setCreateMsg('') }}
@@ -579,18 +979,18 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
                 <input value={createForm.domain} onChange={e => setCreateForm({ ...createForm, domain: e.target.value })}
                   placeholder="exemplo.com"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Email Admin</label>
                 <input value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
                   placeholder="admin@exemplo.com"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Pacote</label>
                 <select value={createForm.packageName} onChange={e => setCreateForm({ ...createForm, packageName: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
                   <option>Default</option>
                   {packages.map(p => <option key={p.packageName} value={p.packageName}>{p.packageName}</option>)}
                 </select>
@@ -598,14 +998,14 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
                 <select value={createForm.php} onChange={e => setCreateForm({ ...createForm, php: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
                   <option>PHP 7.4</option><option>PHP 8.0</option>
                   <option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
                 </select>
               </div>
             </div>
             {createMsg && (
-              <div className={`mt-4 px-4 py-2.5 rounded-lg text-sm font-medium ${createMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              <div className={`mt-4 px-4 py-2.5 rounded text-sm font-medium ${createMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                 {createMsg}
               </div>
             )}
@@ -626,11 +1026,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 }
                 setCreating(false)
               }} disabled={creating || !createForm.domain || !createForm.email}
-                className="flex-1 bg-black hover:bg-red-600 text-white py-2.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex-1 bg-black hover:bg-red-600  py-2.5 rounded text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                 {creating ? <><RefreshCw className="w-4 h-4 animate-spin" /> A criar...</> : '+ Criar Website'}
               </button>
               <button onClick={() => { setShowCreateModal(false); setCreateMsg('') }}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-bold">
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded text-sm font-bold">
                 Cancelar
               </button>
             </div>
@@ -712,24 +1112,24 @@ function ClientesSection() {
     setSalvando(false)
   }
 
-  const inputClass = "w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+  const inputClass = "w-full bg-white border border-gray-300 rounded px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
   const labelClass = "block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5"
 
   if (vista === 'novo') return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => setVista('lista')} className="text-gray-400 hover:text-white transition-colors">
+        <button onClick={() => setVista('lista')} className="text-gray-400 hover: transition-colors">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('admin.clientSection.new')}</h1>
+          <h1 className="text-2xl font-bold ">{t('admin.clientSection.new')}</h1>
           <p className="text-gray-500 text-sm mt-0.5">{t('admin.clientSection.newDesc')}</p>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
-        {erro && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm">{erro}</div>}
-        {sucesso && <div className="bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg px-4 py-3 text-sm">{sucesso}</div>}
+      <div className="bg-white border border-gray-200 rounded p-6 space-y-4 shadow-sm">
+        {erro && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded px-4 py-3 text-sm">{erro}</div>}
+        {sucesso && <div className="bg-green-500/10 border border-green-500/30 text-green-400 rounded px-4 py-3 text-sm">{sucesso}</div>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
@@ -759,10 +1159,10 @@ function ClientesSection() {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button onClick={() => setVista('lista')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg transition-colors">
+          <button onClick={() => setVista('lista')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded transition-colors">
             {t('admin.clientSection.cancel')}
           </button>
-          <button onClick={handleSubmit} disabled={salvando} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+          <button onClick={handleSubmit} disabled={salvando} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50  font-medium py-2.5 rounded transition-colors flex items-center justify-center gap-2">
             {salvando ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t('admin.clientSection.saving')}</> : t('admin.clientSection.create')}
           </button>
         </div>
@@ -777,7 +1177,7 @@ function ClientesSection() {
           <h1 className="text-3xl font-bold text-gray-900">{t('admin.clientSection.title')}</h1>
           <p className="text-gray-500 text-sm mt-0.5">{clientes.length} {t('admin.clientSection.subtitle')}</p>
         </div>
-        <button onClick={() => setVista('novo')} className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <button onClick={() => setVista('novo')} className="bg-blue-600 hover:bg-blue-500  font-medium px-4 py-2 rounded transition-colors flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           {t('admin.clientSection.new')}
         </button>
@@ -785,7 +1185,7 @@ function ClientesSection() {
 
       <div className="mb-4">
         <input
-          className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors shadow-sm"
+          className="w-full bg-white border border-gray-300 rounded px-4 py-2.5 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors shadow-sm"
           placeholder={t('admin.clientSection.search')}
           value={busca}
           onChange={e => setBusca(e.target.value)}
@@ -803,7 +1203,7 @@ function ClientesSection() {
       ) : (
         <div className="grid gap-3">
           {clientesFiltrados.map(c => (
-            <div key={c.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
+            <div key={c.id} className="bg-white border border-gray-200 rounded px-5 py-4 flex items-center justify-between hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-600/30 flex items-center justify-center text-blue-400 font-semibold text-sm flex-shrink-0">
                   {c.nome?.charAt(0).toUpperCase() || '?'}
@@ -830,15 +1230,15 @@ function ClientesSection() {
 // ============================================================
 // MANAGE WEBSITE SECTION - CyberPanel Management Interface
 // ============================================================
-function ManageWebsiteSection({ 
-  domain, 
-  sites, 
-  setActiveSection, 
-  setFileManagerDomain, 
+function ManageWebsiteSection({
+  domain,
+  sites,
+  setActiveSection,
+  setFileManagerDomain,
   setSelectedDNSDomain,
   packages = [],
   onRefresh
-}: { 
+}: {
   domain: string
   sites: CyberPanelWebsite[]
   setActiveSection: (section: string) => void
@@ -861,24 +1261,24 @@ function ManageWebsiteSection({
 
   // Modal de criação de domínio
   const [showDomainModal, setShowDomainModal] = useState(false)
-  const [domainForm, setDomainForm] = useState({ 
-    domain: '', 
-    email: '', 
-    packageName: packages[0]?.packageName || 'Default', 
-    php: '8.2' 
+  const [domainForm, setDomainForm] = useState({
+    domain: '',
+    email: '',
+    packageName: packages[0]?.packageName || 'Default',
+    php: '8.2'
   })
   const [creatingDomain, setCreatingDomain] = useState(false)
   const [domainMsg, setDomainMsg] = useState('')
 
-  // Modal de criação de email
-  const [showEmailModal, setShowEmailModal] = useState(false)
-  const [emailForm, setEmailForm] = useState({
+  // Modal de criação de email (para o domínio específico desta secção)
+  const [showDomainEmailModal, setShowDomainEmailModal] = useState(false)
+  const [domainEmailForm, setDomainEmailForm] = useState({
     user: '',
     password: '',
     quota: '500'
   })
-  const [creatingEmail, setCreatingEmail] = useState(false)
-  const [emailMsg, setEmailMsg] = useState('')
+  const [creatingDomainEmail, setCreatingDomainEmail] = useState(false)
+  const [domainEmailMsg, setDomainEmailMsg] = useState('')
 
   // Salvar estado no localStorage quando mudar
   useEffect(() => {
@@ -897,14 +1297,47 @@ function ManageWebsiteSection({
     setExpandedSections(prev => {
       const isExpanding = !prev.includes(id)
       const newState = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-      
+
       // Se estiver expandindo, manter scroll na posição atual (não auto-scroll)
       if (isExpanding) {
         // Não fazer nada - página mantém-se fixa
       }
-      
+
       return newState
     })
+  }
+
+  // Função para criar email no domínio específico
+  const handleCreateDomainEmail = async () => {
+    if (!domainEmailForm.user || !domainEmailForm.password) return
+    setCreatingDomainEmail(true)
+    setDomainEmailMsg('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createEmail',
+          params: {
+            email: `${domainEmailForm.user}@${domain}`,
+            password: domainEmailForm.password
+          }
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setDomainEmailMsg('Email criado com sucesso!')
+        setDomainEmailForm({ user: '', password: '', quota: '500' })
+        setTimeout(() => {
+          setShowDomainEmailModal(false)
+        }, 1500)
+      } else {
+        setDomainEmailMsg('Erro: ' + (data.error || 'Falha ao criar email'))
+      }
+    } catch (e: any) {
+      setDomainEmailMsg('Erro: ' + e.message)
+    }
+    setCreatingDomainEmail(false)
   }
 
   // Função para criar domínio
@@ -941,50 +1374,19 @@ function ManageWebsiteSection({
     setCreatingDomain(false)
   }
 
-  // Função para criar email
-  const handleCreateEmail = async () => {
-    if (!emailForm.user || !emailForm.password) return
-    setCreatingEmail(true)
-    setEmailMsg('')
-    try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createEmail',
-          params: {
-            email: `${emailForm.user}@${domain}`,
-            password: emailForm.password
-          }
-        })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setEmailMsg('Email criado com sucesso!')
-        setEmailForm({ user: '', password: '', quota: '500' })
-        setTimeout(() => setShowEmailModal(false), 1500)
-      } else {
-        setEmailMsg('Erro: ' + (data.error || 'Falha ao criar email'))
-      }
-    } catch (e: any) {
-      setEmailMsg('Erro: ' + e.message)
-    }
-    setCreatingEmail(false)
-  }
-
-  const MenuItem = ({ 
-    icon: Icon, 
-    label, 
-    description, 
-    onClick, 
-    color = 'text-gray-600', 
+  const MenuItem = ({
+    icon: Icon,
+    label,
+    description,
+    onClick,
+    color = 'text-gray-600',
     bgColor = 'bg-white',
     badge,
     external = false,
     href
-  }: { 
-    icon: any, 
-    label: string, 
+  }: {
+    icon: any,
+    label: string,
     description?: string,
     onClick?: () => void,
     color?: string,
@@ -994,8 +1396,8 @@ function ManageWebsiteSection({
     href?: string
   }) => {
     const content = (
-      <div className={`flex flex-col items-center gap-2 p-4 rounded-xl hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-gray-200 ${bgColor} group`}>
-        <div className={`p-3 rounded-lg ${color} bg-white shadow-sm group-hover:scale-110 transition-transform`}>
+      <div className={`flex flex-col items-center gap-2 p-4 rounded hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-gray-200 ${bgColor} group`}>
+        <div className={`p-3 rounded ${color} bg-white shadow-sm group-hover:scale-110 transition-transform`}>
           <Icon className="w-6 h-6" />
         </div>
         <div className="text-center">
@@ -1003,7 +1405,7 @@ function ManageWebsiteSection({
           {description && <span className="text-[10px] text-gray-400 block mt-0.5">{description}</span>}
         </div>
         {badge && (
-          <span className="absolute top-2 right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+          <span className="absolute top-2 right-2 bg-green-500  text-[9px] font-bold px-1.5 py-0.5 rounded">
             {badge}
           </span>
         )}
@@ -1025,31 +1427,31 @@ function ManageWebsiteSection({
     )
   }
 
-  const SectionCard = ({ 
-    id, 
-    title, 
-    icon: Icon, 
-    color, 
-    bgColor, 
-    children 
-  }: { 
-    id: string, 
-    title: string, 
-    icon: any, 
-    color: string, 
+  const SectionCard = ({
+    id,
+    title,
+    icon: Icon,
+    color,
+    bgColor,
+    children
+  }: {
+    id: string,
+    title: string,
+    icon: any,
+    color: string,
     bgColor: string,
     children: React.ReactNode
   }) => {
     const isExpanded = expandedSections.includes(id)
-    
+
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
         <button
           onClick={() => toggleSection(id)}
           className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
         >
           <div className="flex items-center gap-3">
-            <div className={`${bgColor} ${color} p-2 rounded-lg`}>
+            <div className={`${bgColor} ${color} p-2 rounded`}>
               <Icon className="w-5 h-5" />
             </div>
             <div>
@@ -1061,7 +1463,7 @@ function ManageWebsiteSection({
             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
         </button>
-        
+
         {isExpanded && (
           <div className="p-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -1076,10 +1478,10 @@ function ManageWebsiteSection({
   if (loading) {
     return (
       <div className="p-6 space-y-4">
-        <div className="h-16 bg-gray-200 rounded-xl animate-pulse" />
+        <div className="h-16 bg-gray-200 rounded animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="h-48 bg-gray-200 rounded-xl animate-pulse" />
-          <div className="h-48 bg-gray-200 rounded-xl animate-pulse" />
+          <div className="h-48 bg-gray-200 rounded animate-pulse" />
+          <div className="h-48 bg-gray-200 rounded animate-pulse" />
         </div>
       </div>
     )
@@ -1088,17 +1490,16 @@ function ManageWebsiteSection({
   return (
     <div className="p-6 space-y-4">
       {/* Header do Website */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-900">{domain}</h1>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  siteData?.state === 'Active' || siteData?.state === 1 
-                    ? 'bg-green-100 text-green-700' 
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${siteData?.state === 'Active' || siteData?.state === 1
+                    ? 'bg-green-100 text-green-700'
                     : 'bg-red-100 text-red-700'
-                }`}>
+                  }`}>
                   {siteData?.state === 1 || siteData?.state === '1' ? 'Active' : siteData?.state || 'Active'}
                 </span>
               </div>
@@ -1106,11 +1507,11 @@ function ManageWebsiteSection({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <a 
+            <a
               href={`https://${domain}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-sm font-bold transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               Visitar Site
@@ -1120,11 +1521,11 @@ function ManageWebsiteSection({
       </div>
 
       {/* 1-Click Apps Section */}
-      <SectionCard 
+      <SectionCard
         id="apps"
-        title="1-CLICK APPS" 
-        icon={Zap} 
-        color="text-violet-700" 
+        title="1-CLICK APPS"
+        icon={Zap}
+        color="text-violet-700"
         bgColor="bg-violet-50"
       >
         <MenuItem icon={Globe2} label="WordPress" description="CMS popular" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
@@ -1134,11 +1535,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Backup Section */}
-      <SectionCard 
+      <SectionCard
         id="backup"
-        title="BACKUP" 
-        icon={Archive} 
-        color="text-teal-700" 
+        title="BACKUP"
+        icon={Archive}
+        color="text-teal-700"
         bgColor="bg-teal-50"
       >
         <MenuItem icon={Download} label="Create Backup" description="Criar" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-backup')} />
@@ -1148,11 +1549,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Configurations Section */}
-      <SectionCard 
+      <SectionCard
         id="configs"
-        title="CONFIGURATIONS" 
-        icon={Settings} 
-        color="text-cyan-700" 
+        title="CONFIGURATIONS"
+        icon={Settings}
+        color="text-cyan-700"
         bgColor="bg-cyan-50"
       >
         <MenuItem icon={Server} label="Apache Manager" description="Apache" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`} />
@@ -1163,11 +1564,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Databases Section */}
-      <SectionCard 
+      <SectionCard
         id="databases"
-        title="DATABASES" 
-        icon={Database} 
-        color="text-orange-700" 
+        title="DATABASES"
+        icon={Database}
+        color="text-orange-700"
         bgColor="bg-orange-50"
       >
         <MenuItem icon={Plus} label="Create Database" description="Criar BD" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
@@ -1176,11 +1577,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* DNS Section */}
-      <SectionCard 
+      <SectionCard
         id="dns"
-        title="DNS" 
-        icon={Server} 
-        color="text-yellow-700" 
+        title="DNS"
+        icon={Server}
+        color="text-yellow-700"
         bgColor="bg-yellow-50"
       >
         <MenuItem icon={Edit} label="Edit DNS Zone" description="Editar zona" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
@@ -1190,11 +1591,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Domains Section - Resumida */}
-      <SectionCard 
+      <SectionCard
         id="domains"
-        title="DOMAINS" 
-        icon={Globe} 
-        color="text-blue-700" 
+        title="DOMAINS"
+        icon={Globe}
+        color="text-blue-700"
         bgColor="bg-blue-50"
       >
         <MenuItem icon={Plus} label="Add Domains" description="Adicionar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setShowDomainModal(true)} />
@@ -1204,11 +1605,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Email Marketing Section */}
-      <SectionCard 
+      <SectionCard
         id="email"
-        title="EMAIL MARKETING" 
-        icon={Mail} 
-        color="text-indigo-700" 
+        title="EMAIL MARKETING"
+        icon={Mail}
+        color="text-indigo-700"
         bgColor="bg-indigo-50"
       >
         <MenuItem icon={FileText} label="Create Lists" description="Criar listas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
@@ -1219,14 +1620,14 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Emails Section */}
-      <SectionCard 
+      <SectionCard
         id="email-mgmt"
-        title="EMAILS" 
-        icon={Mail} 
-        color="text-rose-700" 
+        title="EMAILS"
+        icon={Mail}
+        color="text-rose-700"
         bgColor="bg-rose-50"
       >
-        <MenuItem icon={Plus} label="Create Email" description="Criar conta" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => { setEmailForm({ user: '', password: '', quota: '500' }); setShowEmailModal(true); }} />
+        <MenuItem icon={Plus} label="Create Email" description="Criar conta" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
         <MenuItem icon={List} label="List Emails" description="Listar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-mgmt')} />
         <MenuItem icon={ExternalLink} label="Webmail" description="Aceder" color="text-rose-600" bgColor="bg-rose-50/50" external href={`https://${domain}:8090/snappymail`} />
         <MenuItem icon={ArrowLeft} label="Forwarding" description="Encaminhar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-forwarding')} />
@@ -1234,11 +1635,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Files Section - Resumida */}
-      <SectionCard 
+      <SectionCard
         id="files"
-        title="FILES" 
-        icon={FolderOpen} 
-        color="text-emerald-700" 
+        title="FILES"
+        icon={FolderOpen}
+        color="text-emerald-700"
         bgColor="bg-emerald-50"
       >
         <MenuItem icon={FolderOpen} label="File Manager" description="Gestor de ficheiros" color="text-emerald-600" bgColor="bg-emerald-50/50" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
@@ -1248,11 +1649,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Logs Section */}
-      <SectionCard 
+      <SectionCard
         id="logs"
-        title="LOGS" 
-        icon={FileText} 
-        color="text-amber-700" 
+        title="LOGS"
+        icon={FileText}
+        color="text-amber-700"
         bgColor="bg-amber-50"
       >
         <MenuItem icon={FileCode} label="Access Logs" description="Logs de acesso" color="text-amber-600" bgColor="bg-amber-50/50" external href={`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`} />
@@ -1260,11 +1661,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* Security Section */}
-      <SectionCard 
+      <SectionCard
         id="security"
-        title="SECURITY" 
-        icon={Shield} 
-        color="text-red-700" 
+        title="SECURITY"
+        icon={Shield}
+        color="text-red-700"
         bgColor="bg-red-50"
       >
         <MenuItem icon={Lock} label="SSL / TLS" description="Certificados" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-ssl')} />
@@ -1274,11 +1675,11 @@ function ManageWebsiteSection({
       </SectionCard>
 
       {/* WordPress Section */}
-      <SectionCard 
+      <SectionCard
         id="wordpress"
-        title="WORDPRESS" 
-        icon={Globe2} 
-        color="text-blue-700" 
+        title="WORDPRESS"
+        icon={Globe2}
+        color="text-blue-700"
         bgColor="bg-blue-50"
       >
         <MenuItem icon={Download} label="Install WP" description="Instalar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
@@ -1295,8 +1696,8 @@ function ManageWebsiteSection({
           <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <Globe className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Globe className="w-5 h-5 " />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-gray-900">Novo Domínio</h2>
@@ -1310,29 +1711,29 @@ function ManageWebsiteSection({
             <div className="p-6 space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Nome do Domínio</label>
-                <input 
-                  value={domainForm.domain} 
-                  onChange={e => setDomainForm({...domainForm, domain: e.target.value})} 
-                  placeholder="exemplo.com" 
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                <input
+                  value={domainForm.domain}
+                  onChange={e => setDomainForm({ ...domainForm, domain: e.target.value })}
+                  placeholder="exemplo.com"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Email do Administrador</label>
-                <input 
-                  value={domainForm.email} 
-                  onChange={e => setDomainForm({...domainForm, email: e.target.value})} 
-                  placeholder="admin@exemplo.com" 
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                <input
+                  value={domainForm.email}
+                  onChange={e => setDomainForm({ ...domainForm, email: e.target.value })}
+                  placeholder="admin@exemplo.com"
+                  className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Pacote</label>
-                  <select 
-                    value={domainForm.packageName} 
-                    onChange={e => setDomainForm({...domainForm, packageName: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  <select
+                    value={domainForm.packageName}
+                    onChange={e => setDomainForm({ ...domainForm, packageName: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   >
                     {packages.map(p => (
                       <option key={p.packageName} value={p.packageName}>{p.packageName}</option>
@@ -1341,10 +1742,10 @@ function ManageWebsiteSection({
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Versão PHP</label>
-                  <select 
-                    value={domainForm.php} 
-                    onChange={e => setDomainForm({...domainForm, php: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  <select
+                    value={domainForm.php}
+                    onChange={e => setDomainForm({ ...domainForm, php: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   >
                     <option value="7.4">PHP 7.4</option>
                     <option value="8.0">PHP 8.0</option>
@@ -1355,7 +1756,7 @@ function ManageWebsiteSection({
                 </div>
               </div>
               {domainMsg && (
-                <div className={`p-3 rounded-lg text-sm ${domainMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                <div className={`p-3 rounded text-sm ${domainMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                   {domainMsg}
                 </div>
               )}
@@ -1364,10 +1765,10 @@ function ManageWebsiteSection({
               <button onClick={() => setShowDomainModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
                 Cancelar
               </button>
-              <button 
-                onClick={handleCreateDomain} 
+              <button
+                onClick={handleCreateDomain}
                 disabled={creatingDomain || !domainForm.domain || !domainForm.email}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {creatingDomain ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Domínio'}
               </button>
@@ -1376,22 +1777,22 @@ function ManageWebsiteSection({
         </div>
       )}
 
-      {/* Modal de Criação de Email */}
-      {showEmailModal && (
+      {/* Modal de Criação de Email (Domínio Específico) */}
+      {showDomainEmailModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowEmailModal(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowDomainEmailModal(false)} />
           <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center shadow-lg shadow-rose-500/20">
-                  <Mail className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 bg-rose-600 rounded flex items-center justify-center shadow-lg shadow-rose-500/20">
+                  <Mail className="w-5 h-5 " />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-gray-900">Novo E-mail</h2>
                   <span className="text-[11px] text-gray-500 font-mono">No domínio: {domain}</span>
                 </div>
               </div>
-              <button onClick={() => setShowEmailModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+              <button onClick={() => setShowDomainEmailModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1399,11 +1800,11 @@ function ManageWebsiteSection({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
                 <div className="flex items-center gap-2">
-                  <input 
-                    value={emailForm.user} 
-                    onChange={e => setEmailForm({...emailForm, user: e.target.value})} 
-                    placeholder="admin" 
-                    className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  <input
+                    value={domainEmailForm.user}
+                    onChange={e => setDomainEmailForm({ ...domainEmailForm, user: e.target.value })}
+                    placeholder="admin"
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   />
                   <span className="text-gray-500 text-sm">@{domain}</span>
                 </div>
@@ -1411,20 +1812,20 @@ function ManageWebsiteSection({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
-                  <input 
+                  <input
                     type="password"
-                    value={emailForm.password} 
-                    onChange={e => setEmailForm({...emailForm, password: e.target.value})} 
-                    placeholder="••••••••" 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                    value={domainEmailForm.password}
+                    onChange={e => setDomainEmailForm({ ...domainEmailForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label>
-                  <select 
-                    value={emailForm.quota} 
-                    onChange={e => setEmailForm({...emailForm, quota: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  <select
+                    value={domainEmailForm.quota}
+                    onChange={e => setDomainEmailForm({ ...domainEmailForm, quota: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   >
                     <option value="500">500 MB</option>
                     <option value="1000">1 GB</option>
@@ -1435,22 +1836,22 @@ function ManageWebsiteSection({
                   </select>
                 </div>
               </div>
-              {emailMsg && (
-                <div className={`p-3 rounded-lg text-sm ${emailMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                  {emailMsg}
+              {domainEmailMsg && (
+                <div className={`p-3 rounded text-sm ${domainEmailMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  {domainEmailMsg}
                 </div>
               )}
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
-              <button onClick={() => setShowEmailModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
+              <button onClick={() => setShowDomainEmailModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
                 Cancelar
               </button>
-              <button 
-                onClick={handleCreateEmail} 
-                disabled={creatingEmail || !emailForm.user || !emailForm.password}
-                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+              <button
+                onClick={handleCreateDomainEmail}
+                disabled={creatingDomainEmail || !domainEmailForm.user || !domainEmailForm.password}
+                className="bg-rose-600 hover:bg-rose-700  px-4 py-2 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {creatingEmail ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Email'}
+                {creatingDomainEmail ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Email'}
               </button>
             </div>
           </div>
@@ -1550,6 +1951,16 @@ export default function AdminPage() {
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [dashboardSearch, setDashboardSearch] = useState('')
 
+  // Modal de criação de email (movido para nível do AdminPage)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailForm, setEmailForm] = useState({
+    user: '',
+    password: '',
+    quota: '500'
+  })
+  const [creatingEmail, setCreatingEmail] = useState(false)
+  const [emailMsg, setEmailMsg] = useState('')
+
   useEffect(() => {
     loadCyberPanelData()
   }, [])
@@ -1611,8 +2022,8 @@ export default function AdminPage() {
   }
 
   // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
-  const filteredSites = cyberPanelSites.filter(s => 
-    !s.domain.includes('contaboserver') && 
+  const filteredSites = cyberPanelSites.filter(s =>
+    !s.domain.includes('contaboserver') &&
     !s.domain.toLowerCase().startsWith('mail.')
   )
   const primaryDomain = filteredSites.length > 0
@@ -1624,14 +2035,9 @@ export default function AdminPage() {
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'domains', label: 'Websites', icon: Globe },
     { id: 'cp-users', label: 'Contas', icon: Users },
-    { id: 'backup-manager', label: 'Backups', icon: Archive },
-    { id: 'cp-databases', label: 'Databases', icon: Database },
     { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
     { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
     { id: 'newsletter', label: 'Marketing / News', icon: Layout },
-    { id: 'cp-ssl', label: 'SSL', icon: Lock },
-    { id: 'cp-security', label: 'Segurança', icon: Shield },
-    { id: 'cp-php', label: 'PHP', icon: Server },
     { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
     { id: 'cp-api', label: 'Configurações', icon: Settings },
   ]
@@ -1706,6 +2112,10 @@ export default function AdminPage() {
 
   const renderSection = () => {
     switch (activeSection) {
+      case 'cp-client-permissions':
+        return <PanelPermissionsConfig role="client" />
+      case 'cp-reseller-permissions':
+        return <PanelPermissionsConfig role="reseller" />
       case 'dashboard':
         return <CpanelDashboard
           sites={filteredSites}
@@ -1719,7 +2129,6 @@ export default function AdminPage() {
           onSearchChange={setDashboardSearch}
         />
       case 'domains':
-      case 'domains-list':
         return <ListWebsitesSection
           sites={filteredSites}
           onRefresh={loadCyberPanelData}
@@ -1730,6 +2139,12 @@ export default function AdminPage() {
           loadCyberPanelData={loadCyberPanelData}
           syncing={syncing}
           handleSync={handleSync}
+        />
+      case 'domains-list':
+        return <ListDomainsSection
+          sites={filteredSites}
+          onRefresh={loadCyberPanelData}
+          setActiveSection={setActiveSection}
         />
       case 'file-manager':
       case 'cp-file-manager':
@@ -1758,7 +2173,7 @@ export default function AdminPage() {
         return <FTPSection sites={filteredSites} />
       case 'webmail':
       case 'emails-webmail':
-        return <WebmailSection 
+        return <WebmailSection
           userEmail={sessionUser}
           sites={filteredSites}
           useCyberPanelAPI={true}
@@ -1792,7 +2207,11 @@ export default function AdminPage() {
       case 'notifications':
         return <NotificationsSection />
       case 'renewals':
-        return <RenewalsSection />
+        return <RenewalsSection initialTab="overview" hideTabs={true} />
+      case 'templates-renovacao':
+        return <TemplatesSection />
+      case 'cadastrar-renovacao':
+        return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
         return <CPUsersSection />
       case 'cp-reseller':
@@ -1807,7 +2226,7 @@ export default function AdminPage() {
       case 'infrastructure':
         return <APIConfigSection />
       case 'cp-wp-list':
-        return <WPListSection sites={filteredSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} />
+        return <ListWordPressSection sites={filteredSites} onRefresh={loadCyberPanelData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
       case 'cp-wp-plugins':
         return <WPPluginsSection sites={filteredSites} />
       case 'cp-wp-restore-backup':
@@ -1845,8 +2264,8 @@ export default function AdminPage() {
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
-        return <DomainManagerSection 
-          sites={filteredSites} 
+        return <DomainManagerSection
+          sites={filteredSites}
           packages={cyberPanelPackages}
           onCreateEmail={(domain) => {
             setPreSelectedEmailDomain(domain)
@@ -1859,7 +2278,7 @@ export default function AdminPage() {
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'manage-website':
-        return <ManageWebsiteSection 
+        return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
           sites={filteredSites}
           setActiveSection={setActiveSection}
@@ -1873,8 +2292,133 @@ export default function AdminPage() {
     }
   }
 
+  // Função para criar email
+  const handleCreateEmail = async () => {
+    if (!emailForm.user || !emailForm.password) return
+    setCreatingEmail(true)
+    setEmailMsg('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createEmail',
+          params: {
+            email: `${emailForm.user}@${primaryDomain}`,
+            password: emailForm.password
+          }
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEmailMsg('Email criado com sucesso!')
+        setEmailForm({ user: '', password: '', quota: '500' })
+        setTimeout(() => {
+          setShowEmailModal(false)
+          setActiveSection('emails-new')
+        }, 1500)
+      } else {
+        setEmailMsg('Erro: ' + (data.error || 'Falha ao criar email'))
+      }
+    } catch (e: any) {
+      setEmailMsg('Erro: ' + e.message)
+    }
+    setCreatingEmail(false)
+  }
+
+  // Estados para modal de cadastro de renovação
+  const [showCadastroModal, setShowCadastroModal] = useState(false)
+  const [cadastroForm, setCadastroForm] = useState({
+    type: 'domain' as 'domain' | 'hosting',
+    userEmail: '',
+    domain: '',
+    expiration: '',
+    price: '',
+    autoRenew: false,
+    notes: ''
+  })
+  const [submittingCadastro, setSubmittingCadastro] = useState(false)
+  const [cadastroMsg, setCadastroMsg] = useState('')
+
+  // Função para submeter cadastro de renovação
+  const handleSubmitCadastro = async () => {
+    if (!cadastroForm.userEmail || !cadastroForm.domain || !cadastroForm.expiration) {
+      setCadastroMsg('Preencha todos os campos obrigatórios')
+      return
+    }
+    setSubmittingCadastro(true)
+    setCadastroMsg('')
+    try {
+      const userRes = await fetch(`/api/users/search?email=${encodeURIComponent(cadastroForm.userEmail)}`)
+      const userData = await userRes.json()
+      if (!userData.user) {
+        setCadastroMsg('Usuário não encontrado')
+        setSubmittingCadastro(false)
+        return
+      }
+      const res = await fetch('/api/renewals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: cadastroForm.type,
+          userId: userData.user.id,
+          domainName: cadastroForm.domain,
+          expirationDate: cadastroForm.expiration,
+          renewalPrice: parseFloat(cadastroForm.price) || (cadastroForm.type === 'domain' ? 15 : 50),
+          autoRenew: cadastroForm.autoRenew,
+          notes: cadastroForm.notes
+        })
+      })
+      if (res.ok) {
+        setCadastroMsg('✅ Cadastrado com sucesso!')
+        setCadastroForm({
+          type: 'domain',
+          userEmail: '',
+          domain: '',
+          expiration: '',
+          price: '',
+          autoRenew: false,
+          notes: ''
+        })
+        setTimeout(() => {
+          setShowCadastroModal(false)
+          setCadastroMsg('')
+          setActiveSection('renewals')
+        }, 1500)
+      } else {
+        setCadastroMsg('❌ Erro ao cadastrar')
+      }
+    } catch (error) {
+      console.error('Erro:', error)
+      setCadastroMsg('❌ Erro ao cadastrar')
+    }
+    setSubmittingCadastro(false)
+  }
+
   // Função para navegar com domínio padrão para emails
   const handleNavigate = (section: string) => {
+    // Intercetar ação de criar email
+    if (section === 'criar-email') {
+      setEmailForm({ user: '', password: '', quota: '500' })
+      setEmailMsg('')
+      setShowEmailModal(true)
+      return
+    }
+    // Intercetar ação de cadastrar renovação - abrir popup
+    if (section === 'cadastrar-renovacao') {
+      setCadastroForm({
+        type: 'domain',
+        userEmail: '',
+        domain: '',
+        expiration: '',
+        price: '',
+        autoRenew: false,
+        notes: ''
+      })
+      setCadastroMsg('')
+      setShowCadastroModal(true)
+      return
+    }
     // Se navegar para gestão de emails, definir domínio padrão visualdesigne.com
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
       setPreSelectedEmailDomain('visualdesigne.com')
@@ -1884,7 +2428,7 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <AdminSidebar 
+      <AdminSidebar
         activeSection={activeSection}
         onNavigate={handleNavigate}
         isCollapsed={isCollapsed}
@@ -1911,22 +2455,18 @@ export default function AdminPage() {
                     value={dashboardSearch}
                     onChange={e => setDashboardSearch(e.target.value)}
                     placeholder="Pesquisar ferramentas..."
-                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
                   />
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <button onClick={handleSync} disabled={syncing}
-                  className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50" title={t('dash.sync')}>
-                  <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                  {syncing ? t('dash.sync') + '...' : t('dash.sync')}
-                </button>
+
                 <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
+                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
                   <Globe size={13} /> {t('admin.settings.cyberpanel')}
                 </a>
                 <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                  className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors" title={t('sidebar.logout')}>
+                  className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all" title={t('sidebar.logout')}>
                   <LogOut size={14} />
                   <span>Sair da Conta</span>
                 </button>
@@ -1941,6 +2481,211 @@ export default function AdminPage() {
             {renderSection()}
           </div>
         </main>
+
+        {/* Modal de Criação de Email (Global - para o menu Criar E-mail) */}
+        {showEmailModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowEmailModal(false)} />
+            <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-600 rounded flex items-center justify-center shadow-lg shadow-red-500/20">
+                    <Mail className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-gray-900">Novo E-mail</h2>
+                    <span className="text-[11px] text-gray-500 font-mono">No domínio: {primaryDomain}</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowEmailModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={emailForm.user}
+                      onChange={e => setEmailForm({ ...emailForm, user: e.target.value })}
+                      placeholder="admin"
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                    />
+                    <span className="text-gray-500 text-sm">@{primaryDomain}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
+                    <input
+                      type="password"
+                      value={emailForm.password}
+                      onChange={e => setEmailForm({ ...emailForm, password: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota (MB)</label>
+                    <select
+                      value={emailForm.quota}
+                      onChange={e => setEmailForm({ ...emailForm, quota: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                    >
+                      <option value="500">500 MB</option>
+                      <option value="1000">1 GB</option>
+                      <option value="2000">2 GB</option>
+                      <option value="5000">5 GB</option>
+                      <option value="10000">10 GB</option>
+                      <option value="unlimited">Ilimitado</option>
+                    </select>
+                  </div>
+                </div>
+                {emailMsg && (
+                  <div className={`p-3 rounded text-sm ${emailMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                    {emailMsg}
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button onClick={() => setShowEmailModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateEmail}
+                  disabled={creatingEmail || !emailForm.user || !emailForm.password}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {creatingEmail ? <><RefreshCw className="w-4 h-4 animate-spin" /> Criando...</> : '+ Criar Email'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Cadastro de Renovação (Notificações) */}
+        {showCadastroModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowCadastroModal(false)} />
+            <div className="relative bg-white border border-gray-200 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-gray-900">Cadastrar Renovação</h2>
+                    <span className="text-[11px] text-gray-500 font-mono">Novo serviço para notificações</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowCadastroModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo</label>
+                    <select
+                      value={cadastroForm.type}
+                      onChange={e => setCadastroForm({ ...cadastroForm, type: e.target.value as 'domain' | 'hosting' })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    >
+                      <option value="domain">Domínio</option>
+                      <option value="hosting">Hospedagem</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email do Cliente *</label>
+                    <input
+                      type="email"
+                      value={cadastroForm.userEmail}
+                      onChange={e => setCadastroForm({ ...cadastroForm, userEmail: e.target.value })}
+                      placeholder="cliente@email.com"
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome do Domínio *</label>
+                  <input
+                    type="text"
+                    value={cadastroForm.domain}
+                    onChange={e => setCadastroForm({ ...cadastroForm, domain: e.target.value })}
+                    placeholder="exemplo.com"
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Data de Vencimento *</label>
+                    <input
+                      type="date"
+                      value={cadastroForm.expiration}
+                      onChange={e => setCadastroForm({ ...cadastroForm, expiration: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Preço de Renovação (MT)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={cadastroForm.price}
+                      onChange={e => setCadastroForm({ ...cadastroForm, price: e.target.value })}
+                      placeholder={cadastroForm.type === 'domain' ? '15.00' : '50.00'}
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded border border-gray-200">
+                  <input
+                    type="checkbox"
+                    id="autoRenew"
+                    checked={cadastroForm.autoRenew}
+                    onChange={e => setCadastroForm({ ...cadastroForm, autoRenew: e.target.checked })}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <label htmlFor="autoRenew" className="text-sm text-gray-700 cursor-pointer">
+                    Auto-renovação habilitada
+                  </label>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Notas</label>
+                  <textarea
+                    value={cadastroForm.notes}
+                    onChange={e => setCadastroForm({ ...cadastroForm, notes: e.target.value })}
+                    placeholder="Observações opcionais..."
+                    rows={3}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+
+                {cadastroMsg && (
+                  <div className={`p-3 rounded text-sm ${cadastroMsg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                    {cadastroMsg}
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button onClick={() => setShowCadastroModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSubmitCadastro}
+                  disabled={submittingCadastro || !cadastroForm.userEmail || !cadastroForm.domain || !cadastroForm.expiration}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {submittingCadastro ? <><RefreshCw className="w-4 h-4 animate-spin" /> Cadastrando...</> : '+ Cadastrar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

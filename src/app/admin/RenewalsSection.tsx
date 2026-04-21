@@ -51,7 +51,12 @@ interface Stats {
   totalRevenue: number
 }
 
-export function RenewalsSection() {
+interface RenewalsSectionProps {
+  initialTab?: 'overview' | 'domains' | 'hosting' | 'add' | 'templates'
+  hideTabs?: boolean
+}
+
+export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: RenewalsSectionProps) {
   const [domains, setDomains] = useState<Renewal[]>([])
   const [hosting, setHosting] = useState<Renewal[]>([])
   const [stats, setStats] = useState<Stats>({
@@ -63,7 +68,7 @@ export function RenewalsSection() {
     totalRevenue: 0
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'domains' | 'hosting' | 'add' | 'templates'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'domains' | 'hosting' | 'add' | 'templates'>(initialTab)
   
   // Templates editor states
   const [templates, setTemplates] = useState<RenewalTemplate[]>(defaultRenewalTemplates)
@@ -74,7 +79,7 @@ export function RenewalsSection() {
     serviceName: 'exemplo.com',
     expirationDate: '31/12/2025',
     daysRemaining: 60,
-    renewalPrice: '15.00 €',
+    renewalPrice: '15.00 MT',
     renewalLink: 'https://visualdesigne.com/renovar',
     companyName: 'VisualDesign',
     supportEmail: 'suporte@visualdesigne.com',
@@ -201,59 +206,61 @@ export function RenewalsSection() {
     <div className="space-y-6">
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded p-4">
           <div className="flex items-center gap-3">
-            <Globe className="w-8 h-8 opacity-80" />
+            <Globe className="w-8 h-8 text-blue-400" />
             <div>
-              <p className="text-sm opacity-80">Total Serviços</p>
+              <p className="text-sm text-blue-600 font-medium">Total Serviços</p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded p-4">
           <div className="flex items-center gap-3">
-            <CheckCircle className="w-8 h-8 opacity-80" />
+            <CheckCircle className="w-8 h-8 text-emerald-400" />
             <div>
-              <p className="text-sm opacity-80">Ativos</p>
+              <p className="text-sm text-emerald-600 font-medium">Ativos</p>
               <p className="text-2xl font-bold">{stats.active}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 text-white">
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded p-4">
           <div className="flex items-center gap-3">
-            <Clock className="w-8 h-8 opacity-80" />
+            <Clock className="w-8 h-8 text-amber-500" />
             <div>
-              <p className="text-sm opacity-80">60 dias</p>
+              <p className="text-sm text-amber-600 font-medium">60 dias</p>
               <p className="text-2xl font-bold">{stats.expiring60Days}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-4">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="w-8 h-8 opacity-80" />
+            <AlertTriangle className="w-8 h-8 text-red-400" />
             <div>
-              <p className="text-sm opacity-80">30 dias</p>
+              <p className="text-sm text-red-600 font-medium">30 dias</p>
               <p className="text-2xl font-bold">{stats.expiring30Days}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+        <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 rounded p-4">
           <div className="flex items-center gap-3">
-            <DollarSign className="w-8 h-8 opacity-80" />
+            <DollarSign className="w-8 h-8 text-indigo-400" />
             <div>
-              <p className="text-sm opacity-80">Receita Total</p>
-              <p className="text-2xl font-bold">{stats.totalRevenue}€</p>
+              <p className="text-sm text-indigo-600 font-medium">Receita Anual</p>
+              <p className="text-2xl font-bold">
+                {(stats?.totalRevenue || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(',', '.')} MT
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      {/* Tabs - Simplified when hideTabs is true (hide Cadastrar and Templates) */}
+      <div className="bg-white rounded shadow-sm border border-gray-200">
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('overview')}
@@ -282,24 +289,28 @@ export function RenewalsSection() {
             <Server className="w-4 h-4 inline mr-2" />
             Hospedagem ({hosting.length})
           </button>
-          <button
-            onClick={() => setActiveTab('add')}
-            className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
-            }`}
-          >
-            <Plus className="w-4 h-4 inline mr-2" />
-            Cadastrar
-          </button>
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'templates' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-600'
-            }`}
-          >
-            <Palette className="w-4 h-4 inline mr-2" />
-            Templates ({templates.length})
-          </button>
+          {!hideTabs && (
+            <>
+              <button
+                onClick={() => setActiveTab('add')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+                }`}
+              >
+                <Plus className="w-4 h-4 inline mr-2" />
+                Cadastrar
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'templates' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-600'
+                }`}
+              >
+                <Palette className="w-4 h-4 inline mr-2" />
+                Templates ({templates.length})
+              </button>
+            </>
+          )}
         </div>
 
         <div className="p-6">
@@ -307,7 +318,7 @@ export function RenewalsSection() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Botão de Verificação */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+              <div className="bg-gray-50 rounded p-6 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -321,15 +332,15 @@ export function RenewalsSection() {
                   <button
                     onClick={runRenewalCheck}
                     disabled={runningCheck}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-3 bg-blue-50 border border-blue-200 text-blue-600 rounded font-medium hover:bg-blue-100 hover:text-blue-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
                   >
                     <RefreshCw className={`w-5 h-5 ${runningCheck ? 'animate-spin' : ''}`} />
-                    {runningCheck ? 'Verificando...' : 'Executar Verificação'}
+                    {runningCheck ? 'A verificar...' : 'Executar Verificação'}
                   </button>
                 </div>
 
                 {checkResult && (
-                  <div className={`mt-4 p-4 rounded-lg ${checkResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  <div className={`mt-4 p-4 rounded ${checkResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     <p className="font-medium">{checkResult.success ? '✅ Verificação Concluída' : '❌ Erro'}</p>
                     {checkResult.success && (
                       <div className="mt-2 text-sm">
@@ -354,7 +365,7 @@ export function RenewalsSection() {
                     {filteredServices.filter(s => s.daysRemaining <= 60).slice(0, 10).map(service => (
                       <div 
                         key={service.id} 
-                        className={`p-4 rounded-lg border ${
+                        className={`p-4 rounded border ${
                           service.daysRemaining <= 7 ? 'bg-red-50 border-red-200' :
                           service.daysRemaining <= 30 ? 'bg-yellow-50 border-yellow-200' :
                           'bg-blue-50 border-blue-200'
@@ -365,8 +376,8 @@ export function RenewalsSection() {
                             <p className="font-medium">{service.domain_name}</p>
                             <p className="text-sm text-gray-500">
                               {service.type === 'domain' ? 'Domínio' : 'Hospedagem'} | 
-                              Expira em {service.daysRemaining} dias | 
-                              {service.renewal_price}€
+                              expira em {service.daysRemaining} dias | 
+                              {service.renewal_price} MT
                             </p>
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -396,7 +407,7 @@ export function RenewalsSection() {
                     placeholder="Buscar por domínio ou email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded"
                   />
                 </div>
               </div>
@@ -410,14 +421,14 @@ export function RenewalsSection() {
                   {filteredServices
                     .filter(s => activeTab === 'domains' ? s.type === 'domain' : s.type === 'hosting')
                     .map(service => (
-                    <div key={service.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div key={service.id} className="p-4 bg-gray-50 rounded border border-gray-200">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">{service.domain_name}</p>
                           <p className="text-sm text-gray-500">
                             Cliente: {service.user_email || service.user_id} | 
-                            Expira: {new Date(service.expiration_date).toLocaleDateString('pt-PT')} |
-                            {service.renewal_price}€
+                            Expira: {new Date(service.expiration_date).toLocaleDateString('pt-PT')} | 
+                            {service.renewal_price} MT
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -446,7 +457,7 @@ export function RenewalsSection() {
                   <select
                     value={formType}
                     onChange={(e) => setFormType(e.target.value as 'domain' | 'hosting')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
                   >
                     <option value="domain">Domínio</option>
                     <option value="hosting">Hospedagem</option>
@@ -459,7 +470,7 @@ export function RenewalsSection() {
                     value={formUserEmail}
                     onChange={(e) => setFormUserEmail(e.target.value)}
                     placeholder="cliente@email.com"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
                     required
                   />
                 </div>
@@ -472,7 +483,7 @@ export function RenewalsSection() {
                   value={formDomain}
                   onChange={(e) => setFormDomain(e.target.value)}
                   placeholder="exemplo.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
                   required
                 />
               </div>
@@ -484,19 +495,19 @@ export function RenewalsSection() {
                     type="date"
                     value={formExpiration}
                     onChange={(e) => setFormExpiration(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Renovação (€)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Renovação (MT)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formPrice}
                     onChange={(e) => setFormPrice(e.target.value)}
                     placeholder={formType === 'domain' ? '15.00' : '50.00'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
                   />
                 </div>
               </div>
@@ -520,14 +531,14 @@ export function RenewalsSection() {
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="Observações opcionais..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-200 rounded font-bold hover:bg-blue-100 hover:text-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 {submitting ? 'Cadastrando...' : 'Cadastrar Serviço'}
@@ -557,14 +568,14 @@ export function RenewalsSection() {
                         setEditingTemplate(null)
                         alert('✅ Template salvo!')
                       }}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center gap-2"
+                      className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded font-bold hover:bg-emerald-100 hover:text-emerald-700 flex items-center gap-2 transition-colors"
                     >
                       <Save className="w-4 h-4" />
                       Salvar Alterações
                     </button>
                     <button
                       onClick={() => setEditingTemplate(null)}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 flex items-center gap-2"
+                      className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-600 font-bold rounded hover:bg-gray-100 hover:text-gray-700 transition-colors flex items-center gap-2"
                     >
                       <Undo2 className="w-4 h-4" />
                       Cancelar
@@ -588,7 +599,7 @@ export function RenewalsSection() {
                           setSelectedTemplate(template)
                           setEditingTemplate({ ...template })
                         }}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        className={`p-3 rounded border cursor-pointer transition-colors ${
                           editingTemplate?.id === template.id
                             ? 'border-purple-500 bg-purple-50'
                             : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
@@ -621,7 +632,7 @@ export function RenewalsSection() {
                   </div>
 
                   {/* Variáveis Disponíveis */}
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="mt-6 p-4 bg-blue-50 rounded border border-blue-200">
                     <h4 className="font-medium text-blue-900 flex items-center gap-2 mb-3">
                       <Variable className="w-4 h-4" />
                       Variáveis Disponíveis
@@ -685,7 +696,7 @@ export function RenewalsSection() {
                               type="text"
                               value={editingTemplate.name}
                               onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className="w-full px-3 py-2 border border-gray-300 rounded"
                             />
                           </div>
                           <div>
@@ -696,7 +707,7 @@ export function RenewalsSection() {
                               type="number"
                               value={editingTemplate.daysBefore}
                               onChange={(e) => setEditingTemplate({ ...editingTemplate, daysBefore: parseInt(e.target.value) })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className="w-full px-3 py-2 border border-gray-300 rounded"
                             />
                           </div>
                         </div>
@@ -709,7 +720,7 @@ export function RenewalsSection() {
                             <select
                               value={editingTemplate.type}
                               onChange={(e) => setEditingTemplate({ ...editingTemplate, type: e.target.value as any })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className="w-full px-3 py-2 border border-gray-300 rounded"
                             >
                               <option value="info">ℹ️ Informativo</option>
                               <option value="success">✅ Sucesso</option>
@@ -724,7 +735,7 @@ export function RenewalsSection() {
                             <select
                               value={editingTemplate.urgency}
                               onChange={(e) => setEditingTemplate({ ...editingTemplate, urgency: e.target.value as any })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className="w-full px-3 py-2 border border-gray-300 rounded"
                             >
                               <option value="low">🟢 Baixa</option>
                               <option value="medium">🟡 Média</option>
@@ -743,7 +754,7 @@ export function RenewalsSection() {
                             type="text"
                             value={editingTemplate.title}
                             onChange={(e) => setEditingTemplate({ ...editingTemplate, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
                           />
                         </div>
 
@@ -756,7 +767,7 @@ export function RenewalsSection() {
                             value={editingTemplate.message}
                             onChange={(e) => setEditingTemplate({ ...editingTemplate, message: e.target.value })}
                             rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                            className="w-full px-3 py-2 border border-gray-300 rounded resize-none"
                           />
                         </div>
 
@@ -769,7 +780,7 @@ export function RenewalsSection() {
                             type="text"
                             value={editingTemplate.emailSubject}
                             onChange={(e) => setEditingTemplate({ ...editingTemplate, emailSubject: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
                           />
                         </div>
 
@@ -782,7 +793,7 @@ export function RenewalsSection() {
                             value={editingTemplate.emailBody}
                             onChange={(e) => setEditingTemplate({ ...editingTemplate, emailBody: e.target.value })}
                             rows={12}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm"
                           />
                         </div>
                       </div>
@@ -795,7 +806,7 @@ export function RenewalsSection() {
                         </h4>
                         
                         {/* Preview Dashboard */}
-                        <div className={`p-4 rounded-lg border-l-4 mb-4 ${
+                        <div className={`p-4 rounded border-l-4 mb-4 ${
                           editingTemplate.type === 'error' ? 'bg-red-50 border-red-400' :
                           editingTemplate.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
                           editingTemplate.type === 'success' ? 'bg-green-50 border-green-400' :
@@ -810,7 +821,7 @@ export function RenewalsSection() {
                         </div>
 
                         {/* Preview Email */}
-                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="border border-gray-200 rounded overflow-hidden">
                           <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
                             <p className="text-sm font-medium text-gray-700">
                               Assunto: {processTemplate(editingTemplate, previewVariables).emailSubject}
@@ -825,7 +836,7 @@ export function RenewalsSection() {
                         </div>
 
                         {/* Editar Variáveis de Preview */}
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="mt-4 p-4 bg-gray-50 rounded">
                           <p className="text-sm font-medium text-gray-700 mb-2">Editar Variáveis de Preview:</p>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <input
@@ -861,7 +872,7 @@ export function RenewalsSection() {
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                    <div className="text-center py-12 bg-gray-50 rounded border-2 border-dashed border-gray-200">
                       <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-500">Selecione um template à esquerda para editar</p>
                     </div>
@@ -870,8 +881,8 @@ export function RenewalsSection() {
               </div>
             </div>
           )}
+          </div>
         </div>
-      </div>
     </div>
   )
 }

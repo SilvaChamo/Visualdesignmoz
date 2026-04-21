@@ -214,21 +214,21 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-lg shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-gray-900/40 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
                             <LayoutTemplate className="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-slate-900 tracking-tight">Escolher Template</h2>
-                            <p className="text-xs text-slate-500">Clique num template para aplicar automaticamente</p>
+                            <h2 className="text-lg font-bold text-gray-800 tracking-wider">Escolher Template</h2>
+                            <p className="text-xs text-gray-500 mt-1">Clique num template para aplicar automaticamente</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-[#dc2626] hover:text-white rounded-lg transition-colors group">
-                        <X className="w-5 h-5 text-slate-400 group-hover:text-white" />
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors group">
+                        <X className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
                     </button>
                 </div>
 
@@ -244,21 +244,21 @@ export function EmailTemplates({ onSelect, onClose }: EmailTemplatesProps) {
                                 <button
                                     key={template.id}
                                     onClick={() => handleSelect(template.html)}
-                                    className={`relative text-left p-5 rounded-lg border-2 transition-all hover:shadow-md ${isSelected
+                                    className={`relative text-left p-5 rounded-lg border-2 transition-all hover:shadow-sm ${isSelected
                                             ? `${colors.border} ${colors.bg} ring-2 ${colors.ring}`
-                                            : 'border-slate-100 bg-white hover:border-slate-200'
+                                            : 'border-gray-100 bg-white hover:border-gray-300'
                                         }`}
                                 >
                                     {isSelected && (
-                                        <div className={`absolute top-3 right-3 w-6 h-6 ${colors.bg} rounded-full flex items-center justify-center`}>
+                                        <div className={`absolute top-3 right-3 w-6 h-6 ${colors.bg} flex items-center justify-center rounded-full`}>
                                             <Check className={`w-4 h-4 ${colors.text}`} />
                                         </div>
                                     )}
-                                    <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}>
+                                    <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center mb-4`}>
                                         <Icon className={`w-6 h-6 ${colors.text}`} />
                                     </div>
-                                    <h3 className="font-bold text-sm text-slate-900 mb-1">{template.name}</h3>
-                                    <p className="text-xs text-slate-500 leading-relaxed">{template.description}</p>
+                                    <h3 className="font-bold text-sm text-gray-900 mb-1">{template.name}</h3>
+                                    <p className="text-xs text-gray-500 leading-relaxed font-medium">{template.description}</p>
                                 </button>
                             );
                         })}

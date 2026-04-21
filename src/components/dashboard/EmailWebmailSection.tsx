@@ -1267,12 +1267,12 @@ export function EmailWebmailSection({
             if (editorRef.current) editorRef.current.innerHTML = ''
           }, 50)
         }}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
+          className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
           Escrever
         </button>
       
       <a href={getWebmailUrl()} target="_blank"
-        className="bg-gray-600 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
+        className="bg-gray-600 hover:bg-red-600  px-4 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-colors">
         {emailOrigem ? 'Webmail' : 'Webmail'}
       </a>
       <div className="w-px h-5 bg-gray-700 mx-1" />
@@ -1314,7 +1314,7 @@ export function EmailWebmailSection({
           Assinatura
         </button>
         <button onClick={() => setMostrarAdicionarConta(true)}
-          className="bg-gray-500 hover:bg-gray-600 text-white text-sm px-4 py-1.5 rounded-md border border-gray-500 hover:border-gray-600 transition-colors flex items-center gap-2 font-medium">
+          className="bg-gray-500 hover:bg-gray-600  text-sm px-4 py-1.5 rounded-md border border-gray-500 hover:border-gray-600 transition-colors flex items-center gap-2 font-medium">
           <Plus className="w-4 h-4" />
           Adicionar Conta
         </button>
@@ -1426,7 +1426,7 @@ export function EmailWebmailSection({
                 {/* Coluna esquerda — botão Enviar */}
                 <div className="flex flex-col border-r border-gray-200 shrink-0">
                   <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
-                    className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
+                    className="flex-1 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 disabled:bg-green-600 disabled:cursor-not-allowed  font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
                     {enviando
                       ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
                       : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
@@ -1474,7 +1474,7 @@ export function EmailWebmailSection({
                       ))}
                     </select>
                     <button onClick={() => setMostrarPopupFechar(true)}
-                      className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
+                      className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
                   </div>
                   {/* Linha Para */}
                   <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
@@ -1619,7 +1619,7 @@ export function EmailWebmailSection({
                     return (
                       <button key={i} title={b.t}
                         className={`text-sm px-2.5 py-1.5 rounded border relative group font-bold transition-colors
-        ${activo ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+        ${activo ? 'bg-blue-600 border-blue-500 ' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
                         onMouseDown={(e) => {
                           e.preventDefault()
                           if (!cmd) return
@@ -1628,7 +1628,7 @@ export function EmailWebmailSection({
                           execCmd(cmd)
                         }}>
                         {b.t === 'Itálico' ? <em>{b.l}</em> : b.t === 'Riscado' ? <s>{b.l}</s> : b.l}
-                        <span className="absolute top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">{b.t}</span>
+                        <span className="absolute top-8 left-1/2 -translate-x-1/2 bg-black  text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">{b.t}</span>
                       </button>
                     )
                   })}
@@ -1718,9 +1718,9 @@ export function EmailWebmailSection({
                 <div className="img-toolbar px-4 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-3">
                   <span className="text-xs font-semibold text-blue-700">📷 Imagem:</span>
                   <div className="flex gap-1">
-                    <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Máx</button>
-                    <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Méd</button>
-                    <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400 text-white rounded hover:bg-blue-500">Peq</button>
+                    <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600  rounded hover:bg-blue-700">Máx</button>
+                    <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500  rounded hover:bg-blue-600">Méd</button>
+                    <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400  rounded hover:bg-blue-500">Peq</button>
                   </div>
                   <div className="w-px h-4 bg-blue-300" />
                   <div className="flex gap-1">
@@ -1729,7 +1729,7 @@ export function EmailWebmailSection({
                     <button onClick={() => alinharImagem('right')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Direita">→</button>
                   </div>
                   <div className="w-px h-4 bg-blue-300" />
-                  <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar">🗑️</button>
+                  <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500  rounded hover:bg-red-600" title="Eliminar">🗑️</button>
                   <button onClick={() => setImagemSelecionada(null)} className="ml-auto text-xs text-gray-500 hover:text-gray-700">✕</button>
                 </div>
               )}
@@ -1985,7 +1985,7 @@ export function EmailWebmailSection({
                   <h2 className="text-xl font-bold text-gray-900">{modalEmail.assunto}</h2>
 
                   <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center  font-bold text-sm shrink-0">
                       {modalEmail.de?.[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -2045,7 +2045,7 @@ export function EmailWebmailSection({
                       <button
                         onClick={handleSend}
                         disabled={enviando || !compose.para}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold transition"
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400  px-4 py-2 rounded text-sm font-bold transition"
                       >
                         {enviando ? '⏳ Enviando...' : '✈️ Enviar'}
                       </button>
@@ -2111,7 +2111,7 @@ export function EmailWebmailSection({
                     console.error('Erro ao alterar senha:', e)
                     alert('Erro ao alterar senha: ' + (e.message || e))
                   } finally { setAlterandoSenha(false) }
-                }} className="px-4 py-2 bg-green-600 text-white rounded-md">Atualizar Senha</button>
+                }} className="px-4 py-2 bg-green-600  rounded-md">Atualizar Senha</button>
               </div>
             </div>
           </div>
@@ -2128,7 +2128,7 @@ export function EmailWebmailSection({
               {/* Coluna esquerda — só botão Enviar */}
               <div className="flex flex-col border-r border-gray-200 shrink-0">
                 <button onClick={handleSend} disabled={enviando || !compose.para || !emailOrigem}
-                  className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-600 disabled:cursor-not-allowed text-white font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
+                  className="flex-1 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 disabled:bg-green-600 disabled:cursor-not-allowed  font-bold px-6 text-sm flex flex-col items-center justify-center gap-1 shadow-sm min-w-[110px]">
                   {enviando
                     ? <><span className="text-xl">⏳</span><span className="text-[11px] tracking-wide">A enviar...</span></>
                     : <><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="text-[11px] tracking-wide uppercase">Enviar</span></>
@@ -2151,7 +2151,7 @@ export function EmailWebmailSection({
                     ))}
                   </select>
                   <button onClick={() => setMostrarPopupFechar(true)}
-                    className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
+                    className="ml-2 w-8 h-full min-h-[32px] flex items-center justify-center bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  font-bold text-sm shrink-0 transition-colors -mr-0 self-stretch">✕</button>
                 </div>
                 {/* Linha Para */}
                 <div className="flex items-center border-b border-gray-200 px-3 py-1.5">
@@ -2303,7 +2303,7 @@ export function EmailWebmailSection({
                     <button key={i} title={b.t}
                       className={`text-sm px-2.5 py-1.5 rounded border relative group font-bold transition-colors
         ${activo
-                          ? 'bg-blue-600 border-blue-500 text-white'
+                          ? 'bg-blue-600 border-blue-500 '
                           : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                         }`}
                       onMouseDown={(e) => {
@@ -2316,7 +2316,7 @@ export function EmailWebmailSection({
                       {b.t === 'Itálico' ? <em>{b.l}</em> :
                         b.t === 'Riscado' ? <s>{b.l}</s> :
                           b.l}
-                      <span className="absolute top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">{b.t}</span>
+                      <span className="absolute top-8 left-1/2 -translate-x-1/2 bg-black  text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">{b.t}</span>
                     </button>
                   )
                 })}
@@ -2399,7 +2399,7 @@ export function EmailWebmailSection({
                     setAnexos([]);
                     if (onCloseCompose) onCloseCompose();
                   }}
-                    className="mt-5 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold">Fechar</button>
+                    className="mt-5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  px-6 py-2.5 rounded-lg text-sm font-bold">Fechar</button>
                 </div>
               </div>
             ) : (
@@ -2409,9 +2409,9 @@ export function EmailWebmailSection({
                   <div className="img-toolbar px-4 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-3">
                     <span className="text-xs font-semibold text-blue-700">📷 Imagem:</span>
                     <div className="flex gap-1">
-                      <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Máx</button>
-                      <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Méd</button>
-                      <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400 text-white rounded hover:bg-blue-500">Peq</button>
+                      <button onClick={() => resizeImagem('max')} className="px-2 py-1 text-xs bg-blue-600  rounded hover:bg-blue-700">Máx</button>
+                      <button onClick={() => resizeImagem('med')} className="px-2 py-1 text-xs bg-blue-500  rounded hover:bg-blue-600">Méd</button>
+                      <button onClick={() => resizeImagem('peq')} className="px-2 py-1 text-xs bg-blue-400  rounded hover:bg-blue-500">Peq</button>
                     </div>
                     <div className="w-px h-4 bg-blue-300" />
                     <div className="flex gap-1">
@@ -2420,7 +2420,7 @@ export function EmailWebmailSection({
                       <button onClick={() => alinharImagem('right')} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300" title="Direita">→</button>
                     </div>
                     <div className="w-px h-4 bg-blue-300" />
-                    <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar">🗑️</button>
+                    <button onClick={deletarImagem} className="px-2 py-1 text-xs bg-red-500  rounded hover:bg-red-600" title="Eliminar">🗑️</button>
                     <button onClick={() => setImagemSelecionada(null)} className="ml-auto text-xs text-gray-500 hover:text-gray-700">✕</button>
                   </div>
                 )}
@@ -2485,7 +2485,7 @@ export function EmailWebmailSection({
                 <button onClick={() => setMostrarPopupLink(false)}
                   className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
                 <button onClick={confirmarLink}
-                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg">Inserir</button>
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700  font-bold rounded-lg">Inserir</button>
               </div>
             </div>
           </div>
@@ -2515,11 +2515,11 @@ export function EmailWebmailSection({
                   // Notificar o componente pai que o compose foi fechado
                   onCloseCompose?.()
                 }}
-                  className="flex-1 bg-black/70 hover:bg-red-900 text-white font-bold py-2 rounded-lg text-xs transition-colors">
+                  className="flex-1 bg-black/70 hover:bg-red-900  font-bold py-2 rounded-lg text-xs transition-colors">
                   🗑️ Descartar
                 </button>
                 <button onClick={handleDraftSave}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-xs transition-colors">
+                  className="flex-1 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  font-bold py-2 rounded-lg text-xs transition-colors">
                   💾 Guardar
                 </button>
               </div>
@@ -2554,7 +2554,7 @@ export function EmailWebmailSection({
                   inserirTabela(tabelaConfig.linhas, tabelaConfig.colunas)
                   setMostrarPopupTabela(false)
                 }}
-                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg">Inserir</button>
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700  font-bold rounded-lg">Inserir</button>
               </div>
             </div>
           </div>
@@ -2572,11 +2572,11 @@ export function EmailWebmailSection({
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
-                <h2 className={`text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-900'}`}>Assinaturas</h2>
+                <h2 className={`text-sm font-bold transition-colors ${modoEscuroAssinatura ? '' : 'text-gray-900'}`}>Assinaturas</h2>
                 <button
                   onClick={() => setModoEscuroAssinatura(!modoEscuroAssinatura)}
                   title={modoEscuroAssinatura ? "Modo Claro" : "Modo Escuro"}
-                  className={`text-xs px-2 py-1 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600 text-white hover:bg-yellow-600' : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'}`}>
+                  className={`text-xs px-2 py-1 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600  hover:bg-yellow-600' : 'bg-gray-700 border-gray-600  hover:bg-gray-600'}`}>
                   {modoEscuroAssinatura ? '☀️ Claro' : '🌙 Escuro'}
                 </button>
               </div>
@@ -2584,7 +2584,7 @@ export function EmailWebmailSection({
               <div className={`p-6 space-y-5 transition-colors ${modoEscuroAssinatura ? 'bg-gray-900' : 'bg-white'}`}>
                 {/* Editar assinatura */}
                 <div>
-                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-800'}`}>Editar assinatura:</h3>
+                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? '' : 'text-gray-800'}`}>Editar assinatura:</h3>
                   <div className={`rounded-lg border flex overflow-hidden transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`} style={{ minHeight: '200px' }}>
                     {/* Lista */}
                     <div className={`w-52 border-r flex flex-col transition-colors ${modoEscuroAssinatura ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50/50 border-gray-200'}`}>
@@ -2631,7 +2631,7 @@ export function EmailWebmailSection({
 
                 {/* Assinatura predefinida */}
                 <div>
-                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? 'text-white' : 'text-gray-800'}`}>Selecionar assinatura predefinida:</h3>
+                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? '' : 'text-gray-800'}`}>Selecionar assinatura predefinida:</h3>
                   <div className={`rounded-lg border p-4 space-y-3 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                     {/* Conta - Dropdown com todas as contas */}
                     <div className="flex items-center gap-4">
@@ -2745,9 +2745,9 @@ export function EmailWebmailSection({
                     if (assinaturas[assinaturaAtiva]) setAssinatura(assinaturas[assinaturaAtiva].texto)
                     setMostrarConfigAssinatura(false)
                   }}
-                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">Guardar</button>
+                    className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">Guardar</button>
                   <button onClick={() => setMostrarConfigAssinatura(false)}
-                    className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}>Cancelar</button>
+                    className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-700 hover:bg-gray-600 ' : 'bg-gray-500 hover:bg-gray-600 '}`}>Cancelar</button>
                 </div>
               </div>
             </div>
@@ -2777,7 +2777,7 @@ export function EmailWebmailSection({
                     const novoNome = e.target.value
                     setAssinaturas(prev => prev.map((a, i) => i === assinaturaAtiva ? { ...a, nome: novoNome } : a))
                   }}
-                  className={`flex-1 border text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
+                  className={`flex-1 border text-sm px-3 py-1.5 rounded outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 ' : 'bg-white border-gray-300 text-gray-900'}`} />
               </div>
 
               {/* Toolbar - largura total embaixo do nome */}
@@ -2824,7 +2824,7 @@ export function EmailWebmailSection({
                 <button 
                   onClick={() => setModoEscuroAssinatura(!modoEscuroAssinatura)}
                   title={modoEscuroAssinatura ? "Modo Claro" : "Modo Escuro"}
-                  className={`text-xs px-2 py-1.5 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600 text-white hover:bg-yellow-600' : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'}`}>{modoEscuroAssinatura ? '☀️ Claro' : '🌙 Escuro'}</button>
+                  className={`text-xs px-2 py-1.5 rounded border transition-colors ${modoEscuroAssinatura ? 'bg-yellow-500 border-yellow-600  hover:bg-yellow-600' : 'bg-gray-700 border-gray-600  hover:bg-gray-600'}`}>{modoEscuroAssinatura ? '☀️ Claro' : '🌙 Escuro'}</button>
               </div>
 
               {/* Área de edição — fundo branco SEMPRE */}
@@ -2865,7 +2865,7 @@ export function EmailWebmailSection({
                 {/* Upload / URL imagem */}
                 <div className={`border-t px-5 py-3 flex items-center gap-3 flex-wrap transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                   <span className={`text-xs font-medium ${modoEscuroAssinatura ? 'text-gray-400' : 'text-gray-600'}`}>Imagem da assinatura:</span>
-                  <label className={`text-xs px-3 py-1.5 rounded cursor-pointer transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700' : 'bg-gray-800 text-white hover:bg-gray-700'}`}>
+                  <label className={`text-xs px-3 py-1.5 rounded cursor-pointer transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700' : 'bg-gray-800  hover:bg-gray-700'}`}>
                     Escolher ficheiro
                     <input type="file" accept="image/*" className="hidden"
                       onChange={e => {
@@ -2911,7 +2911,7 @@ export function EmailWebmailSection({
                   setMostrarEditarAssinatura(false)
                   setMostrarConfigAssinatura(true)
                 }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
+                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700  px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">Guardar</button>
                 <button onClick={() => { setMostrarEditarAssinatura(false); setMostrarConfigAssinatura(true) }}
                   className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancelar</button>
               </div>
@@ -2969,7 +2969,7 @@ export function EmailWebmailSection({
                       }
                     }}
                     disabled={!novoContacto.nome || !novoContacto.email}
-                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-md text-sm font-bold transition-colors">
+                    className="flex-1 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:opacity-50  py-2 rounded-md text-sm font-bold transition-colors">
                     + Adicionar
                   </button>
                 </div>

@@ -6,14 +6,8 @@ import {
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
   RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
   AlertCircle, ArrowRightLeft, Webhook,
-  Save, X, Filter, Calendar
+  Save, X, Filter, Calendar, Bell
 } from 'lucide-react';
-
-interface MenuItem {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-}
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -23,22 +17,80 @@ interface AdminSidebarProps {
   sessionUser: string | null;
 }
 
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  subItems?: { id: string; label: string }[];
+}
+
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'emails-new', label: 'Gestão de E-mails', icon: Mail },
-  { id: 'domains', label: 'Websites', icon: Globe },
-  { id: 'packages-list', label: 'Pacotes', icon: Package },
-  { id: 'cp-users', label: 'Contas', icon: Users },
-  { id: 'backup-manager', label: 'Backups', icon: Archive },
-  { id: 'cp-databases', label: 'Databases', icon: Database },
-  { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
-  { id: 'newsletter', label: 'Marketing / News', icon: Layout },
-  { id: 'renewals', label: 'Renovações', icon: Calendar },
-  { id: 'cp-ssl', label: 'SSL', icon: Lock },
-  { id: 'cp-security', label: 'Segurança', icon: Shield },
-  { id: 'cp-php', label: 'PHP', icon: Server },
+  {
+    id: 'gestao-paineis',
+    label: 'Gestão de Painéis',
+    icon: Layout,
+    subItems: [
+      { id: 'cp-client-permissions', label: 'Painel do Cliente' },
+      { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
+    ]
+  },
+  {
+    id: 'gestao-sites',
+    label: 'Gestão de Sites',
+    icon: Globe,
+    subItems: [
+      { id: 'domains', label: 'Listar Websites' },
+      { id: 'packages-list', label: 'Pacotes' },
+      { id: 'cp-users', label: 'Contas' },
+    ]
+  },
+  {
+    id: 'gestao-dominios',
+    label: 'Gestão de Domínios',
+    icon: Server,
+    subItems: [
+      { id: 'domains-list', label: 'Listar Domínios' },
+      { id: 'domains-new', label: 'Criar Domínio' },
+      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
+      { id: 'cp-suspend-website', label: 'Suspender' },
+      { id: 'domains-dns', label: 'Configurar DNS' },
+      { id: 'dns-central', label: 'DNS Central' },
+    ]
+  },
+  {
+    id: 'wordpress',
+    label: 'WordPress',
+    icon: Globe,
+    subItems: [
+      { id: 'cp-wp-list', label: 'Listar sites WordPress' },
+      { id: 'wordpress-install', label: 'Instalar WordPress' },
+      { id: 'cp-wp-plugins', label: 'Gerir plugins' },
+    ]
+  },
+  {
+    id: 'gestao-emails',
+    label: 'Gestão de E-mails',
+    icon: Mail,
+    subItems: [
+      { id: 'emails-new', label: 'Listar E-mails' },
+      { id: 'criar-email', label: 'Criar E-mail' },
+      { id: 'webmail', label: 'Webmail' },
+      { id: 'cp-email-dkim', label: 'DKIM Manager' },
+      { id: 'newsletter', label: 'Mailmarketing' },
+    ]
+  },
+  {
+    id: 'notificacoes',
+    label: 'Notificações',
+    icon: Bell,
+    subItems: [
+      { id: 'renewals', label: 'Visão Geral' },
+      { id: 'cadastrar-renovacao', label: 'Cadastrar' },
+      { id: 'templates-renovacao', label: 'Templates' },
+    ]
+  },
   { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-  { id: 'cp-api', label: 'Configurações', icon: Settings },
 ];
 
 export function AdminSidebar({ 
@@ -49,6 +101,18 @@ export function AdminSidebar({
   sessionUser 
 }: AdminSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 80 : 250;
+  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
+    'gestao-paineis': false,
+    'gestao-sites': false,
+    'gestao-dominios': false,
+    'wordpress': false,
+    'gestao-emails': false,
+    'notificacoes': false,
+  });
+
+  const toggleExpand = (id: string) => {
+    setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   return (
     <div
@@ -67,7 +131,7 @@ export function AdminSidebar({
             />
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)} 
-              className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+              className="rounded hover:bg-gray-100 transition-colors p-1"
               title="Expandir"
             >
               <LogOut size={22} className="text-gray-500" />
@@ -87,7 +151,7 @@ export function AdminSidebar({
             </div>
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)} 
-              className="rounded-lg hover:bg-gray-100 transition-colors p-1"
+              className="rounded hover:bg-gray-100 transition-colors p-1"
               title="Recolher"
             >
               <LogOut size={22} className="text-gray-500 -scale-x-100" />
@@ -104,32 +168,66 @@ export function AdminSidebar({
             const isActive = activeSection === item.id ||
               (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
               (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
-              (item.id === 'newsletter' && activeSection === 'newsletter');
+              (item.id === 'newsletter' && activeSection === 'newsletter') ||
+              (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions'].includes(activeSection)) ||
+              (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website'].includes(activeSection)) ||
+              (item.id === 'gestao-sites' && ['domains', 'packages-list', 'cp-users'].includes(activeSection)) ||
+              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter'].includes(activeSection)) ||
+              (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
+              (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));
             
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (item.id === 'newsletter') {
-                    window.location.href = '/admin/mensagens';
-                  } else {
-                    onNavigate(item.id);
-                  }
-                }}
-                className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded-lg transition-colors ${isActive
-                  ? 'bg-red-50 text-red-600 font-bold border-l-4 border-red-600 rounded-none rounded-r-lg'
-                  : 'hover:bg-gray-100 text-gray-600'
-                  }`}
-                title={isCollapsed ? item.label : ''}
-              >
-                <Icon size={22} className={isActive ? 'text-red-600' : 'text-gray-500'} />
-                {!isCollapsed && (
-                  <span className="ml-3 text-[15px]">{item.label}</span>
+              <div key={item.id} className="mb-1">
+                <button
+                  onClick={() => {
+                    if (item.subItems) {
+                      toggleExpand(item.id);
+                    } else if (item.id === 'newsletter') {
+                      window.location.href = '/admin/mensagens';
+                    } else {
+                      onNavigate(item.id);
+                    }
+                  }}
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded transition-colors ${isActive
+                    ? item.subItems 
+                      ? 'text-gray-900 font-bold'
+                      : 'bg-red-50 text-red-600 font-bold border-l-4 border-red-600 rounded-none rounded-r-lg'
+                    : 'hover:bg-gray-100 text-gray-600'
+                    }`}
+                  title={isCollapsed ? item.label : ''}
+                >
+                  <Icon size={22} className={isActive && !item.subItems ? 'text-red-600' : 'text-gray-500'} />
+                  {!isCollapsed && (
+                    <span className="ml-3 text-[15px]">{item.label}</span>
+                  )}
+                  {!isCollapsed && item.subItems && (
+                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenus[item.id] ? 'rotate-90' : ''}`} />
+                  )}
+                  {!isCollapsed && !item.subItems && isActive && (
+                    <ChevronRight size={14} className="ml-auto text-red-400" />
+                  )}
+                </button>
+
+                {/* SubMenu Items */}
+                {!isCollapsed && item.subItems && expandedMenus[item.id] && (
+                  <div className="mt-1 ml-9 border-l border-gray-200 flex flex-col gap-1">
+                    {item.subItems.map(sub => {
+                      const isSubActive = activeSection === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => onNavigate(sub.id)}
+                          className={`flex items-center text-left px-3 py-2 text-sm transition-colors ${isSubActive 
+                            ? 'text-red-600 font-bold border-l-2 border-red-600 -ml-px' 
+                            : 'text-gray-600 hover:text-gray-900'}`}
+                        >
+                          {sub.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {!isCollapsed && isActive && (
-                  <ChevronRight size={14} className="ml-auto text-red-400" />
-                )}
-              </button>
+              </div>
             );
           })}
         </div>

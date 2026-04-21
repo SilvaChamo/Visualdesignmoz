@@ -47,17 +47,17 @@ const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew
             <Link
                 href={href}
                 onClick={handleClick}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${active && !hasSubItems
-                    ? 'bg-red-50 text-red-600 border-l-4 border-red-600 rounded-r-lg'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-lg'
+                className={`flex items-center gap-3 px-4 py-3 rounded transition-all duration-200 group ${active && !hasSubItems
+                    ? 'bg-red-50 text-red-600 border-l-4 border-red-600'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                     }`}
             >
-                <div className={`w-8 h-8 flex items-center justify-center rounded-lg ${isNew ? 'bg-indigo-100 text-indigo-600' : ''}`}>
+                <div className={`w-8 h-8 flex items-center justify-center rounded ${isNew ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : ''}`}>
                     <Icon className={`w-5 h-5 ${active && !hasSubItems ? 'text-red-600' : 'group-hover:text-red-500'} ${isNew ? 'text-indigo-600' : ''}`} />
                 </div>
                 <span className="font-medium flex-1">{label}</span>
                 {isNew && (
-                    <span className="px-2 py-0.5 text-xs font-bold text-white bg-orange-500 rounded-md">
+                    <span className="px-2 py-0.5 text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-100 rounded">
                         NEW
                     </span>
                 )}
@@ -75,7 +75,7 @@ const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew
                             key={subItem.label}
                             href={subItem.href}
                             onClick={onClick}
-                            className="text-sm text-gray-500 hover:text-gray-900 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="text-sm text-gray-500 hover:text-gray-900 py-2 px-4 rounded hover:bg-gray-50 transition-colors"
                         >
                             {subItem.label}
                         </Link>
@@ -110,7 +110,7 @@ export default function DashboardSidebar() {
             {/* Mobile Toggle */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="lg:hidden fixed bottom-6 right-6 z-50 p-4 bg-red-600 text-white rounded-full shadow-2xl"
+                className="lg:hidden fixed bottom-6 right-6 z-50 p-4 bg-red-50 border border-red-200 text-red-600 rounded-full shadow-2xl"
             >
                 {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>

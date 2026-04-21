@@ -84,7 +84,7 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
   return { host: `mail.${domain}`, port: 993, secure: true }
 }
 
-const STANDARD_FOLDERS = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Archive']
+const STANDARD_FOLDERS = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']
 
 const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
   try {
@@ -223,8 +223,24 @@ export async function POST(req: NextRequest) {
         try {
           const mailboxExists = (client.mailbox as any)?.exists || 0
           const total = mailboxExists
-          folderTotals[fPath] = total
           const itemsToFetch = pastasParaProcessar.length > 1 ? 10 : limit
+          
+          // 🔴 Buscar apenas NÃO LIDOS para contagem precisa
+          let unreadUids: number[] = []
+          try {
+            // Sintaxe IMAP: not { seen: true } = mensagens não lidas
+            const unreadRes = await client.search({ not: { seen: true } }, { uid: true })
+            unreadUids = Array.isArray(unreadRes) ? unreadRes : []
+            // Guardar com chave STANDARD correta (ex: 'Trash' em vez de 'INBOX.Trash')
+            const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
+            folderTotals[standardKey] = unreadUids.length
+            console.log(`📊 [API] Processando ${fPath} (actual: ${actualPath}) → ${standardKey}: ${unreadUids.length} não lidos`)
+          } catch (err) {
+            const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
+            folderTotals[standardKey] = 0
+            console.log(`📊 [API] Processando ${fPath} → ${standardKey}: erro ou 0 não lidos`)
+          }
+          
           const searchSpec = search ? { or: [{ subject: search }, { from: search }, { body: search }] } : { all: true }
           let uids: number[] = []
           try {
@@ -247,21 +263,66 @@ export async function POST(req: NextRequest) {
 
       if (includeTotals) {
         const mList = await client.list()
-        const ePaths = new Set<string>(mList.map((m: any) => m.path.toLowerCase()))
-        const rPaths = new Map<string, string>(mList.map((m: any) => [m.path.toLowerCase(), m.path]))
+        // Criar mapa case-insensitive que reconhece variações de nomes
+        const pathMap = new Map<string, string>() // lowercase → original
+        const inboxPathMap = new Map<string, string>() // inbox.{lowercase} → original
+        mList.forEach((m: any) => {
+          const lower = m.path.toLowerCase()
+          pathMap.set(lower, m.path)
+          // Guardar também sem prefixo INBOX
+          if (lower.startsWith('inbox.')) {
+            inboxPathMap.set(lower.substring(6), m.path) // Remover 'inbox.'
+          }
+        })
+        
+        console.log('📊 [API] Pastas no servidor:', mList.map((m: any) => m.path))
+        console.log('📊 [API] folderTotals antes do loop:', folderTotals)
+        
         for (const spf of STANDARD_FOLDERS) {
           if (folderTotals[spf] === undefined) {
              const v = spf.toLowerCase()
-             const p = ePaths.has(v) ? rPaths.get(v) : ePaths.has(`inbox.${v}`) ? rPaths.get(`inbox.${v}`) : null
+             // Procurar em várias variações de nome
+             let p: string | null = null
+             
+             // Mapeamento especial para pastas com nomes alternativos
+             const nameMappings: Record<string, string[]> = {
+               'Trash': ['trash', 'deleted items', 'bin', 'lixo'],
+               'Junk': ['junk', 'spam', 'indesejada'],
+               'Sent': ['sent', 'sent items', 'enviados'],
+               'Drafts': ['drafts', 'rascunhos']
+             }
+             
+             const variations = nameMappings[spf] || [v]
+             
+             for (const variation of variations) {
+               // Procurar diretamente
+               if (pathMap.has(variation)) {
+                 p = pathMap.get(variation)!
+                 break
+               }
+               // Procurar com prefixo INBOX
+               if (pathMap.has(`inbox.${variation}`)) {
+                 p = pathMap.get(`inbox.${variation}`)!
+                 break
+               }
+             }
+             
+             console.log(`📊 [API] Buscando ${spf}: caminho=${p}`)
              if (p) {
                try {
-                 // 🔴 Contar apenas NÃO LIDOS (unseen) em vez de totais
                  const status = await client.status(p, { unseen: true })
                  folderTotals[spf] = status.unseen || 0
-               } catch (e) {}
+                 console.log(`📊 [API] ${spf}: ${status.unseen} não lidos`)
+               } catch (e) {
+                 console.log(`📊 [API] ${spf}: erro ao buscar status`, e)
+               }
+             } else {
+               console.log(`📊 [API] ${spf}: pasta não encontrada no servidor`)
+               folderTotals[spf] = 0
              }
           }
         }
+        console.log('📊 [API] folderTotals final:', folderTotals)
       }
     } catch (e) {
       console.error('Erro na sessão persistente:', e)

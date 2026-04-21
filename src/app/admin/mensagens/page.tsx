@@ -162,29 +162,40 @@ export default function AdminMessagesPage() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
                 {/* Main Content */}
                 <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-                        <div className="bg-slate-200 px-5 py-3 border-b border-slate-300 flex items-center justify-between">
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                        <div className="bg-gray-50 px-5 py-4 border-b border-gray-200 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <Newspaper className="w-5 h-5 text-slate-600" />
-                                <h2 className="font-black text-slate-800 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
+                                <Newspaper className="w-5 h-5 text-gray-500" />
+                                <h2 className="font-bold text-gray-800 uppercase tracking-wider text-sm">Editor de Mensagem</h2>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button
+                            <div className="flex items-center gap-3">
+                                <button
                                     onClick={handleSend}
                                     disabled={isSending}
-                                    className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
+                                    className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 px-8 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all disabled:opacity-50 tracking-wider uppercase"
                                 >
-                                    {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                                    Enviar
-                                </Button>
+                                    {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    ENVIAR
+                                </button>
 
-                                <Button
+                                <button
                                     onClick={() => setShowTemplates(true)}
-                                    className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100 cursor-pointer"
+                                    className="bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all group"
                                 >
-                                    <LayoutTemplate className="w-3 h-3" />
+                                    <LayoutTemplate className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     Templates
-                                </Button>
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        const assinaturaHtml = '<br><br><p><strong>Com os melhores cumprimentos,</strong><br>A Nossa Equipa</p>';
+                                        setContent(prev => prev + assinaturaHtml);
+                                    }}
+                                    className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 px-4 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all group"
+                                    title="Inserir Assinatura"
+                                >
+                                    Assinatura
+                                </button>
                             </div>
                         </div>
                         <div className="">
@@ -194,14 +205,14 @@ export default function AdminMessagesPage() {
                                 placeholder="Escreva o corpo do seu email aqui..."
                                 className="min-h-[500px] border-none"
                             >
-                                <div className="px-5 py-0 bg-white border-b border-slate-200 flex items-center gap-4">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 border-r border-slate-200 pr-4">Assunto</span>
+                                <div className="px-5 py-4 bg-white border-b border-gray-200 flex items-center gap-4">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0 border-r border-gray-200 pr-4">Assunto</span>
                                     <input
                                         type="text"
                                         placeholder="Escreva aqui o assunto da sua campanha..."
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 outline-none text-sm font-bold placeholder:text-slate-200 text-slate-800 p-0"
+                                        className="w-full bg-transparent border-none focus:ring-0 outline-none text-sm font-medium placeholder:text-gray-300 text-gray-900 p-0"
                                     />
                                     <MultiFileUpload
                                         value={attachments}
@@ -217,13 +228,13 @@ export default function AdminMessagesPage() {
                     </div>
 
                     {/* Attachments Section */}
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-5">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                <FileIcon className="w-4 h-4 text-orange-600" />
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                <FileIcon className="w-4 h-4 text-orange-500" />
                                 Ficheiros em Anexo
                             </h3>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                            <span className="text-[10px] font-semibold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200">
                                 {attachments.length} Ficheiros
                             </span>
                         </div>
@@ -241,8 +252,8 @@ export default function AdminMessagesPage() {
                 {/* Sidebar Configuration */}
                 <div className="space-y-5">
                     {/* Sender Selection */}
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Remetente</h3>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-5">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Remetente</h3>
                         <div className="w-full">
                             <SenderEmailSelector
                                 value={senderEmail}
@@ -250,34 +261,34 @@ export default function AdminMessagesPage() {
                                 layout="col"
                             />
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                        <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
                             O endereço selecionado será usado para as respostas.
                         </p>
                     </div>
 
                     {/* Target Audience */}
-                    <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
+                    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-4">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Destinatários</h3>
                         <div className="space-y-3">
                             {PLANS.map(plan => (
                                 <div key={plan} className="group relative">
-                                    <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
-                                        <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
-                                        <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-500/10' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'}`}>
+                                        <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded border-gray-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600" />
+                                        <span className={`text-xs font-semibold ${selectedPlans.includes(plan) ? 'text-indigo-700' : 'text-gray-600'}`}>{plan}</span>
                                     </label>
                                 </div>
                             ))}
                         </div>
                         <button
                             onClick={() => setShowNewListModal(true)}
-                            className="text-xs font-bold text-slate-600 hover:text-red-600 transition-colors flex items-center gap-1.5 uppercase tracking-wider"
+                            className="text-xs font-semibold text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1.5 px-1 py-1 uppercase tracking-wider"
                         >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                             Criar Nova Lista
                         </button>
-                        <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-3">
                             <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-blue-800 font-medium leading-relaxed">A sua mensagem também será guardada no histórico de notificações internas.</p>
+                            <p className="text-[10px] text-blue-700 font-medium leading-relaxed">A sua mensagem também será guardada no histórico de notificações internas.</p>
                         </div>
                     </div>
                 </div>
@@ -297,22 +308,22 @@ export default function AdminMessagesPage() {
 
             {/* New List Modal */}
             {showNewListModal && (
-                <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Criar Nova Lista</h3>
-                            <button onClick={() => setShowNewListModal(false)} className="p-2 hover:bg-white rounded-lg transition-colors group">
-                                <X className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                <div className="fixed inset-0 bg-gray-900/40 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl w-full max-w-md shadow-lg border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                            <h3 className="text-sm font-bold text-gray-800 tracking-wider uppercase">Criar Nova Lista</h3>
+                            <button onClick={() => setShowNewListModal(false)} className="p-1.5 hover:bg-gray-200 rounded-md transition-colors group">
+                                <X className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                             </button>
                         </div>
                         <div className="p-5 space-y-5">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 tracking-wider">Nome da Lista</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase ml-1 tracking-wider">Nome da Lista</label>
                                 <Input
                                     type="text"
                                     value={newListName}
                                     onChange={(e) => setNewListName(e.target.value)}
-                                    className="rounded-lg border-slate-200 h-11"
+                                    className="rounded-lg border-gray-200 shadow-sm h-11 focus-visible:ring-indigo-500"
                                     placeholder="Ex: Clientes Premium"
                                 />
                             </div>
@@ -320,7 +331,7 @@ export default function AdminMessagesPage() {
                                 <Button
                                     onClick={() => setShowNewListModal(false)}
                                     variant="outline"
-                                    className="flex-1 h-11 rounded-lg font-bold text-slate-600"
+                                    className="flex-1 h-11 rounded-lg font-bold text-gray-600 border-gray-200 hover:bg-gray-50"
                                 >
                                     Cancelar
                                 </Button>
@@ -334,7 +345,7 @@ export default function AdminMessagesPage() {
                                             toast.error("Digite um nome para a lista");
                                         }
                                     }}
-                                    className="flex-1 h-11 bg-emerald-600 hover:bg-red-600 text-white font-black rounded-lg transition-all shadow-lg border-none !opacity-100"
+                                    className="flex-1 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-all shadow-sm"
                                 >
                                     Criar Lista
                                 </Button>

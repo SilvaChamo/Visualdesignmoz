@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const userIsAdmin = await checkIsAdmin(supabase)
-    const userId = userIsAdmin ? (searchParams.get('userId') || user.id) : user.id
+    const isAdminView = userIsAdmin && searchParams.get('admin') === 'true'
+    const requestedUserId = searchParams.get('userId')
+    const userId = requestedUserId || user.id
+
     const type = searchParams.get('type') // 'domain' ou 'hosting'
     const status = searchParams.get('status')
     const days = searchParams.get('days') // dias até vencimento
@@ -35,8 +38,11 @@ export async function GET(request: NextRequest) {
       let query = supabase
         .from('domain_renewals')
         .select('*')
-        .eq('user_id', userId)
         .order('expiration_date', { ascending: true })
+
+      if (!isAdminView || requestedUserId) {
+        query = query.eq('user_id', userId)
+      }
 
       if (status) query = query.eq('status', status)
       if (days) {
@@ -54,8 +60,11 @@ export async function GET(request: NextRequest) {
       let query = supabase
         .from('hosting_renewals')
         .select('*')
-        .eq('user_id', userId)
         .order('expiration_date', { ascending: true })
+
+      if (!isAdminView || requestedUserId) {
+        query = query.eq('user_id', userId)
+      }
 
       if (status) query = query.eq('status', status)
       if (days) {
@@ -81,7 +90,10 @@ export async function GET(request: NextRequest) {
       expiring60Days: allServices.filter(s => {
         const days = Math.ceil((new Date(s.expiration_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return days <= 60 && days > 30
-      }).length
+      }).length,
+      totalRevenue: allServices
+        .filter(s => s.status === 'active' || s.status === 'renewed' || !s.status) // count if active/renewed or if status doesn't strictly exclude it early on
+        .reduce((sum, service) => sum + (Number(service.renewal_price) || 0), 0)
     }
 
     return NextResponse.json({

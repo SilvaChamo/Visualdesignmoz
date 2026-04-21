@@ -102,7 +102,7 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
         <div className={`flex ${layout === 'col' ? 'flex-col' : 'flex-row'} gap-5 items-center w-full`}>
             <div className="flex-1 min-w-0 w-full">
                 <Select value={value} onValueChange={onChange}>
-                    <SelectTrigger className="w-full bg-slate-50 border-slate-300 h-11 rounded-lg">
+                    <SelectTrigger className="w-full bg-slate-50 border-slate-300 h-11 rounded">
                         <div className="flex items-center gap-2 text-slate-700">
                             <Mail className="w-4 h-4 text-slate-400" />
                             <SelectValue placeholder="Selecione um email de origem" />
@@ -123,13 +123,13 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                     <Button 
-                        className={`${layout === 'col' ? 'w-full' : 'shrink-0'} gap-2 !bg-emerald-600 hover:!bg-red-600 text-white h-10 rounded-md font-black uppercase text-[10px] tracking-widest transition-all shadow-lg border-none !opacity-100`}
+                        className={`${layout === 'col' ? 'w-full' : 'shrink-0'} gap-2 bg-emerald-50 border border-emerald-300 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 h-10 rounded font-black uppercase text-[10px] tracking-widest transition-all  border-none !opacity-100`}
                     >
                         <Plus className="w-4 h-4 text-white" />
                         Cadastrar Email
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-lg bg-white dark:bg-white border-slate-200">
+                <DialogContent className="rounded bg-white dark:bg-white border-slate-200">
                     <DialogHeader>
                         <DialogTitle className="font-black text-xl tracking-tight">Novo Remetente</DialogTitle>
                         <DialogDescription className="text-sm font-medium text-slate-500">
@@ -143,13 +143,13 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
                                 placeholder="ex: news@exemplo.com"
                                 value={newEmail}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
-                                className="h-11 rounded-lg border-slate-300 focus:ring-emerald-500"
+                                className="h-11 rounded border-slate-300 focus:ring-emerald-500"
                             />
                         </div>
                     </div>
                     <DialogFooter className="p-5 bg-slate-50 gap-3 border-t border-slate-100">
-                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-all">Cancelar</Button>
-                        <Button onClick={handleAddEmail} className="!bg-emerald-600 hover:!bg-red-600 text-white px-8 h-10 rounded-md font-black uppercase text-[10px] tracking-widest transition-all shadow-lg border-none !opacity-100">Adicionar Email</Button>
+                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-10 rounded font-medium text-slate-700 hover:bg-slate-200 transition-all">Cancelar</Button>
+                        <Button onClick={handleAddEmail} className="bg-emerald-50 border border-emerald-300 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 px-8 h-10 rounded font-black uppercase text-[10px] tracking-widest transition-all  border-none !opacity-100">Adicionar Email</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
