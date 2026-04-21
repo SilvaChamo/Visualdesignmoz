@@ -255,59 +255,14 @@ export function EmailWebmailSection({
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
   const toggleExpand = (email: string) => setExpandedMap(prev => ({ ...prev, [email]: !prev[email] }))
 
-  // 🚀 Sempre usar IP direto do servidor - mais rápido e confiável
+  // 🚀 URL direto do SnappyMail - login manual
   const getWebmailUrl = () => {
-    return 'https://109.199.104.22:8090/snappymail/index.php'
+    return 'https://109.199.104.22:8090/snappymail/'
   }
 
-  // 🔓 Auto-login no SnappyMail com a conta selecionada
+  // 🔓 Abrir SnappyMail diretamente
   const abrirWebmailAutoLogin = () => {
-    if (!emailOrigem) {
-      window.open(getWebmailUrl(), '_blank')
-      return
-    }
-
-    // Buscar senha da conta selecionada
-    const conta = emailsOrigem.find(c => c.email === emailOrigem)
-    if (!conta) {
-      window.open(getWebmailUrl(), '_blank')
-      return
-    }
-
-    // Criar formulário de auto-login
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = 'https://109.199.104.22:8090/snappymail/index.php'
-    form.target = '_blank'
-    form.style.display = 'none'
-
-    // Email
-    const emailInput = document.createElement('input')
-    emailInput.type = 'hidden'
-    emailInput.name = 'Email'
-    emailInput.value = emailOrigem
-    form.appendChild(emailInput)
-
-    // Senha - usar password da conta
-    const senha = conta.password || ''
-    const passInput = document.createElement('input')
-    passInput.type = 'hidden'
-    passInput.name = 'Password'
-    passInput.value = senha
-    form.appendChild(passInput)
-
-    // Action = Login
-    const actionInput = document.createElement('input')
-    actionInput.type = 'hidden'
-    actionInput.name = 'Action'
-    actionInput.value = 'Login'
-    form.appendChild(actionInput)
-
-    document.body.appendChild(form)
-    form.submit()
-    document.body.removeChild(form)
-
-    console.log('[WEBMAIL] Auto-login enviado para:', emailOrigem)
+    window.open(getWebmailUrl(), '_blank')
   }
 
   // Usar props ou valores locais

@@ -217,8 +217,8 @@ export function AdminSidebar({
                         <button
                           key={sub.id}
                           onClick={() => onNavigate(sub.id)}
-                          className={`flex items-center text-left px-3 py-2 text-sm transition-colors ${isSubActive 
-                            ? 'text-red-600 font-bold border-l-2 border-red-600 -ml-px' 
+                          className={`flex items-center text-left px-3 py-2 text-sm transition-colors relative ${isSubActive 
+                            ? 'text-red-600 font-bold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full' 
                             : 'text-gray-600 hover:text-gray-900'}`}
                         >
                           {sub.label}

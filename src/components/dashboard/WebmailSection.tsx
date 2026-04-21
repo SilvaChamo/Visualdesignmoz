@@ -567,7 +567,7 @@ export function WebmailSection({
   }
 
   const getSnappyMailUrl = () => {
-    return 'https://109.199.104.22:8090/snappymail/index.php'
+    return 'https://109.199.104.22:8090/snappymail/'
   }
 
   const runDiagnostico = async () => {
@@ -605,72 +605,9 @@ export function WebmailSection({
     setDiagnosticoLoading(false)
   }
 
-  const openSnappyMailAutoLogin = async () => {
-    const account = accounts.find(a => a.email === selectedAccount)
-    if (!account) {
-      window.open(getSnappyMailUrl(), '_blank')
-      return
-    }
-
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
-    if (!password) {
-      window.open(getSnappyMailUrl(), '_blank')
-      return
-    }
-
-    try {
-      // Tentar SSO via API token primeiro
-      const res = await fetch('/api/snappymail-sso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: account.email,
-          password: password
-        })
-      })
-
-      const data = await res.json()
-      
-      if (data.success && data.ssoUrl && !data.fallback) {
-        // Redirecionar para URL com token
-        window.open(data.ssoUrl, '_blank')
-        return
-      }
-      
-      // Fallback: form POST direto
-      console.log('[SnappyMail SSO] Usando fallback form POST')
-    } catch (e) {
-      console.log('[SnappyMail SSO] Erro no token, usando fallback:', e)
-    }
-
-    // Criar formulário de auto-login (fallback)
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = getSnappyMailUrl()
-    form.target = '_blank'
-    form.style.display = 'none'
-
-    const emailInput = document.createElement('input')
-    emailInput.type = 'hidden'
-    emailInput.name = 'Email'
-    emailInput.value = account.email
-    form.appendChild(emailInput)
-
-    const passInput = document.createElement('input')
-    passInput.type = 'hidden'
-    passInput.name = 'Password'
-    passInput.value = password
-    form.appendChild(passInput)
-
-    const actionInput = document.createElement('input')
-    actionInput.type = 'hidden'
-    actionInput.name = 'Action'
-    actionInput.value = 'Login'
-    form.appendChild(actionInput)
-
-    document.body.appendChild(form)
-    form.submit()
-    document.body.removeChild(form)
+  const openSnappyMailAutoLogin = () => {
+    // Abrir SnappyMail diretamente - login manual
+    window.open(getSnappyMailUrl(), '_blank')
   }
 
   const sendEmail = async () => {
