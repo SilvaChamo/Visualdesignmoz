@@ -5697,7 +5697,13 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
     adminEmail: '',
     databaseName: '',
     databaseUser: '',
-    databasePassword: ''
+    databasePassword: '',
+    plugins: {
+      woocommerce: false,
+      yoast: false,
+      wordfence: false,
+      litespeed: false
+    }
   })
 
   const wordpressVersions = ['6.7.1', '6.6.2', '6.5.5', '6.4.3']
@@ -5823,37 +5829,40 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Configuração do Software */}
-        <div className="bg-white rounded shadow-sm border border-gray-200">
-          <div className="border-b border-blue-500 px-6 py-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="border-b border-blue-500 px-6 py-4 bg-blue-50/50">
             <h2 className="text-lg font-semibold text-gray-900">Configuração do Software</h2>
           </div>
           <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Protocolo</label>
-              <select
-                value={form.protocol}
-                onChange={(e) => setForm({ ...form, protocol: e.target.value as 'http' | 'https' })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
-              >
-                <option value="http">http://</option>
-                <option value="https">https://</option>
-              </select>
-            </div>
+            {/* Protocolo e Domínio na mesma linha */}
+            <div className="flex gap-3">
+              <div className="flex-shrink-0">
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Protocolo</label>
+                <select
+                  value={form.protocol}
+                  onChange={(e) => setForm({ ...form, protocol: e.target.value as 'http' | 'https' })}
+                  className="px-3 py-2.5 border border-gray-300 rounded-md text-sm w-auto min-w-[100px]"
+                >
+                  <option value="http">http://</option>
+                  <option value="https">https://</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Domínio</label>
-              <select
-                value={form.domain}
-                onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
-              >
-                <option value="">Selecione um domínio</option>
-                {sites.map((site) => (
-                  <option key={site.domain} value={site.domain}>
-                    {site.domain}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Domínio</label>
+                <select
+                  value={form.domain}
+                  onChange={(e) => setForm({ ...form, domain: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="">Selecione um domínio</option>
+                  {sites.map((site) => (
+                    <option key={site.domain} value={site.domain}>
+                      {site.domain}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -5863,7 +5872,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.directory}
                 onChange={(e) => setForm({ ...form, directory: e.target.value })}
                 placeholder="wp (vazio para raiz)"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -5872,7 +5881,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               <select
                 value={form.version}
                 onChange={(e) => setForm({ ...form, version: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               >
                 {wordpressVersions.map((version) => (
                   <option key={version} value={version}>
@@ -5882,7 +5891,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               </select>
             </div>
 
-            <div className="p-3 bg-gray-50 rounded">
+            <div className="p-3 bg-gray-50 rounded-xl">
               <div className="text-xs font-bold text-gray-600 uppercase mb-1">URL Final</div>
               <div className="text-sm font-mono text-blue-600">{getFinalURL()}</div>
             </div>
@@ -5890,8 +5899,8 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
         </div>
 
         {/* Configurações do Site */}
-        <div className="bg-white rounded shadow-sm border border-gray-200">
-          <div className="border-b border-blue-500 px-6 py-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="border-b border-blue-500 px-6 py-4 bg-blue-50/50">
             <h2 className="text-lg font-semibold text-gray-900">Configurações do Site</h2>
           </div>
           <div className="p-6 space-y-4">
@@ -5902,7 +5911,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.siteName}
                 onChange={(e) => setForm({ ...form, siteName: e.target.value })}
                 placeholder="Meu Site WordPress"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -5913,7 +5922,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 onChange={(e) => setForm({ ...form, siteDescription: e.target.value })}
                 placeholder="Um site WordPress incrível"
                 rows={3}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -5946,7 +5955,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.adminUsername}
                 onChange={(e) => setForm({ ...form, adminUsername: e.target.value })}
                 placeholder="admin"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -5958,7 +5967,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                   value={form.adminPassword}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="Senha forte"
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-sm"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-md text-sm"
                 />
                 <button
                   type="button"
@@ -5982,15 +5991,15 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.adminEmail}
                 onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
                 placeholder="admin@exemplo.com"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Base de Dados */}
-        <div className="bg-white rounded shadow-sm border border-gray-200">
-          <div className="border-b border-blue-500 px-6 py-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="border-b border-blue-500 px-6 py-4 bg-blue-50/50">
             <h2 className="text-lg font-semibold text-gray-900">Base de Dados</h2>
           </div>
           <div className="p-6 space-y-4">
@@ -6001,7 +6010,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.databaseName}
                 onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
                 placeholder="digital_wp"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -6012,7 +6021,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 value={form.databaseUser}
                 onChange={(e) => setForm({ ...form, databaseUser: e.target.value })}
                 placeholder="digital_wpuser"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
               />
             </div>
 
@@ -6024,7 +6033,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                   value={form.databasePassword}
                   onChange={(e) => setForm({ ...form, databasePassword: e.target.value })}
                   placeholder="Senha do banco de dados"
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-sm"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-md text-sm"
                 />
                 <button
                   type="button"
@@ -6036,7 +6045,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               </div>
             </div>
 
-            <div className="p-3 bg-blue-50 rounded">
+            <div className="p-3 bg-blue-50 rounded-xl">
               <p className="text-sm text-blue-700">
                 <strong>Nota:</strong> A base de dados e o utilizador serão criados automaticamente no servidor
               </p>
@@ -6044,25 +6053,105 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
           </div>
         </div>
 
-        {/* Botão Instalar */}
-        <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-          <button
-            onClick={handleInstall}
-            disabled={installing || !form.domain || !form.siteName || !form.adminUsername || !form.adminPassword || !form.adminEmail}
-            className="w-full bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 disabled:bg-gray-400  px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            {installing ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                Instalando WordPress...
-              </>
-            ) : (
-              <>
-                <Database className="w-5 h-5" />
-                Instalar WordPress
-              </>
-            )}
-          </button>
+        {/* Plugins Opcionais */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="border-b border-blue-500 px-6 py-4 bg-blue-50/50">
+            <h2 className="text-lg font-semibold text-gray-900">Plugins Opcionais</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <label className="flex items-center gap-4 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={form.plugins.woocommerce}
+                onChange={(e) => setForm({ ...form, plugins: { ...form.plugins, woocommerce: e.target.checked } })}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded flex-shrink-0"
+              />
+              <div className="w-12 h-12 bg-[#96588a] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-800">WooCommerce</span>
+                <p className="text-xs text-gray-500 mt-0.5">Loja online completa com produtos, pagamentos e envios</p>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-4 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={form.plugins.yoast}
+                onChange={(e) => setForm({ ...form, plugins: { ...form.plugins, yoast: e.target.checked } })}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded flex-shrink-0"
+              />
+              <div className="w-12 h-12 bg-[#a4286a] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-800">Yoast SEO</span>
+                <p className="text-xs text-gray-500 mt-0.5">Otimização para motores de busca e análise de conteúdo</p>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-4 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={form.plugins.wordfence}
+                onChange={(e) => setForm({ ...form, plugins: { ...form.plugins, wordfence: e.target.checked } })}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded flex-shrink-0"
+              />
+              <div className="w-12 h-12 bg-[#2b2b2b] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 text-[#9b59b6]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-800">Wordfence Security</span>
+                <p className="text-xs text-gray-500 mt-0.5">Firewall e proteção contra malware e ataques</p>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-4 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={form.plugins.litespeed}
+                onChange={(e) => setForm({ ...form, plugins: { ...form.plugins, litespeed: e.target.checked } })}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded flex-shrink-0"
+              />
+              <div className="w-12 h-12 bg-[#00a8e6] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 2v8h8c0-4.42-3.58-8-8-8zM12 22c5.52 0 10-4.48 10-10h-8c0 2.21-1.79 4-4 4s-4-1.79-4-4 1.79-4 4-4V2C6.48 2 2 6.48 2 12s4.48 10 10 10zm1-9h8.94c-.14 2.23-1.09 4.26-2.58 5.71L13 13z"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-800">LiteSpeed Cache</span>
+                <p className="text-xs text-gray-500 mt-0.5">Cache de página e otimização de performance</p>
+              </div>
+            </label>
+
+            {/* Botão Instalar dentro do card de plugins */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={handleInstall}
+                disabled={installing || !form.domain || !form.siteName || !form.adminUsername || !form.adminPassword || !form.adminEmail}
+                className="w-full bg-transparent border border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {installing ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Instalando WordPress...
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-5 h-5" />
+                    Instalar WordPress
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

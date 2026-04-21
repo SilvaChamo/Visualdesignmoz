@@ -26,11 +26,19 @@ export async function POST(request: NextRequest) {
 
         switch (action) {
             case 'installWordPress': {
-                const { domain, directory, databaseName, databaseUser, databasePassword, adminUsername, adminPassword, adminEmail, siteName } = body;
+                const { 
+                    protocol, domain, directory, version, siteName, siteDescription,
+                    enableMultisite, disableWPCron,
+                    adminUsername, adminPassword, adminEmail,
+                    databaseName, databaseUser, databasePassword,
+                    plugins
+                } = body;
 
                 if (!domain || !siteName || !adminUsername || !adminPassword || !adminEmail) {
                     return NextResponse.json({ error: 'Faltam parâmetros obrigatórios' }, { status: 400 });
                 }
+                
+                const wpUrl = `${protocol || 'https'}://${domain}${directory ? '/' + directory : ''}`;
 
                 // Try CyberPanel API proxy first (no SSH needed)
                 try {
@@ -43,7 +51,11 @@ export async function POST(request: NextRequest) {
                         domainName: domain,
                         wpTitle: siteName,
                         wpUser: adminUsername,
-                        wpPassword: adminPassword
+                        wpPassword: adminPassword,
+                        wpEmail: adminEmail,
+                        wpVersion: version || 'latest',
+                        path: directory || '',
+                        protocol: protocol || 'https'
                     });
                     const proxyRes = await fetch(`${cpUrl.replace('/api', '')}/api/installWordPress`, {
                         method: 'POST',
@@ -82,19 +94,41 @@ export async function POST(request: NextRequest) {
                     mv wp-cli.phar /usr/local/bin/wp
                 fi
                 
-                # Download and configure WP
-                WP_CLI_ALLOW_ROOT=1 wp core download --allow-root --force
+                # Download specific WP version if requested
+                WP_VERSION="${version || 'latest'}"
+                if [ "$WP_VERSION" != "latest" ]; then
+                    WP_CLI_ALLOW_ROOT=1 wp core download --version="$WP_VERSION" --allow-root --force
+                else
+                    WP_CLI_ALLOW_ROOT=1 wp core download --allow-root --force
+                fi
+                
+                # Configure wp-config.php
                 WP_CLI_ALLOW_ROOT=1 wp config create --dbname="${databaseName || domain + '_wp'}" --dbuser="${databaseUser || 'usr_' + domain}" --dbpass="${databasePassword || 'generated'}" --allow-root --force
                 
-                # Install WP
-                WP_CLI_ALLOW_ROOT=1 wp core install --url="https://${domain}${directory ? '/' + directory : ''}" --title="${siteName}" --admin_user="${adminUsername}" --admin_password="${adminPassword}" --admin_email="${adminEmail}" --allow-root
+                # Install WP with all settings
+                WP_CLI_ALLOW_ROOT=1 wp core install --url="${wpUrl}" --title="${siteName}" --admin_user="${adminUsername}" --admin_password="${adminPassword}" --admin_email="${adminEmail}" --allow-root
+                
+                # Set site description/tagline if provided
+                ${siteDescription ? `WP_CLI_ALLOW_ROOT=1 wp option update blogdescription "${siteDescription}" --allow-root` : ''}
+                
+                # Configure Multisite if enabled
+                ${enableMultisite ? `WP_CLI_ALLOW_ROOT=1 wp core multisite convert --allow-root` : ''}
+                
+                # Disable WP Cron if requested
+                ${disableWPCron ? `WP_CLI_ALLOW_ROOT=1 wp config set DISABLE_WP_CRON true --raw --allow-root` : ''}
+                
+                # Install selected plugins
+                ${plugins?.woocommerce ? `WP_CLI_ALLOW_ROOT=1 wp plugin install woocommerce --activate --allow-root` : ''}
+                ${plugins?.yoast ? `WP_CLI_ALLOW_ROOT=1 wp plugin install wordpress-seo --activate --allow-root` : ''}
+                ${plugins?.wordfence ? `WP_CLI_ALLOW_ROOT=1 wp plugin install wordfence --activate --allow-root` : ''}
+                ${plugins?.litespeed ? `WP_CLI_ALLOW_ROOT=1 wp plugin install litespeed-cache --activate --allow-root` : ''}
                 
                 # Fix permissions
                 chown -R $(id -un):$(id -gn) "$DOCUMENT_ROOT"
-                find "$DOCUMENT_ROOT" -type f -exec chmod 644 {} \\;
-                find "$DOCUMENT_ROOT" -type d -exec chmod 755 {} \\;
+                find "$DOCUMENT_ROOT" -type f -exec chmod 644 {} \;
+                find "$DOCUMENT_ROOT" -type d -exec chmod 755 {} \;
                 
-                echo "SUCESSO: WordPress instalado"
+                echo "SUCESSO: WordPress $WP_VERSION instalado em ${wpUrl}"
                 `;
 
                 const result = await executeCyberPanelCommand(installScript);

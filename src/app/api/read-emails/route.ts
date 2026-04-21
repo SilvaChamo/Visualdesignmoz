@@ -328,7 +328,18 @@ export async function POST(req: NextRequest) {
       console.error('Erro na sessão persistente:', e)
     }
 
-    return NextResponse.json({ success: true, emails: emails.sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime()), total: emails.length, folderTotals })
+    // Listar todas as pastas disponíveis no servidor
+    const allFoldersList = await client.list()
+    const availableFolders = allFoldersList.map((m: any) => m.path)
+    console.log('📁 [API] Pastas disponíveis:', availableFolders)
+
+    return NextResponse.json({ 
+      success: true, 
+      emails: emails.sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime()), 
+      total: emails.length, 
+      folderTotals,
+      folders: availableFolders
+    })
   } catch (error: any) {
     return NextResponse.json({ success: true, emails: [], error: 'Erro no processamento IMAP' })
   }

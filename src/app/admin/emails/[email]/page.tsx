@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Mail, ArrowLeft, RefreshCw, Inbox, Send, Trash2, AlertCircle } from 'lucide-react'
+import { Mail, ArrowLeft, RefreshCw, Inbox, Send, Trash2, AlertCircle, FileText, Archive, AlertTriangle } from 'lucide-react'
 
 interface EmailMessage {
   id: string
@@ -15,6 +15,28 @@ interface EmailMessage {
   folder: string
 }
 
+// Função para traduzir nomes de pastas
+const getFolderDisplayName = (folderPath: string): string => {
+  const displayNames: Record<string, string> = {
+    'INBOX': 'Caixa de Entrada',
+    'INBOX.Sent': 'Enviados',
+    'Sent': 'Enviados',
+    'Sent Items': 'Enviados',
+    'INBOX.Trash': 'Lixo',
+    'Trash': 'Lixo',
+    'Deleted Items': 'Lixo',
+    'INBOX.Drafts': 'Rascunhos',
+    'Drafts': 'Rascunhos',
+    'INBOX.Archive': 'Arquivo',
+    'Archive': 'Arquivo',
+    'INBOX.Junk': 'Spam',
+    'Junk': 'Spam',
+    'INBOX.Spam': 'Spam',
+    'Spam': 'Spam',
+  }
+  return displayNames[folderPath] || folderPath
+}
+
 export default function EmailInboxPage() {
   const params = useParams()
   const router = useRouter()
@@ -24,7 +46,8 @@ export default function EmailInboxPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedFolder, setSelectedFolder] = useState('INBOX')
-  const [folders, setFolders] = useState<string[]>(['INBOX', 'Sent', 'Trash'])
+  const [folders, setFolders] = useState<string[]>([])
+  const [folderUnreadCounts, setFolderUnreadCounts] = useState<Record<string, number>>({})
 
   const loadEmails = async () => {
     setLoading(true)
@@ -72,8 +95,13 @@ export default function EmailInboxPage() {
         }))
         console.log('📧 [Admin Email] Emails mapeados:', mappedEmails.length)
         setMessages(mappedEmails)
-        if (data.folders) {
+        if (data.folders && Array.isArray(data.folders)) {
           setFolders(data.folders)
+          console.log('📁 [Admin] Pastas carregadas:', data.folders)
+        }
+        if (data.folderTotals) {
+          setFolderUnreadCounts(data.folderTotals)
+          console.log('📊 [Admin] Contagens:', data.folderTotals)
         }
       } else {
         setError(data.error || 'Erro ao carregar emails')
