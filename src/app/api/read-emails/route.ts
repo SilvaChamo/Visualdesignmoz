@@ -74,13 +74,29 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
+// Domínios hospedados no servidor CyberPanel (mesmo servidor do SnappyMail)
+const CYBERPANEL_DOMAINS = [
+  'visualdesigne.com', 'visualdesigne.pt',
+  'anap.co.mz', 'entrecampos.co.mz',
+  'aamihe.com'
+];
+
 const resolveImapConfig = (email: string): { host: string; port: number; secure: boolean } => {
   if (process.env.IMAP_HOST) return { host: process.env.IMAP_HOST, port: 993, secure: true }
   const domain = email.split('@')[1]?.toLowerCase() || ''
+
+  // Provedores externos - usar servidores específicos
   if (domain === 'gmail.com' || domain === 'googlemail.com') return { host: 'imap.gmail.com', port: 993, secure: true }
   if (['outlook.com', 'hotmail.com', 'hotmail.pt', 'hotmail.co.uk', 'live.com', 'live.pt', 'msn.com', 'microsoft.com'].includes(domain)) return { host: 'outlook.office365.com', port: 993, secure: true }
   if (domain === 'yahoo.com' || domain === 'yahoo.co.uk' || domain === 'ymail.com') return { host: 'imap.mail.yahoo.com', port: 993, secure: true }
   if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') return { host: 'imap.mail.me.com', port: 993, secure: true }
+
+  // Domínios hospedados no CyberPanel - usar o mesmo servidor que o SnappyMail
+  if (CYBERPANEL_DOMAINS.includes(domain) || CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d))) {
+    return { host: '109.199.104.22', port: 993, secure: true }
+  }
+
+  // Fallback: tentar mail.{domínio}
   return { host: `mail.${domain}`, port: 993, secure: true }
 }
 
@@ -228,17 +244,21 @@ export async function POST(req: NextRequest) {
           // 🔴 Buscar apenas NÃO LIDOS para contagem precisa
           let unreadUids: number[] = []
           try {
+            // DEBUG: Mostrar estado atual do mailbox
+            const currentMailbox = (client as any).mailbox
+            console.log(`📊 [API DEBUG] Pasta solicitada: ${fPath}, Mailbox atual: ${currentMailbox?.path || 'N/A'}, Total: ${currentMailbox?.exists || 0}`)
+            
             // Sintaxe IMAP: not { seen: true } = mensagens não lidas
             const unreadRes = await client.search({ not: { seen: true } }, { uid: true })
             unreadUids = Array.isArray(unreadRes) ? unreadRes : []
             // Guardar com chave STANDARD correta (ex: 'Trash' em vez de 'INBOX.Trash')
             const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
             folderTotals[standardKey] = unreadUids.length
-            console.log(`📊 [API] Processando ${fPath} (actual: ${actualPath}) → ${standardKey}: ${unreadUids.length} não lidos`)
-          } catch (err) {
+            console.log(`📊 [API] Processando ${fPath} (actual: ${actualPath}) → ${standardKey}: ${unreadUids.length} não lidos / ${total} total`)
+          } catch (err: any) {
             const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
             folderTotals[standardKey] = 0
-            console.log(`📊 [API] Processando ${fPath} → ${standardKey}: erro ou 0 não lidos`)
+            console.log(`📊 [API] Processando ${fPath} → ${standardKey}: ERRO - ${err?.message || 'desconhecido'}`)
           }
           
           const searchSpec = search ? { or: [{ subject: search }, { from: search }, { body: search }] } : { all: true }

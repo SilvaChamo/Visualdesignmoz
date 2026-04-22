@@ -10,45 +10,57 @@ export interface DomainEmailConfig {
   webmail: string;
 }
 
+// Configurações de email - Todas sincronizadas com o servidor CyberPanel (109.199.104.22)
+// onde o SnappyMail está instalado
 export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
   'aamihe.com': {
-    imap: 'mail.aamihe.com',
-    smtp: 'mail.aamihe.com',
-    ports: { imap: 993, smtp: 465 },
+    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
+    smtp: '109.199.104.22',
+    ports: { imap: 993, smtp: 587 },
     ssl: true,
-    webmail: 'https://aamihe.com:8090/snappymail/index.php'
-  },
-  'oshercollective.com': {
-    imap: 'mail.oshercollective.com',
-    smtp: 'mail.oshercollective.com', 
-    ports: { imap: 993, smtp: 465 },
-    ssl: true,
-    webmail: 'https://oshercollective.com:8090/snappymail/index.php'
+    secure: false,
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
   },
   'visualdesigne.com': {
-    imap: 'mail.visualdesigne.com',
-    smtp: 'mail.visualdesigne.com',
+    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
+    smtp: '109.199.104.22',
     ports: { imap: 993, smtp: 587 },
     ssl: true,
-    secure: false, // 587 = STARTTLS
-    webmail: 'https://visualdesigne.com:8090/snappymail/index.php'
+    secure: false,
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
   },
   'visualdesigne.pt': {
-    imap: 'mail.visualdesigne.pt',
-    smtp: 'mail.visualdesigne.pt',
+    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
+    smtp: '109.199.104.22',
     ports: { imap: 993, smtp: 587 },
     ssl: true,
-    secure: false, // 587 = STARTTLS
-    webmail: 'https://visualdesigne.pt:8090/snappymail/index.php'
+    secure: false,
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
+  },
+  'anap.co.mz': {
+    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
+    smtp: '109.199.104.22',
+    ports: { imap: 993, smtp: 587 },
+    ssl: true,
+    secure: false,
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
+  },
+  'entrecampos.co.mz': {
+    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
+    smtp: '109.199.104.22',
+    ports: { imap: 993, smtp: 587 },
+    ssl: true,
+    secure: false,
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
   }
 };
 
 /**
  * Retorna as configurações padrão do servidor principal para domínios não mapeados.
- * Garante que todos os painéis herdem o servidor master por padrão.
+ * Garante que todos os painéis herdem o servidor master (CyberPanel/SnappyMail) por padrão.
  */
 export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
-  // Priorizar o servidor Master (109.199.104.22) para garantir que funcione para qualquer domínio novo
+  // Servidor Master CyberPanel onde o SnappyMail está instalado
   const host = '109.199.104.22';
   return {
     imap: host,
@@ -56,7 +68,7 @@ export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
     ports: { imap: 993, smtp: 587 },
     ssl: true,
     secure: false, // 587 = STARTTLS
-    webmail: domain ? `https://${domain}:8090/snappymail/index.php` : 'https://109.199.104.22:8090/snappymail/index.php'
+    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
   };
 };
 

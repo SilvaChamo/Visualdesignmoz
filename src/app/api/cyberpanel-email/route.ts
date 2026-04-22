@@ -74,7 +74,7 @@ export async function POST(request: Request) {
         // 🚀 VERIFICAÇÃO: Se requesterEmail foi enviado, verificar se tem domínio gerenciado
         if (requesterEmail) {
             const requesterDomain = requesterEmail.split('@')[1]?.toLowerCase() || '';
-            const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'oshercollective.com', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
+            const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
             const isAdmin = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com'].includes(requesterEmail);
             
             if (!managedDomains.includes(requesterDomain) && !isAdmin) {

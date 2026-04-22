@@ -188,15 +188,14 @@ export function AdminSidebar({
                       onNavigate(item.id);
                     }
                   }}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'p-2.5'} rounded transition-colors ${isActive
-                    ? item.subItems 
-                      ? 'text-gray-900 font-bold'
-                      : 'bg-red-50 text-red-600 font-bold border-l-4 border-red-600 rounded-none rounded-r-lg'
-                    : 'hover:bg-gray-100 text-gray-600'
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded transition-colors group ${
+                    isActive || (expandedMenus[item.id] && item.subItems)
+                      ? 'text-black font-bold'
+                      : 'hover:text-red-600 text-gray-600'
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={isActive && !item.subItems ? 'text-red-600' : 'text-gray-500'} />
+                  <Icon size={22} className={`${isActive || expandedMenus[item.id] ? 'text-gray-900' : 'text-gray-500 group-hover:text-red-600'}`} />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
@@ -204,7 +203,7 @@ export function AdminSidebar({
                     <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenus[item.id] ? 'rotate-90' : ''}`} />
                   )}
                   {!isCollapsed && !item.subItems && isActive && (
-                    <ChevronRight size={14} className="ml-auto text-red-400" />
+                    <ChevronRight size={14} className="ml-auto text-gray-900" />
                   )}
                 </button>
 
@@ -217,9 +216,9 @@ export function AdminSidebar({
                         <button
                           key={sub.id}
                           onClick={() => onNavigate(sub.id)}
-                          className={`flex items-center text-left px-3 py-2 text-sm transition-colors relative ${isSubActive 
-                            ? 'text-red-600 font-bold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full' 
-                            : 'text-gray-600 hover:text-gray-900'}`}
+                          className={`flex items-center text-left px-3 py-[5px] text-sm transition-colors relative ${isSubActive
+                            ? 'text-red-600 font-bold before:absolute before:-left-[1px] before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full before:z-10'
+                            : 'text-gray-600 hover:text-red-600'}`}
                         >
                           {sub.label}
                         </button>

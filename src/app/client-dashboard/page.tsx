@@ -154,7 +154,7 @@ export default function ClientDashboard() {
           {
             id: 1,
             name: 'Hospedagem Professional',
-            domain: 'oshercollective.com',
+            domain: 'visualdesigne.com',
             status: 'active',
             expiry: '15/05/2026',
             icon: Globe
@@ -162,7 +162,7 @@ export default function ClientDashboard() {
           {
             id: 2,
             name: 'Email Professional',
-            domain: 'mail.oshercollective.com',
+            domain: 'mail.visualdesigne.com',
             status: 'active',
             expiry: '15/05/2026',
             icon: Mail
@@ -170,7 +170,7 @@ export default function ClientDashboard() {
           {
             id: 3,
             name: 'SSL Certificate',
-            domain: 'oshercollective.com',
+            domain: 'visualdesigne.com',
             status: 'active',
             expiry: '20/04/2026',
             icon: Shield

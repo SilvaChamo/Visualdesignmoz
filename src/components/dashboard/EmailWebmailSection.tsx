@@ -108,11 +108,6 @@ export function EmailWebmailSection({
     'info@visualdesigne.com': 'Informação!#2020?*',
     'suporte@visualdesigne.com': 'SupaEmail#2026?*',
     'noreply@visualdesigne.com': 'VisualDesign#2026',
-    'eventos@oshercollective.com': 'xqqh[bLr5!&9jMv{',
-    'oshercollective@gmail.com': 'gce7G)S-1FfUX)-b',
-    'osher@oshercollective.com': 'gce7G)S-1FfUX)-b',
-    'admin@oshetcollective.com': 'v(E1mUy7P~Yeh?G5',
-    'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
   }
 
   // 🚀 FUNÇÃO HELPER: Buscar senha dinamicamente da API segura

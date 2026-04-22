@@ -260,7 +260,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">Domínio Ativo</p>
-                <p className="text-xs text-gray-500 mt-0.5">oshercollective.com foi ativado com sucesso</p>
+                <p className="text-xs text-gray-500 mt-0.5">visualdesigne.com foi ativado com sucesso</p>
                 <p className="text-[10px] text-gray-400 mt-1">Ontem, 09:15</p>
               </div>
             </div>
@@ -769,8 +769,8 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   const getDefaultDomain = () => {
     // 1. Primeiro: usar site do CyberPanel se existir
     if (pureSites.length > 0) return pureSites[0].domain;
-    
-    // 2. Segundo: extrair domínio do email do utilizador (caso Osher - email corporativo sem site)
+
+    // 2. Segundo: extrair domínio do email do utilizador (email corporativo sem site)
     if (currentUserEmail && currentUserEmail.includes('@')) {
       const emailDomain = currentUserEmail.split('@')[1];
       if (emailDomain && emailDomain !== 'localhost' && !emailDomain.startsWith('127.')) {

@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     // ou se for admin. Usuários com Gmail/Yahoo/etc não podem criar contas de email
     if (!isAdmin) {
       const userEmailDomain = session.user.email?.split('@')[1]?.toLowerCase() || '';
-      const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'oshercollective.com', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
+      const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
       const hasManagedDomain = managedDomains.includes(userEmailDomain);
       
       if (!hasManagedDomain) {

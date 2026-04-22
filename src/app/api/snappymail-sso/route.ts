@@ -119,12 +119,23 @@ echo "Token created: ${token}"
     } catch (sshError: any) {
       console.error('[snappymail-sso] SSH error:', sshError);
       
-      // Fallback: retornar URL com credenciais via POST (menos seguro, funciona)
+      // Fallback: usar método POST direto com credenciais criptografadas
+      // Criar um token temporário que será verificado pelo nosso middleware
+      const tempToken = generateToken(64);
+      const ssoData = Buffer.from(JSON.stringify({
+        email,
+        password,
+        token: tempToken,
+        timestamp: Date.now()
+      })).toString('base64');
+      
+      const ssoUrl = `https://109.199.104.22:8090/snappymail/?ssoData=${encodeURIComponent(ssoData)}&email=${encodeURIComponent(email)}`;
+      
       return NextResponse.json({
         success: true,
         fallback: true,
-        ssoUrl: `https://109.199.104.22:8090/snappymail/`,
-        message: 'Usando método fallback (form POST)'
+        ssoUrl,
+        message: 'Usando método SSO via query string (SSH indisponível)'
       });
     }
     

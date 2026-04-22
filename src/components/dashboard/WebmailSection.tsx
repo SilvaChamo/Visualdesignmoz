@@ -106,6 +106,10 @@ export function WebmailSection({
   const assinaturaEditorRef = useRef<HTMLDivElement>(null)
   const loadEmailsAbortControllerRef = useRef<AbortController | null>(null)
   const loadCountsAbortControllerRef = useRef<AbortController | null>(null)
+
+  // 🔒 Cache de credenciais válidas (evitar alertas de senha frequentes)
+  const [validCredentials, setValidCredentials] = useState<Record<string, { password: string; expiresAt: number }>>({})
+  const CREDENTIAL_CACHE_DURATION = 60 * 60 * 1000 // 1 hora
   
   // Estrutura de assinaturas: { [email: string]: { assinaturas: Array, assinaturaAtiva: number, assinaturaPadrao: string } }
   const STORAGE_KEY = 'webmail_assinaturas_v2'
@@ -152,11 +156,6 @@ export function WebmailSection({
     'info@visualdesigne.com': 'Informação!#2020?*',
     'suporte@visualdesigne.com': 'SupaEmail#2026?*',
     'noreply@visualdesigne.com': 'VisualDesign#2026',
-    'eventos@oshercollective.com': 'xqqh[bLr5!&9jMv{',
-    'oshercollective@gmail.com': 'gce7G)S-1FfUX)-b',
-    'osher@oshercollective.com': 'gce7G)S-1FfUX)-b',
-    'admin@oshetcollective.com': 'v(E1mUy7P~Yeh?G5',
-    'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
   }
 
   // 🎨 Função para gerar cor do avatar baseada na letra inicial
@@ -416,16 +415,21 @@ export function WebmailSection({
     if (loadEmailsAbortControllerRef.current) {
       loadEmailsAbortControllerRef.current.abort()
     }
-    
+
     const controller = new AbortController()
     loadEmailsAbortControllerRef.current = controller
-    
+
     setLoadingEmails(true)
     try {
       const account = accounts.find(a => a.email === selectedAccount)
       if (!account) return
 
-      const password = account.password || CREDENCIAIS_PADRAO[account.email]
+      // 🔒 Verificar cache de credenciais válidas
+      const cached = validCredentials[account.email]
+      const password = cached && Date.now() < cached.expiresAt
+        ? cached.password
+        : (account.password || CREDENCIAIS_PADRAO[account.email])
+
       if (!password) {
         console.log('Sem senha para conta:', account.email)
         return
@@ -447,9 +451,9 @@ export function WebmailSection({
       })
 
       const data = await res.json()
-      
+
       console.log(`📊 [FRONT] Recebido de API para ${activeFolder}:`, data.folderTotals)
-      
+
       if (data.success) {
         const newEmails = data.emails || []
         const newCounts = data.folderTotals || {}
@@ -464,8 +468,24 @@ export function WebmailSection({
         }
         // ⚡ Guardar no cache para carregamento instantâneo
         setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
+
+        // 🔒 Credenciais funcionaram - adicionar ao cache
+        if (!cached || Date.now() >= cached.expiresAt) {
+          setValidCredentials(prev => ({
+            ...prev,
+            [account.email]: { password, expiresAt: Date.now() + CREDENTIAL_CACHE_DURATION }
+          }))
+        }
       } else {
         console.error('📧 [WebmailSection] Erro da API:', data.error)
+        // ❌ Credenciais falharam - remover do cache
+        if (data.error?.includes('senha') || data.error?.includes('password') || data.error?.includes('auth')) {
+          setValidCredentials(prev => {
+            const updated = { ...prev }
+            delete updated[account.email]
+            return updated
+          })
+        }
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -573,41 +593,97 @@ export function WebmailSection({
   const runDiagnostico = async () => {
     setDiagnosticoLoading(true)
     setDiagnosticoResult(null)
-    
+
     const account = accounts.find(a => a.email === selectedAccount)
     if (!account) {
       setDiagnosticoResult({ error: 'Selecione uma conta de email primeiro' })
       setDiagnosticoLoading(false)
       return
     }
-    
+
     const password = account.password || CREDENCIAIS_PADRAO[account.email]
     if (!password) {
       setDiagnosticoResult({ error: 'Senha não disponível para esta conta' })
       setDiagnosticoLoading(false)
       return
     }
-    
+
+    console.log(`📧 [DIAGNÓSTICO] Testando conexão para ${account.email}`)
+
     try {
       const res = await fetch('/api/debug-imap-folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: account.email, 
-          password: password 
+        body: JSON.stringify({
+          email: account.email,
+          password: password
         })
       })
       const data = await res.json()
-      setDiagnosticoResult(data)
+
+      if (!data.success) {
+        // Erro de autenticação
+        if (data.error?.includes('auth') || data.error?.includes('password') || data.error?.includes('login')) {
+          console.error(`📧 [DIAGNÓSTICO] Erro de autenticação para ${account.email}:`, data.error)
+          setDiagnosticoResult({
+            error: 'Erro de autenticação IMAP',
+            details: data.details || data.error,
+            suggestion: 'A senha configurada pode estar incorreta. Verifique no CyberPanel.',
+            email: account.email,
+            passwordPreview: password.substring(0, 3) + '***' + password.substring(password.length - 2)
+          })
+        } else {
+          setDiagnosticoResult(data)
+        }
+      } else {
+        setDiagnosticoResult(data)
+      }
     } catch (e) {
       setDiagnosticoResult({ error: 'Falha ao executar diagnóstico' })
     }
     setDiagnosticoLoading(false)
   }
 
-  const openSnappyMailAutoLogin = () => {
-    // Abrir SnappyMail diretamente - login manual
-    window.open(getSnappyMailUrl(), '_blank')
+  const openSnappyMailAutoLogin = async () => {
+    const account = accounts.find(a => a.email === selectedAccount)
+    if (!account) {
+      // Sem conta selecionada, abrir SnappyMail normal
+      window.open(getSnappyMailUrl(), '_blank')
+      return
+    }
+
+    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    if (!password) {
+      console.warn('[SnappyMail SSO] Senha não disponível para:', account.email)
+      window.open(getSnappyMailUrl(), '_blank')
+      return
+    }
+
+    try {
+      // Criar token SSO via API
+      const res = await fetch('/api/snappymail-sso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: account.email,
+          password: password
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.success && data.ssoUrl) {
+        console.log('[SnappyMail SSO] Login automático para:', account.email)
+        window.open(data.ssoUrl, '_blank')
+      } else {
+        // Fallback: abrir sem SSO
+        console.warn('[SnappyMail SSO] Falha no SSO, usando fallback')
+        window.open(getSnappyMailUrl(), '_blank')
+      }
+    } catch (error) {
+      console.error('[SnappyMail SSO] Erro:', error)
+      window.open(getSnappyMailUrl(), '_blank')
+    }
   }
 
   const sendEmail = async () => {
@@ -1010,9 +1086,9 @@ export function WebmailSection({
                       // ⚡ Carregamento imediato sem delay
                       setTimeout(() => loadEmails(), 0)
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                      isActive 
-                        ? 'bg-red-50 text-red-700 font-medium border-r-2 border-r-red-600' 
+                    className={`w-full flex items-center gap-3 px-4 py-1.5 text-sm transition-colors ${
+                      isActive
+                        ? 'bg-red-50 text-red-700 font-medium border-r-2 border-r-red-600'
                         : 'text-gray-700 hover:bg-gray-50'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >

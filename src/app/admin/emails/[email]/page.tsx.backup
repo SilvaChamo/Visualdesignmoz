@@ -155,48 +155,27 @@ export default function EmailInboxPage() {
         <div className="w-64 bg-white border-r border-gray-200 p-4">
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Pastas</h2>
           <div className="space-y-1">
-            {folders.length === 0 ? (
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-8 bg-gray-200 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              folders.map(folder => (
-                <button
-                  key={folder}
-                  onClick={() => setSelectedFolder(folder)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                    selectedFolder === folder 
-                      ? 'bg-red-50 text-red-700' 
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {/* Ícone baseado na pasta */}
-                  {(folder === 'INBOX' || folder.toLowerCase() === 'inbox') && <Inbox className="w-4 h-4 flex-shrink-0" />}
-                  {(folder === 'Sent' || folder === 'INBOX.Sent' || folder === 'Sent Items' || folder.toLowerCase().includes('sent')) && <Send className="w-4 h-4 flex-shrink-0" />}
-                  {(folder === 'Trash' || folder === 'INBOX.Trash' || folder === 'Deleted Items' || folder.toLowerCase().includes('trash') || folder.toLowerCase().includes('lixo')) && <Trash2 className="w-4 h-4 flex-shrink-0" />}
-                  {(folder === 'Drafts' || folder === 'INBOX.Drafts' || folder.toLowerCase().includes('draft') || folder.toLowerCase().includes('rascunho')) && <FileText className="w-4 h-4 flex-shrink-0" />}
-                  {(folder === 'Archive' || folder === 'INBOX.Archive' || folder.toLowerCase().includes('archive') || folder.toLowerCase().includes('arquivo')) && <Archive className="w-4 h-4 flex-shrink-0" />}
-                  {(folder === 'Junk' || folder === 'INBOX.Junk' || folder === 'Spam' || folder === 'INBOX.Spam' || folder.toLowerCase().includes('junk') || folder.toLowerCase().includes('spam')) && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-                  {!['INBOX', 'Sent', 'INBOX.Sent', 'Sent Items', 'Trash', 'INBOX.Trash', 'Deleted Items', 'Drafts', 'INBOX.Drafts', 'Archive', 'INBOX.Archive', 'Junk', 'INBOX.Junk', 'Spam', 'INBOX.Spam'].includes(folder) && 
-                   ![folder].some(f => f.toLowerCase().includes('sent') || f.toLowerCase().includes('trash') || f.toLowerCase().includes('draft') || f.toLowerCase().includes('archive') || f.toLowerCase().includes('spam') || f.toLowerCase().includes('junk')) && 
-                   <Mail className="w-4 h-4 flex-shrink-0" />}
-                  
-                  {/* Nome traduzido */}
-                  <span className="text-sm font-medium flex-1 truncate">
-                    {getFolderDisplayName(folder)}
-                  </span>
-                  
-                  {/* Badge de não lidos */}
-                  {(folderUnreadCounts[folder] || folderUnreadCounts[folder.replace('INBOX.', '')] || 0) > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0">
-                      {folderUnreadCounts[folder] || folderUnreadCounts[folder.replace('INBOX.', '')] || 0}
-                    </span>
-                  )}
-                </button>
-              ))
-            )}
+            {folders.map(folder => (
+              <button
+                key={folder}
+                onClick={() => setSelectedFolder(folder)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                  selectedFolder === folder 
+                    ? 'bg-red-50 text-red-700' 
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                {folder === 'INBOX' && <Inbox className="w-4 h-4" />}
+                {folder === 'Sent' && <Send className="w-4 h-4" />}
+                {folder === 'Trash' && <Trash2 className="w-4 h-4" />}
+                {!['INBOX', 'Sent', 'Trash'].includes(folder) && <Mail className="w-4 h-4" />}
+                <span className="text-sm font-medium">
+                  {folder === 'INBOX' ? 'Caixa de Entrada' : 
+                   folder === 'Sent' ? 'Enviados' : 
+                   folder === 'Trash' ? 'Lixo' : folder}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
