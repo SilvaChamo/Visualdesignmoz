@@ -420,6 +420,9 @@ export function WebmailSection({
     loadEmailsAbortControllerRef.current = controller
 
     setLoadingEmails(true)
+    // 🧹 Limpar e-mails imediatamente para evitar que e-mails da pasta anterior fiquem no ecrã
+    setEmails([])
+
     try {
       const account = accounts.find(a => a.email === selectedAccount)
       if (!account) return
@@ -489,11 +492,12 @@ export function WebmailSection({
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('📧 [WebmailSection] Pedido otimizado cancelado (novo disparado).')
+        console.log('📧 [WebmailSection] Pedido cancelado (novo disparado).')
       } else {
         console.error('Erro ao carregar emails:', error)
       }
     } finally {
+      // 🛡️ Só remover o loading se este foi o último pedido a ser disparado
       if (loadEmailsAbortControllerRef.current === controller) {
         setLoadingEmails(false)
         loadEmailsAbortControllerRef.current = null
@@ -1355,7 +1359,7 @@ export function WebmailSection({
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start mb-0.5">
                               <span className={`text-sm truncate text-gray-700`}>
-                                {activeFolder === 'INBOX.Sent' ? `Para: ${email.para || 'Desconhecido'}` : email.de}
+                                {activeFolder === 'Sent' ? `Para: ${email.para || email.de || 'Desconhecido'}` : email.de}
                               </span>
                               <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
                                 {email.data ? new Date(email.data).toLocaleDateString('pt-BR') : ''}

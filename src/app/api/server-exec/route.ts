@@ -732,6 +732,31 @@ print('ok')
         break
       }
 
+      case 'getDKIMStatus': {
+        const domain = params.domainName || ''
+        const raw = await execSSH(
+          `if [ -f /etc/opendkim/keys/${domain}/default.txt ]; then cat /etc/opendkim/keys/${domain}/default.txt; else echo '{"enabled": false, "record": ""}'; fi`
+        )
+        const hasKey = raw.includes('v=DKIM1')
+        data = { 
+          output: raw, 
+          success: hasKey,
+          enabled: hasKey,
+          record: hasKey ? raw : ''
+        }
+        break
+      }
+
+      case 'enableDKIM': {
+        const domain = params.domainName || ''
+        const raw = await execSSH(
+          `mkdir -p /etc/opendkim/keys/${domain} && cd /etc/opendkim/keys/${domain} && opendkim-genkey -b 2048 -d ${domain} -s default -S rsa-sha256 2>&1 && chown -R opendkim:opendkim /etc/opendkim/keys/${domain} && chmod 600 /etc/opendkim/keys/${domain}/default.private`
+        )
+        const success = !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('fail')
+        data = { output: raw, success }
+        break
+      }
+
       default:
         return NextResponse.json({ success: false, error: `Acção desconhecida: ${action}` }, { status: 400 });
     }

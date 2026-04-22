@@ -505,16 +505,18 @@ export function EmailWebmailSection({
   }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas, emailsOrigem, searchTerm])
 
   const pastaParaIMAP = (pasta: string) => {
+    // Enviamos apenas a chave IMAP standard (sem prefixo INBOX.) para que o backend
+    // possa usar o seu algoritmo de fallback e detectar automaticamente o nome real
+    // da pasta no servidor (seja INBOX.Sent, Sent, Enviados, etc.)
     if (pasta === 'Caixa de Entrada') return 'INBOX'
     const mapa: Record<string, string> = {
       'Enviados': 'Sent',
       'Rascunhos': 'Drafts',
       'Arquivo': 'Archive',
-      'Lixo': 'Deleted Items',
-      'Spam': 'Junk E-mail'
+      'Lixo': 'Trash',       // Chave standard que o backend reconhece e procura variações
+      'Spam': 'Junk'         // Chave standard que o backend reconhece e procura variações
     }
-    const target = mapa[pasta] || pasta
-    return `INBOX.${target}`
+    return mapa[pasta] || pasta
   }
 
   const [mostrarCc, setMostrarCc] = useState(false)

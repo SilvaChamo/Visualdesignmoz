@@ -1,28 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 
-// Função para tentar diferentes variações de nomes de pastas IMAP
+// Mapeamento de pastas baseado em auditoria do Maildir do servidor
+// Trash='Deleted Items', Junk='Junk', Sent='Sent' (sem INBOX)
+const FOLDER_VARIATIONS: Record<string, string[]> = {
+  'sent':    ['Sent', 'Sent Items', 'Enviados', 'INBOX.Sent'],
+  'trash':   ['Deleted Items', 'Trash', 'Bin', 'Lixo', 'INBOX.Deleted Items', 'INBOX.Trash'],
+  'junk':    ['Junk', 'Junk E-mail', 'Spam', 'INBOX.Junk', 'INBOX.Spam'],
+  'drafts':  ['Drafts', 'Draft', 'Rascunhos', 'INBOX.Drafts'],
+  'archive': ['Archive', 'Arquivados', 'Arquivo', 'INBOX.Archive'],
+}
+
 const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
-  const tentativas = [folderPath]
-  
-  // Se começa com INBOX., tentar sem o prefixo
-  if (folderPath.startsWith('INBOX.')) {
-    tentativas.push(folderPath.replace('INBOX.', ''))
-  } else if (folderPath !== 'INBOX') {
-    // Se não começa com INBOX., tentar com o prefixo
-    tentativas.push(`INBOX.${folderPath}`)
-  }
-  
-  for (const tentativa of tentativas) {
-    try {
-      const lock = await client.getMailboxLock(tentativa)
-      console.log(`📧 [delete] Pasta encontrada: ${tentativa}`)
-      return { lock, actualPath: tentativa }
-    } catch (e: any) {
-      console.log(`📧 [delete] Pasta não existe: ${tentativa}`)
+  const folderList = await client.list()
+  const existingPaths = new Set<string>(folderList.map((m: any) => m.path))
+  const existingLowers = new Map<string, string>(folderList.map((m: any) => [m.path.toLowerCase(), m.path]))
+
+  const p = folderPath.toLowerCase()
+  const variations: string[] = FOLDER_VARIATIONS[p] || [folderPath]
+  if (!variations.includes(folderPath)) variations.unshift(folderPath)
+
+  for (const v of variations) {
+    if (existingPaths.has(v)) {
+      try {
+        const lock = await client.getMailboxLock(v)
+        console.log(`📧 [delete] Pasta encontrada: ${v}`)
+        return { lock, actualPath: v }
+      } catch (e) {}
+    }
+    const lower = v.toLowerCase()
+    if (existingLowers.has(lower)) {
+      const realPath = existingLowers.get(lower)!
+      try {
+        const lock = await client.getMailboxLock(realPath)
+        console.log(`📧 [delete] Pasta encontrada (case): ${realPath}`)
+        return { lock, actualPath: realPath }
+      } catch (e) {}
     }
   }
-  
   return null
 }
 
@@ -87,8 +102,8 @@ export async function POST(req: NextRequest) {
     const { lock, actualPath } = mailboxResult
     console.log(`1. ${actualPath} aberta`)
     try {
-      // Pastas de Lixeira a tentar, por ordem de prioridade
-      const trashFolders = ['INBOX.Deleted Items', 'INBOX.Trash', 'Trash', 'Deleted Items']
+      // Pastas de Lixeira — ordem baseada em auditoria real do servidor
+      const trashFolders = ['Deleted Items', 'INBOX.Deleted Items', 'Trash', 'INBOX.Trash']
 
       // Se já estiver na lixeira, apagar permanentemente
       if (trashFolders.includes(actualPath) || trashFolders.includes(folder)) {

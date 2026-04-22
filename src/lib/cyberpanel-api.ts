@@ -335,8 +335,8 @@ export const cyberPanelAPI = {
   addPatternForwarding:    (p: any)              => cmd(`echo "pattern forwarding added"`),
   getPlusAddressing:       (domain: string)      => cmd(`echo "false"`),
   togglePlusAddressing:    (p: any)              => cmd(`echo "toggled"`),
-  enableDKIM:              (domain: string)      => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dkimUtilities.py enableDKIM --domainName ${domain}`),
-  getDKIMStatus:           (domain: string)      => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dkimUtilities.py getDKIMStatus --domainName ${domain}`),
+  enableDKIM:              (domain: string)      => cmd(`mkdir -p /etc/opendkim/keys/${domain} && cd /etc/opendkim/keys/${domain} && opendkim-genkey -b 2048 -d ${domain} -s default -S rsa-sha256 2>&1 && chown -R opendkim:opendkim /etc/opendkim/keys/${domain} && chmod 600 /etc/opendkim/keys/${domain}/default.private && echo '{"success": 1, "message": "DKIM gerado com sucesso"}'`),
+  getDKIMStatus:           (domain: string)      => cmd(`if [ -f /etc/opendkim/keys/${domain}/default.txt ]; then cat /etc/opendkim/keys/${domain}/default.txt; else echo '{"enabled": false, "record": ""}'; fi`),
 
   // SSL
   issueSSL:                (domain: string)      => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/sslUtilities.py issueSSL --domainName ${domain}`, LONG_TIMEOUT),

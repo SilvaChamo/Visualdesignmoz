@@ -47,18 +47,22 @@ async function sendViaSMTP(
     const transporter = nodemailer.createTransport({
         host: smtpCfg.host,
         port: smtpCfg.port,
-        secure: smtpCfg.secure,
-        requireTLS: !smtpCfg.secure,
+        secure: smtpCfg.secure,   // false para 587 (STARTTLS), true para 465 (SSL)
+        requireTLS: !smtpCfg.secure, // Forçar STARTTLS quando porta 587
         auth: {
+            type: 'login',         // Força mecanismo LOGIN (compatível com Dovecot/Postfix CyberPanel)
             user: fromEmail,
             pass: fromPassword
         },
         tls: {
-            rejectUnauthorized: false
+            rejectUnauthorized: false,
+            ciphers: 'SSLv3'
         },
         connectionTimeout: 30000,
         greetingTimeout: 30000,
-        socketTimeout: 30000
+        socketTimeout: 45000,
+        // Nome do servidor que se apresenta no HELO/EHLO
+        name: smtpCfg.host
     });
 
     // Verificar conexão antes de enviar
@@ -67,7 +71,8 @@ async function sendViaSMTP(
         console.log('✅ Conexão SMTP verificada com sucesso');
     } catch (verifyError: any) {
         console.error('❌ Erro na verificação SMTP:', verifyError.message);
-        throw new Error(`Falha na conexão SMTP: ${verifyError.message}`);
+        // Se verify falhar, tentar mesmo assim (alguns servidores bloqueiam NOOP)
+        console.warn('⚠️ verify() falhou mas tentando enviar mesmo assim...');
     }
 
     // Enviar email
@@ -106,10 +111,12 @@ async function saveToSentFolder(
         console.log('📁 [IMAP] A guardar email na pasta Sent...');
         const { ImapFlow } = await import('imapflow');
         
-        // Derivar host IMAP do domínio do remetente automaticamente
-        // Funciona para qualquer domínio alojado no mesmo servidor CyberPanel
+        // Usar IP directo do servidor CyberPanel (igual ao read-emails API)
+        // Evita falhas de DNS que ocorrem com mail.{domínio}
         const senderDomain = from.split('@')[1] || 'visualdesigne.com'
-        const imapHost = process.env.IMAP_HOST || `mail.${senderDomain}`
+        const CYBERPANEL_DOMAINS = ['visualdesigne.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+        const isCyberPanel = CYBERPANEL_DOMAINS.includes(senderDomain) || CYBERPANEL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
+        const imapHost = process.env.IMAP_HOST || (isCyberPanel ? '109.199.104.22' : `mail.${senderDomain}`)
         
         const imapClient = new ImapFlow({
             host: imapHost,
@@ -117,13 +124,15 @@ async function saveToSentFolder(
             secure: true,
             auth: { user: from, pass: password },
             tls: { rejectUnauthorized: false },
-            logger: false
+            logger: false,
+            emitLogs: false
         });
 
         await imapClient.connect();
         
-        // Tentar diferentes nomes de pasta Sent
-        const sentFolders = ['INBOX.Sent', 'Sent', '.Sent', 'Enviados', 'INBOX.Sent Items'];
+        // Pastas Sent ordenadas por probabilidade no CyberPanel/Dovecot
+        // O Dovecot do CyberPanel cria tipicamente 'INBOX.Sent' ou 'Sent'
+        const sentFolders = ['Sent', 'INBOX.Sent', 'Sent Items', 'INBOX.Sent Items', 'Enviados', 'INBOX.Enviados'];
         
         const toArray = Array.isArray(to) ? to : [to];
         const toStr = toArray.join(', ');

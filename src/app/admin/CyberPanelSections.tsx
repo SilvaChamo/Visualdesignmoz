@@ -4485,14 +4485,31 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
     setTimeout(() => setCopiedField(null), 2000)
   }
 
-  // Extrair dados do record DKIM
+  // Extrair dados do record DKIM do arquivo default.txt
   const getDKIMData = () => {
     if (!dkim?.record) return null
-    // Formato: selector._domainkey.domain IN TXT "v=DKIM1; k=rsa; p=..."
-    const parts = dkim.record.split(' ')
+    
+    const record = dkim.record
     const selector = dkim.selector || 'default'
-    const name = parts[0] || `${selector}._domainkey.${selectedDomain}`
-    const value = dkim.publicKey || parts.slice(2).join(' ').replace(/"/g, '') || dkim.record
+    const name = `${selector}._domainkey.${selectedDomain}`
+    
+    // Parsear o conteúdo do arquivo default.txt
+    // Formato: default._domainkey IN TXT ( "v=DKIM1; h=sha256; k=rsa; " "p=..." )
+    let value = ''
+    
+    if (record.includes('v=DKIM1')) {
+      // Extrair tudo entre aspas e concatenar
+      const matches = record.match(/"([^"]+)"/g)
+      if (matches) {
+        value = matches.map(m => m.replace(/"/g, '')).join('')
+      } else {
+        // Fallback: usar o record diretamente
+        value = record
+      }
+    } else {
+      value = dkim.publicKey || record
+    }
+    
     const privateKey = dkim.privateKey || ''
     return { name, value, selector, privateKey }
   }
