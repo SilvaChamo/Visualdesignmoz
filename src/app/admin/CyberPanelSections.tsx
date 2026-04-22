@@ -4403,21 +4403,29 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
     setLoading(true);
     if (!autoGenerate) setMsg('');
     try {
+      console.log(`[DKIM] Buscando DKIM para ${domain}...`);
       // Buscar dados do DKIM via API
       const result = await cyberPanelAPI.getDKIMStatus(domain);
-      console.log('DKIM Status:', result);
+      console.log('[DKIM] Resultado bruto:', result);
+      // A API retorna no formato { output: 'conteúdo do arquivo' }
+      const dkimContent = result?.record || result?.publicKey || result?.output || '';
+      console.log('[DKIM] dkimContent:', dkimContent?.substring(0, 100));
+      const hasDKIM = dkimContent && dkimContent.includes('v=DKIM1');
+      console.log('[DKIM] hasDKIM:', hasDKIM);
       
       // Verificar se temos dados válidos
-      if (result?.record || result?.publicKey) {
+      if (hasDKIM) {
+        console.log('[DKIM] DKIM encontrado! Atualizando estado...');
         // DKIM já existe - mostrar chaves
         setDkim({
-          enabled: result.enabled || false,
-          record: result.record || result.publicKey || '',
-          selector: result.selector || 'default',
-          publicKey: result.publicKey || result.record || '',
-          privateKey: result.privateKey || ''
+          enabled: true,
+          record: dkimContent,
+          selector: 'default',
+          publicKey: dkimContent,
+          privateKey: ''
         });
       } else if (autoGenerate) {
+        console.log('[DKIM] DKIM não encontrado, gerando novo...');
         // Auto-gerar apenas quando chamado explicitamente
         setMsg('Gerando chaves DKIM...');
         const generated = await cyberPanelAPI.enableDKIM(domain);
@@ -4431,13 +4439,17 @@ export function DKIMManagerSection({ sites }: { sites: CyberPanelWebsite[] }) {
           const updated = await cyberPanelAPI.getDKIMStatus(domain);
           console.log('DKIM Updated after generate:', updated);
           
-          if (updated?.record || updated?.publicKey) {
+          // A API retorna no formato { output: 'conteúdo' }
+          const updatedContent = updated?.record || updated?.publicKey || updated?.output || '';
+          const hasUpdatedDKIM = updatedContent && updatedContent.includes('v=DKIM1');
+          
+          if (hasUpdatedDKIM) {
             setDkim({
-              enabled: updated.enabled || true,
-              record: updated.record || updated.publicKey || '',
-              selector: updated.selector || 'default',
-              publicKey: updated.publicKey || updated.record || '',
-              privateKey: updated.privateKey || ''
+              enabled: true,
+              record: updatedContent,
+              selector: 'default',
+              publicKey: updatedContent,
+              privateKey: ''
             });
             setMsg('Chaves DKIM geradas! Configure no seu DNS e depois teste.');
           } else {

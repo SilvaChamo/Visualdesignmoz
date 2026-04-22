@@ -102,13 +102,15 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
       
       // Fallback para DKIM - usar execução direta de comando
       if (action === 'getDKIMStatus' || action === 'enableDKIM') {
-        console.log(`[FALLBACK] ${action} via server-exec API due to 500 error`);
+        console.log(`[FALLBACK] ${action} via server-exec API due to error:`, error.message);
         try {
           const domain = params?.domainName || params?.domain;
           if (!domain) throw new Error('Domain required for DKIM');
           
           const isEnable = action === 'enableDKIM';
           const cmdAction = isEnable ? 'enableDKIM' : 'getDKIMStatus';
+          
+          console.log(`[FALLBACK] Calling server-exec with action: ${cmdAction}, domain: ${domain}`);
           
           const res = await fetch('/api/server-exec', {
             method: 'POST',
@@ -119,23 +121,29 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
             })
           });
           
+          console.log(`[FALLBACK] server-exec response status:`, res.status);
+          
           if (res.ok) {
             const result = await res.json();
-            console.log(`[FALLBACK SUCCESS] ${action}:`, result);
+            console.log(`[FALLBACK SUCCESS] ${action} raw result:`, result);
             
             // Retornar no formato esperado pela UI
             if (isEnable) {
-              return { success: result.success !== false, message: result.output || 'DKIM operation completed' };
+              return { success: result.success !== false, message: result.data?.output || 'DKIM operation completed' };
             } else {
               // Para getDKIMStatus, parsear o resultado
-              const hasKey = result.output && result.output.includes('v=DKIM1');
+              const output = result.data?.output || result.data?.record || '';
+              const hasKey = output && output.includes('v=DKIM1');
+              console.log(`[FALLBACK] DKIM check - hasKey: ${hasKey}, output length: ${output.length}`);
               return {
-                enabled: hasKey || result.success,
-                record: result.output || '',
+                enabled: hasKey || result.data?.enabled || false,
+                record: output,
                 selector: 'default',
-                publicKey: result.output || ''
+                publicKey: output
               };
             }
+          } else {
+            console.error(`[FALLBACK] server-exec returned error status:`, res.status);
           }
         } catch (fallbackError: any) {
           console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
