@@ -78,12 +78,14 @@ export async function POST(request: NextRequest) {
                 }
 
                 const installScript = `
-                DOCUMENT_ROOT="/home/${domain}${directory ? '/' + directory : ''}/public_html"
+                DOCUMENT_ROOT="/home/${domain}/public_html${directory ? '/' + (directory.startsWith('/') ? directory.substring(1) : directory) : ''}"
                 
-                if [ ! -d "$DOCUMENT_ROOT" ]; then
-                    echo "ERRO: O diretório do domínio não existe. Crie o website primeiro no CyberPanel."
+                if [ ! -d "/home/${domain}/public_html" ]; then
+                    echo "ERRO: O diretório base /home/${domain}/public_html não existe. Crie o website primeiro no CyberPanel."
                     exit 1
                 fi
+                
+                mkdir -p "$DOCUMENT_ROOT"
                 
                 cd "$DOCUMENT_ROOT"
                 
@@ -94,6 +96,10 @@ export async function POST(request: NextRequest) {
                     mv wp-cli.phar /usr/local/bin/wp
                 fi
                 
+                # Create Database first if not exists
+                echo "Criando base de dados..."
+                /usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py createDatabase --domainName ${domain} --dbName ${databaseName || domain.replace(/\./g,'_') + '_wp'} --dbUsername ${databaseUser || 'usr_' + domain.replace(/\./g,'_').substring(0,8)} --dbPassword '${databasePassword || 'generated_pass'}'
+                
                 # Download specific WP version if requested
                 WP_VERSION="${version || 'latest'}"
                 if [ "$WP_VERSION" != "latest" ]; then
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest) {
                 fi
                 
                 # Configure wp-config.php
-                WP_CLI_ALLOW_ROOT=1 wp config create --dbname="${databaseName || domain + '_wp'}" --dbuser="${databaseUser || 'usr_' + domain}" --dbpass="${databasePassword || 'generated'}" --allow-root --force
+                WP_CLI_ALLOW_ROOT=1 wp config create --dbname="${databaseName || domain.replace(/\./g,'_') + '_wp'}" --dbuser="${databaseUser || 'usr_' + domain.replace(/\./g,'_').substring(0,8)}" --dbpass="${databasePassword || 'generated_pass'}" --allow-root --force
                 
                 # Install WP with all settings
                 WP_CLI_ALLOW_ROOT=1 wp core install --url="${wpUrl}" --title="${siteName}" --admin_user="${adminUsername}" --admin_password="${adminPassword}" --admin_email="${adminEmail}" --allow-root
@@ -124,7 +130,8 @@ export async function POST(request: NextRequest) {
                 ${plugins?.litespeed ? `WP_CLI_ALLOW_ROOT=1 wp plugin install litespeed-cache --activate --allow-root` : ''}
                 
                 # Fix permissions
-                chown -R $(id -un):$(id -gn) "$DOCUMENT_ROOT"
+                SITE_USER=$(stat -c '%U' "/home/${domain}/public_html")
+                chown -R "$SITE_USER":"$SITE_USER" "$DOCUMENT_ROOT"
                 find "$DOCUMENT_ROOT" -type f -exec chmod 644 {} \;
                 find "$DOCUMENT_ROOT" -type d -exec chmod 755 {} \;
                 
@@ -137,7 +144,23 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: 'Falha ao instalar o WordPress', details: result }, { status: 400 });
                 }
 
-                return NextResponse.json({ success: true, message: 'WordPress instalado com sucesso' });
+                // Atualizar siteType para 'wordpress' no Supabase
+                try {
+                    await supabase
+                        .from('cyberpanel_sites')
+                        .update({ site_type: 'wordpress' })
+                        .eq('domain', domain);
+                } catch (e) {
+                    console.log('Nota: Não foi possível atualizar site_type no Supabase', e);
+                }
+
+                return NextResponse.json({ 
+                    success: true, 
+                    message: 'WordPress instalado com sucesso',
+                    domain,
+                    url: wpUrl,
+                    adminUrl: `${wpUrl}/wp-admin`
+                });
             }
 
             case 'getWPInfo': {

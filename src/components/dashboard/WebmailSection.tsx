@@ -157,6 +157,11 @@ export function WebmailSection({
     'info@visualdesigne.com': 'Informação!#2020?*',
     'suporte@visualdesigne.com': 'SupaEmail#2026?*',
     'noreply@visualdesigne.com': 'VisualDesign#2026',
+    'eventos@oshercollective.com': 'xqqh[bLr5!&9jMv{',
+    'oshercollective@gmail.com': 'gce7G)S-1FfUX)-b',
+    'osher@oshercollective.com': 'gce7G)S-1FfUX)-b',
+    'admin@oshetcollective.com': 'v(E1mUy7P~Yeh?G5',
+    'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
   }
 
   // 🎨 Função para gerar cor do avatar baseada na letra inicial
@@ -604,9 +609,6 @@ export function WebmailSection({
     }
   }
 
-  const getSnappyMailUrl = () => {
-    return 'https://109.199.104.22:8090/snappymail/'
-  }
 
   const runDiagnostico = async () => {
     setDiagnosticoLoading(true)
@@ -662,46 +664,52 @@ export function WebmailSection({
     setDiagnosticoLoading(false)
   }
 
-  const openSnappyMailAutoLogin = async () => {
+  const getSnappyMailUrl = () => {
+    // Usar o proxy de login que acabamos de implantar para evitar o erro "This request need session"
+    return 'https://109.199.104.22:8090/snappymail-login.php'
+  }
+
+  const openSnappyMailAutoLogin = () => {
     const account = accounts.find(a => a.email === selectedAccount)
     if (!account) {
-      // Sem conta selecionada, abrir SnappyMail normal
       window.open(getSnappyMailUrl(), '_blank')
       return
     }
 
     const password = account.password || CREDENCIAIS_PADRAO[account.email]
     if (!password) {
-      console.warn('[SnappyMail SSO] Senha não disponível para:', account.email)
       window.open(getSnappyMailUrl(), '_blank')
       return
     }
 
-    try {
-      // Criar token SSO via API
-      const res = await fetch('/api/snappymail-sso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: account.email,
-          password: password
-        })
-      })
+    // Criar formulário de auto-login (Método clássico que funcionava)
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = getSnappyMailUrl()
+    form.target = '_blank'
+    form.style.display = 'none'
 
-      const data = await res.json()
+    const emailInput = document.createElement('input')
+    emailInput.type = 'hidden'
+    emailInput.name = 'Email'
+    emailInput.value = account.email
+    form.appendChild(emailInput)
 
-      if (data.success && data.ssoUrl) {
-        console.log('[SnappyMail SSO] Login automático para:', account.email)
-        window.open(data.ssoUrl, '_blank')
-      } else {
-        // Fallback: abrir sem SSO
-        console.warn('[SnappyMail SSO] Falha no SSO, usando fallback')
-        window.open(getSnappyMailUrl(), '_blank')
-      }
-    } catch (error) {
-      console.error('[SnappyMail SSO] Erro:', error)
-      window.open(getSnappyMailUrl(), '_blank')
-    }
+    const passInput = document.createElement('input')
+    passInput.type = 'hidden'
+    passInput.name = 'Password'
+    passInput.value = password
+    form.appendChild(passInput)
+
+    const actionInput = document.createElement('input')
+    actionInput.type = 'hidden'
+    actionInput.name = 'Action'
+    actionInput.value = 'Login'
+    form.appendChild(actionInput)
+
+    document.body.appendChild(form)
+    form.submit()
+    document.body.removeChild(form)
   }
 
   const sendEmail = async () => {
@@ -1058,12 +1066,19 @@ export function WebmailSection({
           <div className="flex items-center gap-2">
 
             <button
+              title="Snapmail"
               onClick={openSnappyMailAutoLogin}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-400 rounded text-sm font-medium transition-all duration-200"
-              title="Abrir Webmail Completo"
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm"
             >
-              <ExternalLink className="w-4 h-4" />
-              <span className="hidden sm:inline">Abrir Webmail Completo</span>
+              <ExternalLink size={14} />
+              <span className="hidden sm:inline">Snapmail</span>
+            </button>
+            <button
+              onClick={() => window.location.href = '/admin/mensagens'}
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm"
+            >
+              <Mail size={14} />
+              <span className="hidden sm:inline">Mailmarketing</span>
             </button>
             <button
               onClick={() => {
@@ -1075,10 +1090,10 @@ export function WebmailSection({
                 }
                 setShowCreateEmailModal(true)
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 hover:border-green-400 rounded text-sm font-medium transition-all duration-200"
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              Nova Conta
+              <span className="hidden sm:inline">Nova Conta</span>
             </button>
           </div>
         </div>

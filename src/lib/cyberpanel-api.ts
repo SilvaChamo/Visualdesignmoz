@@ -99,6 +99,44 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
         console.log(`[FALLBACK] Returning empty users array`);
         return [];
       }
+
+      // Fallback para listEmails via CLI
+      if (action === 'listEmails') {
+        const domain = params.domain;
+        console.log(`[FALLBACK] ${action} for ${domain} via CLI due to 500 error`);
+        try {
+          const res = await fetch('/api/server-exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: 'execCommand', 
+              params: { 
+                command: `python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from mailSystem.models import E_mail;print(json.dumps(list(E_mail.objects.filter(domain__domain='${domain}').values('email','user','quota')),default=str))"` 
+              } 
+            })
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            if (result.success && result.data && result.data.output) {
+               try {
+                 const emails = JSON.parse(result.data.output);
+                 return emails.map((e: any) => ({
+                   email: e.email,
+                   user: e.user,
+                   quota_mb: e.quota || 500,
+                   usage: '0'
+                 }));
+               } catch (e) {
+                 console.error('[FALLBACK] Failed to parse emails JSON:', result.data.output);
+               }
+            }
+          }
+        } catch (fallbackError: any) {
+          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
+        }
+        return [];
+      }
       
       // Fallback para DKIM - usar execução direta de comando
       if (action === 'getDKIMStatus' || action === 'enableDKIM') {

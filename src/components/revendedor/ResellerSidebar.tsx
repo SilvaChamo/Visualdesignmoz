@@ -15,6 +15,7 @@ interface ResellerSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   sessionUser: string | null;
+  customLogo?: string;
 }
 
 interface MenuItem {
@@ -32,9 +33,8 @@ const menuItems: MenuItem[] = [
     label: 'Gestão de Sites',
     icon: Globe,
     subItems: [
-      { id: 'domains', label: 'Listar Websites' },
-      { id: 'packages-list', label: 'Pacotes' },
-      { id: 'cp-users', label: 'Contas' },
+      { id: 'domains', label: 'Sites Next.js' },
+      { id: 'cp-wp-list', label: 'Sites WordPress' },
     ]
   },
   {
@@ -52,12 +52,12 @@ const menuItems: MenuItem[] = [
   },
   {
     id: 'wordpress',
-    label: 'WordPress',
+    label: 'Gestão de sites WP',
     icon: Globe,
     subItems: [
-      { id: 'cp-wp-list', label: 'Listar sites WordPress' },
       { id: 'wordpress-install', label: 'Instalar WordPress' },
       { id: 'cp-wp-plugins', label: 'Gerir plugins' },
+      { id: 'packages-list', label: 'Pacotes' },
     ]
   },
   {
@@ -74,10 +74,9 @@ const menuItems: MenuItem[] = [
     label: 'Gestão de E-mails',
     icon: Mail,
     subItems: [
-      { id: 'emails-new', label: 'Listar E-mails' },
-      { id: 'criar-email', label: 'Criar E-mail' },
-      { id: 'newsletter', label: 'Mailmarketing' },
+      { id: 'emails-new', label: 'E-mails' },
       { id: 'webmail', label: 'Webmail' },
+      { id: 'newsletter', label: 'Mailmarketing' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ]
   },
@@ -107,15 +106,11 @@ export function ResellerSidebar({
   onNavigate, 
   isCollapsed, 
   setIsCollapsed, 
-  sessionUser 
+  sessionUser,
+  customLogo
 }: ResellerSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 80 : 250;
-  const [logoUrl, setLogoUrl] = React.useState<string>('/assets/simbolo.png');
-
-  React.useEffect(() => {
-    const savedLogo = localStorage.getItem('reseller_custom_logo');
-    if (savedLogo) setLogoUrl(savedLogo);
-  }, []);
+  const logoUrl = customLogo || '/assets/simbolo.png';
 
   const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
     'gestao-sites': false,
@@ -127,7 +122,19 @@ export function ResellerSidebar({
   });
 
   const toggleExpand = (id: string) => {
-    setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpandedMenus(prev => {
+      const isCurrentlyExpanded = prev[id];
+      // Se estamos a expandir um novo menu, fechamos todos os outros
+      if (!isCurrentlyExpanded) {
+        const newState: Record<string, boolean> = {};
+        Object.keys(prev).forEach(key => {
+          newState[key] = false;
+        });
+        return { ...newState, [id]: true };
+      }
+      // Se estamos a fechar, apenas fechamos esse
+      return { ...prev, [id]: false };
+    });
   };
 
   return (
@@ -182,10 +189,10 @@ export function ResellerSidebar({
               (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
               (item.id === 'newsletter' && activeSection === 'newsletter') ||
               (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website'].includes(activeSection)) ||
-              (item.id === 'gestao-sites' && ['domains', 'packages-list', 'cp-users'].includes(activeSection)) ||
+              (item.id === 'gestao-sites' && ['domains', 'cp-wp-list', 'cp-users'].includes(activeSection)) ||
               (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
-              (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection)) ||
+              (item.id === 'wordpress' && ['wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup', 'packages-list'].includes(activeSection)) ||
               (item.id === 'configuracoes' && ['settings-branding', 'settings-profile'].includes(activeSection));
             
             return (
@@ -194,9 +201,15 @@ export function ResellerSidebar({
                   onClick={() => {
                     if (item.subItems) {
                       toggleExpand(item.id);
-                    } else if (item.id === 'newsletter') {
-                      window.location.href = '/admin/mensagens';
                     } else {
+                      // Fechar todos os submenus ao clicar em item sem submenu (ex: Dashboard)
+                      setExpandedMenus(prev => {
+                        const newState: Record<string, boolean> = {};
+                        Object.keys(prev).forEach(key => {
+                          newState[key] = false;
+                        });
+                        return newState;
+                      });
                       onNavigate(item.id);
                     }
                   }}

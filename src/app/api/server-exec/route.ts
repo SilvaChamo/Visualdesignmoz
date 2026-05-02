@@ -109,6 +109,7 @@ for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websit
   wp_content=$([ -d /home/$domain/public_html/wp-content ] && echo "1" || echo "0")
   wp_includes=$([ -d /home/$domain/public_html/wp-includes ] && echo "1" || echo "0")
   wp_admin=$([ -d /home/$domain/public_html/wp-admin ] && echo "1" || echo "0")
+  wp_login=$([ -f /home/$domain/public_html/wp-login.php ] && echo "1" || echo "0")
   
   # Next.js — ficheiros chave
   next_config=$([ -f /home/$domain/public_html/next.config.js ] || [ -f /home/$domain/public_html/next.config.ts ] && echo "1" || echo "0")
@@ -120,8 +121,8 @@ for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websit
   index_html=$([ -f /home/$domain/public_html/index.html ] && echo "1" || echo "0")
   htaccess=$([ -f /home/$domain/public_html/.htaccess ] && echo "1" || echo "0")
   
-  # Calcular score — precisa de pelo menos 3 ficheiros/pastas chave
-  wp_score=$((wp_config + wp_content + wp_includes + wp_admin))
+  # Calcular score — precisa de pelo menos 2 ficheiros/pastas chave
+  wp_score=$((wp_config + wp_content + wp_includes + wp_admin + wp_login))
   next_score=$((next_config + next_folder + package_json))
   basic_score=$((index_php + index_html + htaccess))
   
@@ -143,10 +144,10 @@ done
           if (domain) {
             siteStatus[domain] = {
               isActive: isActive === '1',
-              hasWordPress: parseInt(wpScore) >= 3,
+              hasWordPress: parseInt(wpScore) >= 2,
               hasNextJs: parseInt(nextScore) >= 2,
               hasBasicSite: parseInt(basicScore) >= 2,
-              siteType: parseInt(wpScore) >= 3 ? 'wordpress' :
+              siteType: parseInt(wpScore) >= 2 ? 'wordpress' :
                 parseInt(nextScore) >= 2 ? 'nextjs' :
                   parseInt(basicScore) >= 2 ? 'html' : 'empty'
             };
@@ -755,6 +756,63 @@ print('ok')
         const success = !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('fail')
         data = { output: raw, success }
         break
+      }
+
+      case 'deployMarketingScripts': {
+        const sendEmailApiPhp = `<?php
+header('Content-Type: application/json');
+$token = "vd_api_2024_secure_token";
+$headers = getallheaders();
+$auth = isset($headers['Authorization']) ? $headers['Authorization'] : '';
+if ($auth !== "Bearer " . $token) {
+    http_response_code(401);
+    echo json_encode(["success" => false, "error" => "Unauthorized"]);
+    exit;
+}
+$data = json_decode(file_get_contents('php://input'), true);
+if (!$data || !isset($data['to']) || !isset($data['subject']) || !isset($data['html'])) {
+    http_response_code(400);
+    echo json_encode(["success" => false, "error" => "Invalid data"]);
+    exit;
+}
+$to = is_array($data['to']) ? implode(',', $data['to']) : $data['to'];
+$subject = $data['subject'];
+$message = $data['html'];
+$from = isset($data['from']) ? $data['from'] : 'marketing@visualdesigne.com';
+$headers = "MIME-Version: 1.0" . "\\r\\n";
+$headers .= "Content-type:text/html;charset=UTF-8" . "\\r\\n";
+$headers .= "From: " . $from . "\\r\\n";
+$success = mail($to, $subject, $message, $headers);
+echo json_encode(["success" => $success, "details" => ["to_count" => count($data['to'])]]);
+?>`;
+
+        const snappyLoginPhp = `<?php
+// Proxy de login para SnappyMail via POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['Email']) && isset($_POST['Password'])) {
+    $email = $_POST['Email'];
+    $password = $_POST['Password'];
+    ?>
+    <form id="loginForm" method="POST" action="https://109.199.104.22:8090/snappymail/index.php">
+        <input type="hidden" name="Email" value="<?php echo htmlspecialchars($email); ?>">
+        <input type="hidden" name="Password" value="<?php echo htmlspecialchars($password); ?>">
+        <input type="hidden" name="Action" value="Login">
+    </form>
+    <script>document.getElementById('loginForm').submit();</script>
+    <?php
+    exit;
+}
+echo "Aguardando POST...";
+?>`;
+
+        const cmd = `
+echo '${sendEmailApiPhp.replace(/'/g, "'\\''")}' > /usr/local/CyberCP/public/send-email-api.php && \\
+echo '${snappyLoginPhp.replace(/'/g, "'\\''")}' > /usr/local/CyberCP/public/snappymail-login.php && \\
+chmod 644 /usr/local/CyberCP/public/send-email-api.php /usr/local/CyberCP/public/snappymail-login.php && \\
+chown lscpd:lscpd /usr/local/CyberCP/public/send-email-api.php /usr/local/CyberCP/public/snappymail-login.php && \\
+echo "Scripts deployed successfully"
+`;
+        data = { output: await execSSH(cmd) };
+        break;
       }
 
       default:

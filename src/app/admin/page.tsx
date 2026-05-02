@@ -38,6 +38,7 @@ import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
+import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
@@ -1888,6 +1889,7 @@ export default function AdminPage() {
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
+  const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
@@ -2267,13 +2269,22 @@ export default function AdminPage() {
         return <DNSCentralSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
+      case 'newsletter':
+        return (
+          <MailMarketingSection
+            sites={filteredSites}
+            currentUserEmail={sessionUser || undefined}
+            activeTab={mailMarketingTab}
+            onTabChange={setMailMarketingTab}
+          />
+        )
       case 'git-deploy':
         return <GitDeploySection />
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':

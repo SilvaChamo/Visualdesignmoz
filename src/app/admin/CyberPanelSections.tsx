@@ -5742,7 +5742,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 }
 
 // WordPress Install Section
-export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] }) {
+export function WordPressInstallSection({ sites, onRefresh }: { sites: CyberPanelWebsite[], onRefresh?: () => void }) {
   const [loading, setLoading] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -5773,6 +5773,9 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
       litespeed: false
     }
   })
+  
+  const selectedSiteData = sites.find(s => s.domain === form.domain)
+  const isWPInstalled = selectedSiteData?.hasWordPress || selectedSiteData?.siteType === 'wordpress'
 
   const wordpressVersions = ['6.7.1', '6.6.2', '6.5.5', '6.4.3']
 
@@ -5840,7 +5843,11 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
 
       if (data.success) {
         setSuccess(true)
-        setMessage('WordPress instalado com sucesso!')
+        setMessage('✅ Site WordPress instalado com sucesso! O site agora aparece na lista de sites WordPress.')
+        // Limpar cache para garantir que o novo site apareça
+        const { cacheService } = await import('@/lib/cache-service');
+        cacheService.clear();
+        onRefresh?.()
       } else {
         setMessage(`Erro: ${data.error || 'Falha na instalação'}`)
       }
@@ -5873,6 +5880,16 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
         <h1 className="text-3xl font-bold text-gray-900">Instalar WordPress</h1>
         <p className="text-gray-500 mt-1">Instale o WordPress em qualquer domínio com configuração avançada</p>
       </div>
+      
+      {isWPInstalled && !success && (
+        <div className="p-4 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-bold text-sm">Aviso: WordPress detectado!</p>
+            <p className="text-xs">O domínio <strong>{form.domain}</strong> já parece ter uma instalação do WordPress. Reinstalar poderá apagar os dados existentes.</p>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`p-4 rounded ${success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -5881,15 +5898,22 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
             <span>{message}</span>
           </div>
           {success && (
-            <div className="mt-3 flex gap-3">
-              <a href={`${getFinalURL()}/wp-admin`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600  px-4 py-2 rounded text-sm font-medium hover:bg-blue-100 hover:text-blue-700 transition-colors">
+            <div className="mt-3 flex flex-wrap gap-3">
+              <a href={`${getFinalURL()}/wp-admin`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
                 <ExternalLink className="w-4 h-4" />
                 WP Admin
               </a>
-              <a href={getFinalURL()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-gray-600  px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
+              <a href={getFinalURL()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm">
                 <Globe className="w-4 h-4" />
                 Ver Site
               </a>
+              <button 
+                onClick={() => window.location.href = '/revendedor?section=cp-wp-list'}
+                className="inline-flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
+              >
+                <Check className="w-4 h-4" />
+                Ver na Lista WordPress
+              </button>
             </div>
           )}
         </div>
@@ -6204,7 +6228,11 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
               <button
                 onClick={handleInstall}
                 disabled={installing || !form.domain || !form.siteName || !form.adminUsername || !form.adminPassword || !form.adminEmail}
-                className="w-full bg-transparent border border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                className={`w-full px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  isWPInstalled 
+                    ? 'bg-amber-50 border border-amber-600 text-amber-600 hover:bg-amber-100' 
+                    : 'bg-transparent border border-green-600 text-green-600 hover:bg-green-50'
+                } disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300`}
               >
                 {installing ? (
                   <>
@@ -6214,7 +6242,7 @@ export function WordPressInstallSection({ sites }: { sites: CyberPanelWebsite[] 
                 ) : (
                   <>
                     <Database className="w-5 h-5" />
-                    Instalar WordPress
+                    {isWPInstalled ? 'Reinstalar WordPress' : 'Instalar WordPress'}
                   </>
                 )}
               </button>

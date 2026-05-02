@@ -79,8 +79,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       headerIcon: <Mail className="w-5 h-5" />,
       color: 'text-cyan-700', bgColor: 'bg-cyan-50',
       tools: [
-        { id: 'emails-new', name: 'Criar Email', icon: <PlusCircle className="w-9 h-9 text-cyan-500" /> },
-        { id: 'cp-email-mgmt', name: 'Listar Emails', icon: <Mail className="w-9 h-9 text-cyan-500" /> },
+        { id: 'cp-email-mgmt', name: 'E-mails', icon: <Mail className="w-9 h-9 text-cyan-500" /> },
         { id: 'emails-webmail', name: 'Webmail', icon: <ExternalLink className="w-9 h-9 text-cyan-500" /> },
         { id: 'newsletter', name: 'Email Marketing', icon: <Layout className="w-9 h-9 text-cyan-500" /> },
         { id: 'cp-email-delete', name: 'Apagar Email', icon: <Trash2 className="w-9 h-9 text-cyan-500" /> },
@@ -192,8 +191,6 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       headerIcon: <Users className="w-5 h-5" />,
       color: 'text-green-700', bgColor: 'bg-green-50',
       tools: [
-        { id: 'cp-users', name: 'Criar Utilizador', icon: <PlusCircle className="w-9 h-9 text-green-500" /> },
-        { id: 'cp-users', name: 'Listar Utilizadores', icon: <Users className="w-9 h-9 text-green-500" /> },
         { id: 'cp-reseller', name: 'Centro de Revenda', icon: <Package className="w-9 h-9 text-green-500" /> },
       ]
     },

@@ -8,6 +8,7 @@ import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette
 } from 'lucide-react'
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
@@ -33,11 +34,14 @@ import { RenewalsSection } from '../admin/RenewalsSection'
 import { TemplatesSection } from '../admin/TemplatesSection'
 import { DNSCentralSection } from '../admin/DNSCentralSection'
 import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
+import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
+import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
+import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
@@ -97,11 +101,10 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
   )
 }
 
-// Simple domain list section - shows only domain names
-function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
+// Simple domain list section - shows only domain names (estilo igual ao dashboard)
+function ListDomainsSection({ sites, onRefresh }: {
   sites: CyberPanelWebsite[],
-  onRefresh: () => void,
-  setActiveSection: (section: string) => void
+  onRefresh: () => void
 }) {
   const [search, setSearch] = useState('')
 
@@ -109,11 +112,16 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
     ? sites.filter(s => s.domain.toLowerCase().includes(search.toLowerCase()))
     : sites
 
+  const getDomainExtension = (domain: string): string => {
+    const parts = domain.split('.')
+    return parts.length > 1 ? '.' + parts.slice(1).join('.') : ''
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">Lista de Domínios</h2>
+        <h2 className="text-xl font-bold text-gray-900">Sites Next.js</h2>
         <button onClick={onRefresh} className="text-gray-400 hover:text-blue-600 transition-colors">
           <RefreshCw className="w-5 h-5" />
         </button>
@@ -124,54 +132,60 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar domínios..."
+            placeholder="Pesquisar sites..."
             className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-64" />
         </div>
-        <span className="text-sm text-gray-500">{filteredSites.length} domínio(s)</span>
+        <span className="text-sm text-gray-500">{filteredSites.length} site(s)</span>
       </div>
 
-      {/* Simple Domain List */}
-      <div className="bg-white border border-gray-200 rounded overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Domínio</th>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Status</th>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSites.map((site) => (
-              <tr key={site.domain} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-blue-500" />
-                    <span className="font-medium text-gray-900">{site.domain}</span>
+      {/* Cards estilo Dashboard - sem botões de gestão */}
+      <div className="space-y-3">
+        {filteredSites.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded border border-gray-200">
+            <p className="text-gray-500">Nenhum site Next.js encontrado</p>
+          </div>
+        ) : (
+          filteredSites.map((site) => {
+            const extension = getDomainExtension(site.domain)
+            const isActive = parseState(site.state) === 'Active'
+
+            return (
+              <div
+                key={site.domain}
+                className="bg-white rounded border border-gray-200 shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+              >
+                {/* Ícone e info do domínio */}
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-black rounded flex items-center justify-center">
+                    <Globe className="w-6 h-6 text-white" />
                   </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(site.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {parseState(site.state) === 'Active' ? 'Activo' : 'Suspenso'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        // @ts-ignore
-                        window.__selectedManageDomain = site.domain;
-                        setActiveSection('manage-website');
-                      }}
-                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1 rounded text-xs font-bold transition-all"
-                    >
-                      Gerir
-                    </button>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-gray-900">
+                        {site.domain}
+                      </h3>
+                      <span className="text-xs text-gray-500 font-medium">
+                        {extension}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400">Next.js</span>
+                    </div>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+
+                {/* Badge Status apenas */}
+                <span className={`px-3 py-1 rounded text-xs font-bold ${
+                  isActive
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {isActive ? 'ATIVO' : 'SUSPENSO'}
+                </span>
+              </div>
+            )
+          })
+        )}
       </div>
     </div>
   )
@@ -1888,6 +1902,13 @@ export default function ResellerPage() {
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
+  const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
+  const [logoUrl, setLogoUrl] = useState<string>('/assets/simbolo.png');
+
+  useEffect(() => {
+    const savedLogo = localStorage.getItem('reseller_custom_logo');
+    if (savedLogo) setLogoUrl(savedLogo);
+  }, []);
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
@@ -2126,16 +2147,14 @@ export default function ResellerPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <CpanelDashboard
+        return <ResellerDashboard
           sites={filteredSites}
-          users={cyberPanelUsers}
           isFetching={isFetchingCyberPanel}
           onNavigate={setActiveSection}
           onRefresh={loadCyberPanelData}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
-          searchQuery={dashboardSearch}
-          onSearchChange={setDashboardSearch}
+          sessionUser={sessionUser}
         />
       case 'domains':
         return <ListWebsitesSection
@@ -2153,7 +2172,6 @@ export default function ResellerPage() {
         return <ListDomainsSection
           sites={filteredSites}
           onRefresh={loadCyberPanelData}
-          setActiveSection={setActiveSection}
         />
       case 'file-manager':
       case 'cp-file-manager':
@@ -2261,12 +2279,21 @@ export default function ResellerPage() {
         return <DNSCentralSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
+      case 'newsletter':
+        return (
+          <MailMarketingSection
+            sites={filteredSites}
+            currentUserEmail={sessionUser || undefined}
+            activeTab={mailMarketingTab}
+            onTabChange={setMailMarketingTab}
+          />
+        )
 
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
@@ -2299,8 +2326,20 @@ export default function ResellerPage() {
         return <div className="p-8 text-center text-gray-500">Redirecionando para construtores...</div>;
       case 'templates-saved':
         return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
+      case 'settings-branding':
+        return <ResellerSettingsSection onLogoChange={setLogoUrl} />;
+      case 'settings-profile':
+        return <ResellerProfileSection />;
       default:
-        return <CpanelDashboard sites={filteredSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <ResellerDashboard 
+          sites={filteredSites} 
+          isFetching={isFetchingCyberPanel} 
+          onNavigate={setActiveSection} 
+          onRefresh={loadCyberPanelData} 
+          onSetDNSDomain={setSelectedDNSDomain}
+          onSetFileManagerDomain={setFileManagerDomain} 
+          sessionUser={sessionUser}
+        />
     }
   }
 
@@ -2455,6 +2494,7 @@ export default function ResellerPage() {
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
+        customLogo={logoUrl}
       />
       <div className="flex-1 flex flex-col overflow-hidden bg-white">
         {/* Top Header - Escondido quando compose está ativo na seção de webmail */}

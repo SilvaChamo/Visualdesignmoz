@@ -42,7 +42,6 @@ const menuItems: MenuItem[] = [
     subItems: [
       { id: 'domains', label: 'Listar Websites' },
       { id: 'packages-list', label: 'Pacotes' },
-      { id: 'cp-users', label: 'Contas' },
     ]
   },
   {
@@ -82,13 +81,12 @@ const menuItems: MenuItem[] = [
     label: 'Gestão de E-mails',
     icon: Mail,
     subItems: [
-      { id: 'emails-new', label: 'Listar E-mails' },
-      { id: 'criar-email', label: 'Criar E-mail' },
-      { id: 'newsletter', label: 'Mailmarketing' },
+      { id: 'emails-new', label: 'E-mails' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ]
   },
+  { id: 'newsletter', label: 'Mailmarketing', icon: Layout },
   {
     id: 'notificacoes',
     label: 'Notificações',
@@ -182,7 +180,7 @@ export function AdminSidebar({
               (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions'].includes(activeSection)) ||
               (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website'].includes(activeSection)) ||
               (item.id === 'gestao-sites' && ['domains', 'packages-list', 'cp-users'].includes(activeSection)) ||
-              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter'].includes(activeSection)) ||
+              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
               (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));
             
