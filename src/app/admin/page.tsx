@@ -739,6 +739,20 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
               {/* Botões */}
               <div className="flex items-center gap-3">
+                {/* Botão GrapesJS Builder */}
+                <button
+                  onClick={() => window.open(`/admin/websites/${s.domain}/builder/grapes`, '_blank')}
+                  className="bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
+                  <Palette className="w-3.5 h-3.5" /> GrapesJS
+                </button>
+                
+                {/* Botão Craft.js Builder */}
+                <button
+                  onClick={() => window.open(`/admin/websites/${s.domain}/builder/craft`, '_blank')}
+                  className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5" /> Craft.js
+                </button>
+
                 {/* Botão Gerir — abre seção de gestão integrada */}
                 <button
                   onClick={() => {
