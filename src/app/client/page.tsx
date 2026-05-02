@@ -323,57 +323,25 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const [expanded, setExpanded] = useState<string | null>(null)
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({
+  const [showTicketModal, setShowTicketModal] = useState(false)
+  
+  // Formulário de contacto por email
+  const [contactForm, setContactForm] = useState({
     nome: cliente?.nome || '',
     email: cliente?.email || '',
     assunto: '',
-    categoria: 'Geral',
-    descricao: '',
-    prioridade: 'Normal',
-    siteId: '',
-    website_url: '' // honeypot
+    mensagem: ''
   })
-  const [enviado, setEnviado] = useState(false)
-  const [enviando, setEnviando] = useState(false)
-  const [ticketRef, setTicketRef] = useState('')
-  const [erroEnvio, setErroEnvio] = useState('')
-
-  // Anti-spam math challenge
-  const [captcha, setCaptcha] = useState({ n1: 0, n2: 0, result: 0 })
-  const [userAnswer, setUserAnswer] = useState('')
-
-  // Attachment
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [contactEnviado, setContactEnviado] = useState(false)
+  const [contactEnviando, setContactEnviando] = useState(false)
 
   useEffect(() => {
     fetchTickets()
-    generateCaptcha()
   }, [])
-
-  const generateCaptcha = () => {
-    const n1 = Math.floor(Math.random() * 10) + 1
-    const n2 = Math.floor(Math.random() * 10) + 1
-    setCaptcha({ n1, n2, result: n1 + n2 })
-    setUserAnswer('')
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      if (f.size > 5 * 1024 * 1024) {
-        alert('Imagem muito grande. Limite: 5MB')
-        return
-      }
-      setFile(f)
-      setPreview(URL.createObjectURL(f))
-    }
-  }
 
   const fetchTickets = async () => {
     setLoading(true)
     try {
-      // Delay para evitar conflito com outras chamadas
       await new Promise(resolve => setTimeout(resolve, 150))
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
@@ -391,61 +359,38 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
     }
   }
 
-  const enviarTicket = async () => {
-    if (!form.assunto || !form.descricao || !userAnswer) return
-    if (parseInt(userAnswer) !== captcha.result) {
-      setErroEnvio('Resposta de segurança incorrecta.')
-      return
-    }
+  const handleTicketCreated = () => {
+    fetchTickets()
+  }
 
-    setEnviando(true)
-    setErroEnvio('')
+  const enviarContacto = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!contactForm.assunto || !contactForm.mensagem) return
+    
+    setContactEnviando(true)
     try {
-      let anexoUrl = ''
-
-      // 1. Upload anexo if exists
-      if (file) {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const { data: uploadData, error: uploadError } = await createClientInstance.storage
-          .from('ticket-attachments')
-          .upload(fileName, file)
-
-        if (uploadError) {
-          console.error('Erro upload:', uploadError)
-        } else {
-          const { data: { publicUrl } } = createClientInstance.storage
-            .from('ticket-attachments')
-            .getPublicUrl(fileName)
-          anexoUrl = publicUrl
-        }
-      }
-
-      const res = await fetch('/api/submit-ticket', {
+      const res = await fetch('/api/contact-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          clienteNome: form.nome,
-          clienteEmail: form.email,
-          anexoUrl,
-          captchaAnswer: userAnswer,
-          captchaResult: captcha.result
+          nome: contactForm.nome,
+          email: contactForm.email,
+          assunto: contactForm.assunto,
+          mensagem: contactForm.mensagem,
+          tipo: 'suporte'
         })
       })
-      const data = await res.json()
-      if (data.success) {
-        setTicketRef(data.ticketId || '')
-        setEnviado(true)
-        fetchTickets()
-      } else {
-        setErroEnvio(data.error || 'Erro ao enviar ticket.')
-        generateCaptcha()
+      if (res.ok) {
+        setContactEnviado(true)
+        setTimeout(() => {
+          setContactEnviado(false)
+          setContactForm({ ...contactForm, assunto: '', mensagem: '' })
+        }, 3000)
       }
-    } catch (err: any) {
-      setErroEnvio(err?.message || 'Erro de ligação ao servidor.')
+    } catch (err) {
+      console.error('Erro ao enviar:', err)
     } finally {
-      setEnviando(false)
+      setContactEnviando(false)
     }
   }
 
@@ -458,244 +403,164 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5 bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Suporte e Ajuda</h1>
+      {/* Header - sem contorno */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-5">
+        <div className="pl-0">
+          <h1 className="text-2xl font-bold text-gray-900 -ml-0">Suporte e Ajuda</h1>
           <p className="text-gray-500 mt-1">Esclareça dúvidas ou reporte problemas técnicos.</p>
-
-          <div className="mt-4 flex flex-col gap-2">
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <span className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-full">📞</span>
-              <span className="font-bold">+258 84 806 6605</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <span className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded-full">📧</span>
-              <span className="font-bold">geral@visualdesigne.com</span>
-            </div>
-          </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <a href="https://wa.me/258848066605" target="_blank"
-            className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-5 py-2.5 rounded-lg text-sm font-bold border border-green-200 transition-all shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowTicketModal(true)}
+            className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold border border-red-200 transition-all shadow-sm">
+            <span>🎫</span> + Abrir Ticket
+          </button>
+          <a href="https://wa.me/258825288318" target="_blank"
+            className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold border border-green-200 transition-all shadow-sm">
             <span>📱</span> WhatsApp
           </a>
-          <button onClick={() => {
-            const formElement = document.getElementById('novo-ticket-form');
-            if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
-          }}
-            className="flex items-center gap-2 !bg-red-600 text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest border border-red-600 hover:!bg-red-700 transition-all shadow-sm cursor-pointer !opacity-100">
-            <span>🎫</span> Abrir Novo Ticket
-          </button>
-          <button onClick={onComposeEmail}
-            className="flex items-center gap-2 !bg-slate-800 text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest border border-slate-800 hover:!bg-red-600 transition-all shadow-xl shadow-gray-900/10 cursor-pointer !opacity-100">
-            <span>✉️</span> Enviar Email
-          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        {/* Formulário Novo Ticket */}
-        <div id="novo-ticket-form" className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden scroll-mt-20">
-          <div className="px-5 py-5 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg"><span className="text-red-600">🎫</span></div>
-            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Novo Ticket de Suporte</h2>
-          </div>
-
-          {enviado ? (
-            <div className="p-10 text-center space-y-4">
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-2xl">✅</div>
-              <h3 className="text-xl font-bold text-gray-900">Ticket Enviado com Sucesso!</h3>
-              {ticketRef && <p className="text-gray-600">A sua referência é: <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded text-red-600">{ticketRef}</span></p>}
-              <p className="text-sm text-gray-500 max-w-sm mx-auto">Receberá uma confirmação no seu email em instantes. A nossa equipa irá analisar o seu pedido.</p>
-              <div className="pt-4">
-                <button onClick={() => { setEnviado(false); setTicketRef(''); setForm({ ...form, assunto: '', descricao: '' }); setPreview(null); setFile(null); generateCaptcha(); }}
-                  className="px-5 py-2 bg-gray-800 text-white rounded-lg text-sm font-bold hover:bg-gray-900 transition-all shadow-sm">
-                  Abrir outro ticket
-                </button>
+      {/* Container com duas colunas: Dados empresa + Formulário contacto */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Coluna Esquerda - Dados da Empresa */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">VisualDesign</h3>
+          <p className="text-sm text-gray-500 mb-6">Estamos aqui para ajudar. Entre em contacto connosco por qualquer canal.</p>
+          
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <span>📞</span>
               </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase">Telefone</p>
+                <p className="text-sm font-bold text-gray-900">+258 84 806 6605</p>
+                <p className="text-xs text-gray-400">Seg-Sex: 08h às 18h</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <span>📧</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase">Email</p>
+                <p className="text-sm font-bold text-gray-900">geral@visualdesigne.com</p>
+                <p className="text-sm font-bold text-gray-900">suporte@visualdesigne.com</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <span>📍</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase">Endereço</p>
+                <p className="text-sm font-bold text-gray-900">Maputo, Moçambique</p>
+                <p className="text-xs text-gray-400">Av. 25 de Setembro, Edifício Whatana, 2º Andar</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <span>🌐</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase">Website</p>
+                <p className="text-sm font-bold text-gray-900">www.visualdesigne.com</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna Direita - Formulário de Contacto */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Enviar Mensagem</h3>
+          <p className="text-sm text-gray-500 mb-6">Preencha o formulário abaixo e responderemos em breve.</p>
+          
+          {contactEnviado ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">✅</div>
+              <h4 className="font-bold text-gray-900">Mensagem Enviada!</h4>
+              <p className="text-sm text-gray-500">Responderemos o mais breve possível.</p>
             </div>
           ) : (
-            <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Nome */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">O Teu Nome</label>
-                  <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" />
+            <form onSubmit={enviarContacto} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nome</label>
+                  <input 
+                    type="text" 
+                    value={contactForm.nome}
+                    onChange={e => setContactForm({...contactForm, nome: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                    required
+                  />
                 </div>
-                {/* Email */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Teu Endereço de Email</label>
-                  <input value={form.email} readOnly
-                    className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 text-gray-400 rounded-lg text-sm cursor-not-allowed" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Assunto */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Assunto do Pedido</label>
-                  <input value={form.assunto} onChange={e => setForm({ ...form, assunto: e.target.value })}
-                    placeholder="Ex: Não consigo aceder ao meu email"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" />
-                </div>
-                {/* Categoria */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Categoria</label>
-                  <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
-                    {['Geral', 'Técnico', 'Facturação', 'Domínio', 'Email', 'SSL', 'Backup'].map(c => <option key={c}>{c}</option>)}
-                  </select>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Email</label>
+                  <input 
+                    type="email" 
+                    value={contactForm.email}
+                    onChange={e => setContactForm({...contactForm, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                    required
+                  />
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Serviço Relacionado */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Serviço Relacionado</label>
-                  <select value={form.siteId} onChange={e => setForm({ ...form, siteId: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white">
-                    <option value="">Nenhum / Geral</option>
-                    {sites.map(s => <option key={s.id || s.domain || Math.random().toString()} value={s.id || s.domain}>{s.domain}</option>)}
-                  </select>
-                </div>
-                {/* Prioridade */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Prioridade</label>
-                  <div className="flex gap-2 h-full items-center">
-                    {['Baixa', 'Normal', 'Alta', 'Urgente'].map(p => (
-                      <button key={p} onClick={() => setForm({ ...form, prioridade: p })}
-                        className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase transition-all border ${form.prioridade === p ? 'bg-red-600 text-white border-red-600' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300'}`}>
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Assunto</label>
+                <input 
+                  type="text" 
+                  value={contactForm.assunto}
+                  onChange={e => setContactForm({...contactForm, assunto: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                  placeholder="Ex: Dúvida sobre faturação"
+                  required
+                />
               </div>
-
-              {/* Descrição */}
-              <div className="space-y-1 mb-4">
-                <label className="text-xs font-bold text-gray-500 uppercase">Descrição Detalhada</label>
-                <textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Por favor, descreva o problema com o máximo detalhe possível..." rows={4}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none" />
+              
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Mensagem</label>
+                <textarea 
+                  value={contactForm.mensagem}
+                  onChange={e => {
+                    setContactForm({...contactForm, mensagem: e.target.value})
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.max(96, e.target.scrollHeight) + 'px'
+                  }}
+                  rows={1}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none overflow-hidden min-h-[96px]"
+                  placeholder="Escreva a sua mensagem..."
+                  required
+                />
               </div>
-
-              {/* Anexo e Segurança */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
-                {/* Anexo */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase block">Anexar Imagem (Opcional)</label>
-                  <div className="flex items-center gap-4">
-                    <label className="cursor-pointer flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold border border-gray-200 transition-all border-dashed">
-                      <span>📸</span> {file ? 'Alterar Imagem' : 'Escolher Ficheiro'}
-                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                    </label>
-                    {preview && (
-                      <div className="relative w-12 h-12 border rounded-lg overflow-hidden group">
-                        <img src={preview} alt="preview" className="w-full h-full object-cover" />
-                        <button onClick={() => { setFile(null); setPreview(null); }}
-                          className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Anti-Spam / Math Captcha */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase block text-right">Verificação de Segurança</label>
-                  <div className="flex items-center justify-end gap-3">
-                    <span className="text-sm font-bold text-gray-600 italic">Quanto é {captcha.n1} + {captcha.n2}?</span>
-                    <input type="number" value={userAnswer} onChange={e => setUserAnswer(e.target.value)}
-                      placeholder="?" className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-bold focus:ring-2 focus:ring-red-500 outline-none" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Honeypot (Spam Prevention) */}
-              <input type="text" name="website_url" value={form.website_url} onChange={e => setForm({ ...form, website_url: e.target.value })} className="hidden" tabIndex={-1} />
-
-              <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-[11px] text-gray-400">
-                  <p>🔹 Tempo de resposta médio: 2 horas</p>
-                  <p>🔹 Responderemos para {form.email}</p>
-                </div>
-                {erroEnvio && <p className="text-xs text-red-600 font-bold bg-red-50 border border-red-200 rounded px-3 py-2">{erroEnvio}</p>}
-                <button onClick={enviarTicket}
-                  disabled={!form.assunto || !form.descricao || !userAnswer || enviando}
-                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200 flex items-center gap-2">
-                  {enviando ? <>⏳ <span className="animate-pulse">A Enviar Pedido...</span></> : <>🚀 Enviar Ticket de Suporte</>}
+              
+              <div className="flex justify-start">
+                <button 
+                  type="submit"
+                  disabled={contactEnviando}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200"
+                >
+                  {contactEnviando ? 'A Enviar...' : '🚀 Enviar Mensagem'}
                 </button>
               </div>
-            </div>
+            </form>
           )}
         </div>
-
-        {/* Histórico Simplificado */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Meus Pedidos Recentes</h2>
-            <button onClick={fetchTickets} className="text-[10px] font-bold text-blue-600 hover:underline">Actualizar Lista</button>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {loading ? (
-              <div className="p-10 text-center text-gray-400 animate-pulse text-sm">A carregar histórico...</div>
-            ) : tickets.length === 0 ? (
-              <div className="p-10 text-center text-gray-400 text-sm italic">Ainda não abriu nenhum ticket.</div>
-            ) : (
-              tickets.map(t => (
-                <div key={t.id} className="group">
-                  <div className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => setExpanded(expanded === t.id ? null : t.id)}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-800 group-hover:text-red-600 transition-colors">{t.assunto}</span>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] text-gray-400 font-mono">ID: #{String(t.id).substring(0, 8)}</span>
-                          <span className="text-[10px] text-gray-400">•</span>
-                          <span className="text-[10px] text-gray-400 italic">{new Date(t.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase ${estadoCor(t.status)}`}>{t.status}</span>
-                      <span className="text-gray-300 text-xs">{expanded === t.id ? '▲' : '▼'}</span>
-                    </div>
-                  </div>
-                  {expanded === t.id && (
-                    <div className="px-5 py-5 bg-gray-50 border-t border-gray-100 space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-gray-400 uppercase">Mensagem Original:</p>
-                        <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200">{t.descricao}</p>
-                      </div>
-                      {t.anexo_url && (
-                        <div className="pt-1">
-                          <a href={t.anexo_url} target="_blank" className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline">
-                            <span>🖼️</span> Ver imagem em anexo
-                          </a>
-                        </div>
-                      )}
-                      <div className="pt-2">
-                        {t.status === 'resolved' || t.status === 'closed' ? (
-                          <div className="bg-green-100 border border-green-200 text-green-700 p-3 rounded-lg text-xs font-bold text-center">
-                            ✅ Este ticket foi resolvido.
-                          </div>
-                        ) : (
-                          <div className="bg-blue-50 border border-blue-100 text-blue-700 p-3 rounded-lg text-xs font-medium italic">
-                            Aguardando resposta da nossa equipa...
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-              ))}
-          </div>
-        </div>
       </div>
+
+      {/* Modal de Novo Ticket */}
+      <NovoTicketModal
+        isOpen={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        cliente={cliente}
+        sites={sites}
+        onTicketCreated={handleTicketCreated}
+      />
     </div>
   )
 }
@@ -1104,11 +969,20 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           const filteredData = data.filter((s: any) => {
             const contactDomain = normalizeDomain(s?.metadata?.domain);
             const listName = s.metadata?.list || 'Contactos';
-            console.log("VERIFICANDO SUBSCRITOR:", s.email, "LISTA:", listName);
+            
+            // 1. Verificar se a lista está selecionada
             if (!selectedPlans.includes(listName)) return false;
-            if (!contactDomain || isPlatformDomain(contactDomain)) return false;
-            if (allowedDomains.size === 0) return false;
-            return allowedDomains.has(contactDomain);
+            
+            // 2. Se não tem domínio ou é domínio da plataforma, permitir (são contactos genéricos do cliente)
+            if (!contactDomain || isPlatformDomain(contactDomain)) return true;
+            
+            // 3. Se tem domínio, verificar se pertence aos domínios do cliente
+            if (allowedDomains.size > 0 && allowedDomains.has(contactDomain)) return true;
+            
+            // 4. Se chegou aqui e não temos domínios permitidos carregados, permitir por segurança
+            if (allowedDomains.size === 0) return true;
+
+            return false;
           });
           console.log("DADOS FILTRADOS:", filteredData);
           allRecipients = [...allRecipients, ...filteredData.map((s: any) => ({ email: s.email }))];
@@ -3926,7 +3800,7 @@ export default function AdminPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-colors ${
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 ${
                     isActive
                       ? 'bg-red-50 text-red-600 font-bold'
                       : 'hover:bg-gray-100 text-gray-600'

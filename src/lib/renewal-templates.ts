@@ -18,10 +18,30 @@
 // ============================================
 // Cores: Vermelho #dc2626, Cinza #374151, Preto #000000
 
+// URL base do site - usa variável de ambiente ou fallback para localhost
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3002'
+const LOGO_URL = `${SITE_URL}/assets/logotipoII.png`
+
 export const emailHeader = (clientName: string, companyName: string) => `
-<div style="background: #000000; padding: 15px 20px; text-align: center; border-bottom: 3px solid #dc2626;">
-  <img src="https://visualdesigne.com/assets/logotipoII.png" alt="${companyName}" style="max-height: 60px; width: auto;" />
+<!--[if mso]>
+<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" width="600">
+<tr>
+<td align="center" valign="top" width="600">
+<![endif]-->
+<div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%); padding: 15px; text-align: center; border-bottom: 3px solid #dc2626; width: 100%; margin: 0 auto;">
+  <center>
+    <img src="${LOGO_URL}" 
+         alt="${companyName}" 
+         width="150" 
+         height="60" 
+         style="display: block; margin-left: auto; margin-right: auto; max-width: 150px; height: auto; border: 0; outline: none; text-align: center;" />
+  </center>
 </div>
+<!--[if mso]>
+</td>
+</tr>
+</table>
+<![endif]-->
 
 <div style="padding: 12px 20px; background: #f3f4f6; border-bottom: 1px solid #d1d5db;">
   <p style="margin: 0; font-size: 14px; color: #1f2937;">
@@ -31,60 +51,44 @@ export const emailHeader = (clientName: string, companyName: string) => `
 `.trim()
 
 export const emailFooter = (supportEmail: string, supportPhone: string, companyName: string) => `
-<div style="padding: 15px 20px; background: #f9fafb; border-top: 2px solid #e5e7eb;">
-  <h4 style="margin: 0 0 10px 0; color: #dc2626; font-size: 13px; font-weight: bold;">📞 CENTRAL DO CLIENTE</h4>
-  
-  <table style="width: 100%; font-size: 12px; color: #374151;">
-    <tr>
-      <td style="padding: 4px 0; width: 80px; color: #6b7280;">E-mail:</td>
-      <td style="padding: 4px 0;">
-        <a href="mailto:${supportEmail}" style="color: #dc2626; text-decoration: none;">${supportEmail}</a>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 4px 0; color: #6b7280;">Telefone:</td>
-      <td style="padding: 4px 0;">
-        <a href="tel:+258852425525" style="color: #dc2626; text-decoration: none;">+258 85 242 5525</a>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 4px 0; color: #6b7280;">WhatsApp:</td>
-      <td style="padding: 4px 0;">
-        <a href="https://wa.me/258852425525" style="color: #dc2626; text-decoration: none;">+258 85 242 5525</a>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 4px 0; color: #6b7280;">Website:</td>
-      <td style="padding: 4px 0;">
-        <a href="https://visualdesigne.com" style="color: #dc2626; text-decoration: none;">www.visualdesigne.com</a>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding: 4px 0; color: #6b7280;">Dashboard:</td>
-      <td style="padding: 4px 0;">
-        <a href="https://visualdesigne.com/dashboard" style="color: #dc2626; text-decoration: none;">Acessar Conta →</a>
-      </td>
-    </tr>
-  </table>
-</div>
-
-<div style="padding: 12px 20px; background: #000000; text-align: center; border-top: 2px solid #dc2626;">
+<div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #000000 50%, #1a1a1a 100%); text-align: center; border-top: 2px solid #dc2626;">
   <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: bold; letter-spacing: 1px;">${companyName.toUpperCase()}</p>
-  <p style="margin: 5px 0 0 0; color: #9ca3af; font-size: 10px;">
+  <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 10px;">
     © ${new Date().getFullYear()} Todos os direitos reservados
   </p>
 </div>
 `.trim()
 
-export const emailAttentionCard = (supportEmail: string) => `
+export const emailAttentionCard = (supportEmail: string, dashboardLink?: string, clientAreaLink?: string) => `
 <div style="padding: 12px 15px; background: #fef2f2; border-left: 3px solid #dc2626; margin-top: 15px;">
   <p style="margin: 0; font-size: 11px; color: #7f1d1d; line-height: 1.5;">
-    <strong style="color: #dc2626;">⚠️ Atenção:</strong> Transações realizadas por transferência bancária podem levar até <strong>24 horas</strong> para serem aprovadas. 
-    Para agilizar, envie o comprovante com <strong>Data, Hora e Número da transação</strong> para 
-    <a href="mailto:${supportEmail}" style="color: #dc2626; text-decoration: underline;">${supportEmail}</a>.
+    <strong style="color: #dc2626;">⚠️ Atenção:</strong> Transações realizadas por transferência bancária podem levar até <strong>24 horas</strong> para serem aprovadas. Para agilizar, envie o comprovante com <strong>Data, Hora e Número da transação</strong> para <a href="mailto:${supportEmail}" style="color: #dc2626; text-decoration: underline;">${supportEmail}</a>.${dashboardLink ? ` <strong>Dashboard:</strong> <a href="${dashboardLink}" style="color: #dc2626; text-decoration: underline;">Acessar Conta →</a>` : ''}${clientAreaLink ? ` | <a href="${clientAreaLink}" style="color: #dc2626; text-decoration: underline;">Área de Cliente →</a>` : ''}
   </p>
 </div>
 `.trim()
+
+// Função para criar quadro com linha colorida conforme urgência
+export const getUrgencyColor = (urgency: string): string => {
+  switch (urgency) {
+    case 'critical': return '#dc2626' // Vermelho
+    case 'high': return '#ea580c' // Laranja
+    case 'medium': return '#ca8a04' // Amarelo/Dourado
+    case 'low':
+    default: return '#2563eb' // Azul
+  }
+}
+
+export const wrapContentInFrame = (content: string, urgency: string) => {
+  const borderColor = getUrgencyColor(urgency)
+  return `
+<div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin: 20px 0;">
+  <div style="height: 4px; background: ${borderColor};"></div>
+  <div style="padding: 20px; background: #ffffff;">
+    ${content}
+  </div>
+</div>
+  `.trim()
+}
 
 export interface RenewalTemplate {
   id: string
@@ -96,6 +100,7 @@ export interface RenewalTemplate {
   emailBody: string
   type: 'info' | 'warning' | 'error' | 'success'
   urgency: 'low' | 'medium' | 'high' | 'critical'
+  includeAttentionCard?: boolean // Campo opcional - se false, não inclui o card de atenção
 }
 
 // ============================================
@@ -148,8 +153,8 @@ export const defaultRenewalTemplates: RenewalTemplate[] = [
 </div>
 <p>Evite contratempos e renove com tranquilidade.</p>
     `.trim(),
-    type: 'info',
-    urgency: 'low'
+    type: 'warning',
+    urgency: 'medium'
   },
 
   // Template 3: 30 dias (Atenção)
@@ -201,33 +206,52 @@ Equipe {{companyName}}
     emailBody: `
 Olá {{clientName}},
 
-<strong>AVISO IMPORTANTE!</strong>
+<div style="background: #fee2e2; border: 2px solid #dc2626; padding: 15px; margin: 10px 0;">
+  <strong style="color: #dc2626; font-size: 18px;">⚠️ SITUAÇÃO CRÍTICA ⚠️</strong>
+  <p style="margin: 10px 0; color: #991b1b;">
+    Seu serviço <strong>{{serviceName}}</strong> expira em apenas <strong>15 DIAS</strong>!
+  </p>
+</div>
 
-Faltam apenas <strong>15 dias</strong> para o vencimento do seu serviço <strong>{{serviceName}}</strong>.
+<h3 style="color: #dc2626;">🚨 RISCOS IMINENTES:</h3>
+<ul style="color: #7f1d1d;">
+  <li>✗ Suspensão TOTAL do serviço em {{expirationDate}}</li>
+  <li>✗ Site completamente fora do ar</li>
+  <li>✗ Todos os emails pararão</li>
+  <li>✗ Risco real de PERDA DE DADOS</li>
+  <li>✗ Taxas de reativação (até 50% mais caro)</li>
+</ul>
 
-⚠️ Se o serviço expirar:
-• Site ficará fora do ar
-• Emails pararão de funcionar
-• Poderá haver perda de dados
-• Taxa de reativação poderá ser cobrada
+<div style="background: #dbeafe; border: 2px solid #2563eb; padding: 15px; margin: 20px 0; text-align: center;">
+  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">�️ PROTEJA SEU SERVIÇO AGORA</p>
+  <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+    RENOVER AGORA →
+  </a>
+  <p style="margin: 10px 0 0 0; font-size: 14px; color: #1e40af;">
+    Investimento: {{renewalPrice}}
+  </p>
+</div>
 
-🔴 NÃO DEIXE PARA DEPOIS!
+<p style="color: #7f1d1d;"><strong>⏰ NÃO HÁ MAIS TEMPO A PERDER!</strong></p>
 
-Renove agora em: {{renewalLink}}
+<p>
+  <strong>Contato de Emergência:</strong><br>
+  📧 {{supportEmail}}<br>
+  📞 {{supportPhone}}
+</p>
 
-Investimento: {{renewalPrice}}
+<p style="color: #991b1b; font-weight: bold;">
+  Este é um dos últimos avisos. Renove hoje para garantir seu serviço!
+</p>
 
-Precisa de ajuda? Entre em contato:
-{{supportEmail}} | {{supportPhone}}
-
-Urgente,
+Urgente,<br>
 Equipe {{companyName}}
     `.trim(),
-    type: 'warning',
+    type: 'error',
     urgency: 'high'
   },
 
-  // Template 5: 7 dias (URGENTE)
+  // Template 5: 7 dias (Crítico)
   {
     id: 'renewal-7-days',
     name: 'URGENTE - 7 Dias',
@@ -469,6 +493,9 @@ export interface TemplateVariables {
   companyName: string
   supportEmail: string
   supportPhone: string
+  // Links com autenticação automática para acesso direto quando logado
+  dashboardAutoLoginLink?: string
+  clientAreaAutoLoginLink?: string
 }
 
 export function processTemplate(
@@ -499,7 +526,19 @@ export function processTemplate(
   const processedBody = replaceVars(processed.emailBody)
   const header = emailHeader(variables.clientName, variables.companyName)
   const footer = emailFooter(variables.supportEmail, variables.supportPhone, variables.companyName)
-  const attentionCard = emailAttentionCard(variables.supportEmail)
+  
+  // Card de atenção é opcional - só adiciona se includeAttentionCard não for explicitamente false
+  const includeAttentionCard = template.includeAttentionCard !== false
+  // Usar links com autenticação automática se disponíveis
+  const dashboardLink = variables.dashboardAutoLoginLink || 'https://visualdesigne.com/client'
+  const clientAreaLink = variables.clientAreaAutoLoginLink || 'https://visualdesigne.com/client'
+  const attentionCard = includeAttentionCard ? emailAttentionCard(variables.supportEmail, dashboardLink, clientAreaLink) : ''
+  
+  // Envolver o conteúdo principal no quadro com linha colorida conforme urgência
+  const mainContent = wrapContentInFrame(processedBody, template.urgency)
+  
+  // Card de atenção fica FORA do quadro, aparecendo separadamente abaixo
+  const fullContent = mainContent + (attentionCard ? `<div style="margin-top: 15px;">${attentionCard}</div>` : '')
   
   processed.emailBody = `
 <!DOCTYPE html>
@@ -513,7 +552,7 @@ export function processTemplate(
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td align="center" style="padding: 10px 0; background: #f3f4f6;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: white; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
           <tr>
             <td>
               ${header}
@@ -521,8 +560,7 @@ export function processTemplate(
           </tr>
           <tr>
             <td style="padding: 20px;">
-              ${processedBody}
-              ${attentionCard}
+              ${fullContent}
             </td>
           </tr>
           <tr>
@@ -542,20 +580,154 @@ export function processTemplate(
 }
 
 // ============================================
+// CARREGAR TEMPLATES PERSONALIZADOS
+// ============================================
+
+const STORAGE_KEY = 'visualdesign_custom_templates'
+
+export function loadCustomTemplates(): RenewalTemplate[] {
+  if (typeof window === 'undefined') return defaultRenewalTemplates
+  
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const customTemplates = JSON.parse(saved) as RenewalTemplate[]
+      // Merge com templates padrão, mantendo customizações
+      return defaultRenewalTemplates.map(defaultT => {
+        const custom = customTemplates.find(t => t.id === defaultT.id)
+        return custom || defaultT
+      })
+    }
+  } catch (error) {
+    console.error('Erro ao carregar templates personalizados:', error)
+  }
+  return defaultRenewalTemplates
+}
+
+// ============================================
 // OBTER TEMPLATE POR DIAS
 // ============================================
 
 export function getTemplateByDays(days: number): RenewalTemplate | undefined {
-  return defaultRenewalTemplates.find(t => t.daysBefore === days)
+  const templates = loadCustomTemplates()
+  return templates.find(t => t.daysBefore === days)
 }
 
 export function getAllTemplates(): RenewalTemplate[] {
-  return defaultRenewalTemplates
+  return loadCustomTemplates()
 }
 
 export function getActiveReminderDays(): number[] {
-  return defaultRenewalTemplates
+  const templates = loadCustomTemplates()
+  return templates
     .filter(t => t.daysBefore > 0)
     .map(t => t.daysBefore)
     .sort((a, b) => b - a) // Ordem decrescente
+}
+
+// ============================================
+// PERSISTÊNCIA NO SERVIDOR (SUPABASE)
+// ============================================
+
+// Carregar templates do servidor (persistência permanente)
+export async function loadTemplatesFromServer(): Promise<RenewalTemplate[]> {
+  try {
+    const response = await fetch('/api/admin/renewal-templates')
+    if (!response.ok) {
+      throw new Error('Erro ao carregar templates do servidor')
+    }
+    const data = await response.json()
+    
+    if (data.success && data.templates) {
+      // Converter do formato do banco para o formato da aplicação
+      return data.templates.map((t: any) => ({
+        id: t.template_id,
+        name: t.name,
+        daysBefore: t.days_before,
+        title: t.title,
+        message: t.message,
+        emailSubject: t.email_subject,
+        emailBody: t.email_body,
+        type: t.type,
+        urgency: t.urgency
+      }))
+    }
+    return defaultRenewalTemplates
+  } catch (error) {
+    console.error('Erro ao carregar templates do servidor:', error)
+    // Fallback para localStorage ou padrão
+    return loadCustomTemplates()
+  }
+}
+
+// Salvar templates no servidor (persistência permanente)
+export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promise<boolean> {
+  try {
+    const response = await fetch('/api/admin/renewal-templates', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ templates })
+    })
+    
+    if (!response.ok) {
+      // Tentar obter mensagem de erro da API
+      let errorMessage = 'Erro ao salvar templates no servidor'
+      try {
+        const errorData = await response.json()
+        if (errorData.error) {
+          errorMessage = errorData.error
+        }
+      } catch (e) {
+        // Se não conseguir parsear JSON, usa status
+        errorMessage = `Erro ${response.status}: ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
+    
+    const data = await response.json()
+    
+    // Também salvar no localStorage como backup/cache
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
+    }
+    
+    return data.success === true
+  } catch (error) {
+    console.error('Erro ao salvar templates no servidor:', error)
+    // Fallback: tentar salvar no localStorage apenas
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
+      }
+    } catch (e) {
+      console.error('Erro ao salvar no localStorage:', e)
+    }
+    return false
+  }
+}
+
+// Resetar templates para padrão no servidor
+export async function resetTemplatesOnServer(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/admin/renewal-templates', {
+      method: 'DELETE'
+    })
+    
+    if (!response.ok) {
+      throw new Error('Erro ao resetar templates no servidor')
+    }
+    
+    // Limpar localStorage também
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+    
+    const data = await response.json()
+    return data.success === true
+  } catch (error) {
+    console.error('Erro ao resetar templates no servidor:', error)
+    return false
+  }
 }

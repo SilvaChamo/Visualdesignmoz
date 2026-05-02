@@ -4,6 +4,13 @@ import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { Exo_2 } from 'next/font/google';
+
+const exo2 = Exo_2({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-exo-2',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -22,6 +29,22 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "VisualDesign",
   },
+  openGraph: {
+    title: "VisualDesign - Email Marketing",
+    description: "Painel de gestão de clientes e campanhas de email marketing",
+    type: "website",
+    locale: "pt MZ",
+    url: "https://painel.visualdesigne.com",
+    siteName: "VisualDesign",
+    images: [
+      {
+        url: "https://painel.visualdesigne.com/icons/icon-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "VisualDesign Logo",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,8 +61,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-MZ">
+    <html lang="pt-MZ" style={{ fontFamily: '"Exo 2", sans-serif' }}>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+        <meta property="og:title" content="VisualDesign - Email Marketing" />
+        <meta property="og:description" content="Painel de gestão de clientes e campanhas de email marketing" />
+        <meta property="og:image" content="https://painel.visualdesigne.com/icons/icon-512x512.png" />
+        <meta property="og:image:width" content="512" />
+        <meta property="og:image:height" content="512" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://painel.visualdesigne.com" />
+        <meta property="og:site_name" content="VisualDesign" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -62,7 +96,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <body className={`${exo2.className} antialiased`}>
         <AuthProvider>
           <I18nProvider>
             <ConditionalNavbar />

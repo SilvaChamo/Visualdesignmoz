@@ -6,7 +6,7 @@ import {
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
   RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
   AlertCircle, ArrowRightLeft, Webhook,
-  Save, X, Filter, Calendar, Bell
+  Save, X, Filter, Calendar, Bell, Palette
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -69,15 +69,24 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    id: 'page-builders',
+    label: 'Construtores',
+    icon: Palette,
+    subItems: [
+      { id: 'page-builders', label: 'Abrir Construtores' },
+      { id: 'templates-saved', label: 'Templates Salvos' },
+    ]
+  },
+  {
     id: 'gestao-emails',
     label: 'Gestão de E-mails',
     icon: Mail,
     subItems: [
       { id: 'emails-new', label: 'Listar E-mails' },
       { id: 'criar-email', label: 'Criar E-mail' },
+      { id: 'newsletter', label: 'Mailmarketing' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
-      { id: 'newsletter', label: 'Mailmarketing' },
     ]
   },
   {
@@ -106,6 +115,7 @@ export function AdminSidebar({
     'gestao-sites': false,
     'gestao-dominios': false,
     'wordpress': false,
+    'page-builders': false,
     'gestao-emails': false,
     'notificacoes': false,
   });
@@ -188,14 +198,16 @@ export function AdminSidebar({
                       onNavigate(item.id);
                     }
                   }}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded transition-colors group ${
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${
                     isActive || (expandedMenus[item.id] && item.subItems)
-                      ? 'text-black font-bold'
+                      ? item.id === 'dashboard'
+                        ? 'text-red-600 font-bold bg-red-50 border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
+                        : 'text-black font-bold'
                       : 'hover:text-red-600 text-gray-600'
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={`${isActive || expandedMenus[item.id] ? 'text-gray-900' : 'text-gray-500 group-hover:text-red-600'}`} />
+                  <Icon size={22} className={`${isActive || expandedMenus[item.id] ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
@@ -203,7 +215,7 @@ export function AdminSidebar({
                     <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenus[item.id] ? 'rotate-90' : ''}`} />
                   )}
                   {!isCollapsed && !item.subItems && isActive && (
-                    <ChevronRight size={14} className="ml-auto text-gray-900" />
+                    <ChevronRight size={14} className={`ml-auto ${item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900'}`} />
                   )}
                 </button>
 

@@ -76,7 +76,7 @@ export async function GET(request: Request) {
     if (adminEmails.includes(userEmail) || userRole === 'admin' || profile?.role === 'admin') {
       redirectPath = '/admin'
     } else if (userRole === 'reseller' || profile?.role === 'reseller') {
-      redirectPath = '/dashboard'
+      redirectPath = '/client'
     }
 
     return NextResponse.redirect(new URL(redirectPath, requestUrl.origin))

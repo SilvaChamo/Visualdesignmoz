@@ -71,16 +71,16 @@ const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" 
   if (count === 0) return null
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 duration-300">
-      <div className="bg-gray-900  px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10 ring-1 ring-black">
+      <div className="bg-gray-900  px-6 py-4 rounded-[10px] shadow-2xl flex items-center gap-6 border border-white/10 ring-1 ring-black">
         <div className="flex items-center gap-3 pr-6 border-r border-white/10">
           <div className="w-6 h-6 bg-red-50 border border-red-300 text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">{count}</div>
           <span className="text-sm font-medium">{count} {label}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => onAction('delete')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/20 text-red-400 rounded transition-colors text-xs font-bold">
+          <button onClick={() => onAction('delete')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/20 text-red-400 rounded-[10px] transition-colors text-xs font-bold">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
-          <button onClick={() => onAction('suspend')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-gray-300 rounded transition-colors text-xs font-bold">
+          <button onClick={() => onAction('suspend')} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-gray-300 rounded-[10px] transition-colors text-xs font-bold">
             <Pause className="w-3.5 h-3.5" /> Suspender
           </button>
           <button onClick={onClear} className="ml-2 text-xs text-gray-500 hover: transition-colors">Cancelar</button>
@@ -112,10 +112,10 @@ const ConfirmModal = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/40 animate-in fade-in duration-200" onClick={onCancel} />
-      <div className="relative bg-white border border-gray-200 rounded w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
+      <div className="relative bg-white border border-gray-200 rounded-[10px] w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-300">
         <div className="px-8 py-10 text-center space-y-4">
           <div className={cn(
-            "w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-4 transition-transform hover:scale-105 duration-300",
+            "w-14 h-14 mx-auto rounded-[10px] flex items-center justify-center mb-4 transition-transform hover:scale-105 duration-300",
             isDanger ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
           )}>
             {isDanger ? <AlertCircle className="w-7 h-7" /> : <CheckCircle className="w-7 h-7" />}
@@ -128,14 +128,14 @@ const ConfirmModal = ({
         <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-3">
           <button 
             onClick={onCancel} 
-            className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded transition-all active:scale-95"
+            className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-[10px] transition-all active:scale-95"
           >
             {cancelText}
           </button>
           <button 
             onClick={() => { onConfirm(); onCancel(); }} 
             className={cn(
-              "px-4 py-2 text-xs font-bold  rounded transition-all active:scale-95",
+              "px-4 py-2 text-xs font-bold  rounded-[10px] transition-all active:scale-95",
               isDanger ? "bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700" : "bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
             )}
           >
@@ -218,9 +218,9 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
             <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo Subdomínio</label>
             <div className="flex gap-2">
               <input value={newSub} onChange={(e) => setNewSub(e.target.value)} placeholder="blog"
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-[10px] text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
               <button onClick={handleCreate} disabled={creating || !selectedDomain || !newSub.trim()}
-                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2.5 rounded-[10px] text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
                 Criar
               </button>
@@ -228,7 +228,7 @@ export function SubdomainsSection({ sites }: { sites: CyberPanelWebsite[] }) {
           </div>
         </div>
 
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded-[10px] text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         {loading && <TableSkeleton columns={4} rows={5} />}
         {!loading && selectedDomain && subdomains.length === 0 ? (
@@ -325,14 +325,14 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+          <div className="bg-white border border-gray-200 rounded-[10px] shadow-sm p-4">
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Website
             </label>
             <select
               value={selectedDomain}
               onChange={(e) => setSelectedDomain(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-gray-50 transition-all"
+              className="w-full px-3 py-2 border border-gray-200 rounded-[10px] text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-gray-50 transition-all"
             >
               <option value="">Selecione...</option>
               {sites.map((site) => (
@@ -345,7 +345,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
             <button
               onClick={handleRefresh}
               disabled={!selectedDomain || screenshotLoading}
-              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded hover:bg-red-100 hover:text-red-700 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-sm font-bold shadow-sm"
+              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded-[10px] hover:bg-red-100 hover:text-red-700 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-sm font-bold shadow-sm"
             >
               <RefreshCw size={16} className={screenshotLoading ? 'animate-spin' : ''} />
               Atualizar
@@ -353,7 +353,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
           </div>
 
           {selectedDomain && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+            <div className="bg-white border border-gray-200 rounded-[10px] shadow-sm p-4">
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                 Ações Rápidas
               </label>
@@ -1744,6 +1744,31 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
     }
   }, [selectedDomain, sites])
 
+  const [isSyncingGlobal, setIsSyncingGlobal] = useState(false)
+
+  const handleSyncGlobal = async () => {
+    setIsSyncingGlobal(true)
+    setMsg('A sincronizar contas com o servidor CyberPanel...')
+    setMsgType('success')
+    try {
+      const res = await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setMsg(`Sincronização concluída: ${data.results.emailsFound} emails encontrados, ${data.results.usersCreated} novos utilizadores Auth.`)
+        setMsgType('success')
+        if (selectedDomain === '__ALL__') loadAllEmails()
+        else loadEmails(selectedDomain)
+      } else {
+        setMsg('Erro na sincronização: ' + data.error)
+        setMsgType('error')
+      }
+    } catch (e: any) {
+      setMsg('Erro de ligação: ' + e.message)
+      setMsgType('error')
+    }
+    setIsSyncingGlobal(false)
+  }
+
   const handleCreateEmail = async (data: any) => {
     if (data.password !== data.confirmPassword) {
       setMsg('As senhas não coincidem!'); setMsgType('error')
@@ -2050,6 +2075,15 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Cy
           />
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleSyncGlobal}
+            disabled={isSyncingGlobal}
+            className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-300 text-green-600 rounded text-sm hover:bg-green-100 transition-all font-bold disabled:opacity-50"
+            title="Sincroniza todos os emails do servidor para o sistema de Login"
+          >
+            <RefreshCw className={cn("w-4 h-4", isSyncingGlobal && "animate-spin")} /> 
+            {isSyncingGlobal ? 'Sincronizando...' : 'Sincronizar Auth'}
+          </button>
           <button
             onClick={() => loadEmails(selectedDomain)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-200 transition-all font-bold"
@@ -4851,7 +4885,7 @@ export function GitDeploySection() {
       <div className="bg-white rounded border border-gray-200 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6 " viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
             </svg>
           </div>
@@ -4869,7 +4903,12 @@ export function GitDeploySection() {
               </>
             ) : (
               <div className="text-sm text-amber-600">
-                <p className="font-medium">GitHub sem acesso</p>
+                <p className="font-medium flex items-center gap-2">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#FFFFFF" d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                  </svg>
+                  GitHub sem acesso
+                </p>
                 <p className="text-xs text-amber-500">Commits públicos visíveis (limite: 60 req/hora) · Adicione GITHUB_TOKEN no .env.local</p>
               </div>
             )}
@@ -4910,7 +4949,7 @@ export function GitDeploySection() {
             </div>
             <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying || !commitMsg.trim()}
-                className="bg-black hover:bg-green-100 hover:text-green-700  py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Push...</> : <><Upload className="w-4 h-4" /> Git Push</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying || !commitMsg.trim()}
@@ -4926,7 +4965,7 @@ export function GitDeploySection() {
           <div className="space-y-3">
             <div className="flex gap-3 justify-start">
               <button onClick={handleDeploy} disabled={deploying}
-                className="bg-black hover:bg-green-100 hover:text-green-700  py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                className="bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 py-2 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {deploying ? <><RefreshCw className="w-4 h-4 animate-spin" /> Deploy...</> : <><Upload className="w-4 h-4" /> Vercel Deploy</>}
               </button>
               <button onClick={handleDeployAll} disabled={deploying}
@@ -5255,7 +5294,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
             <p className="text-gray-500 mb-4">Nenhum pacote encontrado ou erro ao carregar do CyberPanel.</p>
             <button
               onClick={onRefresh}
-              className="bg-black hover:bg-red-50 border border-red-300 text-red-600  px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
+              className="bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
             >
               <RefreshCw className="w-4 h-4" />
               Sincronizar com CyberPanel

@@ -210,8 +210,8 @@ export const auth = {
         console.log('getRedirectPath: Redirecting to /admin')
         return '/admin'
       case 'reseller':
-        console.log('getRedirectPath: Redirecting to /dashboard')
-        return '/dashboard'
+        console.log('getRedirectPath: Redirecting to /client')
+        return '/client'
       default:
         console.log('getRedirectPath: Redirecting to /client')
         return '/client'

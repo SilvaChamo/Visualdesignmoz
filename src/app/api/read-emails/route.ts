@@ -20,7 +20,8 @@ const determinarTipo = (path: string) => {
 const CYBERPANEL_DOMAINS = [
   'visualdesigne.com', 'visualdesigne.pt',
   'anap.co.mz', 'entrecampos.co.mz',
-  'aamihe.com'
+  'aamihe.com', 'entrecampos.ao',
+  'miv.co.mz', 'moz-servicos.com'
 ]
 
 const resolveImapConfig = (email: string): { host: string; port: number; secure: boolean } => {
@@ -32,8 +33,13 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
   if (domain === 'yahoo.com' || domain === 'yahoo.co.uk' || domain === 'ymail.com') return { host: 'imap.mail.yahoo.com', port: 993, secure: true }
   if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') return { host: 'imap.mail.me.com', port: 993, secure: true }
 
-  // Domínios no CyberPanel — usar IP directo (evita falhas DNS)
-  if (CYBERPANEL_DOMAINS.includes(domain) || CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d))) {
+  // Domínios no CyberPanel — usar IP directo (evita falhas DNS e instabilidade de SSL no mail.*)
+  const isCyberPanel = CYBERPANEL_DOMAINS.includes(domain) || 
+                      CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d)) ||
+                      domain.endsWith('.co.mz') || 
+                      domain.endsWith('.ao')
+
+  if (isCyberPanel) {
     return { host: '109.199.104.22', port: 993, secure: true }
   }
 

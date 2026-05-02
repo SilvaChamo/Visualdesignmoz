@@ -60,6 +60,7 @@ export function WebmailSection({
   const [emails, setEmails] = useState<any[]>([])
   const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Junk: 0, Archive: 0 })
   const [loadingEmails, setLoadingEmails] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [showCompose, setShowCompose] = useState(false)
@@ -366,13 +367,8 @@ export function WebmailSection({
         })
       }
 
-      // 🚫 FILTRO: Apenas domínios permitidos se for ADMIN (remove clientes do painel de controle vd)
-      const filteredAccounts = isAdmin 
-        ? allAccounts.filter(acc => {
-            const domain = acc.email.split('@')[1]
-            return ALLOWED_DOMAINS.includes(domain)
-          })
-        : allAccounts // 🚀 CLIENTE: Vê todos os seus domínios
+      // 🚀 SEM FILTRO RESTRITIVO: Admin deve poder ver todas as contas sincronizadas
+      const filteredAccounts = allAccounts
 
       setAllAccounts(allAccounts)
       setAccounts(filteredAccounts)
@@ -533,6 +529,24 @@ export function WebmailSection({
       }
     } catch (e) {
       console.error('Erro ao atualizar contagens:', e)
+    }
+  }
+
+  const handleSyncCyberPanel = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Sincronização concluída!\nEmails encontrados: ${data.results?.emailsFound}\nNovos usuários: ${data.results?.usersCreated}`)
+        loadEmailAccounts() // Recarregar lista
+      } else {
+        alert('Erro na sincronização: ' + (data.error || 'Erro desconhecido'))
+      }
+    } catch (e: any) {
+      alert('Erro técnico: ' + e.message)
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -1011,6 +1025,17 @@ export function WebmailSection({
                   <option value="">Nenhuma conta disponível</option>
                 )}
               </select>
+
+              {isAdmin && (
+                <button
+                  onClick={handleSyncCyberPanel}
+                  disabled={syncing}
+                  className={`p-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 transition-all ${syncing ? 'animate-spin text-red-600' : 'text-gray-500'}`}
+                  title="Sincronizar com CyberPanel"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              )}
               
               {/* Botão Importar Conta ao lado do seletor */}
               <button

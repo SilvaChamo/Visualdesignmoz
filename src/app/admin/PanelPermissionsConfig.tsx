@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, Save, CheckSquare, Square, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Shield, Save, CheckSquare, Square, CheckCircle2, ExternalLink, Plus, X } from 'lucide-react'
 
 interface PermissionOption {
   id: string
@@ -58,9 +58,12 @@ interface Props {
 
 export function PanelPermissionsConfig({ role }: Props) {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({})
+  const [customOptions, setCustomOptions] = useState<PermissionOption[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savedStatus, setSavedStatus] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newOption, setNewOption] = useState({ id: '', label: '', description: '' })
 
   const roleName = role === 'client' ? 'Painel do Cliente' : 'Painel do Revendedor'
   const roleDesc = role === 'client' 
@@ -69,21 +72,21 @@ export function PanelPermissionsConfig({ role }: Props) {
 
   // Carregar configurações da base de dados
   useEffect(() => {
-    // Como ainda não temos o endpoint oficial pronto, inicializamos com as defaults ou valores mokados
-    // Em produção, faremos o fetch a /api/admin/permissions?role={role}
     const fetchPerms = async () => {
       try {
         const res = await fetch(`/api/admin/permissions?role=${role}`)
         if (res.ok) {
           const data = await res.json()
           setPermissions(data.permissions || {})
+          setCustomOptions(data.customOptions || [])
         } else {
           // Fallback para defaults
           const defaults: Record<string, boolean> = {}
           PERMISSION_GRID.forEach(cat => cat.options.forEach(opt => {
-            defaults[opt.id] = role === 'reseller' ? true : opt.default // resellers têm mais acessos
+            defaults[opt.id] = role === 'reseller' ? true : opt.default
           }))
           setPermissions(defaults)
+          setCustomOptions([])
         }
       } catch (error) {
         // Fallback
@@ -92,6 +95,7 @@ export function PanelPermissionsConfig({ role }: Props) {
           defaults[opt.id] = role === 'reseller' ? true : opt.default
         }))
         setPermissions(defaults)
+        setCustomOptions([])
       } finally {
         setLoading(false)
       }
@@ -107,14 +111,57 @@ export function PanelPermissionsConfig({ role }: Props) {
     setSavedStatus(false)
   }
 
+  const handleAddOption = () => {
+    if (!newOption.id || !newOption.label) return
+    
+    // Verificar se já existe
+    const allExistingIds = [
+      ...PERMISSION_GRID.flatMap(cat => cat.options.map(opt => opt.id)),
+      ...customOptions.map(opt => opt.id)
+    ]
+    
+    if (allExistingIds.includes(newOption.id)) {
+      alert('Este ID já existe. Escolha um ID único.')
+      return
+    }
+    
+    const option: PermissionOption = {
+      id: newOption.id,
+      label: newOption.label,
+      description: newOption.description || 'Opção personalizada',
+      default: true
+    }
+    
+    setCustomOptions(prev => [...prev, option])
+    // NOVA OPÇÃO FICA ATIVA (checked) automaticamente
+    setPermissions(prev => ({ ...prev, [option.id]: true }))
+    setNewOption({ id: '', label: '', description: '' })
+    setShowAddForm(false)
+    setSavedStatus(false)
+  }
+
+  const handleRemoveCustomOption = (id: string) => {
+    setCustomOptions(prev => prev.filter(opt => opt.id !== id))
+    setPermissions(prev => {
+      const updated = { ...prev }
+      delete updated[id]
+      return updated
+    })
+    setSavedStatus(false)
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
-      // API call (a criar em breve)
+      // Salvar permissões e opções personalizadas
       await fetch('/api/admin/permissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, permissions })
+        body: JSON.stringify({ 
+          role, 
+          permissions,
+          customOptions 
+        })
       })
       setTimeout(() => setSavedStatus(true), 500)
     } catch (e) {
@@ -141,8 +188,8 @@ export function PanelPermissionsConfig({ role }: Props) {
           </div>
           
           <div className="flex items-center gap-3">
-            <a 
-              href="/dashboard" 
+            <a
+              href="/client"
               target="_blank"
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all"
             >
@@ -164,6 +211,67 @@ export function PanelPermissionsConfig({ role }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Botão para adicionar nova opção */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          {showAddForm ? 'Cancelar' : 'Adicionar Opção'}
+        </button>
+      </div>
+
+      {/* Formulário para adicionar nova opção */}
+      {showAddForm && (
+        <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-5">
+          <h3 className="font-bold text-indigo-900 mb-4">Nova Opção de Menu</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-indigo-700 mb-1">ID (único)*</label>
+              <input
+                type="text"
+                value={newOption.id}
+                onChange={(e) => setNewOption(prev => ({ ...prev, id: e.target.value.replace(/\s+/g, '_').toLowerCase() }))}
+                placeholder="ex: meu_componente"
+                className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-xs text-indigo-500 mt-1">Sem espaços, use underscore</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-indigo-700 mb-1">Nome*</label>
+              <input
+                type="text"
+                value={newOption.label}
+                onChange={(e) => setNewOption(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="ex: Meu Componente"
+                className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-indigo-700 mb-1">Descrição</label>
+              <input
+                type="text"
+                value={newOption.description}
+                onChange={(e) => setNewOption(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Descrição da funcionalidade"
+                className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleAddOption}
+              disabled={!newOption.id || !newOption.label}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4 inline mr-1" />
+              Adicionar ao Menu
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {PERMISSION_GRID.map((category, idx) => (
@@ -201,6 +309,55 @@ export function PanelPermissionsConfig({ role }: Props) {
             </div>
           </div>
         ))}
+        
+        {/* Card para opções personalizadas */}
+        {customOptions.length > 0 && (
+          <div className="bg-white rounded-xl border border-indigo-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100">
+              <h3 className="font-bold text-indigo-800">Opções Personalizadas</h3>
+            </div>
+            <div className="p-2 flex-1">
+              <div className="divide-y divide-gray-50">
+                {customOptions.map(option => (
+                  <label 
+                    key={option.id} 
+                    className="flex items-start gap-4 p-3 hover:bg-gray-50/80 cursor-pointer rounded-lg transition-colors group"
+                  >
+                    <button 
+                      type="button"
+                      role="checkbox"
+                      aria-checked={permissions[option.id]}
+                      onClick={() => togglePermission(option.id)}
+                      className="mt-0.5 focus:outline-none"
+                    >
+                      {permissions[option.id] ? (
+                        <CheckSquare className="w-5 h-5 text-indigo-600" />
+                      ) : (
+                        <Square className="w-5 h-5 text-gray-300 group-hover:text-gray-400" />
+                      )}
+                    </button>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-gray-900">{option.label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{option.description}</p>
+                      <p className="text-xs text-indigo-500 mt-0.5">ID: {option.id}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleRemoveCustomOption(option.id)
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      title="Remover opção"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,15 +1,25 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap');
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-exo-2);
+  --font-sans: "Exo 2", var(--font-exo-2), system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 body {
   background: white;
   color: var(--foreground);
-  font-family: var(--font-exo-2), system-ui, -apple-system, sans-serif !important;
-  font-weight: 400 !important;
+  font-family: "Exo 2", system-ui, -apple-system, sans-serif !important;
+}
+
+/* Forçar em todos os elementos para garantir */
+* {
+  font-family: "Exo 2", system-ui, -apple-system, sans-serif;
 }

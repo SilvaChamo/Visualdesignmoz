@@ -2287,6 +2287,14 @@ export default function AdminPage() {
           packages={cyberPanelPackages}
           onRefresh={loadCyberPanelData}
         />
+      case 'page-builders':
+        // Redirecionar para a página de construtores
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin/page-builders';
+        }
+        return <div className="p-8 text-center text-gray-500">Redirecionando para construtores...</div>;
+      case 'templates-saved':
+        return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       default:
         return <CpanelDashboard sites={filteredSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
     }
@@ -2311,7 +2319,16 @@ export default function AdminPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setEmailMsg('Email criado com sucesso!')
+        setEmailMsg('Email criado com sucesso! Sincronizando acessos...')
+        
+        // Sincronizar novo email com Supabase Auth
+        try {
+          await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' });
+        } catch (syncErr) {
+          console.error('Erro na sincronização pós-criação:', syncErr);
+        }
+
+        setEmailMsg('Email criado e acessos sincronizados com sucesso!')
         setEmailForm({ user: '', password: '', quota: '500' })
         setTimeout(() => {
           setShowEmailModal(false)

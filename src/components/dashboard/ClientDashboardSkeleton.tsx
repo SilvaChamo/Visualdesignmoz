@@ -6,7 +6,7 @@ const Skeleton = ({ className }: { className?: string }) => (
 
 export default function ClientDashboardSkeleton() {
     return (
-        <div className="flex gap-5 animate-in fade-in duration-500">
+        <div className="flex gap-5 animate-in fade-in duration-500 m-4">
             {/* Conteúdo principal */}
             <div className="flex-1 space-y-5">
                 {/* Saudação Skeleton */}

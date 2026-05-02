@@ -27,7 +27,7 @@ import {
   MessageSquare,
   Undo2
 } from 'lucide-react'
-import { defaultRenewalTemplates, RenewalTemplate, processTemplate, TemplateVariables } from '@/lib/renewal-templates'
+import { getAllTemplates, RenewalTemplate, processTemplate, TemplateVariables } from '@/lib/renewal-templates'
 
 interface Renewal {
   id: string
@@ -71,19 +71,19 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
   const [activeTab, setActiveTab] = useState<'overview' | 'domains' | 'hosting' | 'add' | 'templates'>(initialTab)
   
   // Templates editor states
-  const [templates, setTemplates] = useState<RenewalTemplate[]>(defaultRenewalTemplates)
+  const [templates, setTemplates] = useState<RenewalTemplate[]>(getAllTemplates())
   const [selectedTemplate, setSelectedTemplate] = useState<RenewalTemplate | null>(null)
   const [editingTemplate, setEditingTemplate] = useState<RenewalTemplate | null>(null)
   const [previewVariables, setPreviewVariables] = useState<TemplateVariables>({
-    clientName: 'João Silva',
-    serviceName: 'exemplo.com',
-    expirationDate: '31/12/2025',
+    clientName: 'Silva Chamo',
+    serviceName: 'meusite.com',
+    expirationDate: '15/06/2025',
     daysRemaining: 60,
-    renewalPrice: '15.00 MT',
+    renewalPrice: '2,500.00 MT',
     renewalLink: 'https://visualdesigne.com/renovar',
     companyName: 'VisualDesign',
     supportEmail: 'suporte@visualdesigne.com',
-    supportPhone: '+351 912 345 678'
+    supportPhone: '+258 85 242 5525'
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [runningCheck, setRunningCheck] = useState(false)
@@ -159,7 +159,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
           userId: userData.user.id,
           domainName: formDomain,
           expirationDate: formExpiration,
-          renewalPrice: parseFloat(formPrice) || (formType === 'domain' ? 15 : 50),
+          renewalPrice: parseFloat(formPrice) || (formType === 'domain' ? 2500 : 5000),
           autoRenew: formAutoRenew,
           notes: formNotes
         })
@@ -506,7 +506,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                     step="0.01"
                     value={formPrice}
                     onChange={(e) => setFormPrice(e.target.value)}
-                    placeholder={formType === 'domain' ? '15.00' : '50.00'}
+                    placeholder={formType === 'domain' ? '2500.00' : '5000.00'}
                     className="w-full px-3 py-2 border border-gray-300 rounded"
                   />
                 </div>
@@ -835,39 +835,65 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                           />
                         </div>
 
-                        {/* Editar Variáveis de Preview */}
-                        <div className="mt-4 p-4 bg-gray-50 rounded">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Editar Variáveis de Preview:</p>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <input
-                              type="text"
-                              value={previewVariables.clientName}
-                              onChange={(e) => setPreviewVariables({ ...previewVariables, clientName: e.target.value })}
-                              placeholder="Nome do cliente"
-                              className="px-2 py-1 border rounded"
-                            />
-                            <input
-                              type="text"
-                              value={previewVariables.serviceName}
-                              onChange={(e) => setPreviewVariables({ ...previewVariables, serviceName: e.target.value })}
-                              placeholder="Nome do serviço"
-                              className="px-2 py-1 border rounded"
-                            />
-                            <input
-                              type="text"
-                              value={previewVariables.expirationDate}
-                              onChange={(e) => setPreviewVariables({ ...previewVariables, expirationDate: e.target.value })}
-                              placeholder="Data de vencimento"
-                              className="px-2 py-1 border rounded"
-                            />
-                            <input
-                              type="text"
-                              value={previewVariables.renewalPrice}
-                              onChange={(e) => setPreviewVariables({ ...previewVariables, renewalPrice: e.target.value })}
-                              placeholder="Preço"
-                              className="px-2 py-1 border rounded"
-                            />
+                        {/* Editar Variáveis de Preview - Dados Simulados do Cliente */}
+                        <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                              <Variable className="w-4 h-4" />
+                              Dados Simulados do Cliente (Preview)
+                            </p>
+                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                              Na notificação real, estes valores vêm do registo do cliente
+                            </span>
                           </div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <label className="block text-xs font-medium text-blue-700 mb-1">Nome do Cliente</label>
+                              <input
+                                type="text"
+                                value={previewVariables.clientName}
+                                onChange={(e) => setPreviewVariables({ ...previewVariables, clientName: e.target.value })}
+                                placeholder="Ex: João Silva"
+                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-blue-700 mb-1">Serviço (Domínio/Website)</label>
+                              <input
+                                type="text"
+                                value={previewVariables.serviceName}
+                                onChange={(e) => setPreviewVariables({ ...previewVariables, serviceName: e.target.value })}
+                                placeholder="Ex: meusite.com"
+                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-blue-700 mb-1">Data de Vencimento</label>
+                              <input
+                                type="text"
+                                value={previewVariables.expirationDate}
+                                onChange={(e) => setPreviewVariables({ ...previewVariables, expirationDate: e.target.value })}
+                                placeholder="Ex: 31/12/2025"
+                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-blue-700 mb-1">
+                                Valor da Renovação <span className="text-red-500">*</span>
+                                <span className="text-gray-400 font-normal">(editável)</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={previewVariables.renewalPrice}
+                                onChange={(e) => setPreviewVariables({ ...previewVariables, renewalPrice: e.target.value })}
+                                placeholder="Ex: 2,500.00 MT"
+                                className="w-full px-3 py-2 border border-red-200 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent font-medium"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs text-blue-600 mt-3">
+                            <strong>Nota:</strong> O valor pode ser editado manualmente para cada renovação. Na notificação real, os dados são automaticamente preenchidos com base no registo do cliente no sistema.
+                          </p>
                         </div>
                       </div>
                     </>
