@@ -18,9 +18,11 @@ import {
   Trash2
 } from "lucide-react";
 import Link from "next/link";
-import CraftBuilder from "./components/CraftBuilder";
-import GrapesBuilder from "./components/GrapesBuilder";
-import SimpleBuilder from "./components/SimpleBuilder";
+import dynamic from "next/dynamic";
+
+const CraftBuilder = dynamic(() => import("./components/CraftBuilder"), { ssr: false });
+const GrapesBuilder = dynamic(() => import("./components/GrapesBuilder"), { ssr: false });
+const SimpleBuilder = dynamic(() => import("./components/SimpleBuilder"), { ssr: false });
 
 const builders = [
   {

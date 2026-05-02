@@ -65,7 +65,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
 
   return (
     <header
-      className={`fixed ${isScrolled ? 'top-0' : 'top-[40px]'} left-0 right-0 z-50 transition-all duration-300 bg-white shadow-lg`}
+      className={`fixed ${scrolled ? 'top-0 shadow-md' : 'top-[40px]'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100`}
     >
       <div className="relative">
         <div className="max-w-7xl mx-auto px-6">

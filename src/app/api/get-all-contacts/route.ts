@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
  */
 function shouldFilterOut(email: string): boolean {
   const invalidEmails = [
-    'contato@joao.visualdesign.ao',  // Email do João - remover
+    'geral@visualdesigne.com',
   ];
 
   const suspiciousPatterns = [

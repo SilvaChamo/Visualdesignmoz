@@ -20,7 +20,7 @@ const determinarTipo = (path: string) => {
 const CYBERPANEL_DOMAINS = [
   'visualdesigne.com', 'visualdesigne.pt',
   'anap.co.mz', 'entrecampos.co.mz',
-  'aamihe.com', 'entrecampos.ao',
+  'aamihe.com', 'entrecampos.co.mz',
   'miv.co.mz', 'moz-servicos.com'
 ]
 
@@ -37,7 +37,7 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
   const isCyberPanel = CYBERPANEL_DOMAINS.includes(domain) || 
                       CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d)) ||
                       domain.endsWith('.co.mz') || 
-                      domain.endsWith('.ao')
+                      domain.endsWith('.mz') || domain.endsWith('.co.mz')
 
   if (isCyberPanel) {
     return { host: '109.199.104.22', port: 993, secure: true }

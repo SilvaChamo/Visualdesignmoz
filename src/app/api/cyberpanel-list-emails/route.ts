@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     
     // 🚫 FILTRO: Remover emails inválidos ou indesejados
     const emailsInvalidos = [
-      'contato@joao.visualdesign.ao',  // Email do João - remover
+      'geral@visualdesigne.com',
       'teste@',                         // Emails de teste
       'exemplo@',                       // Emails de exemplo
       'admin@your-domain.com',          // Template placeholder

@@ -225,7 +225,7 @@ function isValidEmail(email: string): { valid: boolean; error?: string } {
     }
     
     // Verificar TLD válido
-    const validTLDs = ['.com', '.net', '.org', '.edu', '.gov', '.io', '.co', '.pt', '.br', '.mz', '.ao', '.za', '.uk', '.fr', '.de', '.es', '.it', '.nl', '.be', '.ch', '.at', '.se', '.no', '.dk', '.fi', '.ie', '.pl', '.cz', '.sk', '.hu', '.ro', '.bg', '.hr', '.si', '.lt', '.lv', '.ee', '.lu', '.mt', '.cy', '.ee', '.is', '.li', '.mc', '.sm', '.va', '.ad'];
+    const validTLDs = ['.com', '.net', '.org', '.edu', '.gov', '.io', '.co', '.pt', '.br', '.mz', '.za', '.uk', '.fr', '.de', '.es', '.it', '.nl', '.be', '.ch', '.at', '.se', '.no', '.dk', '.fi', '.ie', '.pl', '.cz', '.sk', '.hu', '.ro', '.bg', '.hr', '.si', '.lt', '.lv', '.ee', '.lu', '.mt', '.cy', '.ee', '.is', '.li', '.mc', '.sm', '.va', '.ad'];
     const hasValidTLD = validTLDs.some(tld => normalizedEmail.endsWith(tld));
     if (!hasValidTLD) {
         // Não rejeitar, apenas avisar

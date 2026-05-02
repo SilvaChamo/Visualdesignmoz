@@ -21,6 +21,10 @@
     "@types/nodemailer": "^7.0.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.0.0",
+    "grapesjs": "^0.22.16",
+    "grapesjs-blocks-basic": "^1.0.2",
+    "grapesjs-preset-webpage": "^1.0.3",
     "imapflow": "^1.3.2",
     "lucide-react": "^0.563.0",
     "mailparser": "^3.9.4",
@@ -33,8 +37,7 @@
     "resend": "^6.9.3",
     "sonner": "^2.0.7",
     "ssh2": "^1.17.0",
-    "tailwind-merge": "^3.4.0",
-    "framer-motion": "^11.0.0"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

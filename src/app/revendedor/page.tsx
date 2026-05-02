@@ -7,8 +7,8 @@ import { useI18n } from '@/lib/i18n'
 import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette
 } from 'lucide-react'
-import { AdminSidebar } from '@/components/admin/AdminSidebar'
-import { CpanelDashboard } from './CpanelDashboard'
+import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
@@ -26,13 +26,13 @@ import {
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection
-} from './CyberPanelSections'
-import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
-import { NotificationsSection } from './NotificationsSection'
-import { RenewalsSection } from './RenewalsSection'
-import { TemplatesSection } from './TemplatesSection'
-import { DNSCentralSection } from './DNSCentralSection'
-import { PanelPermissionsConfig } from './PanelPermissionsConfig'
+} from '../admin/CyberPanelSections'
+import { EmailDiagnosticoSection } from '../admin/EmailDiagnosticoSection'
+import { NotificationsSection } from '../admin/NotificationsSection'
+import { RenewalsSection } from '../admin/RenewalsSection'
+import { TemplatesSection } from '../admin/TemplatesSection'
+import { DNSCentralSection } from '../admin/DNSCentralSection'
+import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
@@ -1874,7 +1874,7 @@ function ManageWebsiteSection({
   )
 }
 
-export default function AdminPage() {
+export default function ResellerPage() {
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -2125,10 +2125,6 @@ export default function AdminPage() {
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'cp-client-permissions':
-        return <PanelPermissionsConfig role="client" />
-      case 'cp-reseller-permissions':
-        return <PanelPermissionsConfig role="reseller" />
       case 'dashboard':
         return <CpanelDashboard
           sites={filteredSites}
@@ -2235,9 +2231,7 @@ export default function AdminPage() {
         return <SecuritySection sites={filteredSites} />
       case 'cp-php':
         return <PHPConfigSection sites={filteredSites} />
-      case 'cp-api':
-      case 'infrastructure':
-        return <APIConfigSection />
+
       case 'cp-wp-list':
         return <ListWordPressSection sites={filteredSites} onRefresh={loadCyberPanelData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
       case 'cp-wp-plugins':
@@ -2267,8 +2261,7 @@ export default function AdminPage() {
         return <DNSCentralSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
-      case 'git-deploy':
-        return <GitDeploySection />
+
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
@@ -2285,9 +2278,7 @@ export default function AdminPage() {
             setActiveSection('cp-email-mgmt')
           }}
         />
-      case 'git-deploy':
-      case 'deploy':
-        return <DeploySection sites={cyberPanelSites} />
+
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'manage-website':
@@ -2458,7 +2449,7 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <AdminSidebar
+      <ResellerSidebar
         activeSection={activeSection}
         onNavigate={handleNavigate}
         isCollapsed={isCollapsed}
