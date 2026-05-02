@@ -7,11 +7,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   outputFileTracingRoot: path.join(__dirname),
-  // Porta de produção
-  experimental: {
-    // @ts-ignore
-    port: 3002
-  },
   async headers() {
     return [
       {
