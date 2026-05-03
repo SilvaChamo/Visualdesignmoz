@@ -481,9 +481,10 @@ export function WebmailSection({
           }))
         }
       } else {
-        console.error('📧 [WebmailSection] Erro da API:', data.error)
+        console.warn('📧 [WebmailSection] Erro da API:', data.error)
         // ❌ Credenciais falharam - remover do cache
-        if (data.error?.includes('senha') || data.error?.includes('password') || data.error?.includes('auth')) {
+        const errorLower = (data.error || '').toLowerCase()
+        if (errorLower.includes('senha') || errorLower.includes('password') || errorLower.includes('auth') || errorLower.includes('credenciais') || errorLower.includes('imap')) {
           setValidCredentials(prev => {
             const updated = { ...prev }
             delete updated[account.email]

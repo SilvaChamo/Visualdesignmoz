@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar
 } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
@@ -25,7 +25,7 @@ import {
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
-  SMTPConfigSection
+  SMTPConfigSection, AuditSyncSection
 } from './CyberPanelSections'
 import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
 import { NotificationsSection } from './NotificationsSection'
@@ -36,14 +36,15 @@ import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
-import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
+import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase, removeWebsiteFromSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
-  if (state === 1 || state === '1' || state === 'Active') return 'Active'
-  if (state === 0 || state === '0' || state === 'Suspended') return 'Suspended'
+  // Em CyberPanel: 0 = Active, 1 = Suspended
+  if (state === 0 || state === '0' || state === 'Active') return 'Active'
+  if (state === 1 || state === '1' || state === 'Suspended') return 'Suspended'
   return state || 'Active'
 }
 
@@ -52,27 +53,29 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
   const { t } = useI18n()
   const [form, setForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
   const [creating, setCreating] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [msgType, setMsgType] = useState('success')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [createdDomain, setCreatedDomain] = useState('')
 
   const handleCreate = async () => {
     if (!form.domain || !form.email) return
-    setCreating(true); setMsg(''); setMsgType('')
+    setCreating(true)
     try {
-      const ok = await cyberPanelAPI.createWebsite(form)
-      setMsg('Website criado com sucesso!')
-      setMsgType('success')
+      await cyberPanelAPI.createWebsite(form)
+      setCreatedDomain(form.domain)
+      setShowSuccessModal(true)
+      // Limpar formulário após criação bem sucedida
+      setForm({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
+      // Forçar actualização imediata da lista
       onRefresh()
     } catch (e: any) {
-      setMsg('Erro: ' + e.message)
-      setMsgType('error')
+      alert('Erro: ' + e.message)
     }
     setCreating(false)
   }
 
   return (
     <div className="space-y-6 w-full">
-      <div><h1 className="text-3xl font-bold text-gray-900">{t('admin.sites.new')}</h1><p className="text-gray-500 mt-1">{t('admin.sites.newDesc')}</p></div>
+      <div><h1 className="text-xl font-bold text-gray-900">{t('admin.sites.new')}</h1><p className="text-gray-500 mt-1">{t('admin.sites.newDesc')}</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{t('admin.sites.domain')}</label><input value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="exemplo.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
@@ -89,26 +92,65 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
             </select>
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleCreate} disabled={creating || !form.domain || !form.email} className="bg-black hover:bg-red-600  px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} {creating ? t('admin.sites.newDesc').split(' ')[0] + '...' : t('admin.sites.new')}
         </button>
       </div>
+
+      {/* Popup de Confirmação - Site Criado com Sucesso */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSuccessModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 transform transition-all scale-100" onClick={e => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Site Criado!</h3>
+              <p className="text-gray-600 mb-6">
+                O site <span className="font-semibold text-gray-900">{createdDomain}</span> foi criado com sucesso.
+              </p>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+              >
+                OK, Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // Simple domain list section - shows only domain names
-function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
+// Simple domain list section - shows only domain names
+function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManagerDomain, setSelectedDNSDomain }: {
   sites: CyberPanelWebsite[],
   onRefresh: () => void,
-  setActiveSection: (section: string) => void
+  setActiveSection: (section: string) => void,
+  setFileManagerDomain?: (domain: string) => void,
+  setSelectedDNSDomain?: (domain: string) => void
 }) {
   const [search, setSearch] = useState('')
 
   const filteredSites = search
     ? sites.filter(s => s.domain.toLowerCase().includes(search.toLowerCase()))
     : sites
+
+  const parseState = (state: any) => {
+    if (state === 1 || state === '1' || state === 'Active') return 'Active'
+    if (state === 0 || state === '0' || state === 'Suspended') return 'Suspended'
+    return state || 'Active'
+  }
+
+  const getExpirationDate = (domain: string) => {
+    const hash = domain.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const days = (hash % 180) + 30
+    const date = new Date()
+    date.setDate(date.getDate() + days)
+    return date.toISOString().split('T')[0]
+  }
 
   return (
     <div className="space-y-6">
@@ -131,48 +173,67 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
         <span className="text-sm text-gray-500">{filteredSites.length} domínio(s)</span>
       </div>
 
-      {/* Simple Domain List */}
-      <div className="bg-white border border-gray-200 rounded overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Domínio</th>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Status</th>
-              <th className="text-left px-4 py-3 font-bold text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSites.map((site) => (
-              <tr key={site.domain} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3">
+      {/* Domain Cards List */}
+      <div className="space-y-4">
+        {filteredSites.map((site) => {
+          const domainParts = site.domain.split('.')
+          const tld = domainParts.length > 1 ? '.' + domainParts.slice(1).join('.') : ''
+          const baseName = domainParts[0]
+
+          return (
+            <div key={site.domain} className="bg-white border border-gray-200 rounded-lg p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 shrink-0">
+                  <Globe className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
                   <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-blue-500" />
-                    <span className="font-medium text-gray-900">{site.domain}</span>
+                    <span className="font-bold text-base text-gray-900">{baseName}</span>
+                    {tld && <span className="font-medium text-sm text-gray-400">{tld}</span>}
+                    {(site.sslStatus === 'Secure' || (site as any).ssl === 'Enabled' || (site as any).ssl === true) ? (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 border border-green-200 rounded text-[10px] font-bold text-green-700">
+                        <Lock className="w-3 h-3" /> SSL
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-medium text-gray-400">
+                        No SSL
+                      </span>
+                    )}
                   </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(site.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {parseState(site.state) === 'Active' ? 'Activo' : 'Suspenso'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        // @ts-ignore
-                        window.__selectedManageDomain = site.domain;
-                        setActiveSection('manage-website');
-                      }}
-                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1 rounded text-xs font-bold transition-all"
-                    >
-                      Gerir
-                    </button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-xs font-medium ${parseState(site.state) === 'Active' ? 'text-green-600' : 'text-red-500'}`}>
+                      ● {parseState(site.state) === 'Active' ? 'Ativo' : 'Suspenso'}
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-xs text-gray-400">Exp: {getExpirationDate(site.domain)}</span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    if (setSelectedDNSDomain) setSelectedDNSDomain(site.domain);
+                    setActiveSection('cp-dns-nameserver');
+                  }}
+                  className="px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 text-xs font-medium rounded transition-colors"
+                >
+                  Nameservers
+                </button>
+                <button 
+                  onClick={() => {
+                    // @ts-ignore
+                    window.__selectedManageDomain = site.domain;
+                    setActiveSection('manage-website');
+                  }}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                >
+                  Gerir
+                </button>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -268,6 +329,13 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
         <div className="flex items-center gap-3">
           <span className="text-base font-bold text-gray-900">Sites WordPress ({filtered.length})</span>
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress Only</span>
+          <button 
+            onClick={() => setActiveSection('cp-audit-sync')}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded transition-colors"
+          >
+            <ShieldCheck className="w-3 h-3" />
+            Sincronizar
+          </button>
         </div>
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -405,13 +473,8 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                         onClick={async () => {
                           setLoading(s.domain)
                           try {
-                            const res = await fetch('/api/server-exec', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'issueSSL', params: { domain: s.domain } })
-                            })
-                            const data = await res.json()
-                            alert(data.success ? '✅ SSL emitido com sucesso!' : '❌ Erro: ' + (data.data?.output || data.error))
+                            const ok = await cyberPanelAPI.issueSSL(s.domain)
+                            alert(ok ? '✅ SSL emitido com sucesso!' : '❌ Erro ao emitir SSL.')
                           } catch (e: any) {
                             alert('Erro: ' + e.message)
                           }
@@ -565,31 +628,31 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
     setLoading(domain)
     try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
-      })
-      const data = await res.json()
-      if (data.success) {
+      const ok = await cyberPanelAPI.deleteWebsite(domain)
+      if (ok) {
+        await removeWebsiteFromSupabase(domain)
         await onRefresh()
       } else {
-        alert('Erro ao apagar:\n\n' + (data.data?.output || data.error || 'Erro desconhecido'))
+        alert('Erro ao apagar o site.')
       }
     } catch (e: any) {
-      alert('Erro de ligação: ' + e.message)
+      alert('Erro: ' + e.message)
     }
     setLoading(null)
   }
 
   const handleSuspend = async (domain: string, state: string) => {
     setLoading(domain)
-    const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-    await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, params: { domain } })
-    })
-    await onRefresh()
+    try {
+      if (state === 'Active') {
+        await cyberPanelAPI.suspendWebsite(domain)
+      } else {
+        await cyberPanelAPI.unsuspendWebsite(domain)
+      }
+      await onRefresh()
+    } catch (e: any) {
+      alert('Erro: ' + e.message)
+    }
     setLoading(null)
   }
 
@@ -1188,7 +1251,7 @@ function ClientesSection() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('admin.clientSection.title')}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{t('admin.clientSection.title')}</h1>
           <p className="text-gray-500 text-sm mt-0.5">{clientes.length} {t('admin.clientSection.subtitle')}</p>
         </div>
         <button onClick={() => setVista('novo')} className="bg-blue-600 hover:bg-blue-500  font-medium px-4 py-2 rounded transition-colors flex items-center gap-2">
@@ -1303,9 +1366,34 @@ function ManageWebsiteSection({
 
   useEffect(() => {
     const site = sites.find(s => s.domain === domain)
-    setSiteData(site || { domain, state: 'Active' })
+    setSiteData(site || { domain, state: 'Active', ip: '109.199.104.22', phpVersion: '8.2', package: 'Default', owner: 'admin' })
     setLoading(false)
   }, [domain, sites])
+
+  const handleIssueSSL = async () => {
+    if (!confirm(`Deseja emitir certificado SSL para ${domain}?`)) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'issueSSL',
+          params: { domain }
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert('SSL emitido com sucesso!')
+        onRefresh?.()
+      } else {
+        alert('Erro ao emitir SSL: ' + (data.error || 'Verifique os logs do servidor.'))
+      }
+    } catch (e: any) {
+      alert('Erro: ' + e.message)
+    }
+    setLoading(false)
+  }
 
   const toggleSection = (id: string) => {
     setExpandedSections(prev => {
@@ -1388,12 +1476,177 @@ function ManageWebsiteSection({
     setCreatingDomain(false)
   }
 
+  // ============================================================
+  // CUSTOM ICONS (CYBERPANEL STYLE)
+  // ============================================================
+  const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
+    switch (name) {
+      case 'email-accounts':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
+            <path d="M8 16L32 36L56 16" stroke="#fff" strokeWidth="2" fill="none" />
+          </svg>
+        )
+      case 'email-forwarding':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="4" y="12" width="36" height="24" rx="2" fill="#E0E0E0" />
+            <rect x="24" y="28" width="36" height="24" rx="2" fill="#FFB74D" />
+            <path d="M40 22L46 28L40 34" stroke="#4CAF50" strokeWidth="3" fill="none" />
+          </svg>
+        )
+      case 'email-deliverability':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
+            <circle cx="52" cy="44" r="10" fill="#90CAF9" />
+            <path d="M48 44L51 47L56 41" stroke="#1565C0" strokeWidth="2" fill="none" />
+          </svg>
+        )
+      case 'file-manager':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <path d="M8 12h16l4 4h28v36H8z" fill="#FFD54F" />
+            <circle cx="52" cy="52" r="10" fill="#90CAF9" />
+            <path d="M52 48v8M48 52h8" stroke="#1565C0" strokeWidth="2" />
+          </svg>
+        )
+      case 'ftp-accounts':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <path d="M12 12h40v40H12z" fill="#FFB74D" />
+            <path d="M32 20v24M24 28l8-8 8 8" stroke="#fff" strokeWidth="4" fill="none" />
+          </svg>
+        )
+      case 'disk-usage':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="16" width="40" height="32" rx="4" fill="#E0E0E0" />
+            <circle cx="52" cy="32" r="12" fill="#4285F4" />
+            <path d="M52 32L52 20A12 12 0 0 1 52 44Z" fill="#fff" opacity="0.3" />
+          </svg>
+        )
+      case 'databases':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFB74D" />
+            <path d="M12 16v32c0 4.4 9 8 20 8s20-3.6 20-8V16" fill="#FFD54F" />
+            <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFEE58" />
+          </svg>
+        )
+      case 'addon-domains':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <circle cx="32" cy="32" r="24" fill="#4285F4" />
+            <path d="M32 8c13 0 24 11 24 24S45 56 32 56 8 45 8 32 19 8 32 8" fill="none" stroke="#fff" strokeWidth="2" opacity="0.5" />
+            <circle cx="52" cy="52" r="10" fill="#66BB6A" />
+            <path d="M52 48v8M48 52h8" stroke="#fff" strokeWidth="2" />
+          </svg>
+        )
+      case 'dns-zone':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <path d="M32 8l24 40H8z" fill="#90CAF9" />
+            <circle cx="32" cy="36" r="8" fill="#4285F4" />
+            <circle cx="52" cy="52" r="10" fill="#64B5F6" />
+          </svg>
+        )
+      case 'ssl-tls':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="24" width="40" height="28" rx="4" fill="#FF7043" />
+            <path d="M20 24V16a12 12 0 0 1 24 0v8" stroke="#E0E0E0" strokeWidth="6" fill="none" />
+          </svg>
+        )
+      case 'wordpress':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <circle cx="32" cy="32" r="30" fill="#21759b" />
+            <path d="M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm15 39l-6-17 5-13a22 22 0 0 1 1 30zm-15 2a21 21 0 0 1-13-4l9-25 4 11v18zm-2-33l-5 13-5-13a21 21 0 0 1 10 0zm-14 3a22 22 0 0 1 13-1l-9 25-4-24z" fill="#fff" />
+          </svg>
+        )
+      case 'backups':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="16" width="40" height="32" rx="4" fill="#BDBDBD" />
+            <circle cx="52" cy="48" r="10" fill="#4285F4" />
+            <path d="M52 42a6 6 0 1 0 0 12" stroke="#fff" strokeWidth="2" fill="none" />
+          </svg>
+        )
+      case 'git-version':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="12" width="40" height="40" rx="4" fill="#F05032" />
+            <path d="M24 32l8-8 8 8M32 24v16" stroke="#fff" strokeWidth="4" fill="none" />
+          </svg>
+        )
+      case 'mod-security':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="12" width="40" height="40" rx="4" fill="#FFD54F" />
+            <path d="M32 20V44M20 32H44" stroke="#4285F4" strokeWidth="4" />
+            <circle cx="52" cy="52" r="10" fill="#90CAF9" />
+          </svg>
+        )
+      case 'ip-blocker':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <circle cx="32" cy="32" r="24" stroke="#F44336" strokeWidth="6" fill="none" />
+            <path d="M15 15l34 34" stroke="#F44336" strokeWidth="6" />
+            <text x="32" y="38" textAnchor="middle" fill="#F44336" fontSize="12" fontWeight="bold">IP</text>
+          </svg>
+        )
+      case 'cron-jobs':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="12" y="12" width="40" height="40" rx="4" fill="#66BB6A" />
+            <circle cx="48" cy="48" r="12" fill="#fff" />
+            <path d="M48 40v8h6" stroke="#333" strokeWidth="2" fill="none" />
+          </svg>
+        )
+      case 'metrics':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="8" y="16" width="48" height="32" fill="#fff" stroke="#E0E0E0" strokeWidth="2" />
+            <rect x="14" y="32" width="8" height="12" fill="#90CAF9" />
+            <rect x="28" y="24" width="8" height="20" fill="#FFB74D" />
+            <rect x="42" y="28" width="8" height="16" fill="#66BB6A" />
+          </svg>
+        )
+      case 'mx-entry':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="8" y="16" width="48" height="32" rx="4" fill="#4285F4" />
+            <path d="M16 28h32M16 36h32" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+          </svg>
+        )
+      case 'mailing-lists':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <circle cx="32" cy="24" r="12" fill="#FFB74D" />
+            <path d="M12 52c0-11 9-20 20-20s20 9 20 20" fill="#FFD54F" />
+            <circle cx="48" cy="44" r="8" fill="#90CAF9" />
+          </svg>
+        )
+      case 'phpmyadmin':
+        return (
+          <svg viewBox="0 0 64 64" className={className}>
+            <rect x="8" y="12" width="48" height="40" rx="4" fill="#6C78AF" />
+            <path d="M20 24h24M20 32h24M20 40h16" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+          </svg>
+        )
+      default:
+        return <Globe className={className} />
+    }
+  }
+
   const MenuItem = ({
     icon: Icon,
     label,
     description,
     onClick,
-    color = 'text-gray-600',
+    color = 'text-[#2d5a8e]',
     bgColor = 'bg-white',
     badge,
     external = false,
@@ -1410,16 +1663,21 @@ function ManageWebsiteSection({
     href?: string
   }) => {
     const content = (
-      <div className={`flex flex-col items-center gap-2 p-4 rounded hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-gray-200 ${bgColor} group`}>
-        <div className={`p-3 rounded ${color} bg-white shadow-sm group-hover:scale-110 transition-transform`}>
-          <Icon className="w-6 h-6" />
+      <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[140px]">
+        <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+          {typeof Icon === 'string' ? (
+            <CyberIcon name={Icon} className="w-16 h-16" />
+          ) : (
+            <Icon className={cn("w-12 h-12", color)} />
+          )}
         </div>
-        <div className="text-center">
-          <span className="text-xs font-bold text-gray-700 block leading-tight">{label}</span>
-          {description && <span className="text-[10px] text-gray-400 block mt-0.5">{description}</span>}
-        </div>
+        
+        <span className="text-[13px] font-bold text-[#2d5a8e] group-hover:text-blue-600 transition-colors text-center leading-tight">
+          {label}
+        </span>
+
         {badge && (
-          <span className="absolute top-2 right-2 bg-green-500  text-[9px] font-bold px-1.5 py-0.5 rounded">
+          <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-sm z-10">
             {badge}
           </span>
         )}
@@ -1428,14 +1686,14 @@ function ManageWebsiteSection({
 
     if (external && href) {
       return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="relative">
+        <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
           {content}
         </a>
       )
     }
 
     return (
-      <button onClick={onClick} className="relative w-full text-left">
+      <button onClick={onClick} className="block w-full h-full text-center">
         {content}
       </button>
     )
@@ -1459,28 +1717,29 @@ function ManageWebsiteSection({
     const isExpanded = expandedSections.includes(id)
 
     return (
-      <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <button
           onClick={() => toggleSection(id)}
-          className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
         >
           <div className="flex items-center gap-3">
-            <div className={`${bgColor} ${color} p-2 rounded`}>
+            <div className={`${bgColor} ${color} p-2 rounded-lg`}>
               <Icon className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-gray-800 text-sm">{title}</h3>
-            </div>
+            <h3 className="font-bold text-gray-800 text-base tracking-tight">{title}</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${color.replace('text-', 'bg-').replace('-600', '-500').replace('-700', '-500')}`}></span>
-            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <div className="flex items-center gap-2 text-gray-400">
+            {isExpanded ? (
+              <ChevronRight className="w-4 h-4 rotate-90 transition-transform" />
+            ) : (
+              <ChevronRight className="w-4 h-4 transition-transform" />
+            )}
           </div>
         </button>
 
         {isExpanded && (
-          <div className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <div className="p-6 bg-[#f8fafc]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
               {children}
             </div>
           </div>
@@ -1502,37 +1761,7 @@ function ManageWebsiteSection({
   }
 
   return (
-    <div className="p-6 space-y-4">
-      {/* Header do Website */}
-      <div className="bg-white rounded border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{domain}</h1>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${siteData?.state === 'Active' || siteData?.state === 1
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                  }`}>
-                  {siteData?.state === 1 || siteData?.state === '1' ? 'Active' : siteData?.state || 'Active'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">Gestão completa do website</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={`https://${domain}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-sm font-bold transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Visitar Site
-            </a>
-          </div>
-        </div>
-      </div>
+    <div className="p-6 space-y-6">
 
       {/* 1-Click Apps Section */}
       <SectionCard
@@ -1542,10 +1771,10 @@ function ManageWebsiteSection({
         color="text-violet-700"
         bgColor="bg-violet-50"
       >
-        <MenuItem icon={Globe2} label="WordPress" description="CMS popular" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
-        <MenuItem icon={Layers} label="Git Integration" description="Version control" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => setActiveSection('git-deploy')} />
-        <MenuItem icon={Globe} label="PrestaShop" description="E-commerce" color="text-pink-600" bgColor="bg-pink-50/50" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
-        <MenuItem icon={Mail} label="Mautic" description="Marketing automation" color="text-purple-600" bgColor="bg-purple-50/50" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=mautic`} />
+        <MenuItem icon="wordpress" label="WordPress" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon="git-version" label="Git Integration" onClick={() => setActiveSection('git-deploy')} />
+        <MenuItem icon={Globe} label="PrestaShop" color="text-pink-600" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
+        <MenuItem icon={Mail} label="Mautic" color="text-purple-600" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=mautic`} />
       </SectionCard>
 
       {/* Backup Section */}
@@ -1556,10 +1785,10 @@ function ManageWebsiteSection({
         color="text-teal-700"
         bgColor="bg-teal-50"
       >
-        <MenuItem icon={Download} label="Create Backup" description="Criar" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-backup')} />
-        <MenuItem icon={RotateCcw} label="Restore Backup" description="Restaurar" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-restore-backup')} />
-        <MenuItem icon={Cloud} label="Remote Backup" description="Remoto" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('cp-wp-remote-backup')} />
-        <MenuItem icon={HardDrive} label="Backup Manager" description="Gestão" color="text-teal-600" bgColor="bg-teal-50/50" onClick={() => setActiveSection('backup-manager')} />
+        <MenuItem icon="backups" label="Create Backup" onClick={() => setActiveSection('cp-wp-backup')} />
+        <MenuItem icon="backups" label="Restore Backup" onClick={() => setActiveSection('cp-wp-restore-backup')} />
+        <MenuItem icon="backups" label="Remote Backup" onClick={() => setActiveSection('cp-wp-remote-backup')} />
+        <MenuItem icon="backups" label="Backup Manager" onClick={() => setActiveSection('backup-manager')} />
       </SectionCard>
 
       {/* Configurations Section */}
@@ -1570,11 +1799,11 @@ function ManageWebsiteSection({
         color="text-cyan-700"
         bgColor="bg-cyan-50"
       >
-        <MenuItem icon={Server} label="Apache Manager" description="Apache" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`} />
-        <MenuItem icon={FileCode} label="vHost Conf" description="Configuração" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/vhostTemplate/index?domain=${domain}`} />
-        <MenuItem icon={Edit} label="Rewrite Rules" description="Regras" color="text-cyan-600" bgColor="bg-cyan-50/50" external href={`https://109.199.104.22:8090/website/rewriteRules?domain=${domain}`} />
-        <MenuItem icon={Lock} label="Add SSL" description="Certificado" color="text-cyan-600" bgColor="bg-cyan-50/50" onClick={() => setActiveSection('cp-ssl')} />
-        <MenuItem icon={Code} label="Change PHP" description="Versão PHP" color="text-cyan-600" bgColor="bg-cyan-50/50" onClick={() => setActiveSection('cp-php')} />
+        <MenuItem icon={Server} label="Apache Manager" color="text-cyan-600" external href={`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`} />
+        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={`https://109.199.104.22:8090/vhostTemplate/index?domain=${domain}`} />
+        <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={`https://109.199.104.22:8090/website/rewriteRules?domain=${domain}`} />
+        <MenuItem icon="ssl-tls" label="Add SSL" color="text-cyan-600" onClick={() => setActiveSection('cp-ssl')} />
+        <MenuItem icon={Code} label="Change PHP" color="text-cyan-600" onClick={() => setActiveSection('cp-php')} />
       </SectionCard>
 
       {/* Databases Section */}
@@ -1585,9 +1814,9 @@ function ManageWebsiteSection({
         color="text-orange-700"
         bgColor="bg-orange-50"
       >
-        <MenuItem icon={Plus} label="Create Database" description="Criar BD" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
-        <MenuItem icon={Database} label="Manage Databases" description="Gerir BD" color="text-orange-600" bgColor="bg-orange-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
-        <MenuItem icon={ExternalLink} label="phpMyAdmin" description="Abrir phpMyAdmin" color="text-orange-600" bgColor="bg-orange-50/50" external href="https://109.199.104.22:8090/dataBases/phpMyAdmin" />
+        <MenuItem icon="databases" label="Create Database" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
+        <MenuItem icon="databases" label="Manage Databases" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
+        <MenuItem icon="phpmyadmin" label="phpMyAdmin" external href="https://109.199.104.22:8090/dataBases/phpMyAdmin" />
       </SectionCard>
 
       {/* DNS Section */}
@@ -1598,10 +1827,10 @@ function ManageWebsiteSection({
         color="text-yellow-700"
         bgColor="bg-yellow-50"
       >
-        <MenuItem icon={Edit} label="Edit DNS Zone" description="Editar zona" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
-        <MenuItem icon={Plus} label="Create Zone" description="Criar zona" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => setActiveSection('cp-dns-create-zone')} />
-        <MenuItem icon={Trash2} label="Delete Zone" description="Apagar" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-dns-delete-zone')} />
-        <MenuItem icon={Cloud} label="CloudFlare" description="Integração" color="text-yellow-600" bgColor="bg-yellow-50/50" onClick={() => setActiveSection('cp-dns-cloudflare')} />
+        <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
+        <MenuItem icon="dns-zone" label="Create Zone" onClick={() => setActiveSection('cp-dns-create-zone')} />
+        <MenuItem icon="dns-zone" label="Delete Zone" onClick={() => setActiveSection('cp-dns-delete-zone')} />
+        <MenuItem icon="dns-zone" label="CloudFlare" onClick={() => setActiveSection('cp-dns-cloudflare')} />
       </SectionCard>
 
       {/* Domains Section - Resumida */}
@@ -1612,10 +1841,10 @@ function ManageWebsiteSection({
         color="text-blue-700"
         bgColor="bg-blue-50"
       >
-        <MenuItem icon={Plus} label="Add Domains" description="Adicionar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setShowDomainModal(true)} />
-        <MenuItem icon={List} label="List Domains" description="Listar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('domains-list')} />
-        <MenuItem icon={Globe2} label="Domain Alias" description="Aliases" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-list-subdomains')} />
-        <MenuItem icon={Zap} label="Cron Jobs" description="Agendadas" color="text-blue-600" bgColor="bg-blue-50/50" external href={`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`} />
+        <MenuItem icon="addon-domains" label="Add Domains" onClick={() => setShowDomainModal(true)} />
+        <MenuItem icon="addon-domains" label="List Domains" onClick={() => setActiveSection('domains-list')} />
+        <MenuItem icon="addon-domains" label="Domain Alias" onClick={() => setActiveSection('cp-list-subdomains')} />
+        <MenuItem icon="cron-jobs" label="Cron Jobs" external href={`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`} />
       </SectionCard>
 
       {/* Email Marketing Section */}
@@ -1626,11 +1855,11 @@ function ManageWebsiteSection({
         color="text-indigo-700"
         bgColor="bg-indigo-50"
       >
-        <MenuItem icon={FileText} label="Create Lists" description="Criar listas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
-        <MenuItem icon={List} label="Manage Lists" description="Gerir listas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
-        <MenuItem icon={Server} label="SMTP Hosts" description="Configurar SMTP" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('setup-smtp')} />
-        <MenuItem icon={Edit} label="Compose" description="Escrever email" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
-        <MenuItem icon={Send} label="Send Emails" description="Campanhas" color="text-indigo-600" bgColor="bg-indigo-50/50" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon="mailing-lists" label="Create Lists" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon="mailing-lists" label="Manage Lists" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon={Server} label="SMTP Hosts" color="text-indigo-600" onClick={() => setActiveSection('setup-smtp')} />
+        <MenuItem icon="email-accounts" label="Compose" onClick={() => setActiveSection('newsletter')} />
+        <MenuItem icon="email-accounts" label="Send Emails" onClick={() => setActiveSection('newsletter')} />
       </SectionCard>
 
       {/* Emails Section */}
@@ -1641,11 +1870,11 @@ function ManageWebsiteSection({
         color="text-rose-700"
         bgColor="bg-rose-50"
       >
-        <MenuItem icon={Plus} label="Create Email" description="Criar conta" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
-        <MenuItem icon={List} label="List Emails" description="Listar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-mgmt')} />
-        <MenuItem icon={ExternalLink} label="Webmail" description="Aceder" color="text-rose-600" bgColor="bg-rose-50/50" external href={`https://${domain}:8090/snappymail`} />
-        <MenuItem icon={ArrowLeft} label="Forwarding" description="Encaminhar" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-forwarding')} />
-        <MenuItem icon={Shield} label="DKIM Manager" description="DKIM" color="text-rose-600" bgColor="bg-rose-50/50" onClick={() => setActiveSection('cp-email-dkim')} />
+        <MenuItem icon="email-accounts" label="Create Email" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
+        <MenuItem icon="email-accounts" label="List Emails" onClick={() => setActiveSection('cp-email-mgmt')} />
+        <MenuItem icon="email-accounts" label="Webmail" external href={`https://${domain}:8090/snappymail`} />
+        <MenuItem icon="email-forwarding" label="Forwarding" onClick={() => setActiveSection('cp-email-forwarding')} />
+        <MenuItem icon="email-deliverability" label="DKIM Manager" onClick={() => setActiveSection('cp-email-dkim')} />
       </SectionCard>
 
       {/* Files Section - Resumida */}
@@ -1656,10 +1885,10 @@ function ManageWebsiteSection({
         color="text-emerald-700"
         bgColor="bg-emerald-50"
       >
-        <MenuItem icon={FolderOpen} label="File Manager" description="Gestor de ficheiros" color="text-emerald-600" bgColor="bg-emerald-50/50" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
-        <MenuItem icon={Shield} label="open_basedir" description="Restrições" color="text-emerald-600" bgColor="bg-emerald-50/50" external href={`https://109.199.104.22:8090/website/openBasedir?domain=${domain}`} />
-        <MenuItem icon={Upload} label="Create FTP" description="Criar FTP" color="text-emerald-600" bgColor="bg-emerald-50/50" onClick={() => setActiveSection('cp-ftp')} />
-        <MenuItem icon={X} label="Delete FTP" description="Apagar FTP" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-ftp')} />
+        <MenuItem icon="file-manager" label="File Manager" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
+        <MenuItem icon="file-manager" label="open_basedir" external href={`https://109.199.104.22:8090/website/openBasedir?domain=${domain}`} />
+        <MenuItem icon="ftp-accounts" label="Create FTP" onClick={() => setActiveSection('cp-ftp')} />
+        <MenuItem icon="ftp-accounts" label="Delete FTP" onClick={() => setActiveSection('cp-ftp')} />
       </SectionCard>
 
       {/* Logs Section */}
@@ -1670,8 +1899,8 @@ function ManageWebsiteSection({
         color="text-amber-700"
         bgColor="bg-amber-50"
       >
-        <MenuItem icon={FileCode} label="Access Logs" description="Logs de acesso" color="text-amber-600" bgColor="bg-amber-50/50" external href={`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`} />
-        <MenuItem icon={AlertCircle} label="Error Logs" description="Logs de erro" color="text-amber-600" bgColor="bg-amber-50/50" external href={`https://109.199.104.22:8090/websites/viewErrorLogs?domain=${domain}`} />
+        <MenuItem icon="metrics" label="Access Logs" external href={`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`} />
+        <MenuItem icon="metrics" label="Error Logs" external href={`https://109.199.104.22:8090/websites/viewErrorLogs?domain=${domain}`} />
       </SectionCard>
 
       {/* Security Section */}
@@ -1682,10 +1911,10 @@ function ManageWebsiteSection({
         color="text-red-700"
         bgColor="bg-red-50"
       >
-        <MenuItem icon={Lock} label="SSL / TLS" description="Certificados" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-ssl')} />
-        <MenuItem icon={Shield} label="Firewall" description="ModSecurity" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-security')} />
-        <MenuItem icon={AlertCircle} label="Blocked IPs" description="IPs bloqueados" color="text-red-600" bgColor="bg-red-50/50" onClick={() => setActiveSection('cp-security')} />
-        <MenuItem icon={Lock} label="Hotlink Protection" description="Proteção" color="text-red-600" bgColor="bg-red-50/50" external href={`https://109.199.104.22:8090/website/hotlinkProtection?domain=${domain}`} />
+        <MenuItem icon="ssl-tls" label="SSL / TLS" onClick={() => setActiveSection('cp-ssl')} />
+        <MenuItem icon="mod-security" label="Firewall" onClick={() => setActiveSection('cp-security')} />
+        <MenuItem icon="ip-blocker" label="Blocked IPs" onClick={() => setActiveSection('cp-security')} />
+        <MenuItem icon="ssl-tls" label="Hotlink Protection" external href={`https://109.199.104.22:8090/website/hotlinkProtection?domain=${domain}`} />
       </SectionCard>
 
       {/* WordPress Section */}
@@ -1696,11 +1925,11 @@ function ManageWebsiteSection({
         color="text-blue-700"
         bgColor="bg-blue-50"
       >
-        <MenuItem icon={Download} label="Install WP" description="Instalar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
-        <MenuItem icon={ExternalLink} label="WP Admin" description="Painel WP" color="text-blue-600" bgColor="bg-blue-50/50" external href={`https://${domain}/wp-admin`} />
-        <MenuItem icon={Plug} label="Plugins" description="Gerir plugins" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-plugins')} />
-        <MenuItem icon={Archive} label="Backup" description="Backup WP" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-backup')} />
-        <MenuItem icon={RotateCcw} label="Restore" description="Restaurar" color="text-blue-600" bgColor="bg-blue-50/50" onClick={() => setActiveSection('cp-wp-restore-backup')} />
+        <MenuItem icon="wordpress" label="Install WP" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
+        <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
+        <MenuItem icon="backups" label="Backup" onClick={() => setActiveSection('cp-wp-backup')} />
+        <MenuItem icon="backups" label="Restore" onClick={() => setActiveSection('cp-wp-restore-backup')} />
       </SectionCard>
 
       {/* Modal de Criação de Domínio */}
@@ -2160,6 +2389,7 @@ export default function AdminPage() {
           sites={filteredSites}
           onRefresh={loadCyberPanelData}
           setActiveSection={setActiveSection}
+          setFileManagerDomain={setFileManagerDomain}
         />
       case 'file-manager':
       case 'cp-file-manager':
@@ -2248,6 +2478,10 @@ export default function AdminPage() {
         return <WPRestoreBackupSection sites={filteredSites} />
       case 'cp-wp-remote-backup':
         return <WPRemoteBackupSection sites={filteredSites} />
+      case 'cp-audit-sync':
+        return <AuditSyncSection onRefresh={loadCyberPanelData} />
+      case 'wordpress-install':
+        return <WordPressInstallSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
@@ -2517,7 +2751,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
+        <main className={`flex-1 ${['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>

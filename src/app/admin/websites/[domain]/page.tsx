@@ -31,7 +31,7 @@ interface WebsiteData {
 interface MenuItem {
   id: string
   label: string
-  icon: React.ElementType
+  icon: React.ElementType | string // Can be a component or an identifier for custom SVG
   description?: string
   color?: string
   onClick?: () => void
@@ -67,52 +67,52 @@ function SectionCard({ section, domain }: { section: SectionData; domain: string
   const Icon = section.icon
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
       {/* Header */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
       >
         <div className="flex items-center gap-3">
           <div className={`${section.bgColor} ${section.color} p-2 rounded-lg`}>
             <Icon className="w-5 h-5" />
           </div>
-          <div>
-            <h3 className="font-bold text-gray-800 text-sm">{section.title}</h3>
-            <span className="text-xs text-gray-400">{section.items.length} opções</span>
-          </div>
+          <h3 className="font-bold text-gray-800 text-base tracking-tight">{section.title}</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${section.color.replace('text-', 'bg-').replace('-700', '-500').replace('-600', '-500')}`}></span>
+        <div className="flex items-center gap-2 text-gray-400">
+          <span className="text-xs font-medium">{section.items.length} itens</span>
           {isCollapsed ? (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <ChevronRight className="w-4 h-4" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-gray-400 rotate-90" />
+            <ChevronRight className="w-4 h-4 rotate-90" />
           )}
         </div>
       </button>
 
       {/* Content */}
       {!isCollapsed && (
-        <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="p-6 bg-[#f8fafc]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
             {section.items.map((item) => {
               const ItemIcon = item.icon
               const isExternal = item.external
 
               const content = (
-                <div className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all group text-center bg-gray-50/50">
-                  <div className={`${item.color || section.color} p-2.5 rounded-lg bg-white shadow-sm group-hover:scale-110 transition-transform`}>
-                    <ItemIcon className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-xs text-gray-700 font-semibold leading-tight block">{item.label}</span>
-                    {item.description && (
-                      <span className="text-[10px] text-gray-400 block">{item.description}</span>
+                <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[140px]">
+                  <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+                    {typeof ItemIcon === 'string' ? (
+                      <CyberIcon name={ItemIcon} className="w-16 h-16" />
+                    ) : (
+                      <ItemIcon className={cn("w-12 h-12", item.color || section.color)} />
                     )}
                   </div>
+                  
+                  <span className="text-[13px] font-bold text-[#2d5a8e] group-hover:text-blue-600 transition-colors text-center leading-tight">
+                    {item.label}
+                  </span>
+
                   {item.badge && (
-                    <span className="absolute top-2 right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                    <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-sm z-10">
                       {item.badge}
                     </span>
                   )}
@@ -126,7 +126,7 @@ function SectionCard({ section, domain }: { section: SectionData; domain: string
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative"
+                    className="block"
                   >
                     {content}
                   </a>
@@ -138,7 +138,7 @@ function SectionCard({ section, domain }: { section: SectionData; domain: string
                   <Link
                     key={item.id}
                     href={item.href}
-                    className="relative"
+                    className="block"
                   >
                     {content}
                   </Link>
@@ -149,7 +149,7 @@ function SectionCard({ section, domain }: { section: SectionData; domain: string
                 <button
                   key={item.id}
                   onClick={item.onClick}
-                  className="relative text-left"
+                  className="block w-full text-center"
                 >
                   {content}
                 </button>
@@ -329,172 +329,96 @@ export default function ManageWebsitePage() {
   // ============================================================
   const sections: SectionData[] = [
     {
-      id: 'email',
-      title: 'EMAIL MARKETING',
+      id: 'email-mgmt',
+      title: 'EMAIL',
       icon: Mail,
-      color: 'text-indigo-700',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200',
-      items: [
-        { id: 'create-lists', label: 'Create Lists', icon: FileText, description: 'Criar listas de email', color: 'text-indigo-600', onClick: () => router.push('/admin/mensagens?tab=subscritores') },
-        { id: 'manage-lists', label: 'Manage Lists', icon: List, description: 'Gerir subscritores', color: 'text-indigo-600', onClick: () => router.push('/admin/mensagens?tab=subscritores') },
-        { id: 'smtp-hosts', label: 'SMTP Hosts', icon: Server, description: 'Configurar SMTP', color: 'text-indigo-600', onClick: () => router.push('/admin/setup-smtp') },
-        { id: 'compose', label: 'Compose', icon: Edit, description: 'Escrever email', color: 'text-indigo-600', onClick: () => router.push('/admin/mensagens') },
-        { id: 'send-emails', label: 'Send Emails', icon: SendIcon, description: 'Campanhas de email', color: 'text-indigo-600', onClick: () => router.push('/admin/mensagens?tab=campanhas') },
-      ]
-    },
-    {
-      id: 'logs',
-      title: 'LOGS',
-      icon: FileText,
-      color: 'text-amber-700',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200',
-      items: [
-        { id: 'access-logs', label: 'Access Logs', icon: FileCode, description: 'Logs de acesso', color: 'text-amber-600', onClick: () => window.open(`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`, '_blank') },
-        { id: 'error-logs', label: 'Error Logs', icon: AlertCircle, description: 'Logs de erro', color: 'text-amber-600', onClick: () => window.open(`https://109.199.104.22:8090/websites/viewErrorLogs?domain=${domain}`, '_blank') },
-      ]
-    },
-    {
-      id: 'domains',
-      title: 'DOMAINS',
-      icon: Globe,
       color: 'text-blue-700',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       items: [
-        { id: 'add-domains', label: 'Add Domains', icon: Plus, description: 'Adicionar domínio', color: 'text-blue-600', onClick: () => router.push('/admin?page=domains-new') },
-        { id: 'list-domains', label: 'List Domains', icon: List, description: 'Listar websites', color: 'text-blue-600', onClick: () => router.push('/admin?page=domains-list') },
-        { id: 'domain-alias', label: 'Domain Alias', icon: Globe2, description: 'Aliases de domínio', color: 'text-blue-600', onClick: () => router.push('/admin?page=cp-list-subdomains') },
-        { id: 'cron-jobs', label: 'Cron Jobs', icon: Zap, description: 'Tarefas agendadas', color: 'text-blue-600', onClick: () => window.open(`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`, '_blank') },
-      ]
-    },
-    {
-      id: 'configurations',
-      title: 'CONFIGURATIONS',
-      icon: Settings,
-      color: 'text-cyan-700',
-      bgColor: 'bg-cyan-50',
-      borderColor: 'border-cyan-200',
-      items: [
-        { id: 'apache-manager', label: 'Apache Manager', icon: Server, description: 'Gestão Apache', color: 'text-cyan-600', onClick: () => window.open(`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`, '_blank') },
-        { id: 'vhost-conf', label: 'vHost Conf', icon: FileCode, description: 'Configuração vHost', color: 'text-cyan-600', onClick: () => window.open(`https://109.199.104.22:8090/vhostTemplate/index?domain=${domain}`, '_blank') },
-        { id: 'rewrite-rules', label: 'Rewrite Rules', icon: Edit, description: 'Regras de rewrite', color: 'text-cyan-600', onClick: () => window.open(`https://109.199.104.22:8090/website/rewriteRules?domain=${domain}`, '_blank') },
-        { id: 'add-ssl', label: 'Add SSL', icon: Lock, description: 'Adicionar SSL', color: 'text-cyan-600', onClick: () => router.push('/admin?page=cp-ssl') },
-        { id: 'change-php', label: 'Change PHP', icon: Code, description: 'Alterar versão PHP', color: 'text-cyan-600', onClick: () => router.push('/admin?page=cp-php') },
+        { id: 'email-accounts', label: 'Email Accounts', icon: 'email-accounts', onClick: () => router.push('/admin?page=emails-new') },
+        { id: 'email-forwarding', label: 'Forwarding', icon: 'email-forwarding', onClick: () => router.push('/admin?page=cp-email-forwarding') },
+        { id: 'email-deliverability', label: 'Deliverability', icon: 'email-deliverability', onClick: () => router.push('/admin?page=cp-email-dkim') },
+        { id: 'mailing-lists', label: 'Mailing Lists', icon: 'mailing-lists', onClick: () => router.push('/admin/mensagens?tab=subscritores') },
+        { id: 'mx-entry', label: 'MX Entry', icon: 'mx-entry', onClick: () => router.push(`/admin?page=domains-dns&domain=${domain}`) },
       ]
     },
     {
       id: 'files',
       title: 'FILES',
       icon: FolderOpen,
-      color: 'text-emerald-700',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
+      color: 'text-orange-700',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
       items: [
-        { id: 'file-manager', label: 'File Manager', icon: FolderOpen, description: 'Gestor de ficheiros', color: 'text-emerald-600', onClick: () => router.push(`/admin?page=file-manager&domain=${domain}`) },
-        { id: 'open-basedir', label: 'open_basedir', icon: Shield, description: 'Restrições PHP', color: 'text-emerald-600', onClick: () => window.open(`https://109.199.104.22:8090/website/openBasedir?domain=${domain}`, '_blank') },
-        { id: 'create-ftp', label: 'Create FTP Acct', icon: Upload, description: 'Criar conta FTP', color: 'text-emerald-600', onClick: () => router.push('/admin?page=cp-ftp') },
-        { id: 'delete-ftp', label: 'Delete FTP Acct', icon: X, description: 'Apagar conta FTP', color: 'text-red-600', onClick: () => router.push('/admin?page=cp-ftp') },
+        { id: 'file-manager', label: 'File Manager', icon: 'file-manager', onClick: () => router.push(`/admin?page=file-manager&domain=${domain}`) },
+        { id: 'ftp-accounts', label: 'FTP Accounts', icon: 'ftp-accounts', onClick: () => router.push('/admin?page=cp-ftp') },
+        { id: 'disk-usage', label: 'Disk Usage', icon: 'disk-usage', onClick: () => router.push(`/admin?page=file-manager&domain=${domain}`) },
+        { id: 'git-version', label: 'Git Version Control', icon: 'git-version', onClick: () => router.push('/admin?page=git-deploy') },
+        { id: 'backups', label: 'Backups', icon: 'backups', onClick: () => router.push('/admin?page=backup-manager') },
       ]
     },
     {
       id: 'databases',
       title: 'DATABASES',
       icon: Database,
-      color: 'text-orange-700',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200',
+      color: 'text-amber-700',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200',
       items: [
-        { id: 'create-db', label: 'Create Database', icon: Plus, description: 'Criar base de dados', color: 'text-orange-600', onClick: () => router.push('/admin?page=cp-databases') },
-        { id: 'manage-db', label: 'Manage Databases', icon: Database, description: 'Gerir bases de dados', color: 'text-orange-600', onClick: () => router.push('/admin?page=cp-databases') },
-        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: ExternalLink, description: 'Abrir phpMyAdmin', color: 'text-orange-600', external: true, href: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
+        { id: 'create-db', label: 'Databases', icon: 'databases', onClick: () => router.push('/admin?page=cp-databases') },
+        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
       ]
     },
     {
-      id: 'email-mgmt',
-      title: 'EMAILS',
-      icon: Mail,
-      color: 'text-rose-700',
-      bgColor: 'bg-rose-50',
-      borderColor: 'border-rose-200',
-      items: [
-        { id: 'create-email', label: 'Create Email', icon: Plus, description: 'Criar conta de email', color: 'text-rose-600', onClick: () => router.push('/admin?page=emails-new') },
-        { id: 'list-emails', label: 'List Emails', icon: List, description: 'Listar contas', color: 'text-rose-600', onClick: () => router.push('/admin?page=cp-email-mgmt') },
-        { id: 'webmail', label: 'Webmail', icon: ExternalLink, description: 'Aceder webmail', color: 'text-rose-600', external: true, href: `https://${domain}:8090/snappymail` },
-        { id: 'email-forwarding', label: 'Forwarding', icon: ArrowLeft, description: 'Encaminhamento', color: 'text-rose-600', onClick: () => router.push('/admin?page=cp-email-forwarding') },
-        { id: 'dkim', label: 'DKIM Manager', icon: Shield, description: 'Gestão DKIM', color: 'text-rose-600', onClick: () => router.push('/admin?page=cp-email-dkim') },
-      ]
-    },
-    {
-      id: 'wordpress',
-      title: 'WORDPRESS',
-      icon: Globe2,
+      id: 'domains-section',
+      title: 'DOMAINS',
+      icon: Globe,
       color: 'text-blue-700',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       items: [
-        { id: 'wp-install', label: 'Install WP', icon: Download, description: 'Instalar WordPress', color: 'text-blue-600', onClick: () => router.push('/admin?page=wordpress-install'), badge: '1-CLICK' },
-        { id: 'wp-admin', label: 'WP Admin', icon: ExternalLink, description: 'Painel WordPress', color: 'text-blue-600', external: true, href: `https://${domain}/wp-admin` },
-        { id: 'wp-plugins', label: 'Plugins', icon: Plug, description: 'Gerir plugins', color: 'text-blue-600', onClick: () => router.push('/admin?page=cp-wp-plugins') },
-        { id: 'wp-backup', label: 'Backup', icon: Archive, description: 'Backup WordPress', color: 'text-blue-600', onClick: () => router.push('/admin?page=cp-wp-backup') },
-        { id: 'wp-restore', label: 'Restore', icon: RotateCcw, description: 'Restaurar backup', color: 'text-blue-600', onClick: () => router.push('/admin?page=cp-wp-restore-backup') },
+        { id: 'addon-domains', label: 'Addon Domains', icon: 'addon-domains', onClick: () => router.push('/admin?page=domains-new') },
+        { id: 'dns-zone', label: 'DNS Zone Editor', icon: 'dns-zone', onClick: () => router.push(`/admin?page=domains-dns&domain=${domain}`) },
+        { id: 'domain-alias', label: 'Domain Aliases', icon: 'domain-alias', onClick: () => router.push('/admin?page=cp-list-subdomains') },
+        { id: 'domain-redirects', label: 'Redirects', icon: 'domain-redirects', onClick: () => router.push('/admin?page=cp-list-subdomains') },
       ]
     },
     {
-      id: 'apps',
-      title: '1-CLICK APPS',
-      icon: Zap,
-      color: 'text-violet-700',
-      bgColor: 'bg-violet-50',
-      borderColor: 'border-violet-200',
-      items: [
-        { id: 'app-wordpress', label: 'WordPress', icon: Globe2, description: 'CMS mais popular', color: 'text-blue-600', onClick: () => router.push('/admin?page=wordpress-install'), badge: '1-CLICK' },
-        { id: 'app-git', label: 'Git Integration', icon: GitIcon, description: 'Version control', color: 'text-orange-600', onClick: () => router.push('/admin?page=git-deploy') },
-        { id: 'app-prestashop', label: 'PrestaShop', icon: ShopIcon, description: 'E-commerce profissional', color: 'text-pink-600', onClick: () => router.push('/admin?page=wordpress-install'), badge: 'E-COMMERCE' },
-        { id: 'app-mautic', label: 'Mautic', icon: Mail, description: 'Marketing automation', color: 'text-purple-600', onClick: () => router.push('/admin?page=wordpress-install') },
-      ]
-    },
-    {
-      id: 'security',
+      id: 'security-section',
       title: 'SECURITY',
       icon: Shield,
       color: 'text-red-700',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
       items: [
-        { id: 'ssl-tls', label: 'SSL / TLS', icon: Lock, description: 'Certificados SSL', color: 'text-red-600', onClick: () => router.push('/admin?page=cp-ssl') },
-        { id: 'firewall', label: 'Firewall', icon: Shield, description: 'ModSecurity', color: 'text-red-600', onClick: () => router.push('/admin?page=cp-security') },
-        { id: 'blocked-ips', label: 'Blocked IPs', icon: AlertCircle, description: 'IPs bloqueados', color: 'text-red-600', onClick: () => router.push('/admin?page=cp-security') },
-        { id: 'hotlink', label: 'Hotlink Protection', icon: Lock, description: 'Proteção hotlink', color: 'text-red-600', onClick: () => window.open(`https://109.199.104.22:8090/website/hotlinkProtection?domain=${domain}`, '_blank') },
+        { id: 'ssl-tls', label: 'SSL / TLS', icon: 'ssl-tls', onClick: () => router.push('/admin?page=cp-ssl') },
+        { id: 'ip-blocker', label: 'IP Blocker', icon: 'ip-blocker', onClick: () => router.push('/admin?page=cp-security') },
+        { id: 'mod-security', label: 'ModSecurity', icon: 'mod-security', onClick: () => router.push('/admin?page=cp-security') },
       ]
     },
     {
-      id: 'backup',
-      title: 'BACKUP',
-      icon: Archive,
-      color: 'text-teal-700',
-      bgColor: 'bg-teal-50',
-      borderColor: 'border-teal-200',
+      id: 'metrics-section',
+      title: 'METRICS',
+      icon: Monitor,
+      color: 'text-gray-700',
+      bgColor: 'bg-gray-50',
+      borderColor: 'border-gray-200',
       items: [
-        { id: 'create-backup', label: 'Create Backup', icon: Download, description: 'Criar backup', color: 'text-teal-600', onClick: () => router.push('/admin?page=cp-wp-backup') },
-        { id: 'restore-backup', label: 'Restore Backup', icon: RotateCcw, description: 'Restaurar backup', color: 'text-teal-600', onClick: () => router.push('/admin?page=cp-wp-restore-backup') },
-        { id: 'remote-backup', label: 'Remote Backup', icon: Cloud, description: 'Backup remoto', color: 'text-teal-600', onClick: () => router.push('/admin?page=cp-wp-remote-backup') },
-        { id: 'backup-manager', label: 'Backup Manager', icon: HardDrive, description: 'Gestão de backups', color: 'text-teal-600', onClick: () => router.push('/admin?page=backup-manager') },
+        { id: 'metrics', label: 'Metrics', icon: 'metrics', onClick: () => window.open(`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`, '_blank') },
+        { id: 'cron-jobs', label: 'Cron Jobs', icon: 'cron-jobs', onClick: () => window.open(`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`, '_blank') },
       ]
     },
     {
-      id: 'dns',
-      title: 'DNS',
-      icon: Server,
-      color: 'text-yellow-700',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
+      id: 'apps',
+      title: 'SOFTWARE',
+      icon: Zap,
+      color: 'text-violet-700',
+      bgColor: 'bg-violet-50',
+      borderColor: 'border-violet-200',
       items: [
-        { id: 'edit-dns', label: 'Edit DNS Zone', icon: Edit, description: 'Editar zona DNS', color: 'text-yellow-600', onClick: () => router.push(`/admin?page=domains-dns&domain=${domain}`) },
-        { id: 'create-zone', label: 'Create Zone', icon: Plus, description: 'Criar zona DNS', color: 'text-yellow-600', onClick: () => router.push('/admin?page=cp-dns-create-zone') },
-        { id: 'delete-zone', label: 'Delete Zone', icon: Trash2, description: 'Apagar zona', color: 'text-red-600', onClick: () => router.push('/admin?page=cp-dns-delete-zone') },
-        { id: 'cloudflare', label: 'CloudFlare', icon: Cloud, description: 'Integração CF', color: 'text-yellow-600', onClick: () => router.push('/admin?page=cp-dns-cloudflare') },
+        { id: 'app-wordpress', label: 'WordPress', icon: 'wordpress', onClick: () => router.push('/admin?page=wordpress-install'), badge: '1-CLICK' },
+        { id: 'applications', label: 'Applications', icon: 'applications', onClick: () => router.push('/admin?page=wordpress-install') },
       ]
     },
   ]
@@ -597,8 +521,149 @@ export default function ManageWebsitePage() {
 }
 
 // ============================================================
-// CUSTOM ICONS
+// CUSTOM ICONS (CYBERPANEL STYLE)
 // ============================================================
+function CyberIcon({ name, className }: { name: string; className?: string }) {
+  // Mapping of IDs to colorful SVGs matching the reference image
+  switch (name) {
+    case 'email-accounts':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
+          <path d="M8 16L32 36L56 16" stroke="#fff" strokeWidth="2" fill="none" />
+        </svg>
+      )
+    case 'email-forwarding':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="4" y="12" width="36" height="24" rx="2" fill="#E0E0E0" />
+          <rect x="24" y="28" width="36" height="24" rx="2" fill="#FFB74D" />
+          <path d="M40 22L46 28L40 34" stroke="#4CAF50" strokeWidth="3" fill="none" />
+        </svg>
+      )
+    case 'email-deliverability':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
+          <circle cx="52" cy="44" r="10" fill="#90CAF9" />
+          <path d="M48 44L51 47L56 41" stroke="#1565C0" strokeWidth="2" fill="none" />
+        </svg>
+      )
+    case 'file-manager':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <path d="M8 12h16l4 4h28v36H8z" fill="#FFD54F" />
+          <circle cx="52" cy="52" r="10" fill="#90CAF9" />
+          <path d="M52 48v8M48 52h8" stroke="#1565C0" strokeWidth="2" />
+        </svg>
+      )
+    case 'ftp-accounts':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <path d="M12 12h40v40H12z" fill="#FFB74D" />
+          <path d="M32 20v24M24 28l8-8 8 8" stroke="#fff" strokeWidth="4" fill="none" />
+        </svg>
+      )
+    case 'disk-usage':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="16" width="40" height="32" rx="4" fill="#E0E0E0" />
+          <circle cx="52" cy="32" r="12" fill="#4285F4" />
+          <path d="M52 32L52 20A12 12 0 0 1 52 44Z" fill="#fff" opacity="0.3" />
+        </svg>
+      )
+    case 'databases':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFB74D" />
+          <path d="M12 16v32c0 4.4 9 8 20 8s20-3.6 20-8V16" fill="#FFD54F" />
+          <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFEE58" />
+        </svg>
+      )
+    case 'addon-domains':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <circle cx="32" cy="32" r="24" fill="#4285F4" />
+          <path d="M32 8c13 0 24 11 24 24S45 56 32 56 8 45 8 32 19 8 32 8" fill="none" stroke="#fff" strokeWidth="2" opacity="0.5" />
+          <circle cx="52" cy="52" r="10" fill="#66BB6A" />
+          <path d="M52 48v8M48 52h8" stroke="#fff" strokeWidth="2" />
+        </svg>
+      )
+    case 'dns-zone':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <path d="M32 8l24 40H8z" fill="#90CAF9" />
+          <circle cx="32" cy="36" r="8" fill="#4285F4" />
+          <circle cx="52" cy="52" r="10" fill="#64B5F6" />
+        </svg>
+      )
+    case 'ssl-tls':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="24" width="40" height="28" rx="4" fill="#FF7043" />
+          <path d="M20 24V16a12 12 0 0 1 24 0v8" stroke="#E0E0E0" strokeWidth="6" fill="none" />
+        </svg>
+      )
+    case 'wordpress':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <circle cx="32" cy="32" r="30" fill="#21759b" />
+          <path d="M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm15 39l-6-17 5-13a22 22 0 0 1 1 30zm-15 2a21 21 0 0 1-13-4l9-25 4 11v18zm-2-33l-5 13-5-13a21 21 0 0 1 10 0zm-14 3a22 22 0 0 1 13-1l-9 25-4-24z" fill="#fff" />
+        </svg>
+      )
+    case 'backups':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="16" width="40" height="32" rx="4" fill="#BDBDBD" />
+          <circle cx="52" cy="48" r="10" fill="#4285F4" />
+          <path d="M52 42a6 6 0 1 0 0 12" stroke="#fff" strokeWidth="2" fill="none" />
+        </svg>
+      )
+    case 'git-version':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="12" width="40" height="40" rx="4" fill="#F05032" />
+          <path d="M24 32l8-8 8 8M32 24v16" stroke="#fff" strokeWidth="4" fill="none" />
+        </svg>
+      )
+    case 'mod-security':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="12" width="40" height="40" rx="4" fill="#FFD54F" />
+          <path d="M32 20V44M20 32H44" stroke="#4285F4" strokeWidth="4" />
+          <circle cx="52" cy="52" r="10" fill="#90CAF9" />
+        </svg>
+      )
+    case 'ip-blocker':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <circle cx="32" cy="32" r="24" stroke="#F44336" strokeWidth="6" fill="none" />
+          <path d="M15 15l34 34" stroke="#F44336" strokeWidth="6" />
+          <text x="32" y="38" textAnchor="middle" fill="#F44336" fontSize="12" fontWeight="bold">IP</text>
+        </svg>
+      )
+    case 'cron-jobs':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="12" y="12" width="40" height="40" rx="4" fill="#66BB6A" />
+          <circle cx="48" cy="48" r="12" fill="#fff" />
+          <path d="M48 40v8h6" stroke="#333" strokeWidth="2" fill="none" />
+        </svg>
+      )
+    case 'metrics':
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <rect x="8" y="16" width="48" height="32" fill="#fff" stroke="#E0E0E0" strokeWidth="2" />
+          <rect x="14" y="32" width="8" height="12" fill="#90CAF9" />
+          <rect x="28" y="24" width="8" height="20" fill="#FFB74D" />
+          <rect x="42" y="28" width="8" height="16" fill="#66BB6A" />
+        </svg>
+      )
+    default:
+      return <Globe className={className} />
+  }
+}
+
 function SendIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -33,6 +33,7 @@ const menuItems: MenuItem[] = [
     subItems: [
       { id: 'cp-client-permissions', label: 'Painel do Cliente' },
       { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
+      { id: 'cp-users', label: 'Utilizadores' },
     ]
   },
   {
@@ -54,7 +55,7 @@ const menuItems: MenuItem[] = [
       { id: 'cp-subdomains', label: 'Criar Subdomínio' },
       { id: 'cp-suspend-website', label: 'Suspender' },
       { id: 'domains-dns', label: 'Configurar DNS' },
-      { id: 'dns-central', label: 'DNS Central' },
+      { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
     ]
   },
   {
@@ -177,9 +178,9 @@ export function AdminSidebar({
               (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
               (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
               (item.id === 'newsletter' && activeSection === 'newsletter') ||
-              (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions'].includes(activeSection)) ||
-              (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website'].includes(activeSection)) ||
-              (item.id === 'gestao-sites' && ['domains', 'packages-list', 'cp-users'].includes(activeSection)) ||
+              (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) ||
+              (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website', 'cp-dns-nameserver'].includes(activeSection)) ||
+              (item.id === 'gestao-sites' && ['domains', 'packages-list'].includes(activeSection)) ||
               (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
               (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));

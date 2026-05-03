@@ -6,7 +6,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
-async function execSSH(command: string): Promise<string> {
+async function execSSH(command: string, timeoutMs: number = 20000): Promise<string> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let out = '';
@@ -20,24 +20,23 @@ async function execSSH(command: string): Promise<string> {
     const privateKey = rawKey.replace(/\\n/g, '\n');
     const host = process.env.CYBERPANEL_IP || '109.199.104.22';
 
-    console.log('[SSH] Connecting to', host, '- Key length:', privateKey.length);
-    console.log('[SSH] Key starts with:', privateKey.substring(0, 50));
+    console.log('[SSH] Connecting to', host, '- Timeout:', timeoutMs, 'ms');
     console.log('[SSH] Command:', command.substring(0, 150));
 
     // Set a timeout for the entire operation
     const timeout = setTimeout(() => {
       conn.end();
-      reject(new Error('SSH operation timed out after 20 seconds'));
-    }, 20000);
+      reject(new Error(`SSH operation timed out after ${timeoutMs / 1000} seconds`));
+    }, timeoutMs);
 
     conn.on('ready', () => {
-      clearTimeout(timeout);
       console.log('[SSH] Connected! Executing command...');
       conn.exec(command, (err, stream) => {
         if (err) { conn.end(); return reject(err); }
         stream.on('data', (d: Buffer) => { out += d.toString(); });
         stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
         stream.on('close', () => { 
+          clearTimeout(timeout);
           console.log('[SSH] Command finished. Output length:', out.length);
           conn.end(); 
           resolve(out); 
@@ -48,14 +47,13 @@ async function execSSH(command: string): Promise<string> {
     conn.on('error', (err) => {
       clearTimeout(timeout);
       console.error('[SSH] Connection ERROR:', err.message);
-      // Melhorar mensagem de erro para o usuário
       let errorMessage = err.message;
       if (err.message.includes('handshake')) {
-        errorMessage = 'Falha na conexão SSH: handshake timeout. Verifique se a chave SSH está configurada corretamente no servidor CyberPanel (109.199.104.22) e se a porta 22 está aberta.';
+        errorMessage = 'Falha na conexão SSH: handshake timeout.';
       } else if (err.message.includes('connect')) {
-        errorMessage = 'Não foi possível conectar ao servidor. Verifique se o IP 109.199.104.22 está acessível e se o serviço SSH está em execução.';
+        errorMessage = 'Não foi possível conectar ao servidor CyberPanel.';
       } else if (err.message.includes('authentication')) {
-        errorMessage = 'Autenticação SSH falhou. Verifique se a chave privada está correta e se o usuário root tem acesso via SSH.';
+        errorMessage = 'Autenticação SSH falhou.';
       }
       reject(new Error(errorMessage));
     });
@@ -68,11 +66,6 @@ async function execSSH(command: string): Promise<string> {
       readyTimeout: 15000,
       keepaliveInterval: 5000,
       keepaliveCountMax: 3,
-      debug: (msg: string) => {
-        if (msg.includes('error') || msg.includes('fail') || msg.includes('timeout')) {
-          console.log('[SSH Debug]', msg);
-        }
-      }
     });
   });
 }
@@ -89,16 +82,162 @@ export async function POST(req: NextRequest) {
     }
     
     let data: any = {};
+    
+    // Helper to log audit results
+    const auditLogs: string[] = [];
+    const logAudit = (msg: string) => {
+      console.log(`[AUDIT] ${msg}`);
+      auditLogs.push(msg);
+    };
 
     switch (action) {
 
-      case 'listWebsites': {
-        // Listar todos os sites via MYSQL directo (muito mais rápido que o script python)
-        const sitesRaw = await execSSH(`mysql cyberpanel -e "SELECT domain, adminEmail, package_id, state FROM websiteFunctions_websites;" -B -N 2>/dev/null`);
+      case 'fullSync': {
+        logAudit('Iniciando auditoria completa e sincronização...');
+        
+        // 1. Sincronizar Pacotes
+        logAudit('Sincronizando pacotes...');
+        const pkgsRaw = await execSSH(`mysql cyberpanel -e "SELECT packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" -B -N 2>/dev/null`);
+        const pkgs = pkgsRaw.split('\n').filter(Boolean).map(line => {
+          const [name, disk, bw, emails, dbs, ftp, domains] = line.split('\t');
+          return {
+            package_name: name,
+            disk_space: parseInt(disk || '1000'),
+            bandwidth: parseInt(bw || '1000'),
+            email_accounts: parseInt(emails || '10'),
+            databases: parseInt(dbs || '5'),
+            ftp_accounts: parseInt(ftp || '5'),
+            allowed_domains: parseInt(domains || '1'),
+            synced_at: new Date().toISOString()
+          };
+        });
+        
+        for (const pkg of pkgs) {
+          await supabaseAdmin.from('cyberpanel_packages').upsert(pkg, { onConflict: 'package_name' });
+        }
+        logAudit(`${pkgs.length} pacotes sincronizados.`);
 
-        const sites = sitesRaw.split('\n').filter(Boolean).map(line => {
-          const [domain, adminEmail, pkg, state] = line.split('\t');
-          return { domain, adminEmail, package: pkg, state };
+        // 2. Sincronizar Utilizadores
+        logAudit('Sincronizando utilizadores...');
+        const usersRaw = await execSSH(`mysql cyberpanel -e "SELECT userName, email, type, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+        const users = usersRaw.split('\n').filter(Boolean).map(line => {
+          const [userName, email, type, firstName, lastName] = line.split('\t');
+          return {
+            username: userName,
+            email: email,
+            acl: type,
+            first_name: firstName || '',
+            last_name: lastName || '',
+            synced_at: new Date().toISOString()
+          };
+        });
+        
+        for (const user of users) {
+          await supabaseAdmin.from('cyberpanel_users').upsert(user, { onConflict: 'username' });
+        }
+        logAudit(`${users.length} utilizadores sincronizados.`);
+
+        // 3. Sincronizar Websites e Activar Suspended
+        logAudit('Sincronizando websites e verificando estado...');
+        const sitesQuery = `
+          SELECT w.domain, w.adminEmail, p.packageName, w.state, u.userName 
+          FROM websiteFunctions_websites w 
+          LEFT JOIN packages_package p ON w.package_id = p.id 
+          LEFT JOIN loginSystem_administrator u ON w.admin_id = u.id;
+        `;
+        const sitesRaw = await execSSH(`mysql cyberpanel -e "${sitesQuery}" -B -N 2>/dev/null`);
+        const sites = sitesRaw.split('\n').filter(Boolean).map(line => line.split('\t'));
+        
+        let activatedCount = 0;
+        
+        // Obter tipos de sites para o sync completo
+        const checkScript = `
+for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websites;" 2>/dev/null); do
+  wp_config=$([ -f /home/$domain/public_html/wp-config.php ] && echo "1" || echo "0")
+  wp_content=$([ -d /home/$domain/public_html/wp-content ] && echo "1" || echo "0")
+  next_config=$([ -f /home/$domain/public_html/next.config.js ] || [ -f /home/$domain/public_html/next.config.ts ] && echo "1" || echo "0")
+  next_folder=$([ -d /home/$domain/public_html/.next ] || [ -d /home/$domain/public_html/src ] && echo "1" || echo "0")
+  package_json=$([ -f /home/$domain/public_html/package.json ] && echo "1" || echo "0")
+  index_html=$([ -f /home/$domain/public_html/index.html ] && echo "1" || echo "0")
+  index_php=$([ -f /home/$domain/public_html/index.php ] && echo "1" || echo "0")
+  
+  wp_score=$((wp_config + wp_content))
+  next_score=$((next_config + next_folder + package_json))
+  basic_score=$((index_html + index_php))
+  
+  if [ $wp_score -ge 1 ]; then type="wordpress";
+  elif [ $next_score -ge 2 ]; then type="nextjs";
+  elif [ $basic_score -ge 1 ]; then type="html";
+  else type="empty"; fi
+  echo "$domain|$type"
+done
+`;
+        const typesRaw = await execSSH(checkScript);
+        const siteTypes: Record<string, string> = {};
+        typesRaw.split('\n').filter(Boolean).forEach(line => {
+          const [d, t] = line.split('|');
+          if (d) siteTypes[d] = t;
+        });
+
+        for (const [domain, email, pkg, state, owner] of sites) {
+          if (state === '1') {
+            logAudit(`⚠️ Site ${domain} está suspenso. Activando...`);
+            await execSSH(`cyberpanel unsuspendWebsite --domainName ${domain}`);
+            activatedCount++;
+          }
+          
+          await supabaseAdmin.from('cyberpanel_sites').upsert({
+            domain,
+            admin_email: email,
+            package: pkg || 'Default',
+            status: 'Active', 
+            owner: owner || 'admin',
+            site_type: siteTypes[domain] || 'empty',
+            synced_at: new Date().toISOString()
+          }, { onConflict: 'domain' });
+        }
+        
+        logAudit(`${sites.length} websites sincronizados. ${activatedCount} reactivados.`);
+        
+        return NextResponse.json({ 
+          success: true, 
+          data: { 
+            logs: auditLogs,
+            counts: {
+              packages: pkgs.length,
+              users: users.length,
+              sites: sites.length,
+              activated: activatedCount
+            }
+          } 
+        });
+      }
+
+      case 'listWebsites': {
+        // Listar todos os sites via MYSQL directo com JOINS para performance e dados completos
+        const query = `SELECT w.domain, w.adminEmail, p.packageName, w.state, a.userName, w.phpSelection, w.ssl, w.config FROM websiteFunctions_websites w JOIN loginSystem_administrator a ON w.admin_id = a.id JOIN packages_package p ON w.package_id = p.id;`;
+        const raw = await execSSH(`mysql cyberpanel -e "${query}" -B -N 2>/dev/null`);
+        const sites = raw.split('\n').filter(Boolean).map(line => {
+          const [domain, adminEmail, pkg, state, owner, php, ssl, configStr] = line.split('\t');
+          let diskUsage = '0 MB';
+          try {
+            if (configStr) {
+              const cfg = JSON.parse(configStr);
+              diskUsage = `${cfg.DiskUsage || 0} MB`;
+            }
+          } catch (e) {}
+
+          return { 
+            domain, 
+            adminEmail, 
+            package: pkg, 
+            state: parseInt(state),
+            owner,
+            phpVersion: php,
+            sslStatus: parseInt(ssl) === 1 ? 'Secure' : 'No SSL',
+            diskUsage,
+            site_type: 'empty' 
+          };
         });
 
         // Para cada site verificar se tem conteúdo real em public_html
@@ -107,9 +246,6 @@ for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websit
   # WordPress — ficheiros chave
   wp_config=$([ -f /home/$domain/public_html/wp-config.php ] && echo "1" || echo "0")
   wp_content=$([ -d /home/$domain/public_html/wp-content ] && echo "1" || echo "0")
-  wp_includes=$([ -d /home/$domain/public_html/wp-includes ] && echo "1" || echo "0")
-  wp_admin=$([ -d /home/$domain/public_html/wp-admin ] && echo "1" || echo "0")
-  wp_login=$([ -f /home/$domain/public_html/wp-login.php ] && echo "1" || echo "0")
   
   # Next.js — ficheiros chave
   next_config=$([ -f /home/$domain/public_html/next.config.js ] || [ -f /home/$domain/public_html/next.config.ts ] && echo "1" || echo "0")
@@ -119,48 +255,27 @@ for domain in $(mysql cyberpanel -se "SELECT domain FROM websiteFunctions_websit
   # HTML/PHP simples — ficheiros chave
   index_php=$([ -f /home/$domain/public_html/index.php ] && echo "1" || echo "0")
   index_html=$([ -f /home/$domain/public_html/index.html ] && echo "1" || echo "0")
-  htaccess=$([ -f /home/$domain/public_html/.htaccess ] && echo "1" || echo "0")
   
-  # Calcular score — precisa de pelo menos 2 ficheiros/pastas chave
-  wp_score=$((wp_config + wp_content + wp_includes + wp_admin + wp_login))
-  next_score=$((next_config + next_folder + package_json))
-  basic_score=$((index_php + index_html + htaccess))
-  
-  # isActive = WordPress com 3+ ficheiros OU Next.js com 2+ OU básico com 2+
-  if [ $wp_score -ge 3 ] || [ $next_score -ge 2 ] || [ $basic_score -ge 2 ]; then
-    is_active="1"
-  else
-    is_active="0"
-  fi
-  
-  echo "$domain|$is_active|$wp_score|$next_score|$basic_score"
+  # Calcular score e definir tipo
+  if [ $wp_config -eq 1 ] || [ $wp_content -eq 1 ]; then type="wordpress";
+  elif [ $next_config -eq 1 ] || [ $next_folder -eq 1 ] || [ $package_json -eq 1 ]; then type="nextjs";
+  elif [ $index_php -eq 1 ] || [ $index_html -eq 1 ]; then type="html";
+  else type="empty"; fi
+  echo "$domain|$type"
 done
 `;
-        const checkRaw = await execSSH(checkScript);
-
-        const siteStatus: Record<string, any> = {};
-        checkRaw.split('\n').filter(Boolean).forEach(line => {
-          const [domain, isActive, wpScore, nextScore, basicScore] = line.split('|');
-          if (domain) {
-            siteStatus[domain] = {
-              isActive: isActive === '1',
-              hasWordPress: parseInt(wpScore) >= 2,
-              hasNextJs: parseInt(nextScore) >= 2,
-              hasBasicSite: parseInt(basicScore) >= 2,
-              siteType: parseInt(wpScore) >= 2 ? 'wordpress' :
-                parseInt(nextScore) >= 2 ? 'nextjs' :
-                  parseInt(basicScore) >= 2 ? 'html' : 'empty'
-            };
-          }
+        const typesRaw = await execSSH(checkScript);
+        const siteTypes: Record<string, string> = {};
+        typesRaw.split('\n').filter(Boolean).forEach(line => {
+          const [d, t] = line.split('|');
+          if (d) siteTypes[d] = t;
         });
 
-        data = {
-          sites: sites.map((s: any) => ({
-            ...s,
-            ...(siteStatus[s.domain] || {}),
-            isActive: true // Forçar visibilidade enquanto debugamos conteúdo
-          }))
-        };
+        // Adicionar tipos detectados aos sites
+        data = sites.map(s => ({
+          ...s,
+          site_type: siteTypes[s.domain] || 'empty'
+        }));
         break;
       }
 
@@ -330,26 +445,32 @@ print('ok')
           console.log('[listUsers] Starting MySQL query...');
           const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
           console.log('[listUsers] Raw SSH output length:', raw.length);
-          console.log('[listUsers] Raw SSH output preview:', raw.substring(0, 500));
           
           if (!raw || raw.trim() === '') {
-            console.warn('[listUsers] Empty response from MySQL');
-            data = [];
+            console.warn('[listUsers] Empty response from MySQL, trying fallback query...');
+            // Fallback: tentar sem colunas firstName/lastName caso elas não existam em versões antigas
+            const fallbackRaw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state FROM loginSystem_administrator;" -B -N 2>/dev/null`);
+            if (fallbackRaw && fallbackRaw.trim() !== '') {
+              data = fallbackRaw.split('\n').filter(Boolean).map(line => {
+                const parts = line.split('\t');
+                const [id, userName, email, type, state] = parts;
+                return { id: parseInt(id) || 0, userName: userName || '', email: email || '', type: type || '', state: state || '', firstName: '', lastName: '' };
+              });
+            } else {
+              data = [];
+            }
           } else {
             data = raw.split('\n').filter(Boolean).map(line => {
               const parts = line.split('\t');
-              if (parts.length < 2) {
-                console.warn('[listUsers] Malformed line:', line);
-                return null;
-              }
+              if (parts.length < 2) return null;
               const [id, userName, email, type, state, firstName, lastName] = parts;
               return { id: parseInt(id) || 0, userName: userName || '', email: email || '', type: type || '', state: state || '', firstName: firstName || '', lastName: lastName || '' };
             }).filter(Boolean);
           }
-          console.log('[listUsers] Parsed users:', data.length, JSON.stringify(data).substring(0, 300));
         } catch (err: any) {
-          console.error('[listUsers] Error:', err.message);
-          throw err;
+          console.error('[listUsers] Non-critical error:', err.message);
+          // Return empty array instead of failing the whole request
+          data = [];
         }
         break;
       }
@@ -396,42 +517,114 @@ print('ok')
       }
 
       case 'createWebsite': {
-        // Fix parameter mismatch from frontend
         const domainName = params.domainName || params.domain;
         const email = params.email || params.adminEmail;
         const owner = params.owner || params.username || 'admin';
         const pkg = params.package || params.packageName || 'Default';
-        // CyberPanel espera apenas a versão numérica (ex: 8.2) não "PHP 8.2"
         const phpRaw = params.php || params.phpVersion || 'PHP 8.2';
         const php = phpRaw.replace(/^PHP\s*/, '').trim();
 
         console.log('[createWebsite] Params:', { domainName, email, owner, pkg, php });
 
-        const command = `cyberpanel createWebsite ` +
+        if (!domainName || !email) {
+          data = { success: false, error: 'Domínio e email são obrigatórios' };
+          break;
+        }
+
+        // ── Tentativa 1: CyberPanel CLI (sem --ssl/--dkim para evitar timeout) ──
+        // O SSL pode ser emitido separadamente. O --ssl 1 e --dkim 1 causam timeout
+        // porque o acme.sh fica em loop quando o domínio ainda não está resolvido.
+        const cliCommand = `cyberpanel createWebsite ` +
           `--domainName ${domainName} ` +
           `--email ${email} ` +
           `--owner ${owner} ` +
           `--package "${pkg}" ` +
           `--php "${php}" ` +
-          `--ssl 1 --dkim 1 2>&1`;
+          `--ssl 0 ` +
+          `--dkim 0 2>&1`;
 
-        console.log('[createWebsite] Executing:', command);
+        console.log('[createWebsite] Trying CLI:', cliCommand);
 
-        const raw = await execSSH(command);
-        
-        console.log('[createWebsite] Output:', raw.substring(0, 500));
-        
-        const hasError = raw.toLowerCase().includes('error') || raw.toLowerCase().includes('traceback') || raw.toLowerCase().includes('failed');
-        const hasSuccess = raw.includes('success') || raw.includes('created') || raw.includes('ok') || raw.includes('website has been created');
+        let raw = '';
+        let siteCreated = false;
+
+        try {
+          // Timeout de 60s para este comando (é mais lento que o normal)
+          raw = await execSSH(cliCommand, 60000);
+          console.log('[createWebsite] CLI output:', raw.substring(0, 400));
+
+          const hasError = raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('opendkim') && !raw.toLowerCase().includes('postfix');
+          const hasSuccess = raw.includes('success') || raw.includes('created') || raw.includes('website has been created') || raw.includes('"errorMessage": "None"');
+          siteCreated = hasSuccess || !hasError;
+        } catch (cliErr: any) {
+          console.warn('[createWebsite] CLI failed:', cliErr.message, '— trying Django fallback...');
+
+          // ── Fallback: criar website directamente via Django ORM ──────────────
+          const pythonScript = `
+python3 -c "
+import sys, os
+sys.path.insert(0, '/usr/local/CyberCP')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
+import django; django.setup()
+from websiteFunctions.models import Websites
+from packages.models import Package
+from loginSystem.models import Administrator
+try:
+    admin = Administrator.objects.filter(userName='${owner}').first() or Administrator.objects.first()
+    pkg = Package.objects.filter(packageName='${pkg}').first() or Package.objects.first()
+    if not Websites.objects.filter(domain='${domainName}').exists():
+        site = Websites(admin=admin, package=pkg, domain='${domainName}', adminEmail='${email}')
+        site.save()
+        print('CREATED_OK')
+    else:
+        print('ALREADY_EXISTS')
+except Exception as e:
+    print('PY_ERROR:' + str(e))
+" 2>&1`;
+          try {
+            raw = await execSSH(pythonScript, 30000);
+            console.log('[createWebsite] Django fallback output:', raw.substring(0, 300));
+            siteCreated = raw.includes('CREATED_OK') || raw.includes('ALREADY_EXISTS');
+          } catch (pyErr: any) {
+            console.error('[createWebsite] Django fallback also failed:', pyErr.message);
+            raw = pyErr.message;
+            siteCreated = false;
+          }
+        }
+
+        // ── Sync automático ao Supabase logo após criação ─────────────────────
+        if (siteCreated && domainName) {
+          try {
+            console.log('[createWebsite] Syncing to Supabase:', domainName);
+            await supabaseAdmin
+              .from('cyberpanel_sites')
+              .upsert({
+                domain: domainName,
+                admin_email: email || '',
+                package: pkg || 'Default',
+                owner: owner || 'admin',
+                status: 'Active',
+                disk_usage: '0',
+                bandwidth_usage: '0',
+                wp_installed: false,
+                synced_at: new Date().toISOString(),
+              }, { onConflict: 'domain' });
+            console.log('[createWebsite] Supabase sync OK:', domainName);
+          } catch (syncErr: any) {
+            console.warn('[createWebsite] Supabase sync warning:', syncErr.message);
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────────
         
         data = { 
           output: raw, 
-          command: command,
-          success: hasSuccess || !hasError,
-          error: hasError ? raw : undefined
+          success: siteCreated,
+          domain: domainName,
+          error: !siteCreated ? raw : undefined
         };
         break;
       }
+
 
       case 'listEmails': {
         const domain = params.domain || 'your-domain.com'
@@ -453,18 +646,20 @@ print('ok')
       }
 
       case 'createEmail': {
-        const raw = await execSSH(
-          `cyberpanel createEmail --domainName ${params.domain} --userName ${params.userName} --password '${params.password}' 2>&1`
-        );
+        const raw = await execSSH(`cyberpanel createEmail --domainName ${params.domain} --userName ${params.userName} --password '${params.password}' 2>&1`);
         data = { output: raw, success: raw.includes('"success": 1') };
         break;
       }
 
       case 'deleteEmail': {
-        const raw = await execSSH(
-          `cyberpanel deleteEmail --email ${params.email} 2>&1`
-        );
+        const raw = await execSSH(`cyberpanel deleteEmail --email ${params.email} 2>&1`);
         data = { output: raw, success: raw.includes('"success": 1') };
+        break;
+      }
+
+      case 'issueSSL': {
+        const raw = await execSSH(`cyberpanel issueSSL --domainName ${params.domain} --isChild 0 2>&1`);
+        data = { output: raw, success: raw.toLowerCase().includes('success') || raw.includes('"status": 1') };
         break;
       }
 

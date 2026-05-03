@@ -13,6 +13,7 @@ export async function syncWebsiteToSupabase(website: {
   diskUsage?: string
   bandwidthUsage?: string
   wpInstalled?: boolean
+  siteType?: string
 }) {
   try {
     const payload = {
@@ -24,6 +25,7 @@ export async function syncWebsiteToSupabase(website: {
       disk_usage: website.diskUsage || '0',
       bandwidth_usage: website.bandwidthUsage || '0',
       wp_installed: website.wpInstalled ?? false,
+      site_type: website.siteType || 'empty',
       synced_at: new Date().toISOString(),
     }
     const { data: existing } = await supabase.from('cyberpanel_sites').select('id').eq('domain', website.domain).single()

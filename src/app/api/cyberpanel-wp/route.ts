@@ -78,64 +78,74 @@ export async function POST(request: NextRequest) {
                 }
 
                 const installScript = `
+                echo "--- STARTING WORDPRESS INSTALLATION ---"
                 DOCUMENT_ROOT="/home/${domain}/public_html${directory ? '/' + (directory.startsWith('/') ? directory.substring(1) : directory) : ''}"
                 
                 if [ ! -d "/home/${domain}/public_html" ]; then
-                    echo "ERRO: O diretório base /home/${domain}/public_html não existe. Crie o website primeiro no CyberPanel."
+                    echo "ERRO: O diretório base /home/${domain}/public_html não existe."
                     exit 1
                 fi
                 
                 mkdir -p "$DOCUMENT_ROOT"
-                
                 cd "$DOCUMENT_ROOT"
+                echo "Diretório de trabalho: $(pwd)"
                 
                 # Download WP-CLI if not present
                 if ! command -v wp &> /dev/null; then
-                    curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+                    echo "Instalando WP-CLI..."
+                    curl -s -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
                     chmod +x wp-cli.phar
                     mv wp-cli.phar /usr/local/bin/wp
                 fi
                 
                 # Create Database first if not exists
-                echo "Criando base de dados..."
-                /usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py createDatabase --domainName ${domain} --dbName ${databaseName || domain.replace(/\./g,'_') + '_wp'} --dbUsername ${databaseUser || 'usr_' + domain.replace(/\./g,'_').substring(0,8)} --dbPassword '${databasePassword || 'generated_pass'}'
+                DB_NAME="${databaseName || domain.replace(/\./g,'_') + '_wp'}"
+                DB_USER="${databaseUser || 'usr_' + domain.replace(/\./g,'_').substring(0,8)}"
+                DB_PASS='${databasePassword || 'generated_pass'}'
+                
+                echo "Passo 1: Criando base de dados $DB_NAME..."
+                /usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py createDatabase --domainName ${domain} --dbName "$DB_NAME" --dbUsername "$DB_USER" --dbPassword "$DB_PASS"
                 
                 # Download specific WP version if requested
                 WP_VERSION="${version || 'latest'}"
-                if [ "$WP_VERSION" != "latest" ]; then
-                    WP_CLI_ALLOW_ROOT=1 wp core download --version="$WP_VERSION" --allow-root --force
-                else
-                    WP_CLI_ALLOW_ROOT=1 wp core download --allow-root --force
-                fi
+                echo "Passo 2: Descarregando WordPress $WP_VERSION..."
+                WP_CLI_ALLOW_ROOT=1 wp core download --version="$WP_VERSION" --allow-root --force --locale=pt_PT
+                if [ $? -ne 0 ]; then echo "ERRO: Falha ao descarregar WordPress"; exit 1; fi
                 
                 # Configure wp-config.php
-                WP_CLI_ALLOW_ROOT=1 wp config create --dbname="${databaseName || domain.replace(/\./g,'_') + '_wp'}" --dbuser="${databaseUser || 'usr_' + domain.replace(/\./g,'_').substring(0,8)}" --dbpass="${databasePassword || 'generated_pass'}" --allow-root --force
+                echo "Passo 3: Configurando wp-config.php..."
+                WP_CLI_ALLOW_ROOT=1 wp config create --dbname="$DB_NAME" --dbuser="$DB_USER" --dbpass="$DB_PASS" --allow-root --force
+                if [ $? -ne 0 ]; then echo "ERRO: Falha ao configurar wp-config.php. Verifique se a BD foi criada."; exit 1; fi
                 
                 # Install WP with all settings
+                echo "Passo 4: Executando instalação core..."
                 WP_CLI_ALLOW_ROOT=1 wp core install --url="${wpUrl}" --title="${siteName}" --admin_user="${adminUsername}" --admin_password="${adminPassword}" --admin_email="${adminEmail}" --allow-root
+                if [ $? -ne 0 ]; then echo "ERRO: Falha na instalação core"; exit 1; fi
                 
                 # Set site description/tagline if provided
-                ${siteDescription ? `WP_CLI_ALLOW_ROOT=1 wp option update blogdescription "${siteDescription}" --allow-root` : ''}
+                ${siteDescription ? `echo "Passo 5: Atualizando descrição..." && WP_CLI_ALLOW_ROOT=1 wp option update blogdescription "${siteDescription}" --allow-root` : ''}
                 
                 # Configure Multisite if enabled
-                ${enableMultisite ? `WP_CLI_ALLOW_ROOT=1 wp core multisite convert --allow-root` : ''}
+                ${enableMultisite ? `echo "Passo 6: Convertendo para Multisite..." && WP_CLI_ALLOW_ROOT=1 wp core multisite convert --allow-root` : ''}
                 
                 # Disable WP Cron if requested
-                ${disableWPCron ? `WP_CLI_ALLOW_ROOT=1 wp config set DISABLE_WP_CRON true --raw --allow-root` : ''}
+                ${disableWPCron ? `echo "Passo 7: Desativando WP Cron..." && WP_CLI_ALLOW_ROOT=1 wp config set DISABLE_WP_CRON true --raw --allow-root` : ''}
                 
                 # Install selected plugins
+                echo "Passo 8: Instalando plugins selecionados..."
                 ${plugins?.woocommerce ? `WP_CLI_ALLOW_ROOT=1 wp plugin install woocommerce --activate --allow-root` : ''}
                 ${plugins?.yoast ? `WP_CLI_ALLOW_ROOT=1 wp plugin install wordpress-seo --activate --allow-root` : ''}
                 ${plugins?.wordfence ? `WP_CLI_ALLOW_ROOT=1 wp plugin install wordfence --activate --allow-root` : ''}
                 ${plugins?.litespeed ? `WP_CLI_ALLOW_ROOT=1 wp plugin install litespeed-cache --activate --allow-root` : ''}
                 
                 # Fix permissions
+                echo "Passo 9: Ajustando permissões..."
                 SITE_USER=$(stat -c '%U' "/home/${domain}/public_html")
                 chown -R "$SITE_USER":"$SITE_USER" "$DOCUMENT_ROOT"
                 find "$DOCUMENT_ROOT" -type f -exec chmod 644 {} \;
                 find "$DOCUMENT_ROOT" -type d -exec chmod 755 {} \;
                 
-                echo "SUCESSO: WordPress $WP_VERSION instalado em ${wpUrl}"
+                echo "--- SUCESSO: WordPress $WP_VERSION instalado em ${wpUrl} ---"
                 `;
 
                 const result = await executeCyberPanelCommand(installScript);

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import {
-  FolderOpen, Database, Globe, Mail, Shield, Code, Users, Package,
+  FolderOpen, Database, Globe, Mail, Shield, ShieldCheck, Code, Users, Package,
   Server, BarChart2, ChevronUp, ChevronDown, ExternalLink, HardDrive,
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
@@ -211,6 +211,15 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
         { id: 'infrastructure', name: 'Estado do Servidor', icon: <Server className="w-9 h-9 text-slate-500" /> },
         { id: 'reports', name: 'Relatórios', icon: <BarChart2 className="w-9 h-9 text-slate-500" /> },
         { id: 'analyses', name: 'Análises', icon: <Wifi className="w-9 h-9 text-slate-500" /> },
+      ]
+    },
+    {
+      id: 'manutencao', name: 'Manutenção',
+      headerIcon: <ShieldCheck className="w-5 h-5" />,
+      color: 'text-red-700', bgColor: 'bg-red-50',
+      tools: [
+        { id: 'cp-audit-sync', name: 'Auditoria & Sync', icon: <ShieldCheck className="w-9 h-9 text-red-500" /> },
+        { id: 'diagnostico', name: 'Diagnóstico', icon: <Activity className="w-9 h-9 text-red-500" /> },
       ]
     },
   ]

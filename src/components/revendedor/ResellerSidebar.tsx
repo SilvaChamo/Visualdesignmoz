@@ -47,7 +47,7 @@ const menuItems: MenuItem[] = [
       { id: 'cp-subdomains', label: 'Criar Subdomínio' },
       { id: 'cp-suspend-website', label: 'Suspender' },
       { id: 'domains-dns', label: 'Configurar DNS' },
-      { id: 'dns-central', label: 'DNS Central' },
+      { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
     ]
   },
   {
@@ -188,7 +188,7 @@ export function ResellerSidebar({
               (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
               (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
               (item.id === 'newsletter' && activeSection === 'newsletter') ||
-              (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website'].includes(activeSection)) ||
+              (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website', 'cp-dns-nameserver'].includes(activeSection)) ||
               (item.id === 'gestao-sites' && ['domains', 'cp-wp-list', 'cp-users'].includes(activeSection)) ||
               (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||

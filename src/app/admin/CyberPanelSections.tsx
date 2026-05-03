@@ -13,8 +13,8 @@ import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomai
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
-  RefreshCw, Globe, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield,
-  Server, HardDrive, Key, Settings, Code, AlertCircle, CheckCircle, Eye, EyeOff,
+  RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
+  Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw,
   Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X, Clock, Loader2
 } from 'lucide-react'
@@ -1410,23 +1410,38 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
   const handleCreate = async () => {
     if (!selectedDomain || !dbName || !dbUser || !dbPass) return
     setCreating(true); setMsg('')
-    const ok = await cyberPanelAPI.createDatabase({ domain: selectedDomain, dbName, dbUser, dbPassword: dbPass })
-    cpSaveDatabase(selectedDomain, dbName, dbUser)
-    void (async () => { try { await supabase.from('cyberpanel_databases').upsert({ domain: selectedDomain, db_name: dbName, db_user: dbUser }, { onConflict: 'domain,db_name' }) } catch { } })()
-    const createdPass = dbPass
-    setLastCreated({ dbName, dbUser, dbPass: createdPass })
-    setMsg(ok ? 'Base de dados criada!' : 'Guardada localmente. Verifica no CyberPanel.')
-    setDbName(''); setDbUser(''); setDbPass('')
-    loadDBs(selectedDomain)
+    try {
+      const ok = await cyberPanelAPI.createDatabase({ domain: selectedDomain, dbName, dbUser, dbPassword: dbPass })
+      if (ok && ok.success !== false) {
+        cpSaveDatabase(selectedDomain, dbName, dbUser)
+        void (async () => { try { await supabase.from('cyberpanel_databases').upsert({ domain: selectedDomain, db_name: dbName, db_user: dbUser }, { onConflict: 'domain,db_name' }) } catch { } })()
+        setLastCreated({ dbName, dbUser, dbPass })
+        setMsg('Base de dados criada com sucesso!')
+        setDbName(''); setDbUser(''); setDbPass('')
+        loadDBs(selectedDomain)
+      } else {
+        setMsg('Erro ao criar base de dados no servidor.')
+      }
+    } catch (e: any) {
+      setMsg('Erro: ' + e.message)
+    }
     setCreating(false)
   }
 
   const handleDelete = async (name: string) => {
     if (!confirm(`Eliminar base de dados ${name}?`)) return
-    await cyberPanelAPI.deleteDatabase({ dbName: name })
-    cpRemoveDatabase(selectedDomain, name)
-    void (async () => { try { await supabase.from('cyberpanel_databases').delete().eq('domain', selectedDomain).eq('db_name', name) } catch { } })()
-    loadDBs(selectedDomain)
+    try {
+      const ok = await cyberPanelAPI.deleteDatabase({ dbName: name })
+      if (ok && ok.success !== false) {
+        cpRemoveDatabase(selectedDomain, name)
+        void (async () => { try { await supabase.from('cyberpanel_databases').delete().eq('domain', selectedDomain).eq('db_name', name) } catch { } })()
+        loadDBs(selectedDomain)
+      } else {
+        alert('Erro ao eliminar base de dados.')
+      }
+    } catch (e: any) {
+      alert('Erro: ' + e.message)
+    }
   }
 
   return (
@@ -1533,21 +1548,37 @@ export function FTPSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const handleCreate = async () => {
     if (!selectedDomain || !ftpUser || !ftpPass) return
     setCreating(true); setMsg('')
-    const ok = await cyberPanelAPI.createFTPAccount({ domain: selectedDomain, username: ftpUser, password: ftpPass, path: ftpPath })
-    cpSaveFTP(selectedDomain, ftpUser, ftpPath)
-    void (async () => { try { await supabase.from('cyberpanel_ftp').upsert({ domain: selectedDomain, username: ftpUser, path: ftpPath }, { onConflict: 'domain,username' }) } catch { } })()
-    setMsg(ok ? 'Conta FTP criada!' : 'Guardada localmente. Verifica no CyberPanel.')
-    setFtpUser(''); setFtpPass(''); setFtpPath('/')
-    loadFTP(selectedDomain)
+    try {
+      const ok = await cyberPanelAPI.createFTPAccount({ domain: selectedDomain, username: ftpUser, password: ftpPass, path: ftpPath })
+      if (ok && ok.success !== false) {
+        cpSaveFTP(selectedDomain, ftpUser, ftpPath)
+        void (async () => { try { await supabase.from('cyberpanel_ftp').upsert({ domain: selectedDomain, username: ftpUser, path: ftpPath }, { onConflict: 'domain,username' }) } catch { } })()
+        setMsg('Conta FTP criada com sucesso!')
+        setFtpUser(''); setFtpPass(''); setFtpPath('/')
+        loadFTP(selectedDomain)
+      } else {
+        setMsg('Erro ao criar conta FTP no servidor.')
+      }
+    } catch (e: any) {
+      setMsg('Erro: ' + e.message)
+    }
     setCreating(false)
   }
 
   const handleDelete = async (user: string) => {
     if (!confirm(`Eliminar conta FTP ${user}?`)) return
-    await cyberPanelAPI.deleteFTPAccount({ username: user })
-    cpRemoveFTP(selectedDomain, user)
-    void (async () => { try { await supabase.from('cyberpanel_ftp').delete().eq('domain', selectedDomain).eq('username', user) } catch { } })()
-    loadFTP(selectedDomain)
+    try {
+      const ok = await cyberPanelAPI.deleteFTPAccount({ username: user })
+      if (ok && ok.success !== false) {
+        cpRemoveFTP(selectedDomain, user)
+        void (async () => { try { await supabase.from('cyberpanel_ftp').delete().eq('domain', selectedDomain).eq('username', user) } catch { } })()
+        loadFTP(selectedDomain)
+      } else {
+        alert('Erro ao eliminar conta FTP.')
+      }
+    } catch (e: any) {
+      alert('Erro: ' + e.message)
+    }
   }
 
   return (
@@ -2632,7 +2663,7 @@ export function CPUsersSection() {
                 </th>
                 <th className="px-4 py-2.5">Utilizador</th>
                 <th className="px-4 py-2.5">Email</th>
-                <th className="px-4 py-2.5">ACL</th>
+                <th className="px-4 py-2.5">Tipo de Conta</th>
                 <th className="px-4 py-2.5">Estado</th>
                 <th className="px-4 py-2.5 text-right">Acções</th>
               </tr>
@@ -2660,7 +2691,14 @@ export function CPUsersSection() {
                   </td>
                   <td className="px-4 py-2.5 text-gray-600">{u.email || 'N/A'}</td>
                   <td className="px-4 py-2.5">
-                    <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight">{(u as any).acl || 'User'}</span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${
+                      (u as any).acl === 'admin' ? 'bg-purple-100 text-purple-700' :
+                      (u as any).acl === 'reseller' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {(u as any).acl === 'admin' ? 'Administrador' : 
+                       (u as any).acl === 'reseller' ? 'Revendedor' : 'Cliente'}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${(u as any).state === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -2716,7 +2754,19 @@ export function CPUsersSection() {
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Access Control List (ACL)</label><select value={userModal.data.acl || 'user'} onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all">{(typeof acls !== 'undefined' && Array.isArray(acls) ? acls : ['user', 'reseller', 'admin']).map(a => <option key={a} value={a}>{a}</option>)}</select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione a permissão para este utilizador</p></div>
+                <div className="space-y-1.5 col-span-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Utilizador (ACL)</label>
+                  <select 
+                    value={userModal.data.acl || 'user'} 
+                    onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  >
+                    <option value="admin">Administrador</option>
+                    <option value="reseller">Revendedor</option>
+                    <option value="user">Cliente</option>
+                  </select>
+                  <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione o nível de acesso para este utilizador</p>
+                </div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-600">Username</label>
@@ -3441,8 +3491,16 @@ export function ModifyWebsiteSection({ sites, packages }: { sites: CyberPanelWeb
   const handleModify = async () => {
     if (!selectedDomain) return
     setSaving(true); setMsg('')
-    const ok = await cyberPanelAPI.modifyWebsite({ domain: selectedDomain, packageName, phpVersion })
-    setMsg(ok ? 'Website modified successfully!' : 'Error modifying website.')
+    try {
+      const ok = await cyberPanelAPI.modifyWebsite({ domain: selectedDomain, packageName, phpVersion })
+      if (ok && ok.success !== false) {
+        setMsg('Website modified successfully!')
+      } else {
+        setMsg('Error modifying website.')
+      }
+    } catch (e: any) {
+      setMsg('Error: ' + e.message)
+    }
     setSaving(false)
   }
 
@@ -3488,20 +3546,27 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: CyberPanelW
   const [msg, setMsg] = useState('')
 
   const parseState = (state: any) => {
-    if (state === 1 || state === '1' || state === 'Active') return 'Active'
-    if (state === 0 || state === '0' || state === 'Suspended') return 'Suspended'
+    // CyberPanel: 0 = Active, 1 = Suspended
+    if (state === 0 || state === '0' || state === 'Active') return 'Active'
+    if (state === 1 || state === '1' || state === 'Suspended') return 'Suspended'
     return state || 'Active'
   }
 
   const handleToggle = async (domain: string, currentState: string) => {
     setLoading(domain); setMsg('')
     const action = currentState === 'Active' ? 'suspend' : 'unsuspend'
-    const ok = action === 'suspend' ? await cyberPanelAPI.suspendWebsite(domain) : await cyberPanelAPI.unsuspendWebsite(domain)
-    if (ok) {
-      await syncWebsiteToSupabase({ domain, status: action === 'suspend' ? 'Suspended' : 'Active' })
-      onRefresh()
+    try {
+      const ok = action === 'suspend' ? await cyberPanelAPI.suspendWebsite(domain) : await cyberPanelAPI.unsuspendWebsite(domain)
+      if (ok && ok.success !== false) {
+        await syncWebsiteToSupabase({ domain, status: action === 'suspend' ? 'Suspended' : 'Active' })
+        onRefresh()
+        setMsg(`${domain} ${action === 'suspend' ? 'suspenso' : 'activado'} com sucesso!`)
+      } else {
+        setMsg(`Erro: não foi possível ${action} ${domain}.`)
+      }
+    } catch (e: any) {
+      setMsg('Erro: ' + e.message)
     }
-    setMsg(ok ? `${domain} ${action === 'suspend' ? 'suspenso' : 'activado'} com sucesso!` : `Erro: não foi possível ${action} ${domain}.`)
     setLoading('')
   }
 
@@ -3564,12 +3629,18 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: CyberPanelWe
     if (!confirm(`Are you sure you want to DELETE ${domain}? This action is IRREVERSIBLE!`)) return
     if (!confirm(`FINAL CONFIRMATION: Delete ${domain} and ALL its data?`)) return
     setDeleting(domain); setMsg('')
-    const ok = await cyberPanelAPI.deleteWebsite(domain)
-    if (ok) {
-      await removeWebsiteFromSupabase(domain)
-      onRefresh()
+    try {
+      const ok = await cyberPanelAPI.deleteWebsite(domain)
+      if (ok && ok.success !== false) {
+        await removeWebsiteFromSupabase(domain)
+        onRefresh()
+        setMsg(`${domain} deleted successfully.`)
+      } else {
+        setMsg(`Error deleting ${domain}.`)
+      }
+    } catch (e: any) {
+      setMsg('Error: ' + e.message)
     }
-    setMsg(ok ? `${domain} deleted successfully.` : `Error deleting ${domain}.`)
     setDeleting('')
   }
 
@@ -5742,7 +5813,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 }
 
 // WordPress Install Section
-export function WordPressInstallSection({ sites, onRefresh }: { sites: CyberPanelWebsite[], onRefresh?: () => void }) {
+export function WordPressInstallSection({ sites, onRefresh }: { sites: CyberPanelWebsite[], onRefresh?: () => void | Promise<void> }) {
   const [loading, setLoading] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -8299,4 +8370,127 @@ export function WatchdogSection() {
       </div>
     </div>
   );
+}
+
+// --- Audit and Sync Section ---
+export function AuditSyncSection({ onRefresh }: { onRefresh: () => void }) {
+  const [syncing, setSyncing] = useState(false)
+  const [logs, setLogs] = useState<string[]>([])
+  const [counts, setCounts] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setError(null)
+    setLogs(['A iniciar sincronização...'])
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fullSync' })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setLogs(data.data.logs)
+        setCounts(data.data.counts)
+        onRefresh()
+      } else {
+        setError(data.error || 'Erro na sincronização')
+      }
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Auditoria e Sincronização</h1>
+          <p className="text-gray-500 mt-1">Sincronize o CyberPanel com a base de dados central e resolva inconsistências</p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+        >
+          {syncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+          {syncing ? 'A Sincronizar...' : 'Executar Auditoria Completa'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-3">
+            <Globe className="w-6 h-6" />
+          </div>
+          <div className="text-2xl font-bold text-gray-900">{counts?.sites ?? '--'}</div>
+          <div className="text-sm text-gray-500">Websites</div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mb-3">
+            <Users className="w-6 h-6" />
+          </div>
+          <div className="text-2xl font-bold text-gray-900">{counts?.users ?? '--'}</div>
+          <div className="text-sm text-gray-500">Utilizadores</div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-3">
+            <Package className="w-6 h-6" />
+          </div>
+          <div className="text-2xl font-bold text-gray-900">{counts?.packages ?? '--'}</div>
+          <div className="text-sm text-gray-500">Pacotes</div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-3">
+            <Zap className="w-6 h-6" />
+          </div>
+          <div className="text-2xl font-bold text-gray-900">{counts?.activated ?? '--'}</div>
+          <div className="text-sm text-gray-500">Reactivados</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+        <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+            </div>
+            <span className="text-xs font-mono text-gray-400 ml-2">audit_terminal.log</span>
+          </div>
+          <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Live Auditor</div>
+        </div>
+        <div className="p-6 font-mono text-sm space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 text-left">
+          {logs.map((log, i) => (
+            <div key={i} className="flex gap-3">
+              <span className="text-gray-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
+              <span className={log.includes('ERRO') ? 'text-red-400' : log.includes('⚠️') ? 'text-amber-400' : 'text-green-400'}>
+                {log}
+              </span>
+            </div>
+          ))}
+          {syncing && (
+            <div className="flex items-center gap-2 text-blue-400 animate-pulse">
+              <span>&gt;</span>
+              <span>A processar comandos no servidor...</span>
+            </div>
+          )}
+          {!syncing && logs.length === 0 && (
+            <div className="text-gray-500 italic">Aguardando início da auditoria...</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }

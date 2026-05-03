@@ -75,28 +75,7 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
       
       // Fallback para listUsers via CLI
       if (action === 'listUsers') {
-        console.log(`[FALLBACK] ${action} via server-exec API due to 500 error`);
-        try {
-          const res = await fetch('/api/server-exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'listUsers' })
-          });
-          
-          if (res.ok) {
-            const result = await res.json();
-            console.log(`[FALLBACK SUCCESS] ${action}:`, result);
-            
-            // server-exec retorna { success: true, data: [...] }
-            if (result.success && result.data) {
-              return result.data;
-            }
-          }
-        } catch (fallbackError: any) {
-          console.error(`[FALLBACK ERROR] ${action}:`, fallbackError.message);
-        }
-        // Retornar array vazio em vez de falhar
-        console.log(`[FALLBACK] Returning empty users array`);
+        console.warn(`[API WARNING] ${action} failed with 500, returning empty list.`);
         return [];
       }
 
@@ -197,9 +176,10 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
 }
 
 // Função específica para listWebsites que retorna sites
+// Usa o mesmo cacheService para que mutações (createWebsite, etc.) limpem este cache também.
 async function runSites(action: string, params: Record<string, any> = {}, timeoutMs: number = 30000) {
   try {
-    // Cache para listWebsites (5 minutos)
+    // Cache de curta duração: 30 segundos — permite actualização quase imediata após criar sites
     const cacheKey = `cyberpanel_${action}_${JSON.stringify(params)}`;
     const cached = cacheService.get(cacheKey);
     if (cached) {
@@ -228,8 +208,9 @@ async function runSites(action: string, params: Record<string, any> = {}, timeou
     // Para listWebsites, retornar sites array
     const result = Array.isArray(j.data?.sites) ? j.data.sites : 
            Array.isArray(j.data) ? j.data : [];
-    cacheService.set(cacheKey, result, 5 * 60 * 1000);
-    console.log(`Cache set for ${action} (TTL: 300s)`);
+    // TTL curto: 30s para que criações apareçam rapidamente
+    cacheService.set(cacheKey, result, 30 * 1000);
+    console.log(`Cache set for ${action} (TTL: 30s)`);
     return result;
   } catch (error: any) {
     if (error.name === 'AbortError') {
@@ -247,9 +228,12 @@ export interface CyberPanelWebsite {
   state?: string;
   owner?: string;
   status?: string;
-  diskUsage?: number;
+  diskUsage?: number | string;
   bandwidth?: number;
   ssl?: boolean;
+  sslStatus?: 'Secure' | 'No SSL' | string;
+  phpVersion?: string;
+  ip?: string;
   // Propriedades para detecção de conteúdo real
   isActive?: boolean;
   hasWordPress?: boolean;
