@@ -1075,7 +1075,9 @@ export function WebmailSection({
               <span className="hidden sm:inline">Snapmail</span>
             </button>
             <button
-              onClick={() => window.location.href = '/admin/mensagens'}
+              onClick={() => {
+                onNavigate?.('newsletter');
+              }}
               className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm"
             >
               <Mail size={14} />

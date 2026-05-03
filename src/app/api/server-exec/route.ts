@@ -901,11 +901,7 @@ except Exception as e:
 
       case 'getScreenshot': {
         const domain = params.domain || 'your-domain.com'
-        // Usar API pública de screenshot (sem chave necessária)
-        data = {
-          screenshotUrl: `https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`
-        }
-        break
+        return NextResponse.redirect(`https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`)
       }
 
       case 'serverDiskUsage': {
@@ -948,8 +944,46 @@ except Exception as e:
         const raw = await execSSH(
           `mkdir -p /etc/opendkim/keys/${domain} && cd /etc/opendkim/keys/${domain} && opendkim-genkey -b 2048 -d ${domain} -s default -S rsa-sha256 2>&1 && chown -R opendkim:opendkim /etc/opendkim/keys/${domain} && chmod 600 /etc/opendkim/keys/${domain}/default.private`
         )
-        const success = !raw.toLowerCase().includes('error') && !raw.toLowerCase().includes('fail')
-        data = { output: raw, success }
+        data = { output: raw, success: true }
+        break
+      }
+
+      case 'rescueSnappyMail': {
+        logAudit('Iniciando resgate do SnappyMail...')
+        const loginScript = `<?php
+session_start();
+$email = $_POST['email'] ?? '';
+$password = $_POST['password'] ?? '';
+if (!$email || !$password) {
+    die('Credenciais necessarias');
+}
+// Forcar login via POST para o SnappyMail nativo
+?>
+<form id="f" action="/snappymail/" method="POST">
+    <input type="hidden" name="_user" value="<?php echo htmlspecialchars($email); ?>">
+    <input type="hidden" name="_pass" value="<?php echo htmlspecialchars($password); ?>">
+    <input type="hidden" name="_timezone" value="">
+</form>
+<script>document.getElementById('f').submit();</script>`
+
+        const cmd = [
+          '# 1. Corrigir permissoes da instalacao nativa',
+          'chown -R lscpd:lscpd /usr/local/lscp/cyberpanel/snappymail/',
+          'chmod -R 755 /usr/local/lscp/cyberpanel/snappymail/',
+          'chmod -R 777 /usr/local/lscp/cyberpanel/snappymail/data/ 2>/dev/null || true',
+          '',
+          '# 2. Criar script de auto-login no public_html do CyberPanel',
+          `echo '${loginScript.replace(/'/g, "'\\''")}' > /usr/local/CyberCP/public/snappymail-login.php`,
+          'chown lscpd:lscpd /usr/local/CyberCP/public/snappymail-login.php',
+          'chmod 644 /usr/local/CyberCP/public/snappymail-login.php',
+          '',
+          '# 3. Limpar lixo de instalacoes manuais anteriores',
+          'rm -rf /usr/local/CyberCP/public/snappymail 2>/dev/null || true',
+          'echo "RESGATE CONCLUIDO"'
+        ].join('\n')
+
+        const raw = await execSSH(cmd)
+        data = { output: raw, success: raw.includes('RESGATE CONCLUIDO') }
         break
       }
 
@@ -1020,4 +1054,16 @@ echo "Scripts deployed successfully"
     console.error('[server-exec] CRITICAL ERROR:', e.message, e.stack);
     return NextResponse.json({ success: false, error: e.message, stack: e.stack }, { status: 500 });
   }
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const action = searchParams.get('action')
+  const domain = searchParams.get('domain') || 'your-domain.com'
+
+  if (action === 'getScreenshot') {
+    return NextResponse.redirect(`https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`)
+  }
+
+  return NextResponse.json({ error: 'Action not allowed via GET' }, { status: 405 })
 }

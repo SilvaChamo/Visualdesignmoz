@@ -27,16 +27,17 @@ interface SidebarItemProps {
     onClick?: () => void
     subItems?: { label: string; href: string }[]
     isNew?: boolean
+    isExpanded: boolean
+    onToggle: () => void
 }
 
-const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew }: SidebarItemProps) => {
-    const [isExpanded, setIsExpanded] = React.useState(false)
+const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew, isExpanded, onToggle }: SidebarItemProps) => {
     const hasSubItems = subItems && subItems.length > 0
 
     const handleClick = (e: React.MouseEvent) => {
         if (hasSubItems) {
             e.preventDefault()
-            setIsExpanded(!isExpanded)
+            onToggle()
         } else if (onClick) {
             onClick()
         }
@@ -89,6 +90,7 @@ const SidebarItem = ({ icon: Icon, label, href, active, onClick, subItems, isNew
 export default function DashboardSidebar() {
     const pathname = usePathname()
     const [isOpen, setIsOpen] = React.useState(false)
+    const [expandedItem, setExpandedItem] = React.useState<string | null>(null)
     const { t } = useI18n()
 
     const menuItems = [
@@ -146,6 +148,8 @@ export default function DashboardSidebar() {
                                 key={item.label}
                                 {...item}
                                 active={pathname === item.href}
+                                isExpanded={expandedItem === item.label}
+                                onToggle={() => setExpandedItem(expandedItem === item.label ? null : item.label)}
                                 onClick={() => setIsOpen(false)}
                             />
                         ))}

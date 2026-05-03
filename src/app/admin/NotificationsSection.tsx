@@ -49,7 +49,8 @@ export function NotificationsSection() {
   // Redirecionar automaticamente para o editor de templates
   useEffect(() => {
     if (activeTab === 'renewal-templates') {
-      window.location.href = '/admin?section=renewals'
+      const isAdmin = window.location.pathname.includes('/admin')
+      window.location.href = isAdmin ? '/admin?section=renewals' : '/revendedor?section=renewals'
     }
   }, [activeTab])
 
@@ -439,7 +440,10 @@ export function NotificationsSection() {
                 </div>
               </div>
               <button
-                onClick={() => window.location.href = '/admin?section=renewals'}
+                onClick={() => {
+                  const isAdmin = window.location.pathname.includes('/admin')
+                  window.location.href = isAdmin ? '/admin?section=renewals' : '/revendedor?section=renewals'
+                }}
                 className="px-6 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 flex items-center gap-2 shadow-lg shadow-purple-200 transition-all hover:shadow-xl"
               >
                 Abrir Editor

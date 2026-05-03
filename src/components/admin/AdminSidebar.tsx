@@ -192,7 +192,7 @@ export function AdminSidebar({
                     if (item.subItems) {
                       toggleExpand(item.id);
                     } else if (item.id === 'newsletter') {
-                      window.location.href = '/admin/mensagens';
+                      onNavigate('newsletter');
                     } else {
                       onNavigate(item.id);
                     }

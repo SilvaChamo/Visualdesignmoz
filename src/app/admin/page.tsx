@@ -1480,164 +1480,29 @@ function ManageWebsiteSection({
   // CUSTOM ICONS (CYBERPANEL STYLE)
   // ============================================================
   const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
+    // Usar Lucide com cores premium
     switch (name) {
-      case 'email-accounts':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
-            <path d="M8 16L32 36L56 16" stroke="#fff" strokeWidth="2" fill="none" />
-          </svg>
-        )
-      case 'email-forwarding':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="4" y="12" width="36" height="24" rx="2" fill="#E0E0E0" />
-            <rect x="24" y="28" width="36" height="24" rx="2" fill="#FFB74D" />
-            <path d="M40 22L46 28L40 34" stroke="#4CAF50" strokeWidth="3" fill="none" />
-          </svg>
-        )
-      case 'email-deliverability':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="8" y="16" width="48" height="32" rx="4" fill="#FFD54F" />
-            <circle cx="52" cy="44" r="10" fill="#90CAF9" />
-            <path d="M48 44L51 47L56 41" stroke="#1565C0" strokeWidth="2" fill="none" />
-          </svg>
-        )
-      case 'file-manager':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <path d="M8 12h16l4 4h28v36H8z" fill="#FFD54F" />
-            <circle cx="52" cy="52" r="10" fill="#90CAF9" />
-            <path d="M52 48v8M48 52h8" stroke="#1565C0" strokeWidth="2" />
-          </svg>
-        )
-      case 'ftp-accounts':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <path d="M12 12h40v40H12z" fill="#FFB74D" />
-            <path d="M32 20v24M24 28l8-8 8 8" stroke="#fff" strokeWidth="4" fill="none" />
-          </svg>
-        )
-      case 'disk-usage':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="16" width="40" height="32" rx="4" fill="#E0E0E0" />
-            <circle cx="52" cy="32" r="12" fill="#4285F4" />
-            <path d="M52 32L52 20A12 12 0 0 1 52 44Z" fill="#fff" opacity="0.3" />
-          </svg>
-        )
-      case 'databases':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFB74D" />
-            <path d="M12 16v32c0 4.4 9 8 20 8s20-3.6 20-8V16" fill="#FFD54F" />
-            <ellipse cx="32" cy="16" rx="20" ry="8" fill="#FFEE58" />
-          </svg>
-        )
-      case 'addon-domains':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <circle cx="32" cy="32" r="24" fill="#4285F4" />
-            <path d="M32 8c13 0 24 11 24 24S45 56 32 56 8 45 8 32 19 8 32 8" fill="none" stroke="#fff" strokeWidth="2" opacity="0.5" />
-            <circle cx="52" cy="52" r="10" fill="#66BB6A" />
-            <path d="M52 48v8M48 52h8" stroke="#fff" strokeWidth="2" />
-          </svg>
-        )
-      case 'dns-zone':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <path d="M32 8l24 40H8z" fill="#90CAF9" />
-            <circle cx="32" cy="36" r="8" fill="#4285F4" />
-            <circle cx="52" cy="52" r="10" fill="#64B5F6" />
-          </svg>
-        )
-      case 'ssl-tls':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="24" width="40" height="28" rx="4" fill="#FF7043" />
-            <path d="M20 24V16a12 12 0 0 1 24 0v8" stroke="#E0E0E0" strokeWidth="6" fill="none" />
-          </svg>
-        )
-      case 'wordpress':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <circle cx="32" cy="32" r="30" fill="#21759b" />
-            <path d="M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm15 39l-6-17 5-13a22 22 0 0 1 1 30zm-15 2a21 21 0 0 1-13-4l9-25 4 11v18zm-2-33l-5 13-5-13a21 21 0 0 1 10 0zm-14 3a22 22 0 0 1 13-1l-9 25-4-24z" fill="#fff" />
-          </svg>
-        )
-      case 'backups':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="16" width="40" height="32" rx="4" fill="#BDBDBD" />
-            <circle cx="52" cy="48" r="10" fill="#4285F4" />
-            <path d="M52 42a6 6 0 1 0 0 12" stroke="#fff" strokeWidth="2" fill="none" />
-          </svg>
-        )
-      case 'git-version':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="12" width="40" height="40" rx="4" fill="#F05032" />
-            <path d="M24 32l8-8 8 8M32 24v16" stroke="#fff" strokeWidth="4" fill="none" />
-          </svg>
-        )
-      case 'mod-security':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="12" width="40" height="40" rx="4" fill="#FFD54F" />
-            <path d="M32 20V44M20 32H44" stroke="#4285F4" strokeWidth="4" />
-            <circle cx="52" cy="52" r="10" fill="#90CAF9" />
-          </svg>
-        )
-      case 'ip-blocker':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <circle cx="32" cy="32" r="24" stroke="#F44336" strokeWidth="6" fill="none" />
-            <path d="M15 15l34 34" stroke="#F44336" strokeWidth="6" />
-            <text x="32" y="38" textAnchor="middle" fill="#F44336" fontSize="12" fontWeight="bold">IP</text>
-          </svg>
-        )
-      case 'cron-jobs':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="12" y="12" width="40" height="40" rx="4" fill="#66BB6A" />
-            <circle cx="48" cy="48" r="12" fill="#fff" />
-            <path d="M48 40v8h6" stroke="#333" strokeWidth="2" fill="none" />
-          </svg>
-        )
-      case 'metrics':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="8" y="16" width="48" height="32" fill="#fff" stroke="#E0E0E0" strokeWidth="2" />
-            <rect x="14" y="32" width="8" height="12" fill="#90CAF9" />
-            <rect x="28" y="24" width="8" height="20" fill="#FFB74D" />
-            <rect x="42" y="28" width="8" height="16" fill="#66BB6A" />
-          </svg>
-        )
-      case 'mx-entry':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="8" y="16" width="48" height="32" rx="4" fill="#4285F4" />
-            <path d="M16 28h32M16 36h32" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-          </svg>
-        )
-      case 'mailing-lists':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <circle cx="32" cy="24" r="12" fill="#FFB74D" />
-            <path d="M12 52c0-11 9-20 20-20s20 9 20 20" fill="#FFD54F" />
-            <circle cx="48" cy="44" r="8" fill="#90CAF9" />
-          </svg>
-        )
-      case 'phpmyadmin':
-        return (
-          <svg viewBox="0 0 64 64" className={className}>
-            <rect x="8" y="12" width="48" height="40" rx="4" fill="#6C78AF" />
-            <path d="M20 24h24M20 32h24M20 40h16" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-          </svg>
-        )
-      default:
-        return <Globe className={className} />
+      case 'email-accounts': return <Mail className={cn(className, "text-rose-500")} />
+      case 'email-forwarding': return <Send className={cn(className, "text-orange-500")} />
+      case 'email-deliverability': return <ShieldCheck className={cn(className, "text-emerald-500")} />
+      case 'file-manager': return <FolderOpen className={cn(className, "text-blue-500")} />
+      case 'ftp-accounts': return <Cloud className={cn(className, "text-sky-500")} />
+      case 'disk-usage': return <HardDrive className={cn(className, "text-gray-500")} />
+      case 'databases': return <Database className={cn(className, "text-orange-500")} />
+      case 'addon-domains': return <Globe className={cn(className, "text-indigo-500")} />
+      case 'dns-zone': return <Layers className={cn(className, "text-yellow-500")} />
+      case 'ssl-tls': return <Lock className={cn(className, "text-red-500")} />
+      case 'wordpress': return <Zap className={cn(className, "text-blue-600")} />
+      case 'backups': return <Archive className={cn(className, "text-teal-500")} />
+      case 'git-version': return <Code className={cn(className, "text-orange-600")} />
+      case 'mod-security': return <Shield className={cn(className, "text-amber-500")} />
+      case 'ip-blocker': return <X className={cn(className, "text-red-600")} />
+      case 'cron-jobs': return <Clock className={cn(className, "text-green-500")} />
+      case 'metrics': return <Layout className={cn(className, "text-blue-500")} />
+      case 'mx-entry': return <Mail className={cn(className, "text-indigo-500")} />
+      case 'mailing-lists': return <Users className={cn(className, "text-pink-500")} />
+      case 'phpmyadmin': return <Database className={cn(className, "text-blue-700")} />
+      default: return <Globe className={className} />
     }
   }
 
@@ -1650,7 +1515,8 @@ function ManageWebsiteSection({
     bgColor = 'bg-white',
     badge,
     external = false,
-    href
+    href,
+    isForm = false
   }: {
     icon: any,
     label: string,
@@ -1660,24 +1526,28 @@ function ManageWebsiteSection({
     bgColor?: string,
     badge?: string,
     external?: boolean,
-    href?: string
+    href?: string,
+    isForm?: boolean
   }) => {
     const content = (
-      <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[140px]">
-        <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+      <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[130px]">
+        <div className={cn(
+          "mb-3 p-3 rounded-full transform group-hover:scale-110 transition-transform duration-300",
+          bgColor || "bg-gray-50"
+        )}>
           {typeof Icon === 'string' ? (
-            <CyberIcon name={Icon} className="w-16 h-16" />
+            <CyberIcon name={Icon} className="w-8 h-8" />
           ) : (
-            <Icon className={cn("w-12 h-12", color)} />
+            <Icon className={cn("w-8 h-8", color)} />
           )}
         </div>
         
-        <span className="text-[13px] font-bold text-[#2d5a8e] group-hover:text-blue-600 transition-colors text-center leading-tight">
+        <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
           {label}
         </span>
 
         {badge && (
-          <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-sm z-10">
+          <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-sm z-10">
             {badge}
           </span>
         )}
@@ -1685,6 +1555,17 @@ function ManageWebsiteSection({
     )
 
     if (external && href) {
+      if (isForm) {
+        return (
+          <form action={href} method="POST" target="_blank" className="h-full">
+            <input type="hidden" name="email" value={localStorage.getItem(`last_email_${domain}`) || ''} />
+            <input type="hidden" name="password" value={localStorage.getItem(`last_pass_${domain}`) || ''} />
+            <button type="submit" className="block w-full h-full">
+              {content}
+            </button>
+          </form>
+        )
+      }
       return (
         <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
           {content}
@@ -1872,7 +1753,14 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="email-accounts" label="Create Email" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
         <MenuItem icon="email-accounts" label="List Emails" onClick={() => setActiveSection('cp-email-mgmt')} />
-        <MenuItem icon="email-accounts" label="Webmail" external href={`https://${domain}:8090/snappymail`} />
+        <MenuItem 
+          icon="email-accounts" 
+          label="Webmail" 
+          external 
+          href={`https://${domain}:8090/snappymail`} 
+          bgColor="bg-rose-100" 
+          color="text-rose-600" 
+        />
         <MenuItem icon="email-forwarding" label="Forwarding" onClick={() => setActiveSection('cp-email-forwarding')} />
         <MenuItem icon="email-deliverability" label="DKIM Manager" onClick={() => setActiveSection('cp-email-dkim')} />
       </SectionCard>
@@ -2114,7 +2002,18 @@ export default function AdminPage() {
   const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
-  const [selectedManageDomain, setSelectedManageDomain] = useState<string>('')
+  const [selectedManageDomain, setSelectedManageDomain] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('last_managed_domain') || ''
+    }
+    return ''
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedManageDomain) {
+      localStorage.setItem('last_managed_domain', selectedManageDomain)
+    }
+  }, [selectedManageDomain])
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
@@ -2425,6 +2324,7 @@ export default function AdminPage() {
           emailOrigem="geral@visualdesigne.com"
           onComposeStateChange={setIsComposeActive}
           isAdmin={true}
+          onNavigate={handleNavigate}
         />
       case 'emails-new':
       case 'cp-email-mgmt':

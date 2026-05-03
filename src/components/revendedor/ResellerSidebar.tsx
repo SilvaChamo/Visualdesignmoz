@@ -112,29 +112,10 @@ export function ResellerSidebar({
   const currentSidebarWidth = isCollapsed ? 80 : 250;
   const logoUrl = customLogo || '/assets/simbolo.png';
 
-  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
-    'gestao-sites': false,
-    'gestao-dominios': false,
-    'wordpress': false,
-    'page-builders': false,
-    'gestao-emails': false,
-    'notificacoes': false,
-  });
+  const [expandedMenu, setExpandedMenu] = React.useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
-    setExpandedMenus(prev => {
-      const isCurrentlyExpanded = prev[id];
-      // Se estamos a expandir um novo menu, fechamos todos os outros
-      if (!isCurrentlyExpanded) {
-        const newState: Record<string, boolean> = {};
-        Object.keys(prev).forEach(key => {
-          newState[key] = false;
-        });
-        return { ...newState, [id]: true };
-      }
-      // Se estamos a fechar, apenas fechamos esse
-      return { ...prev, [id]: false };
-    });
+    setExpandedMenu(prev => (prev === id ? null : id));
   };
 
   return (
@@ -202,19 +183,12 @@ export function ResellerSidebar({
                     if (item.subItems) {
                       toggleExpand(item.id);
                     } else {
-                      // Fechar todos os submenus ao clicar em item sem submenu (ex: Dashboard)
-                      setExpandedMenus(prev => {
-                        const newState: Record<string, boolean> = {};
-                        Object.keys(prev).forEach(key => {
-                          newState[key] = false;
-                        });
-                        return newState;
-                      });
+                      setExpandedMenu(null);
                       onNavigate(item.id);
                     }
                   }}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${
-                    isActive || (expandedMenus[item.id] && item.subItems)
+                    isActive || (expandedMenu === item.id && item.subItems)
                       ? item.id === 'dashboard'
                         ? 'text-red-600 font-bold bg-red-50 border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
                         : 'text-black font-bold'
@@ -222,12 +196,12 @@ export function ResellerSidebar({
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={`${isActive || expandedMenus[item.id] ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
+                  <Icon size={22} className={`${isActive || expandedMenu === item.id ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
                   {!isCollapsed && item.subItems && (
-                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenus[item.id] ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenu === item.id ? 'rotate-90' : ''}`} />
                   )}
                   {!isCollapsed && !item.subItems && isActive && (
                     <ChevronRight size={14} className={`ml-auto ${item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900'}`} />
@@ -235,7 +209,7 @@ export function ResellerSidebar({
                 </button>
 
                 {/* SubMenu Items */}
-                {!isCollapsed && item.subItems && expandedMenus[item.id] && (
+                {!isCollapsed && item.subItems && expandedMenu === item.id && (
                   <div className="mt-1 ml-9 border-l border-gray-200 flex flex-col gap-1">
                     {item.subItems.map(sub => {
                       const isSubActive = activeSection === sub.id;
