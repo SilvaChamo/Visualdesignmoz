@@ -2089,12 +2089,8 @@ export default function ResellerPage() {
         for (const s of validSites) await syncWebsiteToSupabase({ ...s, diskUsage: s.diskUsage?.toString() })
         for (const u of validUsers) await syncUserToSupabase({
           username: u.userName,
-          firstName: u.firstName,
-          lastName: u.lastName,
           email: u.email,
-          acl: u.acl,
-          websitesLimit: u.websitesLimit,
-          status: u.status
+          status: u.suspended ? 'suspended' : 'active'
         })
         for (const p of validPackages) await syncPackageToSupabase(p)
       })()
