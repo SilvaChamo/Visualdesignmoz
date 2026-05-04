@@ -4,10 +4,11 @@
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // Configurações
-const CONTABO_SERVER_IP = '109.199.104.22';
-const CYBERPANEL_URL = 'https://109.199.104.22:8090';
+const CONTABO_SERVER_IP = getServerHost();
+const CYBERPANEL_URL = '${getHestiaUrl()}';
 
 // Tipos de eventos Mozserver
 interface MozserverWebhookPayload {

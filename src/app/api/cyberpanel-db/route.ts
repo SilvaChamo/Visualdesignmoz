@@ -1,187 +1,142 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
+import { Client } from 'ssh2';
+import { getServerHost } from '@/lib/server-config';
 
-function parseTable(output: string): Record<string, string>[] {
-    const lines = output.trim().split('\n').filter(l => l.includes('|'));
-    const results: Record<string, string>[] = [];
-    for (const line of lines) {
-        const parts = line.split('|').map(p => p.trim());
-        if (parts.length >= 2) results.push({ _raw: line, ...Object.fromEntries(parts.map((v, i) => [`col${i}`, v])) });
-    }
-    return results;
+const HESTIA_BIN = '/usr/local/hestia/bin/';
+
+async function execSSH(command: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const conn = new Client();
+        let out = '';
+        const rawKey = process.env.SSH_PRIVATE_KEY || '';
+        const privateKey = rawKey.includes('-----BEGIN') 
+            ? rawKey.replace(/\\n/g, '\n') 
+            : rawKey;
+
+        conn.on('ready', () => {
+            const fullCommand = command.startsWith('v-') ? `${HESTIA_BIN}${command}` : command;
+            conn.exec(fullCommand, (err, stream) => {
+                if (err) { conn.end(); return reject(err); }
+                stream.on('data', (d: Buffer) => { out += d.toString(); });
+                stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
+                stream.on('close', () => { conn.end(); resolve(out); });
+            });
+        });
+
+        conn.on('error', (err) => { 
+            console.error('SSH DB ERROR:', err.message);
+            reject(err); 
+        });
+
+        conn.connect({
+            host: process.env.CYBERPANEL_IP || getServerHost(),
+            port: parseInt(process.env.CYBERPANEL_SSH_PORT || '22'),
+            username: process.env.CYBERPANEL_SSH_USER || 'root',
+            privateKey,
+            password: process.env.CYBERPANEL_PASS, // Fallback to password
+        });
+    });
 }
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'websites';
+    const user = searchParams.get('user') || 'admin';
 
     try {
         if (type === 'websites') {
-            const query = `mysql -D cyberpanel -e "SELECT w.domain, p.packageName, w.adminEmail, w.state, w.ssl FROM websiteFunctions_websites w LEFT JOIN packages_package p ON w.package_id = p.id;" | tr '\\t' '|' | grep -v "^domain"`;
-            const output = await executeCyberPanelCommand(query);
-
-            if (!output.trim()) return NextResponse.json({ success: true, data: [] });
-
-            const sites = output.trim().split('\n')
-                .filter(l => l.includes('|'))
-                .map(line => {
-                    const [domain, packageName, adminEmail, state, ssl] = line.split('|').map(s => s.trim());
-                    return { domain, package: packageName || 'Default', admin: adminEmail, state: state === '1' ? 'Active' : 'Inactive', ssl: ssl === '1' ? 'Enabled' : 'Disabled' };
-                })
-                .filter(s => s.domain);
-
+            const raw = await execSSH(`v-list-web-domains ${user} json`);
+            const sitesObj = JSON.parse(raw);
+            const sites = Object.keys(sitesObj).map(domain => ({
+                domain,
+                package: sitesObj[domain].TEMPLATE || 'default',
+                admin: user,
+                state: sitesObj[domain].SUSPENDED === 'no' ? 'Active' : 'Inactive',
+                ssl: sitesObj[domain].LETSENCRYPT === 'yes' ? 'Enabled' : 'Disabled'
+            }));
             return NextResponse.json({ success: true, data: sites });
         }
 
         if (type === 'users') {
-            const query = `mysql -D cyberpanel -e "SELECT userName, email, type FROM loginSystem_administrator;" | tr '\\t' '|' | grep -v "^userName"`;
-            const output = await executeCyberPanelCommand(query);
-
-            if (!output.trim()) return NextResponse.json({ success: true, data: [] });
-
-            const users = output.trim().split('\n')
-                .filter(l => l.includes('|'))
-                .map(line => {
-                    const [userName, email, userType] = line.split('|').map(s => s.trim());
-                    const role = userType === '1' ? 'admin' : userType === '3' ? 'user' : 'user';
-                    return { userName, email, type: role };
-                })
-                .filter(u => u.userName);
-
+            const raw = await execSSH(`v-list-users json`);
+            const usersObj = JSON.parse(raw);
+            const users = Object.keys(usersObj).map(username => ({
+                userName: username,
+                email: usersObj[username].CONTACT,
+                type: usersObj[username].ROLE
+            }));
             return NextResponse.json({ success: true, data: users });
         }
 
         if (type === 'packages') {
-            const query = `mysql -D cyberpanel -e "SELECT packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" | tr '\\t' '|' | grep -v "^packageName"`;
-            const output = await executeCyberPanelCommand(query);
-
-            if (!output.trim()) return NextResponse.json({ success: true, data: [] });
-
-            const packages = output.trim().split('\n')
-                .filter(l => l.includes('|'))
-                .map(line => {
-                    const [packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains] = line.split('|').map(s => s.trim());
-                    return { packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains };
-                })
-                .filter(p => p.packageName);
-
+            const raw = await execSSH(`v-list-user-packages json`);
+            const pkgObj = JSON.parse(raw);
+            const packages = Object.keys(pkgObj).map(name => ({
+                packageName: name,
+                diskSpace: pkgObj[name].DISK_QUOTA,
+                bandwidth: pkgObj[name].BANDWIDTH,
+                emailAccounts: pkgObj[name].MAIL_ACCOUNTS,
+                dataBases: pkgObj[name].DATABASES,
+                ftpAccounts: pkgObj[name].FTP_ACCOUNTS,
+                allowedDomains: pkgObj[name].WEB_DOMAINS
+            }));
             return NextResponse.json({ success: true, data: packages });
-        }
-
-        if (type === 'all') {
-            const [sitesOut, usersOut, pkgsOut] = await Promise.all([
-                executeCyberPanelCommand(`mysql -D cyberpanel -e "SELECT w.domain, p.packageName, w.adminEmail, w.state, w.ssl FROM websiteFunctions_websites w LEFT JOIN packages_package p ON w.package_id = p.id;" | tr '\\t' '|' | grep -v "^domain"`),
-                executeCyberPanelCommand(`mysql -D cyberpanel -e "SELECT userName, email, type FROM loginSystem_administrator;" | tr '\\t' '|' | grep -v "^userName"`),
-                executeCyberPanelCommand(`mysql -D cyberpanel -e "SELECT packageName, diskSpace, bandwidth, emailAccounts, dataBases, ftpAccounts, allowedDomains FROM packages_package;" | tr '\\t' '|' | grep -v "^packageName"`),
-            ]);
-
-            const parse = (out: string, cols: string[]) =>
-                out.trim().split('\n').filter(l => l.includes('|')).map(line => {
-                    const parts = line.split('|').map(s => s.trim());
-                    return Object.fromEntries(cols.map((c, i) => [c, parts[i] || '']));
-                }).filter(r => r[cols[0]]);
-
-            const sites = parse(sitesOut, ['domain', 'packageName', 'adminEmail', 'state', 'ssl']).map(s => ({
-                ...s,
-                package: s.packageName || 'Default',
-                admin: s.adminEmail,
-                state: s.state === '1' ? 'Active' : 'Inactive',
-                ssl: s.ssl === '1' ? 'Enabled' : 'Disabled'
-            }));
-
-            const users = parse(usersOut, ['userName', 'email', 'type']).map(u => ({
-                ...u,
-                type: u.type === '1' ? 'admin' : u.type === '3' ? 'user' : 'user'
-            }));
-
-            return NextResponse.json({
-                success: true,
-                sites,
-                users,
-                packages: parse(pkgsOut, ['packageName', 'diskSpace', 'bandwidth', 'emailAccounts', 'dataBases', 'ftpAccounts', 'allowedDomains']),
-            });
         }
 
         return NextResponse.json({ error: 'Unknown type' }, { status: 400 });
 
     } catch (error: any) {
-        console.error('[cyberpanel-db]', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
-    const body = await request.json();
-    const { action, domainName, ownerEmail, packageName, phpVersion, adminUser, adminPass, ssl, state } = body;
-
     try {
-        if (action === 'createWebsite') {
-            if (!domainName || !ownerEmail || !packageName) {
-                return NextResponse.json({ error: 'domainName, ownerEmail e packageName são obrigatórios' }, { status: 400 });
+        const body = await request.json();
+        const { action, domainName, adminUser } = body;
+        const user = adminUser || 'admin';
+
+        switch (action) {
+            case 'createWebsite': {
+                const raw = await execSSH(`v-add-web-domain ${user} ${domainName}`);
+                const ok = raw === '' || !raw.toLowerCase().includes('error');
+                return NextResponse.json({ success: ok, message: ok ? 'Website criado no HestiaCP' : 'Erro ao criar website', details: raw });
             }
-            const clean = (s: string) => s.replace(/[^a-zA-Z0-9._@-]/g, '');
-            const php = phpVersion || 'PHP 8.2';
-            const cmd = `cyberpanel createWebsite --domainName "${clean(domainName)}" --ownerEmail "${clean(ownerEmail)}" --packageName "${clean(packageName)}" --websiteOwner "${clean(adminUser || 'admin')}" --php "${php}"`;
-            const output = await executeCyberPanelCommand(cmd);
-            const ok = output.includes('successful') || output.includes('created') || !output.toLowerCase().includes('error');
-            return NextResponse.json({ success: ok, message: ok ? 'Website criado no CyberPanel' : 'Erro ao criar website', details: output });
-        }
 
-        if (action === 'updateWebsite') {
-            if (!domainName) {
-                return NextResponse.json({ error: 'domainName é obrigatório' }, { status: 400 });
+            case 'deleteWebsite': {
+                const raw = await execSSH(`v-delete-web-domain ${user} ${domainName}`);
+                const ok = raw === '' || !raw.toLowerCase().includes('error');
+                return NextResponse.json({ success: ok, message: ok ? 'Website removido do HestiaCP' : 'Erro ao remover', details: raw });
             }
-            const clean = (s: string) => s.replace(/[^a-zA-Z0-9._@-]/g, '');
-            let cmd = `cyberpanel modifyWebsite --domainName "${clean(domainName)}"`;
-            
-            if (ownerEmail) cmd += ` --email "${clean(ownerEmail)}"`;
-            if (packageName && packageName !== 'Default') cmd += ` --package "${clean(packageName)}"`;
-            if (phpVersion) cmd += ` --php "${clean(phpVersion)}"`;
-            if (ssl !== undefined) cmd += ` --ssl ${ssl ? '1' : '0'}`;
-            if (state !== undefined) cmd += ` --state ${state ? '1' : '0'}`;
-            
-            const output = await executeCyberPanelCommand(cmd);
-            const ok = output.includes('successful') || output.includes('modified') || !output.toLowerCase().includes('error');
-            return NextResponse.json({ success: ok, message: ok ? 'Website atualizado' : 'Erro ao atualizar', details: output });
-        }
 
-        if (action === 'addDNSRecord') {
-            if (!domainName || !body.name || !body.recordType || !body.value) {
-                return NextResponse.json({ error: 'domainName, name, recordType e value são obrigatórios' }, { status: 400 });
+            case 'addDNSRecord': {
+                const { name, recordType, value, priority } = body;
+                // v-add-dns-record user domain record type value [priority]
+                const cmd = `v-add-dns-record ${user} ${domainName} ${name} ${recordType} ${value} ${priority || ''}`;
+                const raw = await execSSH(cmd);
+                const ok = raw === '' || !raw.toLowerCase().includes('error');
+                return NextResponse.json({ success: ok, message: ok ? 'Registo DNS adicionado' : 'Erro no DNS', details: raw });
             }
-            const clean = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, '');
-            let cmd = `cyberpanel addDNSRecord --domainName "${clean(domainName)}" --name "${clean(body.name)}" --recordType "${body.recordType}" --value "${clean(body.value)}"`;
-            if (body.priority) cmd += ` --priority ${body.priority}`;
-            if (body.ttl) cmd += ` --ttl ${body.ttl}`;
-            
-            const output = await executeCyberPanelCommand(cmd);
-            const ok = output.includes('successful') || output.includes('added') || !output.toLowerCase().includes('error');
-            return NextResponse.json({ success: ok, message: ok ? 'Registo DNS adicionado' : 'Erro ao adicionar registo DNS', details: output });
-        }
 
-        if (action === 'deleteDNSRecord') {
-            if (!domainName || !body.recordID) {
-                return NextResponse.json({ error: 'domainName e recordID são obrigatórios' }, { status: 400 });
+            case 'deleteDNSRecord': {
+                const { recordID } = body;
+                // v-delete-dns-record user domain id
+                const raw = await execSSH(`v-delete-dns-record ${user} ${domainName} ${recordID}`);
+                const ok = raw === '' || !raw.toLowerCase().includes('error');
+                return NextResponse.json({ success: ok, message: ok ? 'Registo DNS removido' : 'Erro ao remover DNS', details: raw });
             }
-            const clean = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, '');
-            const cmd = `cyberpanel deleteDNSRecord --domainName "${clean(domainName)}" --recordID "${body.recordID}"`;
-            
-            const output = await executeCyberPanelCommand(cmd);
-            const ok = output.includes('successful') || output.includes('deleted') || !output.toLowerCase().includes('error');
-            return NextResponse.json({ success: ok, message: ok ? 'Registo DNS removido' : 'Erro ao remover registo DNS', details: output });
-        }
 
-        if (action === 'deleteWebsite') {
-            const clean = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, '');
-            const cmd = `cyberpanel deleteWebsite --domainName "${clean(domainName)}" --adminUser "${clean(adminUser || 'admin')}" --adminPass "${adminPass || ''}"`;
-            const output = await executeCyberPanelCommand(cmd);
-            const ok = output.includes('successful') || output.includes('deleted') || !output.toLowerCase().includes('error');
-            return NextResponse.json({ success: ok, message: ok ? 'Website removido' : 'Erro ao remover', details: output });
-        }
+            case 'issueSSL': {
+                const raw = await execSSH(`v-add-letsencrypt-domain ${user} ${domainName}`);
+                const ok = raw === '' || !raw.toLowerCase().includes('error');
+                return NextResponse.json({ success: ok, message: ok ? 'SSL (Let\'s Encrypt) ativado' : 'Erro ao ativar SSL', details: raw });
+            }
 
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+            default:
+                return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+        }
     } catch (error: any) {
-        console.error('[cyberpanel-db POST]', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as https from 'https';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
-const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php';
+const CYBERPANEL_API_URL = '${getHestiaUrl()}/send-email-api.php';
 const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token';
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         });
 
         const options = {
-            hostname: '109.199.104.22',
+            hostname: getServerHost(),
             port: 8090,
             path: '/send-email-api.php',
             method: 'POST',

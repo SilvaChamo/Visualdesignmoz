@@ -10,6 +10,7 @@ import {
   Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity
 } from 'lucide-react'
 import type { CyberPanelWebsite, CyberPanelUser } from '@/lib/cyberpanel-api'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 interface Tool {
   id: string
@@ -148,7 +149,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       tools: [
         { id: 'cp-databases', name: 'Criar Base de Dados', icon: <PlusCircle className="w-9 h-9 text-orange-500" /> },
         { id: 'cp-databases', name: 'Gerir Bases de Dados', icon: <Database className="w-9 h-9 text-orange-500" /> },
-        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
+        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: `${getHestiaUrl()}/phpmyadmin/` },
       ]
     },
     {
@@ -295,7 +296,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
             </div>
             <div>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">IP do Servidor</p>
-              <p className="font-mono text-gray-800 text-xs">109.199.104.22</p>
+              <p className="font-mono text-gray-800 text-xs">{getServerHost()}</p>
             </div>
             <div>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Websites Activos</p>
@@ -321,9 +322,9 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
               </div>
             </div>
           </div>
-          <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
+          <a href={getHestiaUrl()} target="_blank" rel="noopener noreferrer"
             className="w-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5" /> Abrir CyberPanel
+            <ExternalLink className="w-3.5 h-3.5" /> Abrir HestiaCP
           </a>
         </div>
 

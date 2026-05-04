@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 {bash -s << 'SSHEOF'
+echo "=== Dominios com email no DA ==="
+ls /etc/virtual/domains 2>/dev/null || cat /etc/virtual/domains 2>/dev/null
+
+echo ""
+echo "=== Contas de email por dominio ==="
+for domain_dir in /etc/virtual/*/; do
+    domain=$(basename "$domain_dir")
+    if [ -f "$domain_dir/passwd" ]; then
+        echo "--- $domain ---"
+        cut -d: -f1 "$domain_dir/passwd"
+    fi
+done
+
+echo ""
+echo "=== Verificar Mautic disponivel ==="
+php8.3 -v 2>/dev/null | head -1
+mysql --version 2>/dev/null | head -1
+SSHEOF
+}
+expect {
+    "*assword:*" {
+        send "Meckito#77?*\r"
+        exp_continue
+    }
+    eof
+}

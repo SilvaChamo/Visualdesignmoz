@@ -12,6 +12,7 @@ import {
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, AlertCircle, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon
 } from 'lucide-react'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
+import { getSnappyMailUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
@@ -252,7 +253,7 @@ export function EmailWebmailSection({
 
   // 🚀 URL direto do SnappyMail - login manual
   const getWebmailUrl = () => {
-    return 'https://109.199.104.22:8090/snappymail/'
+    return getSnappyMailUrl()
   }
 
   // 🔓 Abrir SnappyMail diretamente

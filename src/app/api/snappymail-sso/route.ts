@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
 import { createClient } from '@/utils/supabase/server';
+import { getServerHost, getCPUrl } from '@/lib/server-config';
 
 const SNAPPYMAIL_ADMIN_PATH = '/usr/local/lscp/cyberpanel/snappymail';
 const SNAPPYMAIL_DATA_PATH = `${SNAPPYMAIL_ADMIN_PATH}/data/_data_/_default_`;
@@ -16,7 +17,7 @@ async function execSSH(command: string): Promise<string> {
     }
     
     const privateKey = rawKey.replace(/\\n/g, '\n');
-    const host = process.env.CYBERPANEL_IP || '109.199.104.22';
+    const host = getServerHost();
 
     const timeout = setTimeout(() => {
       conn.end();
@@ -107,7 +108,8 @@ echo "Token created: ${token}"
       
       // URL de autologin do SnappyMail nativo
       // O SnappyMail suporta login via token na query string
-      const ssoUrl = `https://109.199.104.22:8090/snappymail/?sso=${token}&email=${encodeURIComponent(email)}`;
+      const cpUrl = getCPUrl();
+      const ssoUrl = `${cpUrl}/snappymail/?sso=${token}&email=${encodeURIComponent(email)}`;
       
       return NextResponse.json({
         success: true,
@@ -129,7 +131,8 @@ echo "Token created: ${token}"
         timestamp: Date.now()
       })).toString('base64');
       
-      const ssoUrl = `https://109.199.104.22:8090/snappymail/?ssoData=${encodeURIComponent(ssoData)}&email=${encodeURIComponent(email)}`;
+      const cpUrl = getCPUrl();
+      const ssoUrl = `${cpUrl}/snappymail/?ssoData=${encodeURIComponent(ssoData)}&email=${encodeURIComponent(email)}`;
       
       return NextResponse.json({
         success: true,

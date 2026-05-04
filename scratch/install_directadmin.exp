@@ -1,0 +1,39 @@
+#!/usr/bin/expect -f
+set timeout 1800
+set ip "109.199.104.22"
+set user "root"
+set pass "Meckito#77?*"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$ip
+
+expect {
+    "password:" {
+        send "$pass\r"
+    }
+    "Permission denied" {
+        exit 1
+    }
+}
+
+expect "# "
+
+# Parar serviços do HestiaCP
+send "systemctl stop hestia nginx apache2 2>/dev/null\r"
+expect "# "
+
+# Iniciar instalação do DirectAdmin em modo AUTO
+send "bash <(curl -fsSL https://download.directadmin.com/setup.sh) 'auto'\r"
+
+# O instalador pode rodar por muito tempo. 
+# Vou deixar o processo rodando e monitorar a saída inicial.
+expect {
+    "DirectAdmin" {
+        # Mantém a conexão aberta para ver o progresso inicial
+        exp_continue
+    }
+    timeout {
+        send_user "\nInstalação em andamento no servidor (timeout do script atingido, mas o processo continua no servidor)...\n"
+    }
+}
+
+interact

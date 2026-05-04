@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import https from 'https';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +10,7 @@ const supabaseAdmin = createClient(
 );
 
 // Configuração da API CyberPanel
-const CYBERPANEL_API_URL = 'https://109.199.104.22:8090/send-email-api.php';
+const CYBERPANEL_API_URL = '${getHestiaUrl()}/send-email-api.php';
 const CYBERPANEL_API_TOKEN = 'vd_api_2024_secure_token';
 
 // Agente HTTPS que ignora certificado inválido

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 export async function GET() {
   // Verificar configurações SMTP (sem expor senhas completas)
@@ -15,7 +16,7 @@ export async function GET() {
       hasPassword: !!process.env.GMAIL_CLIENT_APP_PASSWORD,
     },
     cyberpanel: {
-      host: '109.199.104.22',
+      host: getServerHost(),
       port: 465,
       status: 'online' // assumindo online
     }

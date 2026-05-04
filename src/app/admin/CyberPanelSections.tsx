@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { cyberPanelAPI } from '@/lib/directadmin-adapter'
 import type {
   CyberPanelWebsite, CyberPanelSubdomain, CyberPanelUser, CyberPanelDatabase,
   CyberPanelFTPAccount, CyberPanelEmail, CyberPanelPHPConfig, CyberPanelPackage
@@ -11,6 +11,7 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -924,7 +925,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
         </a>
 
         <a 
-          href="https://109.199.104.22:8090" 
+          href={getCpUrl()}
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded hover:shadow-md transition-all group"
@@ -934,7 +935,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-orange-900 text-sm group-hover:text-orange-700">CyberPanel</h3>
-            <p className="text-xs text-orange-700 truncate">Painel DNS Contabo (109.199.104.22)</p>
+            <p className="text-xs text-orange-700 truncate">Painel DNS Contabo ({getServerHost()})</p>
           </div>
           <ExternalLink className="w-4 h-4 text-orange-400 group-hover:text-orange-600" />
         </a>
@@ -1487,7 +1488,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
               <div><span className="text-blue-600 font-bold">Pass:</span> {lastCreated.dbPass}</div>
             </div>
             <div className="mt-2 flex gap-2">
-              <a href="https://109.199.104.22:8090/dataBases/phpMyAdmin" target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-50 border border-orange-300 text-orange-600  px-3 py-1.5 rounded font-bold">Abrir phpMyAdmin</a>
+              <a href={`${getHestiaUrl()}/phpmyadmin/`} target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-50 border border-orange-300 text-orange-600  px-3 py-1.5 rounded font-bold">Abrir phpMyAdmin</a>
               <button onClick={() => setLastCreated(null)} className="text-xs text-blue-600 hover:underline">Fechar</button>
             </div>
           </div>
@@ -1503,7 +1504,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: CyberPanelWe
                   <td className="px-4 py-3 font-medium font-mono text-sm">{db.dbName}</td>
                   <td className="px-4 py-3 text-gray-600 font-mono text-sm">{db.dbUser}</td>
                   <td className="px-4 py-3 flex items-center gap-2">
-                    <a href="https://109.199.104.22:8090/dataBases/phpMyAdmin" target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded font-medium">phpMyAdmin</a>
+                    <a href={`${getHestiaUrl()}/phpmyadmin/`} target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded font-medium">phpMyAdmin</a>
                     <button onClick={() => handleDelete(db.dbName)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
@@ -3035,7 +3036,7 @@ export function PHPConfigSection({ sites }: { sites: CyberPanelWebsite[] }) {
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
-          <a href="https://109.199.104.22:8090/php/phpExtensions" target="_blank" rel="noopener noreferrer"
+          <a href={`${getHestiaUrl()}/list/php/`} target="_blank" rel="noopener noreferrer"
             className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center gap-2">
             <ExternalLink className="w-3.5 h-3.5" /> Gerir no CyberPanel
           </a>
@@ -3259,7 +3260,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
       })
       const checkData = await checkRes.json()
       const resolvedIP = (checkData.data?.output || '').trim()
-      const serverIP = '109.199.104.22'
+      const serverIP = getServerHost()
 
       if (!resolvedIP) {
         setMsg(`⚠️ DNS não propagou ainda!\n\nO domínio "${selectedDomain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
@@ -3400,7 +3401,7 @@ export function APIConfigSection() {
 
           <div className="mt-6 pt-4 border-t">
             <h4 className="text-xs font-bold text-gray-600 uppercase mb-2">Endpoint Base</h4>
-            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded block text-gray-700">https://109.199.104.22:8090/api/</code>
+            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded block text-gray-700">{getHestiaUrl()}/api/</code>
           </div>
         </div>
 
@@ -3946,10 +3947,10 @@ export function DNSNameserverSection({ sites }: { sites: CyberPanelWebsite[] }) 
             </select>
           </div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1 IP</label><input value={ns1IP} onChange={(e) => setNs1IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS1 IP</label><input value={ns1IP} onChange={(e) => setNs1IP(e.target.value)} placeholder={getServerHost()} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
           <div></div>
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2</label><input value={ns2} onChange={(e) => setNs2(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
-          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2 IP</label><input value={ns2IP} onChange={(e) => setNs2IP(e.target.value)} placeholder="109.199.104.22" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
+          <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">NS2 IP</label><input value={ns2IP} onChange={(e) => setNs2IP(e.target.value)} placeholder={getServerHost()} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
         </div>
         {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleCreate} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
@@ -8045,7 +8046,7 @@ export function SMTPConfigSection() {
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Configuração Automática</h2>
         <p className="text-gray-600 text-sm mb-6">
-          Configure o servidor CyberPanel (109.199.104.22) para aceitar ligações SMTP externas.
+          Configure o servidor ({getServerHost()}) para aceitar ligações SMTP externas.
         </p>
 
         <button

@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import type { CyberPanelWebsite } from '@/lib/cyberpanel-api'
 import { RefreshCw } from 'lucide-react'
+import { getServerHost } from '@/lib/server-config'
 
 type DNSFilterType = 'All' | 'A' | 'CNAME' | 'MX' | 'TXT' | 'SRV' | 'NS'
 
@@ -483,7 +484,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
             <p className="font-semibold text-blue-800 mb-1">📧 Para configurar Email (DKIM/SPF/DMARC):</p>
             <ul className="text-blue-700 space-y-0.5 list-disc list-inside">
               <li><strong>DKIM:</strong> Nome: <code>default._domainkey</code> | Tipo: <code>TXT</code></li>
-              <li><strong>SPF:</strong> Nome: <code>@</code> | Tipo: <code>TXT</code> | Valor: <code>v=spf1 ip4:109.199.104.22 ~all</code></li>
+              <li><strong>SPF:</strong> Nome: <code>@</code> | Tipo: <code>TXT</code> | Valor: <code>v=spf1 ip4:{getServerHost()} ~all</code></li>
               <li><strong>DMARC:</strong> Nome: <code>_dmarc</code> | Tipo: <code>TXT</code> | Valor: <code>v=DMARC1; p=quarantine;</code></li>
             </ul>
           </div>

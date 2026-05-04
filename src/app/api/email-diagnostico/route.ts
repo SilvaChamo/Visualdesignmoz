@@ -12,7 +12,7 @@ async function execSSH(command: string): Promise<string> {
     }
     
     const privateKey = rawKey.replace(/\\n/g, '\n');
-    const host = process.env.CYBERPANEL_IP || '109.199.104.22';
+    const host = process.env.CYBERPANEL_IP || getServerHost();
 
     const timeout = setTimeout(() => {
       conn.end();
@@ -47,7 +47,7 @@ async function execSSH(command: string): Promise<string> {
 export async function GET() {
   const result: any = {
     timestamp: new Date().toISOString(),
-    server: process.env.CYBERPANEL_IP || '109.199.104.22',
+    server: process.env.CYBERPANEL_IP || getServerHost(),
     tests: {}
   };
 
@@ -755,6 +755,7 @@ except Exception as e:
         /usr/local/CyberPanel/bin/python -c "
 import django
 import os
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
 django.setup()
 from loginSystem.models import Administrator
@@ -788,7 +789,7 @@ except Exception as e:
         echo ""
         
         echo "=== Correção concluída ==="
-        echo "Tente fazer login novamente em: https://109.199.104.22:8090"
+        echo "Tente fazer login novamente em: ${getHestiaUrl()}"
         echo "Usuário: admin"
         echo "Senha: Admin123! (ou a senha que você definiu)"
       `);

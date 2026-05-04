@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // SSH Connection
 async function execSSH(command: string): Promise<string> {
@@ -41,7 +42,7 @@ async function execSSH(command: string): Promise<string> {
       clearTimeout(timeout);
       reject(err);
     }).connect({
-      host: process.env.SSH_HOST || '109.199.104.22',
+      host: process.env.SSH_HOST || getServerHost(),
       port: 22,
       username: process.env.SSH_USER || 'root',
       privateKey: privateKey

@@ -18,7 +18,7 @@ async function execSSH(command: string, timeoutMs: number = 20000): Promise<stri
     }
     
     const privateKey = rawKey.replace(/\\n/g, '\n');
-    const host = process.env.CYBERPANEL_IP || '109.199.104.22';
+    const host = process.env.CYBERPANEL_IP || getServerHost();
 
     console.log('[SSH] Connecting to', host, '- Timeout:', timeoutMs, 'ms');
     console.log('[SSH] Command:', command.substring(0, 150));
@@ -405,7 +405,7 @@ print('ok')
           data = { 
             success: true, 
             output: output,
-            message: 'SnappyMail nativo configurado. Use https://109.199.104.22:8090/snappymail/' 
+            message: 'SnappyMail nativo configurado. Use ${getHestiaUrl()}/snappymail/' 
           };
           
         } catch (err: any) {
@@ -423,7 +423,7 @@ print('ok')
             'echo "=== REMOVENDO INSTALACAO MANUAL DO SNAPPYMAIL ==="',
             'rm -rf /usr/local/CyberCP/public/snappymail',
             'rm -f /usr/local/CyberCP/public/snappymail.php',
-            'echo "✅ Instalação manual removida. SnappyMail nativo em uso: https://109.199.104.22:8090/snappymail/"'
+            'echo "✅ Instalação manual removida. SnappyMail nativo em uso: ${getHestiaUrl()}/snappymail/"'
           ].join(' && ');
           
           const output = await execSSH(cleanupCmd);
@@ -566,6 +566,7 @@ import sys, os
 sys.path.insert(0, '/usr/local/CyberCP')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
 import django; django.setup()
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 from websiteFunctions.models import Websites
 from packages.models import Package
 from loginSystem.models import Administrator
@@ -1021,7 +1022,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['Email']) && isset($_P
     $email = $_POST['Email'];
     $password = $_POST['Password'];
     ?>
-    <form id="loginForm" method="POST" action="https://109.199.104.22:8090/snappymail/index.php">
+    <form id="loginForm" method="POST" action="${getHestiaUrl()}/snappymail/index.php">
         <input type="hidden" name="Email" value="<?php echo htmlspecialchars($email); ?>">
         <input type="hidden" name="Password" value="<?php echo htmlspecialchars($password); ?>">
         <input type="hidden" name="Action" value="Login">

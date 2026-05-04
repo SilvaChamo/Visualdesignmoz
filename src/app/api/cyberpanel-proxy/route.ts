@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
+import { getCPUrl } from '@/lib/server-config';
 
 // CyberPanel API Configuration
-const CYBERPANEL_URL = process.env.CYBERPANEL_URL || 'https://109.199.104.22:8090/api';
+const CYBERPANEL_URL = process.env.CYBERPANEL_URL || `${getCPUrl()}/api`;
 const CYBERPANEL_ADMIN_PASS = process.env.CYBERPANEL_PASS || '';
 const CYBERPANEL_TIMEOUT_MS = 8000; // 8 seconds
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({
                     status: 0,
                     error_message: 'API Access Disabled.',
-                    fix: 'Acede ao CyberPanel → https://109.199.104.22:8090 → Clica em "Security" → "API Access" → Activa o toggle e guarda.',
+                    fix: `Acede ao CyberPanel → ${getCPUrl()} → Clica em "Security" → "API Access" → Activa o toggle e guarda.`,
                 }, { status: 403 });
             }
 

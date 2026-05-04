@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 {bash -s << 'SSHEOF'
+echo "=== Verificar configuração AUTH no Exim ==="
+grep -n "auth_advertise_hosts\|AUTH_BLOCK\|SMTP_ALLOW_AUTH" /etc/exim.conf | head -10
+
+echo ""
+echo "=== Verificar se há restrição por IP na AUTH ==="
+grep -n -A3 "deny.*authenticated" /etc/exim.conf | head -20
+
+echo ""
+echo "=== Verificar variáveis Exim para AUTH externo ==="
+grep -n "SMTP_REQUIRE_AUTH\|REQUIRE_AUTH\|BLOCK_AUTH" /etc/exim.conf | head -5
+cat /etc/exim.conf.d/*.conf 2>/dev/null | grep -i "auth_advertise" | head -5
+SSHEOF
+}
+expect {
+    "*assword:*" {
+        send "Meckito#77?*\r"
+        exp_continue
+    }
+    eof
+}

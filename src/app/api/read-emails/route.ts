@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
@@ -40,7 +41,7 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
                       domain.endsWith('.mz') || domain.endsWith('.co.mz')
 
   if (isCyberPanel) {
-    return { host: '109.199.104.22', port: 993, secure: true }
+    return { host: getServerHost(), port: 993, secure: true }
   }
 
   return { host: `mail.${domain}`, port: 993, secure: true }

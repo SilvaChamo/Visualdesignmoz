@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 "
+# Criar conta de email para o sistema de marketing
+# Primeiro vamos ver que dominios existem no DA
+ls /etc/virtual/ | grep -v '\\.passwd' | grep -v '\\.limit' | head -10
+"
+expect {
+    "*assword:*" {
+        send "Meckito#77?*\r"
+        exp_continue
+    }
+    eof
+}

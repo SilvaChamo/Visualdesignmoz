@@ -1,0 +1,10 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 "tail -n 30 /root/da_build.log"
+expect {
+    "*assword:*" {
+        send "Meckito#77?*\r"
+        exp_continue
+    }
+    eof
+}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerHost, getCPUrl } from '@/lib/server-config'
 
-// CyberPanel API Configuration
-const CYBERPANEL_URL = 'https://109.199.104.22:8090'
+// Server Panel API Configuration
+const CYBERPANEL_URL = getCPUrl()
 const CYBERPANEL_USER = 'admin'
 const CYBERPANEL_PASS = 'FerramentasWeb#2020'
 
@@ -28,9 +29,9 @@ export async function POST(request: NextRequest) {
         status: 'existing_content'
       },
       destination: {
-        server: 'CyberPanel',
+        server: 'Server Panel',
         url: CYBERPANEL_URL,
-        ip: '109.199.104.22',
+        ip: getServerHost(),
         status: 'ready_for_migration'
       },
       dns: {
@@ -38,14 +39,14 @@ export async function POST(request: NextRequest) {
           {
             type: 'A',
             name: '@',
-            content: '109.199.104.22',
+            content: getServerHost(),
             ttl: 3600,
             action: 'update_when_ready'
           },
           {
             type: 'A',
             name: 'www',
-            content: '109.199.104.22',
+            content: getServerHost(),
             ttl: 3600,
             action: 'update_when_ready'
           }
@@ -64,8 +65,8 @@ export async function POST(request: NextRequest) {
     const manualSteps = [
       {
         step: 1,
-        title: 'Acessar CyberPanel',
-        description: 'Abra https://109.199.104.22:8090 no navegador',
+        title: 'Acessar Painel do Servidor',
+        description: `Abra ${CYBERPANEL_URL} no navegador`,
         credentials: {
           username: 'admin',
           password: 'FerramentasWeb#2020'
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
         manualSteps: manualSteps,
         cyberPanel: {
           url: CYBERPANEL_URL,
-          ip: '109.199.104.22',
+          ip: getServerHost(),
           credentials: {
             username: 'admin',
             password: 'FerramentasWeb#2020'

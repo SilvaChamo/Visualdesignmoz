@@ -5,6 +5,7 @@ import {
   Webhook, Server, Globe, CheckCircle, AlertCircle, 
   Copy, RefreshCw, Shield, Terminal
 } from 'lucide-react'
+import { getServerHost } from '@/lib/server-config'
 
 export function DNSWebhookConfig() {
   const [webhookStatus, setWebhookStatus] = useState<'online' | 'offline' | 'checking'>('checking')
@@ -153,8 +154,8 @@ export function DNSWebhookConfig() {
           <div className="flex items-start gap-3">
             <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</span>
             <div>
-              <p className="font-medium text-blue-900">Painel Admin cria zona DNS no CyberPanel</p>
-              <p className="text-blue-700">IP: 109.199.104.22 (Contabo)</p>
+              <p className="font-medium text-blue-900">Painel Admin cria zona DNS</p>
+              <p className="text-blue-700">IP: {getServerHost()} (Contabo)</p>
             </div>
           </div>
           
@@ -169,7 +170,7 @@ export function DNSWebhookConfig() {
           <div className="flex items-start gap-3">
             <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">5</span>
             <div>
-              <p className="font-medium text-blue-900">Website é criado no CyberPanel</p>
+              <p className="font-medium text-blue-900">Website é criado no Servidor</p>
               <p className="text-blue-700">Pacote Default, owner: admin</p>
             </div>
           </div>
@@ -201,19 +202,19 @@ export function DNSWebhookConfig() {
               <tr>
                 <td className="px-3 py-2"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">A</span></td>
                 <td className="px-3 py-2">@</td>
-                <td className="px-3 py-2">109.199.104.22</td>
+                <td className="px-3 py-2">{getServerHost()}</td>
                 <td className="px-3 py-2">14400</td>
               </tr>
               <tr>
                 <td className="px-3 py-2"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">A</span></td>
                 <td className="px-3 py-2">www</td>
-                <td className="px-3 py-2">109.199.104.22</td>
+                <td className="px-3 py-2">{getServerHost()}</td>
                 <td className="px-3 py-2">14400</td>
               </tr>
               <tr>
                 <td className="px-3 py-2"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">A</span></td>
                 <td className="px-3 py-2">mail</td>
-                <td className="px-3 py-2">109.199.104.22</td>
+                <td className="px-3 py-2">{getServerHost()}</td>
                 <td className="px-3 py-2">14400</td>
               </tr>
               <tr>

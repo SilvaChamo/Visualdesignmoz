@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // Resolve o servidor SMTP correto com base no domínio do email remetente
 const resolveSmtpConfig = (fromEmail: string) => {
@@ -22,11 +23,11 @@ const resolveSmtpConfig = (fromEmail: string) => {
   }
 
   // Genérico / CyberPanel — usa IP direto do servidor
-  return { host: process.env.SMTP_HOST || '109.199.104.22', port: 587, secure: false }
+  return { host: process.env.SMTP_HOST || getServerHost(), port: 587, secure: false }
 }
 
 // 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (CyberPanel/Postfix)
-const SMTP_HOST = '109.199.104.22' // IP direto do servidor
+const SMTP_HOST = getServerHost() // IP direto do servidor
 const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
 const SMTP_SECURE = false; // 587 usa STARTTLS (não SSL direto)
 
@@ -116,7 +117,7 @@ async function saveToSentFolder(
         const senderDomain = from.split('@')[1] || 'visualdesigne.com'
         const CYBERPANEL_DOMAINS = ['visualdesigne.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
         const isCyberPanel = CYBERPANEL_DOMAINS.includes(senderDomain) || CYBERPANEL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
-        const imapHost = process.env.IMAP_HOST || (isCyberPanel ? '109.199.104.22' : `mail.${senderDomain}`)
+        const imapHost = process.env.IMAP_HOST || (isCyberPanel ? getServerHost() : `mail.${senderDomain}`)
         
         const imapClient = new ImapFlow({
             host: imapHost,

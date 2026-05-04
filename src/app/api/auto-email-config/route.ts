@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 export async function POST(req: NextRequest) {
     try {
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
         <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
             <h3 style="color: #92400e; margin-top: 0; font-size: 16px;">ACESSO WEBMAIL</h3>
             <p style="margin: 10px 0; color: #92400e;">
-                <strong>URL:</strong> <a href="https://109.199.104.22:8090/snappymail/" style="color: #dc2626;">https://109.199.104.22:8090/snappymail/</a><br>
+                <strong>URL:</strong> <a href="${getHestiaUrl()}/snappymail/" style="color: #dc2626;">${getHestiaUrl()}/snappymail/</a><br>
                 <strong>Email:</strong> ${userEmail}<br>
                 <strong>Senha:</strong> [Sua senha do email]
             </p>
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-            <a href="https://109.199.104.22:8090/snappymail/" 
+            <a href="${getHestiaUrl()}/snappymail/" 
                style="background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Acessar Webmail Agora
             </a>

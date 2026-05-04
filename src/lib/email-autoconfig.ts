@@ -1,3 +1,5 @@
+import { getServerHost, getCPUrl, getSnappyMailUrl } from './server-config';
+
 // Sistema de configurações automáticas para contas de e-mail
 // Este arquivo mapeia domínios para seus servidores IMAP/SMTP e URLs de Webmail.
 
@@ -10,66 +12,29 @@ export interface DomainEmailConfig {
   webmail: string;
 }
 
-// Configurações de email - Todas sincronizadas com o servidor CyberPanel (109.199.104.22)
-// onde o SnappyMail está instalado
-export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
-  'aamihe.com': {
-    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
-    smtp: '109.199.104.22',
-    ports: { imap: 993, smtp: 587 },
-    ssl: true,
-    secure: false,
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
-  },
-  'visualdesigne.com': {
-    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
-    smtp: '109.199.104.22',
-    ports: { imap: 993, smtp: 587 },
-    ssl: true,
-    secure: false,
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
-  },
-  'visualdesigne.pt': {
-    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
-    smtp: '109.199.104.22',
-    ports: { imap: 993, smtp: 587 },
-    ssl: true,
-    secure: false,
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
-  },
-  'anap.co.mz': {
-    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
-    smtp: '109.199.104.22',
-    ports: { imap: 993, smtp: 587 },
-    ssl: true,
-    secure: false,
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
-  },
-  'entrecampos.co.mz': {
-    imap: '109.199.104.22', // Servidor CyberPanel (mesmo do SnappyMail)
-    smtp: '109.199.104.22',
-    ports: { imap: 993, smtp: 587 },
-    ssl: true,
-    secure: false,
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
-  }
-};
-
 /**
  * Retorna as configurações padrão do servidor principal para domínios não mapeados.
- * Garante que todos os painéis herdem o servidor master (CyberPanel/SnappyMail) por padrão.
+ * Garante que todos os painéis herdem o servidor master por padrão.
  */
 export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
-  // Servidor Master CyberPanel onde o SnappyMail está instalado
-  const host = '109.199.104.22';
+  const host = getServerHost();
   return {
     imap: host,
     smtp: host,
     ports: { imap: 993, smtp: 587 },
     ssl: true,
     secure: false, // 587 = STARTTLS
-    webmail: 'https://109.199.104.22:8090/snappymail/index.php'
+    webmail: getSnappyMailUrl(domain)
   };
+};
+
+// Configurações de email - Dinâmicas baseadas no servidor configurado
+export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
+  'aamihe.com': getDefaultConfig('aamihe.com'),
+  'visualdesigne.com': getDefaultConfig('visualdesigne.com'),
+  'visualdesigne.pt': getDefaultConfig('visualdesigne.pt'),
+  'anap.co.mz': getDefaultConfig('anap.co.mz'),
+  'entrecampos.co.mz': getDefaultConfig('entrecampos.co.mz')
 };
 
 /**

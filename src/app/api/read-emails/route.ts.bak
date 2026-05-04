@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
               
               console.log(`📧 [read-emails] Conectando a ${conta.email}...`)
               const client = new ImapFlow({
-                host: process.env.IMAP_HOST || '109.199.104.22',
+                host: process.env.IMAP_HOST || getServerHost(),
                 port: 993,
                 secure: true,
                 auth: { user: conta.email, pass: senhaDescriptada },
@@ -268,7 +269,7 @@ export async function POST(req: NextRequest) {
         pastasParaProcessar.map(async (fPath) => {
           try {
             const client = new ImapFlow({
-              host: process.env.IMAP_HOST || '109.199.104.22',
+              host: process.env.IMAP_HOST || getServerHost(),
               port: 993,
               secure: true,
               auth: { user: mEmail, pass: multiPasswords?.[idx] || 'Ad.Vd#2425?*' },
@@ -383,11 +384,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Configure a senha IMAP para visualizar emails', details: 'no-imap-password' }, { status: 400 })
     }
 
-    console.log(`📧 [read-emails] Conectando ao IMAP: ${process.env.IMAP_HOST || '109.199.104.22'}:${993}`)
+    console.log(`📧 [read-emails] Conectando ao IMAP: ${process.env.IMAP_HOST || getServerHost()}:${993}`)
     console.log(`📧 [read-emails] Email: ${email}, Pastas: ${pastasParaProcessar.join(', ')}`)
     
     const client = new ImapFlow({
-      host: process.env.IMAP_HOST || '109.199.104.22',
+      host: process.env.IMAP_HOST || getServerHost(),
       port: 993,
       secure: true,
       auth: { user: email, pass: password },

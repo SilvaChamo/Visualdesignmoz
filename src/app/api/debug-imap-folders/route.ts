@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    const host = process.env.IMAP_HOST || '109.199.104.22'
+    const host = process.env.IMAP_HOST || getServerHost()
 
     console.log(`📧 [debug-imap-folders] Conectando a ${host} com usuário ${email}`)
 

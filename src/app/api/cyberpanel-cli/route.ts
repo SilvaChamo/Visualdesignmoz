@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
+import { getServerHost } from '@/lib/server-config';
 
-// API Wrapper que usa SSH para executar comandos reais no servidor CyberPanel
+// HestiaCP Path (usually in /usr/local/hestia/bin/)
+const HESTIA_BIN = '/usr/local/hestia/bin/';
 
 async function execSSH(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let out = '';
     const rawKey = process.env.SSH_PRIVATE_KEY || '';
-    const privateKey = rawKey.replace(/\\n/g, '\n');
+    const privateKey = rawKey.includes('-----BEGIN') 
+      ? rawKey.replace(/\\n/g, '\n') 
+      : rawKey;
 
     conn.on('ready', () => {
-      conn.exec(command, (err, stream) => {
+      // Use absolute path for Hestia commands to be safe
+      const fullCommand = command.startsWith('v-') ? `${HESTIA_BIN}${command}` : command;
+      
+      conn.exec(fullCommand, (err, stream) => {
         if (err) { conn.end(); return reject(err); }
         stream.on('data', (d: Buffer) => { out += d.toString(); });
         stream.stderr.on('data', (d: Buffer) => { out += d.toString(); });
@@ -19,12 +26,17 @@ async function execSSH(command: string): Promise<string> {
       });
     });
 
-    conn.on('error', (err) => { reject(err); });
+    conn.on('error', (err) => { 
+      console.error('SSH ERROR:', err.message);
+      reject(err); 
+    });
+
     conn.connect({
-      host: process.env.CYBERPANEL_IP || '109.199.104.22',
-      port: 22,
-      username: 'root',
+      host: process.env.CYBERPANEL_IP || getServerHost(),
+      port: parseInt(process.env.CYBERPANEL_SSH_PORT || '22'),
+      username: process.env.CYBERPANEL_SSH_USER || 'root',
       privateKey,
+      password: process.env.CYBERPANEL_PASS, // Fallback to password
     });
   });
 }
@@ -36,21 +48,39 @@ export async function GET(request: NextRequest) {
   try {
     switch (action) {
       case 'listUsers': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT id, userName, email, type, state, firstName, lastName FROM loginSystem_administrator;" -B -N 2>/dev/null`);
-        const users = raw.split('\n').filter(Boolean).map(line => {
-          const [id, userName, email, type, state, firstName, lastName] = line.split('\t');
-          return { id: parseInt(id), userName, email, type, state, firstName, lastName };
-        });
-        return NextResponse.json({ success: true, data: users });
+        const raw = await execSSH(`v-list-users json`);
+        try {
+          const usersObj = JSON.parse(raw);
+          const users = Object.keys(usersObj).map(username => ({
+            id: username,
+            userName: username,
+            email: usersObj[username].CONTACT,
+            type: usersObj[username].ROLE,
+            state: usersObj[username].SUSPENDED === 'no' ? 'active' : 'suspended',
+            firstName: username,
+            lastName: ''
+          }));
+          return NextResponse.json({ success: true, data: users });
+        } catch (e) {
+          return NextResponse.json({ success: false, error: 'Failed to parse Hestia users', raw });
+        }
       }
 
       case 'listWebsites': {
-        const raw = await execSSH(`mysql cyberpanel -e "SELECT domain, adminEmail, package_id, state FROM websiteFunctions_websites;" -B -N 2>/dev/null`);
-        const sites = raw.split('\n').filter(Boolean).map(line => {
-          const [domain, adminEmail, pkg, state] = line.split('\t');
-          return { domain, adminEmail, package: pkg, state };
-        });
-        return NextResponse.json({ success: true, data: sites });
+        const user = searchParams.get('user') || 'admin';
+        const raw = await execSSH(`v-list-web-domains ${user} json`);
+        try {
+          const sitesObj = JSON.parse(raw);
+          const sites = Object.keys(sitesObj).map(domain => ({
+            domain,
+            adminEmail: '', // Not directly in this JSON
+            package: sitesObj[domain].TEMPLATE,
+            state: sitesObj[domain].SUSPENDED === 'no' ? 'active' : 'suspended'
+          }));
+          return NextResponse.json({ success: true, data: sites });
+        } catch (e) {
+          return NextResponse.json({ success: false, error: 'Failed to parse Hestia domains', raw });
+        }
       }
 
       case 'serverStatus': {
@@ -69,7 +99,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Action not recognized' }, { status: 400 });
     }
   } catch (error: any) {
-    console.error('[cyberpanel-cli] GET Error:', error.message);
+    console.error('[hestia-cli] GET Error:', error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -81,81 +111,70 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'createUser': {
-        const raw = await execSSH(
-          `cyberpanel createAdministrator ` +
-          `--userName ${params.userName} ` +
-          `--password '${params.password}' ` +
-          `--email ${params.email} ` +
-          `--firstName '${params.firstName || ''}' ` +
-          `--lastName '${params.lastName || ''}' ` +
-          `--selectedACL ${params.acl || 'user'} ` +
-          `--websitesLimit ${params.websitesLimit ?? 0} ` +
-          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`
-        );
-        const success = raw.includes('"status": 1') || raw.includes('successfully created') || raw.includes('Success') || raw.includes('created successfully');
-        return NextResponse.json({ success, output: raw, error: success ? null : raw });
-      }
-
-      case 'deleteUser': {
-        const raw = await execSSH(`cyberpanel deleteUser --userName ${params.userName} 2>&1`);
-        return NextResponse.json({ success: raw.includes('"deleteStatus": 1'), output: raw });
-      }
-
-      case 'modifyUser': {
-        const raw = await execSSH(
-          `cyberpanel modifyAdministrator ` +
-          `--userName ${params.userName} ` +
-          `--email ${params.email} ` +
-          `--firstName '${params.firstName || ''}' ` +
-          `--lastName '${params.lastName || ''}' ` +
-          `--selectedACL ${params.acl || 'user'} ` +
-          `--websitesLimit ${params.websitesLimit ?? 10} ` +
-          `--securityLevel ${params.securityLevel || 'HIGH'} 2>&1`
-        );
-        const success = raw.includes('Success') || raw.includes('successfully modified') || raw.includes('"status": 1');
+        // v-add-user user password email [package] [name] [surname]
+        const cmd = `v-add-user ${params.userName} '${params.password}' ${params.email} ${params.package || 'default'} '${params.firstName || ''}' '${params.lastName || ''}'`;
+        const raw = await execSSH(cmd);
+        const success = raw === '' || !raw.toLowerCase().includes('error');
         return NextResponse.json({ success, output: raw });
       }
 
+      case 'deleteUser': {
+        const raw = await execSSH(`v-delete-user ${params.userName}`);
+        return NextResponse.json({ success: raw === '' || !raw.toLowerCase().includes('error'), output: raw });
+      }
+
       case 'createWebsite': {
-        const domainName = params.domainName || params.domain;
-        const email = params.email || params.adminEmail;
-        const owner = params.owner || params.username || 'admin';
-        const pkg = params.package || params.packageName || 'Default';
-        const phpRaw = params.php || params.phpVersion || 'PHP 8.2';
-        const php = phpRaw.replace(/^PHP\s*/, '').trim();
-        const raw = await execSSH(
-          `cyberpanel createWebsite --domainName ${domainName} --email ${email} --owner ${owner} --package "${pkg}" --php "${php}" --ssl 1 --dkim 1 2>&1`
-        );
-        const hasError = raw.toLowerCase().includes('error') || raw.toLowerCase().includes('traceback') || raw.toLowerCase().includes('failed');
-        const hasSuccess = raw.includes('success') || raw.includes('created') || raw.includes('ok');
-        return NextResponse.json({ success: hasSuccess || !hasError, output: raw });
+        const domain = params.domainName || params.domain;
+        const user = params.owner || params.username || 'admin';
+        // v-add-web-domain user domain [ip] [restart]
+        const raw = await execSSH(`v-add-web-domain ${user} ${domain}`);
+        const success = raw === '' || !raw.toLowerCase().includes('error');
+        
+        // Optional: add SSL immediately if requested
+        if (success && params.ssl) {
+            await execSSH(`v-add-letsencrypt-domain ${user} ${domain}`);
+        }
+
+        return NextResponse.json({ success, output: raw });
       }
 
       case 'deleteWebsite': {
-        const raw = await execSSH(`cyberpanel deleteWebsite --domainName ${params.domain} 2>&1`);
-        return NextResponse.json({ success: raw.includes('"success": 1') || raw.includes('Website successfully deleted'), output: raw });
+        const domain = params.domain;
+        const user = params.user || 'admin';
+        const raw = await execSSH(`v-delete-web-domain ${user} ${domain}`);
+        return NextResponse.json({ success: raw === '' || !raw.toLowerCase().includes('error'), output: raw });
       }
 
       case 'createEmail': {
-        const raw = await execSSH(`cyberpanel createEmail --domainName ${params.domain} --userName ${params.userName} --password '${params.password}' 2>&1`);
-        return NextResponse.json({ success: raw.includes('"success": 1'), output: raw });
+        const domain = params.domain;
+        const account = params.userName;
+        const password = params.password;
+        const user = params.user || 'admin';
+        // v-add-mail-account user domain account password
+        const raw = await execSSH(`v-add-mail-account ${user} ${domain} ${account} '${password}'`);
+        return NextResponse.json({ success: raw === '' || !raw.toLowerCase().includes('error'), output: raw });
       }
 
       case 'deleteEmail': {
-        const raw = await execSSH(`cyberpanel deleteEmail --email ${params.email} 2>&1`);
-        return NextResponse.json({ success: raw.includes('"success": 1'), output: raw });
+        const [account, domain] = params.email.split('@');
+        const user = params.user || 'admin';
+        const raw = await execSSH(`v-delete-mail-account ${user} ${domain} ${account}`);
+        return NextResponse.json({ success: raw === '' || !raw.toLowerCase().includes('error'), output: raw });
       }
 
       case 'issueSSL': {
-        const raw = await execSSH(`cyberpanel issueSSL --domainName ${params.domain} 2>&1`);
-        return NextResponse.json({ success: raw.includes('"status": 1') || raw.includes('Success'), output: raw });
+        const domain = params.domain;
+        const user = params.user || 'admin';
+        const raw = await execSSH(`v-add-letsencrypt-domain ${user} ${domain}`);
+        return NextResponse.json({ success: raw === '' || !raw.toLowerCase().includes('error'), output: raw });
       }
 
       default:
         return NextResponse.json({ success: false, error: 'Action not recognized' }, { status: 400 });
     }
   } catch (error: any) {
-    console.error('[cyberpanel-cli] POST Error:', error.message);
+    console.error('[hestia-cli] POST Error:', error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+

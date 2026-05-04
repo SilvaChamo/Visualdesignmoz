@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import https from 'https';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
-const CYBERPANEL_URL = 'https://109.199.104.22:8090/api';
+const CYBERPANEL_URL = '${getHestiaUrl()}/api';
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = process.env.CYBERPANEL_PASS || 'Vgz5Zat4uMyFt2tb';
 

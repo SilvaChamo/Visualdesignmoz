@@ -12,6 +12,7 @@ import {
   ChevronRight, Globe2, Plug, Search, Layers, X
 } from 'lucide-react'
 import Link from 'next/link'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // ============================================================
 // TYPES & INTERFACES
@@ -217,7 +218,7 @@ function QuickStats({ domain, data }: { domain: string; data: WebsiteData | null
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'execCommand',
-          params: { command: `cyberpanel issueSSL --domainName ${domain} 2>&1` }
+          params: { command: `v-add-letsencrypt-domain admin ${domain} 2>&1` }
         })
       })
       const result = await res.json()
@@ -301,7 +302,7 @@ export default function ManageWebsitePage() {
             setWebsiteData({
               domain: site.domain,
               state: site.state === 1 || site.state === '1' ? 'Active' : 'Suspended',
-              ip: site.ip || '109.199.104.22',
+              ip: site.ip || getServerHost(),
               package: site.package || 'Default',
               phpVersion: site.php || 'PHP 8.2',
               owner: site.admin || 'admin',
@@ -367,7 +368,7 @@ export default function ManageWebsitePage() {
       borderColor: 'border-amber-200',
       items: [
         { id: 'create-db', label: 'Databases', icon: 'databases', onClick: () => router.push('/admin?page=cp-databases') },
-        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: 'https://109.199.104.22:8090/dataBases/phpMyAdmin' },
+        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: `${getHestiaUrl()}/phpmyadmin/` },
       ]
     },
     {
@@ -405,8 +406,8 @@ export default function ManageWebsitePage() {
       bgColor: 'bg-gray-50',
       borderColor: 'border-gray-200',
       items: [
-        { id: 'metrics', label: 'Metrics', icon: 'metrics', onClick: () => window.open(`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`, '_blank') },
-        { id: 'cron-jobs', label: 'Cron Jobs', icon: 'cron-jobs', onClick: () => window.open(`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`, '_blank') },
+        { id: 'metrics', label: 'Metrics', icon: 'metrics', onClick: () => window.open(`${getHestiaUrl()}/list/web-log/?domain=${domain}`, '_blank') },
+        { id: 'cron-jobs', label: 'Cron Jobs', icon: 'cron-jobs', onClick: () => window.open(`${getHestiaUrl()}/list/cron/`, '_blank') },
       ]
     },
     {
@@ -482,13 +483,13 @@ export default function ManageWebsitePage() {
                 Visitar Site
               </a>
               <a
-                href="https://109.199.104.22:8090"
+                href={getHestiaUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 <Server className="w-4 h-4" />
-                CyberPanel
+                HestiaCP
               </a>
             </div>
           </div>

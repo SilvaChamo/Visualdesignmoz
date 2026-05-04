@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Client } from 'ssh2';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 async function execSSH(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,7 +14,7 @@ async function execSSH(command: string): Promise<string> {
     }
     
     const privateKey = rawKey.replace(/\\n/g, '\n');
-    const host = process.env.CYBERPANEL_IP || '109.199.104.22';
+    const host = process.env.CYBERPANEL_IP || getServerHost();
 
     // Set a timeout for the entire operation
     const timeout = setTimeout(() => {

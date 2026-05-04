@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronRight, ExternalLink, Webhook
 } from 'lucide-react'
 import { DNSWebhookConfig } from './DNSWebhookConfig'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 interface DomainDNSStatus {
   domain: string
@@ -96,7 +97,7 @@ export function DNSCentralSection() {
   }
 
   const syncAllDomains = async () => {
-    if (!confirm('Sincronizar todos os domínios para o CyberPanel?')) return
+    if (!confirm('Sincronizar todos os domínios para o HestiaCP?')) return
     
     try {
       setLoading(true)
@@ -286,7 +287,7 @@ export function DNSCentralSection() {
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domínio</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mozserver</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CyberPanel</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HestiaCP</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registros</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ações</th>
@@ -376,7 +377,7 @@ export function DNSCentralSection() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-bold">2.</span>
-                    <span>O painel admin (cérebro) sincroniza a zona DNS para o CyberPanel na Contabo</span>
+                    <span>O painel admin (cérebro) sincroniza a zona DNS para o HestiaCP na Contabo</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-bold">3.</span>
@@ -416,15 +417,15 @@ export function DNSCentralSection() {
                   </h4>
                   <p className="text-sm text-gray-600 mb-4">
                     VPS com CyberPanel que hospeda os websites e servidores DNS.
-                    IP: 109.199.104.22
+                    IP: {getServerHost()}
                   </p>
                   <a 
-                    href="https://109.199.104.22:8090" 
+                    href={getHestiaUrl()} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                   >
-                    Acessar CyberPanel <ExternalLink className="w-3 h-3" />
+                    Acessar HestiaCP <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
               </div>

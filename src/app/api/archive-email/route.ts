@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // Mapeamento de pastas baseado em auditoria do Maildir do servidor
 const FOLDER_VARIATIONS: Record<string, string[]> = {
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = new ImapFlow({
-      host: process.env.IMAP_HOST || '109.199.104.22',
+      host: process.env.IMAP_HOST || getServerHost(),
       port: 993,
       secure: true,
       auth: { user: email, pass: password },

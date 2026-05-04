@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const execAsync = promisify(exec);
 
 // Credenciais do Contabo
-const SSH_HOST = '109.199.104.22';
+const SSH_HOST = getServerHost();
 const SSH_USER = 'ADMIN';
 const SSH_PASS = 'Meckito#77?*';
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // Domínios hospedados no servidor CyberPanel
 const CYBERPANEL_DOMAINS = ['visualdesigne.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
@@ -9,7 +10,7 @@ const resolveImapHost = (email: string): string => {
   if (process.env.IMAP_HOST) return process.env.IMAP_HOST
   const domain = email.split('@')[1]?.toLowerCase() || ''
   if (CYBERPANEL_DOMAINS.includes(domain) || CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d))) {
-    return '109.199.104.22' // IP directo — evita falhas DNS
+    return getServerHost() // IP directo — evita falhas DNS
   }
   return `mail.${domain}`
 }

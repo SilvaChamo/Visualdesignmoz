@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as ImapFlow from 'imapflow'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Configuração IMAP CyberPanel (servidor próprio)
     const cyberpanelConfig = {
-      host: '109.199.104.22', // IP do servidor CyberPanel
+      host: getServerHost(), // IP do servidor CyberPanel
       port: 993,
       secure: true,
       auth: {

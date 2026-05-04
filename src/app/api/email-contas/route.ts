@@ -5,6 +5,7 @@ import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import nodemailer from 'nodemailer'
 import { 
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
   generateWelcomeEmailHTML, 
   generateWelcomeEmailText, 
   generateOutlookConfigFile,
@@ -228,7 +229,7 @@ export async function POST(req: NextRequest) {
     try {
       // Configurações do servidor para o email
       const serverConfig = {
-        ip: process.env.SERVER_IP || '109.199.104.22',
+        ip: process.env.SERVER_IP || getServerHost(),
         nameservers: [
           'ns1.mozserver.com',
           'ns2.mozserver.com',

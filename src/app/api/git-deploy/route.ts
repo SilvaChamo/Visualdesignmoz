@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const execAsync = promisify(exec)
 
@@ -34,7 +35,7 @@ async function execSSH(command: string): Promise<string> {
     });
     
     conn.connect({
-      host: '109.199.104.22',
+      host: getServerHost(),
       port: 22,
       username: 'root',
       privateKey,
