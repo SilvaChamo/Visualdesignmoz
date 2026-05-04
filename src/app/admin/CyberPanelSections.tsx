@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { cyberPanelAPI } from '@/lib/directadmin-adapter'
+import { cyberPanelAPI } from '@/lib/cyberpanel-api'
 import type {
   CyberPanelWebsite, CyberPanelSubdomain, CyberPanelUser, CyberPanelDatabase,
   CyberPanelFTPAccount, CyberPanelEmail, CyberPanelPHPConfig, CyberPanelPackage
@@ -11,7 +11,7 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getServerHost, getHestiaUrl, getDirectAdminUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -925,7 +925,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
         </a>
 
         <a 
-          href={getCpUrl()}
+          href={getDirectAdminUrl()}
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded hover:shadow-md transition-all group"
@@ -934,8 +934,8 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: CyberPan
             <Shield className="w-5 h-5 " />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-orange-900 text-sm group-hover:text-orange-700">CyberPanel</h3>
-            <p className="text-xs text-orange-700 truncate">Painel DNS Contabo ({getServerHost()})</p>
+            <h3 className="font-semibold text-orange-900 text-sm group-hover:text-orange-700">DirectAdmin</h3>
+            <p className="text-xs text-orange-700 truncate">Painel Contabo ({getServerHost()})</p>
           </div>
           <ExternalLink className="w-4 h-4 text-orange-400 group-hover:text-orange-600" />
         </a>
