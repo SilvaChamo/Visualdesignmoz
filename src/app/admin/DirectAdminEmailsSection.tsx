@@ -294,8 +294,35 @@ export function DirectAdminEmailsSection() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <div className="animate-pulse">
+            {/* Header skeleton */}
+            <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 border-b">
+              <div className="h-3 bg-gray-200 rounded w-24"></div>
+              <div className="h-3 bg-gray-200 rounded w-16 ml-auto"></div>
+              <div className="h-3 bg-gray-200 rounded w-12"></div>
+              <div className="h-3 bg-gray-200 rounded w-20"></div>
+            </div>
+            {/* Row skeletons */}
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full shrink-0"></div>
+                  <div className="space-y-1.5">
+                    <div className={`h-3 bg-gray-200 rounded ${i % 3 === 0 ? 'w-48' : i % 3 === 1 ? 'w-56' : 'w-40'}`}></div>
+                    <div className="h-2.5 bg-gray-100 rounded w-32"></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="h-5 bg-gray-200 rounded-full w-16"></div>
+                  <div className="h-5 bg-gray-100 rounded w-12"></div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="w-7 h-7 bg-gray-200 rounded"></div>
+                  <div className="w-7 h-7 bg-gray-200 rounded"></div>
+                  <div className="w-7 h-7 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : emails.length === 0 ? (
           <div className="py-16 text-center">
