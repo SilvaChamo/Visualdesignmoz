@@ -7,10 +7,10 @@ import { useI18n } from '@/lib/i18n'
 import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
 } from 'lucide-react'
-import { getCPUrl, getSnappyMailUrl, getCPHost, getHestiaUrl, getServerHost } from '@/lib/server-config';
+import { getCPUrl, getSnappyMailUrl, getHestiaUrl, getServerHost, getActivePanelUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
 import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
-import { CpanelDashboard } from '../admin/CpanelDashboard'
+import { DirectAdminEmailsSection } from '../admin/DirectAdminEmailsSection'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
@@ -1279,7 +1279,8 @@ function ManageWebsiteSection({
   setFileManagerDomain,
   setSelectedDNSDomain,
   packages = [],
-  onRefresh
+  onRefresh,
+  setMailMarketingTab
 }: {
   domain: string
   sites: CyberPanelWebsite[]
@@ -1288,6 +1289,7 @@ function ManageWebsiteSection({
   setSelectedDNSDomain: (domain: string) => void
   packages?: CyberPanelPackage[]
   onRefresh?: () => void
+  setMailMarketingTab: (tab: 'comp' | 'subs' | 'camp') => void
 }) {
   const [siteData, setSiteData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -1424,7 +1426,7 @@ function ManageWebsiteSection({
     switch (name) {
       case 'email-accounts': return <Mail className={cn(className, "text-rose-500")} />
       case 'email-forwarding': return <Send className={cn(className, "text-orange-500")} />
-      case 'email-deliverability': return <ShieldCheck className={cn(className, "text-emerald-500")} />
+      case 'email-deliverability': return <Shield className={cn(className, "text-emerald-500")} />
       case 'file-manager': return <FolderOpen className={cn(className, "text-blue-500")} />
       case 'ftp-accounts': return <Cloud className={cn(className, "text-sky-500")} />
       case 'disk-usage': return <HardDrive className={cn(className, "text-gray-500")} />
@@ -1968,22 +1970,15 @@ export default function ResellerPage() {
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
 
-  // Efeito para capturar section da URL - garantir dashboard como padrão
+  // Secção inicial: respeita ?section= na URL (bookmarks / notificações); senão dashboard
   useEffect(() => {
-    // Sempre definir dashboard como padrão na carga inicial/recarga da página
+    const section = searchParams.get('section');
     if (!initialLoadDone.current) {
-      setActiveSection('dashboard');
       initialLoadDone.current = true;
-      // Limpar qualquer parâmetro section da URL ao recarregar
-      if (window.location.search.includes('section=')) {
-        window.history.replaceState({}, '', '/revendedor');
-      }
+      setActiveSection(section && section.length > 0 ? section : 'dashboard');
       return;
     }
-
-    // Após a carga inicial, permitir navegação por parâmetros de URL (ex: links externos)
-    const section = searchParams.get('section');
-    if (section) {
+    if (section && section.length > 0) {
       setActiveSection(section);
     }
   }, [searchParams]);
@@ -2119,20 +2114,6 @@ export default function ResellerPage() {
     ? filteredSites[0].domain
     : 'your-domain.com'
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'domains', label: 'Websites', icon: Globe },
-    { id: 'cp-users', label: 'Contas', icon: Users },
-    { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
-    { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
-    { id: 'newsletter', label: 'Marketing / News', icon: Layout },
-    { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-    { id: 'cp-api', label: 'Configurações', icon: Settings },
-  ]
-
-  const currentSidebarWidth = isCollapsed ? 80 : 250
-
   const getSectionInfo = (section: string): { title: string; description: string } => {
     const info: Record<string, { title: string; description: string }> = {
       'dashboard': { title: 'Dashboard', description: 'Painel de controlo principal' },
@@ -2163,6 +2144,7 @@ export default function ResellerPage() {
       'cp-email-plus-addr': { title: 'Dashboard', description: 'Plus Addressing' },
       'cp-email-change-pass': { title: 'Dashboard', description: 'Alterar password de e-mail' },
       'cp-email-dkim': { title: 'Dashboard', description: 'Gestão de DKIM' },
+      'da-emails': { title: 'E-mails DirectAdmin', description: 'Contas POP/IMAP no DirectAdmin' },
       'cp-email-limits': { title: 'Dashboard', description: 'Limites de e-mail' },
       'setup-smtp': { title: 'Dashboard', description: 'Configurar SMTP' },
       'cp-wp-list': { title: 'Dashboard', description: 'Painel WordPress' },
@@ -2285,6 +2267,8 @@ export default function ResellerPage() {
         return <EmailChangePasswordSection sites={filteredSites} />
       case 'cp-email-dkim':
         return <DKIMManagerSection sites={filteredSites} />
+      case 'da-emails':
+        return <DirectAdminEmailsSection />
       case 'setup-smtp':
         return <SMTPConfigSection />
       case 'email-diagnostico':
@@ -2366,6 +2350,10 @@ export default function ResellerPage() {
 
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
+      case 'git-deploy':
+        return <GitDeploySection />
+      case 'cp-api':
+        return <APIConfigSection />
       case 'manage-website':
         return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
@@ -2375,6 +2363,7 @@ export default function ResellerPage() {
           setSelectedDNSDomain={setSelectedDNSDomain}
           packages={cyberPanelPackages}
           onRefresh={loadCyberPanelData}
+          setMailMarketingTab={setMailMarketingTab}
         />
       case 'page-builders':
         // Redirecionar para a página de construtores do revendedor
@@ -2580,7 +2569,7 @@ export default function ResellerPage() {
               )}
               <div className="flex items-center gap-2">
 
-                <a href={getCPUrl()} target="_blank" rel="noopener noreferrer"
+                <a href={getActivePanelUrl()} target="_blank" rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
                   <Globe size={13} /> {t('admin.settings.cyberpanel')}
                 </a>

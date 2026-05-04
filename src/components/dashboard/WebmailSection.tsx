@@ -49,7 +49,8 @@ export function WebmailSection({
   useCyberPanelAPI = false,
   emailOrigem,
   onComposeStateChange,
-  isAdmin = false
+  isAdmin = false,
+  onNavigate
 }: WebmailSectionProps) {
   // Estados principais
   const [accounts, setAccounts] = useState<EmailAccount[]>([])

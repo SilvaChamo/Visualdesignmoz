@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Client } from 'ssh2';
+import { getServerHost, getHestiaUrl } from '@/lib/server-config';
 
 async function execSSH(command: string): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -83,6 +83,7 @@ const menuItems: MenuItem[] = [
     icon: Mail,
     subItems: [
       { id: 'emails-new', label: 'E-mails' },
+      { id: 'da-emails', label: 'E-mails DirectAdmin' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ]
@@ -181,7 +182,8 @@ export function AdminSidebar({
               (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) ||
               (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website', 'cp-dns-nameserver'].includes(activeSection)) ||
               (item.id === 'gestao-sites' && ['domains', 'packages-list'].includes(activeSection)) ||
-              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
+              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'da-emails'].includes(activeSection)) ||
+              (item.id === 'git-deploy' && activeSection === 'git-deploy') ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
               (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));
             

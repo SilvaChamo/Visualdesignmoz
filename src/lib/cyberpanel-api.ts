@@ -1,9 +1,46 @@
 const EXEC = '/api/server-exec';
+const PANEL_BRIDGE = '/api/panel-bridge';
 const CLI_EXEC = '/api/cyberpanel-cli';
 import { cacheService } from './cache-service';
 
+/** `da` (default) = HTTPS DirectAdmin via /api/panel-bridge; `ssh` = legacy /api/server-exec */
+function usePanelBridge(): boolean {
+  return (process.env.NEXT_PUBLIC_PANEL_BACKEND ?? 'da') !== 'ssh';
+}
+
 async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 60000) {
   try {
+    if (usePanelBridge()) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(PANEL_BRIDGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action, params, timeoutMs }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error || `HTTP ${res.status}`);
+      }
+      const j = await res.json();
+      if (!j.success) throw new Error(j.error || 'Request failed');
+      const bridgeMutations = new Set([
+        'createUser', 'modifyUser', 'deleteUser', 'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
+        'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail', 'modifyWebsite', 'createSubdomain', 'deleteSubdomain',
+        'createDatabase', 'deleteDatabase', 'createFTPAccount', 'deleteFTPAccount', 'changeEmailPassword', 'setEmailLimits',
+        'addEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing', 'enableDKIM', 'issueSSL',
+        'savePHPConfig', 'changePHPVersion', 'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
+        'createACL', 'deleteACL', 'installWPPlugin', 'toggleWPPlugin', 'restoreWPBackup', 'createRemoteBackup',
+        'configDefaultNameservers', 'createNameserver', 'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations', 'configCloudFlare',
+      ]);
+      if (bridgeMutations.has(action)) {
+        cacheService.clear();
+      }
+      return j.data;
+    }
 
     // Mutation actions should NEVER be cached
     const isMutation = ['createUser', 'modifyUser', 'deleteUser', 'suspendUser', 'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail'].includes(action);
@@ -189,11 +226,12 @@ async function runSites(action: string, params: Record<string, any> = {}, timeou
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const res = await fetch(EXEC, {
+
+    const res = await fetch(usePanelBridge() ? PANEL_BRIDGE : EXEC, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, params }),
+      credentials: 'include',
+      body: JSON.stringify({ action, params, timeoutMs }),
       signal: controller.signal,
     });
     
@@ -205,9 +243,12 @@ async function runSites(action: string, params: Record<string, any> = {}, timeou
     
     const j = await res.json();
     if (!j.success) throw new Error(j.error || 'Request failed');
-    // Para listWebsites, retornar sites array
-    const result = Array.isArray(j.data?.sites) ? j.data.sites : 
-           Array.isArray(j.data) ? j.data : [];
+    // Para listWebsites: bridge devolve array directo; SSH legacy podia usar data.sites
+    const result = Array.isArray(j.data?.sites)
+      ? j.data.sites
+      : Array.isArray(j.data)
+        ? j.data
+        : [];
     // TTL curto: 30s para que criações apareçam rapidamente
     cacheService.set(cacheKey, result, 30 * 1000);
     console.log(`Cache set for ${action} (TTL: 30s)`);
@@ -299,6 +340,9 @@ export const cyberPanelAPI = {
   // Websites
   listWebsites:            (timeoutMs?: number)  => runSites('listWebsites', {}, timeoutMs),
   listPackages:            async ()              => {
+    if (usePanelBridge()) {
+      return run('listPackages');
+    }
     // Tentar API dedicada de pacotes primeiro (mais confiável)
     try {
       console.log('[listPackages] Trying dedicated packages API...');
@@ -332,22 +376,22 @@ export const cyberPanelAPI = {
   suspendWebsite:          (domain: string)      => run('suspendWebsite', { domain }),
   unsuspendWebsite:        (domain: string)      => run('unsuspendWebsite', { domain }),
   deleteWebsite:           (domain: string)      => run('deleteWebsite', { domain }, LONG_TIMEOUT),
-  modifyWebsite:           (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py modifyWebsite --domainName ${p.domain}`, LONG_TIMEOUT),
+  modifyWebsite:           (p: any)              => usePanelBridge() ? run('modifyWebsite', p, LONG_TIMEOUT) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py modifyWebsite --domainName ${p.domain}`, LONG_TIMEOUT),
 
   // Subdomains
-  listSubdomains:          (domain: string)      => cmd(`python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from websiteFunctions.models import ChildDomains;print(json.dumps(list(ChildDomains.objects.filter(master__domain='${domain}').values()),default=str))"`),
-  createSubdomain:         (domain: string, subdomain: string) => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py createSubdomain --domainName ${domain} --subDomain ${subdomain}`),
-  deleteSubdomain:         (domain: string, subdomain: string) => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py deleteSubdomain --domainName ${domain} --subDomain ${subdomain}`),
+  listSubdomains:          (domain: string)      => usePanelBridge() ? run('listSubdomains', { domain }) : cmd(`python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from websiteFunctions.models import ChildDomains;print(json.dumps(list(ChildDomains.objects.filter(master__domain='${domain}').values()),default=str))"`),
+  createSubdomain:         (domain: string, subdomain: string) => usePanelBridge() ? run('createSubdomain', { domain, subdomain }) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py createSubdomain --domainName ${domain} --subDomain ${subdomain}`),
+  deleteSubdomain:         (domain: string, subdomain: string) => usePanelBridge() ? run('deleteSubdomain', { domain, subdomain }) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/websiteManager.py deleteSubdomain --domainName ${domain} --subDomain ${subdomain}`),
 
   // Databases
-  listDatabases:           (domain: string)      => cmd(`mysql -u root -e "SELECT db FROM mysql.db WHERE db LIKE '${domain.replace(/\./g,'_')}%';" 2>/dev/null`),
-  createDatabase:          (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py createDatabase --domainName ${p.domain} --dbName ${p.dbName} --dbUsername ${p.dbUser} --dbPassword '${p.dbPassword}'`),
-  deleteDatabase:          (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py deleteDatabase --dbName ${p.dbName}`),
+  listDatabases:           (domain: string)      => usePanelBridge() ? run('listDatabases', { domain }) : cmd(`mysql -u root -e "SELECT db FROM mysql.db WHERE db LIKE '${domain.replace(/\./g,'_')}%';" 2>/dev/null`),
+  createDatabase:          (p: any)              => usePanelBridge() ? run('createDatabase', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py createDatabase --domainName ${p.domain} --dbName ${p.dbName} --dbUsername ${p.dbUser} --dbPassword '${p.dbPassword}'`),
+  deleteDatabase:          (p: any)              => usePanelBridge() ? run('deleteDatabase', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mysqlUtilities.py deleteDatabase --dbName ${p.dbName}`),
 
   // FTP
-  listFTPAccounts:         (domain: string)      => cmd(`cat /etc/pure-ftpd/pureftpd.passwd 2>/dev/null | grep ${domain} || echo ""`),
-  createFTPAccount:        (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/ftpUtilities.py createFTPAccount --domainName ${p.domain} --ftpUser ${p.username} --ftpPassword '${p.password}'`),
-  deleteFTPAccount:        (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/ftpUtilities.py deleteFTPAccount --ftpUser ${p.username}`),
+  listFTPAccounts:         (domain: string)      => usePanelBridge() ? run('listFTPAccounts', { domain }) : cmd(`cat /etc/pure-ftpd/pureftpd.passwd 2>/dev/null | grep ${domain} || echo ""`),
+  createFTPAccount:        (p: any)              => usePanelBridge() ? run('createFTPAccount', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/ftpUtilities.py createFTPAccount --domainName ${p.domain} --ftpUser ${p.username} --ftpPassword '${p.password}'`),
+  deleteFTPAccount:        (p: any)              => usePanelBridge() ? run('deleteFTPAccount', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/ftpUtilities.py deleteFTPAccount --ftpUser ${p.username}`),
 
   // Email
   listEmails:              (domain: string)      => run('listEmails', { domain }),
@@ -355,66 +399,66 @@ export const cyberPanelAPI = {
   deleteEmail:             (p: any)              => run('deleteEmail', p),
   suspendEmail:            (email: string)       => run('suspendEmail', { email }),
   unsuspendEmail:          (email: string)       => run('unsuspendEmail', { email }),
-  changeEmailPassword:     (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mailUtilities.py changeEmailPassword --email ${p.email} --newPassword '${p.password}'`),
-  setEmailLimits:          (p: any)              => cmd(`echo "limits set for ${p.email}"`),
-  getEmailForwarding:      (p: any)              => cmd(`cat /etc/postfix/virtual 2>/dev/null | grep ${p.email} || echo ""`),
-  addEmailForwarding:      (p: any)              => cmd(`echo "${p.email} ${p.forward}" >> /etc/postfix/virtual && postmap /etc/postfix/virtual`),
-  getCatchAllEmail:        (domain: string)      => cmd(`cat /etc/postfix/virtual 2>/dev/null | grep "@${domain}" || echo ""`),
-  setCatchAllEmail:        (p: any)              => cmd(`echo "@${p.domain} ${p.email}" >> /etc/postfix/virtual && postmap /etc/postfix/virtual`),
-  getPatternForwarding:    (domain: string)      => cmd(`echo "[]"`),
-  addPatternForwarding:    (p: any)              => cmd(`echo "pattern forwarding added"`),
-  getPlusAddressing:       (domain: string)      => cmd(`echo "false"`),
-  togglePlusAddressing:    (p: any)              => cmd(`echo "toggled"`),
-  enableDKIM:              (domain: string)      => cmd(`mkdir -p /etc/opendkim/keys/${domain} && cd /etc/opendkim/keys/${domain} && opendkim-genkey -b 2048 -d ${domain} -s default -S rsa-sha256 2>&1 && chown -R opendkim:opendkim /etc/opendkim/keys/${domain} && chmod 600 /etc/opendkim/keys/${domain}/default.private && echo '{"success": 1, "message": "DKIM gerado com sucesso"}'`),
-  getDKIMStatus:           (domain: string)      => cmd(`if [ -f /etc/opendkim/keys/${domain}/default.txt ]; then cat /etc/opendkim/keys/${domain}/default.txt; else echo '{"enabled": false, "record": ""}'; fi`),
+  changeEmailPassword:     (p: any)              => usePanelBridge() ? run('changeEmailPassword', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/mailUtilities.py changeEmailPassword --email ${p.email} --newPassword '${p.password}'`),
+  setEmailLimits:          (p: any)              => usePanelBridge() ? run('setEmailLimits', p) : cmd(`echo "limits set for ${p.email}"`),
+  getEmailForwarding:      (p: any)              => usePanelBridge() ? run('getEmailForwarding', p) : cmd(`cat /etc/postfix/virtual 2>/dev/null | grep ${p.email} || echo ""`),
+  addEmailForwarding:      (p: any)              => usePanelBridge() ? run('addEmailForwarding', p) : cmd(`echo "${p.email} ${p.forward}" >> /etc/postfix/virtual && postmap /etc/postfix/virtual`),
+  getCatchAllEmail:        (domain: string)      => usePanelBridge() ? run('getCatchAllEmail', { domain }) : cmd(`cat /etc/postfix/virtual 2>/dev/null | grep "@${domain}" || echo ""`),
+  setCatchAllEmail:        (p: any)              => usePanelBridge() ? run('setCatchAllEmail', p) : cmd(`echo "@${p.domain} ${p.email}" >> /etc/postfix/virtual && postmap /etc/postfix/virtual`),
+  getPatternForwarding:    (domain: string)      => usePanelBridge() ? run('getPatternForwarding', { domain }) : cmd(`echo "[]"`),
+  addPatternForwarding:    (p: any)              => usePanelBridge() ? run('addPatternForwarding', p) : cmd(`echo "pattern forwarding added"`),
+  getPlusAddressing:       (domain: string)      => usePanelBridge() ? run('getPlusAddressing', { domain }) : cmd(`echo "false"`),
+  togglePlusAddressing:    (p: any)              => usePanelBridge() ? run('togglePlusAddressing', p) : cmd(`echo "toggled"`),
+  enableDKIM:              (domain: string)      => usePanelBridge() ? run('enableDKIM', { domain }) : cmd(`mkdir -p /etc/opendkim/keys/${domain} && cd /etc/opendkim/keys/${domain} && opendkim-genkey -b 2048 -d ${domain} -s default -S rsa-sha256 2>&1 && chown -R opendkim:opendkim /etc/opendkim/keys/${domain} && chmod 600 /etc/opendkim/keys/${domain}/default.private && echo '{"success": 1, "message": "DKIM gerado com sucesso"}'`),
+  getDKIMStatus:           (domain: string)      => usePanelBridge() ? run('getDKIMStatus', { domain }) : cmd(`if [ -f /etc/opendkim/keys/${domain}/default.txt ]; then cat /etc/opendkim/keys/${domain}/default.txt; else echo '{"enabled": false, "record": ""}'; fi`),
 
   // SSL
-  issueSSL:                (domain: string)      => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/sslUtilities.py issueSSL --domainName ${domain}`, LONG_TIMEOUT),
+  issueSSL:                (domain: string)      => usePanelBridge() ? run('issueSSL', { domain }) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/sslUtilities.py issueSSL --domainName ${domain}`, LONG_TIMEOUT),
 
   // PHP
-  getPHPConfig:            (domain: string)      => cmd(`cat /usr/local/lsws/conf/vhosts/${domain}/vhconf.conf 2>/dev/null | grep phpIniOverride || echo ""`),
-  savePHPConfig:           (p: any)              => cmd(`echo "php config saved for ${p.domain}"`),
-  changePHPVersion:        (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/phpUtilities.py changePHPVersion --domainName ${p.domain} --phpVersion ${p.phpVersion}`, LONG_TIMEOUT),
+  getPHPConfig:            (domain: string)      => usePanelBridge() ? run('getPHPConfig', { domain }) : cmd(`cat /usr/local/lsws/conf/vhosts/${domain}/vhconf.conf 2>/dev/null | grep phpIniOverride || echo ""`),
+  savePHPConfig:           (p: any)              => usePanelBridge() ? run('savePHPConfig', p) : cmd(`echo "php config saved for ${p.domain}"`),
+  changePHPVersion:        (p: any)              => usePanelBridge() ? run('changePHPVersion', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/phpUtilities.py changePHPVersion --domainName ${p.domain} --phpVersion ${p.phpVersion}`, LONG_TIMEOUT),
 
   // Security
   getServerStatus:         ()                    => run('serverStats'),
   getServerStats:          ()                    => run('serverStats'),
-  getFirewallStatus:       ()                    => cmd(`ufw status 2>/dev/null || echo "inactive"`),
-  toggleFirewall:          (p: any)              => cmd(`ufw ${p.enable ? 'enable' : 'disable'} 2>/dev/null`),
-  getModSecurityStatus:    ()                    => cmd(`grep -r "modsec" /usr/local/lsws/conf/ 2>/dev/null | head -1 || echo "disabled"`),
-  toggleModSecurity:       (p: any)              => cmd(`echo "modsec ${p.enable ? 'enabled' : 'disabled'}"`),
-  getBlockedIPs:           ()                    => cmd(`ufw status numbered 2>/dev/null | grep DENY || echo ""`),
-  blockIP:                 (p: any)              => cmd(`ufw deny from ${p.ip} 2>/dev/null`),
-  unblockIP:               (p: any)              => cmd(`ufw delete deny from ${p.ip} 2>/dev/null`),
+  getFirewallStatus:       ()                    => usePanelBridge() ? run('getFirewallStatus', {}) : cmd(`ufw status 2>/dev/null || echo "inactive"`),
+  toggleFirewall:          (p: any)              => usePanelBridge() ? run('toggleFirewall', p) : cmd(`ufw ${p.enable ? 'enable' : 'disable'} 2>/dev/null`),
+  getModSecurityStatus:    ()                    => usePanelBridge() ? run('getModSecurityStatus', {}) : cmd(`grep -r "modsec" /usr/local/lsws/conf/ 2>/dev/null | head -1 || echo "disabled"`),
+  toggleModSecurity:       (p: any)              => usePanelBridge() ? run('toggleModSecurity', p) : cmd(`echo "modsec ${p.enable ? 'enabled' : 'disabled'}"`),
+  getBlockedIPs:           ()                    => usePanelBridge() ? run('getBlockedIPs', {}) : cmd(`ufw status numbered 2>/dev/null | grep DENY || echo ""`),
+  blockIP:                 (p: any)              => usePanelBridge() ? run('blockIP', p) : cmd(`ufw deny from ${p.ip} 2>/dev/null`),
+  unblockIP:               (p: any)              => usePanelBridge() ? run('unblockIP', p) : cmd(`ufw delete deny from ${p.ip} 2>/dev/null`),
 
   // Users
   createUser:              (p: any)              => run('createUser', p, LONG_TIMEOUT),
   modifyUser:              (p: any)              => run('modifyUser', p, LONG_TIMEOUT),
   deleteUser:              (p: any)              => run('deleteUser', p, LONG_TIMEOUT),
-  listACLs:                ()                    => cmd(`python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from loginSystem.models import ACLManager;print(json.dumps(list(ACLManager.objects.values()),default=str))"`),
-  createACL:               (p: any)              => cmd(`echo "acl created: ${p.name}"`),
-  deleteACL:               (p: any)              => cmd(`echo "acl deleted: ${p.name}"`),
+  listACLs:                ()                    => usePanelBridge() ? run('listACLs', {}) : cmd(`python3 -c "import json,sys;sys.path.insert(0,'/usr/local/CyberCP');import django,os;os.environ['DJANGO_SETTINGS_MODULE']='CyberCP.settings';django.setup();from loginSystem.models import ACLManager;print(json.dumps(list(ACLManager.objects.values()),default=str))"`),
+  createACL:               (p: any)              => usePanelBridge() ? run('createACL', p) : cmd(`echo "acl created: ${p.name}"`),
+  deleteACL:               (p: any)              => usePanelBridge() ? run('deleteACL', p) : cmd(`echo "acl deleted: ${p.name}"`),
 
   // WordPress
-  listWordPress:           (domain: string)      => cmd(`find /home/${domain}/public_html -name "wp-config.php" 2>/dev/null`),
-  listWPPlugins:           (p: any)              => cmd(`wp plugin list --path=/home/${p.domain}/public_html --allow-root 2>/dev/null || echo ""`),
-  installWPPlugin:         (p: any)              => cmd(`wp plugin install ${p.plugin} --activate --path=/home/${p.domain}/public_html --allow-root 2>/dev/null`, LONG_TIMEOUT),
-  toggleWPPlugin:          (p: any)              => cmd(`wp plugin ${p.activate ? 'activate' : 'deactivate'} ${p.plugin} --path=/home/${p.domain}/public_html --allow-root 2>/dev/null`),
-  listWPBackups:           (domain: string)      => cmd(`ls /home/${domain}/backup/ 2>/dev/null || echo ""`),
-  restoreWPBackup:         (p: any)              => cmd(`echo "restore backup ${p.backup} for ${p.domain}"`, LONG_TIMEOUT),
-  createRemoteBackup:      (p: any)              => cmd(`echo "remote backup created for ${p.domain}"`, LONG_TIMEOUT),
+  listWordPress:           (domain: string)      => usePanelBridge() ? run('listWordPress', { domain }) : cmd(`find /home/${domain}/public_html -name "wp-config.php" 2>/dev/null`),
+  listWPPlugins:           (p: any)              => usePanelBridge() ? run('listWPPlugins', p) : cmd(`wp plugin list --path=/home/${p.domain}/public_html --allow-root 2>/dev/null || echo ""`),
+  installWPPlugin:         (p: any)              => usePanelBridge() ? run('installWPPlugin', p) : cmd(`wp plugin install ${p.plugin} --activate --path=/home/${p.domain}/public_html --allow-root 2>/dev/null`, LONG_TIMEOUT),
+  toggleWPPlugin:          (p: any)              => usePanelBridge() ? run('toggleWPPlugin', p) : cmd(`wp plugin ${p.activate ? 'activate' : 'deactivate'} ${p.plugin} --path=/home/${p.domain}/public_html --allow-root 2>/dev/null`),
+  listWPBackups:           (domain: string)      => usePanelBridge() ? run('listWPBackups', { domain }) : cmd(`ls /home/${domain}/backup/ 2>/dev/null || echo ""`),
+  restoreWPBackup:         (p: any)              => usePanelBridge() ? run('restoreWPBackup', p) : cmd(`echo "restore backup ${p.backup} for ${p.domain}"`, LONG_TIMEOUT),
+  createRemoteBackup:      (p: any)              => usePanelBridge() ? run('createRemoteBackup', p) : cmd(`echo "remote backup created for ${p.domain}"`, LONG_TIMEOUT),
 
   // DNS
-  configDefaultNameservers:(p: any)              => cmd(`echo "nameservers configured"`),
-  createNameserver:        (p: any)              => cmd(`echo "nameserver created: ${p.nameserver}"`),
-  createDNSZone:           (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py createZone --domainName ${p.domain}`),
-  deleteDNSZone:           (p: any)              => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py deleteZone --domainName ${p.domain}`),
-  resetDNSConfigurations:  (domain: string)      => cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py resetDNS --domainName ${domain}`),
-  configCloudFlare:        (p: any)              => cmd(`echo "cloudflare configured for ${p.domain}"`),
+  configDefaultNameservers:(p: any)              => usePanelBridge() ? run('configDefaultNameservers', p) : cmd(`echo "nameservers configured"`),
+  createNameserver:        (p: any)              => usePanelBridge() ? run('createNameserver', p) : cmd(`echo "nameserver created: ${p.nameserver}"`),
+  createDNSZone:           (p: any)              => usePanelBridge() ? run('createDNSZone', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py createZone --domainName ${p.domain}`),
+  deleteDNSZone:           (p: any)              => usePanelBridge() ? run('deleteDNSZone', p) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py deleteZone --domainName ${p.domain}`),
+  resetDNSConfigurations:  (domain: string)      => usePanelBridge() ? run('resetDNSConfigurations', { domain }) : cmd(`/usr/local/CyberCP/bin/python /usr/local/CyberCP/plogical/dnsUtilities.py resetDNS --domainName ${domain}`),
+  configCloudFlare:        (p: any)              => usePanelBridge() ? run('configCloudFlare', p) : cmd(`echo "cloudflare configured for ${p.domain}"`),
   listDNS:                 (domain: string)      => run('listDNS', { domain }),
 
   // API & Misc
-  generateAPIToken:        ()                    => cmd(`python3 -c "import secrets; print(secrets.token_hex(32))"`),
+  generateAPIToken:        ()                    => usePanelBridge() ? run('generateAPIToken', {}) : cmd(`python3 -c "import secrets; print(secrets.token_hex(32))"`),
   execCommand:             (command: string)     => run('execCommand', { command }),
 };
 

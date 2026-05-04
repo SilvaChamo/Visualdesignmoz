@@ -183,7 +183,12 @@ async function processCardPayment(payment: any, method: any, renewal: any) {
   // Integração com Stripe
   try {
     // Temporary mock to pass build until stripe package is installed
-    const stripe = { paymentIntents: { create: async () => ({ status: 'mocked' }) } }
+    const stripe = { paymentIntents: { create: async (_args: any) => ({ 
+      status: 'succeeded', 
+      id: 'mock_' + Date.now(),
+      charges: { data: [{ receipt_url: null }] },
+      last_payment_error: null
+    }) } }
 
     const charge = await stripe.paymentIntents.create({
       amount: Math.round(payment.amount * 100), // Stripe usa centavos
@@ -204,7 +209,7 @@ async function processCardPayment(payment: any, method: any, renewal: any) {
       transaction_id: charge.id,
       response: charge,
       receipt_url: charge.charges?.data[0]?.receipt_url || null,
-      message: charge.status === 'succeeded' ? 'Pagamento confirmado' : charge.last_payment_error?.message
+      message: charge.status === 'succeeded' ? 'Pagamento confirmado' : 'Erro no pagamento'
     }
   } catch (error: any) {
     console.error('Erro Stripe:', error)

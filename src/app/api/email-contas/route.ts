@@ -4,7 +4,10 @@ import { createClient } from '@/utils/supabase/server'
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import nodemailer from 'nodemailer'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { 
+  getServerHost, 
+  getHestiaUrl 
+} from '@/lib/server-config'
 import { 
   generateWelcomeEmailHTML, 
   generateWelcomeEmailText, 

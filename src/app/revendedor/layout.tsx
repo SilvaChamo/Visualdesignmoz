@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Painel Admin",
+    title: "Painel Revenda",
     robots: 'noindex, nofollow',
 };
 

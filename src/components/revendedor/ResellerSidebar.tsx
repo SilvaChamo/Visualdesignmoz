@@ -6,7 +6,7 @@ import {
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
   RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
   AlertCircle, ArrowRightLeft, Webhook,
-  Save, X, Filter, Calendar, Bell, Palette
+  Save, X, Filter, Calendar, Bell, Palette, Plug
 } from 'lucide-react';
 
 interface ResellerSidebarProps {
@@ -27,6 +27,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'clientes', label: 'Clientes', icon: Users },
 
   {
     id: 'gestao-sites',
@@ -75,6 +76,7 @@ const menuItems: MenuItem[] = [
     icon: Mail,
     subItems: [
       { id: 'emails-new', label: 'E-mails' },
+      { id: 'da-emails', label: 'E-mails DirectAdmin' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'newsletter', label: 'Mailmarketing' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
@@ -99,6 +101,8 @@ const menuItems: MenuItem[] = [
       { id: 'settings-profile', label: 'Meu Perfil' },
     ]
   },
+  { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
+  { id: 'cp-api', label: 'API / Integrações', icon: Plug },
 ];
 
 export function ResellerSidebar({ 
@@ -171,7 +175,7 @@ export function ResellerSidebar({
               (item.id === 'newsletter' && activeSection === 'newsletter') ||
               (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website', 'cp-dns-nameserver'].includes(activeSection)) ||
               (item.id === 'gestao-sites' && ['domains', 'cp-wp-list', 'cp-users'].includes(activeSection)) ||
-              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter'].includes(activeSection)) ||
+              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'newsletter', 'da-emails'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
               (item.id === 'wordpress' && ['wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup', 'packages-list'].includes(activeSection)) ||
               (item.id === 'configuracoes' && ['settings-branding', 'settings-profile'].includes(activeSection));

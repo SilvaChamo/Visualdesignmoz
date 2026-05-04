@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { daRequest } from '@/lib/directadmin';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 /**
  * GET  ?action=list&domain=visualdesigne.com  → lista emails
@@ -9,6 +10,9 @@ import { daRequest } from '@/lib/directadmin';
  */
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action') || 'list';
@@ -63,6 +67,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const { action, domain, username, password, quota = '250' } = await req.json();
 
@@ -97,6 +104,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const { domain, username } = await req.json();
 
@@ -121,6 +131,9 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const { domain, username, password } = await req.json();
 

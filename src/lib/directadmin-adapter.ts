@@ -21,7 +21,11 @@ import type {
 const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
 const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
 const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
-const DA_PASS = process.env.DIRECTADMIN_PASS || '';
+const DA_PASS =
+  process.env.DIRECTADMIN_PASSWORD ||
+  process.env.DIRECTADMIN_LOGIN_KEY ||
+  process.env.DIRECTADMIN_PASS ||
+  '';
 
 const DA_BASE = `https://${DA_HOST}:${DA_PORT}`;
 
@@ -122,7 +126,7 @@ export const cyberPanelAPI = {
           adminEmail: userConf.get('email') || '',
           package: userConf.get('package') || 'Default',
           // DA: suspended=yes|no → map to CyberPanel state (0=active, 1=suspended)
-          state: userConf.get('suspended') === 'yes' ? 1 : 0,
+          state: userConf.get('suspended') === 'yes' ? '1' : '0',
           owner: user,
           phpVersion: userConf.get('php1_release') || 'PHP 8.3',
           sslStatus: 'No SSL', // updated below if SSL exists

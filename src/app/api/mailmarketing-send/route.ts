@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import {
   getDomainReputation,
 } from '@/lib/warmup-service';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================
 // SMTP via DirectAdmin (Exim)
@@ -97,6 +93,9 @@ async function sendViaDirectAdminSMTP(
 
 export async function POST(req: NextRequest) {
   console.log('🚀 [mailmarketing-send] Requisição recebida');
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const body = await req.json();
     const { to, subject, content, sender, senderName, clientEmail, domain } = body;
@@ -176,6 +175,9 @@ export async function POST(req: NextRequest) {
  * GET - Obter status da ligação SMTP e reputação do domínio
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const { searchParams } = new URL(req.url);
     const domain = searchParams.get('domain');

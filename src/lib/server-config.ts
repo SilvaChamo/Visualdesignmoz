@@ -45,8 +45,13 @@ export function getSnappyMailUrl(domain?: string): string {
   return `https://${host}/webmail/`;
 }
 
-// Helper for dynamic panel selection
+/**
+ * URL do painel de hosting mostrada no cabeçalho (admin/revenda).
+ * `NEXT_PUBLIC_PRIMARY_PANEL`: `directadmin` (default) | `hestia` | `cyberpanel`
+ */
 export function getActivePanelUrl(): string {
-  // For now, return Hestia since we are migrating
-  return getHestiaUrl();
+  const panel = (process.env.NEXT_PUBLIC_PRIMARY_PANEL || 'directadmin').toLowerCase();
+  if (panel === 'hestia') return getHestiaUrl();
+  if (panel === 'cyberpanel') return getCPUrl();
+  return getDirectAdminUrl();
 }

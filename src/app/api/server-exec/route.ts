@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { getServerHost } from '@/lib/server-config';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -1022,7 +1023,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['Email']) && isset($_P
     $email = $_POST['Email'];
     $password = $_POST['Password'];
     ?>
-    <form id="loginForm" method="POST" action="${getHestiaUrl()}/snappymail/index.php">
+    <form id="loginForm" method="POST" action="\${getHestiaUrl()}/snappymail/index.php">
         <input type="hidden" name="Email" value="<?php echo htmlspecialchars($email); ?>">
         <input type="hidden" name="Password" value="<?php echo htmlspecialchars($password); ?>">
         <input type="hidden" name="Action" value="Login">
