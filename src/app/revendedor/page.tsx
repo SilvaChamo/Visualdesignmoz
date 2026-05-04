@@ -2059,7 +2059,7 @@ export default function ResellerPage() {
         // Background sync
         void (async () => {
           for (const s of sites) {
-            await syncWebsiteToSupabase(s)
+            await syncWebsiteToSupabase({ ...s, diskUsage: s.diskUsage?.toString() })
           }
         })()
       }
@@ -2086,7 +2086,7 @@ export default function ResellerPage() {
 
       // Background Sync to Supabase
       void (async () => {
-        for (const s of validSites) await syncWebsiteToSupabase(s)
+        for (const s of validSites) await syncWebsiteToSupabase({ ...s, diskUsage: s.diskUsage?.toString() })
         for (const u of validUsers) await syncUserToSupabase({
           username: u.userName,
           firstName: u.firstName,
