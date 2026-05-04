@@ -35,6 +35,7 @@ interface WebmailSectionProps {
   emailOrigem?: string
   onComposeStateChange?: (isActive: boolean) => void
   isAdmin?: boolean
+  onNavigate?: (section: string) => void
 }
 
 export function WebmailSection({ 
