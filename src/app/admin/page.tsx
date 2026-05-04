@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
 } from 'lucide-react'
+import { getCPUrl, getSnappyMailUrl, getCPHost, getServerHost, getHestiaUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -441,7 +442,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       <div className="flex flex-col gap-3">
                         <div className="bg-gray-50 rounded p-3 border border-gray-200">
                           <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
-                          <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
+                          <p className="text-sm font-bold text-gray-900">{(s as any).ip || getServerHost()}</p>
                         </div>
                         <div className="bg-gray-50 rounded p-3 border border-gray-200">
                           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Package</p>
@@ -743,7 +744,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           </button>
           <button onClick={() => {
             const rows = [['Domínio', 'IP', 'Estado', 'Pacote']]
-            sites.forEach(s => rows.push([s.domain, '109.199.104.22', s.state || 'Active', (s as any).package || 'Default']))
+            sites.forEach(s => rows.push([s.domain, getServerHost(), s.state || 'Active', (s as any).package || 'Default']))
             const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'websites.csv'; a.click()
           }} className="bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 px-4 py-2 rounded text-xs font-bold transition-all">
@@ -871,7 +872,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <div className="flex flex-col gap-3">
                     <div className="bg-gray-50 rounded p-3 border border-gray-200">
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).ip || '109.199.104.22'}</p>
+                      <p className="text-sm font-bold text-gray-900">{(s as any).ip || getServerHost()}</p>
                     </div>
                     <EditableField domain={s.domain} field="package" value={(s as any).package || 'Default'} label="Package" />
                   </div>
@@ -907,7 +908,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                         })
                         const checkData = await checkRes.json()
                         const resolvedIP = (checkData.data?.output || '').trim()
-                        const serverIP = '109.199.104.22'
+                        const serverIP = getServerHost()
 
                         if (!resolvedIP) {
                           alert(`⚠️ DNS não propagou ainda!\n\nO domínio "${s.domain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
@@ -1366,7 +1367,7 @@ function ManageWebsiteSection({
 
   useEffect(() => {
     const site = sites.find(s => s.domain === domain)
-    setSiteData(site || { domain, state: 'Active', ip: '109.199.104.22', phpVersion: '8.2', package: 'Default', owner: 'admin' })
+    setSiteData(site || { domain, state: 'Active', ip: getServerHost(), phpVersion: '8.2', package: 'Default', owner: 'admin' })
     setLoading(false)
   }, [domain, sites])
 
@@ -1654,8 +1655,8 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="wordpress" label="WordPress" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
         <MenuItem icon="git-version" label="Git Integration" onClick={() => setActiveSection('git-deploy')} />
-        <MenuItem icon={Globe} label="PrestaShop" color="text-pink-600" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
-        <MenuItem icon={Mail} label="Mautic" color="text-purple-600" external href={`https://109.199.104.22:8090/websites/installApp?domain=${domain}&app=mautic`} />
+        <MenuItem icon={Globe} label="PrestaShop" color="text-pink-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
+        <MenuItem icon={Mail} label="Mautic" color="text-purple-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=mautic`} />
       </SectionCard>
 
       {/* Backup Section */}
@@ -1680,9 +1681,9 @@ function ManageWebsiteSection({
         color="text-cyan-700"
         bgColor="bg-cyan-50"
       >
-        <MenuItem icon={Server} label="Apache Manager" color="text-cyan-600" external href={`https://109.199.104.22:8090/apacheManager/index?domain=${domain}`} />
-        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={`https://109.199.104.22:8090/vhostTemplate/index?domain=${domain}`} />
-        <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={`https://109.199.104.22:8090/website/rewriteRules?domain=${domain}`} />
+        <MenuItem icon={Server} label="Web Server" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/server/`} />
+        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/web/?domain=${domain}`} />
+        <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/web/?domain=${domain}`} />
         <MenuItem icon="ssl-tls" label="Add SSL" color="text-cyan-600" onClick={() => setActiveSection('cp-ssl')} />
         <MenuItem icon={Code} label="Change PHP" color="text-cyan-600" onClick={() => setActiveSection('cp-php')} />
       </SectionCard>
@@ -1697,7 +1698,7 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="databases" label="Create Database" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
         <MenuItem icon="databases" label="Manage Databases" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('cp-databases'); }} />
-        <MenuItem icon="phpmyadmin" label="phpMyAdmin" external href="https://109.199.104.22:8090/dataBases/phpMyAdmin" />
+        <MenuItem icon="phpmyadmin" label="phpMyAdmin" external href={`${getCPUrl()}/dataBases/phpMyAdmin`} />
       </SectionCard>
 
       {/* DNS Section */}
@@ -1725,7 +1726,7 @@ function ManageWebsiteSection({
         <MenuItem icon="addon-domains" label="Add Domains" onClick={() => setShowDomainModal(true)} />
         <MenuItem icon="addon-domains" label="List Domains" onClick={() => setActiveSection('domains-list')} />
         <MenuItem icon="addon-domains" label="Domain Alias" onClick={() => setActiveSection('cp-list-subdomains')} />
-        <MenuItem icon="cron-jobs" label="Cron Jobs" external href={`https://109.199.104.22:8090/Cron/CronManager?domain=${domain}`} />
+        <MenuItem icon="cron-jobs" label="Cron Jobs" external href={`${getHestiaUrl()}/list/cron/`} />
       </SectionCard>
 
       {/* Email Marketing Section */}
@@ -1757,7 +1758,7 @@ function ManageWebsiteSection({
           icon="email-accounts" 
           label="Webmail" 
           external 
-          href={`https://${domain}:8090/snappymail`} 
+          href={`${getHestiaUrl()}/list/mail/`} 
           bgColor="bg-rose-100" 
           color="text-rose-600" 
         />
@@ -1774,7 +1775,7 @@ function ManageWebsiteSection({
         bgColor="bg-emerald-50"
       >
         <MenuItem icon="file-manager" label="File Manager" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
-        <MenuItem icon="file-manager" label="open_basedir" external href={`https://109.199.104.22:8090/website/openBasedir?domain=${domain}`} />
+        <MenuItem icon="file-manager" label="File Manager" external href={`${getHestiaUrl()}/list/directory/?domain=${domain}`} />
         <MenuItem icon="ftp-accounts" label="Create FTP" onClick={() => setActiveSection('cp-ftp')} />
         <MenuItem icon="ftp-accounts" label="Delete FTP" onClick={() => setActiveSection('cp-ftp')} />
       </SectionCard>
@@ -1787,8 +1788,8 @@ function ManageWebsiteSection({
         color="text-amber-700"
         bgColor="bg-amber-50"
       >
-        <MenuItem icon="metrics" label="Access Logs" external href={`https://109.199.104.22:8090/websites/viewAccessLogs?domain=${domain}`} />
-        <MenuItem icon="metrics" label="Error Logs" external href={`https://109.199.104.22:8090/websites/viewErrorLogs?domain=${domain}`} />
+        <MenuItem icon="metrics" label="Access Logs" external href={`${getHestiaUrl()}/list/web-stats/?domain=${domain}`} />
+        <MenuItem icon="metrics" label="Error Logs" external href={`${getHestiaUrl()}/list/web-stats/?domain=${domain}`} />
       </SectionCard>
 
       {/* Security Section */}
@@ -1802,7 +1803,7 @@ function ManageWebsiteSection({
         <MenuItem icon="ssl-tls" label="SSL / TLS" onClick={() => setActiveSection('cp-ssl')} />
         <MenuItem icon="mod-security" label="Firewall" onClick={() => setActiveSection('cp-security')} />
         <MenuItem icon="ip-blocker" label="Blocked IPs" onClick={() => setActiveSection('cp-security')} />
-        <MenuItem icon="ssl-tls" label="Hotlink Protection" external href={`https://109.199.104.22:8090/website/hotlinkProtection?domain=${domain}`} />
+        <MenuItem icon="ssl-tls" label="SSL Status" external href={`${getHestiaUrl()}/list/web/?domain=${domain}`} />
       </SectionCard>
 
       {/* WordPress Section */}
@@ -2636,7 +2637,7 @@ export default function AdminPage() {
               )}
               <div className="flex items-center gap-2">
 
-                <a href="https://109.199.104.22:8090" target="_blank" rel="noopener noreferrer"
+                <a href={getHestiaUrl()} target="_blank" rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
                   <Globe size={13} /> {t('admin.settings.cyberpanel')}
                 </a>
