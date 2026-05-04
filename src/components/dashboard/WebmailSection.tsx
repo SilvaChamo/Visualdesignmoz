@@ -252,31 +252,7 @@ export function WebmailSection({
     }
   }, [selectedEmail?.id, selectedEmail?.uid, selectedAccount, activeFolder])
 
-  // 🔧 CORREÇÃO ÚNICA: Permissões do SnappyMail (executa apenas 1x na sessão)
-  useEffect(() => {
-    // Limpar flag para forçar nova execução após atualização do código
-    sessionStorage.removeItem('snappymail_permissions_fixed')
-    
-    const fixed = sessionStorage.getItem('snappymail_permissions_fixed')
-    if (fixed) return
-    
-    console.log('[WebmailSection] Corrigindo permissões SnappyMail...')
-    fetch('/api/server-exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'fixSnappyMailPermissions' })
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        console.log('[WebmailSection] Permissões corrigidas:', d.output)
-        sessionStorage.setItem('snappymail_permissions_fixed', 'true')
-      } else {
-        console.error('[WebmailSection] Falha:', d.error)
-      }
-    })
-    .catch(e => console.error('[WebmailSection] Erro:', e))
-  }, [])
+  // RoundCube SSO — sem efeito adicional necessário (o SSO é feito via /api/roundcube-sso)
 
   // SINCRONIZAÇÃO: Carregar assinaturas e LIMPAR estados quando email muda
   useEffect(() => {
@@ -667,52 +643,14 @@ export function WebmailSection({
     setDiagnosticoLoading(false)
   }
 
-  const getSnappyMailUrl = () => {
-    // Usar o proxy de login que acabamos de implantar para evitar o erro "This request need session"
-    return 'https://109.199.104.22:8090/snappymail-login.php'
-  }
-
-  const openSnappyMailAutoLogin = () => {
+  // 🔓 Abrir RoundCube com SSO (utilizador autenticado não precisa de inserir credenciais)
+  const openRoundCubeSSO = () => {
     const account = accounts.find(a => a.email === selectedAccount)
-    if (!account) {
-      window.open(getSnappyMailUrl(), '_blank')
-      return
-    }
-
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
-    if (!password) {
-      window.open(getSnappyMailUrl(), '_blank')
-      return
-    }
-
-    // Criar formulário de auto-login (Método clássico que funcionava)
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = getSnappyMailUrl()
-    form.target = '_blank'
-    form.style.display = 'none'
-
-    const emailInput = document.createElement('input')
-    emailInput.type = 'hidden'
-    emailInput.name = 'Email'
-    emailInput.value = account.email
-    form.appendChild(emailInput)
-
-    const passInput = document.createElement('input')
-    passInput.type = 'hidden'
-    passInput.name = 'Password'
-    passInput.value = password
-    form.appendChild(passInput)
-
-    const actionInput = document.createElement('input')
-    actionInput.type = 'hidden'
-    actionInput.name = 'Action'
-    actionInput.value = 'Login'
-    form.appendChild(actionInput)
-
-    document.body.appendChild(form)
-    form.submit()
-    document.body.removeChild(form)
+    const email = account?.email || ''
+    const url = email
+      ? `/api/roundcube-sso?email=${encodeURIComponent(email)}`
+      : '/api/roundcube-sso'
+    window.open(url, '_blank')
   }
 
   const sendEmail = async () => {
@@ -1069,12 +1007,11 @@ export function WebmailSection({
           <div className="flex items-center gap-2">
 
             <button
-              title="Snapmail"
-              onClick={openSnappyMailAutoLogin}
-              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm"
-            >
+              title="Abrir Webmail (RoundCube)"
+              onClick={openRoundCubeSSO}
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-sm text-xs font-bold transition-colors h-8 shadow-sm">
               <ExternalLink size={14} />
-              <span className="hidden sm:inline">Snapmail</span>
+              <span className="hidden sm:inline">Webmail</span>
             </button>
             <button
               onClick={() => {
@@ -1205,7 +1142,7 @@ export function WebmailSection({
                 </div>
               )}
               <iframe
-                src={getSnappyMailUrl()}
+                src={`/api/roundcube-sso?email=${encodeURIComponent(selectedAccount)}`}
                 className="w-full h-full border-0"
                 onLoad={() => setIframeLoading(false)}
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups"

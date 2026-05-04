@@ -260,7 +260,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
     if (expandedSite && !siteDiskInfo[expandedSite]) {
       const fetchUsage = async () => {
         try {
-          const res = await fetch('/api/server-exec', {
+          const res = await fetch('/api/da', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
@@ -296,7 +296,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL!`)) return
     setLoading(domain)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
@@ -316,7 +316,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   const handleSuspend = async (domain: string, state: string) => {
     setLoading(domain)
     const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-    await fetch('/api/server-exec', {
+    await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, params: { domain } })
     })
@@ -418,7 +418,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       {/* COLUNA 1 — Screenshot */}
                       <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
                         <img
-                          src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
+                          src={`/api/da?action=getScreenshot&domain=${s.domain}`}
                           alt={s.domain}
                           className="w-full h-full object-cover rounded"
                           onError={(e) => {
@@ -592,7 +592,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (expandedSite && !siteDiskInfo[expandedSite]) {
       const fetchUsage = async () => {
         try {
-          const res = await fetch('/api/server-exec', {
+          const res = await fetch('/api/da', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
@@ -668,7 +668,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
     } else {
       // Para outros campos, usa modifyWebsite
-      await fetch('/api/server-exec', {
+      await fetch('/api/da', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
       })
@@ -678,7 +678,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       return
     }
 
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execCommand', params: { command } })
     })
@@ -851,7 +851,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   {/* COLUNA 1 — Screenshot */}
                   <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
                     <img
-                      src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
+                      src={`/api/da?action=getScreenshot&domain=${s.domain}`}
                       alt={s.domain}
                       className="w-full h-full object-cover rounded"
                       onError={(e) => {
@@ -900,7 +900,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                       setLoading(s.domain + '-ssl')
                       try {
                         // Primeiro verificar se o domínio resolve para o IP correcto
-                        const checkRes = await fetch('/api/server-exec', {
+                        const checkRes = await fetch('/api/da', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'execCommand',
@@ -924,7 +924,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                         }
 
                         // DNS está correcto — emitir SSL
-                        const sslRes = await fetch('/api/server-exec', {
+                        const sslRes = await fetch('/api/da', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'execCommand',
@@ -960,7 +960,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <button onClick={async () => {
                     setLoading(s.domain + '-backup')
                     try {
-                      await fetch('/api/server-exec', {
+                      await fetch('/api/da', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           action: 'execCommand',
@@ -1092,7 +1092,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <button onClick={async () => {
                 if (!createForm.domain || !createForm.email) return
                 setCreating(true); setCreateMsg('')
-                const res = await fetch('/api/server-exec', {
+                const res = await fetch('/api/da', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'createWebsite', params: createForm })
                 })
@@ -1376,7 +1376,7 @@ function ManageWebsiteSection({
     if (!confirm(`Deseja emitir certificado SSL para ${domain}?`)) return
     setLoading(true)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1417,7 +1417,7 @@ function ManageWebsiteSection({
     setCreatingDomainEmail(true)
     setDomainEmailMsg('')
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1450,7 +1450,7 @@ function ManageWebsiteSection({
     setCreatingDomain(true)
     setDomainMsg('')
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2466,7 +2466,7 @@ export default function AdminPage() {
     setCreatingEmail(true)
     setEmailMsg('')
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

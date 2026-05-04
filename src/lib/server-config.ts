@@ -35,14 +35,30 @@ export function getHestiaUrl(): string {
 }
 
 /**
- * Gets the SnappyMail URL.
- * Hestia typically uses /webmail/ or a subdomain.
+ * Gets the RoundCube webmail URL (DirectAdmin).
+ * DirectAdmin uses RoundCube at mail.domain.com/roundcube or port 2096.
+ */
+export function getRoundCubeUrl(domain?: string): string {
+  const host = domain ? `mail.${domain}` : `mail.visualdesigne.com`;
+  return `https://${host}/roundcube/`;
+}
+
+/**
+ * Gets the SSO URL for RoundCube — passes through the Next.js API
+ * so logged-in admin users don't need to enter credentials.
+ */
+export function getRoundCubeSSOUrl(email?: string): string {
+  if (email) {
+    return `/api/roundcube-sso?email=${encodeURIComponent(email)}`;
+  }
+  return `/api/roundcube-sso`;
+}
+
+/**
+ * @deprecated Use getRoundCubeUrl() instead.
  */
 export function getSnappyMailUrl(domain?: string): string {
-  const host = getServerHost();
-  // Default to the new Hestia webmail if needed, or keep CyberPanel for now
-  // Hestia default webmail is usually /webmail
-  return `https://${host}/webmail/`;
+  return getRoundCubeUrl(domain);
 }
 
 /**

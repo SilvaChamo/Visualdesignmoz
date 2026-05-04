@@ -11,7 +11,7 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl, getDirectAdminUrl } from '@/lib/server-config'
+import { getServerHost, getHestiaUrl, getDirectAdminUrl } from '@/lib/api/da/config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -278,7 +278,7 @@ export function WebsitePreviewSection({ sites }: { sites: CyberPanelWebsite[] })
       setScreenshotLoading(true)
       setScreenshotError('')
 
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3231,7 +3231,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
   const [msg, setMsg] = useState('')
 
   const handleCreate = async (newDomain: string) => {
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'createWebsite',
@@ -3251,7 +3251,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
 
     try {
       // Primeiro verificar se o domínio resolve para o IP correcto
-      const checkRes = await fetch('/api/server-exec', {
+      const checkRes = await fetch('/api/da', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'execCommand',
@@ -3275,7 +3275,7 @@ export function SSLSection({ sites }: { sites: CyberPanelWebsite[] }) {
       }
 
       // DNS está correcto — emitir SSL
-      const sslRes = await fetch('/api/server-exec', {
+      const sslRes = await fetch('/api/da', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'execCommand',
@@ -5128,7 +5128,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
     if (!form.packageName) return
     setCreating(true); setMsg('')
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'createPackage', params: form })
@@ -5152,7 +5152,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
     if (!confirm(`Apagar pacote "${name}"?`)) return
     setDeleting(name); setMsg('')
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deletePackage', params: { packageName: name } })
@@ -5175,7 +5175,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       // Save edit
       setEditing(null); setMsg('')
       try {
-        const res = await fetch('/api/server-exec', {
+        const res = await fetch('/api/da', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -5405,7 +5405,7 @@ export function FileManagerSection({ domain, sites }: {
 
   const loadFiles = async (currentPath: string) => {
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5569,7 +5569,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const loadBackups = async (domain: string) => {
     if (!domain) return
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'execCommand',
@@ -5627,7 +5627,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
       emails: `mkdir -p /home/backup/emails && tar -czf /home/backup/emails/${selectedDomain}_emails_$(date +%Y%m%d_%H%M%S).tar.gz /home/vmail/${selectedDomain}/ 2>&1 && echo "SUCCESS"`,
       ftp: `mkdir -p /home/backup/ftp && tar -czf /home/backup/ftp/${selectedDomain}_ftp_$(date +%Y%m%d_%H%M%S).tar.gz /home/${selectedDomain}/ 2>&1 && echo "SUCCESS"`,
     }
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execCommand', params: { command: commands[activeTab] } })
     })
@@ -5645,7 +5645,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
   const handleRestore = async (filename: string, path: string) => {
     if (!confirm(`Restaurar "${filename}"?\n\nISTO VAI SUBSTITUIR OS DADOS ACTUAIS!`)) return
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'restoreBackup',
@@ -5664,7 +5664,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
 
   const handleDownload = async (path: string, filename: string) => {
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'execCommand',
@@ -5788,7 +5788,7 @@ export function BackupManagerSection({ sites }: { sites: CyberPanelWebsite[] }) 
                     <button onClick={async () => {
                       if (!confirm(`Eliminar "${b.filename}"? Irreversível!`)) return
                       setLoading(true)
-                      await fetch('/api/server-exec', {
+                      await fetch('/api/da', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           action: 'execCommand',
@@ -6663,7 +6663,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
     setLoading(true);
     console.log('[loadDomains] Início carregamento...');
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'listWebsites', params: {} })
@@ -6723,7 +6723,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
     if (!newDomain || !adminEmail) return
     setLoading(true)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'createWebsite',
@@ -6792,7 +6792,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
   const handleRemove = async (domain: string) => {
     if (!confirm(`Eliminar "${domain}"? Esta acção é irreversível!`)) return
     setLoading(true)
-    await fetch('/api/server-exec', {
+    await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'execCommand',
@@ -7368,7 +7368,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
       
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -8385,7 +8385,7 @@ export function AuditSyncSection({ onRefresh }: { onRefresh: () => void }) {
     setError(null)
     setLogs(['A iniciar sincronização...'])
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'fullSync' })

@@ -48,7 +48,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
   React.useEffect(() => {
     const fetchDisk = async () => {
       try {
-        const res = await fetch('/api/server-exec', {
+        const res = await fetch('/api/da', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'serverDiskUsage', params: {} })

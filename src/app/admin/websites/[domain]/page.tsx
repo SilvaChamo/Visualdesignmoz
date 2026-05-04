@@ -174,7 +174,7 @@ function QuickStats({ domain, data }: { domain: string; data: WebsiteData | null
   useEffect(() => {
     const checkSSL = async () => {
       try {
-        const res = await fetch('/api/server-exec', {
+        const res = await fetch('/api/da', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -192,7 +192,7 @@ function QuickStats({ domain, data }: { domain: string; data: WebsiteData | null
 
     const getDiskUsage = async () => {
       try {
-        const res = await fetch('/api/server-exec', {
+        const res = await fetch('/api/da', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'siteDiskUsage', params: { domain } })
@@ -213,7 +213,7 @@ function QuickStats({ domain, data }: { domain: string; data: WebsiteData | null
   const handleIssueSSL = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

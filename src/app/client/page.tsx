@@ -3083,7 +3083,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
     setLoading(domain)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
@@ -3103,7 +3103,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const handleSuspend = async (domain: string, state: string) => {
     setLoading(domain)
     const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-    await fetch('/api/server-exec', {
+    await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, params: { domain } })
     })
@@ -3121,7 +3121,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
     } else {
       // Para outros campos, usa modifyWebsite
-      await fetch('/api/server-exec', {
+      await fetch('/api/da', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
       })
@@ -3131,7 +3131,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       return
     }
 
-    const res = await fetch('/api/server-exec', {
+    const res = await fetch('/api/da', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execCommand', params: { command } })
     })
@@ -3367,7 +3367,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <button onClick={async () => {
                 if (!createForm.domain || !createForm.email) return
                 setCreating(true); setCreateMsg('')
-                const res = await fetch('/api/server-exec', {
+                const res = await fetch('/api/da', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'createWebsite', params: createForm })
                 })
@@ -3460,7 +3460,7 @@ export default function AdminPage() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const res = await fetch('/api/server-exec', {
+      const res = await fetch('/api/da', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'listWebsites', params: {} })
