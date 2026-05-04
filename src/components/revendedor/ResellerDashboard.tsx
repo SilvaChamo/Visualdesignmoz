@@ -129,7 +129,7 @@ export function ResellerDashboard({
             Olá, {sessionUser ? sessionUser.split('@')[0] : 'Revendedor'}!
           </h1>
           <p className="text-gray-500 mt-1">
-            Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e clientes.
+            Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e domínios.
           </p>
         </div>
 

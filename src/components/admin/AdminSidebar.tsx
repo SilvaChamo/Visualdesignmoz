@@ -173,7 +173,17 @@ export function AdminSidebar({
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto px-2 py-2.5">
         <div className="space-y-0">
-          {menuItems.map((item) => {
+          {menuItems
+            .filter(item => {
+              // Regra Estrita: Apenas o administrador master vê a gestão de utilizadores/painéis
+              const isMasterAdmin = sessionUser === 'admin' || sessionUser === 'admin@visualdesigne.com' || sessionUser === 'silva.chamo@gmail.com';
+              
+              // Se não for o master admin, removemos a gestão de painéis/utilizadores
+              if (item.id === 'gestao-paineis' && !isMasterAdmin) return false;
+              
+              return true;
+            })
+            .map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id ||
               (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||

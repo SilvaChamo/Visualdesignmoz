@@ -225,7 +225,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       try {
         const [supabaseRes, cyberpanelRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(selectedSite)}`)
+          fetch('/api/panel-bridge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'listEmails', params: { domain: selectedSite } })
+          })
         ]);
         
         let allEmailsList: string[] = [];

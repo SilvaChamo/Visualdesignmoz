@@ -211,9 +211,9 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => {
                     if (setSelectedDNSDomain) setSelectedDNSDomain(site.domain);
                     setActiveSection('cp-dns-nameserver');
@@ -222,7 +222,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
                 >
                   Nameservers
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     // @ts-ignore
                     window.__selectedManageDomain = site.domain;
@@ -331,7 +331,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
         <div className="flex items-center gap-3">
           <span className="text-base font-bold text-gray-900">Sites WordPress ({filtered.length})</span>
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress Only</span>
-          <button 
+          <button
             onClick={() => setActiveSection('cp-audit-sync')}
             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded transition-colors"
           >
@@ -810,7 +810,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   className="bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
                   <Palette className="w-3.5 h-3.5" /> GrapesJS
                 </button>
-                
+
                 {/* Botão Craft.js Builder */}
                 <button
                   onClick={() => window.open(`/admin/websites/${s.domain}/builder/craft`, '_blank')}
@@ -1543,7 +1543,7 @@ function ManageWebsiteSection({
             <Icon className={cn("w-8 h-8", color)} />
           )}
         </div>
-        
+
         <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
           {label}
         </span>
@@ -1755,13 +1755,13 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="email-accounts" label="Create Email" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
         <MenuItem icon="email-accounts" label="List Emails" onClick={() => setActiveSection('cp-email-mgmt')} />
-        <MenuItem 
-          icon="email-accounts" 
-          label="Webmail" 
-          external 
-          href={`${getHestiaUrl()}/list/mail/`} 
-          bgColor="bg-rose-100" 
-          color="text-rose-600" 
+        <MenuItem
+          icon="email-accounts"
+          label="Webmail"
+          external
+          href={`${getHestiaUrl()}/list/mail/`}
+          bgColor="bg-rose-100"
+          color="text-rose-600"
         />
         <MenuItem icon="email-forwarding" label="Forwarding" onClick={() => setActiveSection('cp-email-forwarding')} />
         <MenuItem icon="email-deliverability" label="DKIM Manager" onClick={() => setActiveSection('cp-email-dkim')} />
@@ -2480,7 +2480,7 @@ export default function AdminPage() {
       const data = await res.json()
       if (data.success) {
         setEmailMsg('Email criado com sucesso! Sincronizando acessos...')
-        
+
         // Sincronizar novo email com Supabase Auth
         try {
           await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' });

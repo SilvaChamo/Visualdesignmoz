@@ -658,10 +658,49 @@ export const cyberPanelAPI = {
   blockIP: async (_p: any) => ({ success: true }),
   unblockIP: async (_p: any) => ({ success: true }),
 
-  // ══════════════════════════════════════════════════════════════════════
-  // WORDPRESS (via WP-CLI — caminho diferente no DA)
-  // DA path: /home/username/domains/domain.com/public_html/
-  // ══════════════════════════════════════════════════════════════════════
+  installWordPress: async (p: any) => {
+    cacheService.clear();
+    const domain = p.domain;
+    const dbName = p.dbName || `wp_${Math.random().toString(36).substring(7)}`;
+    const dbUser = p.dbUser || dbName;
+    const dbPass = p.dbPassword || Math.random().toString(36).substring(2, 12) + '!';
+
+    // 1. Criar a Base de Dados primeiro
+    const dbResult = await cyberPanelAPI.createDatabase({
+      dbName,
+      dbUser,
+      dbPassword: dbPass,
+      domain
+    });
+
+    if (!dbResult.success) {
+      return { success: false, error: `Falha ao criar DB: ${dbResult.output}` };
+    }
+
+    // 2. Chamar o Softaculous para instalar o WP
+    // Nota: O ID do WordPress no Softaculous é 26
+    const softResult = await daPost('CMD_API_SOFTACULOUS', {
+      act: 'install',
+      soft: '26',
+      softdomain: domain,
+      softdb: dbName,
+      softdbuser: dbUser,
+      softdbpass: dbPass,
+      admin_username: p.adminUser || 'admin',
+      admin_pass: p.adminPass || 'Pass#Word2026!',
+      admin_email: p.adminEmail || `admin@${domain}`,
+      site_name: p.siteName || 'Meu Site WordPress',
+      site_desc: p.siteDesc || 'Mais um site WordPress',
+      directory: p.directory || '', // Root se vazio
+      json: '1'
+    });
+
+    return { 
+      success: softResult.ok, 
+      error: softResult.error,
+      details: { dbName, dbUser, dbPass }
+    };
+  },
 
   listWordPress: async (domain: string) => {
     // Retornar mock — WP-CLI via SSH é tratado separadamente
@@ -688,4 +727,5 @@ export const cyberPanelAPI = {
   execCommand: async (_command: string) => ({ success: true, output: '' }),
 };
 
+export const directAdminAPI = cyberPanelAPI;
 export default cyberPanelAPI;

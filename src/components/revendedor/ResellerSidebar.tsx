@@ -27,7 +27,6 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'clientes', label: 'Clientes', icon: Users },
 
   {
     id: 'gestao-sites',
@@ -101,7 +100,6 @@ const menuItems: MenuItem[] = [
       { id: 'settings-profile', label: 'Meu Perfil' },
     ]
   },
-  { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
   { id: 'cp-api', label: 'API / Integrações', icon: Plug },
 ];
 

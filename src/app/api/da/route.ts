@@ -214,6 +214,9 @@ export async function POST(req: NextRequest) {
       case 'listWordPress':
         data = await cyberPanelAPI.listWordPress(params.domain);
         break;
+      case 'installWordPress':
+        data = await cyberPanelAPI.installWordPress(params);
+        break;
 
       // ═══════════════════════════════════════════════════════════════════════
       // AÇÕES NÃO SUPORTADAS

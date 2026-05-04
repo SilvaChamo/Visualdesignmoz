@@ -38,6 +38,7 @@ import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { directAdminAPI } from '@/lib/directadmin-adapter'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
@@ -63,7 +64,7 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
     if (!form.domain || !form.email) return
     setCreating(true); setMsg(''); setMsgType('')
     try {
-      const ok = await cyberPanelAPI.createWebsite(form)
+      const ok = await directAdminAPI.createWebsite(form)
       setMsg('Website criado com sucesso!')
       setMsgType('success')
       onRefresh()
@@ -2052,7 +2053,7 @@ export default function ResellerPage() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const sites = await cyberPanelAPI.listWebsites()
+      const sites = await directAdminAPI.listWebsites()
       if (Array.isArray(sites)) {
         setCyberPanelSites(sites)
         // Background sync
@@ -2070,9 +2071,9 @@ export default function ResellerPage() {
     setIsFetchingCyberPanel(true)
     try {
       const [sites, users, packages] = await Promise.all([
-        cyberPanelAPI.listWebsites().catch(() => []),
-        cyberPanelAPI.listUsers().catch(() => []),
-        cyberPanelAPI.listPackages().catch(() => []),
+        directAdminAPI.listWebsites().catch(() => []),
+        directAdminAPI.listUsers().catch(() => []),
+        directAdminAPI.listPackages().catch(() => []),
       ])
 
       const validSites = Array.isArray(sites) ? sites : []
@@ -2122,7 +2123,6 @@ export default function ResellerPage() {
       'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
       'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
       'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros CyberPanel' },
-      'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
       'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
       'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
@@ -2132,7 +2132,6 @@ export default function ResellerPage() {
       'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
       'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
       'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
-      'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
       'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
       'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
       'webmail': { title: 'Dashboard', description: 'Webmail' },
@@ -2214,8 +2213,6 @@ export default function ResellerPage() {
       case 'file-manager':
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={cyberPanelSites} />
-      case 'clientes':
-        return <ClientesSection />
       case 'domains-new':
         return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'cp-subdomains':
@@ -2351,7 +2348,7 @@ export default function ResellerPage() {
       case 'packages-list':
         return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
       case 'git-deploy':
-        return <GitDeploySection />
+        return <div className="p-8 text-center text-gray-500">Secção removida.</div>;
       case 'cp-api':
         return <APIConfigSection />
       case 'manage-website':

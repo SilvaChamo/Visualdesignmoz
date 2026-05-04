@@ -195,6 +195,9 @@ export async function POST(req: NextRequest) {
       case 'installWPPlugin':
         data = await cyberPanelAPI.installWPPlugin(params);
         break;
+      case 'installWordPress':
+        data = await cyberPanelAPI.installWordPress(params);
+        break;
       case 'toggleWPPlugin':
         data = await cyberPanelAPI.toggleWPPlugin(params);
         break;
