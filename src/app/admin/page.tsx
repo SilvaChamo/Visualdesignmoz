@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
 } from 'lucide-react'
-import { getCPUrl, getSnappyMailUrl, getCPHost, getServerHost, getHestiaUrl } from '@/lib/server-config';
+import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -40,6 +40,7 @@ import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase, removeWebsiteFromSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
+import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
@@ -2246,6 +2247,7 @@ export default function AdminPage() {
       'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
       'dns-central': { title: 'DNS Central', description: 'Gestão unificada Mozserver ↔ Contabo' },
       'newsletter': { title: 'Dashboard', description: 'Email marketing' },
+      'da-emails': { title: 'E-mails DirectAdmin', description: 'Contas POP/IMAP no servidor DirectAdmin' },
       'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
       'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
       'reports': { title: 'Dashboard', description: 'Relatórios' },
@@ -2346,6 +2348,8 @@ export default function AdminPage() {
         return <EmailChangePasswordSection sites={filteredSites} />
       case 'cp-email-dkim':
         return <DKIMManagerSection sites={filteredSites} />
+      case 'da-emails':
+        return <DirectAdminEmailsSection />
       case 'setup-smtp':
         return <SMTPConfigSection />
       case 'email-diagnostico':
@@ -2418,8 +2422,6 @@ export default function AdminPage() {
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
-      case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} onRefresh={loadCyberPanelData} />
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
@@ -2431,7 +2433,6 @@ export default function AdminPage() {
             setActiveSection('cp-email-mgmt')
           }}
         />
-      case 'git-deploy':
       case 'deploy':
         return <DeploySection sites={cyberPanelSites} />
       case 'packages-list':
@@ -2637,7 +2638,7 @@ export default function AdminPage() {
               )}
               <div className="flex items-center gap-2">
 
-                <a href={getHestiaUrl()} target="_blank" rel="noopener noreferrer"
+                <a href={getActivePanelUrl()} target="_blank" rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
                   <Globe size={13} /> {t('admin.settings.cyberpanel')}
                 </a>
