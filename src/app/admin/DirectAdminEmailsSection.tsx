@@ -291,7 +291,6 @@ export function DirectAdminEmailsSection() {
               {loading ? 'A carregar...' : `${emails.length} conta${emails.length !== 1 ? 's' : ''} em @${selectedDomain}`}
             </span>
           </div>
-          <Shield className="w-4 h-4 text-gray-300" title="Gerido pelo DirectAdmin" />
         </div>
 
         {loading ? (
