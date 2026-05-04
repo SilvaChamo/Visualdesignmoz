@@ -169,6 +169,28 @@ export const cyberPanelAPI = {
     return packages;
   },
 
+  createPackage: async (p: any) => {
+    cacheService.clear();
+    return daPost('CMD_API_MANAGE_USER_PACKAGES', {
+      action: 'create',
+      package: p.packageName,
+      quota: p.diskSpace || '1000',
+      bandwidth: p.bandwidth || '1000',
+      nemails: p.emailAccounts || '10',
+      mysql: p.dataBases || '5',
+      nftp: p.ftpAccounts || '5',
+      ndomains: p.allowedDomains || '1',
+    });
+  },
+
+  deletePackage: async (p: { packageName: string }) => {
+    cacheService.clear();
+    return daPost('CMD_API_MANAGE_USER_PACKAGES', {
+      action: 'delete',
+      package: p.packageName,
+    });
+  },
+
   // ══════════════════════════════════════════════════════════════════════
   // USERS
   // ══════════════════════════════════════════════════════════════════════
