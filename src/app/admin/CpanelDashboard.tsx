@@ -39,9 +39,22 @@ interface Props {
   onRefresh: () => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
+  userResources?: {
+    cpuLimit?: string
+    memoryLimit?: string
+    tasksLimit?: string
+    ioLimit?: string
+    iopsLimit?: string
+    cpuUsage?: string
+    memoryUsage?: string
+    tasksUsage?: string
+  } | null
 }
 
-export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDomain, sites, users, isFetching, onRefresh, searchQuery = '', onSearchChange }: Props) {
+export function CpanelDashboard({ 
+  onNavigate, onSetDNSDomain, onSetFileManagerDomain, sites, users, isFetching, onRefresh, 
+  searchQuery = '', onSearchChange, userResources 
+}: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [diskInfo, setDiskInfo] = useState<{ used: string; total: string; percentage: string } | null>(null)
 
@@ -100,7 +113,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       headerIcon: <FolderOpen className="w-5 h-5" />,
       color: 'text-amber-700', bgColor: 'bg-amber-50',
       tools: [
-        { id: 'cp-filemanager', name: 'Gestor de Ficheiros', icon: <FolderOpen className="w-9 h-9 text-amber-500" /> },
+        { id: 'cp-filemanager', name: 'Gestor de Ficheiros DirectAdmin', icon: <FolderOpen className="w-9 h-9 text-amber-500" /> },
         { id: 'cp-ftp', name: 'Contas FTP', icon: <Upload className="w-9 h-9 text-amber-500" /> },
         { id: 'infrastructure', name: 'Estado do Servidor', icon: <Monitor className="w-9 h-9 text-amber-500" /> },
       ]
@@ -149,7 +162,7 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
       tools: [
         { id: 'cp-databases', name: 'Criar Base de Dados', icon: <PlusCircle className="w-9 h-9 text-orange-500" /> },
         { id: 'cp-databases', name: 'Gerir Bases de Dados', icon: <Database className="w-9 h-9 text-orange-500" /> },
-        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: `${getHestiaUrl()}/phpmyadmin/` },
+        { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <ExternalLink className="w-9 h-9 text-orange-500" />, external: `https://${primaryDomain}:2222/phpMyAdmin/` },
       ]
     },
     {
@@ -303,10 +316,11 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
               <p className="font-bold text-gray-900">{sites.length}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Utilizadores CP</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Utilizadores DA</p>
               <p className="font-bold text-gray-900">{users.length}</p>
             </div>
-            {diskInfo && (
+          </div>
+          {diskInfo && (
               <div>
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Espaço em Disco</p>
                 <p className="font-bold text-gray-900">{diskInfo.used} / {diskInfo.total}</p>
@@ -322,11 +336,78 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
               </div>
             </div>
           </div>
-          <a href={getHestiaUrl()} target="_blank" rel="noopener noreferrer"
-            className="w-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5" /> Abrir HestiaCP
-          </a>
-        </div>
+          <button 
+            onClick={async () => {
+              if (confirm('⚠️ ATENÇÃO: Tem a certeza que deseja REINICIAR o servidor?\n\nIsto irá interromper todos os serviços temporariamente.')) {
+                try {
+                  const res = await fetch('/api/da', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'rebootServer' })
+                  })
+                  const data = await res.json()
+                  if (data.success) alert('🔄 Comando de reinicialização enviado com sucesso. Aguarde alguns minutos.')
+                  else alert('❌ Erro ao reiniciar: ' + (data.error || 'Desconhecido'))
+                } catch (e) { alert('Erro de ligação.') }
+              }
+            }}
+            className="w-full mt-2 bg-gray-900  text-white hover:bg-red-600 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
+            <Power className="w-3.5 h-3.5" /> Reiniciar Servidor
+          </button>
+
+        {/* Resource Limits (CloudLinux LVE Diagnostic) */}
+        {userResources && (
+          <div className="bg-white rounded border border-gray-200 shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Limites de Recursos</p>
+              <Zap className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="space-y-4 text-sm">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold uppercase">
+                  <span className="text-gray-400">CPU</span>
+                  <span className="text-gray-900">{userResources.cpuLimit}</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: userResources.cpuUsage || '10%' }}></div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold uppercase">
+                  <span className="text-gray-400">RAM</span>
+                  <span className="text-gray-900">{userResources.memoryLimit}</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: userResources.memoryUsage || '15%' }}></div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold uppercase">
+                  <span className="text-gray-400">IO / IOPS</span>
+                  <span className="text-gray-900">{userResources.ioLimit} / {userResources.iopsLimit}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold uppercase">
+                  <span className="text-gray-400">Máx. de Tarefas</span>
+                  <span className="text-gray-900">{userResources.tasksLimit}</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: userResources.tasksUsage || '5%' }}></div>
+                </div>
+              </div>
+              
+              <div className="pt-2 border-t border-gray-50">
+                <p className="text-[9px] text-gray-400 leading-tight italic">
+                  * Valores baseados no LVE Manager do DirectAdmin. Se atingir 100%, verá o erro 508.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick Access */}
         <div className="bg-white rounded border border-gray-200 shadow-sm p-4">
@@ -371,13 +452,28 @@ export function CpanelDashboard({ onNavigate, onSetDNSDomain, onSetFileManagerDo
                       className="text-[10px] text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5 transition-colors">
                       <FolderOpen className="w-2.5 h-2.5" /> Ficheiros
                     </button>
-                    <a
-                      href={`https://${s.domain}/wp-admin`}
-                      target="_blank" rel="noopener noreferrer"
-                      title="Abrir WP Admin (se tiver WordPress)"
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/panel-bridge', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'wpAutoLogin', params: { domain: s.domain } })
+                          })
+                          const j = await res.json()
+                          if (j.success && j.data) {
+                            window.open(j.data, '_blank')
+                          } else {
+                            window.open(`https://${s.domain}/wp-admin`, '_blank')
+                          }
+                        } catch (e) {
+                          window.open(`https://${s.domain}/wp-admin`, '_blank')
+                        }
+                      }}
+                      title="Login Automático no WordPress"
                       className="text-[10px] text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5 transition-colors">
-                      <Globe2 className="w-2.5 h-2.5" /> WP Admin
-                    </a>
+                      <Lock className="w-2.5 h-2.5" /> Auto-Login
+                    </button>
                   </div>
                 </div>
               ))}

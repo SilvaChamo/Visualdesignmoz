@@ -34,13 +34,14 @@ import { RenewalsSection } from './RenewalsSection'
 import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { directAdminAPI as cyberPanelAPI } from '@/lib/directadmin-adapter'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase, removeWebsiteFromSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
+import { PorkbunResellerSection } from './PorkbunResellerSection'
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
@@ -476,7 +477,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                           setLoading(s.domain)
                           try {
                             const ok = await cyberPanelAPI.issueSSL(s.domain)
-                            alert(ok ? '✅ SSL emitido com sucesso!' : '❌ Erro ao emitir SSL.')
+                            setMsg(ok ? 'Subdomínio criado com sucesso!' : 'Guardado localmente. Verifica no DirectAdmin.')
                           } catch (e: any) {
                             alert('Erro: ' + e.message)
                           }
@@ -1280,9 +1281,9 @@ function ClientesSection() {
           {busca ? t('admin.clientSection.notFound') : t('admin.clientSection.empty')}
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="space-y-2">
           {clientesFiltrados.map(c => (
-            <div key={c.id} className="bg-white border border-gray-200 rounded px-5 py-4 flex items-center justify-between hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
+            <div key={c.id} className="bg-white p-4 rounded border border-gray-200 flex items-center justify-between hover:border-blue-300 transition-all">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-600/30 flex items-center justify-center text-blue-400 font-semibold text-sm flex-shrink-0">
                   {c.nome?.charAt(0).toUpperCase() || '?'}
@@ -1307,7 +1308,7 @@ function ClientesSection() {
 }
 
 // ============================================================
-// MANAGE WEBSITE SECTION - CyberPanel Management Interface
+// MANAGE WEBSITE SECTION - DirectAdmin Management Interface
 // ============================================================
 function ManageWebsiteSection({
   domain,
@@ -1479,7 +1480,7 @@ function ManageWebsiteSection({
   }
 
   // ============================================================
-  // CUSTOM ICONS (CYBERPANEL STYLE)
+  // CUSTOM ICONS (DirectAdmin STYLE)
   // ============================================================
   const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
     // Usar Lucide com cores premium
@@ -1816,7 +1817,16 @@ function ManageWebsiteSection({
         bgColor="bg-blue-50"
       >
         <MenuItem icon="wordpress" label="Install WP" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
-        <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
+        <MenuItem 
+          icon="wordpress" 
+          label="WP Admin" 
+          onClick={async () => {
+            const url = await (cyberPanelAPI as any).wpAutoLogin(domain);
+            if (url) window.open(url, '_blank');
+            else window.open(`https://${domain}/wp-admin`, '_blank');
+          }}
+          badge="AUTO"
+        />
         <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
         <MenuItem icon="backups" label="Backup" onClick={() => setActiveSection('cp-wp-backup')} />
         <MenuItem icon="backups" label="Restore" onClick={() => setActiveSection('cp-wp-restore-backup')} />
@@ -1834,7 +1844,7 @@ function ManageWebsiteSection({
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-gray-900">Novo Domínio</h2>
-                  <span className="text-[11px] text-gray-500 font-mono">Criar website no CyberPanel</span>
+                  <span className="text-[11px] text-gray-500 font-mono">Criar website no DirectAdmin</span>
                 </div>
               </div>
               <button onClick={() => setShowDomainModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
@@ -2018,6 +2028,8 @@ export default function AdminPage() {
   }, [selectedManageDomain])
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{ username: string, acl: string } | null>(null)
+  const [userResources, setUserResources] = useState<any>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
 
@@ -2077,13 +2089,31 @@ export default function AdminPage() {
     }
   }, [activeSection]);
 
-  // Obter sessão do usuário
+  // Obter sessão do usuário e perfil no Supabase
   useEffect(() => {
     const getSession = async () => {
       try {
         const { data: { session } } = await createClientInstance.auth.getSession()
         if (session?.user?.email) {
           setSessionUser(session.user.email)
+          
+          // Buscar perfil para permissões
+          const { data: profile } = await createClientInstance
+            .from('cyberpanel_users')
+            .select('username, acl')
+            .eq('email', session.user.email)
+            .single()
+            
+          if (profile) {
+            setUserProfile(profile)
+            // Se não for admin, carregar recursos do próprio user
+            if (profile.acl !== 'admin') {
+              fetchUserResources(profile.username)
+            }
+          } else {
+            // Fallback se não encontrar perfil (pode ser o admin principal)
+            setUserProfile({ username: 'admin', acl: 'admin' })
+          }
         }
       } catch (error) {
         console.error('Erro ao obter sessão:', error)
@@ -2091,6 +2121,20 @@ export default function AdminPage() {
     }
     getSession()
   }, [])
+
+  const fetchUserResources = async (username: string) => {
+    try {
+      const res = await fetch('/api/da', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getUserResources', params: { username } })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUserResources(data.data)
+      }
+    } catch (e) { console.error('Erro ao buscar recursos:', e) }
+  }
 
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
@@ -2119,7 +2163,7 @@ export default function AdminPage() {
         // Background sync
         void (async () => {
           for (const s of sites) {
-            await syncWebsiteToSupabase(s)
+            await syncWebsiteToSupabase(s as any)
           }
         })()
       }
@@ -2146,45 +2190,61 @@ export default function AdminPage() {
 
       // Background Sync to Supabase
       void (async () => {
-        for (const s of validSites) await syncWebsiteToSupabase(s)
+        for (const s of validSites) await syncWebsiteToSupabase(s as any)
         for (const u of validUsers) await syncUserToSupabase({
           username: u.userName,
-          firstName: u.firstName,
-          lastName: u.lastName,
+          firstName: (u as any).firstName,
+          lastName: (u as any).lastName,
           email: u.email,
-          acl: u.acl,
-          websitesLimit: u.websitesLimit,
-          status: u.status
-        })
+          acl: (u as any).acl,
+          websitesLimit: (u as any).websitesLimit,
+          status: (u as any).status
+        } as any)
         for (const p of validPackages) await syncPackageToSupabase(p)
       })()
 
     } catch (error) {
-      console.error('Erro ao carregar dados CyberPanel:', error)
+      console.error('Erro ao carregar dados DirectAdmin:', error)
     } finally {
       setIsFetchingCyberPanel(false)
     }
   }
 
-  // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
-  const filteredSites = cyberPanelSites.filter(s =>
-    !s.domain.includes('contaboserver') &&
-    !s.domain.toLowerCase().startsWith('mail.')
-  )
+  // Definir domínio principal e aplicar filtros de segurança por papel (Role)
+  const filteredSites = cyberPanelSites.filter(s => {
+    // 1. Filtros básicos de sistema
+    if (s.domain.includes('contaboserver') || s.domain.toLowerCase().startsWith('mail.')) return false
+    
+    // 2. Filtros por Papel (ACL)
+    if (!userProfile || userProfile.acl === 'admin') return true
+    
+    if (userProfile.acl === 'reseller') {
+      // Reseller vê os seus e potencialmente os dos seus clientes (owner == username)
+      return s.owner === userProfile.username
+    }
+    
+    if (userProfile.acl === 'user') {
+      // User vê apenas o seu
+      return s.owner === userProfile.username
+    }
+    
+    return true
+  })
   const primaryDomain = filteredSites.length > 0
     ? filteredSites[0].domain
     : 'your-domain.com'
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'clientes', label: 'Clientes', icon: Users },
+    ...(userProfile?.acl === 'admin' ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
     { id: 'domains', label: 'Websites', icon: Globe },
-    { id: 'cp-users', label: 'Contas', icon: Users },
+    { id: 'porkbun-reseller', label: 'Registo de Domínios', icon: Globe },
+    ...(userProfile?.acl === 'admin' ? [{ id: 'cp-users', label: 'Contas', icon: Users }] : []),
     { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
     { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
     { id: 'newsletter', label: 'Marketing / News', icon: Layout },
     { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-    { id: 'cp-api', label: 'Configurações', icon: Settings },
+    ...(userProfile?.acl === 'admin' ? [{ id: 'cp-api', label: 'Configurações', icon: Settings }] : []),
   ]
 
   const currentSidebarWidth = isCollapsed ? 80 : 250
@@ -2196,19 +2256,19 @@ export default function AdminPage() {
       'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
       'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
       'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
-      'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros CyberPanel' },
+      'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros DirectAdmin' },
       'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
       'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
       'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
       'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
-      'cp-users': { title: 'Dashboard', description: 'Utilizadores CyberPanel' },
+      'cp-users': { title: 'Dashboard', description: 'Utilizadores DirectAdmin' },
       'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
       'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
       'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
       'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
       'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
-      'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
+      'emails-new': { title: 'Dashboard', description: 'Gestão de contas de e-mail DirectAdmin' },
       'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
       'webmail': { title: 'Dashboard', description: 'Webmail' },
       'cp-email-mgmt': { title: 'Dashboard', description: 'Listar contas de e-mail' },
@@ -2273,6 +2333,7 @@ export default function AdminPage() {
           onSetFileManagerDomain={setFileManagerDomain}
           searchQuery={dashboardSearch}
           onSearchChange={setDashboardSearch}
+          userResources={userResources}
         />
       case 'domains':
         return <ListWebsitesSection
@@ -2406,6 +2467,8 @@ export default function AdminPage() {
         return <DNSResetSection sites={filteredSites} />
       case 'dns-central':
         return <DNSCentralSection />
+      case 'porkbun-reseller':
+        return <PorkbunResellerSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'newsletter':

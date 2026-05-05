@@ -207,6 +207,12 @@ export async function POST(req: NextRequest) {
       case 'serverStats':
         data = await cyberPanelAPI.getServerStats();
         break;
+      case 'getUserResources':
+        data = await cyberPanelAPI.getUserResources(params.username);
+        break;
+      case 'rebootServer':
+        data = await cyberPanelAPI.rebootServer();
+        break;
 
       // ═══════════════════════════════════════════════════════════════════════
       // WORDPRESS

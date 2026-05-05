@@ -289,8 +289,8 @@ export default function ManageWebsitePage() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        // Fetch website data from CyberPanel
-        const res = await fetch('/api/cyberpanel', {
+        // Fetch website data from DirectAdmin
+        const res = await fetch('/api/da', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'fetchWebsites' })
@@ -326,7 +326,7 @@ export default function ManageWebsitePage() {
   }
 
   // ============================================================
-  // DEFINE ALL SECTIONS BASED ON CYBERPANEL FEATURES
+  // DEFINE ALL SECTIONS BASED ON DIRECTADMIN FEATURES
   // ============================================================
   const sections: SectionData[] = [
     {
@@ -368,7 +368,7 @@ export default function ManageWebsitePage() {
       borderColor: 'border-amber-200',
       items: [
         { id: 'create-db', label: 'Databases', icon: 'databases', onClick: () => router.push('/admin?page=cp-databases') },
-        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: `${getHestiaUrl()}/phpmyadmin/` },
+        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: `https://${domain}:2222/phpMyAdmin/` },
       ]
     },
     {
@@ -483,13 +483,13 @@ export default function ManageWebsitePage() {
                 Visitar Site
               </a>
               <a
-                href={getHestiaUrl()}
+                href={`https://${getServerHost()}:2222`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 <Server className="w-4 h-4" />
-                HestiaCP
+                DirectAdmin
               </a>
             </div>
           </div>
@@ -522,7 +522,7 @@ export default function ManageWebsitePage() {
 }
 
 // ============================================================
-// CUSTOM ICONS (CYBERPANEL STYLE)
+// CUSTOM ICONS (DIRECTADMIN STYLE)
 // ============================================================
 function CyberIcon({ name, className }: { name: string; className?: string }) {
   // Mapping of IDs to colorful SVGs matching the reference image

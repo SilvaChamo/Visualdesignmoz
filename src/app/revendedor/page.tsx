@@ -360,10 +360,27 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-1.5 rounded text-xs font-bold transition-all">
                       Gerir
                     </button>
-                    <a href={`https://${s.domain}/wp-admin`} target="_blank" rel="noopener noreferrer"
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/panel-bridge', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'wpAutoLogin', params: { domain: s.domain } })
+                          })
+                          const j = await res.json()
+                          if (j.success && j.data) {
+                            window.open(j.data, '_blank')
+                          } else {
+                            window.open(`https://${s.domain}/wp-admin`, '_blank')
+                          }
+                        } catch (e) {
+                          window.open(`https://${s.domain}/wp-admin`, '_blank')
+                        }
+                      }}
                       className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 px-4 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
-                      <ExternalLink className="w-3 h-3" /> WP Admin
-                    </a>
+                      <Lock className="w-3 h-3" /> Auto-Login
+                    </button>
                   </div>
                 </div>
 

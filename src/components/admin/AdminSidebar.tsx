@@ -56,6 +56,7 @@ const menuItems: MenuItem[] = [
       { id: 'cp-suspend-website', label: 'Suspender' },
       { id: 'domains-dns', label: 'Configurar DNS' },
       { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
+      { id: 'porkbun-reseller', label: 'Revenda de Domínios' },
     ]
   },
   {

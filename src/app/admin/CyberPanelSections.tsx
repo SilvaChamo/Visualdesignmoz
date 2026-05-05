@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { directAdminAPI as cyberPanelAPI } from '@/lib/directadmin-adapter'
 import type {
   CyberPanelWebsite, CyberPanelSubdomain, CyberPanelUser, CyberPanelDatabase,
   CyberPanelFTPAccount, CyberPanelEmail, CyberPanelPHPConfig, CyberPanelPackage
@@ -3696,6 +3696,21 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
     ? wpSites.map((wp: any) => ({ domain: wp.domain || wp.domainName, version: wp.version || null, owner: wp.owner || '' }))
     : sites.map(s => ({ domain: s.domain, version: null, owner: s.owner }))
 
+  const handleAutoLogin = async (domain: string) => {
+    try {
+      const url = await (cyberPanelAPI as any).wpAutoLogin(domain);
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        // Fallback para login manual
+        window.open(`https://${domain}/wp-admin`, '_blank');
+      }
+    } catch (error) {
+      console.error('Erro ao fazer auto-login:', error);
+      window.open(`https://${domain}/wp-admin`, '_blank');
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -3719,11 +3734,16 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
                 </div>
               </div>
               <div className="space-y-2">
+                <button
+                  onClick={() => handleAutoLogin(s.domain)}
+                  className="w-full bg-indigo-600 border border-indigo-700 text-white hover:bg-indigo-700 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2 shadow-sm">
+                  <Lock className="w-3.5 h-3.5" /> Login Automático
+                </button>
                 <a
                   href={`https://${s.domain}/wp-admin`}
                   target="_blank" rel="noopener noreferrer"
-                  className="w-full bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
-                  <ExternalLink className="w-3.5 h-3.5" /> Abrir WP Admin
+                  className="w-full bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  text-xs font-bold py-2 px-4 rounded transition-all flex items-center justify-center gap-2">
+                  <ExternalLink className="w-3.5 h-3.5" /> Abrir WP Admin (Manual)
                 </a>
                 <button
                   onClick={() => {

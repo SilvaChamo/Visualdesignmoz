@@ -189,6 +189,9 @@ export async function POST(req: NextRequest) {
       case 'listWordPress':
         data = await cyberPanelAPI.listWordPress(params.domain);
         break;
+      case 'wpAutoLogin':
+        data = await cyberPanelAPI.wpAutoLogin(params.domain);
+        break;
       case 'listWPPlugins':
         data = await cyberPanelAPI.listWPPlugins(params);
         break;
@@ -228,6 +231,21 @@ export async function POST(req: NextRequest) {
       case 'configCloudFlare':
         data = await cyberPanelAPI.configCloudFlare(params);
         break;
+      case 'porkbunCheck': {
+        const { porkbunAPI: pb } = await import('@/lib/porkbun-adapter');
+        data = await pb.checkAvailability(params.domain);
+        break;
+      }
+      case 'porkbunRegister': {
+        const { porkbunAPI: pb } = await import('@/lib/porkbun-adapter');
+        data = await pb.registerDomain(params.domain);
+        break;
+      }
+      case 'porkbunGetDetails': {
+        const { porkbunAPI: pb } = await import('@/lib/porkbun-adapter');
+        data = await pb.getDomainDetails(params.domain);
+        break;
+      }
       case 'generateAPIToken':
         data = await cyberPanelAPI.generateAPIToken();
         break;

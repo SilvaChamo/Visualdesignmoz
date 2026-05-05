@@ -67,8 +67,10 @@ const PANEL_BRIDGE_ANY_AUTH_ACTIONS = new Set([
   'getModSecurityStatus',
   'getBlockedIPs',
   'listWordPress',
+  'wpAutoLogin',
   'listWPPlugins',
   'listWPBackups',
+  'porkbunCheck',
 ]);
 
 /**
