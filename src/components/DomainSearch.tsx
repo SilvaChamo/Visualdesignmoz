@@ -58,34 +58,52 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
       // 1. Definir lista de extensões a pesquisar: todas as 13 opções disponíveis
       const tldsToSearch = Array.from(new Set([selectedTLD, ...tlds.map(t => t.value)]));
 
-      // 2. Lançar pesquisas em paralelo
-      const fetchPromises = tldsToSearch.map(async (tld) => {
-        try {
-          const res = await fetch('/api/domain-check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain: searchQuery.trim(), tld })
-          });
-          const data = await res.json();
+      // 2. Lançar pesquisas em lotes para evitar que o servidor ou a API congelem
+      const allResults: SearchResult[] = [];
+      const batchSize = 3;
 
-          const tldData = tlds.find(t => t.value === tld);
+      for (let i = 0; i < tldsToSearch.length; i += batchSize) {
+        const batch = tldsToSearch.slice(i, i + batchSize);
+        const fetchPromises = batch.map(async (tld) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
 
-          return {
-            domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-            available: data.available,
-            price: tldData ? tldData.price : (data.price || 10.37),
-            currency: data.currency || 'USD',
-          } as SearchResult;
-        } catch (e) {
-          return {
-            domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-            available: false,
-            error: 'Erro de verificação'
-          } as SearchResult;
+            const res = await fetch('/api/domain-check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ domain: searchQuery.trim(), tld }),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const data = await res.json();
+            const tldData = tlds.find(t => t.value === tld);
+
+            return {
+              domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+              available: data.available,
+              price: tldData ? tldData.price : (data.price || 10.37),
+              currency: data.currency || 'USD',
+              error: data.error // Agora capturamos o erro aqui!
+            } as SearchResult;
+          } catch (e) {
+            return {
+              domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+              available: false,
+              error: 'Erro de verificação'
+            } as SearchResult;
+          }
+        });
+
+        const batchResults = await Promise.all(fetchPromises);
+        allResults.push(...batchResults);
+        
+        // Pequena pausa entre lotes para não causar throttling na API do Porkbun
+        if (i + batchSize < tldsToSearch.length) {
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
-      });
-
-      const allResults = await Promise.all(fetchPromises);
+      }
 
       // Ordenar para que a extensão que o usuário seleccionou explicitamente apareça primeiro
       allResults.sort((a, b) => {
@@ -155,7 +173,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
 
   return (
     <div className="w-full flex flex-col items-center">
-      <div className={`flex flex-col sm:flex-row gap-2 w-full max-w-4xl ${searchContainerClassName}`}>
+      <div className={`flex flex-col sm:flex-row gap-2 w-full ${searchContainerClassName}`}>
         <div className="flex-1 relative">
           <input
             type="text"
@@ -200,7 +218,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         </button>
       </div>
 
-      {/* Lista de Resultados - Largura Total, Fundo Transparente/Branco */}
+      {/* Lista de Resultados - Fica fora do container com fundo para herdar o branco no admin */}
       {!hideResultsInternal && showResults && (
         <div className="w-full mt-6 transition-all duration-300">
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
@@ -227,50 +245,51 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
             {results.map((result, index) => (
               <div
                 key={index}
-                className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg p-3 sm:p-4 hover:border-slate-300 transition-colors flex flex-col sm:flex-row items-center justify-between gap-4`}
+                className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg py-2 px-3 sm:px-4 hover:border-slate-300 transition-colors grid grid-cols-1 sm:grid-cols-3 items-center gap-3`}
               >
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  {/* Ícone apenas se estiver disponível, sem o X */}
+                {/* Coluna 1: Nome do Domínio (Ajustado à esquerda) */}
+                <div className="flex items-center gap-3 justify-start">
                   {result.available && (
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-green-100 text-green-600">
-                      <Check className="w-4 h-4" />
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                      <Check className="w-3.5 h-3.5" />
                     </div>
                   )}
 
-                  <div className={`font-normal text-[17px] text-slate-900 flex flex-wrap items-center gap-2`}>
+                  <div className={`font-normal text-[16px] text-slate-900 flex flex-wrap items-center gap-2`}>
                     {result.domain}
-                    
-                    {/* Preço imediatamente após o domínio, na mesma linha, em Meticais */}
-                    {result.available && result.price && (
-                      <span className="text-slate-600 text-sm ml-1">
-                        {result.domain.endsWith('.com') 
-                          ? (1000 * 1.075).toFixed(2) 
-                          : (result.price * 65 * 2).toFixed(2)} MT
-                      </span>
-                    )}
-
-                    {index === 0 && <span className="ml-2 inline-block px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-bold uppercase tracking-wider">A sua escolha</span>}
+                    {index === 0 && <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold uppercase tracking-wider">A sua escolha</span>}
                   </div>
                 </div>
 
-                {/* Botões do lado direito, sem preços empilhados */}
-                <div className="flex items-center justify-end w-full sm:w-auto">
+                {/* Coluna 2: Preço ou Erro (Ajustado à direita) */}
+                <div className="flex items-center justify-end sm:pr-4">
+                  {result.error && !result.available ? (
+                    <span className="text-red-500 text-xs text-right font-medium">{result.error}</span>
+                  ) : result.price !== undefined ? (
+                    <span className="text-slate-700 font-medium text-[15px]">
+                      {((result.price * 65 * 1.5) * 1.075).toFixed(2)} MT
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Coluna 3: Botão (Ajustado à direita) */}
+                <div className="flex items-center justify-end">
                   {result.available ? (
                     <button
                       onClick={() => handleRegisterAction(result.domain)}
                       disabled={actionLoading === result.domain}
-                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2 whitespace-nowrap min-w-[140px] justify-center"
+                      className="bg-green-600 hover:bg-green-700 hover:scale-105 hover:shadow-md text-white px-5 py-2 rounded text-sm font-bold transition-all duration-200 shadow-sm flex items-center gap-2 whitespace-nowrap min-w-[130px] justify-center"
                     >
                       {actionLoading === result.domain ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
                       ) : (
-                        isAdmin ? "Registar" : "Adicionar ao carrinho"
+                        isAdmin ? "Registar" : "Adicionar"
                       )}
                     </button>
                   ) : (
                     <button
                       disabled
-                      className="bg-slate-100 text-slate-400 px-6 py-2.5 rounded-lg text-sm font-bold cursor-not-allowed border border-slate-200 min-w-[140px]"
+                      className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold cursor-not-allowed shadow-sm min-w-[130px]"
                     >
                       Indisponível
                     </button>

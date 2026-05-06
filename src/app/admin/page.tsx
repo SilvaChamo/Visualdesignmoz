@@ -136,6 +136,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
   setSelectedDNSDomain?: (domain: string) => void
 }) {
   const [search, setSearch] = useState('')
+  const [msg, setMsg] = useState('')
 
   const filteredSites = search
     ? sites.filter(s => s.domain.toLowerCase().includes(search.toLowerCase()))
@@ -256,6 +257,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 4
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
+  const [msg, setMsg] = useState('')
 
   useEffect(() => {
     if (expandedSite && !siteDiskInfo[expandedSite]) {
@@ -347,6 +349,8 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
             className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-52" />
         </div>
       </div>
+
+      {msg && <div className="px-4 py-2.5 rounded text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded border border-gray-200">
@@ -477,7 +481,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                           setLoading(s.domain)
                           try {
                             const ok = await cyberPanelAPI.issueSSL(s.domain)
-                            setMsg(ok ? 'Subdomínio criado com sucesso!' : 'Guardado localmente. Verifica no DirectAdmin.')
+                            setMsg(ok ? 'SSL emitido com sucesso!' : 'Erro ao emitir SSL.')
                           } catch (e: any) {
                             alert('Erro: ' + e.message)
                           }
