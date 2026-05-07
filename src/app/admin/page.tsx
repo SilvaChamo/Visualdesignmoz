@@ -2110,10 +2110,6 @@ export default function AdminPage() {
   const [creatingEmail, setCreatingEmail] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
 
-  useEffect(() => {
-    loadDirectAdminData()
-  }, [])
-
   const handleSync = async () => {
     setSyncing(true)
     try {
@@ -2134,12 +2130,12 @@ export default function AdminPage() {
   const loadDirectAdminData = async () => {
     setIsFetchingDirectAdmin(true)
     try {
-      // Carregar sequencialmente com pequenos atrasos para evitar blacklist
-      const sites = await directAdminAPI.listWebsites().catch(() => []);
-      await new Promise(r => setTimeout(r, 500));
-      const users = await directAdminAPI.listUsers().catch(() => []);
-      await new Promise(r => setTimeout(r, 500));
-      const packages = await directAdminAPI.listPackages().catch(() => []);
+      // Carregar apenas por ação manual para evitar bloqueios por tentativas repetidas.
+      const sites = await directAdminAPI.listWebsites().catch(() => [])
+      await new Promise(r => setTimeout(r, 500))
+      const users = await directAdminAPI.listUsers().catch(() => [])
+      await new Promise(r => setTimeout(r, 500))
+      const packages = await directAdminAPI.listPackages().catch(() => [])
 
       const validSites = Array.isArray(sites) ? sites : []
       const validUsers = Array.isArray(users) ? users : []

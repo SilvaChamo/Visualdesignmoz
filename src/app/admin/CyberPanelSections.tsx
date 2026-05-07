@@ -1643,7 +1643,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
   const [selectedDomain, setSelectedDomain] = useState(preSelectedDomain || '__ALL__')
   const [emails, setEmails] = useState<DirectAdminEmail[]>([])
   const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState('Leitura automática do DirectAdmin está desligada. Escolha um domínio ou clique em sincronizar para carregar emails.')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
@@ -1759,12 +1759,9 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
   }
 
   useEffect(() => {
-    if (selectedDomain === '__ALL__') {
-      loadAllEmails()
-    } else if (selectedDomain) {
-      loadEmails(selectedDomain)
-    }
-  }, [selectedDomain, sites])
+    if (!preSelectedDomain) return
+    loadEmails(preSelectedDomain)
+  }, [preSelectedDomain])
 
   const [isSyncingGlobal, setIsSyncingGlobal] = useState(false)
 
@@ -2095,7 +2092,10 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
             {isSyncingGlobal ? 'Sincronizando...' : 'Sincronizar Auth'}
           </button>
           <button
-            onClick={() => loadEmails(selectedDomain)}
+            onClick={() => {
+              if (selectedDomain === '__ALL__') loadAllEmails()
+              else loadEmails(selectedDomain)
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-200 transition-all font-bold"
           >
             <RefreshCw className="w-4 h-4" /> Atualizar
