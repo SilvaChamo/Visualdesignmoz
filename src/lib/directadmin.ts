@@ -3,12 +3,21 @@
  * Handles authentication and HTTP requests to the DirectAdmin server.
  */
 
+import http from 'node:http';
+import https from 'node:https';
+
 // These should be configured in your .env.local file
 const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
 const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
 const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
-const DA_PASSWORD = process.env.DIRECTADMIN_PASSWORD || process.env.DIRECTADMIN_LOGIN_KEY || '';
+const DA_PASSWORD =
+  process.env.DIRECTADMIN_PASSWORD ||
+  process.env.DIRECTADMIN_LOGIN_KEY ||
+  process.env.DIRECTADMIN_PASS ||
+  '';
 const DA_PROTOCOL = process.env.DIRECTADMIN_PROTOCOL || 'https'; // Use 'http' if SSL is not yet configured
+const DA_BASE = (process.env.DIRECTADMIN_URL || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
+const DA_REJECT_UNAUTHORIZED = process.env.DIRECTADMIN_REJECT_UNAUTHORIZED === 'true';
 
 export interface DaResponse {
   error: boolean;
@@ -44,6 +53,79 @@ export function parseDaResponse(responseString: string): DaResponse {
   }
 }
 
+async function requestDirectAdmin(
+  endpoint: string,
+  method: 'GET' | 'POST',
+  params: Record<string, string>
+): Promise<string> {
+  if (!DA_PASSWORD) {
+    throw new Error(
+      'Credencial DirectAdmin ausente. Configure DIRECTADMIN_LOGIN_KEY ou DIRECTADMIN_PASSWORD no Vercel.'
+    );
+  }
+
+  const url = new URL(`${DA_BASE}/${endpoint}`);
+  const body = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (method === 'GET') url.searchParams.append(key, value);
+    else body.append(key, value);
+  });
+
+  const bodyText = body.toString();
+  const transport = url.protocol === 'http:' ? http : https;
+  const headers: Record<string, string> = {
+    Authorization: `Basic ${Buffer.from(`${DA_USER}:${DA_PASSWORD}`).toString('base64')}`,
+  };
+
+  if (method === 'POST') {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    headers['Content-Length'] = String(Buffer.byteLength(bodyText));
+  }
+
+  return new Promise((resolve, reject) => {
+    const req = transport.request(
+      {
+        method,
+        hostname: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        headers,
+        timeout: 30000,
+        rejectUnauthorized: url.protocol === 'https:' ? DA_REJECT_UNAUTHORIZED : undefined,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+            reject(
+              new Error(
+                `${endpoint}: DirectAdmin HTTP ${res.statusCode || 0} - ${text.replace(/\s+/g, ' ').trim().substring(0, 300)}`
+              )
+            );
+            return;
+          }
+          resolve(text);
+        });
+      }
+    );
+
+    req.on('timeout', () => req.destroy(new Error(`${endpoint}: ligação ao DirectAdmin expirou`)));
+    req.on('error', (error: NodeJS.ErrnoException) => {
+      reject(
+        new Error(
+          `${endpoint}: falha de ligação ao DirectAdmin (${error.code || error.name}) - ${error.message}`
+        )
+      );
+    });
+
+    if (method === 'POST') req.write(bodyText);
+    req.end();
+  });
+}
+
 /**
  * Makes a direct request to the DirectAdmin API.
  * 
@@ -56,39 +138,8 @@ export async function daRequest(
   method: 'GET' | 'POST' = 'GET',
   params: Record<string, string> = {}
 ): Promise<DaResponse> {
-  const url = new URL(`${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}/${endpoint}`);
-  
-  const headers = new Headers();
-  headers.append(
-    'Authorization',
-    `Basic ${Buffer.from(`${DA_USER}:${DA_PASSWORD}`).toString('base64')}`
-  );
-  
-  const options: RequestInit = {
-    method,
-    headers,
-  };
-
-  if (method === 'GET') {
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
-    });
-  } else {
-    // DirectAdmin usually expects application/x-www-form-urlencoded for POST
-    headers.append('Content-Type', 'application/x-www-form-urlencoded');
-    const body = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      body.append(key, value);
-    });
-    options.body = body.toString();
-  }
-
   try {
-    const response = await fetch(url.toString(), options);
-    
-    // Some DA endpoints might return JSON if specifically requested (json=yes), 
-    // but the standard is urlencoded text.
-    const textData = await response.text();
+    const textData = await requestDirectAdmin(endpoint, method, params);
     
     // Check if the response is JSON (some newer DA commands support json=yes parameter)
     if (params.json === 'yes' || textData.startsWith('{')) {

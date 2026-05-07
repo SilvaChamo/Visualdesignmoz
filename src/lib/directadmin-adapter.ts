@@ -8,6 +8,8 @@
  */
 
 import { cacheService } from './cache-service';
+import http from 'node:http';
+import https from 'node:https';
 import type {
   CyberPanelWebsite,
   CyberPanelPackage,
@@ -17,23 +19,118 @@ import type {
   CyberPanelFTPAccount,
 } from './cyberpanel-api';
 
-// ─── DirectAdmin credentials (from env or server-config) ────────────────────
+// ─── DirectAdmin credentials ────────────────────────────────────────────────
+// DIRECTADMIN_PASS is kept for compatibility with older local env files.
 const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
 const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
 const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
-const DA_PASS = process.env.DIRECTADMIN_PASS || '';
+const DA_PASS =
+  process.env.DIRECTADMIN_PASSWORD ||
+  process.env.DIRECTADMIN_LOGIN_KEY ||
+  process.env.DIRECTADMIN_PASS ||
+  '';
+const DA_PROTOCOL = process.env.DIRECTADMIN_PROTOCOL || 'https';
+const DA_BASE = (process.env.DIRECTADMIN_URL || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
+const DA_REJECT_UNAUTHORIZED = process.env.DIRECTADMIN_REJECT_UNAUTHORIZED === 'true';
 
-const DA_BASE = `https://${DA_HOST}:${DA_PORT}`;
+type DirectAdminHttpResponse = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  text: string;
+};
+
+function assertDirectAdminConfig() {
+  if (!DA_PASS) {
+    throw new Error(
+      'Credencial DirectAdmin ausente. Configure DIRECTADMIN_LOGIN_KEY ou DIRECTADMIN_PASSWORD no Vercel.'
+    );
+  }
+}
+
+function summarizeDirectAdminBody(text: string) {
+  return text.replace(/\s+/g, ' ').trim().substring(0, 300);
+}
+
+function assertDirectAdminSuccess(cmd: string, sp: URLSearchParams) {
+  const error = sp.get('error');
+  if (error === '1' || error === 'true' || error === 'yes') {
+    const message = sp.get('text') || sp.get('details') || 'DirectAdmin retornou erro';
+    throw new Error(`${cmd}: ${message}`);
+  }
+}
+
+async function directAdminRequest(
+  method: 'GET' | 'POST',
+  cmd: string,
+  qs: URLSearchParams,
+  body?: string
+): Promise<DirectAdminHttpResponse> {
+  const url = new URL(`${DA_BASE}/${cmd}`);
+  qs.forEach((value, key) => url.searchParams.set(key, value));
+
+  const transport = url.protocol === 'http:' ? http : https;
+  const headers: Record<string, string> = {
+    Authorization: 'Basic ' + Buffer.from(`${DA_USER}:${DA_PASS}`).toString('base64'),
+  };
+
+  if (method === 'POST') {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    headers['Content-Length'] = String(Buffer.byteLength(body || ''));
+  }
+
+  return new Promise((resolve, reject) => {
+    const req = transport.request(
+      {
+        method,
+        hostname: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        headers,
+        timeout: method === 'POST' ? 30000 : 20000,
+        rejectUnauthorized: url.protocol === 'https:' ? DA_REJECT_UNAUTHORIZED : undefined,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          const status = res.statusCode || 0;
+          resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: res.statusMessage || '',
+            text,
+          });
+        });
+      }
+    );
+
+    req.on('timeout', () => {
+      req.destroy(new Error(`${cmd}: ligação ao DirectAdmin expirou`));
+    });
+    req.on('error', (error: NodeJS.ErrnoException) => {
+      reject(
+        new Error(
+          `${cmd}: falha de ligação ao DirectAdmin (${error.code || error.name}) - ${error.message}`
+        )
+      );
+    });
+
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
 // ─── Low-level DA request helper ────────────────────────────────────────────
 async function daGet(cmd: string, qs: Record<string, string> = {}): Promise<URLSearchParams> {
+  assertDirectAdminConfig();
   const params = new URLSearchParams({ json: 'yes', ...qs });
-  const url = `${DA_BASE}/${cmd}?${params}`;
-  const headers = {
-    Authorization: 'Basic ' + Buffer.from(`${DA_USER}:${DA_PASS}`).toString('base64'),
-  };
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
-  const text = await res.text();
+  const res = await directAdminRequest('GET', cmd, params);
+  const text = res.text;
+  if (!res.ok) {
+    throw new Error(`${cmd}: DirectAdmin HTTP ${res.status} - ${summarizeDirectAdminBody(text)}`);
+  }
   // DA pode retornar JSON ou URL-encoded
   try {
     const json = JSON.parse(text);
@@ -47,25 +144,33 @@ async function daGet(cmd: string, qs: Record<string, string> = {}): Promise<URLS
       }
     }
     flatten(json);
+    assertDirectAdminSuccess(cmd, sp);
     return sp;
-  } catch {
-    return new URLSearchParams(text);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      const sp = new URLSearchParams(text);
+      assertDirectAdminSuccess(cmd, sp);
+      return sp;
+    }
+    throw error;
   }
 }
 
 async function daPost(cmd: string, body: Record<string, string>): Promise<{ ok: boolean; error?: string; details?: string }> {
-  const url = `${DA_BASE}/${cmd}?json=yes`;
-  const headers = {
-    Authorization: 'Basic ' + Buffer.from(`${DA_USER}:${DA_PASS}`).toString('base64'),
-    'Content-Type': 'application/x-www-form-urlencoded',
-  };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: new URLSearchParams(body).toString(),
-    signal: AbortSignal.timeout(30000),
-  });
-  const text = await res.text();
+  assertDirectAdminConfig();
+  const res = await directAdminRequest(
+    'POST',
+    cmd,
+    new URLSearchParams({ json: 'yes' }),
+    new URLSearchParams(body).toString()
+  );
+  const text = res.text;
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: `${cmd}: DirectAdmin HTTP ${res.status} - ${summarizeDirectAdminBody(text)}`,
+    };
+  }
   try {
     const json = JSON.parse(text);
     const ok = json.error === undefined || json.error === '0' || json.error === 0 || json.success === true;
@@ -309,6 +414,8 @@ export const cyberPanelAPI = {
   // ══════════════════════════════════════════════════════════════════════
 
   listEmails: async (domain: string): Promise<CyberPanelEmail[]> => {
+    if (!domain) return [];
+
     const cacheKey = `da_emails_${domain}`;
     const cached = cacheService.get(cacheKey);
     if (cached) return cached as CyberPanelEmail[];

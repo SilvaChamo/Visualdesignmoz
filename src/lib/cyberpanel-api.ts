@@ -70,11 +70,23 @@ async function run(action: string, params: Record<string, any> = {}, timeoutMs: 
       signal: controller.signal,
     });
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const responseText = await res.text();
+    let json: any = null;
+    try {
+      json = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      json = null;
     }
 
-    const json = await res.json();
+    if (!res.ok) {
+      const details = json?.error || responseText || res.statusText;
+      throw new Error(`HTTP ${res.status}: ${details}`);
+    }
+
+    if (!json) {
+      throw new Error('Resposta inválida da API DirectAdmin');
+    }
+
     if (!json.success) throw new Error(json.error || 'Pedido DirectAdmin falhou');
 
     if (!isMutation) {
