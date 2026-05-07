@@ -123,6 +123,30 @@ export async function POST(req: NextRequest) {
       case 'setEmailLimits':
         data = await cyberPanelAPI.setEmailLimits(params);
         break;
+      case 'getEmailForwarding':
+        data = await cyberPanelAPI.getEmailForwarding(params);
+        break;
+      case 'addEmailForwarding':
+        data = await cyberPanelAPI.addEmailForwarding(params);
+        break;
+      case 'getCatchAllEmail':
+        data = await cyberPanelAPI.getCatchAllEmail(params.domain);
+        break;
+      case 'setCatchAllEmail':
+        data = await cyberPanelAPI.setCatchAllEmail(params);
+        break;
+      case 'getPatternForwarding':
+        data = await cyberPanelAPI.getPatternForwarding(params.domain);
+        break;
+      case 'addPatternForwarding':
+        data = await cyberPanelAPI.addPatternForwarding(params);
+        break;
+      case 'getPlusAddressing':
+        data = await cyberPanelAPI.getPlusAddressing(params.domain);
+        break;
+      case 'togglePlusAddressing':
+        data = await cyberPanelAPI.togglePlusAddressing(params);
+        break;
 
       // ═══════════════════════════════════════════════════════════════════════
       // BASES DE DADOS
@@ -172,6 +196,15 @@ export async function POST(req: NextRequest) {
       case 'resetDNSConfigurations':
         data = await cyberPanelAPI.resetDNSConfigurations(params.domain);
         break;
+      case 'configDefaultNameservers':
+        data = await cyberPanelAPI.configDefaultNameservers(params);
+        break;
+      case 'createNameserver':
+        data = await cyberPanelAPI.createNameserver(params);
+        break;
+      case 'configCloudFlare':
+        data = await cyberPanelAPI.configCloudFlare(params);
+        break;
       case 'enableDKIM':
         data = await cyberPanelAPI.enableDKIM(params.domain);
         break;
@@ -194,6 +227,9 @@ export async function POST(req: NextRequest) {
       case 'toggleModSecurity':
         data = await cyberPanelAPI.toggleModSecurity(params);
         break;
+      case 'getBlockedIPs':
+        data = await cyberPanelAPI.getBlockedIPs();
+        break;
       case 'blockIP':
         data = await cyberPanelAPI.blockIP(params);
         break;
@@ -213,6 +249,35 @@ export async function POST(req: NextRequest) {
       case 'rebootServer':
         data = await cyberPanelAPI.rebootServer();
         break;
+      case 'generateAPIToken':
+        data = await cyberPanelAPI.generateAPIToken();
+        break;
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // PHP
+      // ═══════════════════════════════════════════════════════════════════════
+      case 'getPHPConfig':
+        data = await cyberPanelAPI.getPHPConfig(params.domain);
+        break;
+      case 'savePHPConfig':
+        data = await cyberPanelAPI.savePHPConfig(params);
+        break;
+      case 'changePHPVersion':
+        data = await cyberPanelAPI.changePHPVersion(params);
+        break;
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // ACL / PERMISSÕES
+      // ═══════════════════════════════════════════════════════════════════════
+      case 'listACLs':
+        data = await cyberPanelAPI.listACLs();
+        break;
+      case 'createACL':
+        data = await cyberPanelAPI.createACL(params);
+        break;
+      case 'deleteACL':
+        data = await cyberPanelAPI.deleteACL(params);
+        break;
 
       // ═══════════════════════════════════════════════════════════════════════
       // WORDPRESS
@@ -222,6 +287,24 @@ export async function POST(req: NextRequest) {
         break;
       case 'installWordPress':
         data = await cyberPanelAPI.installWordPress(params);
+        break;
+      case 'listWPPlugins':
+        data = await cyberPanelAPI.listWPPlugins(params);
+        break;
+      case 'installWPPlugin':
+        data = await cyberPanelAPI.installWPPlugin(params);
+        break;
+      case 'toggleWPPlugin':
+        data = await cyberPanelAPI.toggleWPPlugin(params);
+        break;
+      case 'listWPBackups':
+        data = await cyberPanelAPI.listWPBackups(params.domain);
+        break;
+      case 'restoreWPBackup':
+        data = await cyberPanelAPI.restoreWPBackup(params);
+        break;
+      case 'createRemoteBackup':
+        data = await cyberPanelAPI.createRemoteBackup(params);
         break;
 
       // ═══════════════════════════════════════════════════════════════════════

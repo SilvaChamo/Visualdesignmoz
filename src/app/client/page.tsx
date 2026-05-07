@@ -28,7 +28,7 @@ import {
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
-} from '../admin/CyberPanelSections'
+} from '../admin/DirectAdminSections'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -37,7 +37,7 @@ import { MultiFileUpload } from "@/components/admin/MultiFileUpload"
 import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector"
 import { EmailTemplates } from "@/components/admin/EmailTemplates"
 import { toast } from "sonner"
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
+import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import ClientDashboardSkeleton from '@/components/dashboard/ClientDashboardSkeleton'
 import { NovoTicketModal } from '@/components/dashboard/NovoTicketModal'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -52,7 +52,9 @@ import {
   adminRemoverCampanha as removerCampanha,
   adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing'
-import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
+import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
+
+const directAdminAPI = panelAPI
 
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
@@ -143,13 +145,13 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
   }
 
   const cliente = clienteProp
-  const cyberPanelSites = sitesProp
+  const directAdminSites = sitesProp
 
   if (isLoading || localLoading || !cliente) return <ClientDashboardSkeleton />
 
   const hoje = new Date()
   const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
-  const totalSites = cyberPanelSites.length
+  const totalSites = directAdminSites.length
 
   // Encontrar a fatura mais próxima
   const proximaFatura = faturasPendentes.length > 0
@@ -174,7 +176,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
             <div>
               <p className="text-sm text-gray-500">Serviços Activos</p>
               <p className="text-2xl font-bold text-gray-900">{totalSites}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{totalSites > 0 ? cyberPanelSites[0].domain : 'Nenhum site'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{totalSites > 0 ? directAdminSites[0].domain : 'Nenhum site'}</p>
             </div>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
@@ -300,7 +302,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
         cliente={cliente}
-        sites={cyberPanelSites}
+        sites={directAdminSites}
         onTicketCreated={() => {
           const fetchTickets = async () => {
             try {
@@ -632,7 +634,7 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   // 🎯 Detecção Inteligente: Site → Domínio do Email → Hostname
   // Funciona para clientes COM site ou SEM site (email corporativo apenas)
   const getDefaultDomain = () => {
-    // 1. Primeiro: usar site do CyberPanel se existir
+    // 1. Primeiro: usar site do DirectAdmin se existir
     if (pureSites.length > 0) return pureSites[0].domain;
 
     // 2. Segundo: extrair domínio do email do utilizador (email corporativo sem site)
@@ -760,10 +762,10 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       
       setLoadingDomainEmails(true);
       try {
-        // 🆕 BUSCAR DE DUAS FONTES: Supabase + CyberPanel
-        const [supabaseRes, cyberpanelRes] = await Promise.allSettled([
+        // 🆕 BUSCAR DE DUAS FONTES: Supabase + DirectAdmin
+        const [supabaseRes, directadminRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch(`/api/cyberpanel-list-emails?domain=${encodeURIComponent(selectedSite)}`)
+          fetch(`/api/directadmin-list-emails?domain=${encodeURIComponent(selectedSite)}`)
         ]);
         
         let allEmailsList: string[] = [];
@@ -784,12 +786,12 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           }
         }
         
-        // Processar resultado do CyberPanel
-        if (cyberpanelRes.status === 'fulfilled') {
-          const result = await cyberpanelRes.value.json();
+        // Processar resultado do DirectAdmin
+        if (directadminRes.status === 'fulfilled') {
+          const result = await directadminRes.value.json();
           if (result.success && Array.isArray(result.emails)) {
             allEmailsList = [...allEmailsList, ...result.emails];
-            console.log("📧 Emails do CyberPanel:", result.emails);
+            console.log("📧 Emails do DirectAdmin:", result.emails);
             console.log("📧 Fonte:", result.source);
           }
         }
@@ -808,7 +810,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             }
           }
           
-          // 🚀 Apenas emails REAIS da BD/CyberPanel + email do utilizador
+          // 🚀 Apenas emails REAIS da BD/DirectAdmin + email do utilizador
           // NÃO adicionar fallbacks fictícios
           
           // Se ainda não tem emails e tem currentUserEmail, usar como fallback
@@ -894,7 +896,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
-  // 🎯 Domínios permitidos: sites do CyberPanel OU domínio do email selecionado
+  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email selecionado
   // Isso permite que clientes SEM site (apenas email corporativo) enviem campanhas
   const allowedDomains = new Set(
     (sites || [])
@@ -1532,7 +1534,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
-  // 🎯 Domínios permitidos: sites do CyberPanel OU domínio do email selecionado
+  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email selecionado
   // Isso permite que clientes SEM site (apenas email corporativo) vejam seus contactos
   const allowedDomains = new Set(
     (sites || [])
@@ -1795,7 +1797,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               className="h-10 rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 min-w-[220px]"
             >
               {sites.length > 0 ? (
-                // Cliente tem sites no CyberPanel
+                // Cliente tem sites no DirectAdmin
                 sites.map((site: any) => (
                   <option key={site.domain} value={site.domain}>{site.domain}</option>
                 ))
@@ -2948,7 +2950,7 @@ function ContaSection() {
 }
 
 // Secções que precisam de criar websites
-function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPackage[], onRefresh: () => void }) {
+function CreateWebsiteSection({ packages, onRefresh }: { packages: DirectAdminPackage[], onRefresh: () => void }) {
   const [form, setForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
@@ -2957,7 +2959,7 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
     if (!form.domain || !form.email) return
     setCreating(true); setMsg('')
     try {
-      const ok = await cyberPanelAPI.createWebsite(form)
+      const ok = await directAdminAPI.createWebsite(form)
       setMsg('Website criado com sucesso!')
       onRefresh()
     } catch (e: any) {
@@ -3028,14 +3030,14 @@ function WebsiteSkeleton() {
   )
 }
 
-function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync, isFetching }: {
-  sites: CyberPanelWebsite[],
+function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadDirectAdminData, syncing, handleSync, isFetching }: {
+  sites: DirectAdminWebsite[],
   onRefresh: () => void,
-  packages: CyberPanelPackage[],
+  packages: DirectAdminPackage[],
   setActiveSection: (section: string) => void,
   setFileManagerDomain: (domain: string) => void,
   setSelectedDNSDomain: (domain: string) => void,
-  loadCyberPanelData: () => void,
+  loadDirectAdminData: () => void,
   syncing: boolean,
   handleSync: () => void,
   isFetching?: boolean
@@ -3116,9 +3118,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     let command = ''
 
     if (field === 'php') {
-      command = `cyberpanel changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
+      command = `directadmin changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
     } else if (field === 'package') {
-      command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
+      command = `directadmin changePackage --domainName ${domain} --packageName "${value}" 2>&1`
     } else {
       // Para outros campos, usa modifyWebsite
       await fetch('/api/da', {
@@ -3403,10 +3405,10 @@ export default function AdminPage() {
   const [compondoEmail, setCompondoEmail] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
-  const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
-  const [cyberPanelUsers, setCyberPanelUsers] = useState<CyberPanelUser[]>([])
-  const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
-  const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
+  const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
+  const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
+  const [directAdminPackages, setDirectAdminPackages] = useState<DirectAdminPackage[]>([])
+  const [isFetchingDirectAdmin, setIsFetchingDirectAdmin] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
@@ -3452,7 +3454,7 @@ export default function AdminPage() {
   useEffect(() => {
     // Delay para garantir que getData execute primeiro
     const timer = setTimeout(() => {
-      loadCyberPanelData()
+      loadDirectAdminData()
     }, 300)
     return () => clearTimeout(timer)
   }, [])
@@ -3469,13 +3471,13 @@ export default function AdminPage() {
       // CORRIGIR — garantir que usa data.data.sites e não data.data
       const sites = Array.isArray(data.data?.sites) ? data.data.sites :
         Array.isArray(data.data) ? data.data : []
-      if (data.success) setCyberPanelSites(sites)
+      if (data.success) setDirectAdminSites(sites)
     } catch (e) { console.error(e) }
     setSyncing(false)
   }
 
-  const loadCyberPanelData = async () => {
-    setIsFetchingCyberPanel(true)
+  const loadDirectAdminData = async () => {
+    setIsFetchingDirectAdmin(true)
     try {
       // Delay para evitar conflito com outras chamadas ao auth
       await new Promise(resolve => setTimeout(resolve, 50))
@@ -3483,28 +3485,28 @@ export default function AdminPage() {
       const email = user?.email
 
       const [sites, users, packages] = await Promise.all([
-        cyberPanelAPI.listWebsites().catch(() => []),
-        cyberPanelAPI.listUsers().catch(() => []),
-        cyberPanelAPI.listPackages().catch(() => []),
+        directAdminAPI.listWebsites().catch(() => []),
+        directAdminAPI.listUsers().catch(() => []),
+        directAdminAPI.listPackages().catch(() => []),
       ])
 
       // Filtrar sites pelo email do administrador/cliente
       const allSites = Array.isArray(sites) ? sites : []
       const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
 
-      setCyberPanelSites(filteredSites)
-      setCyberPanelUsers(Array.isArray(users) ? users : [])
-      setCyberPanelPackages(Array.isArray(packages) ? packages : [])
+      setDirectAdminSites(filteredSites)
+      setDirectAdminUsers(Array.isArray(users) ? users : [])
+      setDirectAdminPackages(Array.isArray(packages) ? packages : [])
     } catch (error) {
-      console.error('Erro ao carregar dados CyberPanel:', error)
+      console.error('Erro ao carregar dados DirectAdmin:', error)
     } finally {
-      setIsFetchingCyberPanel(false)
+      setIsFetchingDirectAdmin(false)
     }
   }
 
   // Definir domínio principal
-  const primaryDomain = cyberPanelSites.length > 0
-    ? cyberPanelSites.find(s => !s.domain.includes('contaboserver'))?.domain || cyberPanelSites[0].domain
+  const primaryDomain = directAdminSites.length > 0
+    ? directAdminSites.find(s => !s.domain.includes('contaboserver'))?.domain || directAdminSites[0].domain
     : 'oseudominio.com'
 
   const menuItems = [
@@ -3522,7 +3524,7 @@ export default function AdminPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <ClienteDashboardHome clienteProp={cliente} sitesProp={cyberPanelSites} isLoading={isFetchingCyberPanel} />
+        return <ClienteDashboardHome clienteProp={cliente} sitesProp={directAdminSites} isLoading={isFetchingDirectAdmin} />
       case 'emails-new':
         return <EmailWebmailSection
           mostrarAdicionarConta={mostrarAdicionarConta}
@@ -3530,43 +3532,43 @@ export default function AdminPage() {
           modalAdicionarPasso={modalAdicionarPasso}
           setModalAdicionarPasso={setModalAdicionarPasso}
           emailOrigem={sessionUser}
-          sites={cyberPanelSites}
+          sites={directAdminSites}
           defaultCompose={compondoEmail}
           onCloseCompose={() => setCompondoEmail(false)}
           onComposeStateChange={setIsComposeActive}
         />
       case 'domains':
         return <ListWebsitesSection
-          sites={cyberPanelSites}
-          onRefresh={loadCyberPanelData}
-          packages={cyberPanelPackages}
+          sites={directAdminSites}
+          onRefresh={loadDirectAdminData}
+          packages={directAdminPackages}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
-          loadCyberPanelData={loadCyberPanelData}
+          loadDirectAdminData={loadDirectAdminData}
           syncing={syncing}
           handleSync={handleSync}
         />
       case 'domains-list':
         return <ListWebsitesSection
-          sites={cyberPanelSites}
-          onRefresh={loadCyberPanelData}
-          packages={cyberPanelPackages}
+          sites={directAdminSites}
+          onRefresh={loadDirectAdminData}
+          packages={directAdminPackages}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
-          loadCyberPanelData={loadCyberPanelData}
+          loadDirectAdminData={loadDirectAdminData}
           syncing={syncing}
           handleSync={handleSync}
-          isFetching={isFetchingCyberPanel}
+          isFetching={isFetchingDirectAdmin}
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || cyberPanelSites[0]?.domain || 'oseudominio.com'} sites={cyberPanelSites} />
+        return <FileManagerSection domain={fileManagerDomain || directAdminSites[0]?.domain || 'oseudominio.com'} sites={directAdminSites} />
       case 'tickets':
         return <SuporteSection
           cliente={cliente}
-          sites={cyberPanelSites}
+          sites={directAdminSites}
           onComposeEmail={() => {
             setActiveSection('email-new'); // ID do menu para Email
             setCompondoEmail(true);
@@ -3576,7 +3578,7 @@ export default function AdminPage() {
         return (
           <Suspense fallback={<SectionLoader />}>
             <MailMarketingSection
-              sites={cyberPanelSites}
+              sites={directAdminSites}
               currentUserEmail={cliente?.email}
               activeTab={mailMarketingTab}
               setActiveTab={setMailMarketingTab}
@@ -3594,7 +3596,7 @@ export default function AdminPage() {
       case 'webmail':
         return (
           <WebmailSection
-            sites={cyberPanelSites}
+            sites={directAdminSites}
             userEmail={sessionUser}
             onBack={() => setActiveSection('emails-new')}
             mostrarAdicionarConta={mostrarAdicionarConta}
@@ -3604,52 +3606,52 @@ export default function AdminPage() {
           />
         )
       case 'domains-new':
-        // return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
+        // return <CreateWebsiteSection packages={directAdminPackages} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Criar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-subdomains':
-        // return <SubdomainsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <SubdomainsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-list-subdomains':
-        // return <ListSubdomainsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <ListSubdomainsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Listar Subdomínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-modify-website':
-        // return <ModifyWebsiteSection sites={cyberPanelSites} packages={cyberPanelPackages} /> // Removido - não usado no painel do cliente
+        // return <ModifyWebsiteSection sites={directAdminSites} packages={directAdminPackages} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Modificar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-suspend-website':
-        // return <SuspendWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
+        // return <SuspendWebsiteSection sites={directAdminSites} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Suspender Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-delete-website':
-        // return <DeleteWebsiteSection sites={cyberPanelSites} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
+        // return <DeleteWebsiteSection sites={directAdminSites} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Website</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-databases':
-        // return <DatabasesSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DatabasesSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Bases de Dados</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-ftp':
-        // return <FTPSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <FTPSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">FTP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-delete':
-        // return <EmailDeleteSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <EmailDeleteSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-limits':
-        // return <EmailLimitsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <EmailLimitsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Limites de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-forwarding':
-        // return <EmailForwardingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <EmailForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Encaminhamento de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-catchall':
-        // return <CatchAllEmailSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <CatchAllEmailSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Catch All Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-pattern-fwd':
-        // return <PatternForwardingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <PatternForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-plus-addr':
-        // return <PlusAddressingSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <PlusAddressingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Plus Addressing</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-change-pass':
-        // return <EmailChangePasswordSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <EmailChangePasswordSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Alterar Senha Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-dkim':
-        // return <DKIMManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DKIMManagerSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">DKIM Manager</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-users':
         // return <CPUsersSection /> // Removido - não usado no painel do cliente
@@ -3658,79 +3660,79 @@ export default function AdminPage() {
         // return <ResellerSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Revenda</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-ssl':
-        // return <SSLSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <SSLSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">SSL</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-security':
-        // return <SecuritySection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <SecuritySection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Segurança</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-php':
-        // return <PHPConfigSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <PHPConfigSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Configuração PHP</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-api':
       case 'infrastructure':
         // return <APIConfigSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Configurações</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-list':
-        // return <WPListSection sites={cyberPanelSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} /> // Removido - não usado no painel do cliente
+        // return <WPListSection sites={directAdminSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-plugins':
-        // return <WPPluginsSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <WPPluginsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Plugins WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-restore-backup':
-        // return <WPRestoreBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <WPRestoreBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Restaurar Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-remote-backup':
-        // return <WPRemoteBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <WPRemoteBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Backup Remoto WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-nameserver':
-        // return <DNSNameserverSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DNSNameserverSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Nameservers DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-default-ns':
         // return <DNSDefaultNSSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Default Nameservers</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-create-zone':
-        // return <DNSCreateZoneSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DNSCreateZoneSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Criar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'domains-dns':
         return <DNSZoneEditorSection
-          sites={cyberPanelSites}
+          sites={directAdminSites}
           initialDomain={selectedDNSDomain || primaryDomain}
         />
       case 'cp-dns-delete-zone':
-        // return <DNSDeleteZoneSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DNSDeleteZoneSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-cloudflare':
-        // return <CloudFlareSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <CloudFlareSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Cloudflare</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-reset':
-        // return <DNSResetSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DNSResetSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Reset DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={cyberPanelSites} />
+        return <DNSZoneEditorSection sites={directAdminSites} />
       case 'git-deploy':
         // return <GitDeploySection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Deploy GitHub</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'backup-manager':
       case 'cp-backup':
-        // return <BackupManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <BackupManagerSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Backups</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'wordpress-install':
-        // return <WordPressInstallSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <WordPressInstallSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Instalar WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-backup':
-        // return <WPBackupSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <WPBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'domain-manager':
-        // return <DomainManagerSection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DomainManagerSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Gestor de Domínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'deploy':
-        // return <DeploySection sites={cyberPanelSites} /> // Removido - não usado no painel do cliente
+        // return <DeploySection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Deploy</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'packages-list':
-        // return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} /> // Removido - não usado no painel do cliente
+        // return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       default:
-        return <CpanelDashboard sites={cyberPanelSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <CpanelDashboard sites={directAdminSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={loadDirectAdminData} onSetFileManagerDomain={setFileManagerDomain} />
     }
   }
 

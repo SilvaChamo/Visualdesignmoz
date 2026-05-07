@@ -58,13 +58,23 @@ export const porkbunAPI = {
    * NOTA: Requer que você tenha saldo na conta Porkbun.
    */
   async registerDomain(domain: string) {
+    const apiKey = process.env.PORKBUN_API_KEY;
+    const secretKey = process.env.PORKBUN_SECRET_KEY;
+    
+    if (!apiKey || !secretKey) {
+      return { status: 'ERROR', message: 'Chaves da API Porkbun não configuradas' };
+    }
+    
     try {
       const response = await fetch(`${PORKBUN_API_URL}/domain/register/${domain}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
-          apikey: API_KEY,
-          secretapikey: SECRET_KEY,
+          apikey: apiKey,
+          secretapikey: secretKey,
         }),
       });
 
@@ -80,13 +90,23 @@ export const porkbunAPI = {
    * Atualiza os Nameservers de um domínio.
    */
   async updateNameservers(domain: string, nameservers: string[]) {
+    const apiKey = process.env.PORKBUN_API_KEY;
+    const secretKey = process.env.PORKBUN_SECRET_KEY;
+    
+    if (!apiKey || !secretKey) {
+      return { status: 'ERROR', message: 'Chaves da API Porkbun não configuradas' };
+    }
+    
     try {
       const response = await fetch(`${PORKBUN_API_URL}/domain/updateNS/${domain}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
-          apikey: API_KEY,
-          secretapikey: SECRET_KEY,
+          apikey: apiKey,
+          secretapikey: secretKey,
           ns: nameservers,
         }),
       });
@@ -103,13 +123,23 @@ export const porkbunAPI = {
    * Obtém informações detalhadas de um domínio.
    */
   async getDomainDetails(domain: string) {
+    const apiKey = process.env.PORKBUN_API_KEY;
+    const secretKey = process.env.PORKBUN_SECRET_KEY;
+    
+    if (!apiKey || !secretKey) {
+      return { status: 'ERROR', message: 'Chaves da API Porkbun não configuradas' };
+    }
+    
     try {
       const response = await fetch(`${PORKBUN_API_URL}/domain/get/${domain}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
-          apikey: API_KEY,
-          secretapikey: SECRET_KEY,
+          apikey: apiKey,
+          secretapikey: secretKey,
         }),
       });
 

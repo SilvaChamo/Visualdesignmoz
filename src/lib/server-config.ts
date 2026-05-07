@@ -19,6 +19,13 @@ export function getServerHost(): string {
 }
 
 /**
+ * Legacy helper kept for reseller/admin pages that still use CyberPanel naming.
+ */
+export function getCPHost(): string {
+  return getServerHost();
+}
+
+/**
  * Gets the CyberPanel URL (legacy).
  */
 export function getCPUrl(): string {
@@ -35,39 +42,18 @@ export function getHestiaUrl(): string {
 }
 
 /**
- * Gets the RoundCube webmail URL (DirectAdmin).
- * DirectAdmin uses RoundCube at mail.domain.com/roundcube or port 2096.
- */
-export function getRoundCubeUrl(domain?: string): string {
-  const host = domain ? `mail.${domain}` : `mail.visualdesigne.com`;
-  return `https://${host}/roundcube/`;
-}
-
-/**
- * Gets the SSO URL for RoundCube — passes through the Next.js API
- * so logged-in admin users don't need to enter credentials.
- */
-export function getRoundCubeSSOUrl(email?: string): string {
-  if (email) {
-    return `/api/roundcube-sso?email=${encodeURIComponent(email)}`;
-  }
-  return `/api/roundcube-sso`;
-}
-
-/**
- * @deprecated Use getRoundCubeUrl() instead.
+ * Gets the SnappyMail URL.
+ * Hestia typically uses /webmail/ or a subdomain.
  */
 export function getSnappyMailUrl(domain?: string): string {
-  return getRoundCubeUrl(domain);
+  const host = getServerHost();
+  // Default to the new Hestia webmail if needed, or keep CyberPanel for now
+  // Hestia default webmail is usually /webmail
+  return `https://${host}/webmail/`;
 }
 
-/**
- * URL do painel de hosting mostrada no cabeçalho (admin/revenda).
- * `NEXT_PUBLIC_PRIMARY_PANEL`: `directadmin` (default) | `hestia` | `cyberpanel`
- */
+// Helper for dynamic panel selection
 export function getActivePanelUrl(): string {
-  const panel = (process.env.NEXT_PUBLIC_PRIMARY_PANEL || 'directadmin').toLowerCase();
-  if (panel === 'hestia') return getHestiaUrl();
-  if (panel === 'cyberpanel') return getCPUrl();
-  return getDirectAdminUrl();
+  // For now, return Hestia since we are migrating
+  return getHestiaUrl();
 }

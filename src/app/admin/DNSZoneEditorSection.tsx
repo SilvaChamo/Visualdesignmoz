@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import type { CyberPanelWebsite } from '@/lib/cyberpanel-api'
+import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { RefreshCw } from 'lucide-react'
 import { getServerHost } from '@/lib/server-config'
 
@@ -23,7 +23,7 @@ type DNSFormState = {
   priority?: string
 }
 
-export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) {
+export function DNSZoneEditorSection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [selectedDomain, setSelectedDomain] = useState('')
   const [records, setRecords] = useState<DNSRecordRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -61,7 +61,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
     setEditForm(null)
     setSelectedIds([])
     try {
-      const res = await fetch(`/api/cyberpanel-dns?domain=${encodeURIComponent(domain)}`)
+      const res = await fetch(`/api/directadmin-dns?domain=${encodeURIComponent(domain)}`)
       const json = await res.json()
       if (!res.ok || json.error) {
         setRecords([])
@@ -129,7 +129,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
           ? `${newRecord.priority} ${newRecord.value}`
           : newRecord.value
 
-      const res = await fetch('/api/cyberpanel-dns', {
+      const res = await fetch('/api/directadmin-dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -168,7 +168,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
     setLoading(true)
     setMsg('')
     try {
-      const res = await fetch('/api/cyberpanel-dns', {
+      const res = await fetch('/api/directadmin-dns', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domainName: selectedDomain, id: record.id }),
@@ -195,7 +195,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
     try {
       await Promise.all(
         selectedIds.map(id =>
-          fetch('/api/cyberpanel-dns', {
+          fetch('/api/directadmin-dns', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domainName: selectedDomain, id }),
@@ -244,7 +244,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
     setLoading(true)
     setMsg('')
     try {
-      await fetch('/api/cyberpanel-dns', {
+      await fetch('/api/directadmin-dns', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domainName: selectedDomain, id: editingRecordId }),
@@ -256,7 +256,7 @@ export function DNSZoneEditorSection({ sites }: { sites: CyberPanelWebsite[] }) 
           ? `${editForm.priority} ${editForm.value}`
           : editForm.value
 
-      const res = await fetch('/api/cyberpanel-dns', {
+      const res = await fetch('/api/directadmin-dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

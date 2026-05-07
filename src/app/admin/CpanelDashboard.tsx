@@ -9,8 +9,9 @@ import {
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
   Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity
 } from 'lucide-react'
-import type { CyberPanelWebsite, CyberPanelUser } from '@/lib/cyberpanel-api'
+import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+
 
 interface Tool {
   id: string
@@ -33,8 +34,8 @@ interface Props {
   onNavigate: (section: string) => void
   onSetDNSDomain?: (domain: string) => void
   onSetFileManagerDomain?: (domain: string) => void
-  sites: CyberPanelWebsite[]
-  users: CyberPanelUser[]
+  sites: DirectAdminWebsite[]
+  users: DirectAdminUser[]
   isFetching: boolean
   onRefresh: () => void
   searchQuery?: string

@@ -27,32 +27,35 @@ import {
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection, AuditSyncSection
-} from './CyberPanelSections'
+} from './DirectAdminSections'
 import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
 import { NotificationsSection } from './NotificationsSection'
+import { InfraManagerSection } from './InfraManagerSection'
+import { NewsManagerSection } from './NewsManagerSection'
 import { RenewalsSection } from './RenewalsSection'
 import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
-import { directAdminAPI as cyberPanelAPI } from '@/lib/directadmin-adapter'
+import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
-import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
+import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase, removeWebsiteFromSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
-import { PorkbunResellerSection } from './PorkbunResellerSection'
+
+const directAdminAPI = panelAPI
 
 // Helper global para parse de state
 const parseState = (state: any): string => {
-  // Em CyberPanel: 0 = Active, 1 = Suspended
+  // Em DirectAdmin: 0 = Active, 1 = Suspended
   if (state === 0 || state === '0' || state === 'Active') return 'Active'
   if (state === 1 || state === '1' || state === 'Suspended') return 'Suspended'
   return state || 'Active'
 }
 
 // Secções que precisam de criar websites
-function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPackage[], onRefresh: () => void }) {
+function CreateWebsiteSection({ packages, onRefresh }: { packages: DirectAdminPackage[], onRefresh: () => void }) {
   const { t } = useI18n()
   const [form, setForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
   const [creating, setCreating] = useState(false)
@@ -63,7 +66,7 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
     if (!form.domain || !form.email) return
     setCreating(true)
     try {
-      await cyberPanelAPI.createWebsite(form)
+      await directAdminAPI.createWebsite(form)
       setCreatedDomain(form.domain)
       setShowSuccessModal(true)
       // Limpar formulário após criação bem sucedida
@@ -129,14 +132,13 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
 // Simple domain list section - shows only domain names
 // Simple domain list section - shows only domain names
 function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManagerDomain, setSelectedDNSDomain }: {
-  sites: CyberPanelWebsite[],
+  sites: DirectAdminWebsite[],
   onRefresh: () => void,
   setActiveSection: (section: string) => void,
   setFileManagerDomain?: (domain: string) => void,
   setSelectedDNSDomain?: (domain: string) => void
 }) {
   const [search, setSearch] = useState('')
-  const [msg, setMsg] = useState('')
 
   const filteredSites = search
     ? sites.filter(s => s.domain.toLowerCase().includes(search.toLowerCase()))
@@ -213,9 +215,9 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
                   </div>
                 </div>
               </div>
-
+              
               <div className="flex items-center gap-2">
-                <button
+                <button 
                   onClick={() => {
                     if (setSelectedDNSDomain) setSelectedDNSDomain(site.domain);
                     setActiveSection('cp-dns-nameserver');
@@ -224,7 +226,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
                 >
                   Nameservers
                 </button>
-                <button
+                <button 
                   onClick={() => {
                     // @ts-ignore
                     window.__selectedManageDomain = site.domain;
@@ -245,7 +247,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
 
 // WordPress sites list section - shows only WordPress sites with expandable cards
 function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManagerDomain, setSelectedDNSDomain }: {
-  sites: CyberPanelWebsite[],
+  sites: DirectAdminWebsite[],
   onRefresh: () => void,
   setActiveSection: (section: string) => void,
   setFileManagerDomain?: (domain: string) => void,
@@ -257,13 +259,12 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 4
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
-  const [msg, setMsg] = useState('')
 
   useEffect(() => {
     if (expandedSite && !siteDiskInfo[expandedSite]) {
       const fetchUsage = async () => {
         try {
-          const res = await fetch('/api/da', {
+          const res = await fetch('/api/server-exec', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
@@ -299,7 +300,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL!`)) return
     setLoading(domain)
     try {
-      const res = await fetch('/api/da', {
+      const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
@@ -319,7 +320,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   const handleSuspend = async (domain: string, state: string) => {
     setLoading(domain)
     const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-    await fetch('/api/da', {
+    await fetch('/api/server-exec', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, params: { domain } })
     })
@@ -334,7 +335,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
         <div className="flex items-center gap-3">
           <span className="text-base font-bold text-gray-900">Sites WordPress ({filtered.length})</span>
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress Only</span>
-          <button
+          <button 
             onClick={() => setActiveSection('cp-audit-sync')}
             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded transition-colors"
           >
@@ -349,8 +350,6 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
             className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-52" />
         </div>
       </div>
-
-      {msg && <div className="px-4 py-2.5 rounded text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded border border-gray-200">
@@ -423,7 +422,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       {/* COLUNA 1 — Screenshot */}
                       <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
                         <img
-                          src={`/api/da?action=getScreenshot&domain=${s.domain}`}
+                          src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
                           alt={s.domain}
                           className="w-full h-full object-cover rounded"
                           onError={(e) => {
@@ -480,8 +479,8 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                         onClick={async () => {
                           setLoading(s.domain)
                           try {
-                            const ok = await cyberPanelAPI.issueSSL(s.domain)
-                            setMsg(ok ? 'SSL emitido com sucesso!' : 'Erro ao emitir SSL.')
+                            const ok = await directAdminAPI.issueSSL(s.domain)
+                            alert(ok ? '✅ SSL emitido com sucesso!' : '❌ Erro ao emitir SSL.')
                           } catch (e: any) {
                             alert('Erro: ' + e.message)
                           }
@@ -568,14 +567,14 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   )
 }
 
-function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync }: {
-  sites: CyberPanelWebsite[],
+function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadDirectAdminData, syncing, handleSync }: {
+  sites: DirectAdminWebsite[],
   onRefresh: () => void,
-  packages: CyberPanelPackage[],
+  packages: DirectAdminPackage[],
   setActiveSection: (section: string) => void,
   setFileManagerDomain: (domain: string) => void,
   setSelectedDNSDomain: (domain: string) => void,
-  loadCyberPanelData: () => void,
+  loadDirectAdminData: () => void,
   syncing: boolean,
   handleSync: () => void
 }) {
@@ -597,7 +596,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (expandedSite && !siteDiskInfo[expandedSite]) {
       const fetchUsage = async () => {
         try {
-          const res = await fetch('/api/da', {
+          const res = await fetch('/api/server-exec', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
@@ -635,7 +634,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
     setLoading(domain)
     try {
-      const ok = await cyberPanelAPI.deleteWebsite(domain)
+      const ok = await directAdminAPI.deleteWebsite(domain)
       if (ok) {
         await removeWebsiteFromSupabase(domain)
         await onRefresh()
@@ -652,9 +651,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     setLoading(domain)
     try {
       if (state === 'Active') {
-        await cyberPanelAPI.suspendWebsite(domain)
+        await directAdminAPI.suspendWebsite(domain)
       } else {
-        await cyberPanelAPI.unsuspendWebsite(domain)
+        await directAdminAPI.unsuspendWebsite(domain)
       }
       await onRefresh()
     } catch (e: any) {
@@ -668,12 +667,12 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     let command = ''
 
     if (field === 'php') {
-      command = `cyberpanel changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
+      command = `directadmin changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
     } else if (field === 'package') {
-      command = `cyberpanel changePackage --domainName ${domain} --packageName "${value}" 2>&1`
+      command = `directadmin changePackage --domainName ${domain} --packageName "${value}" 2>&1`
     } else {
       // Para outros campos, usa modifyWebsite
-      await fetch('/api/da', {
+      await fetch('/api/server-exec', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
       })
@@ -683,7 +682,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       return
     }
 
-    const res = await fetch('/api/da', {
+    const res = await fetch('/api/server-exec', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execCommand', params: { command } })
     })
@@ -815,7 +814,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   className="bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
                   <Palette className="w-3.5 h-3.5" /> GrapesJS
                 </button>
-
+                
                 {/* Botão Craft.js Builder */}
                 <button
                   onClick={() => window.open(`/admin/websites/${s.domain}/builder/craft`, '_blank')}
@@ -856,7 +855,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   {/* COLUNA 1 — Screenshot */}
                   <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
                     <img
-                      src={`/api/da?action=getScreenshot&domain=${s.domain}`}
+                      src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
                       alt={s.domain}
                       className="w-full h-full object-cover rounded"
                       onError={(e) => {
@@ -905,7 +904,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                       setLoading(s.domain + '-ssl')
                       try {
                         // Primeiro verificar se o domínio resolve para o IP correcto
-                        const checkRes = await fetch('/api/da', {
+                        const checkRes = await fetch('/api/server-exec', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'execCommand',
@@ -929,11 +928,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                         }
 
                         // DNS está correcto — emitir SSL
-                        const sslRes = await fetch('/api/da', {
+                        const sslRes = await fetch('/api/server-exec', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'execCommand',
-                            params: { command: `cyberpanel issueSSL --domainName ${s.domain} 2>&1` }
+                            params: { command: `directadmin issueSSL --domainName ${s.domain} 2>&1` }
                           })
                         })
                         const sslData = await sslRes.json()
@@ -965,11 +964,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <button onClick={async () => {
                     setLoading(s.domain + '-backup')
                     try {
-                      await fetch('/api/da', {
+                      await fetch('/api/server-exec', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           action: 'execCommand',
-                          params: { command: `mkdir -p /home/backup/full && cyberpanel createBackup --domainName ${s.domain} --backupPath /home/backup/full 2>&1` }
+                          params: { command: `mkdir -p /home/backup/full && directadmin createBackup --domainName ${s.domain} --backupPath /home/backup/full 2>&1` }
                         })
                       })
                       alert(`✅ Backup de "${s.domain}" criado com sucesso!\n\nPode ver na página Backups.`)
@@ -1097,7 +1096,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <button onClick={async () => {
                 if (!createForm.domain || !createForm.email) return
                 setCreating(true); setCreateMsg('')
-                const res = await fetch('/api/da', {
+                const res = await fetch('/api/server-exec', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'createWebsite', params: createForm })
                 })
@@ -1285,9 +1284,9 @@ function ClientesSection() {
           {busca ? t('admin.clientSection.notFound') : t('admin.clientSection.empty')}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3">
           {clientesFiltrados.map(c => (
-            <div key={c.id} className="bg-white p-4 rounded border border-gray-200 flex items-center justify-between hover:border-blue-300 transition-all">
+            <div key={c.id} className="bg-white border border-gray-200 rounded px-5 py-4 flex items-center justify-between hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-600/30 flex items-center justify-center text-blue-400 font-semibold text-sm flex-shrink-0">
                   {c.nome?.charAt(0).toUpperCase() || '?'}
@@ -1324,11 +1323,11 @@ function ManageWebsiteSection({
   onRefresh
 }: {
   domain: string
-  sites: CyberPanelWebsite[]
+  sites: DirectAdminWebsite[]
   setActiveSection: (section: string) => void
   setFileManagerDomain: (domain: string) => void
   setSelectedDNSDomain: (domain: string) => void
-  packages?: CyberPanelPackage[]
+  packages?: DirectAdminPackage[]
   onRefresh?: () => void
 }) {
   const [siteData, setSiteData] = useState<any>(null)
@@ -1381,7 +1380,7 @@ function ManageWebsiteSection({
     if (!confirm(`Deseja emitir certificado SSL para ${domain}?`)) return
     setLoading(true)
     try {
-      const res = await fetch('/api/da', {
+      const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1422,7 +1421,7 @@ function ManageWebsiteSection({
     setCreatingDomainEmail(true)
     setDomainEmailMsg('')
     try {
-      const res = await fetch('/api/da', {
+      const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1455,7 +1454,7 @@ function ManageWebsiteSection({
     setCreatingDomain(true)
     setDomainMsg('')
     try {
-      const res = await fetch('/api/da', {
+      const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1484,7 +1483,7 @@ function ManageWebsiteSection({
   }
 
   // ============================================================
-  // CUSTOM ICONS (DirectAdmin STYLE)
+  // CUSTOM ICONS (CYBERPANEL STYLE)
   // ============================================================
   const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
     // Usar Lucide com cores premium
@@ -1548,7 +1547,7 @@ function ManageWebsiteSection({
             <Icon className={cn("w-8 h-8", color)} />
           )}
         </div>
-
+        
         <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
           {label}
         </span>
@@ -1760,13 +1759,13 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="email-accounts" label="Create Email" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
         <MenuItem icon="email-accounts" label="List Emails" onClick={() => setActiveSection('cp-email-mgmt')} />
-        <MenuItem
-          icon="email-accounts"
-          label="Webmail"
-          external
-          href={`${getHestiaUrl()}/list/mail/`}
-          bgColor="bg-rose-100"
-          color="text-rose-600"
+        <MenuItem 
+          icon="email-accounts" 
+          label="Webmail" 
+          external 
+          href={`${getHestiaUrl()}/list/mail/`} 
+          bgColor="bg-rose-100" 
+          color="text-rose-600" 
         />
         <MenuItem icon="email-forwarding" label="Forwarding" onClick={() => setActiveSection('cp-email-forwarding')} />
         <MenuItem icon="email-deliverability" label="DKIM Manager" onClick={() => setActiveSection('cp-email-dkim')} />
@@ -1821,16 +1820,7 @@ function ManageWebsiteSection({
         bgColor="bg-blue-50"
       >
         <MenuItem icon="wordpress" label="Install WP" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
-        <MenuItem 
-          icon="wordpress" 
-          label="WP Admin" 
-          onClick={async () => {
-            const url = await (cyberPanelAPI as any).wpAutoLogin(domain);
-            if (url) window.open(url, '_blank');
-            else window.open(`https://${domain}/wp-admin`, '_blank');
-          }}
-          badge="AUTO"
-        />
+        <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
         <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
         <MenuItem icon="backups" label="Backup" onClick={() => setActiveSection('cp-wp-backup')} />
         <MenuItem icon="backups" label="Restore" onClick={() => setActiveSection('cp-wp-restore-backup')} />
@@ -2013,10 +2003,10 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
-  const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
-  const [cyberPanelUsers, setCyberPanelUsers] = useState<CyberPanelUser[]>([])
-  const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
-  const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
+  const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
+  const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
+  const [directAdminPackages, setDirectAdminPackages] = useState<DirectAdminPackage[]>([])
+  const [isFetchingDirectAdmin, setIsFetchingDirectAdmin] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
   const [selectedManageDomain, setSelectedManageDomain] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -2032,8 +2022,6 @@ export default function AdminPage() {
   }, [selectedManageDomain])
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
-  const [userProfile, setUserProfile] = useState<{ username: string, acl: string } | null>(null)
-  const [userResources, setUserResources] = useState<any>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
 
@@ -2093,31 +2081,13 @@ export default function AdminPage() {
     }
   }, [activeSection]);
 
-  // Obter sessão do usuário e perfil no Supabase
+  // Obter sessão do usuário
   useEffect(() => {
     const getSession = async () => {
       try {
         const { data: { session } } = await createClientInstance.auth.getSession()
         if (session?.user?.email) {
           setSessionUser(session.user.email)
-          
-          // Buscar perfil para permissões
-          const { data: profile } = await createClientInstance
-            .from('cyberpanel_users')
-            .select('username, acl')
-            .eq('email', session.user.email)
-            .single()
-            
-          if (profile) {
-            setUserProfile(profile)
-            // Se não for admin, carregar recursos do próprio user
-            if (profile.acl !== 'admin') {
-              fetchUserResources(profile.username)
-            }
-          } else {
-            // Fallback se não encontrar perfil (pode ser o admin principal)
-            setUserProfile({ username: 'admin', acl: 'admin' })
-          }
         }
       } catch (error) {
         console.error('Erro ao obter sessão:', error)
@@ -2125,20 +2095,6 @@ export default function AdminPage() {
     }
     getSession()
   }, [])
-
-  const fetchUserResources = async (username: string) => {
-    try {
-      const res = await fetch('/api/da', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getUserResources', params: { username } })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setUserResources(data.data)
-      }
-    } catch (e) { console.error('Erro ao buscar recursos:', e) }
-  }
 
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
@@ -2155,19 +2111,19 @@ export default function AdminPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   useEffect(() => {
-    loadCyberPanelData()
+    loadDirectAdminData()
   }, [])
 
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const sites = await cyberPanelAPI.listWebsites()
+      const sites = await directAdminAPI.listWebsites()
       if (Array.isArray(sites)) {
-        setCyberPanelSites(sites)
+        setDirectAdminSites(sites)
         // Background sync
         void (async () => {
           for (const s of sites) {
-            await syncWebsiteToSupabase(s as any)
+            await syncWebsiteToSupabase(s)
           }
         })()
       }
@@ -2175,80 +2131,64 @@ export default function AdminPage() {
     setSyncing(false)
   }
 
-  const loadCyberPanelData = async () => {
-    setIsFetchingCyberPanel(true)
+  const loadDirectAdminData = async () => {
+    setIsFetchingDirectAdmin(true)
     try {
       const [sites, users, packages] = await Promise.all([
-        cyberPanelAPI.listWebsites().catch(() => []),
-        cyberPanelAPI.listUsers().catch(() => []),
-        cyberPanelAPI.listPackages().catch(() => []),
+        directAdminAPI.listWebsites().catch(() => []),
+        directAdminAPI.listUsers().catch(() => []),
+        directAdminAPI.listPackages().catch(() => []),
       ])
 
       const validSites = Array.isArray(sites) ? sites : []
       const validUsers = Array.isArray(users) ? users : []
       const validPackages = Array.isArray(packages) ? packages : []
 
-      setCyberPanelSites(validSites)
-      setCyberPanelUsers(validUsers)
-      setCyberPanelPackages(validPackages)
+      setDirectAdminSites(validSites)
+      setDirectAdminUsers(validUsers)
+      setDirectAdminPackages(validPackages)
 
       // Background Sync to Supabase
       void (async () => {
-        for (const s of validSites) await syncWebsiteToSupabase(s as any)
+        for (const s of validSites) await syncWebsiteToSupabase(s)
         for (const u of validUsers) await syncUserToSupabase({
           username: u.userName,
-          firstName: (u as any).firstName,
-          lastName: (u as any).lastName,
+          firstName: u.firstName,
+          lastName: u.lastName,
           email: u.email,
-          acl: (u as any).acl,
-          websitesLimit: (u as any).websitesLimit,
-          status: (u as any).status
-        } as any)
+          acl: u.acl,
+          websitesLimit: u.websitesLimit,
+          status: u.status
+        })
         for (const p of validPackages) await syncPackageToSupabase(p)
       })()
 
     } catch (error) {
       console.error('Erro ao carregar dados DirectAdmin:', error)
     } finally {
-      setIsFetchingCyberPanel(false)
+      setIsFetchingDirectAdmin(false)
     }
   }
 
-  // Definir domínio principal e aplicar filtros de segurança por papel (Role)
-  const filteredSites = cyberPanelSites.filter(s => {
-    // 1. Filtros básicos de sistema
-    if (s.domain.includes('contaboserver') || s.domain.toLowerCase().startsWith('mail.')) return false
-    
-    // 2. Filtros por Papel (ACL)
-    if (!userProfile || userProfile.acl === 'admin') return true
-    
-    if (userProfile.acl === 'reseller') {
-      // Reseller vê os seus e potencialmente os dos seus clientes (owner == username)
-      return s.owner === userProfile.username
-    }
-    
-    if (userProfile.acl === 'user') {
-      // User vê apenas o seu
-      return s.owner === userProfile.username
-    }
-    
-    return true
-  })
+  // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
+  const filteredSites = directAdminSites.filter(s =>
+    !s.domain.includes('contaboserver') &&
+    !s.domain.toLowerCase().startsWith('mail.')
+  )
   const primaryDomain = filteredSites.length > 0
     ? filteredSites[0].domain
     : 'your-domain.com'
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    ...(userProfile?.acl === 'admin' ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
+    { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'domains', label: 'Websites', icon: Globe },
-    { id: 'porkbun-reseller', label: 'Registo de Domínios', icon: Globe },
-    ...(userProfile?.acl === 'admin' ? [{ id: 'cp-users', label: 'Contas', icon: Users }] : []),
+    { id: 'cp-users', label: 'Contas', icon: Users },
     { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
     { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
     { id: 'newsletter', label: 'Marketing / News', icon: Layout },
     { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-    ...(userProfile?.acl === 'admin' ? [{ id: 'cp-api', label: 'Configurações', icon: Settings }] : []),
+    { id: 'cp-api', label: 'Configurações', icon: Settings },
   ]
 
   const currentSidebarWidth = isCollapsed ? 80 : 250
@@ -2261,6 +2201,8 @@ export default function AdminPage() {
       'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
       'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
       'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros DirectAdmin' },
+      'infra-manager': { title: 'Dashboard', description: 'Gestão de Infraestrutura' },
+      'news-manager': { title: 'Dashboard', description: 'Gestão de Notícias' },
       'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
       'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
@@ -2272,7 +2214,7 @@ export default function AdminPage() {
       'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
       'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
       'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
-      'emails-new': { title: 'Dashboard', description: 'Gestão de contas de e-mail DirectAdmin' },
+      'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
       'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
       'webmail': { title: 'Dashboard', description: 'Webmail' },
       'cp-email-mgmt': { title: 'Dashboard', description: 'Listar contas de e-mail' },
@@ -2329,42 +2271,45 @@ export default function AdminPage() {
       case 'dashboard':
         return <CpanelDashboard
           sites={filteredSites}
-          users={cyberPanelUsers}
-          isFetching={isFetchingCyberPanel}
+          users={directAdminUsers}
+          isFetching={isFetchingDirectAdmin}
           onNavigate={setActiveSection}
-          onRefresh={loadCyberPanelData}
+          onRefresh={loadDirectAdminData}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
           searchQuery={dashboardSearch}
           onSearchChange={setDashboardSearch}
-          userResources={userResources}
         />
       case 'domains':
         return <ListWebsitesSection
           sites={filteredSites}
-          onRefresh={loadCyberPanelData}
-          packages={cyberPanelPackages}
+          onRefresh={loadDirectAdminData}
+          packages={directAdminPackages}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
-          loadCyberPanelData={loadCyberPanelData}
+          loadDirectAdminData={loadDirectAdminData}
           syncing={syncing}
           handleSync={handleSync}
         />
       case 'domains-list':
         return <ListDomainsSection
           sites={filteredSites}
-          onRefresh={loadCyberPanelData}
+          onRefresh={loadDirectAdminData}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={cyberPanelSites} />
+        return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={directAdminSites} />
+      case 'infra-manager':
+        return <InfraManagerSection />
+      case 'news-manager':
+        return <NewsManagerSection />
       case 'clientes':
         return <ClientesSection />
       case 'domains-new':
-        return <CreateWebsiteSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
+        return <CreateWebsiteSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
@@ -2374,11 +2319,11 @@ export default function AdminPage() {
       case 'cp-list-subdomains':
         return <ListSubdomainsSection sites={filteredSites} />
       case 'cp-modify-website':
-        return <ModifyWebsiteSection sites={filteredSites} packages={cyberPanelPackages} />
+        return <ModifyWebsiteSection sites={filteredSites} packages={directAdminPackages} />
       case 'cp-suspend-website':
-        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadCyberPanelData} />
+        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-delete-website':
-        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadCyberPanelData} />
+        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-databases':
         return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain} />
       case 'cp-ftp':
@@ -2388,7 +2333,7 @@ export default function AdminPage() {
         return <WebmailSection
           userEmail={sessionUser}
           sites={filteredSites}
-          useCyberPanelAPI={true}
+          useDirectAdminAPI={true}
           emailOrigem="geral@visualdesigne.com"
           onComposeStateChange={setIsComposeActive}
           isAdmin={true}
@@ -2441,7 +2386,7 @@ export default function AdminPage() {
       case 'infrastructure':
         return <APIConfigSection />
       case 'cp-wp-list':
-        return <ListWordPressSection sites={filteredSites} onRefresh={loadCyberPanelData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
+        return <ListWordPressSection sites={filteredSites} onRefresh={loadDirectAdminData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
       case 'cp-wp-plugins':
         return <WPPluginsSection sites={filteredSites} />
       case 'cp-wp-restore-backup':
@@ -2449,9 +2394,9 @@ export default function AdminPage() {
       case 'cp-wp-remote-backup':
         return <WPRemoteBackupSection sites={filteredSites} />
       case 'cp-audit-sync':
-        return <AuditSyncSection onRefresh={loadCyberPanelData} />
+        return <AuditSyncSection onRefresh={loadDirectAdminData} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} onRefresh={loadCyberPanelData} />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
@@ -2471,8 +2416,6 @@ export default function AdminPage() {
         return <DNSResetSection sites={filteredSites} />
       case 'dns-central':
         return <DNSCentralSection />
-      case 'porkbun-reseller':
-        return <PorkbunResellerSection />
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'newsletter':
@@ -2494,16 +2437,16 @@ export default function AdminPage() {
       case 'domain-manager':
         return <DomainManagerSection
           sites={filteredSites}
-          packages={cyberPanelPackages}
+          packages={directAdminPackages}
           onCreateEmail={(domain) => {
             setPreSelectedEmailDomain(domain)
             setActiveSection('cp-email-mgmt')
           }}
         />
       case 'deploy':
-        return <DeploySection sites={cyberPanelSites} />
+        return <DeploySection sites={directAdminSites} />
       case 'packages-list':
-        return <PackagesSection packages={cyberPanelPackages} onRefresh={loadCyberPanelData} />
+        return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
       case 'manage-website':
         return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
@@ -2511,8 +2454,8 @@ export default function AdminPage() {
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
-          packages={cyberPanelPackages}
-          onRefresh={loadCyberPanelData}
+          packages={directAdminPackages}
+          onRefresh={loadDirectAdminData}
         />
       case 'page-builders':
         // Redirecionar para a página de construtores
@@ -2523,7 +2466,7 @@ export default function AdminPage() {
       case 'templates-saved':
         return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       default:
-        return <CpanelDashboard sites={filteredSites} users={cyberPanelUsers} isFetching={isFetchingCyberPanel} onNavigate={setActiveSection} onRefresh={loadCyberPanelData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <CpanelDashboard sites={filteredSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={loadDirectAdminData} onSetFileManagerDomain={setFileManagerDomain} />
     }
   }
 
@@ -2533,7 +2476,7 @@ export default function AdminPage() {
     setCreatingEmail(true)
     setEmailMsg('')
     try {
-      const res = await fetch('/api/da', {
+      const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2547,10 +2490,10 @@ export default function AdminPage() {
       const data = await res.json()
       if (data.success) {
         setEmailMsg('Email criado com sucesso! Sincronizando acessos...')
-
+        
         // Sincronizar novo email com Supabase Auth
         try {
-          await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' });
+          await fetch('/api/admin/sync-directadmin-users', { method: 'POST' });
         } catch (syncErr) {
           console.error('Erro na sincronização pós-criação:', syncErr);
         }
@@ -2707,7 +2650,7 @@ export default function AdminPage() {
 
                 <a href={getActivePanelUrl()} target="_blank" rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
-                  <Globe size={13} /> {t('admin.settings.cyberpanel')}
+                  <Globe size={13} /> {t('admin.settings.directadmin')}
                 </a>
                 <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
                   className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all" title={t('sidebar.logout')}>

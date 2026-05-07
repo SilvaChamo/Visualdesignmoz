@@ -30,8 +30,8 @@ interface WebmailSectionProps {
   setMostrarAdicionarConta?: (value: boolean) => void
   modalAdicionarPasso?: 'escolher' | 'webmail' | 'google' | 'hotmail'
   setModalAdicionarPasso?: (value: 'escolher' | 'webmail' | 'google' | 'hotmail') => void
-  // Prop para usar API do CyberPanel (modo admin)
-  useCyberPanelAPI?: boolean
+  // Prop para usar API do DirectAdmin (modo admin)
+  useDirectAdminAPI?: boolean
   emailOrigem?: string
   onComposeStateChange?: (isActive: boolean) => void
   isAdmin?: boolean
@@ -46,7 +46,7 @@ export function WebmailSection({
   setMostrarAdicionarConta,
   modalAdicionarPasso,
   setModalAdicionarPasso,
-  useCyberPanelAPI = false,
+  useDirectAdminAPI = false,
   emailOrigem,
   onComposeStateChange,
   isAdmin = false,
@@ -150,21 +150,8 @@ export function WebmailSection({
   // Domínios permitidos no painel admin
   const ALLOWED_DOMAINS = ['visualdesigne.com', 'anap.co.mz', 'entrecampos.co.mz']
 
-  // Credenciais padrão (mesmas do EmailWebmailSection)
-  const CREDENCIAIS_PADRAO: Record<string, string> = {
-    'silva.chamo@visualdesigne.com': 'Meckito#77?*',
-    'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
-    'geral@visualdesigne.com': 'Ge.Vd#2425?*',
-    'admin@visualdesigne.com': 'Ad.Vd#2425?*',
-    'info@visualdesigne.com': 'Informação!#2020?*',
-    'suporte@visualdesigne.com': 'SupaEmail#2026?*',
-    'noreply@visualdesigne.com': 'VisualDesign#2026',
-    'eventos@oshercollective.com': 'xqqh[bLr5!&9jMv{',
-    'oshercollective@gmail.com': 'gce7G)S-1FfUX)-b',
-    'osher@oshercollective.com': 'gce7G)S-1FfUX)-b',
-    'admin@oshetcollective.com': 'v(E1mUy7P~Yeh?G5',
-    'academic@oshercollective.com': 'eS3J)tCCCoVhtHTt',
-  }
+  // Credenciais devem vir do Supabase ou do formulário de importação.
+  const CREDENCIAIS_PADRAO: Record<string, string> = {}
 
   // 🎨 Função para gerar cor do avatar baseada na letra inicial
   const getAvatarColor = (letter: string): string => {
@@ -308,7 +295,7 @@ export function WebmailSection({
         return []
       }
 
-      // 2. Buscar do CyberPanel para cada site em paralelo
+      // 2. Buscar do DirectAdmin para cada site em paralelo
       const fetchContactsPromises = (sites || []).map(async (site: any) => {
         try {
           const res = await fetch(`/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`)
@@ -516,10 +503,10 @@ export function WebmailSection({
     }
   }
 
-  const handleSyncCyberPanel = async () => {
+  const handleSyncDirectAdmin = async () => {
     setSyncing(true)
     try {
-      const res = await fetch('/api/admin/sync-cyberpanel-users', { method: 'POST' })
+      const res = await fetch('/api/admin/sync-directadmin-users', { method: 'POST' })
       const data = await res.json()
       if (data.success) {
         alert(`Sincronização concluída!\nEmails encontrados: ${data.results?.emailsFound}\nNovos usuários: ${data.results?.usersCreated}`)
@@ -545,12 +532,13 @@ export function WebmailSection({
     setCreateEmailSuccess('')
 
     try {
-      const res = await fetch('/api/cyberpanel-email', {
+      const res = await fetch('/api/da-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          domainName: createEmailForm.domain,
-          userName: createEmailForm.user,
+          action: 'create',
+          domain: createEmailForm.domain,
+          username: createEmailForm.user,
           password: createEmailForm.password,
           quota: createEmailForm.quota || 500
         })
@@ -627,7 +615,7 @@ export function WebmailSection({
           setDiagnosticoResult({
             error: 'Erro de autenticação IMAP',
             details: data.details || data.error,
-            suggestion: 'A senha configurada pode estar incorreta. Verifique no CyberPanel.',
+            suggestion: 'A senha configurada pode estar incorreta. Verifique no DirectAdmin.',
             email: account.email,
             passwordPreview: password.substring(0, 3) + '***' + password.substring(password.length - 2)
           })
@@ -977,10 +965,10 @@ export function WebmailSection({
 
               {isAdmin && (
                 <button
-                  onClick={handleSyncCyberPanel}
+                  onClick={handleSyncDirectAdmin}
                   disabled={syncing}
                   className={`p-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 transition-all ${syncing ? 'animate-spin text-red-600' : 'text-gray-500'}`}
-                  title="Sincronizar com CyberPanel"
+                  title="Sincronizar com DirectAdmin"
                 >
                   <RefreshCw size={14} />
                 </button>

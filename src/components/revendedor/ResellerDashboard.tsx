@@ -5,10 +5,11 @@ import {
   Globe, FileText, MessageSquare, Server, RefreshCw, ExternalLink, 
   Settings, Trash2, AlertCircle, Calendar, CheckCircle
 } from 'lucide-react'
-import type { CyberPanelWebsite } from '@/lib/cyberpanel-api'
+import type { DirectAdminWebsite } from '@/lib/directadmin-api'
+
 
 interface Props {
-  sites: CyberPanelWebsite[]
+  sites: DirectAdminWebsite[]
   isFetching: boolean
   onNavigate: (section: string) => void
   onRefresh: () => void

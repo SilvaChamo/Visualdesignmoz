@@ -6,7 +6,7 @@ import {
   LogOut, ChevronRight, Archive, Lock, Server, Download, PanelLeftClose, PanelLeftOpen,
   RefreshCw, Plus, Trash2, Edit2, CheckCircle, XCircle, 
   AlertCircle, ArrowRightLeft, Webhook,
-  Save, X, Filter, Calendar, Bell, Palette
+  Save, X, Filter, Calendar, Bell, Palette, Newspaper
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -26,6 +26,8 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'infra-manager', label: 'Infraestrutura & Cópia', icon: Server },
+  { id: 'news-manager', label: 'Gestor de Notícias', icon: Newspaper },
   {
     id: 'gestao-paineis',
     label: 'Gestão de Painéis',
@@ -56,7 +58,6 @@ const menuItems: MenuItem[] = [
       { id: 'cp-suspend-website', label: 'Suspender' },
       { id: 'domains-dns', label: 'Configurar DNS' },
       { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
-      { id: 'porkbun-reseller', label: 'Revenda de Domínios' },
     ]
   },
   {
@@ -84,7 +85,6 @@ const menuItems: MenuItem[] = [
     icon: Mail,
     subItems: [
       { id: 'emails-new', label: 'E-mails' },
-      { id: 'da-emails', label: 'E-mails DirectAdmin' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ]
@@ -174,17 +174,7 @@ export function AdminSidebar({
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto px-2 py-2.5">
         <div className="space-y-0">
-          {menuItems
-            .filter(item => {
-              // Regra Estrita: Apenas o administrador master vê a gestão de utilizadores/painéis
-              const isMasterAdmin = sessionUser === 'admin' || sessionUser === 'admin@visualdesigne.com' || sessionUser === 'silva.chamo@gmail.com';
-              
-              // Se não for o master admin, removemos a gestão de painéis/utilizadores
-              if (item.id === 'gestao-paineis' && !isMasterAdmin) return false;
-              
-              return true;
-            })
-            .map((item) => {
+          {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id ||
               (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
@@ -193,8 +183,7 @@ export function AdminSidebar({
               (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) ||
               (item.id === 'gestao-dominios' && ['domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central', 'cp-delete-website', 'cp-dns-nameserver'].includes(activeSection)) ||
               (item.id === 'gestao-sites' && ['domains', 'packages-list'].includes(activeSection)) ||
-              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'da-emails'].includes(activeSection)) ||
-              (item.id === 'git-deploy' && activeSection === 'git-deploy') ||
+              (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
               (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));
             
