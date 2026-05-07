@@ -2134,11 +2134,12 @@ export default function AdminPage() {
   const loadDirectAdminData = async () => {
     setIsFetchingDirectAdmin(true)
     try {
-      const [sites, users, packages] = await Promise.all([
-        directAdminAPI.listWebsites().catch(() => []),
-        directAdminAPI.listUsers().catch(() => []),
-        directAdminAPI.listPackages().catch(() => []),
-      ])
+      // Carregar sequencialmente com pequenos atrasos para evitar blacklist
+      const sites = await directAdminAPI.listWebsites().catch(() => []);
+      await new Promise(r => setTimeout(r, 500));
+      const users = await directAdminAPI.listUsers().catch(() => []);
+      await new Promise(r => setTimeout(r, 500));
+      const packages = await directAdminAPI.listPackages().catch(() => []);
 
       const validSites = Array.isArray(sites) ? sites : []
       const validUsers = Array.isArray(users) ? users : []

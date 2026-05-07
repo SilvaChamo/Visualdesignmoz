@@ -11,8 +11,8 @@ const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
 const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
 const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
 const DA_PASSWORD =
-  process.env.DIRECTADMIN_PASSWORD ||
   process.env.DIRECTADMIN_LOGIN_KEY ||
+  process.env.DIRECTADMIN_PASSWORD ||
   process.env.DIRECTADMIN_PASS ||
   '';
 const DA_PROTOCOL = process.env.DIRECTADMIN_PROTOCOL || 'https'; // Use 'http' if SSL is not yet configured

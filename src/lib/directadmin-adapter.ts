@@ -31,8 +31,8 @@ const DA_HOST = readEnv('DIRECTADMIN_HOST') || '109.199.104.22';
 const DA_PORT = readEnv('DIRECTADMIN_PORT') || '2222';
 const DA_USER = readEnv('DIRECTADMIN_USER') || 'admin';
 const DA_PASS =
-  readEnv('DIRECTADMIN_PASSWORD') ||
   readEnv('DIRECTADMIN_LOGIN_KEY') ||
+  readEnv('DIRECTADMIN_PASSWORD') ||
   readEnv('DIRECTADMIN_PASS');
 const DA_PROTOCOL = readEnv('DIRECTADMIN_PROTOCOL') || 'https';
 const DA_BASE = (readEnv('DIRECTADMIN_URL') || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
