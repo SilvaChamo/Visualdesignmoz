@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { directAdminAPI } from '@/lib/directadmin-api';
+import { cyberPanelAPI as directAdminAPI } from '@/lib/directadmin-adapter';
 import type { DirectAdminWebsite } from '@/lib/directadmin-api';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -41,7 +41,8 @@ export async function POST() {
       results.emailsFound += emailAccounts.length;
 
       for (const account of emailAccounts) {
-        const email = account.email || `${account.user}@${domain}`;
+        const email = account.email || '';
+        if (!email) continue;
 
         try {
           const { data: users, error: listError } = await admin.auth.admin.listUsers();
