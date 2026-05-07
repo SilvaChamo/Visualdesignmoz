@@ -19,18 +19,23 @@ import type {
   CyberPanelFTPAccount,
 } from './cyberpanel-api';
 
+function readEnv(name: string) {
+  const value = process.env[name];
+  if (!value) return '';
+  return value.trim().replace(/^['"]|['"]$/g, '');
+}
+
 // ─── DirectAdmin credentials ────────────────────────────────────────────────
 // DIRECTADMIN_PASS is kept for compatibility with older local env files.
-const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
-const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
-const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
+const DA_HOST = readEnv('DIRECTADMIN_HOST') || '109.199.104.22';
+const DA_PORT = readEnv('DIRECTADMIN_PORT') || '2222';
+const DA_USER = readEnv('DIRECTADMIN_USER') || 'admin';
 const DA_PASS =
-  process.env.DIRECTADMIN_PASSWORD ||
-  process.env.DIRECTADMIN_LOGIN_KEY ||
-  process.env.DIRECTADMIN_PASS ||
-  '';
-const DA_PROTOCOL = process.env.DIRECTADMIN_PROTOCOL || 'https';
-const DA_BASE = (process.env.DIRECTADMIN_URL || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
+  readEnv('DIRECTADMIN_PASSWORD') ||
+  readEnv('DIRECTADMIN_LOGIN_KEY') ||
+  readEnv('DIRECTADMIN_PASS');
+const DA_PROTOCOL = readEnv('DIRECTADMIN_PROTOCOL') || 'https';
+const DA_BASE = (readEnv('DIRECTADMIN_URL') || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
 const DA_REJECT_UNAUTHORIZED = process.env.DIRECTADMIN_REJECT_UNAUTHORIZED === 'true';
 
 type DirectAdminHttpResponse = {
@@ -50,6 +55,17 @@ function assertDirectAdminConfig() {
 
 function summarizeDirectAdminBody(text: string) {
   return text.replace(/\s+/g, ' ').trim().substring(0, 300);
+}
+
+function isDirectAdminAuthFailure(status: number, text: string) {
+  const body = text.toLowerCase();
+  return status === 401 || body.includes('not logged in') || body.includes('login required');
+}
+
+function directAdminAuthError(cmd: string, text: string) {
+  return new Error(
+    `${cmd}: DirectAdmin recusou as credenciais. No Vercel, confirme DIRECTADMIN_USER e coloque em DIRECTADMIN_LOGIN_KEY o valor da chave gerada, não o nome da chave. Resposta DirectAdmin: ${summarizeDirectAdminBody(text)}`
+  );
 }
 
 function assertDirectAdminSuccess(cmd: string, sp: URLSearchParams) {
@@ -129,6 +145,9 @@ async function daGet(cmd: string, qs: Record<string, string> = {}): Promise<URLS
   const res = await directAdminRequest('GET', cmd, params);
   const text = res.text;
   if (!res.ok) {
+    if (isDirectAdminAuthFailure(res.status, text)) {
+      throw directAdminAuthError(cmd, text);
+    }
     throw new Error(`${cmd}: DirectAdmin HTTP ${res.status} - ${summarizeDirectAdminBody(text)}`);
   }
   // DA pode retornar JSON ou URL-encoded
@@ -166,6 +185,9 @@ async function daPost(cmd: string, body: Record<string, string>): Promise<{ ok: 
   );
   const text = res.text;
   if (!res.ok) {
+    if (isDirectAdminAuthFailure(res.status, text)) {
+      return { ok: false, error: directAdminAuthError(cmd, text).message };
+    }
     return {
       ok: false,
       error: `${cmd}: DirectAdmin HTTP ${res.status} - ${summarizeDirectAdminBody(text)}`,
