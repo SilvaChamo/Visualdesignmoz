@@ -5,9 +5,9 @@ export async function GET() {
   // Verificar configurações SMTP (sem expor senhas completas)
   const config = {
     smtp: {
-      host: 'mail.visualdesigne.com',
+      host: 'mail.visualdesignmoz.com',
       port: 587,  // Porta fixa - sempre 587
-      user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
+      user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com',
       hasPassword: !!process.env.SMTP_MASTER_PASSWORD,
       passwordLength: process.env.SMTP_MASTER_PASSWORD?.length || 0,
     },

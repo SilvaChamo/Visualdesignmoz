@@ -186,7 +186,7 @@ INSERT INTO renewal_settings (key, value, description) VALUES
 ('reminder_days', '[60, 45, 30, 15, 7, 3, 1]', 'Dias antes do vencimento para enviar lembretes'),
 ('default_renewal_price_domain', '{"amount": 15.00, "currency": "EUR"}', 'Preço padrão de renovação de domínio'),
 ('default_renewal_price_hosting', '{"amount": 50.00, "currency": "EUR"}', 'Preço padrão de renovação de hospedagem'),
-('company_info', '{"name": "VisualDesign", "email": "suporte@visualdesigne.com", "phone": "+351 XXX XXX XXX"}', 'Informações da empresa para notificações'),
+('company_info', '{"name": "VisualDesign", "email": "suporte@visualdesignmoz.com", "phone": "+351 XXX XXX XXX"}', 'Informações da empresa para notificações'),
 ('cron_enabled', 'true', 'Habilitar verificação automática de renovações')
 ON CONFLICT (key) DO NOTHING;
 
@@ -202,7 +202,7 @@ CREATE POLICY "Users can view their own domains"
 
 CREATE POLICY "Admins can manage all domains"
     ON domain_renewals FOR ALL 
-    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')));
+    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')));
 
 -- Políticas para hosting_renewals
 CREATE POLICY "Users can view their own hosting"
@@ -210,12 +210,12 @@ CREATE POLICY "Users can view their own hosting"
 
 CREATE POLICY "Admins can manage all hosting"
     ON hosting_renewals FOR ALL 
-    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')));
+    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')));
 
 -- Políticas para renewal_reminders
 CREATE POLICY "Admins can view all reminders"
     ON renewal_reminders FOR SELECT 
-    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')));
+    USING (auth.uid() IN (SELECT id FROM auth.users WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')));
 
 -- Comentários
 COMMENT ON TABLE domain_renewals IS 'Domínios dos clientes com datas de vencimento';

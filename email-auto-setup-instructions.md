@@ -8,7 +8,7 @@
 **Função:** Envia automaticamente email com dados de configuração SMTP/IMAP para novos clientes
 
 ### 2. Mailmarketing Atualizado
-- **Credenciais corrigidas:** `admin@visualdesigne.com` / `VisualDesign#2026`
+- **Credenciais corrigidas:** `admin@visualdesignmoz.com` / `VisualDesign#2026`
 - **Servidor:** `109.199.104.22:465` (SSL)
 - **Webmail:** `https://109.199.104.22:8090/snappymail/`
 

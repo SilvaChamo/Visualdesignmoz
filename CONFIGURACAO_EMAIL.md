@@ -5,8 +5,8 @@
 - ✅ **Porta 587 (SMTP submission)** configurada e funcionando
 - ✅ **TLS/SSL** ativo com certificado Let's Encrypt
 - ✅ **Autenticação SASL** funcionando com Dovecot
-- ✅ **admin@visualdesigne.com** testado e funcionando com Gmail
-- ⚠️ **DKIM** parcialmente configurado (visualdesigne.com OK, oshercollective.com precisa verificar)
+- ✅ **admin@visualdesignmoz.com** testado e funcionando com Gmail
+- ⚠️ **DKIM** parcialmente configurado (visualdesignmoz.com OK, oshercollective.com precisa verificar)
 
 ## 🔧 Configuração Necessária
 
@@ -14,7 +14,7 @@
 
 ```bash
 # Email Master (usado para envios automáticos)
-SMTP_MASTER_EMAIL=admin@visualdesigne.com
+SMTP_MASTER_EMAIL=admin@visualdesignmoz.com
 SMTP_MASTER_PASSWORD=Ad.Vd#2425?*
 
 # Configuração SMTP
@@ -23,25 +23,25 @@ SMTP_PORT=587
 SMTP_SECURE=false  # STARTTLS
 
 # Outros emails do sistema
-SMTP_FROM_EMAIL=admin@visualdesigne.com
-SMTP_REPLY_TO=suporte@visualdesigne.com
+SMTP_FROM_EMAIL=admin@visualdesignmoz.com
+SMTP_REPLY_TO=suporte@visualdesignmoz.com
 ```
 
 ### 2. Contas de Email Válidas
 
 | Email | Senha | Funciona com Gmail |
 |-------|-------|-------------------|
-| admin@visualdesigne.com | Ad.Vd#2425?* | ✅ Sim |
+| admin@visualdesignmoz.com | Ad.Vd#2425?* | ✅ Sim |
 | osher@oshercollective.com | gce7G)S-1FfUX)-b | ❌ Não (sem DKIM) |
 
 ### 3. Atualizar Código
 
-**Arquivos que precisam usar admin@visualdesigne.com:**
+**Arquivos que precisam usar admin@visualdesignmoz.com:**
 - `/src/app/api/submit-ticket/route.ts`
 - `/src/app/api/mailmarketing-send/route.ts`
 - `/src/app/api/send-email/route.ts`
 
-**Alteração:** Garantir que `fromEmail` use `admin@visualdesigne.com` quando não for especificado.
+**Alteração:** Garantir que `fromEmail` use `admin@visualdesignmoz.com` quando não for especificado.
 
 ## 🧪 Testar Configuração
 
@@ -49,9 +49,9 @@ SMTP_REPLY_TO=suporte@visualdesigne.com
 # Testar via SSH
 swaks \
     --to silva.chamo@gmail.com \
-    --from admin@visualdesigne.com \
+    --from admin@visualdesignmoz.com \
     --server 127.0.0.1:587 \
-    --auth-user admin@visualdesigne.com \
+    --auth-user admin@visualdesignmoz.com \
     --auth-password 'Ad.Vd#2425?*' \
     --auth-plain \
     --tls \
@@ -69,7 +69,7 @@ swaks \
 ## 🚨 Solução de Problemas
 
 **Email não chega ao Gmail:**
-- Verificar se está usando conta @visualdesigne.com
+- Verificar se está usando conta @visualdesignmoz.com
 - Verificar se senha está correta
 - Verificar logs: `tail -20 /var/log/mail.log`
 

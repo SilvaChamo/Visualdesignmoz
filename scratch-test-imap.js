@@ -1,11 +1,11 @@
 const { ImapFlow } = require('imapflow');
 
 async function testIMAP() {
-    const fromEmail = 'silva.chamo@visualdesigne.com';
+    const fromEmail = 'silva.chamo@visualdesignmoz.com';
     const fromPassword = 'Meckito#1977?*';
     
     const imapClient = new ImapFlow({
-        host: 'mail.visualdesigne.com',
+        host: 'mail.visualdesignmoz.com',
         port: 993,
         secure: true,
         auth: { user: fromEmail, pass: fromPassword },

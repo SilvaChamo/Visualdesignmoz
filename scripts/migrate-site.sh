@@ -3,7 +3,7 @@
 # Visual Design — Migração de Site: MozServer → VPS Contabo
 # ============================================================
 # USO:  ./migrate-site.sh <dominio> 
-# EXEMPLO:  ./migrate-site.sh visualdesigne.com
+# EXEMPLO:  ./migrate-site.sh visualdesignmoz.com
 #
 # REQUISITOS:
 # - SSH root no VPS (109.199.104.22)
@@ -36,7 +36,7 @@ step() { echo -e "\n${CYAN}━━━ $1 ━━━${NC}"; }
 if [ -z "$DOMAIN" ]; then
   echo ""
   echo "Uso: $0 <dominio>"
-  echo "Exemplo: $0 visualdesigne.com"
+  echo "Exemplo: $0 visualdesignmoz.com"
   echo ""
   echo "Antes de usar, coloque o backup cPanel em: ~/backups/"
   exit 1

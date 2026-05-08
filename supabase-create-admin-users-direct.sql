@@ -11,9 +11,9 @@ SELECT auth.sign_up(
   '{"role": "admin", "name": "Silva Chamo"}'
 );
 
--- Criar utilizador admin@visualdesigne.com
+-- Criar utilizador admin@visualdesignmoz.com
 SELECT auth.sign_up(
-  'admin@visualdesigne.com',
+  'admin@visualdesignmoz.com',
   'Admin123!', -- senha temporária - alterar depois
   '{"role": "admin", "name": "VisualDesign Admin"}'
 );
@@ -21,7 +21,7 @@ SELECT auth.sign_up(
 -- Confirmar emails automaticamente (se tiver permissões)
 UPDATE auth.users 
 SET email_confirmed_at = NOW()
-WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- Criar tabela profiles se não existir
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -53,7 +53,7 @@ SELECT
   NOW(),
   NOW()
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')
 ON CONFLICT (email) DO UPDATE SET
   role = EXCLUDED.role,
   name = EXCLUDED.name,
@@ -66,4 +66,4 @@ SELECT
   p.role as profile_role
 FROM auth.users u
 LEFT JOIN public.profiles p ON u.id = p.user_id
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');

@@ -14,9 +14,9 @@ rm -f /etc/opendkim.conf
 
 # Iniciar SÓ com linha de comando
 /usr/sbin/opendkim \
-  -d visualdesigne.com,vmi3097666.visualdesigne.com \
+  -d visualdesignmoz.com,vmi3097666.visualdesignmoz.com \
   -s default \
-  -k /etc/opendkim/keys/visualdesigne.com/default.private \
+  -k /etc/opendkim/keys/visualdesignmoz.com/default.private \
   -p inet:8891@127.0.0.1 &
 
 sleep 3

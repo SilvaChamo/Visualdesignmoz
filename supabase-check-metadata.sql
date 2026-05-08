@@ -21,7 +21,7 @@ SELECT
     ELSE 'Invalid or NULL'
   END as metadata_status
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- Verificar também na tabela profiles
 SELECT 
@@ -33,7 +33,7 @@ SELECT
   p.created_at,
   p.updated_at
 FROM public.profiles p
-WHERE p.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE p.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- Se os metadados estiverem incorretos, corrigir:
 UPDATE auth.users 
@@ -46,4 +46,4 @@ UPDATE auth.users
 SET 
   raw_user_meta_data = '{"role": "admin", "name": "VisualDesign Admin"}',
   updated_at = NOW()
-WHERE email = 'admin@visualdesigne.com';
+WHERE email = 'admin@visualdesignmoz.com';

@@ -11,7 +11,7 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl, getDirectAdminUrl } from '@/lib/server-config'
+import { getServerHost, getHestiaUrl, getDirectAdminUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -5366,13 +5366,20 @@ export function FileManagerSection({ domain, sites }: {
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
+  const [error, setError] = useState('')
+
+  const getOwner = (targetDomain: string) =>
+    sites.find(s => s.domain === targetDomain)?.owner || 'admin'
+
+  const getSiteRoot = (targetDomain: string) =>
+    `/home/${getOwner(targetDomain)}/domains/${targetDomain}/public_html`
 
   // Sempre que o domain prop muda, actualiza domain e path
   useEffect(() => {
     const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
     if (d) {
       setSelectedDomain(d)
-      setPath(`/home/${d}/public_html`)
+      setPath(getSiteRoot(d))
     }
   }, [domain])
 
@@ -5383,38 +5390,54 @@ export function FileManagerSection({ domain, sites }: {
 
   const loadFiles = async (currentPath: string) => {
     setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'execCommand',
-        params: { command: `ls -la "${currentPath}" 2>&1` }
+    setError('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'execCommand',
+          params: { command: `ls -la "${currentPath}" 2>&1` }
+        })
       })
-    })
-    const data = await res.json()
-    const lines = (data.data?.output || '').split('\n').filter((l: string) =>
-      l && !l.startsWith('total') && l.trim()
-    )
-    const parsed = lines.map((line: string) => {
-      const parts = line.trim().split(/\s+/)
-      return {
-        permissions: parts[0],
-        size: parts[4],
-        date: `${parts[5]} ${parts[6]} ${parts[7]}`,
-        name: parts.slice(8).join(' '),
-        isDir: parts[0]?.startsWith('d'),
-        isLink: parts[0]?.startsWith('l'),
+      const data = await res.json()
+      const output = data.data?.output || ''
+      if (!res.ok || !data.success || output.includes('No such file')) {
+        setError(data.error || output || 'Não foi possível listar ficheiros.')
+        setFiles([])
+        return
       }
-    }).filter((f: any) => f.name && f.name !== '.' && f.name !== '..')
-    setFiles(parsed)
-    setLoading(false)
+      const lines = output.split('\n').filter((l: string) =>
+        l && !l.startsWith('total') && l.trim()
+      )
+      const parsed = lines.map((line: string) => {
+        const parts = line.trim().split(/\s+/)
+        return {
+          permissions: parts[0],
+          size: parts[4],
+          date: `${parts[5]} ${parts[6]} ${parts[7]}`,
+          name: parts.slice(8).join(' '),
+          isDir: parts[0]?.startsWith('d'),
+          isLink: parts[0]?.startsWith('l'),
+        }
+      }).filter((f: any) => f.name && f.name !== '.' && f.name !== '..')
+      setFiles(parsed)
+    } catch (e: any) {
+      setError(e.message || 'Erro ao carregar ficheiros.')
+      setFiles([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const navigateTo = (folder: string) => {
+    const siteRoot = getSiteRoot(selectedDomain)
     if (folder === '..') {
+      if (path === siteRoot) return
       const parts = path.split('/')
       parts.pop()
-      setPath(parts.join('/') || '/')
+      const nextPath = parts.join('/') || siteRoot
+      setPath(nextPath.startsWith(siteRoot) ? nextPath : siteRoot)
     } else {
       setPath(`${path}/${folder}`)
     }
@@ -5433,16 +5456,28 @@ export function FileManagerSection({ domain, sites }: {
           <p className="text-xs text-gray-400 mt-0.5">Explorar directório do site</p>
         </div>
         {/* Selector de domínio */}
-        <select value={selectedDomain}
-          onChange={e => { setSelectedDomain(e.target.value); setPath(`/home/${e.target.value}/public_html`) }}
-          className="px-3 py-2 border border-gray-300 rounded text-sm">
-          {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <select value={selectedDomain}
+            onChange={e => { setSelectedDomain(e.target.value); setPath(getSiteRoot(e.target.value)) }}
+            className="px-3 py-2 border border-gray-300 rounded text-sm">
+            {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+          </select>
+          {selectedDomain && (
+            <a
+              href={getDirectAdminFileManagerUrl(selectedDomain, getOwner(selectedDomain))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> DirectAdmin
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 text-sm bg-white border border-gray-200 rounded px-4 py-2">
-        <button onClick={() => setPath(`/home/${selectedDomain}/public_html`)}
+        <button onClick={() => setPath(getSiteRoot(selectedDomain))}
           className="text-blue-500 hover:text-blue-700 font-medium">home</button>
         {pathParts.map((part, i) => (
           <span key={i} className="flex items-center gap-1">
@@ -5481,7 +5516,11 @@ export function FileManagerSection({ domain, sites }: {
               <td colSpan={3} className="px-4 py-2.5 text-gray-400 text-xs">Pasta anterior</td>
             </tr>
 
-            {loading ? (
+            {error ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-red-500">
+                {error}
+              </td></tr>
+            ) : loading ? (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">
                 <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
               </td></tr>
@@ -5876,36 +5915,9 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
   }
 
   const handleInstall = async () => {
-    setInstalling(true)
-    setMessage('')
-
-    try {
-      const response = await fetch('/api/directadmin-wp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'installWordPress',
-          ...form
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setSuccess(true)
-        setMessage('✅ Site WordPress instalado com sucesso! O site agora aparece na lista de sites WordPress.')
-        // Limpar cache para garantir que o novo site apareça
-        const { cacheService } = await import('@/lib/cache-service');
-        cacheService.clear();
-        onRefresh?.()
-      } else {
-        setMessage(`Erro: ${data.error || 'Falha na instalação'}`)
-      }
-    } catch (error) {
-      setMessage('Erro de conexão com o servidor')
-    }
-
     setInstalling(false)
+    setSuccess(false)
+    setMessage('A instalação automática ainda não está ligada ao DirectAdmin. Abre o WordPress Manager do DirectAdmin para instalar este domínio.')
   }
 
   const getPasswordStrengthColor = () => {
@@ -5947,6 +5959,14 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
             {success ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
             <span>{message}</span>
           </div>
+          {!success && (
+            <div className="mt-3">
+              <a href={getDirectAdminWordPressUrl()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+                <ExternalLink className="w-4 h-4" />
+                Abrir WordPress Manager
+              </a>
+            </div>
+          )}
           {success && (
             <div className="mt-3 flex flex-wrap gap-3">
               <a href={`${getFinalURL()}/wp-admin`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">

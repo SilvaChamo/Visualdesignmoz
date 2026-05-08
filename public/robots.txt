@@ -7,4 +7,4 @@ Disallow: /auth
 Disallow: /login
 Disallow: /autenticacao
 
-Sitemap: https://www.visualdesigne.com/sitemap.xml
+Sitemap: https://www.visualdesignmoz.com/sitemap.xml

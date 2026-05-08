@@ -116,7 +116,7 @@ async function addDefaultDNSRecords(domain: string): Promise<{ success: boolean;
  */
 async function createCyberPanelWebsite(
   domain: string, 
-  email: string = 'admin@visualdesigne.com'
+  email: string = 'admin@visualdesignmoz.com'
 ): Promise<{ success: boolean; output: string }> {
   try {
     const response = await fetch('/api/cyberpanel-proxy', {
@@ -274,8 +274,8 @@ export async function POST(request: NextRequest) {
           [
             `ns1.${fullDomain}`,
             `ns2.${fullDomain}`,
-            'ns1.visualdesigne.com',
-            'ns2.visualdesigne.com'
+            'ns1.visualdesignmoz.com',
+            'ns2.visualdesignmoz.com'
           ]
         );
         details.nameserversUpdate = nsResult;

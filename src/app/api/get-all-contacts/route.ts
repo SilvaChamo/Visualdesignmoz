@@ -7,7 +7,8 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey);
 
 const ALLOWED_DOMAINS = [
-  'visualdesigne.com',
+  'visualdesignmoz.com',
+  'visualdesignmoz.com',
   'anap.co.mz',
   'entrecampos.co.mz'
 ];
@@ -20,7 +21,7 @@ const ALLOWED_DOMAINS = [
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const domain = searchParams.get('domain') || 'visualdesigne.com';
+  const domain = searchParams.get('domain') || 'visualdesignmoz.com';
   const includeSupabase = searchParams.get('includeSupabase') !== 'false'; // true por padrão
 
   try {
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
  */
 function shouldFilterOut(email: string): boolean {
   const invalidEmails = [
-    'geral@visualdesigne.com',
+    'geral@visualdesignmoz.com',
   ];
 
   const suspiciousPatterns = [

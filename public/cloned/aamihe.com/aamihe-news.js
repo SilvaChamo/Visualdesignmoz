@@ -1,5 +1,5 @@
 (function () {
-  var API_BASE = window.AAMIHE_NEWS_API || 'https://visualdesigne.com/api/public/site-news';
+  var API_BASE = window.AAMIHE_NEWS_API || 'https://visualdesignmoz.com/api/public/site-news';
   var lang = document.documentElement.lang || 'pt';
   lang = lang.toLowerCase().startsWith('en') ? 'en' : lang.toLowerCase().startsWith('fr') ? 'fr' : 'pt';
 

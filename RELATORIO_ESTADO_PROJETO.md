@@ -37,7 +37,7 @@ O projeto VisualDesign está **100% operacional** com todas as funcionalidades p
 
 ## 🎯 **Funcionalidades Implementadas**
 
-### **✅ Painel Admin (https://visualdesigne.com/admin)**
+### **✅ Painel Admin (https://visualdesignmoz.com/admin)**
 - **Layout:** Barra lateral esquerda (modelo 1005) redimensionável
 - **Menu:** 11 secções principais (Dashboard, Websites, Users, Packages, etc.)
 - **Integração:** CyberPanel API completa
@@ -97,13 +97,13 @@ O projeto VisualDesign está **100% operacional** com todas as funcionalidades p
 
 ## 📱 **Páginas Publicas**
 
-### **✅ Website Principal (https://visualdesigne.com/)**
+### **✅ Website Principal (https://visualdesignmoz.com/)**
 - Design responsivo
 - Portfolio de serviços
 - Sistema de preços
 - Contacto e formulários
 
-### **✅ Área Cliente (https://visualdesigne.com/client)**
+### **✅ Área Cliente (https://visualdesignmoz.com/client)**
 - Dashboard personalizado
 - Gestão de serviços
 - Marketplace
@@ -233,7 +233,7 @@ O projeto VisualDesign está **100% operacional** com todas as funcionalidades p
 
 - **Admin:** silva.chamo@gmail.com
 - **Servidor:** 109.199.104.22
-- **Painel:** https://visualdesigne.com/admin
+- **Painel:** https://visualdesignmoz.com/admin
 - **Documentation:** Disponível no repositório
 
 ---

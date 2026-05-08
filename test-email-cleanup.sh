@@ -21,10 +21,10 @@ echo ""
 
 # ========== TESTE 1: Filtro de CyberPanel ==========
 echo -e "${BLUE}1️⃣  Testando Filtro de CyberPanel${NC}"
-echo "Endpoint: /api/cyberpanel-list-emails?domain=visualdesigne.com"
+echo "Endpoint: /api/cyberpanel-list-emails?domain=visualdesignmoz.com"
 echo ""
 
-RESPONSE1=$(curl -s "$BASE_URL/api/cyberpanel-list-emails?domain=visualdesigne.com")
+RESPONSE1=$(curl -s "$BASE_URL/api/cyberpanel-list-emails?domain=visualdesignmoz.com")
 
 # Verificar se contém "joao"
 if echo "$RESPONSE1" | grep -qi "joao"; then
@@ -45,10 +45,10 @@ echo ""
 
 # ========== TESTE 2: Endpoint Consolidado ==========
 echo -e "${BLUE}2️⃣  Testando Endpoint Consolidado (CyberPanel + Supabase)${NC}"
-echo "Endpoint: /api/get-all-contacts?domain=visualdesigne.com"
+echo "Endpoint: /api/get-all-contacts?domain=visualdesignmoz.com"
 echo ""
 
-RESPONSE2=$(curl -s "$BASE_URL/api/get-all-contacts?domain=visualdesigne.com")
+RESPONSE2=$(curl -s "$BASE_URL/api/get-all-contacts?domain=visualdesignmoz.com")
 
 # Verificar se existe
 if [ -z "$RESPONSE2" ]; then
@@ -82,9 +82,9 @@ echo ""
 echo -e "${BLUE}3️⃣  Verificando Emails Esperados${NC}"
 
 EXPECTED_EMAILS=(
-    "admin@visualdesigne.com"
-    "suporte@visualdesigne.com"
-    "geral@visualdesigne.com"
+    "admin@visualdesignmoz.com"
+    "suporte@visualdesignmoz.com"
+    "geral@visualdesignmoz.com"
 )
 
 for EMAIL in "${EXPECTED_EMAILS[@]}"; do
@@ -133,8 +133,8 @@ echo -e "${GREEN}✅ Testes concluídos!${NC}"
 echo ""
 echo "📝 Próximas etapas:"
 echo "   1. Verifique os endpoints manualmente em seu navegador:"
-echo "      - $BASE_URL/api/cyberpanel-list-emails?domain=visualdesigne.com"
-echo "      - $BASE_URL/api/get-all-contacts?domain=visualdesigne.com"
+echo "      - $BASE_URL/api/cyberpanel-list-emails?domain=visualdesignmoz.com"
+echo "      - $BASE_URL/api/get-all-contacts?domain=visualdesignmoz.com"
 echo "   2. Abra o Webmail no painel e confirme a lista de contactos"
 echo "   3. Verifique o console (Dev Tools) para ver os logs de carregamento"
 echo ""

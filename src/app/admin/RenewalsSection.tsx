@@ -80,9 +80,9 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
     expirationDate: '15/06/2025',
     daysRemaining: 60,
     renewalPrice: '2,500.00 MT',
-    renewalLink: 'https://visualdesigne.com/renovar',
+    renewalLink: 'https://visualdesignmoz.com/renovar',
     companyName: 'VisualDesign',
-    supportEmail: 'suporte@visualdesigne.com',
+    supportEmail: 'suporte@visualdesignmoz.com',
     supportPhone: '+258 85 242 5525'
   })
   const [searchQuery, setSearchQuery] = useState('')

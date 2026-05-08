@@ -24,12 +24,12 @@ Para: cliente@email.com
 // Remetente personalizado do cliente
 const personalizedSender = clientName && clientEmail 
     ? `"${clientName}" <${clientEmail}>`
-    : sender || `"VisualDesign" <admin@visualdesigne.com>`;
+    : sender || `"VisualDesign" <admin@visualdesignmoz.com>`;
 ```
 
 ### O problema:
 - **`clientName` e `clientEmail` não estão sendo enviados** do frontend
-- **Sistema usa fallback**: `"VisualDesign" <admin@visualdesigne.com>`
+- **Sistema usa fallback**: `"VisualDesign" <admin@visualdesignmoz.com>`
 - **Por isso aparece VisualDesign** em vez do cliente
 
 ---
@@ -71,7 +71,7 @@ const clientEmail = user?.email;
 // No handleSend, obter dados do usuário
 const { data: { user } } = await supabase.auth.getUser();
 const clientName = user?.user_metadata?.full_name || 'Cliente';
-const clientEmail = user?.email || 'noreply@visualdesigne.com';
+const clientEmail = user?.email || 'noreply@visualdesignmoz.com';
 ```
 
 ### Opção 2: Usar domínio do site selecionado

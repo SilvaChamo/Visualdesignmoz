@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // 3) Criar conta de email no CyberPanel (via API interna)
     const localPart = email.split('@')[0]
-    const domain = email.split('@')[1] || 'visualdesigne.com'
+    const domain = email.split('@')[1] || 'visualdesignmoz.com'
 
     try {
       const res = await fetch(new URL('/api/cyberpanel-cli', request.url).toString(), {

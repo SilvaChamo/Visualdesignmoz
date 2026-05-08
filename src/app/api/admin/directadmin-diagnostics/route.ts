@@ -11,8 +11,8 @@ function readEnv(name: string) {
 
 function authSource() {
   const candidates = [
-    ['DIRECTADMIN_LOGIN_KEY', readEnv('DIRECTADMIN_LOGIN_KEY')],
     ['DIRECTADMIN_PASSWORD', readEnv('DIRECTADMIN_PASSWORD')],
+    ['DIRECTADMIN_LOGIN_KEY', readEnv('DIRECTADMIN_LOGIN_KEY')],
     ['DIRECTADMIN_PASS', readEnv('DIRECTADMIN_PASS')],
   ] as const;
 

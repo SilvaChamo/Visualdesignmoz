@@ -5,14 +5,14 @@ echo "🔧 Adicionando domínios ao DKIM..."
 
 # Adicionar ambos os domínios
 {
-echo "visualdesigne.com default:/etc/opendkim/keys/visualdesigne.com/default.private"
-echo "vmi3097666.visualdesigne.com default:/etc/opendkim/keys/visualdesigne.com/default.private"
+echo "visualdesignmoz.com default:/etc/opendkim/keys/visualdesignmoz.com/default.private"
+echo "vmi3097666.visualdesignmoz.com default:/etc/opendkim/keys/visualdesignmoz.com/default.private"
 } > /etc/opendkim/key.table
 
 # Adicionar signing table para ambos
 {
-echo "*@visualdesigne.com visualdesigne.com"
-echo "*@vmi3097666.visualdesigne.com visualdesigne.com"
+echo "*@visualdesignmoz.com visualdesignmoz.com"
+echo "*@vmi3097666.visualdesignmoz.com visualdesignmoz.com"
 } > /etc/opendkim/signing.table
 
 # Atualizar opendkim.conf com múltiplos domínios
@@ -22,8 +22,8 @@ LogWhy yes
 Mode sv
 Canonicalization relaxed/relaxed
 Selector default
-Domain visualdesigne.com,vmi3097666.visualdesigne.com
-KeyFile /etc/opendkim/keys/visualdesigne.com/default.private
+Domain visualdesignmoz.com,vmi3097666.visualdesignmoz.com
+KeyFile /etc/opendkim/keys/visualdesignmoz.com/default.private
 Socket inet:8891@localhost
 SignatureAlgorithm rsa-sha256
 KeyTable /etc/opendkim/key.table

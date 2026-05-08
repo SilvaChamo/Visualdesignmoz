@@ -3,7 +3,7 @@
 ## Problema: Nenhuma Conta Local Funciona
 
 Após testar múltiplas contas:
-- `admin@visualdesigne.com` - Falha
+- `admin@visualdesignmoz.com` - Falha
 - `osher@oshercollective.com` - Falha
 
 **Causa:** Servidor SMTP local pode ter configuração restrita ou bloqueio.

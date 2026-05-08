@@ -530,8 +530,8 @@ export function processTemplate(
   // Card de atenção é opcional - só adiciona se includeAttentionCard não for explicitamente false
   const includeAttentionCard = template.includeAttentionCard !== false
   // Usar links com autenticação automática se disponíveis
-  const dashboardLink = variables.dashboardAutoLoginLink || 'https://visualdesigne.com/client'
-  const clientAreaLink = variables.clientAreaAutoLoginLink || 'https://visualdesigne.com/client'
+  const dashboardLink = variables.dashboardAutoLoginLink || 'https://visualdesignmoz.com/client'
+  const clientAreaLink = variables.clientAreaAutoLoginLink || 'https://visualdesignmoz.com/client'
   const attentionCard = includeAttentionCard ? emailAttentionCard(variables.supportEmail, dashboardLink, clientAreaLink) : ''
   
   // Envolver o conteúdo principal no quadro com linha colorida conforme urgência

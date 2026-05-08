@@ -10,7 +10,7 @@ async function syncDNS() {
     }
 
     const records = JSON.parse(fs.readFileSync(recordsPath, 'utf8'));
-    const domain = 'visualdesigne.com';
+    const domain = 'visualdesignmoz.com';
     const apiUrl = 'http://localhost:3002/api/cyberpanel-dns';
 
     console.log(`Syncing ${records.length} records to CyberPanel for ${domain}...`);

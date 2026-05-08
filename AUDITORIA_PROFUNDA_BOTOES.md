@@ -26,7 +26,7 @@
 
 ## FASE 3: SERVIDOR IMAP (PASTAS REAIS)
 
-Auditado via SSH em `/home/vmail/visualdesigne.com/admin/Maildir/`
+Auditado via SSH em `/home/vmail/visualdesignmoz.com/admin/Maildir/`
 
 | Pasta (UI) | Nome no Servidor (Real) | Mapeamento UI | API (Default) | Status |
 | :--- | :--- | :--- | :--- | :--- |

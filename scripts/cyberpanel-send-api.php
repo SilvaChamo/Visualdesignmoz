@@ -37,7 +37,7 @@ if (!$input || empty($input['to']) || empty($input['subject']) || empty($input['
 $to = $input['to']; // Array de emails
 $subject = $input['subject'];
 $html = $input['html'];
-$from = $input['from'] ?? 'noreply@visualdesigne.com';
+$from = $input['from'] ?? 'noreply@visualdesignmoz.com';
 $fromName = $input['fromName'] ?? 'VisualDesign';
 
 // 🌡️ SISTEMA DE AQUECIMENTO (Warm-up)

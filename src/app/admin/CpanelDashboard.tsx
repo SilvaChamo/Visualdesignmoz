@@ -10,7 +10,7 @@ import {
   Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getServerHost } from '@/lib/server-config'
 
 
 interface Tool {
@@ -57,22 +57,6 @@ export function CpanelDashboard({
   searchQuery = '', onSearchChange, userResources 
 }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
-  const [diskInfo, setDiskInfo] = useState<{ used: string; total: string; percentage: string } | null>(null)
-
-  React.useEffect(() => {
-    const fetchDisk = async () => {
-      try {
-        const res = await fetch('/api/da', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'serverDiskUsage', params: {} })
-        })
-        const data = await res.json()
-        if (data.success) setDiskInfo(data.data)
-      } catch (e) { console.error(e) }
-    }
-    fetchDisk()
-  }, [])
 
   // Definir domínio principal
   const primaryDomain = sites.length > 0
@@ -114,9 +98,7 @@ export function CpanelDashboard({
       headerIcon: <FolderOpen className="w-5 h-5" />,
       color: 'text-amber-700', bgColor: 'bg-amber-50',
       tools: [
-        { id: 'cp-filemanager', name: 'Gestor de Ficheiros DirectAdmin', icon: <FolderOpen className="w-9 h-9 text-amber-500" /> },
-        { id: 'cp-ftp', name: 'Contas FTP', icon: <Upload className="w-9 h-9 text-amber-500" /> },
-        { id: 'infrastructure', name: 'Estado do Servidor', icon: <Monitor className="w-9 h-9 text-amber-500" /> },
+        { id: 'da-filemanager', name: 'Abrir DirectAdmin', icon: <ExternalLink className="w-9 h-9 text-amber-500" />, external: getDirectAdminFileManagerUrl(primaryDomain, sites.find(s => s.domain === primaryDomain)?.owner || 'admin') },
       ]
     },
     {
@@ -140,9 +122,7 @@ export function CpanelDashboard({
       headerIcon: <Globe2 className="w-5 h-5" />,
       color: 'text-indigo-700', bgColor: 'bg-indigo-50',
       tools: [
-        { id: 'wordpress-install', name: 'Instalar WordPress', icon: <Globe className="w-9 h-9 text-blue-500" /> },
-        { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-plugins', name: 'Gerir Plugins', icon: <Plug className="w-9 h-9 text-indigo-500" /> },
+        { id: 'wordpress-install', name: 'Abrir DirectAdmin', icon: <ExternalLink className="w-9 h-9 text-blue-500" />, external: getDirectAdminWordPressUrl() },
       ]
     },
     {
@@ -321,15 +301,6 @@ export function CpanelDashboard({
               <p className="font-bold text-gray-900">{users.length}</p>
             </div>
           </div>
-          {diskInfo && (
-              <div>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Espaço em Disco</p>
-                <p className="font-bold text-gray-900">{diskInfo.used} / {diskInfo.total}</p>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
-                  <div className="bg-red-500 h-1.5 rounded-full" style={{ width: diskInfo.percentage }}></div>
-                </div>
-              </div>
-            )}
             <div className="pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>

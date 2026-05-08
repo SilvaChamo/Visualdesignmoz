@@ -64,7 +64,7 @@ passthru('sudo postfix check 2>&1');
 echo "\n=== CONCLUSAO ===\n";
 echo "SMTP configurado no servidor 109.199.104.22\n";
 echo "Portas: 587 (STARTTLS), 465 (SSL)\n";
-echo "Credenciais: admin@visualdesigne.com / Ad.Vd#2425?*\n";
+echo "Credenciais: admin@visualdesignmoz.com / Ad.Vd#2425?*\n";
 echo "\nProximo passo: Abrir firewall no painel Contabo (TCP 587, 465)\n";
 echo "Teste: telnet 109.199.104.22 587\n";
 ?>

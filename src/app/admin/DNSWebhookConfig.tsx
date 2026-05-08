@@ -14,7 +14,7 @@ export function DNSWebhookConfig() {
 
   const WEBHOOK_URL = typeof window !== 'undefined' 
     ? `${window.location.origin}/api/webhook/mozserver`
-    : 'https://visualdesigne.com/api/webhook/mozserver'
+    : 'https://visualdesignmoz.com/api/webhook/mozserver'
 
   useEffect(() => {
     checkWebhookStatus()
@@ -55,7 +55,7 @@ export function DNSWebhookConfig() {
           domain: 'teste',
           tld: '.co.mz',
           fullDomain: 'teste.co.mz',
-          clientEmail: 'test@visualdesigne.com',
+          clientEmail: 'test@visualdesignmoz.com',
           timestamp: new Date().toISOString()
         })
       })

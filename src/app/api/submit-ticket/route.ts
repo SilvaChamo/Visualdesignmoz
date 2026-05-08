@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
       console.error('Erro ao guardar ticket no DB:', dbErr)
     }
 
-    // 3. Enviar email para suporte@visualdesigne.com
-    const masterEmail = process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com'
+    // 3. Enviar email para suporte@visualdesignmoz.com
+    const masterEmail = process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com'
     const domainConfig = detectDomainConfig(masterEmail)
 
     const transporter = nodemailer.createTransport({
@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
     `
 
     await transporter.sendMail({
-      from: `"Portal VisualDesigne" <${process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com'}>`,
-      to: 'suporte@visualdesigne.com',
+      from: `"Portal VisualDesigne" <${process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com'}>`,
+      to: 'suporte@visualdesignmoz.com',
       replyTo: clienteEmail,
       subject: `[Ticket ${ticketRef}] [${prioridade || 'Normal'}] ${assunto}`,
       html: htmlEmail
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await transporter.sendMail({
-        from: `"Suporte VisualDesigne" <suporte@visualdesigne.com>`,
+        from: `"Suporte VisualDesigne" <suporte@visualdesignmoz.com>`,
         to: clienteEmail,
         subject: `[Suporte VD] Confirmação de Ticket ${ticketRef}`,
         html: htmlConfirmacao

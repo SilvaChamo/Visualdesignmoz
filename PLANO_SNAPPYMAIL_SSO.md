@@ -34,7 +34,7 @@
 
 **Comando:**
 ```bash
-(echo "a LOGIN silva.chamo@visualdesigne.com SENHA_REAL_AQUI"; sleep 2; echo "a LOGOUT") | telnet 127.0.0.1 143
+(echo "a LOGIN silva.chamo@visualdesignmoz.com SENHA_REAL_AQUI"; sleep 2; echo "a LOGOUT") | telnet 127.0.0.1 143
 ```
 
 **Resultado:** ❌ FALHOU
@@ -78,7 +78,7 @@ journalctl -u dovecot --since "5 minutes ago" --no-pager | tail -30
 **Comandos:**
 ```bash
 ls /etc/dovecot/conf.d/ | grep domain
-grep -r "visualdesigne.com" /etc/dovecot/ 2>/dev/null | head -20
+grep -r "visualdesignmoz.com" /etc/dovecot/ 2>/dev/null | head -20
 ```
 
 ---
@@ -123,7 +123,7 @@ TOTP: deixar vazio
 ### Passo 2.5 — Testar login normal
 
 URL: `https://109.199.104.22:8090/snappymail/`  
-Email: `silva.chamo@visualdesigne.com`  
+Email: `silva.chamo@visualdesignmoz.com`  
 Password: senha real do email
 
 ---

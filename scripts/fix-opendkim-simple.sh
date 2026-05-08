@@ -15,8 +15,8 @@ LogWhy yes
 Mode sv
 Canonicalization relaxed/relaxed
 Selector default
-Domain visualdesigne.com
-KeyFile /etc/opendkim/keys/visualdesigne.com/default.private
+Domain visualdesignmoz.com
+KeyFile /etc/opendkim/keys/visualdesignmoz.com/default.private
 Socket local:/var/spool/postfix/opendkim/opendkim.sock
 SignatureAlgorithm rsa-sha256
 EOF

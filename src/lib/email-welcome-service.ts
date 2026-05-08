@@ -68,7 +68,7 @@ Ao utilizar esta conta de email marketing, o cliente confirma que:
 ✓ Compromete-se a seguir boas práticas de email marketing
 ✓ Entende que o sistema bloqueia automaticamente envios abusivos
 
-Para mais informações: admin@visualdesigne.com
+Para mais informações: admin@visualdesignmoz.com
 `;
 
 /**
@@ -221,7 +221,7 @@ export function generateWelcomeEmailHTML(account: EmailAccountInfo, serverConfig
             </p>
             
             <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 20px;">
-                Contacto de suporte: ${account.contactEmail || 'admin@visualdesigne.com'}
+                Contacto de suporte: ${account.contactEmail || 'admin@visualdesignmoz.com'}
             </p>
         </div>
         
@@ -294,7 +294,7 @@ Para proteger a reputação do seu domínio:
 ⚠️ O sistema bloqueia automaticamente envios que excedam estes limites.
 
 Webmail: ${domainConfig.webmail}
-Suporte: ${account.contactEmail || 'admin@visualdesigne.com'}
+Suporte: ${account.contactEmail || 'admin@visualdesignmoz.com'}
 
 ===================================
 © ${new Date().getFullYear()} VisualDesign

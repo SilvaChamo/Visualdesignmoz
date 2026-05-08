@@ -5,7 +5,7 @@ async function debugFolder(folderPath) {
         host: '109.199.104.22',
         port: 993,
         secure: true,
-        auth: { user: "admin@visualdesigne.com", pass: "Ad.Vd#2425?*" },
+        auth: { user: "admin@visualdesignmoz.com", pass: "Ad.Vd#2425?*" },
         tls: { rejectUnauthorized: false },
         logger: false
     });

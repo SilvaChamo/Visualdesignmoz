@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { domain = 'visualdesigne.com' } = body
+    const { domain = 'visualdesignmoz.com' } = body
 
     console.log(`🔄 [SYNC] Iniciando sincronização para ${domain}`)
 

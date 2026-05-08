@@ -262,7 +262,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">Domínio Ativo</p>
-                <p className="text-xs text-gray-500 mt-0.5">visualdesigne.com foi ativado com sucesso</p>
+                <p className="text-xs text-gray-500 mt-0.5">visualdesignmoz.com foi ativado com sucesso</p>
                 <p className="text-[10px] text-gray-400 mt-1">Ontem, 09:15</p>
               </div>
             </div>
@@ -449,8 +449,8 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase">Email</p>
-                <p className="text-sm font-bold text-gray-900">geral@visualdesigne.com</p>
-                <p className="text-sm font-bold text-gray-900">suporte@visualdesigne.com</p>
+                <p className="text-sm font-bold text-gray-900">geral@visualdesignmoz.com</p>
+                <p className="text-sm font-bold text-gray-900">suporte@visualdesignmoz.com</p>
               </div>
             </div>
 
@@ -471,7 +471,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase">Website</p>
-                <p className="text-sm font-bold text-gray-900">www.visualdesigne.com</p>
+                <p className="text-sm font-bold text-gray-900">www.visualdesignmoz.com</p>
               </div>
             </div>
           </div>

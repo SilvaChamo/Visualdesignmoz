@@ -1009,7 +1009,7 @@ if (!$data || !isset($data['to']) || !isset($data['subject']) || !isset($data['h
 $to = is_array($data['to']) ? implode(',', $data['to']) : $data['to'];
 $subject = $data['subject'];
 $message = $data['html'];
-$from = isset($data['from']) ? $data['from'] : 'marketing@visualdesigne.com';
+$from = isset($data['from']) ? $data['from'] : 'marketing@visualdesignmoz.com';
 $headers = "MIME-Version: 1.0" . "\\r\\n";
 $headers .= "Content-type:text/html;charset=UTF-8" . "\\r\\n";
 $headers .= "From: " . $from . "\\r\\n";

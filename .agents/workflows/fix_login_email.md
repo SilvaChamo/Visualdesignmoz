@@ -28,10 +28,10 @@ description: Guia de resolução para o Login e Personalização de Emails
 
 ## Lista de Emails Admin (Sincronizada)
 ```
-admin@visualdesigne.com
-geral@visualdesigne.com
+admin@visualdesignmoz.com
+geral@visualdesignmoz.com
 silva.chamo@gmail.com
-silva.chamo@visualdesigne.com
+silva.chamo@visualdesignmoz.com
 ```
 
 ## Fluxo de Login

@@ -15,5 +15,5 @@ nslookup -type=TXT oshercollective.com 2>/dev/null | grep -i spf || dig TXT oshe
 echo ""
 echo "📋 Soluções:"
 echo "1. Criar DKIM para oshercollective.com"
-echo "2. Usar visualdesigne.com como remetente"
+echo "2. Usar visualdesignmoz.com como remetente"
 echo "3. Configurar relayhost para enviar via outro servidor"

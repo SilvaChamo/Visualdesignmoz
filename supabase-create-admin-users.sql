@@ -38,7 +38,7 @@ INSERT INTO auth.users (
 ),
 (
   gen_random_uuid(), 
-  'admin@visualdesigne.com',
+  'admin@visualdesignmoz.com',
   NOW(),
   NULL,
   NULL,
@@ -72,7 +72,7 @@ SELECT
   u.created_at,
   u.updated_at
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')
 ON CONFLICT (email) DO UPDATE SET
   role = EXCLUDED.role,
   name = EXCLUDED.name,

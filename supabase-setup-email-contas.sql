@@ -28,7 +28,7 @@ CREATE POLICY "Admins podem ver todas as contas" ON email_contas
     FOR SELECT
     TO authenticated
     USING (
-        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com', 'admin@visualdesigne.com')
+        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com', 'admin@visualdesignmoz.com')
     );
 
 -- Política: Usuários podem ver apenas suas próprias contas
@@ -42,7 +42,7 @@ CREATE POLICY "Admins podem criar contas" ON email_contas
     FOR INSERT
     TO authenticated
     WITH CHECK (
-        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com', 'admin@visualdesigne.com')
+        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com', 'admin@visualdesignmoz.com')
     );
 
 -- Política: Administradores podem atualizar contas
@@ -50,7 +50,7 @@ CREATE POLICY "Admins podem atualizar contas" ON email_contas
     FOR UPDATE
     TO authenticated
     USING (
-        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com', 'admin@visualdesigne.com')
+        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com', 'admin@visualdesignmoz.com')
     );
 
 -- Política: Administradores podem eliminar contas
@@ -58,7 +58,7 @@ CREATE POLICY "Admins podem eliminar contas" ON email_contas
     FOR DELETE
     TO authenticated
     USING (
-        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com', 'admin@visualdesigne.com')
+        auth.email() IN ('silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com', 'admin@visualdesignmoz.com')
     );
 
 -- Trigger para atualizar updated_at automaticamente
@@ -87,10 +87,10 @@ CREATE TRIGGER update_email_contas_updated_at
 -- As senhas devem ser encriptadas em base64
 
 -- INSERT INTO email_contas (email, senha_cyberpanel, tipo_conta, status) VALUES
--- ('geral@visualdesigne.com', 'R2UuVmQjMjQyNT8q', 'webmail', 'active'),
--- ('admin@visualdesigne.com', 'RW1haWxBZG1pbiMyNDI1', 'webmail', 'active'),
--- ('suporte@visualdesigne.com', 'U3VwYUVtYWlsIzIwMjY/Kg==', 'webmail', 'active'),
--- ('info@visualdesigne.com', 'SW5mb3JtYcOnw6NvISMjMjAyMD8q', 'webmail', 'active')
+-- ('geral@visualdesignmoz.com', 'R2UuVmQjMjQyNT8q', 'webmail', 'active'),
+-- ('admin@visualdesignmoz.com', 'RW1haWxBZG1pbiMyNDI1', 'webmail', 'active'),
+-- ('suporte@visualdesignmoz.com', 'U3VwYUVtYWlsIzIwMjY/Kg==', 'webmail', 'active'),
+-- ('info@visualdesignmoz.com', 'SW5mb3JtYcOnw6NvISMjMjAyMD8q', 'webmail', 'active')
 -- ON CONFLICT (email) DO UPDATE SET
 --     senha_cyberpanel = EXCLUDED.senha_cyberpanel,
 --     updated_at = NOW();

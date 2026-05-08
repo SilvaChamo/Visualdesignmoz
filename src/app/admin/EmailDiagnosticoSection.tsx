@@ -12,7 +12,7 @@ export function EmailDiagnosticoSection() {
   const [serviceAction, setServiceAction] = useState<string | null>(null);
   const [maintenanceResult, setMaintenanceResult] = useState<any>(null);
   const [maintenanceLoading, setMaintenanceLoading] = useState<string | null>(null);
-  const [checkDomain, setCheckDomain] = useState('visualdesigne.com');
+  const [checkDomain, setCheckDomain] = useState('visualdesignmoz.com');
 
   async function runDiagnostico() {
     setLoading(true);
@@ -66,7 +66,7 @@ export function EmailDiagnosticoSection() {
       const res = await fetch('/api/email-diagnostico', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sendTest', to: testEmail, from: 'teste@visualdesigne.com', subject: 'Teste ' + new Date().toISOString(), body: 'Email de teste.' })
+        body: JSON.stringify({ action: 'sendTest', to: testEmail, from: 'teste@visualdesignmoz.com', subject: 'Teste ' + new Date().toISOString(), body: 'Email de teste.' })
       });
       setTestResult(await res.json());
     } catch (e) {

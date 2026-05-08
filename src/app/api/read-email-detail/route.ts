@@ -4,7 +4,7 @@ import { simpleParser } from 'mailparser'
 import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 // Domínios hospedados no servidor CyberPanel
-const CYBERPANEL_DOMAINS = ['visualdesigne.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+const CYBERPANEL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
 
 const resolveImapHost = (email: string): string => {
   if (process.env.IMAP_HOST) return process.env.IMAP_HOST

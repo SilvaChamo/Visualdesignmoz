@@ -9,7 +9,7 @@ SELECT
   raw_user_meta_data,
   created_at
 FROM auth.users 
-WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- 2. Verificar se a tabela profiles existe e tem dados
 SELECT 
@@ -21,7 +21,7 @@ SELECT
   u.email as user_email
 FROM public.profiles p
 LEFT JOIN auth.users u ON p.user_id = u.id
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- 3. Se os utilizadores não existirem, criar manualmente
 -- NOTA: Isto só funciona se tiver permissões para inserir na auth.users
@@ -37,7 +37,7 @@ UPDATE auth.users
 SET 
   raw_user_meta_data = '{"role": "admin", "name": "VisualDesign Admin"}',
   updated_at = NOW()
-WHERE email = 'admin@visualdesigne.com';
+WHERE email = 'admin@visualdesignmoz.com';
 
 -- 5. Garantir que a tabela profiles existe
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -69,7 +69,7 @@ SELECT
   NOW(),
   NOW()
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')
 ON CONFLICT (email) DO UPDATE SET
   role = EXCLUDED.role,
   name = EXCLUDED.name,
@@ -83,4 +83,4 @@ SELECT
   p.name as profile_name
 FROM auth.users u
 LEFT JOIN public.profiles p ON u.id = p.user_id
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');

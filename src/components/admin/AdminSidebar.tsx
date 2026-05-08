@@ -8,6 +8,7 @@ import {
   AlertCircle, ArrowRightLeft, Webhook,
   Save, X, Filter, Calendar, Bell, Palette, Newspaper
 } from 'lucide-react';
+import { getDirectAdminUrl } from '@/lib/server-config';
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -191,7 +192,9 @@ export function AdminSidebar({
               <div key={item.id} className="mb-1">
                 <button
                   onClick={() => {
-                    if (item.subItems) {
+                    if (item.id === 'wordpress') {
+                      window.open(getDirectAdminUrl(), '_blank', 'noopener,noreferrer');
+                    } else if (item.subItems) {
                       toggleExpand(item.id);
                     } else if (item.id === 'newsletter') {
                       onNavigate('newsletter');
@@ -228,7 +231,13 @@ export function AdminSidebar({
                       return (
                         <button
                           key={sub.id}
-                          onClick={() => onNavigate(sub.id)}
+                          onClick={() => {
+                            if (item.id === 'wordpress') {
+                              window.open(getDirectAdminUrl(), '_blank', 'noopener,noreferrer');
+                            } else {
+                              onNavigate(sub.id);
+                            }
+                          }}
                           className={`flex items-center text-left px-3 py-[5px] text-sm transition-colors relative ${isSubActive
                             ? 'text-red-600 font-bold before:absolute before:-left-[1px] before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full before:z-10'
                             : 'text-gray-600 hover:text-red-600'}`}

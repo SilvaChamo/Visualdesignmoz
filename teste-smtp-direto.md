@@ -21,24 +21,24 @@ Apesar das credenciais funcionarem no webmail, o SMTP está falhando.
 ## Ações de Debug
 
 ### 1. Verificar Logs do CyberPanel
-1. Acesse: https://visualdesigne.com:8090/
+1. Acesse: https://visualdesignmoz.com:8090/
 2. Verifique: Email -> Email Logs
 3. Procure erros de autenticação SMTP
 
 ### 2. Testar com Outra Conta
 Se você tem outra conta que funciona:
 - Sua conta pessoal
-- `suporte@visualdesigne.com`
-- `geral@visualdesigne.com`
+- `suporte@visualdesignmoz.com`
+- `geral@visualdesignmoz.com`
 
 ### 3. Verificar Configuração SMTP no CyberPanel
 1. CyberPanel -> Mail -> Manage Mail Servers
 2. Verificar configuração do servidor SMTP
-3. Verificar se `admin@visualdesigne.com` tem permissão SMTP
+3. Verificar se `admin@visualdesignmoz.com` tem permissão SMTP
 
 ### 4. Teste Manual com Cliente SMTP
 Use Thunderbird/Outlook para testar:
-- Configurar conta `admin@visualdesigne.com`
+- Configurar conta `admin@visualdesignmoz.com`
 - Tentar enviar email
 - Verificar erro específico
 
@@ -52,7 +52,7 @@ Se outra conta funcionar:
 ### Opção B: Configurar Permissão SMTP
 No CyberPanel:
 1. Email -> Email Accounts
-2. Editar conta `admin@visualdesigne.com`
+2. Editar conta `admin@visualdesignmoz.com`
 3. Verificar permissões de envio
 
 ### Opção C: Usar Servidor SMTP Externo
@@ -64,7 +64,7 @@ Configurar Gmail/SendGrid:
 ## Teste Imediato
 
 ### Verificar se Conta Tem SMTP
-1. Configure `admin@visualdesigne.com` no Outlook
+1. Configure `admin@visualdesignmoz.com` no Outlook
 2. Tente enviar um email
 3. Se falhar, o problema é a conta, não o código
 

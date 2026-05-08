@@ -33,11 +33,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Assunto ou conteúdo em falta' }, { status: 400 });
         }
 
-        const senderEmail = replyTo || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
+        const senderEmail = replyTo || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com';
         const campaignSenderKey = `admin:${senderEmail.toLowerCase()}`;
         
         // Extrair domínio do email do remetente
-        const clientDomain = senderEmail.split('@')[1] || 'visualdesigne.com';
+        const clientDomain = senderEmail.split('@')[1] || 'visualdesignmoz.com';
 
         // 3. Criar registo de campanha na base de dados
         let campaignId: string | null = null;

@@ -12,7 +12,7 @@ try {
   console.log('No .env.local found');
 }
 
-const email = 'silva.chamo@visualdesigne.com';
+const email = 'silva.chamo@visualdesignmoz.com';
 const password = process.env.TEST_PASSWORD || 'Meckito#77?*';
 const token = 'TEST_TOKEN_' + Date.now();
 const expiresAt = Date.now() + 5 * 60 * 1000;

@@ -14,13 +14,13 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- Habilitar RLS na tabela admin_users
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 
--- Política para usuários autenticados do domínio visualdesigne.com
+-- Política para usuários autenticados do domínio visualdesignmoz.com
 CREATE POLICY "Admins can manage admin_users"
     ON admin_users
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'email' LIKE '%@visualdesigne.com')
-    WITH CHECK (auth.jwt() ->> 'email' LIKE '%@visualdesigne.com');
+    USING (auth.jwt() ->> 'email' LIKE '%@visualdesignmoz.com')
+    WITH CHECK (auth.jwt() ->> 'email' LIKE '%@visualdesignmoz.com');
 
 -- Criar tabela de templates de renovação
 CREATE TABLE IF NOT EXISTS renewal_templates (
@@ -42,18 +42,18 @@ CREATE TABLE IF NOT EXISTS renewal_templates (
 -- Habilitar RLS
 ALTER TABLE renewal_templates ENABLE ROW LEVEL SECURITY;
 
--- Política para admins poderem gerenciar templates (baseada em email do domínio visualdesigne.com)
--- Substitua 'seu-email@visualdesigne.com' pelo email do admin real
+-- Política para admins poderem gerenciar templates (baseada em email do domínio visualdesignmoz.com)
+-- Substitua 'seu-email@visualdesignmoz.com' pelo email do admin real
 CREATE POLICY "Admins can manage renewal templates"
     ON renewal_templates
     FOR ALL
     TO authenticated
     USING (
-        auth.jwt() ->> 'email' LIKE '%@visualdesigne.com' OR
+        auth.jwt() ->> 'email' LIKE '%@visualdesignmoz.com' OR
         auth.uid() IN (SELECT id FROM admin_users)
     )
     WITH CHECK (
-        auth.jwt() ->> 'email' LIKE '%@visualdesigne.com' OR
+        auth.jwt() ->> 'email' LIKE '%@visualdesignmoz.com' OR
         auth.uid() IN (SELECT id FROM admin_users)
     );
 

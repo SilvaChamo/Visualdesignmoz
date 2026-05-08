@@ -7,8 +7,8 @@ try:
     server = smtplib.SMTP('localhost', 587)
     server.set_debuglevel(1)
     server.starttls()
-    server.login('silva.chamo@visualdesigne.com', 'Meckito#77?*')
-    server.sendmail('silva.chamo@visualdesigne.com', 'info@visualdesigne.com', 'Subject: Test\\n\\nThis is a test.')
+    server.login('silva.chamo@visualdesignmoz.com', 'Meckito#77?*')
+    server.sendmail('silva.chamo@visualdesignmoz.com', 'info@visualdesignmoz.com', 'Subject: Test\\n\\nThis is a test.')
     server.quit()
     print('SUCCESS')
 except Exception as e:

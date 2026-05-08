@@ -3,7 +3,7 @@ set timeout 60
 spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 "cat << 'EOF' > /root/da_optimize.sh
 #!/bin/bash
 echo 'Setting hostname...'
-/usr/local/directadmin/scripts/hostname.sh painel.visualdesigne.com
+/usr/local/directadmin/scripts/hostname.sh painel.visualdesignmoz.com
 
 echo 'Configuring CustomBuild...'
 cd /usr/local/directadmin/custombuild
@@ -18,7 +18,7 @@ cd /usr/local/directadmin/custombuild
 ./build set php3_mode lsphp
 
 echo 'Building OpenLiteSpeed and PHP in background...'
-nohup bash -c './build openlitespeed && ./build php n && ./build rewrite_confs && /usr/local/directadmin/scripts/letsencrypt.sh request_single painel.visualdesigne.com 4096' > /root/da_build.log 2>&1 &
+nohup bash -c './build openlitespeed && ./build php n && ./build rewrite_confs && /usr/local/directadmin/scripts/letsencrypt.sh request_single painel.visualdesignmoz.com 4096' > /root/da_build.log 2>&1 &
 echo 'Optimization script started successfully.'
 EOF
 chmod +x /root/da_optimize.sh

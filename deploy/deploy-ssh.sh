@@ -3,7 +3,7 @@
 # Deploy direto via SSH para o servidor CyberPanel
 # Autorizado pelo usuário para execução automática
 
-echo "🚀 Iniciando deploy para visualdesigne.com..."
+echo "🚀 Iniciando deploy para visualdesignmoz.com..."
 
 # Verificar se a chave SSH existe
 SSH_KEY="/Users/macbook/.ssh/visualdesign_cyberpanel_key"
@@ -13,7 +13,7 @@ if [ ! -f "$SSH_KEY" ]; then
 fi
 
 SERVER="root@109.199.104.22"
-REMOTE_PATH="/home/visualdesigne.com/public_html"
+REMOTE_PATH="/home/visualdesignmoz.com/public_html"
 LOCAL_PATH="/Users/macbook/Desktop/APP/visualdesign"
 
 echo "📤 Enviando arquivos para o servidor..."
@@ -38,7 +38,7 @@ echo "🔨 Executando build no servidor..."
 
 # Executar build e restart do PM2
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SERVER" << 'EOF'
-    cd /home/visualdesigne.com/public_html
+    cd /home/visualdesignmoz.com/public_html
     
     # Verificar se há node_modules, se não, instalar
     if [ ! -d "node_modules" ]; then
@@ -58,4 +58,4 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SERVER" << 
     echo "✅ Deploy concluído!"
 EOF
 
-echo "🌐 Site atualizado: https://visualdesigne.com"
+echo "🌐 Site atualizado: https://visualdesignmoz.com"

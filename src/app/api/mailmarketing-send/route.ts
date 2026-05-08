@@ -10,7 +10,7 @@ import {
 // Configurar no .env:
 //   DA_SMTP_HOST=109.199.104.22
 //   DA_SMTP_PORT=587
-//   DA_SMTP_USER=marketing@visualdesigne.com (email criado no DA)
+//   DA_SMTP_USER=marketing@visualdesignmoz.com (email criado no DA)
 //   DA_SMTP_PASS=password-da-conta-email
 // ============================================================
 const DA_SMTP_HOST = process.env.DA_SMTP_HOST || '109.199.104.22';

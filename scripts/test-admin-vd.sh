@@ -1,17 +1,17 @@
 #!/bin/bash
-# Testar envio de admin@visualdesigne.com
+# Testar envio de admin@visualdesignmoz.com
 
-echo "📧 Testando envio de admin@visualdesigne.com..."
+echo "📧 Testando envio de admin@visualdesignmoz.com..."
 
 swaks \
     --to silva.chamo@gmail.com \
-    --from admin@visualdesigne.com \
+    --from admin@visualdesignmoz.com \
     --server 127.0.0.1:587 \
-    --auth-user admin@visualdesigne.com \
+    --auth-user admin@visualdesignmoz.com \
     --auth-password 'Ad.Vd#2425?*' \
     --auth-plain \
     --tls \
-    --body "Teste admin@visualdesigne.com $(date)" \
+    --body "Teste admin@visualdesignmoz.com $(date)" \
     --h-Subject "Teste admin VD $(date +%H:%M)" 2>&1
 
 echo ""

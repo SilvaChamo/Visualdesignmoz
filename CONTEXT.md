@@ -24,9 +24,9 @@ Este documento serve como um guia completo para qualquer programador ou agente d
         -   **Servidor Web:** OpenLiteSpeed
         -   **Gestor de Processos:** PM2 (para correr a aplicação Next.js)
 -   **URLs:**
-    -   **Produção:** `https://visualdesigne.com`
-    -   **Painel de Administração:** `https://visualdesigne.com/admin`
-    -   **Painel de Cliente:** `https://visualdesigne.com/dashboard`
+    -   **Produção:** `https://visualdesignmoz.com`
+    -   **Painel de Administração:** `https://visualdesignmoz.com/admin`
+    -   **Painel de Cliente:** `https://visualdesignmoz.com/dashboard`
     -   **Acesso Direto ao CyberPanel:** `https://109.199.104.22:8090`
 
 ---

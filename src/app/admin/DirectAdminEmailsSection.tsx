@@ -5,8 +5,9 @@ import {
   Mail, Plus, Trash2, RefreshCw, Eye, EyeOff, Key, CheckCircle,
   AlertCircle, Globe, Loader2, Copy, ExternalLink, Shield
 } from 'lucide-react'
+import { getDirectAdminUrl } from '@/lib/server-config'
 
-const DA_DOMAINS = ['visualdesigne.com', 'oshercollective.com']
+const DA_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'oshercollective.com']
 
 interface EmailAccount {
   email: string
@@ -143,7 +144,7 @@ export function DirectAdminEmailsSection() {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="https://painel.visualdesigne.com:2222"
+            href={getDirectAdminUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-600 rounded-[10px] text-xs font-bold hover:bg-blue-100 transition-all"

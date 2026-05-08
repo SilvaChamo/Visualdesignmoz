@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
 const ADMIN_EMAILS = new Set([
-  'admin@visualdesigne.com',
-  'geral@visualdesigne.com',
-  'suporte@visualdesigne.com',
+  'admin@visualdesignmoz.com',
+  'geral@visualdesignmoz.com',
+  'suporte@visualdesignmoz.com',
   'silva.chamo@gmail.com',
 ]);
 

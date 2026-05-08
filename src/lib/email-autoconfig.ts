@@ -31,7 +31,7 @@ export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
 // Configurações de email - Dinâmicas baseadas no servidor configurado
 export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
   'aamihe.com': getDefaultConfig('aamihe.com'),
-  'visualdesigne.com': getDefaultConfig('visualdesigne.com'),
+  'visualdesignmoz.com': getDefaultConfig('visualdesignmoz.com'),
   'visualdesigne.pt': getDefaultConfig('visualdesigne.pt'),
   'anap.co.mz': getDefaultConfig('anap.co.mz'),
   'entrecampos.co.mz': getDefaultConfig('entrecampos.co.mz')

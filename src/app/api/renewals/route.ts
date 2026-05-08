@@ -7,7 +7,7 @@ async function checkIsAdmin(supabase: any): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
   
-  const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com']
+  const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
   return adminEmails.includes(user.email || '') || user.user_metadata?.role === 'admin'
 }
 

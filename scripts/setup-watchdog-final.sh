@@ -9,9 +9,9 @@ cat > /usr/local/bin/opendkim-watchdog.sh << 'EOF'
 if ! pgrep -x "opendkim" > /dev/null; then
     echo "$(date): OpenDKIM parado, reiniciando..." >> /var/log/watchdog.log
     /usr/sbin/opendkim \
-        -d visualdesigne.com,vmi3097666.visualdesigne.com \
+        -d visualdesignmoz.com,vmi3097666.visualdesignmoz.com \
         -s default \
-        -k /etc/opendkim/keys/visualdesigne.com/default.private \
+        -k /etc/opendkim/keys/visualdesignmoz.com/default.private \
         -p inet:8891@127.0.0.1 \
         -l &
 fi

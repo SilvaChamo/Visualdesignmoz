@@ -31,8 +31,8 @@ const DA_HOST = readEnv('DIRECTADMIN_HOST') || '109.199.104.22';
 const DA_PORT = readEnv('DIRECTADMIN_PORT') || '2222';
 const DA_USER = readEnv('DIRECTADMIN_USER') || 'admin';
 const DA_PASS =
-  readEnv('DIRECTADMIN_LOGIN_KEY') ||
   readEnv('DIRECTADMIN_PASSWORD') ||
+  readEnv('DIRECTADMIN_LOGIN_KEY') ||
   readEnv('DIRECTADMIN_PASS');
 const DA_PROTOCOL = readEnv('DIRECTADMIN_PROTOCOL') || 'https';
 const DA_BASE = (readEnv('DIRECTADMIN_URL') || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
@@ -64,7 +64,7 @@ function isDirectAdminAuthFailure(status: number, text: string) {
 
 function directAdminAuthError(cmd: string, text: string) {
   return new Error(
-    `${cmd}: DirectAdmin recusou as credenciais. No Vercel, confirme DIRECTADMIN_USER e coloque em DIRECTADMIN_LOGIN_KEY o valor da chave gerada, não o nome da chave. Resposta DirectAdmin: ${summarizeDirectAdminBody(text)}`
+    `${cmd}: DirectAdmin recusou as credenciais. No Vercel, confirme DIRECTADMIN_USER e a credencial DirectAdmin ativa. Para este teste, DIRECTADMIN_PASSWORD tem prioridade sobre DIRECTADMIN_LOGIN_KEY. Resposta DirectAdmin: ${summarizeDirectAdminBody(text)}`
   );
 }
 

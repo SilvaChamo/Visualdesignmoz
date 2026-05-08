@@ -30,10 +30,10 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Admin Policies for messages/notifications
 CREATE POLICY "Admins can manage messages" ON messages
-    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com'));
+    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesignmoz.com', 'geral@visualdesignmoz.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesignmoz.com'));
 
 CREATE POLICY "Users can view their own notifications" ON notifications
     FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Admins can manage all notifications" ON notifications
-    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com'));
+    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesignmoz.com', 'geral@visualdesignmoz.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesignmoz.com'));

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { daRequest } from '@/lib/directadmin';
 
 /**
- * GET  ?action=list&domain=visualdesigne.com  → lista emails
+ * GET  ?action=list&domain=visualdesignmoz.com  → lista emails
  * POST action=create  → cria email
  * DELETE action=delete → apaga email
  * PATCH action=password → muda password

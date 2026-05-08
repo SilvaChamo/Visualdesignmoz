@@ -142,7 +142,7 @@ Informamos que seu serviço está próximo do vencimento:
 • Dados podem ser perdidos após 7 dias da suspensão
 
 Dúvidas? Contate-nos:
-📧 Email: suporte@visualdesigne.com
+📧 Email: suporte@visualdesignmoz.com
 📞 Telefone: +351 XXX XXX XXX
 
 Atenciosamente,

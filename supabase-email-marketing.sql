@@ -54,13 +54,13 @@ ALTER TABLE email_campaign_logs ENABLE ROW LEVEL SECURITY;
 -- Note: In a production environment, you should use a more robust way to check for admin status
 
 CREATE POLICY "Admins can manage subscribers" ON newsletter_subscribers
-    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com'));
+    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesignmoz.com', 'geral@visualdesignmoz.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesignmoz.com'));
 
 CREATE POLICY "Admins can manage campaigns" ON email_campaigns
-    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com'));
+    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesignmoz.com', 'geral@visualdesignmoz.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesignmoz.com'));
 
 CREATE POLICY "Admins can view logs" ON email_campaign_logs
-    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesigne.com', 'geral@visualdesigne.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesigne.com'));
+    FOR ALL USING (auth.jwt() ->> 'email' IN ('admin@visualdesignmoz.com', 'geral@visualdesignmoz.com', 'silva.chamo@gmail.com', 'silva.chamo@visualdesignmoz.com'));
 
 -- Public policy for subscribing (INSERT only)
 CREATE POLICY "Public can subscribe" ON newsletter_subscribers

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec';
 
 const ALLOWED_DOMAINS = [
-  'visualdesigne.com',
+  'visualdesignmoz.com',
+  'visualdesignmoz.com',
   'anap.co.mz',
   'entrecampos.co.mz'
 ];
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     
     // 🚫 FILTRO: Remover emails inválidos ou indesejados
     const emailsInvalidos = [
-      'geral@visualdesigne.com',
+      'geral@visualdesignmoz.com',
       'teste@',                         // Emails de teste
       'exemplo@',                       // Emails de exemplo
       'admin@your-domain.com',          // Template placeholder

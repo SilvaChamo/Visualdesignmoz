@@ -34,11 +34,11 @@ export const metadata: Metadata = {
     description: "Painel de gestão de clientes e campanhas de email marketing",
     type: "website",
     locale: "pt MZ",
-    url: "https://painel.visualdesigne.com",
+    url: "https://visualdesignmoz.com",
     siteName: "VisualDesign",
     images: [
       {
-        url: "https://painel.visualdesigne.com/icons/icon-512x512.png",
+        url: "https://visualdesignmoz.com/icons/icon-512x512.png",
         width: 512,
         height: 512,
         alt: "VisualDesign Logo",
@@ -68,11 +68,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
         <meta property="og:title" content="VisualDesign - Email Marketing" />
         <meta property="og:description" content="Painel de gestão de clientes e campanhas de email marketing" />
-        <meta property="og:image" content="https://painel.visualdesigne.com/icons/icon-512x512.png" />
+        <meta property="og:image" content="https://visualdesignmoz.com/icons/icon-512x512.png" />
         <meta property="og:image:width" content="512" />
         <meta property="og:image:height" content="512" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://painel.visualdesigne.com" />
+        <meta property="og:url" content="https://visualdesignmoz.com" />
         <meta property="og:site_name" content="VisualDesign" />
         <script
           dangerouslySetInnerHTML={{

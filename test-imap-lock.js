@@ -5,7 +5,7 @@ async function test() {
     host: '109.199.104.22',
     port: 993,
     secure: true,
-    auth: { user: 'silva.chamo@visualdesigne.com', pass: 'Meckito#77?*' },
+    auth: { user: 'silva.chamo@visualdesignmoz.com', pass: 'Meckito#77?*' },
     logger: false
   });
 

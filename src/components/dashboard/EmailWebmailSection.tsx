@@ -90,7 +90,7 @@ export function EmailWebmailSection({
   const [assinatura, setAssinatura] = useState('')
   const [mostrarConfigAssinatura, setMostrarConfigAssinatura] = useState(false)
   const [contactos, setContactos] = useState([
-    { nome: 'Suporte Técnico', email: 'suporte@visualdesigne.com' },
+    { nome: 'Suporte Técnico', email: 'suporte@visualdesignmoz.com' },
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
@@ -102,13 +102,13 @@ export function EmailWebmailSection({
 
   // Mapa de credenciais padrão para emails do sistema (fallback)
   const CREDENCIAIS_PADRAO: Record<string, string> = {
-    'silva.chamo@visualdesigne.com': 'Meckito#77?*',
-    'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
-    'geral@visualdesigne.com': 'Ge.Vd#2425?*',
-    'admin@visualdesigne.com': 'Ad.Vd#2425?*',
-    'info@visualdesigne.com': 'Informação!#2020?*',
-    'suporte@visualdesigne.com': 'SupaEmail#2026?*',
-    'noreply@visualdesigne.com': 'VisualDesign#2026',
+    'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
+    'duduchamatavele@visualdesignmoz.com': 'Dudu#2425?*',
+    'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
+    'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
+    'info@visualdesignmoz.com': 'Informação!#2020?*',
+    'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
+    'noreply@visualdesignmoz.com': 'VisualDesign#2026',
   }
 
   // 🚀 FUNÇÃO HELPER: Buscar senha dinamicamente da API segura
@@ -288,11 +288,11 @@ export function EmailWebmailSection({
               email: emailOrigem || (todasAsContas ? modalEmail.conta : ''),
               password: emailOrigemPassword || (() => {
                 const senhas: Record<string, string> = {
-                  'geral@visualdesigne.com': 'Ge.Vd#2425?*',
-                  'silva.chamo@visualdesigne.com': 'Meckito#77?*',
-                  'admin@visualdesigne.com': 'Ad.Vd#2425?*',
-                  'noreply@visualdesigne.com': 'VisualDesign#2026',
-                  'suporte@visualdesigne.com': 'SupaEmail#2026?*',
+                  'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
+                  'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
+                  'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
+                  'noreply@visualdesignmoz.com': 'VisualDesign#2026',
+                  'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
                 }
                 return senhas[emailOrigem || ''] || ''
               })(),
@@ -342,7 +342,7 @@ export function EmailWebmailSection({
       // No modo admin: mostrar apenas domínios da VisualDesigne
       const dominiosValidos = hideSidebar && propEmailOrigem 
         ? [propEmailOrigem.split('@')[1]]  // Apenas domínio do cliente logado
-        : ['visualdesigne.com', 'anap.co.mz', 'entrecampos.co.mz']  // Apenas domínios admin
+        : ['visualdesignmoz.com', 'visualdesignmoz.com', 'anap.co.mz', 'entrecampos.co.mz']  // Apenas domínios admin
       
       // ⚡ Timeout para cada requisição (5 segundos max)
       const fetchWithTimeout = async (domain: string) => {
@@ -398,9 +398,9 @@ export function EmailWebmailSection({
       console.log(`📧 [Contacts] Total contactos carregados: ${allEmails.length}`)
       setEmailsOrigem(allEmails)
       
-      // Selecionar o email automaticamente (preferência para silva.chamo@visualdesigne.com)
+      // Selecionar o email automaticamente (preferência para silva.chamo@visualdesignmoz.com)
       if (allEmails.length > 0 && !emailOrigem) {
-        const silvaAccount = allEmails.find(a => a.email === 'silva.chamo@visualdesigne.com')
+        const silvaAccount = allEmails.find(a => a.email === 'silva.chamo@visualdesignmoz.com')
         const defaultAccount = silvaAccount || allEmails[0]
         
         console.log(`📧 [Contacts] Selecionando contacto padrão: ${defaultAccount.email}`)

@@ -2264,7 +2264,7 @@ export default function ResellerPage() {
           userEmail={sessionUser}
           sites={filteredSites}
           useDirectAdminAPI={true}
-          emailOrigem="geral@visualdesigne.com"
+          emailOrigem="geral@visualdesignmoz.com"
           onComposeStateChange={setIsComposeActive}
           isAdmin={false}
           onNavigate={handleNavigate}
@@ -2542,9 +2542,9 @@ export default function ResellerPage() {
       setShowCadastroModal(true)
       return
     }
-    // Se navegar para gestão de emails, definir domínio padrão visualdesigne.com
+    // Se navegar para gestão de emails, definir domínio padrão visualdesignmoz.com
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
-      setPreSelectedEmailDomain('visualdesigne.com')
+      setPreSelectedEmailDomain('visualdesignmoz.com')
     }
     setActiveSection(section)
   }

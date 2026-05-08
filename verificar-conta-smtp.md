@@ -12,7 +12,7 @@ Invalid login: 535 5.7.8 Error: authentication failed: (reason unavailable)
 Acesse: https://109.199.104.22:8090/snappymail/
 
 **Teste com:**
-- Email: `admin@visualdesigne.com`
+- Email: `admin@visualdesignmoz.com`
 - Senha: `VisualDesign#2026`
 
 ### 2. Se o Login Falhar
@@ -22,17 +22,17 @@ Acesse: https://109.199.104.22:8090/snappymail/
 - Verifique no CyberPanel a senha exata
 
 #### Opção B: Criar Conta Admin
-1. Acesse CyberPanel: https://visualdesigne.com:8090/
+1. Acesse CyberPanel: https://visualdesignmoz.com:8090/
 2. Email -> Create Email
-3. Dominio: `visualdesigne.com`
+3. Dominio: `visualdesignmoz.com`
 4. Usuario: `admin`
 5. Senha: `VisualDesign#2026`
 6. Marque "Send Welcome Email"
 
 #### Opção C: Usar Outra Conta Existente
 Se você tem outra conta que funciona:
-- `suporte@visualdesigne.com`
-- `geral@visualdesigne.com`
+- `suporte@visualdesignmoz.com`
+- `geral@visualdesignmoz.com`
 - Sua conta pessoal
 
 ### 3. Teste Manual SMTP
@@ -56,7 +56,7 @@ No CyberPanel, verifique:
 ### 5. Possíveis Causas
 
 #### Conta Não Existe
-- `admin@visualdesigne.com` não foi criada
+- `admin@visualdesignmoz.com` não foi criada
 - Senha está incorreta
 
 #### Conta Bloqueada
@@ -75,17 +75,17 @@ Se você tem uma conta que funciona no webmail:
 
 1. **Atualize temporariamente** as credenciais:
 ```bash
-SMTP_MASTER_EMAIL=sua-conta@visualdesigne.com
+SMTP_MASTER_EMAIL=sua-conta@visualdesignmoz.com
 SMTP_MASTER_PASSWORD=sua-senha-real
 ```
 
 2. **Teste o mailmarketing**
-3. **Se funcionar**, sabemos que o problema é apenas a conta `admin@visualdesigne.com`
+3. **Se funcionar**, sabemos que o problema é apenas a conta `admin@visualdesignmoz.com`
 
 ### Verificação no CyberPanel
 
 1. **Email -> Email Accounts**
-2. **Procurar**: `admin@visualdesigne.com`
+2. **Procurar**: `admin@visualdesignmoz.com`
 3. **Se não existir**: Criar
 4. **Se existir**: Verificar status e resetar senha
 

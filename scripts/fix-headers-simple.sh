@@ -20,7 +20,7 @@ head -n \$((LINE-1)) \$FILE > /tmp/send-email-new.php
 cat >> /tmp/send-email-new.php << 'NEWCODE'
     // Headers melhorados para evitar spam
     \$fromName = \$input['fromName'] ?? 'Marketing';
-    \$domain = explode('@', \$from)[1] ?? 'visualdesigne.com';
+    \$domain = explode('@', \$from)[1] ?? 'visualdesignmoz.com';
     \$messageId = '<' . uniqid() . '@' . \$domain . '>';
     \$listId = '<' . \$domain . '.' . date('Ymd') . '>';
     

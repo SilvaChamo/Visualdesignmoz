@@ -9,13 +9,13 @@ sleep 1
 
 # Criar KeyTable
 cat > /etc/opendkim/key.table << 'EOF'
-default._domainkey.visualdesigne.com visualdesigne.com:default:/etc/opendkim/keys/visualdesigne.com/default.private
+default._domainkey.visualdesignmoz.com visualdesignmoz.com:default:/etc/opendkim/keys/visualdesignmoz.com/default.private
 EOF
 
 # Criar SigningTable
 cat > /etc/opendkim/signing.table << 'EOF'
-*@visualdesigne.com default._domainkey.visualdesigne.com
-*@vmi3097666.visualdesigne.com default._domainkey.visualdesigne.com
+*@visualdesignmoz.com default._domainkey.visualdesignmoz.com
+*@vmi3097666.visualdesignmoz.com default._domainkey.visualdesignmoz.com
 EOF
 
 # Corrigir permissões

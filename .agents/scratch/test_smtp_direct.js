@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 // USANDO IP DIRETO PARA EVITAR ERROS DE DNS
 const DA_SMTP_HOST = '109.199.104.22';
 const DA_SMTP_PORT = 587;
-const DA_SMTP_USER = 'marketing@visualdesigne.com';
+const DA_SMTP_USER = 'marketing@visualdesignmoz.com';
 const DA_SMTP_PASS = 'mark#mail2026?*';
 
 async function sendDirectTests() {

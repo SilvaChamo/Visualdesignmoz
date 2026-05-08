@@ -1,5 +1,5 @@
 #!/bin/bash
-# Verificar entrega do email admin@visualdesigne.com
+# Verificar entrega do email admin@visualdesignmoz.com
 
 echo "⏳ Aguardando 15s..."
 sleep 15

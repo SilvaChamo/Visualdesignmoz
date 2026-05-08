@@ -15,7 +15,7 @@ SELECT
   -- Verificar se o metadado é válido JSON
   jsonb_typeof(u.raw_user_meta_data) as metadata_type
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- Verificar se existem sessões ativas (se possível)
 SELECT 
@@ -24,7 +24,7 @@ FROM auth.sessions
 WHERE user_id IN (
   SELECT id 
   FROM auth.users 
-  WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')
+  WHERE email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')
 )
 ORDER BY created_at DESC
 LIMIT 5;
@@ -39,7 +39,7 @@ SELECT
   p.created_at,
   p.updated_at
 FROM public.profiles p
-WHERE p.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE p.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');
 
 -- Se os utilizadores existirem mas não tiverem sessões ativas,
 -- pode ser necessário forçar refresh token ou fazer login novamente

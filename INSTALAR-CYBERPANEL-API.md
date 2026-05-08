@@ -50,7 +50,7 @@ if (!$input || empty($input['to'])) {
 $to = $input['to'];
 $subject = $input['subject'];
 $html = $input['html'];
-$from = $input['from'] ?? 'noreply@visualdesigne.com';
+$from = $input['from'] ?? 'noreply@visualdesignmoz.com';
 
 // 🌡️ SISTEMA DE AQUECIMENTO
 $WARMUP_LIMITS = [
@@ -150,7 +150,7 @@ curl -X POST https://109.199.104.22:8090/send-email-api.php \
     "to": ["silva.chamo@gmail.com"],
     "subject": "Teste CyberPanel API",
     "html": "<h1>Teste</h1><p>Funcionou!</p>",
-    "from": "admin@visualdesigne.com"
+    "from": "admin@visualdesignmoz.com"
   }'
 ```
 

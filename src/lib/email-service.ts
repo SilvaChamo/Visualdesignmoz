@@ -16,11 +16,11 @@ export interface EmailOptions {
  * Serviço centralizado de envio de e-mail com detecção automática de domínio.
  */
 export const sendEmail = async (options: EmailOptions) => {
-    const from = options.from || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
+    const from = options.from || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com';
     const config = detectDomainConfig(from);
     
     // Configuração de autenticação
-    const authUser = options.from || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com';
+    const authUser = options.from || process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com';
     const authPass = options.password || process.env.SMTP_MASTER_PASSWORD || 'Ad.Vd#2425?*';
 
     try {
@@ -59,7 +59,7 @@ export const sendEmail = async (options: EmailOptions) => {
             try {
                 console.log('Attempting Resend fallback...');
                 const resendResult = await resend.emails.send({
-                    from: from.endsWith('@visualdesigne.com') ? from : 'noreply@visualdesigne.com',
+                    from: from.endsWith('@visualdesignmoz.com') ? from : 'noreply@visualdesignmoz.com',
                     to: options.to,
                     subject: options.subject,
                     html: options.html,

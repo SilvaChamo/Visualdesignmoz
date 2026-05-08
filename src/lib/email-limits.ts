@@ -2,7 +2,7 @@
  * Sistema de Limites de Email - Proteção contra bloqueio
  * 
  * REGRAS:
- * 1. Sender principal: admin@visualdesigne.com (servidor próprio)
+ * 1. Sender principal: admin@visualdesignmoz.com (servidor próprio)
  * 2. Limite diário: 200 emails (para evitar bloqueio do Google)
  * 3. Gmail APENAS como fallback de emergência
  * 4. Nunca mostrar "via Google" no receptor
@@ -13,7 +13,7 @@ export const EMAIL_LIMITS = {
   DAILY_LIMIT: 200,
   
   // Sender principal (sempre usar este)
-  PRIMARY_SENDER: 'admin@visualdesigne.com',
+  PRIMARY_SENDER: 'admin@visualdesignmoz.com',
   PRIMARY_PASSWORD: 'Ad.Vd#2425?*',
   
   // Configuração SMTP principal
@@ -45,7 +45,7 @@ export function isValidSender(email: string): boolean {
   // (apenas como fallback de emergência)
   if (email.toLowerCase().endsWith('@gmail.com')) {
     console.warn('⚠️  AVISO: Gmail não deve ser usado como sender principal!');
-    console.warn('   Use admin@visualdesigne.com para não aparecer "via Google"');
+    console.warn('   Use admin@visualdesignmoz.com para não aparecer "via Google"');
     return false;
   }
   return true;

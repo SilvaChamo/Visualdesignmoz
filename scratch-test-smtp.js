@@ -2,11 +2,11 @@ const nodemailer = require('nodemailer');
 
 async function testSMTP() {
     console.log("Testing SMTP connection...");
-    const SMTP_HOST = 'mail.visualdesigne.com';
+    const SMTP_HOST = 'mail.visualdesignmoz.com';
     const SMTP_PORT = 587;
     const SMTP_SECURE = false;
 
-    const fromEmail = 'silva.chamo@visualdesigne.com';
+    const fromEmail = 'silva.chamo@visualdesignmoz.com';
     const fromPassword = 'Meckito#1977?*';
 
     const transporter = nodemailer.createTransport({

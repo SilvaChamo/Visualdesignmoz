@@ -98,7 +98,7 @@ Depois de configurar o servidor, o site já está pronto:
 // Configuração no .env.local
 SMTP_HOST=109.199.104.22
 SMTP_PORT=587
-SMTP_MASTER_EMAIL=admin@visualdesigne.com
+SMTP_MASTER_EMAIL=admin@visualdesignmoz.com
 SMTP_MASTER_PASSWORD=Ad.Vd#2425?*
 ```
 

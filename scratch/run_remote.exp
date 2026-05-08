@@ -1,5 +1,5 @@
 #!/usr/bin/expect -f
-spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 "tail -n 50 /usr/local/lsws/logs/error.log && echo '=== DIR ===' && ls -la /home/admin/domains/visualdesigne.com/public_html/"
+spawn ssh -o StrictHostKeyChecking=no root@109.199.104.22 "tail -n 50 /usr/local/lsws/logs/error.log && echo '=== DIR ===' && ls -la /home/admin/domains/visualdesignmoz.com/public_html/"
 expect "*assword:*"
 send "Meckito#77?*\r"
 expect eof

@@ -15,7 +15,7 @@ import {
   getWarmupTermsAndConditions
 } from '@/lib/email-welcome-service'
 
-const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesigne.com'];
+const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesignmoz.com'];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     // ou se for admin. Usuários com Gmail/Yahoo/etc não podem criar contas de email
     if (!isAdmin) {
       const userEmailDomain = session.user.email?.split('@')[1]?.toLowerCase() || '';
-      const managedDomains = ['visualdesigne.com', 'visualdesigne.pt', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
+      const managedDomains = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
       const hasManagedDomain = managedDomains.includes(userEmailDomain);
       
       if (!hasManagedDomain) {
@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
         username: user,
         quota_mb: 1024,
         quota: '1 GB',
-        contactEmail: 'admin@visualdesigne.com'
+        contactEmail: 'admin@visualdesignmoz.com'
       }
 
       // Gerar conteúdos do email
@@ -260,18 +260,18 @@ export async function POST(req: NextRequest) {
 
       // Porta 587 fixa - STARTTLS (nunca 465)
       const transporter = nodemailer.createTransport({
-        host: 'mail.visualdesigne.com',
+        host: 'mail.visualdesignmoz.com',
         port: 587,
         secure: false, // 587 = STARTTLS
         auth: {
-          user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesigne.com',
+          user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com',
           pass: process.env.SMTP_MASTER_PASSWORD || ''
         },
         tls: { rejectUnauthorized: false }
       })
 
       await transporter.sendMail({
-        from: `"VisualDesign Email" <admin@visualdesigne.com>`,
+        from: `"VisualDesign Email" <admin@visualdesignmoz.com>`,
         to: email,
         subject: `🎉 Nova Conta de Email Configurada - ${email}`,
         text: welcomeText,

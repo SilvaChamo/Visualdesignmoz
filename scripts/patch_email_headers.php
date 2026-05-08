@@ -16,7 +16,7 @@ $old_pattern = '/\$headers_mail = "From: <\{\$from\}>\\r\\n";\s*\$headers_mail \
 $new_headers = <<<'HEADERS'
     // Headers melhorados para evitar spam
     $fromName = $input['fromName'] ?? 'Marketing';
-    $domain = explode('@', $from)[1] ?? 'visualdesigne.com';
+    $domain = explode('@', $from)[1] ?? 'visualdesignmoz.com';
     $messageId = '<' . uniqid() . '@' . $domain . '>';
     
     $headers_mail = "From: \"" . $fromName . "\" <{$from}>\r\n";

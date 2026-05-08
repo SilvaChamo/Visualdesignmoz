@@ -21,9 +21,9 @@ touch /etc/opendkim.conf
 # Iniciar com parâmetros na linha de comando
 /usr/sbin/opendkim \
   -x /etc/opendkim.conf \
-  -d visualdesigne.com \
+  -d visualdesignmoz.com \
   -s default \
-  -k /etc/opendkim/keys/visualdesigne.com/default.private \
+  -k /etc/opendkim/keys/visualdesignmoz.com/default.private \
   -p inet:8891@127.0.0.1 \
   -P /run/opendkim/opendkim.pid \
   -l &

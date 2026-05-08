@@ -3,8 +3,8 @@ LogWhy yes
 Mode sv
 Canonicalization simple
 Selector default
-Domain visualdesigne.com
-KeyFile /etc/opendkim/keys/visualdesigne.com/default.private
+Domain visualdesignmoz.com
+KeyFile /etc/opendkim/keys/visualdesignmoz.com/default.private
 Socket inet:8891@127.0.0.1
 SignatureAlgorithm rsa-sha256
 PidFile /run/opendkim/opendkim.pid

@@ -22,7 +22,7 @@ async function testApi(name, endpoint, payload) {
 }
 
 async function runTests() {
-    const email = 'admin@visualdesigne.com';
+    const email = 'admin@visualdesignmoz.com';
     const password = 'Ad.Vd#2425?*';
 
     console.log("Starting tests...\n");
@@ -56,7 +56,7 @@ async function runTests() {
 
     // Forward
     await testApi('Encaminhar (↪️ Encaminhar)', 'forward-email', {
-        email, password, emailId: testEmailId, forwardTo: 'teste@visualdesigne.com', folder: 'INBOX'
+        email, password, emailId: testEmailId, forwardTo: 'teste@visualdesignmoz.com', folder: 'INBOX'
     });
 
     // Deletar
@@ -68,7 +68,7 @@ async function runTests() {
 
     // Salvar Rascunho
     const draftSave = await testApi('Salvar Rascunho (💾 Salvar Rascunho)', 'draft-save', {
-        email, para: 'teste@visualdesigne.com', cc: '', bcc: '', assunto: 'Teste Rascunho', corpo: 'Corpo de teste do rascunho'
+        email, para: 'teste@visualdesignmoz.com', cc: '', bcc: '', assunto: 'Teste Rascunho', corpo: 'Corpo de teste do rascunho'
     });
 
     // Carregar Rascunhos
@@ -83,7 +83,7 @@ async function runTests() {
 
     // Enviar (Send)
     await testApi('Enviar (✈️ Enviar)', 'send-email', {
-        from: email, fromPassword: password, to: 'teste@visualdesigne.com', cc: '', bcc: '', subject: 'Teste de Envio', html: 'Teste de corpo de email'
+        from: email, fromPassword: password, to: 'teste@visualdesignmoz.com', cc: '', bcc: '', subject: 'Teste de Envio', html: 'Teste de corpo de email'
     });
 
     console.log("\nTests Completed.");

@@ -19,7 +19,7 @@ const determinarTipo = (path: string) => {
 
 // Domínios hospedados no servidor CyberPanel
 const CYBERPANEL_DOMAINS = [
-  'visualdesigne.com', 'visualdesigne.pt',
+  'visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt',
   'anap.co.mz', 'entrecampos.co.mz',
   'aamihe.com', 'entrecampos.co.mz',
   'miv.co.mz', 'moz-servicos.com'
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     // --- CAMINHO 1: ALL ACCOUNTS ---
     if (allAccounts && session) {
       const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-      const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com']
+      const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com']
       const isAdmin = adminEmails.includes(session.user?.email || '')
       let query = supabaseAdmin.from('email_contas').select('email, senha_cyberpanel')
       if (!isAdmin) query = query.eq('cliente_id', session.user.id)

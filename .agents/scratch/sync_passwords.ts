@@ -9,14 +9,14 @@ const supabase = createClient(
 )
 
 const CREDENCIAIS_PADRAO = {
-  'silva.chamo@visualdesigne.com': 'Meckito#77?*',
-  'duduchamatavele@visualdesigne.com': 'Dudu#2425?*',
-  'geral@visualdesigne.com': 'Ge.Vd#2425?*',
-  'admin@visualdesigne.com': 'Ad.Vd#2425?*',
-  'info@visualdesigne.com': 'Informação!#2020?*',
-  'suporte@visualdesigne.com': 'SupaEmail#2026?*',
-  'noreply@visualdesigne.com': 'VisualDesign#2026',
-  'marketing@visualdesigne.com': 'mark#mail2026?*',
+  'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
+  'duduchamatavele@visualdesignmoz.com': 'Dudu#2425?*',
+  'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
+  'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
+  'info@visualdesignmoz.com': 'Informação!#2020?*',
+  'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
+  'noreply@visualdesignmoz.com': 'VisualDesign#2026',
+  'marketing@visualdesignmoz.com': 'mark#mail2026?*',
 }
 
 async function syncPasswords() {

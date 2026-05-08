@@ -10,7 +10,7 @@ async function setupDomain() {
     }
 
     const resend = new Resend(apiKey);
-    const domainName = 'visualdesigne.com';
+    const domainName = 'visualdesignmoz.com';
 
     try {
         console.log(`Adding domain ${domainName} to Resend...`);

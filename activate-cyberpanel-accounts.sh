@@ -9,7 +9,7 @@ echo "🚀 Ativando Contas de Email no CyberPanel"
 echo "=========================================="
 
 API_URL="http://localhost:3002/api/cyberpanel-cli"
-DOMAIN="visualdesigne.com"
+DOMAIN="visualdesignmoz.com"
 PASSWORD="Ad.Vd#2425?*"
 
 # Função para criar email via API
@@ -42,4 +42,4 @@ echo "❓ Verifique o console do servidor para erros"
 echo ""
 echo "Para verificar as contas, acesse:"
 echo "  Panel: https://109.199.104.22:8090"
-echo "  Webmail: https://visualdesigne.com:8090/snappymail/"
+echo "  Webmail: https://visualdesignmoz.com:8090/snappymail/"

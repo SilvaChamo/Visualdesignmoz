@@ -24,7 +24,7 @@ const smtpPass = 'senha-do-cliente';
 ### Opção 2: Usar SMTP Master (Recomendado)
 ```javascript
 // Sempre usa conta master do sistema
-const smtpUser = 'admin@visualdesigne.com';
+const smtpUser = 'admin@visualdesignmoz.com';
 const smtpPass = 'Ad.Vd#2425?*';
 ```
 
@@ -50,7 +50,7 @@ const smtpPass = 'Ad.Vd#2425?*';
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',  // ou servidor que funcionar
     auth: {
-        user: 'admin@visualdesigne.com',  // SMTP master
+        user: 'admin@visualdesignmoz.com',  // SMTP master
         pass: 'senha-master'
     }
 });

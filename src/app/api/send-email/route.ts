@@ -114,8 +114,8 @@ async function saveToSentFolder(
         
         // Usar IP directo do servidor CyberPanel (igual ao read-emails API)
         // Evita falhas de DNS que ocorrem com mail.{domínio}
-        const senderDomain = from.split('@')[1] || 'visualdesigne.com'
-        const CYBERPANEL_DOMAINS = ['visualdesigne.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+        const senderDomain = from.split('@')[1] || 'visualdesignmoz.com'
+        const CYBERPANEL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
         const isCyberPanel = CYBERPANEL_DOMAINS.includes(senderDomain) || CYBERPANEL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
         const imapHost = process.env.IMAP_HOST || (isCyberPanel ? getServerHost() : `mail.${senderDomain}`)
         

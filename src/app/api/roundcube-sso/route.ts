@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createHmac } from 'crypto'
+import { getDirectAdminUrl } from '@/lib/server-config'
 
 const SSO_SECRET = 'vd2026sso_secret_key_32chars!!'
-const ROUNDCUBE_URL = 'https://painel.visualdesigne.com:2222/roundcube'
+const ROUNDCUBE_URL = `${getDirectAdminUrl()}/roundcube`
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)

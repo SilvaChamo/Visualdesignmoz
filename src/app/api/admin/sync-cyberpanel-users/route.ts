@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (domains.length === 0) {
-      domains = ['visualdesigne.com'] // Fallback se falhar tudo
+      domains = ['visualdesignmoz.com'] // Fallback se falhar tudo
     }
 
     console.log(`🔄 [SYNC] Domínios encontrados: ${domains.join(', ')}`)

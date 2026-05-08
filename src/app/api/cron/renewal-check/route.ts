@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
-    const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com']
+    const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
     const isAdmin = user && adminEmails.includes(user.email || '')
     
     if (!isAdmin && secret !== CRON_SECRET) {
@@ -86,9 +86,9 @@ export async function GET(request: NextRequest) {
               expirationDate: new Date(renewal.expiration_date).toLocaleDateString('pt-PT'),
               daysRemaining: renewal.days_remaining,
               renewalPrice: `${renewal.renewal_price || 0} €`,
-              renewalLink: `https://visualdesigne.com/dashboard/renewals?service=${renewal.service_id}`,
+              renewalLink: `https://visualdesignmoz.com/dashboard/renewals?service=${renewal.service_id}`,
               companyName: 'VisualDesign',
-              supportEmail: 'suporte@visualdesigne.com',
+              supportEmail: 'suporte@visualdesignmoz.com',
               supportPhone: '+351 XXX XXX XXX'
             }
 
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
-    const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com']
+    const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
     
     if (!user || !adminEmails.includes(user.email || '')) {
       return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 })

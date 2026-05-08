@@ -438,7 +438,7 @@ except:
     }
 
     if (action === 'checkEmailReception') {
-      const domain = params?.domain || 'visualdesigne.com';
+      const domain = params?.domain || 'visualdesignmoz.com';
       const email = params?.email || `silva.chamo@${domain}`;
       
       const output = await execSSH(`
@@ -798,7 +798,7 @@ except Exception as e:
     }
 
     if (action === 'checkNetwork') {
-      const domain = params?.domain || 'visualdesigne.com';
+      const domain = params?.domain || 'visualdesignmoz.com';
       const output = await execSSH(`
         echo "=== Diagnóstico de Rede e Conectividade ==="
         echo ""

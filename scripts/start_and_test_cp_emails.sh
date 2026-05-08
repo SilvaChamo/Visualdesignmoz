@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 PORT=${1:-3002}
-DOMAIN=${2:-visualdesigne.com}
+DOMAIN=${2:-visualdesignmoz.com}
 
 echo "Checking port ${PORT}..."
 PID=$(lsof -t -iTCP:${PORT} -sTCP:LISTEN 2>/dev/null || true)

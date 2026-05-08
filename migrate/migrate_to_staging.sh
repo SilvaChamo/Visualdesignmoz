@@ -30,7 +30,7 @@ curl -X POST http://localhost:3002/api/server-exec \
 curl -X POST http://localhost:3002/api/server-exec \
   -H "Content-Type: application/json" \
   -d '{
-    "command": "cat > /etc/nginx/sites-available/staging.visualdesigne.com << \"EOF\"\nserver {\n    listen 80;\n    server_name staging.visualdesigne.com;\n    root /var/www/staging;\n    index index.php index.html;\n    \n    location / {\n        try_files \\$uri \\$uri/ /index.php?\\$query_string;\n    }\n    \n    location ~ \\.php$ {\n        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;\n        fastcgi_index index.php;\n        fastcgi_param SCRIPT_FILENAME \\$document_root\\$fastcgi_script_name;\n        include fastcgi_params;\n    }\n}\nEOF",
+    "command": "cat > /etc/nginx/sites-available/staging.visualdesignmoz.com << \"EOF\"\nserver {\n    listen 80;\n    server_name staging.visualdesignmoz.com;\n    root /var/www/staging;\n    index index.php index.html;\n    \n    location / {\n        try_files \\$uri \\$uri/ /index.php?\\$query_string;\n    }\n    \n    location ~ \\.php$ {\n        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;\n        fastcgi_index index.php;\n        fastcgi_param SCRIPT_FILENAME \\$document_root\\$fastcgi_script_name;\n        include fastcgi_params;\n    }\n}\nEOF",
     "server": "contabo"
   }' 2>/dev/null
 
@@ -38,12 +38,12 @@ curl -X POST http://localhost:3002/api/server-exec \
 curl -X POST http://localhost:3002/api/server-exec \
   -H "Content-Type: application/json" \
   -d '{
-    "command": "ln -sf /etc/nginx/sites-available/staging.visualdesigne.com /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx && echo \"Site staging ativado\"",
+    "command": "ln -sf /etc/nginx/sites-available/staging.visualdesignmoz.com /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx && echo \"Site staging ativado\"",
     "server": "contabo"
   }' 2>/dev/null
 
 echo "✅ Ambiente staging criado!"
-echo "🌐 Staging URL: http://staging.visualdesigne.com"
+echo "🌐 Staging URL: http://staging.visualdesignmoz.com"
 echo ""
 
 # Lista de sites para migrar (vamos descobrir automaticamente)
@@ -121,7 +121,7 @@ for site_path in $SITES_TO_MIGRATE; do
               }" 2>/dev/null
             
             echo "   ✅ $site_name migrado para staging!"
-            echo "   🌐 http://staging.visualdesigne.com/${site_name}"
+            echo "   🌐 http://staging.visualdesignmoz.com/${site_name}"
         else
             echo "   ❌ Não foi possível determinar o nome do banco"
         fi
@@ -132,7 +132,7 @@ echo ""
 echo "🎉 MIGRAÇÃO STAGING CONCLUÍDA!"
 echo "📋 Resumo:"
 echo "   🗄️  Bancos criados: staging_visualdesign, staging_sites"
-echo "   🌐 Staging URL: http://staging.visualdesigne.com"
+echo "   🌐 Staging URL: http://staging.visualdesignmoz.com"
 echo "   📁 Diretório staging: /var/www/staging/"
 echo ""
 echo "🔍 Próximo passo: Testar sites em staging"

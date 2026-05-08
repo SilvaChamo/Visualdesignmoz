@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
 } from 'lucide-react'
-import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl } from '@/lib/server-config';
+import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -52,6 +52,41 @@ const parseState = (state: any): string => {
   if (state === 0 || state === '0' || state === 'Active') return 'Active'
   if (state === 1 || state === '1' || state === 'Suspended') return 'Suspended'
   return state || 'Active'
+}
+
+function DirectAdminManualNotice({
+  title = 'DirectAdmin externo',
+  description = 'A integração automática com o DirectAdmin foi desligada. Use o painel DirectAdmin nativo para gerir esta função.',
+  href = getDirectAdminUrl(),
+}: {
+  title?: string
+  description?: string
+  href?: string
+}) {
+  return (
+    <div className="max-w-2xl bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className="w-11 h-11 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+          <ExternalLink className="w-5 h-5 text-orange-600" />
+        </div>
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+            <p className="text-sm text-gray-500 mt-1">{description}</p>
+          </div>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded bg-orange-600 text-white text-sm font-bold hover:bg-orange-700"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Abrir DirectAdmin
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // Secções que precisam de criar websites
@@ -1376,6 +1411,8 @@ function ManageWebsiteSection({
     setLoading(false)
   }, [domain, sites])
 
+  const siteOwner = siteData?.owner || 'admin'
+
   const handleIssueSSL = async () => {
     if (!confirm(`Deseja emitir certificado SSL para ${domain}?`)) return
     setLoading(true)
@@ -1658,7 +1695,7 @@ function ManageWebsiteSection({
         color="text-violet-700"
         bgColor="bg-violet-50"
       >
-        <MenuItem icon="wordpress" label="WordPress" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon="wordpress" label="WordPress" external href={getDirectAdminWordPressUrl()} badge="DIRECTADMIN" />
         <MenuItem icon="git-version" label="Git Integration" onClick={() => setActiveSection('git-deploy')} />
         <MenuItem icon={Globe} label="PrestaShop" color="text-pink-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
         <MenuItem icon={Mail} label="Mautic" color="text-purple-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=mautic`} />
@@ -1686,9 +1723,9 @@ function ManageWebsiteSection({
         color="text-cyan-700"
         bgColor="bg-cyan-50"
       >
-        <MenuItem icon={Server} label="Web Server" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/server/`} />
-        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/web/?domain=${domain}`} />
-        <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={`${getHestiaUrl()}/edit/web/?domain=${domain}`} />
+        <MenuItem icon={Server} label="Web Server" color="text-cyan-600" external href={getDirectAdminUrl()} />
+        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={getDirectAdminUrl()} />
+        <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={getDirectAdminFileManagerUrl(domain, siteOwner)} />
         <MenuItem icon="ssl-tls" label="Add SSL" color="text-cyan-600" onClick={() => setActiveSection('cp-ssl')} />
         <MenuItem icon={Code} label="Change PHP" color="text-cyan-600" onClick={() => setActiveSection('cp-php')} />
       </SectionCard>
@@ -1780,7 +1817,7 @@ function ManageWebsiteSection({
         bgColor="bg-emerald-50"
       >
         <MenuItem icon="file-manager" label="File Manager" onClick={() => { setFileManagerDomain(domain); setActiveSection('file-manager'); }} />
-        <MenuItem icon="file-manager" label="File Manager" external href={`${getHestiaUrl()}/list/directory/?domain=${domain}`} />
+        <MenuItem icon="file-manager" label="DirectAdmin Files" external href={getDirectAdminFileManagerUrl(domain, siteOwner)} />
         <MenuItem icon="ftp-accounts" label="Create FTP" onClick={() => setActiveSection('cp-ftp')} />
         <MenuItem icon="ftp-accounts" label="Delete FTP" onClick={() => setActiveSection('cp-ftp')} />
       </SectionCard>
@@ -1819,7 +1856,7 @@ function ManageWebsiteSection({
         color="text-blue-700"
         bgColor="bg-blue-50"
       >
-        <MenuItem icon="wordpress" label="Install WP" onClick={() => setActiveSection('wordpress-install')} badge="1-CLICK" />
+        <MenuItem icon="wordpress" label="Install WP" external href={getDirectAdminWordPressUrl()} badge="DIRECTADMIN" />
         <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
         <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
         <MenuItem icon="backups" label="Backup" onClick={() => setActiveSection('cp-wp-backup')} />
@@ -2111,60 +2148,11 @@ export default function AdminPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   const handleSync = async () => {
-    setSyncing(true)
-    try {
-      const sites = await directAdminAPI.listWebsites()
-      if (Array.isArray(sites)) {
-        setDirectAdminSites(sites)
-        // Background sync
-        void (async () => {
-          for (const s of sites) {
-            await syncWebsiteToSupabase(s)
-          }
-        })()
-      }
-    } catch (e) { console.error(e) }
     setSyncing(false)
   }
 
   const loadDirectAdminData = async () => {
-    setIsFetchingDirectAdmin(true)
-    try {
-      // Carregar apenas por ação manual para evitar bloqueios por tentativas repetidas.
-      const sites = await directAdminAPI.listWebsites().catch(() => [])
-      await new Promise(r => setTimeout(r, 500))
-      const users = await directAdminAPI.listUsers().catch(() => [])
-      await new Promise(r => setTimeout(r, 500))
-      const packages = await directAdminAPI.listPackages().catch(() => [])
-
-      const validSites = Array.isArray(sites) ? sites : []
-      const validUsers = Array.isArray(users) ? users : []
-      const validPackages = Array.isArray(packages) ? packages : []
-
-      setDirectAdminSites(validSites)
-      setDirectAdminUsers(validUsers)
-      setDirectAdminPackages(validPackages)
-
-      // Background Sync to Supabase
-      void (async () => {
-        for (const s of validSites) await syncWebsiteToSupabase(s)
-        for (const u of validUsers) await syncUserToSupabase({
-          username: u.userName,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          acl: u.acl,
-          websitesLimit: u.websitesLimit,
-          status: u.status
-        })
-        for (const p of validPackages) await syncPackageToSupabase(p)
-      })()
-
-    } catch (error) {
-      console.error('Erro ao carregar dados DirectAdmin:', error)
-    } finally {
-      setIsFetchingDirectAdmin(false)
-    }
+    setIsFetchingDirectAdmin(false)
   }
 
   // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
@@ -2298,7 +2286,7 @@ export default function AdminPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={directAdminSites} />
+        return <DirectAdminManualNotice title="Gestão de ficheiros" description="A gestão de ficheiros dentro do painel foi desligada. Use o File Manager nativo do DirectAdmin." href={getDirectAdminFileManagerUrl(fileManagerDomain || primaryDomain, filteredSites.find(s => s.domain === (fileManagerDomain || primaryDomain))?.owner || 'admin')} />
       case 'infra-manager':
         return <InfraManagerSection />
       case 'news-manager':
@@ -2306,57 +2294,57 @@ export default function AdminPage() {
       case 'clientes':
         return <ClientesSection />
       case 'domains-new':
-        return <CreateWebsiteSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+        return <DirectAdminManualNotice title="Criar website" description="A criação automática pelo painel foi desligada. Crie o website diretamente no DirectAdmin." />
       case 'cp-subdomains':
-        return <SubdomainsSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Subdomínios" description="A gestão de subdomínios pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
       case 'email-import':
         return <EmailImportSection sites={filteredSites} />
       case 'cp-list-subdomains':
-        return <ListSubdomainsSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Subdomínios" description="A listagem por API foi desligada. Use o DirectAdmin nativo." />
       case 'cp-modify-website':
-        return <ModifyWebsiteSection sites={filteredSites} packages={directAdminPackages} />
+        return <DirectAdminManualNotice title="Modificar website" description="A modificação automática pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-suspend-website':
-        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <DirectAdminManualNotice title="Suspender website" description="A suspensão automática pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-delete-website':
-        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <DirectAdminManualNotice title="Apagar website" description="A remoção automática pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain} />
+        return <DirectAdminManualNotice title="Bases de dados" description="A gestão de bases de dados pelo painel foi desligada. Use o DirectAdmin/phpMyAdmin nativo." />
       case 'cp-ftp':
-        return <FTPSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="FTP" description="A gestão FTP pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'webmail':
       case 'emails-webmail':
         return <WebmailSection
           userEmail={sessionUser}
           sites={filteredSites}
           useDirectAdminAPI={true}
-          emailOrigem="geral@visualdesigne.com"
+          emailOrigem="geral@visualdesignmoz.com"
           onComposeStateChange={setIsComposeActive}
           isAdmin={true}
           onNavigate={handleNavigate}
         />
       case 'emails-new':
       case 'cp-email-mgmt':
-        return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} />
+        return <DirectAdminManualNotice title="E-mails DirectAdmin" description="A gestão de contas de e-mail via DirectAdmin foi desligada no painel. Use o DirectAdmin nativo." />
       case 'cp-email-delete':
-        return <EmailDeleteSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Apagar e-mails" description="A remoção de e-mails pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-limits':
-        return <EmailLimitsSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Limites de e-mail" description="A alteração de limites pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-forwarding':
-        return <EmailForwardingSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Encaminhamento" description="A gestão de encaminhamentos pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-catchall':
-        return <CatchAllEmailSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Catch-All" description="A gestão Catch-All pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-pattern-fwd':
-        return <PatternForwardingSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Pattern Forwarding" description="A gestão pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-plus-addr':
-        return <PlusAddressingSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Plus Addressing" description="A gestão pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-change-pass':
-        return <EmailChangePasswordSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Alterar password de e-mail" description="A alteração pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-email-dkim':
-        return <DKIMManagerSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="DKIM" description="A gestão DKIM pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'da-emails':
-        return <DirectAdminEmailsSection />
+        return <DirectAdminManualNotice title="E-mails DirectAdmin" description="A integração foi desligada. Use o DirectAdmin nativo." />
       case 'setup-smtp':
         return <SMTPConfigSection />
       case 'email-diagnostico':
@@ -2370,30 +2358,30 @@ export default function AdminPage() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection />
+        return <DirectAdminManualNotice title="Contas DirectAdmin" description="A gestão de utilizadores pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-reseller':
-        return <ResellerSection />
+        return <DirectAdminManualNotice title="Revenda DirectAdmin" description="A gestão de revenda pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-ssl':
-        return <SSLSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="SSL" description="A emissão automática pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-security':
-        return <SecuritySection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Segurança" description="A gestão de segurança pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-php':
-        return <PHPConfigSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="PHP" description="A gestão PHP pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
       case 'cp-wp-list':
-        return <ListWordPressSection sites={filteredSites} onRefresh={loadDirectAdminData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
+        return <DirectAdminManualNotice title="WordPress" description="A gestão WordPress pelo painel foi desligada. Use o DirectAdmin nativo ou o wp-admin do próprio site." />
       case 'cp-wp-plugins':
-        return <WPPluginsSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Plugins WordPress" description="A gestão de plugins pelo painel foi desligada. Use o WordPress ou DirectAdmin nativo." />
       case 'cp-wp-restore-backup':
-        return <WPRestoreBackupSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Restaurar WordPress" description="A gestão de backups WordPress pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-wp-remote-backup':
-        return <WPRemoteBackupSection sites={filteredSites} />
+        return <DirectAdminManualNotice title="Backup remoto WordPress" description="A gestão de backups pelo painel foi desligada. Use o DirectAdmin nativo." />
       case 'cp-audit-sync':
-        return <AuditSyncSection onRefresh={loadDirectAdminData} />
+        return <DirectAdminManualNotice title="Auditoria e Sync" description="A sincronização com DirectAdmin foi desligada." />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <DirectAdminManualNotice title="Instalar WordPress" description="A instalação automática pelo painel foi desligada. Instale pelo DirectAdmin nativo ou pelo instalador disponível no servidor." />
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
@@ -2603,9 +2591,9 @@ export default function AdminPage() {
       setShowCadastroModal(true)
       return
     }
-    // Se navegar para gestão de emails, definir domínio padrão visualdesigne.com
+    // Se navegar para gestão de emails, definir domínio padrão visualdesignmoz.com
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
-      setPreSelectedEmailDomain('visualdesigne.com')
+      setPreSelectedEmailDomain('visualdesignmoz.com')
     }
     setActiveSection(section)
   }

@@ -4,7 +4,7 @@
 
 ### Logs mostram:
 ```
-Email enviado para geral@visualdesigne.com como osher@oshercollective.com
+Email enviado para geral@visualdesignmoz.com como osher@oshercollective.com
 Email enviado para silva.chamo@gail.com como osher@oshercollective.com
 POST /api/mailmarketing-send 200 in 6.9s
 ```

@@ -17,7 +17,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Variáveis
-DOMAIN="visualdesigne.com"
+DOMAIN="visualdesignmoz.com"
 SERVER_IP="109.199.104.22"
 SELECTOR="mail"
 DKIM_DIR="/etc/opendkim"
@@ -72,8 +72,8 @@ Canonicalization        relaxed/relaxed
 Selector                mail
 
 # Domínios assinados
-Domain                  visualdesigne.com
-KeyFile                 /etc/opendkim/keys/visualdesigne.com/mail.private
+Domain                  visualdesignmoz.com
+KeyFile                 /etc/opendkim/keys/visualdesignmoz.com/mail.private
 
 # Socket
 Socket                  inet:8891@localhost
@@ -90,8 +90,8 @@ echo ""
 
 # Configurar domínios no OpenDKIM
 echo -e "${YELLOW}5️⃣ Configurando domínios...${NC}"
-echo "visualdesigne.com mail:/etc/opendkim/keys/visualdesigne.com/mail.private" > /etc/opendkim/key.table
-echo "*@visualdesigne.com visualdesigne.com" > /etc/opendkim/signing.table
+echo "visualdesignmoz.com mail:/etc/opendkim/keys/visualdesignmoz.com/mail.private" > /etc/opendkim/key.table
+echo "*@visualdesignmoz.com visualdesignmoz.com" > /etc/opendkim/signing.table
 echo "109.199.104.22/32" > /etc/opendkim/trusted.hosts
 echo "localhost" >> /etc/opendkim/trusted.hosts
 echo "127.0.0.1" >> /etc/opendkim/trusted.hosts
@@ -126,7 +126,7 @@ echo -e "${YELLOW}7️⃣ Configurando hostname e SPF local...${NC}"
 # Atualizar /etc/hosts
 cat > /etc/hosts << EOF
 127.0.0.1       localhost
-$SERVER_IP      vmi3097666.visualdesigne.com vmi3097666 mail.visualdesigne.com visualdesigne.com
+$SERVER_IP      vmi3097666.visualdesignmoz.com vmi3097666 mail.visualdesignmoz.com visualdesignmoz.com
 
 # The following lines are desirable for IPv6 capable hosts
 ::1     localhost ip6-localhost ip6-loopback

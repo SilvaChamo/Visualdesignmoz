@@ -3,17 +3,17 @@
 ## O que já está feito
 
 ### Infra / Produção
-- Domínio oficial em uso: `visualdesigne.com`.
+- Domínio oficial em uso: `visualdesignmoz.com`.
 - DNS funcional a apontar para o VPS Contabo: `109.199.104.22` (via nameservers MozServer + Zone Editor MozServer).
 - Aplicação Next.js já faz build em produção sem falhar (`next build` OK).
 - PM2 a executar a app:
   - Nome do processo: `visualdesign`
-  - CWD (no servidor): `/home/visualdesigne.com/public_html`
+  - CWD (no servidor): `/home/visualdesignmoz.com/public_html`
   - Porta interna da app (proxy): `127.0.0.1:3001`
 - OpenLiteSpeed/CyberPanel configurado para servir a app:
-  - VirtualHost `visualdesigne.com` configurado com reverse proxy para `127.0.0.1:3001`.
+  - VirtualHost `visualdesignmoz.com` configurado com reverse proxy para `127.0.0.1:3001`.
 - SSL instalado e funcional para o domínio:
-  - Certificado Let’s Encrypt válido para `visualdesigne.com`.
+  - Certificado Let’s Encrypt válido para `visualdesignmoz.com`.
 
 ### Next.js (frontend)
 - Painéis existentes:
@@ -68,20 +68,20 @@
 ## Credenciais e configurações importantes
 
 ### Domínio / DNS
-- Domínio: `visualdesigne.com`
+- Domínio: `visualdesignmoz.com`
 - Nameservers (atual):
   - `ns1.mozserver.com`
   - `ns2.mozserver.com`
   - `ns3.mozserver.com`
   - `ns4.mozserver.com`
 - Registos críticos no Zone Editor MozServer:
-  - `visualdesigne.com` A -> `109.199.104.22` (TTL 300)
-  - `www` CNAME -> `visualdesigne.com`
+  - `visualdesignmoz.com` A -> `109.199.104.22` (TTL 300)
+  - `www` CNAME -> `visualdesignmoz.com`
 
 ### Servidor Contabo
 - IP: `109.199.104.22`
 - CyberPanel: `https://109.199.104.22:8090`
-- Deploy path: `/home/visualdesigne.com/public_html`
+- Deploy path: `/home/visualdesignmoz.com/public_html`
 - PM2:
   - Processo: `visualdesign`
 
@@ -93,15 +93,15 @@
 
 ### Variáveis de ambiente (produção)
 - Ficheiro no servidor:
-  - `/home/visualdesigne.com/public_html/.env.local`
+  - `/home/visualdesignmoz.com/public_html/.env.local`
 - Mínimo necessário:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 
 ## Páginas principais
-- Site: `https://visualdesigne.com/`
-- Admin: `https://visualdesigne.com/admin`
-- Dashboard: `https://visualdesigne.com/dashboard`
-- Login: `https://visualdesigne.com/auth/login`
-- Cliente: `https://visualdesigne.com/client`
+- Site: `https://visualdesignmoz.com/`
+- Admin: `https://visualdesignmoz.com/admin`
+- Dashboard: `https://visualdesignmoz.com/dashboard`
+- Login: `https://visualdesignmoz.com/auth/login`
+- Cliente: `https://visualdesignmoz.com/client`

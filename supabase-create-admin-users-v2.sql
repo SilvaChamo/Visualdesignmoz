@@ -3,7 +3,7 @@
 
 -- 1. Primeiro, criar as contas via Supabase Dashboard → Authentication → Users → "Add user"
 --    Email: silva.chamo@gmail.com, Password: (definir)
---    Email: admin@visualdesigne.com, Password: (definir)
+--    Email: admin@visualdesignmoz.com, Password: (definir)
 
 -- 2. Depois, executar este SQL para atualizar os metadados e criar perfis
 
@@ -14,12 +14,12 @@ SET
   updated_at = NOW()
 WHERE email = 'silva.chamo@gmail.com';
 
--- Atualizar metadados do utilizador admin@visualdesigne.com  
+-- Atualizar metadados do utilizador admin@visualdesignmoz.com  
 UPDATE auth.users 
 SET 
   raw_user_meta_data = '{"role": "admin", "name": "VisualDesign Admin"}',
   updated_at = NOW()
-WHERE email = 'admin@visualdesigne.com';
+WHERE email = 'admin@visualdesignmoz.com';
 
 -- Criar tabela profiles se não existir
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -51,7 +51,7 @@ SELECT
   u.created_at,
   u.updated_at
 FROM auth.users u
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com')
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com')
 ON CONFLICT (email) DO UPDATE SET
   role = EXCLUDED.role,
   name = EXCLUDED.name,
@@ -65,4 +65,4 @@ SELECT
   p.name
 FROM auth.users u
 LEFT JOIN public.profiles p ON u.id = p.user_id
-WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesigne.com');
+WHERE u.email IN ('silva.chamo@gmail.com', 'admin@visualdesignmoz.com');

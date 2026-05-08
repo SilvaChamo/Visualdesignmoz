@@ -3,7 +3,7 @@ async function diag() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            email: "admin@visualdesigne.com",
+            email: "admin@visualdesignmoz.com",
             password: "Ad.Vd#2425?*",
             folder: "INBOX"
         })

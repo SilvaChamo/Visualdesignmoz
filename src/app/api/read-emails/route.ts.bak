@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
       
       // Detectar se é admin
-      const adminEmails = ['admin@visualdesigne.com', 'silva.chamo@gmail.com', 'geral@visualdesigne.com', 'suporte@visualdesigne.com']
+      const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
       const isAdmin = adminEmails.includes(session.user?.email || '') || session.user?.user_metadata?.role === 'admin'
       console.log(`📧 [read-emails] isAdmin: ${isAdmin}`)
       

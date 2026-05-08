@@ -16,7 +16,7 @@ async function testSupabase() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    // query = query.contains('metadata', { domain: 'visualdesigne.com' }); // test with contains
+    // query = query.contains('metadata', { domain: 'visualdesignmoz.com' }); // test with contains
 
     const result = await query;
     console.log("Result no-filter:", JSON.stringify(result, null, 2));

@@ -95,7 +95,7 @@ CREATE POLICY "Admins can delete any notification"
     ON notifications FOR DELETE
     USING (auth.uid() IN (
         SELECT id FROM auth.users 
-        WHERE email IN ('admin@visualdesigne.com', 'silva.chamo@gmail.com')
+        WHERE email IN ('admin@visualdesignmoz.com', 'silva.chamo@gmail.com')
     ));
 
 -- Comentários

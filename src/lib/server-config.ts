@@ -1,14 +1,30 @@
 
 export const DEFAULT_SERVER_IP = '109.199.104.22';
-export const DIRECTADMIN_PORT = '2222';
+export const DEFAULT_DIRECTADMIN_HOST = 'host.visualdesignmoz.com';
+export const DIRECTADMIN_PORT = '2026';
 
 /**
  * Gets the DirectAdmin URL.
  */
 export function getDirectAdminUrl(): string {
-  const host = process.env.DIRECTADMIN_HOST || DEFAULT_SERVER_IP;
-  const port = process.env.DIRECTADMIN_PORT || DIRECTADMIN_PORT;
+  const host = process.env.NEXT_PUBLIC_DIRECTADMIN_HOST || DEFAULT_DIRECTADMIN_HOST;
+  const port = process.env.NEXT_PUBLIC_DIRECTADMIN_PORT || DIRECTADMIN_PORT;
   return `https://${host}:${port}`;
+}
+
+/**
+ * Gets the DirectAdmin native file manager URL.
+ */
+export function getDirectAdminFileManagerUrl(domain: string, owner = 'admin'): string {
+  return getDirectAdminUrl();
+}
+
+/**
+ * Gets the DirectAdmin WordPress manager URL.
+ * Hosts usually expose either the WordPress plugin or Softaculous from here.
+ */
+export function getDirectAdminWordPressUrl(): string {
+  return getDirectAdminUrl();
 }
 
 /**

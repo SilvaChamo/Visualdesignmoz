@@ -5,8 +5,8 @@ const testData = {
   to: ['test@example.com'],
   subject: 'Teste API',
   content: '<p>Teste</p>',
-  sender: 'test@visualdesigne.com',
-  domain: 'visualdesigne.com'
+  sender: 'test@visualdesignmoz.com',
+  domain: 'visualdesignmoz.com'
 };
 
 console.log('🧪 Testando API:', API_URL);
