@@ -11,7 +11,7 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl, getDirectAdminUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
+import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -925,7 +925,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
         </a>
 
         <a 
-          href={getDirectAdminUrl()}
+          href={getDirectAdminAccessUrl()}
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded hover:shadow-md transition-all group"

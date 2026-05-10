@@ -1,15 +1,52 @@
 
+import {
+  buildDirectAdminFallbackUrl,
+  buildDirectAdminPublicUrl,
+  CANONICAL_DIRECTADMIN_HOST,
+  CANONICAL_DIRECTADMIN_PORT,
+  DEFAULT_DIRECTADMIN_FALLBACK_PORT,
+} from '@/lib/directadmin-url';
+
 export const DEFAULT_SERVER_IP = '109.199.104.22';
-export const DEFAULT_DIRECTADMIN_HOST = 'host.visualdesignmoz.com';
-export const DIRECTADMIN_PORT = '2026';
+export const DEFAULT_DIRECTADMIN_HOST = CANONICAL_DIRECTADMIN_HOST;
+export const DIRECTADMIN_PORT = CANONICAL_DIRECTADMIN_PORT;
 
 /**
  * Gets the DirectAdmin URL.
  */
 export function getDirectAdminUrl(): string {
-  const host = process.env.NEXT_PUBLIC_DIRECTADMIN_HOST || DEFAULT_DIRECTADMIN_HOST;
-  const port = process.env.NEXT_PUBLIC_DIRECTADMIN_PORT || DIRECTADMIN_PORT;
-  return `https://${host}:${port}`;
+  return buildDirectAdminPublicUrl(
+    process.env.NEXT_PUBLIC_DIRECTADMIN_HOST || DEFAULT_DIRECTADMIN_HOST,
+    process.env.NEXT_PUBLIC_DIRECTADMIN_PORT || DIRECTADMIN_PORT
+  );
+}
+
+/**
+ * URL pública de fallback para quando o host principal não responder.
+ */
+export function getDirectAdminFallbackUrl(): string {
+  const host =
+    process.env.NEXT_PUBLIC_DIRECTADMIN_FALLBACK_HOST ||
+    process.env.DIRECTADMIN_FALLBACK_HOST ||
+    process.env.NEXT_PUBLIC_SERVER_IP ||
+    DEFAULT_SERVER_IP;
+  const port =
+    process.env.NEXT_PUBLIC_DIRECTADMIN_FALLBACK_PORT ||
+    process.env.DIRECTADMIN_FALLBACK_PORT ||
+    process.env.NEXT_PUBLIC_DIRECTADMIN_LEGACY_PORT ||
+    DEFAULT_DIRECTADMIN_FALLBACK_PORT;
+  const protocol =
+    process.env.NEXT_PUBLIC_DIRECTADMIN_FALLBACK_PROTOCOL ||
+    process.env.DIRECTADMIN_FALLBACK_PROTOCOL ||
+    'http';
+  return buildDirectAdminFallbackUrl(host, port, protocol);
+}
+
+/**
+ * URL interna que decide automaticamente entre host principal e fallback IP.
+ */
+export function getDirectAdminAccessUrl(): string {
+  return '/api/directadmin-access';
 }
 
 /**

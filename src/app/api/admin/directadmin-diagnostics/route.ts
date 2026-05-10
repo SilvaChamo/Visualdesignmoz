@@ -2,6 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { buildDirectAdminBase, normalizeDirectAdminHost, normalizeDirectAdminPort } from '@/lib/directadmin-url';
 
 function readEnv(name: string) {
   const value = process.env[name];
@@ -62,11 +63,16 @@ export async function GET() {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
-  const host = readEnv('DIRECTADMIN_HOST') || '109.199.104.22';
-  const port = readEnv('DIRECTADMIN_PORT') || '2222';
+  const host = normalizeDirectAdminHost(readEnv('DIRECTADMIN_HOST'));
+  const port = normalizeDirectAdminPort(readEnv('DIRECTADMIN_PORT'));
   const user = readEnv('DIRECTADMIN_USER') || 'admin';
   const protocol = readEnv('DIRECTADMIN_PROTOCOL') || 'https';
-  const base = (readEnv('DIRECTADMIN_URL') || `${protocol}://${host}:${port}`).replace(/\/$/, '');
+  const base = buildDirectAdminBase({
+    explicitUrl: readEnv('DIRECTADMIN_URL'),
+    protocol,
+    host,
+    port,
+  });
   const [source, credential] = authSource();
 
   if (!credential) {

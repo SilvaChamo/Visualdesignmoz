@@ -11,6 +11,7 @@ interface SearchResult {
   currency?: string;
   loading?: boolean;
   error?: string;
+  costPennies?: number;
 }
 
 interface DomainSearchProps {
@@ -83,9 +84,10 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
             return {
               domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
               available: data.available,
-              price: tldData ? tldData.price : (data.price || 10.37),
+              price: typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 10.37),
               currency: data.currency || 'USD',
-              error: data.error // Agora capturamos o erro aqui!
+              error: data.error,
+              costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
             } as SearchResult;
           } catch (e) {
             return {
@@ -99,7 +101,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         const batchResults = await Promise.all(fetchPromises);
         allResults.push(...batchResults);
         
-        // Pequena pausa entre lotes para não causar throttling na API do Porkbun
+        // Pequena pausa entre lotes para não saturar a API de verificação
         if (i + batchSize < tldsToSearch.length) {
           await new Promise(resolve => setTimeout(resolve, 800));
         }
@@ -143,20 +145,27 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
 
   const handleRegisterAction = async (domain: string) => {
     if (isAdmin) {
-      const confirm = window.confirm(`ATENÇÃO: Tem a certeza que deseja registar "${domain}"?\n\nIsto irá descontar o valor do seu saldo no Porkbun de forma irreversível.`);
+      const confirm = window.confirm(`ATENÇÃO: Tem a certeza que deseja registar "${domain}"?\n\nIsto irá descontar o valor do seu saldo na conta de registo de forma irreversível.`);
       if (!confirm) return;
+
+      const row = results.find(r => r.domain === domain);
 
       setActionLoading(domain);
       try {
         const res = await fetch('/api/domain-register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain })
+          credentials: 'include',
+          body: JSON.stringify({
+            domain,
+            agreeToTerms: true,
+            costPennies: row?.costPennies,
+          }),
         });
         const data = await res.json();
 
         if (data.success) {
-          alert(`Sucesso! O domínio ${domain} foi registado na sua conta Porkbun.`);
+          alert(`Sucesso! O domínio ${domain} foi registado e ficará disponível na lista «Os seus domínios».`);
           setResults(prev => prev.map(r => r.domain === domain ? { ...r, available: false } : r));
         } else {
           alert(`Erro ao registar: ${data.error}`);

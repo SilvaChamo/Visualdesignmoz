@@ -46,9 +46,70 @@ export function DNSCentralSection() {
   const [syncing, setSyncing] = useState<string | null>(null)
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
   const [domainDetail, setDomainDetail] = useState<DomainDetail | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'sync' | 'records' | 'webhook'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'sync' | 'records' | 'registrar-account' | 'webhook'>('overview')
   const [showAddModal, setShowAddModal] = useState(false)
   const [newDomain, setNewDomain] = useState('')
+
+  const [registrarDomains, setRegistrarDomains] = useState<Array<Record<string, unknown>>>([])
+  const [registrarPick, setRegistrarPick] = useState('')
+  const [registrarRows, setRegistrarRows] = useState<Array<Record<string, unknown>>>([])
+  const [registrarLoading, setRegistrarLoading] = useState(false)
+  const [registrarErr, setRegistrarErr] = useState('')
+
+  const loadRegistrarDomains = async () => {
+    setRegistrarLoading(true)
+    setRegistrarErr('')
+    try {
+      const r = await fetch('/api/registrar/account/domains', { credentials: 'include' })
+      const j = await r.json()
+      if (!r.ok || !j.success) throw new Error(j.error || 'Falha ao listar domínios da conta')
+      const list = Array.isArray(j.domains) ? j.domains : []
+      setRegistrarDomains(list as Array<Record<string, unknown>>)
+      if (list.length > 0) {
+        const first = list[0] as Record<string, unknown>
+        const dn = String(first.domain ?? first.name ?? '')
+        setRegistrarPick((p) => p || dn)
+      }
+    } catch (e) {
+      setRegistrarErr(e instanceof Error ? e.message : 'Erro')
+      setRegistrarDomains([])
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  const loadRegistrarDns = async (domain: string) => {
+    const clean = domain.trim()
+    if (!clean) return
+    setRegistrarLoading(true)
+    setRegistrarErr('')
+    try {
+      const r = await fetch('/api/registrar/dns/records', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: clean }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.success) throw new Error(j.error || 'Falha ao ler DNS')
+      setRegistrarRows(Array.isArray(j.records) ? (j.records as Array<Record<string, unknown>>) : [])
+    } catch (e) {
+      setRegistrarErr(e instanceof Error ? e.message : 'Erro')
+      setRegistrarRows([])
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'registrar-account') return
+    void loadRegistrarDomains()
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'registrar-account' || !registrarPick) return
+    void loadRegistrarDns(registrarPick)
+  }, [activeTab, registrarPick])
 
   // Carregar lista de domínios
   useEffect(() => {
@@ -148,7 +209,7 @@ export function DNSCentralSection() {
             DNS Central
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Gestão unificada de DNS - Mozserver ↔ DirectAdmin
+            Gestão unificada de DNS (Mozserver ↔ DirectAdmin) e leitura das zonas DNS da conta de registo Visual Design.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -250,6 +311,16 @@ export function DNSCentralSection() {
               }`}
             >
               Registros DNS
+            </button>
+            <button
+              onClick={() => setActiveTab('registrar-account')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'registrar-account'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              DNS na conta Visual Design
             </button>
             <button
               onClick={() => setActiveTab('webhook')}
@@ -432,9 +503,90 @@ export function DNSCentralSection() {
             </div>
           )}
 
-          {/* Webhook Tab */}
-          {activeTab === 'webhook' && (
-            <DNSWebhookConfig />
+          {activeTab === 'registrar-account' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">Zona DNS na conta de registo</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadRegistrarDomains()
+                    if (registrarPick) void loadRegistrarDns(registrarPick)
+                  }}
+                  disabled={registrarLoading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${registrarLoading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
+              </div>
+              <p className="text-sm text-gray-500">
+                Lista de domínios e registos DNS servidos pelo registrador ligado ao painel (leitura).
+              </p>
+              {registrarErr && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{registrarErr}</div>
+              )}
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Domínio</label>
+                  <select
+                    className="min-w-[220px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    value={registrarPick}
+                    onChange={(e) => setRegistrarPick(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {registrarDomains.map((row, idx) => {
+                      const d = String(row.domain ?? row.name ?? '')
+                      return (
+                        <option key={`${d}-${idx}`} value={d}>
+                          {d || `domínio-${idx}`}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+              </div>
+              {registrarLoading && !registrarRows.length ? (
+                <div className="flex justify-center py-12 text-gray-500">
+                  <RefreshCw className="h-8 w-8 animate-spin text-red-600" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Nome</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Conteúdo</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">TTL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {registrarRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                            Sem registos ou seleccione um domínio.
+                          </td>
+                        </tr>
+                      ) : (
+                        registrarRows.map((rec, i) => (
+                          <tr key={i}>
+                            <td className="px-4 py-2 font-medium text-gray-900">{String(rec.name ?? rec.host ?? '—')}</td>
+                            <td className="px-4 py-2">
+                              <span className="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                                {String(rec.type ?? '—')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 font-mono text-gray-700">{String(rec.content ?? rec.answer ?? rec.value ?? '—')}</td>
+                            <td className="px-4 py-2 text-gray-500">{String(rec.ttl ?? '—')}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Records Tab */}
@@ -494,6 +646,11 @@ export function DNSCentralSection() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Webhook Tab */}
+          {activeTab === 'webhook' && (
+            <DNSWebhookConfig />
           )}
         </div>
       </div>

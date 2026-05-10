@@ -7,10 +7,10 @@ import {
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
-  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity
+  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity, ShoppingCart
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
-import { getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getServerHost } from '@/lib/server-config'
+import { getServerHost } from '@/lib/server-config'
 
 
 interface Tool {
@@ -57,6 +57,22 @@ export function CpanelDashboard({
   searchQuery = '', onSearchChange, userResources 
 }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [diskInfo, setDiskInfo] = useState<{ used: string; total: string; percentage: string } | null>(null)
+
+  React.useEffect(() => {
+    const fetchDisk = async () => {
+      try {
+        const res = await fetch('/api/da', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'serverDiskUsage', params: {} })
+        })
+        const data = await res.json()
+        if (data.success) setDiskInfo(data.data)
+      } catch (e) { console.error(e) }
+    }
+    fetchDisk()
+  }, [])
 
   // Definir domínio principal
   const primaryDomain = sites.length > 0
@@ -98,7 +114,9 @@ export function CpanelDashboard({
       headerIcon: <FolderOpen className="w-5 h-5" />,
       color: 'text-amber-700', bgColor: 'bg-amber-50',
       tools: [
-        { id: 'da-filemanager', name: 'Abrir DirectAdmin', icon: <ExternalLink className="w-9 h-9 text-amber-500" />, external: getDirectAdminFileManagerUrl(primaryDomain, sites.find(s => s.domain === primaryDomain)?.owner || 'admin') },
+        { id: 'file-manager', name: 'Gestor de Ficheiros DirectAdmin', icon: <FolderOpen className="w-9 h-9 text-amber-500" /> },
+        { id: 'cp-ftp', name: 'Contas FTP', icon: <Upload className="w-9 h-9 text-amber-500" /> },
+        { id: 'infrastructure', name: 'Estado do Servidor', icon: <Monitor className="w-9 h-9 text-amber-500" /> },
       ]
     },
     {
@@ -106,6 +124,9 @@ export function CpanelDashboard({
       headerIcon: <Globe className="w-5 h-5" />,
       color: 'text-blue-700', bgColor: 'bg-blue-50',
       tools: [
+        { id: 'porkbun-domains', name: 'Registar / comprar domínio', icon: <ShoppingCart className="w-9 h-9 text-blue-600" />, highlight: true },
+        { id: 'porkbun-my-domains', name: 'Os seus domínios', icon: <List className="w-9 h-9 text-blue-500" /> },
+        { id: 'dns-central', name: 'DNS Central', icon: <Globe2 className="w-9 h-9 text-blue-500" /> },
         { id: 'domains-new', name: 'Criar Website', icon: <PlusCircle className="w-9 h-9 text-blue-500" /> },
         { id: 'domain-manager', name: 'Domínios', icon: <Globe className="w-9 h-9 text-blue-500" /> },
         { id: 'domains', name: 'Listar Websites', icon: <Globe className="w-9 h-9 text-blue-500" /> },
@@ -122,7 +143,9 @@ export function CpanelDashboard({
       headerIcon: <Globe2 className="w-5 h-5" />,
       color: 'text-indigo-700', bgColor: 'bg-indigo-50',
       tools: [
-        { id: 'wordpress-install', name: 'Abrir DirectAdmin', icon: <ExternalLink className="w-9 h-9 text-blue-500" />, external: getDirectAdminWordPressUrl() },
+        { id: 'wordpress-install', name: 'Instalar WordPress', icon: <Globe className="w-9 h-9 text-blue-500" /> },
+        { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
+        { id: 'cp-wp-plugins', name: 'Gerir Plugins', icon: <Plug className="w-9 h-9 text-indigo-500" /> },
       ]
     },
     {
@@ -301,13 +324,21 @@ export function CpanelDashboard({
               <p className="font-bold text-gray-900">{users.length}</p>
             </div>
           </div>
+          {diskInfo && (
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Espaço em Disco</p>
+                <p className="font-bold text-gray-900">{diskInfo.used} / {diskInfo.total}</p>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                  <div className="bg-red-500 h-1.5 rounded-full" style={{ width: diskInfo.percentage }}></div>
+                </div>
+              </div>
+            )}
             <div className="pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                 <span className="text-xs text-green-600 font-bold">Servidor Online</span>
               </div>
             </div>
-          </div>
           <button 
             onClick={async () => {
               if (confirm('⚠️ ATENÇÃO: Tem a certeza que deseja REINICIAR o servidor?\n\nIsto irá interromper todos os serviços temporariamente.')) {
@@ -326,6 +357,7 @@ export function CpanelDashboard({
             className="w-full mt-2 bg-gray-900  text-white hover:bg-red-600 text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
             <Power className="w-3.5 h-3.5" /> Reiniciar Servidor
           </button>
+        </div>
 
         {/* Resource Limits (CloudLinux LVE Diagnostic) */}
         {userResources && (
@@ -386,9 +418,12 @@ export function CpanelDashboard({
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Acesso Rápido</p>
           <div className="space-y-1">
             {[
+              { label: 'Registar / comprar domínio', id: 'porkbun-domains', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+              { label: 'Os seus domínios', id: 'porkbun-my-domains', icon: <List className="w-3.5 h-3.5" /> },
+              { label: 'DNS Central', id: 'dns-central', icon: <Globe2 className="w-3.5 h-3.5" /> },
               { label: 'Criar Website', id: 'domains-new', icon: <Globe className="w-3.5 h-3.5" /> },
               { label: 'Criar Email', id: 'emails-new', icon: <Mail className="w-3.5 h-3.5" /> },
-              { label: 'Instalar WordPress', id: 'wordpress-deploy', icon: <Download className="w-3.5 h-3.5" /> },
+              { label: 'Instalar WordPress', id: 'wordpress-install', icon: <Download className="w-3.5 h-3.5" /> },
               { label: 'Criar Utilizador', id: 'cp-users', icon: <Users className="w-3.5 h-3.5" /> },
               { label: 'Emitir SSL', id: 'cp-ssl', icon: <Lock className="w-3.5 h-3.5" /> },
               { label: 'Criar Pacote', id: 'packages-new', icon: <Package className="w-3.5 h-3.5" /> },

@@ -12,8 +12,8 @@ export function PorkbunResellerSection() {
           <Globe className="w-6 h-6 text-pink-600" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Registo Direto de Domínios (Porkbun)</h2>
-          <p className="text-sm text-slate-500">Pesquise e registe domínios instantaneamente usando o seu saldo pré-pago.</p>
+          <h2 className="text-xl font-bold text-slate-800">Registo de domínios</h2>
+          <p className="text-sm text-slate-500">Pesquise disponibilidade e registe domínios com preço em tempo real (conta de registo ligada ao servidor).</p>
         </div>
       </div>
 

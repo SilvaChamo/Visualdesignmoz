@@ -5,10 +5,11 @@
 
 import http from 'node:http';
 import https from 'node:https';
+import { buildDirectAdminBase, normalizeDirectAdminHost, normalizeDirectAdminPort } from '@/lib/directadmin-url';
 
 // These should be configured in your .env.local file
-const DA_HOST = process.env.DIRECTADMIN_HOST || '109.199.104.22';
-const DA_PORT = process.env.DIRECTADMIN_PORT || '2222';
+const DA_HOST = normalizeDirectAdminHost(process.env.DIRECTADMIN_HOST);
+const DA_PORT = normalizeDirectAdminPort(process.env.DIRECTADMIN_PORT);
 const DA_USER = process.env.DIRECTADMIN_USER || 'admin';
 const DA_PASSWORD =
   process.env.DIRECTADMIN_PASSWORD ||
@@ -16,7 +17,12 @@ const DA_PASSWORD =
   process.env.DIRECTADMIN_PASS ||
   '';
 const DA_PROTOCOL = process.env.DIRECTADMIN_PROTOCOL || 'https'; // Use 'http' if SSL is not yet configured
-const DA_BASE = (process.env.DIRECTADMIN_URL || `${DA_PROTOCOL}://${DA_HOST}:${DA_PORT}`).replace(/\/$/, '');
+const DA_BASE = buildDirectAdminBase({
+  explicitUrl: process.env.DIRECTADMIN_URL,
+  protocol: DA_PROTOCOL,
+  host: DA_HOST,
+  port: DA_PORT,
+});
 const DA_REJECT_UNAUTHORIZED = process.env.DIRECTADMIN_REJECT_UNAUTHORIZED === 'true';
 
 export interface DaResponse {
