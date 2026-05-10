@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { porkbunAPI } from '@/lib/porkbun-adapter';
+import { checkAvailability } from '@/lib/spaceship-adapter';
 
 export async function POST(req: Request) {
   try {
     const { domain, tld } = await req.json();
+    console.log(`[API] Verificando domínio: ${domain} com TLD: ${tld} (via Spaceship)`);
     
     if (!domain) {
       return NextResponse.json({ status: 'ERROR', message: 'Domínio não fornecido' }, { status: 400 });
@@ -18,23 +19,19 @@ export async function POST(req: Request) {
       fullDomain = `${fullDomain}.${cleanTld}`;
     }
 
-    const result = await porkbunAPI.checkAvailability(fullDomain);
+    const result = await checkAvailability(fullDomain);
+    console.log(`[API] Resultado do adaptador para ${fullDomain}:`, result);
 
-    if (result.status === 'SUCCESS') {
-      const isAvailable = result.avail === 'yes';
-      return NextResponse.json({
-        available: isAvailable,
-        domain: result.domain || fullDomain,
-        price: result.priceUsd,
-        costPennies: result.costPennies,
-        minDuration: result.minDuration,
-        currency: 'USD',
-        raw: result.raw,
-      });
+    if (result.error) {
+      return NextResponse.json({ available: false, error: result.error }, { status: 400 });
     }
 
-    const errorMessage = result.message || 'Erro ao verificar disponibilidade';
-    return NextResponse.json({ available: false, error: errorMessage, raw: result.raw }, { status: 400 });
+    return NextResponse.json({
+      available: result.available,
+      domain: fullDomain,
+      price: result.price,
+      currency: result.currency || 'USD',
+    });
   } catch (error) {
     console.error('API Domain Check Error:', error);
     return NextResponse.json({ available: false, error: 'Erro interno no servidor' }, { status: 500 });
