@@ -4,13 +4,6 @@ import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
-import { Exo_2 } from 'next/font/google';
-
-const exo2 = Exo_2({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-exo-2',
-});
 
 export const metadata: Metadata = {
   title: {
@@ -96,7 +89,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${exo2.className} antialiased`}>
+      <body className={`antialiased`}>
         <AuthProvider>
           <I18nProvider>
             <ConditionalNavbar />

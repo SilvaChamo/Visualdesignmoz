@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Check, X, Loader2, Globe } from 'lucide-react'
+import { Search, Check, X, Loader2, Globe, DollarSign } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
 interface SearchResult {
   domain: string;
   available: boolean;
   price?: number;
+  renewPrice?: number;
   currency?: string;
   loading?: boolean;
   error?: string;
@@ -20,9 +21,10 @@ interface DomainSearchProps {
   hideResultsInternal?: boolean;
   isAdmin?: boolean;
   searchContainerClassName?: string;
+  activeTab?: 'domains' | 'pricing';
 }
 
-export default function DomainSearch({ onResultsAction, onLoadingAction, hideResultsInternal = false, isAdmin = false, searchContainerClassName = '' }: DomainSearchProps) {
+export default function DomainSearch({ onResultsAction, onLoadingAction, hideResultsInternal = false, isAdmin = false, searchContainerClassName = '', activeTab = 'domains' }: DomainSearchProps) {
   const { t } = useI18n()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTLD, setSelectedTLD] = useState('.com')
@@ -30,21 +32,29 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [internalTab, setInternalTab] = useState<'domains' | 'pricing'>('domains')
 
+  const calculatePrice = (usdPrice: number) => {
+    return ((usdPrice * 65 * 1.5) * 1.075).toFixed(2);
+  }
+
+  // Preços base em USD da Spaceship
   const tlds = [
-    { value: '.com', label: '.com', price: 10.37 },
-    { value: '.net', label: '.net', price: 11.48 },
-    { value: '.org', label: '.org', price: 10.70 },
-    { value: '.co', label: '.co', price: 25.00 },
-    { value: '.io', label: '.io', price: 35.00 },
-    { value: '.app', label: '.app', price: 15.00 },
-    { value: '.dev', label: '.dev', price: 15.00 },
-    { value: '.online', label: '.online', price: 5.00 },
-    { value: '.tech', label: '.tech', price: 5.00 },
-    { value: '.store', label: '.store', price: 5.00 },
-    { value: '.biz', label: '.biz', price: 12.00 },
-    { value: '.info', label: '.info', price: 15.00 },
-    { value: '.me', label: '.me', price: 10.00 },
+    { value: '.com', label: '.com', price: 8.88, renewPrice: 9.98, icann: 0.20, transfer: 9.48 },
+    { value: '.net', label: '.net', price: 11.20, renewPrice: 11.20, icann: 0.20, transfer: 11.20 },
+    { value: '.org', label: '.org', price: 6.48, renewPrice: 9.80, icann: 0.20, transfer: 9.50 },
+    { value: '.farm', label: '.farm', price: 4.14, renewPrice: 31.05, icann: 0.20, transfer: 31.05 },
+    { value: '.ai', label: '.ai', price: 69.98, renewPrice: 79.98, icann: 0.20, transfer: 69.98 },
+    { value: '.co', label: '.co', price: 25.00, renewPrice: 25.00, icann: 0.20, transfer: 25.00 },
+    { value: '.io', label: '.io', price: 35.00, renewPrice: 35.00, icann: 0.20, transfer: 35.00 },
+    { value: '.app', label: '.app', price: 15.00, renewPrice: 15.00, icann: 0.20, transfer: 15.00 },
+    { value: '.dev', label: '.dev', price: 15.00, renewPrice: 15.00, icann: 0.20, transfer: 15.00 },
+    { value: '.online', label: '.online', price: 5.00, renewPrice: 5.00, icann: 0.20, transfer: 5.00 },
+    { value: '.tech', label: '.tech', price: 5.00, renewPrice: 5.00, icann: 0.20, transfer: 5.00 },
+    { value: '.store', label: '.store', price: 5.00, renewPrice: 5.00, icann: 0.20, transfer: 5.00 },
+    { value: '.biz', label: '.biz', price: 12.00, renewPrice: 12.00, icann: 0.20, transfer: 12.00 },
+    { value: '.info', label: '.info', price: 15.00, renewPrice: 15.00, icann: 0.20, transfer: 15.00 },
+    { value: '.me', label: '.me', price: 10.00, renewPrice: 10.00, icann: 0.20, transfer: 10.00 },
   ]
 
   const handleSearch = async () => {
@@ -84,7 +94,8 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
             return {
               domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
               available: data.available,
-              price: typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 10.37),
+              price: typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 8.88),
+              renewPrice: tldData ? tldData.renewPrice : 8.88,
               currency: data.currency || 'USD',
               error: data.error,
               costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
@@ -141,6 +152,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
   const closeResults = () => {
     setShowResults(false)
     setResults([])
+    setInternalTab('domains')
   }
 
   const handleRegisterAction = async (domain: string) => {
@@ -182,6 +194,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
 
   return (
     <div className="w-full flex flex-col items-center">
+
       <div className={`flex flex-col sm:flex-row gap-2 w-full ${searchContainerClassName}`}>
         <div className="flex-1 relative">
           <input
@@ -220,93 +233,140 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
           disabled={loading || !searchQuery.trim()}
           className="bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md w-full sm:w-auto"
         >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : null}
           {t('home.search.button') || "Procurar"}
         </button>
       </div>
 
       {/* Lista de Resultados - Fica fora do container com fundo para herdar o branco no admin */}
-      {!hideResultsInternal && showResults && (
+      {!hideResultsInternal && showResults && results.length > 0 && (
         <div className="w-full mt-6 transition-all duration-300">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
-            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 pb-2 border-b ${isAdmin ? 'border-slate-200' : 'border-slate-700/60'} gap-4`}>
+            <h3 className={`font-bold ${isAdmin ? 'text-slate-800' : 'text-white'} text-lg flex items-center gap-2`}>
               <Globe className="w-5 h-5 text-red-600" />
-              Domínios Disponíveis
+              {internalTab === 'domains' ? 'Domínios Disponíveis' : 'Tabela de Preços'}
             </h3>
-            <button
-              onClick={closeResults}
-              className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className={`flex gap-4 p-1`}>
+                <button 
+                  onClick={() => setInternalTab('domains')}
+                  className={`px-2 py-1 text-sm font-bold transition-all border-b-2 ${internalTab === 'domains' ? 'text-red-600 border-red-600' : (isAdmin ? 'text-slate-500 border-transparent hover:text-slate-800' : 'text-slate-300 border-transparent hover:text-white')}`}>
+                  Domínios
+                </button>
+                <button 
+                  onClick={() => setInternalTab('pricing')}
+                  className={`px-2 py-1 text-sm font-bold transition-all border-b-2 ${internalTab === 'pricing' ? 'text-red-600 border-red-600' : (isAdmin ? 'text-slate-500 border-transparent hover:text-slate-800' : 'text-slate-300 border-transparent hover:text-white')}`}>
+                  Preços
+                </button>
+              </div>
+              <button
+                onClick={closeResults}
+                className={`${isAdmin ? 'text-slate-400 hover:text-slate-600' : 'text-slate-400 hover:text-white'} transition-colors p-1 sm:ml-2`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          {results.length === 0 && loading && (
-            <div className="text-center py-12 text-slate-500">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-red-600" />
-              <p>Verificando disponibilidade global...</p>
-            </div>
-          )}
+          {internalTab === 'domains' ? (
+            <div className="flex flex-col gap-3">
+              {results.map((result, index) => (
+                <div
+                  key={index}
+                  className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg py-2 px-3 sm:px-4 hover:border-slate-300 transition-colors grid grid-cols-1 sm:grid-cols-3 items-center gap-3`}
+                >
+                  {/* Coluna 1: Nome do Domínio (Ajustado à esquerda) */}
+                  <div className="flex items-center gap-3 justify-start">
+                    {result.available && (
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                    )}
 
-          <div className="flex flex-col gap-3">
-            {results.map((result, index) => (
-              <div
-                key={index}
-                className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg py-2 px-3 sm:px-4 hover:border-slate-300 transition-colors grid grid-cols-1 sm:grid-cols-3 items-center gap-3`}
-              >
-                {/* Coluna 1: Nome do Domínio (Ajustado à esquerda) */}
-                <div className="flex items-center gap-3 justify-start">
-                  {result.available && (
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-green-100 text-green-600">
-                      <Check className="w-3.5 h-3.5" />
+                    <div className={`font-normal text-[16px] text-slate-900 flex flex-wrap items-center gap-2`}>
+                      {result.domain}
+                      {index === 0 && <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold uppercase tracking-wider">A sua escolha</span>}
                     </div>
-                  )}
+                  </div>
 
-                  <div className={`font-normal text-[16px] text-slate-900 flex flex-wrap items-center gap-2`}>
-                    {result.domain}
-                    {index === 0 && <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold uppercase tracking-wider">A sua escolha</span>}
+                  {/* Coluna 2: Preço ou Erro (Ajustado à direita) */}
+                  <div className="flex items-center justify-end sm:pr-4">
+                    {result.error && !result.available ? (
+                      <span className="text-red-500 text-xs text-right font-medium">{result.error}</span>
+                    ) : result.price !== undefined ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-700 font-bold text-lg">
+                          {calculatePrice(result.price)} MT
+                        </span>
+                        {result.renewPrice && (
+                          <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold">
+                            Renovação: {calculatePrice(result.renewPrice)} MT
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Coluna 3: Botão (Ajustado à direita) */}
+                  <div className="flex items-center justify-end">
+                    {result.available ? (
+                      <button
+                        onClick={() => handleRegisterAction(result.domain)}
+                        disabled={actionLoading === result.domain}
+                        className="bg-green-600 hover:bg-green-700 hover:scale-105 hover:shadow-md text-white px-5 py-2 rounded text-sm font-bold transition-all duration-200 shadow-sm flex items-center gap-2 whitespace-nowrap min-w-[130px] justify-center"
+                      >
+                        {actionLoading === result.domain ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
+                        ) : (
+                          isAdmin ? "Registar" : "Adicionar"
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold cursor-not-allowed shadow-sm min-w-[130px]"
+                      >
+                        Indisponível
+                      </button>
+                    )}
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm mt-4">
+              <div className="divide-y divide-slate-100">
+                {tlds.map((domain, index) => (
+                  <div key={index} className="p-4 sm:p-5 transition-colors grid grid-cols-1 sm:grid-cols-4 gap-4 items-center hover:bg-slate-50">
+                    
+                    {/* Extensão */}
+                    <div className="sm:col-span-1">
+                      <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        {domain.label}
+                      </h3>
+                    </div>
 
-                {/* Coluna 2: Preço ou Erro (Ajustado à direita) */}
-                <div className="flex items-center justify-end sm:pr-4">
-                  {result.error && !result.available ? (
-                    <span className="text-red-500 text-xs text-right font-medium">{result.error}</span>
-                  ) : result.price !== undefined ? (
-                    <span className="text-slate-700 font-medium text-[15px]">
-                      {((result.price * 65 * 1.5) * 1.075).toFixed(2)} MT
-                    </span>
-                  ) : null}
-                </div>
+                    {/* Registar */}
+                    <div className="sm:col-span-1 flex flex-col">
+                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.reg') || 'Registar'}</span>
+                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.price)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
+                    </div>
 
-                {/* Coluna 3: Botão (Ajustado à direita) */}
-                <div className="flex items-center justify-end">
-                  {result.available ? (
-                    <button
-                      onClick={() => handleRegisterAction(result.domain)}
-                      disabled={actionLoading === result.domain}
-                      className="bg-green-600 hover:bg-green-700 hover:scale-105 hover:shadow-md text-white px-5 py-2 rounded text-sm font-bold transition-all duration-200 shadow-sm flex items-center gap-2 whitespace-nowrap min-w-[130px] justify-center"
-                    >
-                      {actionLoading === result.domain ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
-                      ) : (
-                        isAdmin ? "Registar" : "Adicionar"
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold cursor-not-allowed shadow-sm min-w-[130px]"
-                    >
-                      Indisponível
-                    </button>
-                  )}
-                </div>
+                    {/* Renovar */}
+                    <div className="sm:col-span-1 flex flex-col">
+                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.ren') || 'Renovar'}</span>
+                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.renewPrice)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
+                    </div>
+
+                    {/* Transferir */}
+                    <div className="sm:col-span-1 flex flex-col">
+                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.trans') || 'Transferir'}</span>
+                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.transfer)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
