@@ -200,7 +200,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         setTimeout(() => {
           setActionLoading(null);
           // O preço base da Spaceship já está convertido no UI via calculatePrice
-          const finalPrice = Math.round(row.price * 65 * 1.5 * 1.075);
+          const finalPrice = Math.round(row.price! * 65 * 1.5 * 1.075);
           const finalRenewPrice = row.renewPrice ? Math.round(row.renewPrice * 65 * 1.5 * 1.075) : undefined;
           
           addItem({

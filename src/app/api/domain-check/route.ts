@@ -22,8 +22,8 @@ export async function POST(req: Request) {
     const result = await checkAvailability(fullDomain);
     console.log(`[API] Resultado do adaptador para ${fullDomain}:`, result);
 
-    if (result.error) {
-      return NextResponse.json({ available: false, error: result.error }, { status: 400 });
+    if ((result as any).error) {
+      return NextResponse.json({ available: false, error: (result as any).error }, { status: 400 });
     }
 
     return NextResponse.json({

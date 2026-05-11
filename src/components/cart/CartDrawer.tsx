@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
-import { X, Trash2, ShoppingCart, CreditCard, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Trash2, ShoppingCart, CreditCard, ChevronRight, Loader2, CheckCircle2, Shield, Server } from 'lucide-react';
 
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, removeItem, total, clearCart } = useCart();
