@@ -27,12 +27,12 @@ export async function checkAvailability(domain: string) {
   // Simulamos um pequeno delay de rede
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  // Vamos simular que domínios .com estão ocupados e os outros estão livres
-  // para que o utilizador consiga ver as duas cores de botões (Verde e Azul)
-  const isCom = clean.endsWith('.com');
+  // Vamos simular que domínios com a palavra "indisponivel" estão ocupados
+  // Tudo o resto fica livre
+  const isAvailable = !clean.includes('indisponivel');
   
   return {
-    available: !isCom,
+    available: isAvailable,
     price: undefined, // Vai usar o preço fallback do DomainSearch.tsx
     currency: 'USD',
   };

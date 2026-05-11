@@ -233,7 +233,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         <button
           onClick={handleSearch}
           disabled={loading || !searchQuery.trim()}
-          className="bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md w-full sm:w-auto"
+          className={`bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold cursor-pointer shadow-md w-full sm:w-auto ${loading ? 'opacity-50 cursor-not-allowed' : (!searchQuery.trim() ? 'cursor-not-allowed' : '')}`}
         >
           {t('home.search.button') || "Procurar"}
         </button>
