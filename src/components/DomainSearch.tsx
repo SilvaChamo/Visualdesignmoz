@@ -27,6 +27,7 @@ interface DomainSearchProps {
 
 export default function DomainSearch({ onResultsAction, onLoadingAction, hideResultsInternal = false, isAdmin = false, searchContainerClassName = '', activeTab = 'domains' }: DomainSearchProps) {
   const { t } = useI18n()
+  const { addItem, setIsCartOpen } = useCart()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTLD, setSelectedTLD] = useState('.com')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -34,6 +35,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
   const [showResults, setShowResults] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [internalTab, setInternalTab] = useState<'domains' | 'pricing' | 'plans'>('domains')
+  const [billingCycle, setBillingCycle] = useState<'mensal' | 'anual'>('anual')
 
   const calculatePrice = (usdPrice: number) => {
     return ((usdPrice * 65 * 1.5) * 1.075).toFixed(2);
@@ -58,7 +60,6 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
     { value: '.me', label: '.me', price: 10.00, renewPrice: 10.00, icann: 0.20, transfer: 10.00 },
   ]
 
-  const { addItem } = useCart()
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -385,42 +386,78 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
               </table>
             </div>
           ) : internalTab === 'plans' ? (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className={`p-6 rounded-xl border ${isAdmin ? 'bg-white border-slate-200' : 'bg-slate-800/50 border-slate-700/60'}`}>
-                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Hospedagem Web</h4>
-                <p className="text-slate-400 text-sm mb-4">Servidor rápido e fiável para o seu site.</p>
-                <div className="text-3xl font-black text-red-500 mb-6">1.500 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
-                <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> 10GB Espaço SSD</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Tráfego Ilimitado</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Painel cPanel</li>
-                </ul>
-                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
-              </div>
-              
-              <div className={`p-6 rounded-xl border-2 border-red-600 relative ${isAdmin ? 'bg-white' : 'bg-slate-800/80'}`}>
-                <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">MAIS POPULAR</div>
-                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Email Profissional</h4>
-                <p className="text-slate-400 text-sm mb-4">Emails com o nome do seu domínio.</p>
-                <div className="text-3xl font-black text-red-500 mb-6">950 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
-                <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> 5 Contas de Email</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Anti-Spam e Vírus</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Webmail Incluído</li>
-                </ul>
-                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
+            <div className="mt-6">
+              {/* Toggle Simples */}
+              <div className="flex justify-center mb-8">
+                <div className="inline-flex bg-slate-100 rounded-full p-1 gap-1">
+                  <button onClick={() => setBillingCycle('mensal')} className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all ${billingCycle === 'mensal' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}>Mensal</button>
+                  <button onClick={() => setBillingCycle('anual')} className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${billingCycle === 'anual' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}>
+                    Anual <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">-20%</span>
+                  </button>
+                </div>
               </div>
 
-              <div className={`p-6 rounded-xl border ${isAdmin ? 'bg-white border-slate-200' : 'bg-slate-800/50 border-slate-700/60'}`}>
-                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Criador de Sites</h4>
-                <p className="text-slate-400 text-sm mb-4">Crie o seu site arrastando e soltando.</p>
-                <div className="text-3xl font-black text-red-500 mb-6">2.500 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
-                <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> +200 Templates</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Loja Online Básica</li>
-                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Certificado SSL Grátis</li>
-                </ul>
-                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Webhost Básico */}
+                <div className="p-6 rounded-xl bg-white border border-slate-200 hover:shadow-lg transition-all duration-300 flex flex-col">
+                  <h4 className="text-xl font-bold text-slate-800 mb-2">Webhost Básico</h4>
+                  <p className="text-slate-500 text-sm mb-4">Ideal para sites e blogs pessoais.</p>
+                  <div className="mb-6">
+                    <span className="text-3xl font-black text-red-600">{billingCycle === 'anual' ? '7.344' : '680'} MT</span>
+                    <span className="text-sm text-slate-500 font-normal ml-1">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
+                    {billingCycle === 'anual' && <p className="text-xs text-green-600 mt-1 font-medium">Poupa 816 MT/ano</p>}
+                  </div>
+                  <ul className="space-y-2 mb-6 flex-1">
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> 10GB Espaço SSD</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Tráfego Ilimitado</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Painel DirectAdmin</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> 1GB RAM</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> SSL Gratuito</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Cloudflare Segurança</li>
+                  </ul>
+                  <button onClick={() => { addItem({ id: 'hosting-basico', type: 'hosting', name: 'Webhost Básico', price: billingCycle === 'anual' ? 7344 : 680, period: 1 }); setIsCartOpen(true); }} className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Adicionar</button>
+                </div>
+
+                {/* Webhost Pro */}
+                <div className="p-6 rounded-xl bg-white border-2 border-red-600 relative flex flex-col shadow-lg">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] font-bold px-4 py-1 rounded-full">MAIS POPULAR</div>
+                  <h4 className="text-xl font-bold text-slate-800 mb-2 mt-1">Webhost Pro</h4>
+                  <p className="text-slate-500 text-sm mb-4">Para negócios e lojas online.</p>
+                  <div className="mb-6">
+                    <span className="text-3xl font-black text-red-600">{billingCycle === 'anual' ? '16.200' : '1.500'} MT</span>
+                    <span className="text-sm text-slate-500 font-normal ml-1">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
+                    {billingCycle === 'anual' && <p className="text-xs text-green-600 mt-1 font-medium">Poupa 1.800 MT/ano</p>}
+                  </div>
+                  <ul className="space-y-2 mb-6 flex-1">
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> 20GB Espaço SSD NVMe</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Tráfego Ilimitado</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Emails Ilimitados</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> 2GB RAM</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> SSL Gratuito</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Cloudflare Segurança</li>
+                  </ul>
+                  <button onClick={() => { addItem({ id: 'hosting-pro', type: 'hosting', name: 'Webhost Pro', price: billingCycle === 'anual' ? 16200 : 1500, period: 1 }); setIsCartOpen(true); }} className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Adicionar</button>
+                </div>
+
+                {/* Email Profissional */}
+                <div className="p-6 rounded-xl bg-white border border-slate-200 hover:shadow-lg transition-all duration-300 flex flex-col">
+                  <h4 className="text-xl font-bold text-slate-800 mb-2">Email Profissional</h4>
+                  <p className="text-slate-500 text-sm mb-4">Emails corporativos.</p>
+                  <div className="mb-6">
+                    <span className="text-3xl font-black text-red-600">{billingCycle === 'anual' ? '2.700' : '250'} MT</span>
+                    <span className="text-sm text-slate-500 font-normal ml-1">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
+                    {billingCycle === 'anual' && <p className="text-xs text-green-600 mt-1 font-medium">Poupa 300 MT/ano</p>}
+                  </div>
+                  <ul className="space-y-2 mb-6 flex-1">
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> 10 Contas de Email</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Anti-Spam e Vírus</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Mail Marketing Incluído</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Webmail e SMTP/IMAP</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> SSL Gratuito</li>
+                    <li className="flex items-center gap-2 text-sm text-slate-600"><Check className="w-4 h-4 text-green-500 flex-shrink-0"/> Cloudflare Segurança</li>
+                  </ul>
+                  <button onClick={() => { addItem({ id: 'email-pro', type: 'email', name: 'Email Profissional', price: billingCycle === 'anual' ? 2700 : 250, period: 1 }); setIsCartOpen(true); }} className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Adicionar</button>
+                </div>
               </div>
             </div>
           ) : null}
