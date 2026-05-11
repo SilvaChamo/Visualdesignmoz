@@ -11,11 +11,48 @@ export function Navbar() {
   const { t } = useI18n()
   const { items, setIsCartOpen } = useCart()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
+  const [showTopBar, setShowTopBar] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
+  const launchpadRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+
+      // Esconde a barra preta quando scrolla para baixo
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setShowTopBar(false)
+        setShowLaunchpad(false)
+      } else {
+        // Mostra quando scrolla para cima
+        setShowTopBar(true)
+      }
+
+      setLastScrollY(currentScrollY)
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (launchpadRef.current && !launchpadRef.current.contains(event.target as Node)) {
+        setShowLaunchpad(false)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [lastScrollY])
 
   return (
     <>
-      {/* Top Menu Bar - Rola naturalmente com a página */}
-      <div className="relative z-[60] bg-black h-[40px] flex items-center shadow-lg w-full">
+      {/* Top Menu Bar - Esconde ao scrollar para baixo, mostra ao scrollar para cima */}
+      <div
+        className={`fixed left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
+          }`}
+      >
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 flex justify-between items-center h-full">
           {/* Coluna Esquerda: Menu inspirado na imagem */}
           <div className="flex items-center gap-3">
@@ -42,80 +79,80 @@ export function Navbar() {
 
               {showLaunchpad && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-                  {/* Fundo Preto Transparente (Backdrop) */}
+                  {/* Fundo Transparente sem Desfoque */}
                   <div
-                    className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                    className="absolute inset-0 bg-black/40"
                     onClick={() => setShowLaunchpad(false)}
                   />
 
-                  {/* Modal Centralizado */}
-                  <div className="relative w-full max-w-2xl bg-[#1E1E24] border border-zinc-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                  {/* Modal Centralizado (Layout Claro) */}
+                  <div ref={launchpadRef} className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
 
                     {/* Barra de Pesquisa Simulada */}
-                    <div className="p-4 border-b border-zinc-800/50">
-                      <div className="flex items-center gap-3 px-4 py-3 bg-black/20 rounded-xl border border-zinc-800">
-                        <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="p-4 border-b border-slate-100">
+                      <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input
                           type="text"
                           placeholder="Encontra qualquer coisa no VisualDesign"
-                          className="bg-transparent border-none outline-none text-zinc-300 text-base flex-1 placeholder-zinc-600"
+                          className="bg-transparent border-none outline-none text-slate-800 text-base flex-1 placeholder-slate-400"
                           readOnly
                         />
                         <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 bg-zinc-800 rounded border border-zinc-700 text-xs text-zinc-400 font-mono">/</kbd>
-                          <span className="text-zinc-600 text-xs">ou</span>
-                          <kbd className="px-2 py-1 bg-zinc-800 rounded border border-zinc-700 text-xs text-zinc-400 font-mono">⌘+K</kbd>
+                          <kbd className="px-2 py-1 bg-white rounded border border-slate-200 text-xs text-slate-500 font-mono shadow-sm">/</kbd>
+                          <span className="text-slate-400 text-xs">ou</span>
+                          <kbd className="px-2 py-1 bg-white rounded border border-slate-200 text-xs text-slate-500 font-mono shadow-sm">⌘+K</kbd>
                         </div>
                       </div>
                     </div>
 
                     {/* Grelha de Apps (2 Colunas e 2 Linhas) */}
                     <div className="p-6">
-                      <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 ml-2">Acesso Rápido</p>
+                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4 ml-2">Acesso Rápido</p>
                       <div className="grid grid-cols-2 gap-4">
                         {/* Item 1 */}
-                        <Link href="/servicos" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-zinc-800/50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-zinc-700/50">
-                          <div className="w-12 h-12 bg-[#00A99D]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Globe className="w-6 h-6 text-[#00A99D]" />
+                        <Link href="/client/domains" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
+                          <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <Globe className="w-6 h-6 text-teal-600" />
                           </div>
                           <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-zinc-100 group-hover:text-white transition-colors">Gestor de Domínios</span>
-                            <span className="text-zinc-500 text-sm mt-0.5">Gerir os seus domínios</span>
+                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Gestor de Domínios</span>
+                            <span className="text-slate-500 text-sm mt-0.5">Gerir os seus domínios</span>
                           </div>
                         </Link>
 
                         {/* Item 2 */}
-                        <Link href="/servicos" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-zinc-800/50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-zinc-700/50">
-                          <div className="w-12 h-12 bg-[#2D9CDB]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Server className="w-6 h-6 text-[#2D9CDB]" />
+                        <Link href="/servicos/hospedagem" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
+                          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <Server className="w-6 h-6 text-blue-600" />
                           </div>
                           <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-zinc-100 group-hover:text-white transition-colors">Gestor de Alojamento</span>
-                            <span className="text-zinc-500 text-sm mt-0.5">Hospedagem CPanel</span>
+                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Gestor de Alojamento</span>
+                            <span className="text-slate-500 text-sm mt-0.5">Hospedagem CPanel</span>
                           </div>
                         </Link>
 
                         {/* Item 3 */}
-                        <Link href="/servicos/suporte" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-zinc-800/50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-zinc-700/50">
-                          <div className="w-12 h-12 bg-[#9B51E0]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Shield className="w-6 h-6 text-[#9B51E0]" />
+                        <Link href="/client/domains" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
+                          <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <Shield className="w-6 h-6 text-purple-600" />
                           </div>
                           <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-zinc-100 group-hover:text-white transition-colors">DNS Avançado</span>
-                            <span className="text-zinc-500 text-sm mt-0.5">Registos e Zonas</span>
+                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">DNS Avançado</span>
+                            <span className="text-slate-500 text-sm mt-0.5">Registos e Zonas</span>
                           </div>
                         </Link>
 
                         {/* Item 4 */}
-                        <Link href="/servicos" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-zinc-800/50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-zinc-700/50">
-                          <div className="w-12 h-12 bg-[#F2994A]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <CreditCard className="w-6 h-6 text-[#F2994A]" />
+                        <Link href="/notificacoes" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
+                          <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <CreditCard className="w-6 h-6 text-orange-600" />
                           </div>
                           <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-zinc-100 group-hover:text-white transition-colors">Faturas e Pagamentos</span>
-                            <span className="text-zinc-500 text-sm mt-0.5">Histórico e Pendentes</span>
+                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Faturas e Pagamentos</span>
+                            <span className="text-slate-500 text-sm mt-0.5">Histórico e Pendentes</span>
                           </div>
                         </Link>
                       </div>
@@ -128,20 +165,23 @@ export function Navbar() {
           </div>
 
 
-          {/* Coluna Direita: Ícones limpos */}
+          {/* Coluna Direita: Ícones limpos com tooltips instantâneos */}
           <div className="flex items-center gap-5">
-            <Link href="/client/domains" title="Meus Domínios" className="text-slate-300 hover:text-red-500 transition-colors">
+            <Link href="/client/domains" className="text-slate-300 hover:text-red-500 transition-colors relative group">
               <Globe className="w-4 h-4" />
+              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Meus Domínios</span>
             </Link>
-            <Link href="/client/notificacoes" title="Notificações" className="text-slate-300 hover:text-red-500 transition-colors relative">
+            
+            <Link href="/client/notificacoes" className="text-slate-300 hover:text-red-500 transition-colors relative group">
               <Bell className="w-4 h-4" />
               {/* Exemplo de badge de notificação */}
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Notificações</span>
             </Link>
+            
             <button 
               onClick={() => setIsCartOpen(true)}
-              title="Carrinho de Compras" 
-              className="text-slate-300 hover:text-red-500 transition-colors relative"
+              className="text-slate-300 hover:text-red-500 transition-colors relative group"
             >
               <ShoppingCart className="w-4 h-4" />
               {items.length > 0 && (
@@ -149,9 +189,12 @@ export function Navbar() {
                   {items.length}
                 </span>
               )}
+              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>
             </button>
-            <Link href="/auth/login" title="Minha Conta" className="text-slate-300 hover:text-red-500 transition-colors ml-2">
+            
+            <Link href="/auth/login" className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
               <User className="w-4 h-4" />
+              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>
             </Link>
           </div>
         </div>

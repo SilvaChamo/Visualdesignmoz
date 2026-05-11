@@ -23,7 +23,7 @@ function HomePage() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[80px] sm:pt-[100px] md:pt-[120px] lg:pt-[150px] pb-[20px] sm:pb-[30px] flex flex-col justify-between items-center min-h-[300px] sm:min-h-[350px] md:min-h-[400px] relative z-10">
           <div className="w-full max-w-4xl text-center">
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 md:mb-4 whitespace-nowrap">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-0 sm:mb-1 whitespace-nowrap">
               {t('home.title')}
             </h1>
             <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white mb-[20px] sm:mb-[25px] md:mb-[30px] font-normal text-center max-w-3xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
@@ -31,7 +31,7 @@ function HomePage() {
             </p>
 
             {/* Domain Search Box */}
-            <div className="flex justify-center mb-[40px]">
+            <div className="flex justify-center mb-[40px] w-full max-w-[830px] mx-auto">
               <DomainSearch onResultsAction={(results) => setHideServices(results.length > 0)} />
             </div>
 

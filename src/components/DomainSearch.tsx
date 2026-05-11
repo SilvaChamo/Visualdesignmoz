@@ -227,7 +227,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="w-full px-4 py-2.5 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all pr-12 shadow-sm font-medium"
+            className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all pr-12 shadow-sm font-medium"
           />
           {loading ? (
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -243,7 +243,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         <select
           value={selectedTLD}
           onChange={(e) => setSelectedTLD(e.target.value)}
-          className="px-4 py-2.5 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 w-full sm:w-48 shadow-sm font-medium cursor-pointer"
+          className="px-4 py-2 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 w-full sm:w-56 shadow-sm font-medium cursor-pointer"
         >
           {tlds.map(tld => (
             <option key={tld.value} value={tld.value}>
@@ -255,7 +255,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         <button
           onClick={handleSearch}
           disabled={loading || !searchQuery.trim()}
-          className={`bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold cursor-pointer shadow-md w-full sm:w-auto ${loading ? 'opacity-50 cursor-not-allowed' : (!searchQuery.trim() ? 'cursor-not-allowed' : '')}`}
+          className={`bg-red-600 hover:bg-red-700 text-white px-8 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold cursor-pointer shadow-md w-full sm:w-auto ${loading ? 'opacity-50 cursor-not-allowed' : (!searchQuery.trim() ? 'cursor-not-allowed' : '')}`}
         >
           {t('home.search.button') || "Procurar"}
         </button>

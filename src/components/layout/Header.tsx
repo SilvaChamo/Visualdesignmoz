@@ -36,23 +36,33 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [showTopBar, setShowTopBar] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
   const pathname = usePathname()
   const { items, setIsCartOpen } = useCart()
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20)
+      const currentScrollY = window.scrollY
+      setScrolled(currentScrollY > 20)
+      
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setShowTopBar(false)
+      } else {
+        setShowTopBar(true)
+      }
+      setLastScrollY(currentScrollY)
     }
     const handleClickOutside = () => {
       setActiveDropdown(null)
     }
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     document.addEventListener('click', handleClickOutside)
     return () => {
       window.removeEventListener('scroll', handleScroll)
       document.removeEventListener('click', handleClickOutside)
     }
-  }, [])
+  }, [lastScrollY])
 
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen)
@@ -67,7 +77,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 bg-white border-b border-gray-100 ${scrolled ? 'shadow-md' : ''}`}
+      className={`fixed ${showTopBar ? 'top-[40px]' : 'top-0'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100 ${scrolled ? 'shadow-md' : ''}`}
     >
       <div className="relative">
         <div className="max-w-7xl mx-auto px-0">
