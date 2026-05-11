@@ -68,7 +68,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
       className={`fixed ${scrolled ? 'top-0 shadow-md' : 'top-[40px]'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100`}
     >
       <div className="relative">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-0">
           <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative">
             {/* Left Column - Logo */}
             <div className="flex items-center justify-start">

@@ -8,6 +8,7 @@ import DomainSearch from '@/components/DomainSearch'
 function HomePage() {
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState('home.tabs.domains')
+  const [hideServices, setHideServices] = useState(false)
 
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
@@ -20,7 +21,7 @@ function HomePage() {
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
         />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="container mx-auto max-w-7xl px-6 pt-[80px] sm:pt-[100px] md:pt-[120px] lg:pt-[150px] pb-[20px] sm:pb-[30px] flex flex-col justify-between items-center min-h-[300px] sm:min-h-[350px] md:min-h-[400px] relative z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[80px] sm:pt-[100px] md:pt-[120px] lg:pt-[150px] pb-[20px] sm:pb-[30px] flex flex-col justify-between items-center min-h-[300px] sm:min-h-[350px] md:min-h-[400px] relative z-10">
           <div className="w-full max-w-4xl text-center">
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 md:mb-4 whitespace-nowrap">
               {t('home.title')}
@@ -31,7 +32,7 @@ function HomePage() {
 
             {/* Domain Search Box */}
             <div className="flex justify-center mb-[40px]">
-              <DomainSearch />
+              <DomainSearch onResultsAction={(results) => setHideServices(results.length > 0)} />
             </div>
 
             {/* Tabs */}
@@ -94,71 +95,73 @@ function HomePage() {
       </div>
 
       {/* Content Section */}
-      <div>
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
-          {/* Design Services */}
-          <div className="text-center">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.graphic')}</h4>
-                <div className="text-black/70 text-sm mb-4">{t('services.graphic.desc')}</div>
-                <Link href="/servicos/design-grafico" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.web')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.web.desc')}</p>
-                <Link href="/servicos/webdesign" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.marketing')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.marketing.desc')}</p>
-                <Link href="/servicos/marketing-digital" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.branding')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.branding.desc')}</p>
-                <Link href="/servicos/branding" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.seo')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.seo.desc')}</p>
-                <Link href="/servicos/seo" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.social')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.social.desc')}</p>
-                <Link href="/servicos/redes-sociais" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.video')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.video.desc')}</p>
-                <Link href="/servicos/video-producao" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
-              </div>
-              <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
-                <h4 className="font-bold mb-2">{t('services.photography')}</h4>
-                <p className="text-black/70 text-sm mb-4">{t('services.photography.desc')}</p>
-                <Link href="/servicos/fotografia" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
-                  {t('services.view')}
-                </Link>
+      {!hideServices && (
+        <div>
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+            {/* Design Services */}
+            <div className="text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.graphic')}</h4>
+                  <div className="text-black/70 text-sm mb-4">{t('services.graphic.desc')}</div>
+                  <Link href="/servicos/design-grafico" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.web')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.web.desc')}</p>
+                  <Link href="/servicos/webdesign" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.marketing')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.marketing.desc')}</p>
+                  <Link href="/servicos/marketing-digital" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.branding')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.branding.desc')}</p>
+                  <Link href="/servicos/branding" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.seo')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.seo.desc')}</p>
+                  <Link href="/servicos/seo" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.social')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.social.desc')}</p>
+                  <Link href="/servicos/redes-sociais" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.video')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.video.desc')}</p>
+                  <Link href="/servicos/video-producao" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
+                <div className="bg-white text-black/70 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-bold mb-2">{t('services.photography')}</h4>
+                  <p className="text-black/70 text-sm mb-4">{t('services.photography.desc')}</p>
+                  <Link href="/servicos/fotografia" className="bg-black text-white px-3 sm:px-4 py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-600 hover:text-white transition-colors inline-block cursor-pointer">
+                    {t('services.view')}
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
