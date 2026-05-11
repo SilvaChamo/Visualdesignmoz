@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Search, Check, X, Loader2, Globe, DollarSign } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { useCart } from '@/contexts/CartContext'
 
 interface SearchResult {
   domain: string;
@@ -32,7 +33,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [internalTab, setInternalTab] = useState<'domains' | 'pricing'>('domains')
+  const [internalTab, setInternalTab] = useState<'domains' | 'pricing' | 'plans'>('domains')
 
   const calculatePrice = (usdPrice: number) => {
     return ((usdPrice * 65 * 1.5) * 1.075).toFixed(2);
@@ -56,6 +57,8 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
     { value: '.info', label: '.info', price: 15.00, renewPrice: 15.00, icann: 0.20, transfer: 15.00 },
     { value: '.me', label: '.me', price: 10.00, renewPrice: 10.00, icann: 0.20, transfer: 10.00 },
   ]
+
+  const { addItem } = useCart()
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -190,7 +193,26 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         setActionLoading(null);
       }
     } else {
-      window.location.href = `/precos/dominios?domain=${domain}`;
+      // Adicionar ao carrinho (User Flow)
+      const row = results.find(r => r.domain === domain);
+      if (row && row.price !== undefined) {
+        setActionLoading(domain);
+        setTimeout(() => {
+          setActionLoading(null);
+          // O preço base da Spaceship já está convertido no UI via calculatePrice
+          const finalPrice = Math.round(row.price * 65 * 1.5 * 1.075);
+          const finalRenewPrice = row.renewPrice ? Math.round(row.renewPrice * 65 * 1.5 * 1.075) : undefined;
+          
+          addItem({
+            id: domain,
+            type: 'domain',
+            name: domain,
+            price: finalPrice,
+            period: 1,
+            renewPrice: finalRenewPrice
+          });
+        }, 500);
+      }
     }
   }
 
@@ -245,7 +267,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
           <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 pb-2 border-b ${isAdmin ? 'border-slate-200' : 'border-slate-700/60'} gap-4`}>
             <h3 className={`font-bold ${isAdmin ? 'text-slate-800' : 'text-white'} text-lg flex items-center gap-2`}>
               <Globe className="w-5 h-5 text-red-600" />
-              {internalTab === 'domains' ? 'Domínios Disponíveis' : 'Tabela de Preços'}
+              {internalTab === 'domains' ? 'Domínios Disponíveis' : internalTab === 'pricing' ? 'Tabela de Preços' : 'Planos e Serviços'}
             </h3>
             <div className="flex flex-wrap items-center gap-2">
               <div className={`flex gap-4 p-1`}>
@@ -258,6 +280,11 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                   onClick={() => setInternalTab('pricing')}
                   className={`px-2 py-1 text-sm font-bold transition-all border-b-2 ${internalTab === 'pricing' ? 'text-red-600 border-red-600' : (isAdmin ? 'text-slate-500 border-transparent hover:text-slate-800' : 'text-slate-300 border-transparent hover:text-white')}`}>
                   Preços
+                </button>
+                <button 
+                  onClick={() => setInternalTab('plans')}
+                  className={`px-2 py-1 text-sm font-bold transition-all border-b-2 ${internalTab === 'plans' ? 'text-red-600 border-red-600' : (isAdmin ? 'text-slate-500 border-transparent hover:text-slate-800' : 'text-slate-300 border-transparent hover:text-white')}`}>
+                  Planos e Preços
                 </button>
               </div>
               <button
@@ -334,41 +361,69 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm mt-4">
-              <div className="divide-y divide-slate-100">
-                {tlds.map((domain, index) => (
-                  <div key={index} className="p-4 sm:p-5 transition-colors grid grid-cols-1 sm:grid-cols-4 gap-4 items-center hover:bg-slate-50">
-                    
-                    {/* Extensão */}
-                    <div className="sm:col-span-1">
-                      <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        {domain.label}
-                      </h3>
-                    </div>
+          ) : internalTab === 'pricing' ? (
+            <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="p-4 font-bold text-slate-700">Extensão</th>
+                    <th className="p-4 font-bold text-slate-700">Registo</th>
+                    <th className="p-4 font-bold text-slate-700">Renovação</th>
+                    <th className="p-4 font-bold text-slate-700">Transferência</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {tlds.map((domain, index) => (
+                    <tr key={index} className="hover:bg-slate-50">
+                      <td className="p-4 font-bold text-slate-900">{domain.label}</td>
+                      <td className="p-4 text-slate-600">{calculatePrice(domain.price)} MT</td>
+                      <td className="p-4 text-slate-600">{calculatePrice(domain.renewPrice)} MT</td>
+                      <td className="p-4 text-slate-600">{calculatePrice(domain.transfer)} MT</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : internalTab === 'plans' ? (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className={`p-6 rounded-xl border ${isAdmin ? 'bg-white border-slate-200' : 'bg-slate-800/50 border-slate-700/60'}`}>
+                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Hospedagem Web</h4>
+                <p className="text-slate-400 text-sm mb-4">Servidor rápido e fiável para o seu site.</p>
+                <div className="text-3xl font-black text-red-500 mb-6">1.500 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> 10GB Espaço SSD</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Tráfego Ilimitado</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Painel cPanel</li>
+                </ul>
+                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
+              </div>
+              
+              <div className={`p-6 rounded-xl border-2 border-red-600 relative ${isAdmin ? 'bg-white' : 'bg-slate-800/80'}`}>
+                <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">MAIS POPULAR</div>
+                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Email Profissional</h4>
+                <p className="text-slate-400 text-sm mb-4">Emails com o nome do seu domínio.</p>
+                <div className="text-3xl font-black text-red-500 mb-6">950 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> 5 Contas de Email</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Anti-Spam e Vírus</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Webmail Incluído</li>
+                </ul>
+                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
+              </div>
 
-                    {/* Registar */}
-                    <div className="sm:col-span-1 flex flex-col">
-                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.reg') || 'Registar'}</span>
-                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.price)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
-                    </div>
-
-                    {/* Renovar */}
-                    <div className="sm:col-span-1 flex flex-col">
-                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.ren') || 'Renovar'}</span>
-                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.renewPrice)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
-                    </div>
-
-                    {/* Transferir */}
-                    <div className="sm:col-span-1 flex flex-col">
-                      <span className="text-xs text-slate-500 mb-1">{t('pricing.domains.table.trans') || 'Transferir'}</span>
-                      <span className="font-bold text-slate-800 text-base">{calculatePrice(domain.transfer)} MT <span className="text-[10px] font-normal text-slate-500">/ano</span></span>
-                    </div>
-                  </div>
-                ))}
+              <div className={`p-6 rounded-xl border ${isAdmin ? 'bg-white border-slate-200' : 'bg-slate-800/50 border-slate-700/60'}`}>
+                <h4 className={`text-xl font-bold mb-2 ${isAdmin ? 'text-slate-800' : 'text-white'}`}>Criador de Sites</h4>
+                <p className="text-slate-400 text-sm mb-4">Crie o seu site arrastando e soltando.</p>
+                <div className="text-3xl font-black text-red-500 mb-6">2.500 MT <span className="text-sm text-slate-500 font-normal">/ano</span></div>
+                <ul className="space-y-2 mb-6">
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> +200 Templates</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Loja Online Básica</li>
+                  <li className="flex items-center gap-2 text-sm text-slate-400"><Check className="w-4 h-4 text-green-500"/> Certificado SSL Grátis</li>
+                </ul>
+                <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Ver Mais</button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

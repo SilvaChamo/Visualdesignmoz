@@ -3,70 +3,31 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '@/lib/i18n'
-import { Globe, User, Bell, ShoppingCart, HelpCircle, BookOpen, Rocket, Server, CreditCard, Shield } from 'lucide-react'
+import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen } from 'lucide-react'
 import Link from 'next/link'
+import { useCart } from '@/contexts/CartContext'
 
 export function Navbar() {
   const { t } = useI18n()
-  const [showTopBar, setShowTopBar] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  const { items, setIsCartOpen } = useCart()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
-  const launchpadRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-
-      // Esconde a barra preta quando scrolla para baixo
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        setShowTopBar(false)
-        setShowLaunchpad(false)
-      } else {
-        // Mostra quando scrolla para cima
-        setShowTopBar(true)
-      }
-
-      setLastScrollY(currentScrollY)
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (launchpadRef.current && !launchpadRef.current.contains(event.target as Node)) {
-        setShowLaunchpad(false)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    document.addEventListener('mousedown', handleClickOutside)
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [lastScrollY])
 
   return (
     <>
-      {/* Top Menu Bar - Esconde ao scrollar para baixo, mostra ao scrollar para cima */}
-      <div
-        className={`fixed left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
-          }`}
-      >
+      {/* Top Menu Bar - Rola naturalmente com a página */}
+      <div className="relative z-[60] bg-black h-[40px] flex items-center shadow-lg w-full">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 flex justify-between items-center h-full">
           {/* Coluna Esquerda: Menu inspirado na imagem */}
           <div className="flex items-center gap-3">
             <Link href="/servicos" className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
+              <Grid className="w-3.5 h-3.5" />
               Todos os produtos
             </Link>
             <div className="h-3 w-px bg-slate-700"></div>
 
             <Link href="/servicos/suporte" className="text-slate-300 text-xs hover:text-red-500 transition-colors flex items-center gap-1">
               <HelpCircle className="w-3.5 h-3.5" />
-              Perguntas Frequentes
-            </Link>
-
-            <Link href="/servicos" className="text-slate-300 text-xs hover:text-red-500 transition-colors flex items-center gap-1">
-              <BookOpen className="w-3.5 h-3.5" />
-              Biblioteca
+              FAQ
             </Link>
 
             {/* Launchpad com Modal Centralizado */}
@@ -168,17 +129,28 @@ export function Navbar() {
 
 
           {/* Coluna Direita: Ícones limpos */}
-          <div className="flex items-center gap-4">
-            <button className="text-slate-300 hover:text-red-500 transition-colors">
+          <div className="flex items-center gap-5">
+            <Link href="/client/domains" title="Meus Domínios" className="text-slate-300 hover:text-red-500 transition-colors">
               <Globe className="w-4 h-4" />
-            </button>
-            <button className="text-slate-300 hover:text-red-500 transition-colors">
+            </Link>
+            <Link href="/client/notificacoes" title="Notificações" className="text-slate-300 hover:text-red-500 transition-colors relative">
               <Bell className="w-4 h-4" />
-            </button>
-            <button className="text-slate-300 hover:text-red-500 transition-colors">
+              {/* Exemplo de badge de notificação */}
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </Link>
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              title="Carrinho de Compras" 
+              className="text-slate-300 hover:text-red-500 transition-colors relative"
+            >
               <ShoppingCart className="w-4 h-4" />
+              {items.length > 0 && (
+                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold text-white bg-red-600 border border-black rounded-full">
+                  {items.length}
+                </span>
+              )}
             </button>
-            <Link href="/auth/login" className="text-slate-300 hover:text-red-500 transition-colors">
+            <Link href="/auth/login" title="Minha Conta" className="text-slate-300 hover:text-red-500 transition-colors ml-2">
               <User className="w-4 h-4" />
             </Link>
           </div>

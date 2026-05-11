@@ -4,10 +4,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, ChevronDown, User } from 'lucide-react'
+import { Menu, X, ChevronDown, User, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
+import { useCart } from '@/contexts/CartContext'
 
 const navigation = [
   { nameKey: 'nav.home', href: '/' },
@@ -36,6 +37,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
+  const { items, setIsCartOpen } = useCart()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -65,7 +67,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
 
   return (
     <header
-      className={`fixed ${scrolled ? 'top-0 shadow-md' : 'top-[40px]'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100`}
+      className={`sticky top-0 z-50 transition-all duration-300 bg-white border-b border-gray-100 ${scrolled ? 'shadow-md' : ''}`}
     >
       <div className="relative">
         <div className="max-w-7xl mx-auto px-0">

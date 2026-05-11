@@ -4,6 +4,8 @@ import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { CartProvider } from "@/contexts/CartContext";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 
 export const metadata: Metadata = {
   title: {
@@ -91,11 +93,14 @@ export default function RootLayout({
       </head>
       <body className={`antialiased`}>
         <AuthProvider>
-          <I18nProvider>
-            <ConditionalNavbar />
-            {children}
-            <PWAInstallPrompt />
-          </I18nProvider>
+          <CartProvider>
+            <I18nProvider>
+              <ConditionalNavbar />
+              {children}
+              <CartDrawer />
+              <PWAInstallPrompt />
+            </I18nProvider>
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>
