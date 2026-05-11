@@ -298,8 +298,8 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                           {calculatePrice(result.price)} MT
                         </span>
                         {result.renewPrice && (
-                          <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold">
-                            Renovação: {calculatePrice(result.renewPrice)} MT
+                          <span className="text-slate-500 text-[11px] font-medium">
+                            Renovação: <span className="text-red-400">{calculatePrice(result.renewPrice)} MT</span>
                           </span>
                         )}
                       </div>
