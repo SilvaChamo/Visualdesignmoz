@@ -64,6 +64,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
     if (onLoadingAction) onLoadingAction(true)
     setShowResults(true)
     setResults([])
+    if (onResultsAction) onResultsAction([])
 
     try {
       // 1. Definir lista de extensões a pesquisar: todas as 13 opções disponíveis
@@ -153,6 +154,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
     setShowResults(false)
     setResults([])
     setInternalTab('domains')
+    if (onResultsAction) onResultsAction([])
   }
 
   const handleRegisterAction = async (domain: string) => {
