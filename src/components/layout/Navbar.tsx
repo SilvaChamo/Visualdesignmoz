@@ -139,64 +139,13 @@ export function Navbar() {
               </div>
             </div>
 
-            {/* Domínio */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
-                Domínio
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos/dominios" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Registo de Domínios</Link>
-                <Link href="/precos/dominios" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Preços de Domínios</Link>
-              </div>
-            </div>
+            {/* Apenas menus de utilidade mantidos aqui */}
 
-            {/* Hospedagem */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
-                Hospedagem
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos/hospedagem" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Hospedagem Web</Link>
-                <Link href="/precos/hospedagem" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Preços de Hospedagem</Link>
-              </div>
-            </div>
-
-            {/* Servidor */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
-                Servidor
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos/hospedagem" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">VPS / Cloud</Link>
-              </div>
-            </div>
-
-            {/* Serviços */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
-                Serviços
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos/webdesign" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Web Design</Link>
-                <Link href="/servicos/design-grafico" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Design Gráfico</Link>
-                <Link href="/servicos/marketing-digital" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Marketing Digital</Link>
-              </div>
-            </div>
-
-            {/* Apoio, suporte */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
-                Apoio, suporte
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos/suporte" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Suporte Técnico</Link>
-                <Link href="/servicos/suporte" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">FAQ</Link>
-              </div>
+            {/* FAQ */}
+            <div className="relative">
+              <Link href="/faq" className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
+                FAQ
+              </Link>
             </div>
 
             {/* Launchpad (Mantido) */}
@@ -299,8 +248,7 @@ export function Navbar() {
                 </div>,
                 document.body
               )}
-            </div>
-          </div>
+          
 
 
           {/* Coluna Direita: Ícones limpos com tooltips instantâneos */}

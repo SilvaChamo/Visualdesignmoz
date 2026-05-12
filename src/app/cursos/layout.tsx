@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { InternalFooter } from "@/components/layout/InternalFooter";
 
 export const metadata: Metadata = {
-    title: "Serviços",
+    title: "Cursos",
 };
 
-export default function ServicesLayout({
+export default function CursosLayout({
     children,
 }: {
     children: React.ReactNode;

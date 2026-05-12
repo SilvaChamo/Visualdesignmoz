@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { InternalFooter } from "@/components/layout/InternalFooter";
 
 export const metadata: Metadata = {
     title: "Portfólio",
@@ -9,5 +10,10 @@ export default function PortfolioLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <>{children}</>;
+    return (
+        <>
+            {children}
+            <InternalFooter />
+        </>
+    );
 }
