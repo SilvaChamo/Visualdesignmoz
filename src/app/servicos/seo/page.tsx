@@ -1,8 +1,7 @@
 'use client'
 
 import { useI18n } from '@/lib/i18n'
-import Link from 'next/link'
-import { ArrowLeft, Search, TrendingUp, FileText, Globe, BarChart3, Target } from 'lucide-react'
+import { Search, TrendingUp, FileText, Globe, BarChart3, Target } from 'lucide-react'
 
 export default function SEO() {
   const { t } = useI18n()
@@ -47,7 +46,7 @@ export default function SEO() {
   ]
 
   return (
-    <div className="min-h-screen bg-black/10">
+    <div className="min-h-screen bg-gray-100">
       <div className="bg-[#404040] relative overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
@@ -56,12 +55,6 @@ export default function SEO() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
           <div className="text-center">
-            <div className="flex items-center justify-center mb-4">
-              <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                {t('common.backToHome')}
-              </Link>
-            </div>
             <h1 className="text-3xl font-bold text-white mb-2">{t('services.seo')}</h1>
             <p className="text-base text-white font-normal">
               {t('services.seo.desc')}
@@ -72,7 +65,7 @@ export default function SEO() {
 
       <div className="py-16">
         <div className="container mx-auto max-w-7xl px-6">
-          <h2 className="text-2xl font-bold text-black mb-8 text-center">{t('services.seo')}</h2>
+
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {servicosSEO.map((servico, index) => (
