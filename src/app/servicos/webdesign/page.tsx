@@ -103,15 +103,15 @@ export default function WebDesign() {
           <div className="mt-16 text-center">
             <h3 className="text-xl font-bold text-black mb-4">{t('services.web.methodology')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="bg-white p-6 rounded-lg">
                 <h4 className="font-medium text-black mb-3">{t('services.web.step1.title')}</h4>
                 <p className="text-gray-600 text-sm">{t('services.web.step1.desc')}</p>
               </div>
-              <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="bg-white p-6 rounded-lg">
                 <h4 className="font-medium text-black mb-3">{t('services.web.step2.title')}</h4>
                 <p className="text-gray-600 text-sm">{t('services.web.step2.desc')}</p>
               </div>
-              <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="bg-white p-6 rounded-lg">
                 <h4 className="font-medium text-black mb-3">{t('services.web.step3.title')}</h4>
                 <p className="text-gray-600 text-sm">{t('services.web.step3.desc')}</p>
               </div>
