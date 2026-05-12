@@ -47,7 +47,7 @@ export default function Fotografia() {
                     ))}
                   </ul>
                 </div>
-                <button className="w-full bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 hover:text-white transition-colors">
+                <button className="w-fit bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 hover:text-white transition-colors">
                   {t('services.photo.quote')}
                 </button>
               </div>

@@ -91,7 +91,7 @@ export default function SSL() {
                   </ul>
                 </div>
                 
-                <button className="w-full bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 hover:text-white transition-colors">
+                <button className="w-fit bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 hover:text-white transition-colors">
                   Solicitar Certificado
                 </button>
               </div>

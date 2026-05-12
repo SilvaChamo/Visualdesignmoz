@@ -1,100 +1,69 @@
 'use client'
-import { useI18n } from "@/lib/i18n"
+
+import { useI18n } from '@/lib/i18n'
+import Link from 'next/link'
+import { Monitor, Palette, Megaphone, Shield, Server, Mail, HeadphonesIcon, Tent } from 'lucide-react'
 
 export default function ServicesPage() {
   const { t } = useI18n()
 
-  return (
-    <div className="min-h-screen bg-black">
-      {/* Breadcrumb */}
-      <nav className="bg-black/50 border-b border-gray-800">
-        <div className="max-w-[1380px] mx-auto px-4">
-          <ol className="flex items-center space-x-2 py-4 text-sm">
-            <li>
-              <a href="/" className="text-gray-400 hover:text-white transition-colors">
-                {t('nav.home')}
-              </a>
-            </li>
-            <li className="text-gray-600">/</li>
-            <li className="text-white font-medium">{t('nav.services')}</li>
-          </ol>
-        </div>
-      </nav>
+  const mainServices = [
+    { icon: <Monitor className="w-8 h-8" />, title: t('services.web'), desc: "Desenvolvimento de websites profissionais, responsivos e otimizados para motores de busca.", link: "/servicos/webdesign" },
+    { icon: <Palette className="w-8 h-8" />, title: t('services.graphic'), desc: "Identidade visual, branding, materiais promocionais e design para redes sociais.", link: "/servicos/design-grafico" },
+    { icon: <Megaphone className="w-8 h-8" />, title: t('services.marketing'), desc: "Gestão de redes sociais, campanhas de tráfego pago e estratégias de SEO.", link: "/servicos/marketing-digital" },
+    { icon: <Server className="w-8 h-8" />, title: "Alojamento Web", desc: "Servidores rápidos, seguros e com suporte 24/7 para o seu website.", link: "/servicos/hospedagem" },
+    { icon: <Shield className="w-8 h-8" />, title: "Certificados SSL", desc: "Proteja o seu site e os dados dos seus clientes com certificados SSL.", link: "/servicos/ssl" },
+    { icon: <Mail className="w-8 h-8" />, title: "Email Profissional", desc: "Comunique com profissionalismo usando contas de email com o seu domínio.", link: "/servicos/email" },
+    { icon: <HeadphonesIcon className="w-8 h-8" />, title: "Suporte Técnico", desc: "Assistência técnica e manutenção contínua para os seus serviços digitais.", link: "/servicos/suporte" },
+    { icon: <Tent className="w-8 h-8" />, title: "Feiras e Eventos", desc: "Design de stands, materiais promocionais e cobertura completa para eventos.", link: "/servicos/feiras-eventos" }
+  ]
 
-      {/* Hero Section */}
-      <section className="relative py-20 lg:py-32">
-        <div className="absolute inset-0 bg-black" />
-        <div
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Hero Section Standardized */}
+      <div className="bg-[#404040] relative overflow-hidden">
+        <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
         />
-
-        <div className="relative z-10 max-w-[1380px] mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-              {t('services.page.title')} <span className="text-red-600">{t('services.page.titleHighlight')}</span>
-            </h1>
-            <p className="text-xl text-gray-300 mb-8">
-              {t('services.page.subtitle')}
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-white mb-2">{t('nav.services')}</h1>
+            <p className="text-base text-white font-normal max-w-2xl mx-auto">
+              Soluções digitais completas para impulsionar o seu negócio
             </p>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Services Grid */}
-      <section className="py-20">
-        <div className="max-w-[1380px] mx-auto px-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 hover:transform hover:scale-105 transition-transform">
-              <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+      {/* Services Content */}
+      <div className="py-16">
+        <div className="container mx-auto max-w-7xl px-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {mainServices.map((service, index) => (
+              <div key={index} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                <div>
+                  <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center text-red-600 mb-6">
+                    {service.icon}
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-3">{service.title}</h3>
+                  <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                    {service.desc}
+                  </p>
+                </div>
+                
+                <Link 
+                  href={service.link} 
+                  className="w-fit bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors self-start"
+                >
+                  Saber Mais
+                </Link>
               </div>
-              <h3 className="text-xl font-bold text-white mb-4">{t('services.web')}</h3>
-              <p className="text-gray-300">
-                {t('services.web.card.desc')}
-              </p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 hover:transform hover:scale-105 transition-transform">
-              <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-4">{t('services.graphic')}</h3>
-              <p className="text-gray-300">
-                {t('services.graphic.card.desc')}
-              </p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 hover:transform hover:scale-105 transition-transform">
-              <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a4 4 0 00-3.564 6.683z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-4">{t('services.marketing')}</h3>
-              <p className="text-gray-300">
-                {t('services.marketing.card.desc')}
-              </p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 hover:transform hover:scale-105 transition-transform">
-              <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-4">{t('services.dev')}</h3>
-              <p className="text-gray-300">
-                {t('services.dev.card.desc')}
-              </p>
-            </div>
+            ))}
           </div>
         </div>
-      </section>
+      </div>
     </div>
   )
 }

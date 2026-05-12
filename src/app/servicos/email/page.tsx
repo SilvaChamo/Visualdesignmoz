@@ -38,7 +38,7 @@ export default function EmailProfissional() {
                   <h4 className="font-medium mb-3 text-sm">O que inclui:</h4>
                   <ul className="space-y-0">{s.servicos.map((item, idx) => (<li key={idx} className="flex items-center text-black/70 text-sm"><span className="w-2 h-2 bg-red-500 rounded-full mr-3"></span>{item}</li>))}</ul>
                 </div>
-                <button className="w-full bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 transition-colors">Solicitar Orçamento</button>
+                <button className="w-fit bg-black text-white px-4 py-3 rounded font-medium hover:bg-red-600 transition-colors">Solicitar Orçamento</button>
               </div>
             ))}
           </div>
