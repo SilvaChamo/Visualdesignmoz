@@ -2,18 +2,89 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen } from 'lucide-react'
+import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 
 export function Navbar() {
   const { t } = useI18n()
   const { items, setIsCartOpen } = useCart()
+  const router = useRouter()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
   const [showTopBar, setShowTopBar] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const launchpadRef = useRef<HTMLDivElement>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Itens de Acesso Rápido (sempre visíveis quando não há busca)
+  const quickAccessItems = [
+    { href: '/client/domains', icon: Globe, title: 'Gestor de Domínios', desc: 'Gerir os seus domínios', bg: 'bg-teal-50', text: 'text-teal-600', category: 'Acesso Rápido', requiresLogin: false },
+    { href: '/servicos/hospedagem', icon: Server, title: 'Gestor de Alojamento', desc: 'Hospedagem CPanel', bg: 'bg-blue-50', text: 'text-blue-600', category: 'Acesso Rápido', requiresLogin: false },
+    { href: '/client/domains', icon: Shield, title: 'DNS Avançado', desc: 'Registos e Zonas', bg: 'bg-purple-50', text: 'text-purple-600', category: 'Acesso Rápido', requiresLogin: false },
+    { href: '/notificacoes', icon: CreditCard, title: 'Faturas e Pagamentos', desc: 'Histórico e Pendentes', bg: 'bg-orange-50', text: 'text-orange-600', category: 'Acesso Rápido', requiresLogin: false },
+  ]
+
+  // Índice completo para pesquisa
+  const allSearchableItems = [
+    // Serviços - Design e Criativo
+    { href: '/servicos', icon: Package, title: 'Todos os Serviços', desc: 'Lista completa de serviços disponíveis', bg: 'bg-red-50', text: 'text-red-600', tags: 'serviços lista completa', requiresLogin: false },
+    { href: '/servicos/webdesign', icon: Monitor, title: 'Web Design', desc: 'Criação de sites e lojas online profissionais', bg: 'bg-cyan-50', text: 'text-cyan-600', tags: 'site website loja online ecommerce desenvolvimento serviços', requiresLogin: false },
+    { href: '/servicos/design-grafico', icon: Palette, title: 'Design Gráfico', desc: 'Identidade visual, logótipos e materiais gráficos', bg: 'bg-rose-50', text: 'text-rose-600', tags: 'logo logótipo cartão visita flyer poster banner serviços', requiresLogin: false },
+    { href: '/servicos/branding', icon: PenTool, title: 'Branding', desc: 'Construção e gestão de marca', bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', tags: 'marca identidade visual rebranding serviços', requiresLogin: false },
+    { href: '/servicos/fotografia', icon: Camera, title: 'Fotografia', desc: 'Fotografia profissional e edição', bg: 'bg-amber-50', text: 'text-amber-600', tags: 'fotos sessão fotográfica produto serviços', requiresLogin: false },
+    { href: '/servicos/video-producao', icon: Film, title: 'Vídeo e Produção', desc: 'Produção audiovisual e edição de vídeo', bg: 'bg-red-50', text: 'text-red-600', tags: 'vídeo filmagem edição produção audiovisual serviços', requiresLogin: false },
+
+    // Serviços - Marketing
+    { href: '/servicos/marketing-digital', icon: Megaphone, title: 'Marketing Digital', desc: 'Estratégias de marketing online', bg: 'bg-violet-50', text: 'text-violet-600', tags: 'marketing digital google ads facebook campanha publicidade serviços', requiresLogin: false },
+    { href: '/servicos/redes-sociais', icon: Globe, title: 'Redes Sociais', desc: 'Gestão de redes sociais', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'instagram facebook tiktok social media serviços', requiresLogin: false },
+    { href: '/servicos/seo', icon: SearchIcon, title: 'SEO', desc: 'Otimização para motores de busca', bg: 'bg-green-50', text: 'text-green-600', tags: 'google ranking otimização pesquisa serviços', requiresLogin: false },
+
+    // Serviços - Infraestrutura
+    { href: '/servicos/dominios', icon: Globe, title: 'Domínios', desc: 'Registo e transferência de domínios', bg: 'bg-teal-50', text: 'text-teal-600', tags: 'domínio registar .com .mz dns serviços', requiresLogin: false },
+    { href: '/servicos/hospedagem', icon: Server, title: 'Hospedagem', desc: 'Alojamento web CPanel e servidores', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'hosting alojamento servidor cpanel vps serviços', requiresLogin: false },
+    { href: '/servicos/ssl', icon: Shield, title: 'Certificado SSL', desc: 'Segurança HTTPS para o seu site', bg: 'bg-emerald-50', text: 'text-emerald-600', tags: 'ssl https segurança certificado serviços', requiresLogin: false },
+    { href: '/servicos/email', icon: Mail, title: 'Email Profissional', desc: 'Email com o seu domínio personalizado', bg: 'bg-violet-50', text: 'text-violet-600', tags: 'email profissional correio caixa serviços', requiresLogin: false },
+    { href: '/servicos/suporte', icon: HelpCircle, title: 'Suporte Técnico', desc: 'Assistência técnica e manutenção', bg: 'bg-sky-50', text: 'text-sky-600', tags: 'suporte ajuda assistência manutenção técnico serviços', requiresLogin: false },
+    { href: '/servicos/feiras-eventos', icon: Rocket, title: 'Feiras e Eventos', desc: 'Stands, materiais e cobertura de eventos', bg: 'bg-amber-50', text: 'text-amber-600', tags: 'evento feira stand exposição conferência serviços', requiresLogin: false },
+
+    // Preços
+    { href: '/precos', icon: FileText, title: 'Preços', desc: 'Tabela de preços e planos disponíveis', bg: 'bg-yellow-50', text: 'text-yellow-600', tags: 'preço plano custo valor tabela', requiresLogin: false },
+    { href: '/precos/dominios', icon: Globe, title: 'Preços de Domínios', desc: 'Tabela de preços de registo de domínios', bg: 'bg-teal-50', text: 'text-teal-600', tags: 'preço domínio custo', requiresLogin: false },
+    { href: '/precos/hospedagem', icon: Server, title: 'Preços de Hospedagem', desc: 'Planos de alojamento web', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'preço hosting plano servidor', requiresLogin: false },
+    { href: '/precos/email', icon: Mail, title: 'Preços de Email', desc: 'Planos de email profissional', bg: 'bg-violet-50', text: 'text-violet-600', tags: 'preço email plano correio', requiresLogin: false },
+    { href: '/precos/ssl', icon: Shield, title: 'Preços de SSL', desc: 'Planos de certificados SSL', bg: 'bg-emerald-50', text: 'text-emerald-600', tags: 'preço ssl certificado', requiresLogin: false },
+
+    // Conta
+    { href: '/auth/login', icon: User, title: 'Login', desc: 'Aceder à sua conta', bg: 'bg-slate-50', text: 'text-slate-600', tags: 'entrar aceder conta', requiresLogin: false },
+
+    // Área do Cliente (requer login)
+    { href: '/client', icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
+    { href: '/client/domains', icon: Lock, title: 'Meus Domínios', desc: 'Gerir os seus domínios registados', bg: 'bg-teal-50', text: 'text-teal-700', tags: 'domínios meus gerir dns', requiresLogin: true },
+    { href: '/admin', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
+  ]
+
+  const isSearching = searchQuery.trim().length > 0
+
+  const searchResults = allSearchableItems.filter(item => {
+    const q = searchQuery.toLowerCase()
+    return (
+      item.title.toLowerCase().includes(q) ||
+      item.desc.toLowerCase().includes(q) ||
+      (item.tags && item.tags.toLowerCase().includes(q))
+    )
+  })
+
+  const handleItemClick = (item: typeof allSearchableItems[0]) => {
+    if (item.requiresLogin) {
+      router.push(`/auth/login?from=${encodeURIComponent(item.href)}`)
+    } else {
+      router.push(item.href)
+    }
+    setShowLaunchpad(false)
+    setSearchQuery('')
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -53,7 +124,7 @@ export function Navbar() {
         className={`fixed left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
           }`}
       >
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 flex justify-between items-center h-full">
+        <div className="max-w-7xl mx-auto w-full px-4 flex justify-between items-center h-full">
           {/* Coluna Esquerda: Menu inspirado na imagem */}
           <div className="flex items-center gap-3">
             <Link href="/servicos" className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
@@ -88,74 +159,78 @@ export function Navbar() {
                   {/* Modal Centralizado (Layout Claro) */}
                   <div ref={launchpadRef} className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
 
-                    {/* Barra de Pesquisa Simulada */}
-                    <div className="p-4 border-b border-slate-100">
-                      <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                    {/* Barra de Pesquisa */}
+                    <div className="p-6 border-b border-slate-300 bg-slate-50">
+                      <div className="flex items-center gap-3 px-3 py-2 bg-white rounded-xl border border-slate-200">
                         <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input
                           type="text"
                           placeholder="Encontra qualquer coisa no VisualDesign"
-                          className="bg-transparent border-none outline-none text-slate-800 text-base flex-1 placeholder-slate-400"
-                          readOnly
+                          className="bg-transparent border-none outline-none text-slate-800 text-sm flex-1 placeholder-slate-400"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          autoFocus
                         />
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 bg-white rounded border border-slate-200 text-xs text-slate-500 font-mono shadow-sm">/</kbd>
-                          <span className="text-slate-400 text-xs">ou</span>
-                          <kbd className="px-2 py-1 bg-white rounded border border-slate-200 text-xs text-slate-500 font-mono shadow-sm">⌘+K</kbd>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Grelha de Apps (2 Colunas e 2 Linhas) */}
-                    <div className="p-6">
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4 ml-2">Acesso Rápido</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Item 1 */}
-                        <Link href="/client/domains" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
-                          <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Globe className="w-6 h-6 text-teal-600" />
+                    {/* Grelha de Apps */}
+                    <div className="p-6 max-h-[400px] overflow-y-auto">
+                      {!isSearching ? (
+                        <>
+                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4 ml-2">Acesso Rápido</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            {quickAccessItems.map((item, index) => (
+                              <button 
+                                key={index}
+                                onClick={() => handleItemClick(item)}
+                                className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm text-left"
+                              >
+                                <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                  <item.icon className={`w-6 h-6 ${item.text}`} />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">{item.title}</span>
+                                  <span className="text-slate-500 text-sm mt-0.5">{item.desc}</span>
+                                </div>
+                              </button>
+                            ))}
                           </div>
-                          <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Gestor de Domínios</span>
-                            <span className="text-slate-500 text-sm mt-0.5">Gerir os seus domínios</span>
-                          </div>
-                        </Link>
-
-                        {/* Item 2 */}
-                        <Link href="/servicos/hospedagem" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
-                          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Server className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Gestor de Alojamento</span>
-                            <span className="text-slate-500 text-sm mt-0.5">Hospedagem CPanel</span>
-                          </div>
-                        </Link>
-
-                        {/* Item 3 */}
-                        <Link href="/client/domains" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
-                          <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <Shield className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">DNS Avançado</span>
-                            <span className="text-slate-500 text-sm mt-0.5">Registos e Zonas</span>
-                          </div>
-                        </Link>
-
-                        {/* Item 4 */}
-                        <Link href="/notificacoes" onClick={() => setShowLaunchpad(false)} className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm">
-                          <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <CreditCard className="w-6 h-6 text-orange-600" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">Faturas e Pagamentos</span>
-                            <span className="text-slate-500 text-sm mt-0.5">Histórico e Pendentes</span>
-                          </div>
-                        </Link>
-                      </div>
+                        </>
+                      ) : searchResults.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {searchResults.map((item, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleItemClick(item)}
+                              className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm text-left"
+                            >
+                              <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                <item.icon className={`w-6 h-6 ${item.text}`} />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors flex items-center gap-1.5">
+                                  {item.title}
+                                  {item.requiresLogin && <Lock className="w-3 h-3 text-slate-400" />}
+                                </span>
+                                <span className="text-slate-500 text-sm mt-0.5">
+                                  {item.requiresLogin ? 'Requer login para aceder' : item.desc}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                          <svg className="w-10 h-10 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <p className="text-sm font-medium">Nenhum resultado para &quot;{searchQuery}&quot;</p>
+                          <p className="text-xs mt-1">Tente outro termo de pesquisa</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>,
@@ -171,15 +246,15 @@ export function Navbar() {
               <Globe className="w-4 h-4" />
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Meus Domínios</span>
             </Link>
-            
+
             <Link href="/client/notificacoes" className="text-slate-300 hover:text-red-500 transition-colors relative group">
               <Bell className="w-4 h-4" />
               {/* Exemplo de badge de notificação */}
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Notificações</span>
             </Link>
-            
-            <button 
+
+            <button
               onClick={() => setIsCartOpen(true)}
               className="text-slate-300 hover:text-red-500 transition-colors relative group"
             >
@@ -191,7 +266,7 @@ export function Navbar() {
               )}
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>
             </button>
-            
+
             <Link href="/auth/login" className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
               <User className="w-4 h-4" />
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>

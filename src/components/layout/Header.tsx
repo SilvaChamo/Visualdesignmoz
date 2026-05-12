@@ -80,8 +80,8 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
       className={`fixed ${showTopBar ? 'top-[40px]' : 'top-0'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100 ${scrolled ? 'shadow-md' : ''}`}
     >
       <div className="relative">
-        <div className="max-w-7xl mx-auto px-0">
-          <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative w-full">
             {/* Left Column - Logo */}
             <div className="flex items-center justify-start">
               <Link href="/" className="flex items-center">
@@ -153,7 +153,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
             </div>
 
             {/* Right Column - Buttons */}
-            <div className="flex items-center justify-end space-x-4">
+            <div className="flex items-center justify-end gap-2">
               <button
                 onClick={toggleLang}
                 className="h-8 w-10 rounded-lg bg-black hover:bg-red-600 border border-gray-600 flex items-center justify-center text-white transition-colors text-xs font-extrabold"
