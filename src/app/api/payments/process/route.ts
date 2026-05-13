@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
     
     switch (paymentMethod.type) {
       case 'mpesa':
-        gatewayResult = await processMpesaPayment(payment, paymentMethod, renewal)
+      case 'emola':
+        gatewayResult = await processMozPayment(payment, paymentMethod, renewal)
         break
       case 'cartao':
         gatewayResult = await processCardPayment(payment, paymentMethod, renewal)
@@ -124,57 +125,52 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Funções de processamento (implementações exemplo)
-async function processMpesaPayment(payment: any, method: any, renewal: any) {
-  // Integração com API M-Pesa (Vodacom Moçambique)
+// Funções de processamento (Integração MozPayment)
+async function processMozPayment(payment: any, method: any, renewal: any) {
+  // Integração com API MozPayment (M-Pesa e eMola)
   try {
-    // Configurações do M-Pesa
-    const mpesaConfig = {
-      apiKey: process.env.MPESA_API_KEY,
-      publicKey: process.env.MPESA_PUBLIC_KEY,
-      serviceProviderCode: process.env.MPESA_SERVICE_PROVIDER_CODE,
-      environment: process.env.MPESA_ENVIRONMENT || 'sandbox'
-    }
+    const endpoint = method.type === 'emola'
+      ? 'https://mozpayment.co.mz/api/1.1/wf/pagamentorotativoemola'
+      : 'https://mozpayment.co.mz/api/1.1/wf/pagamentorotativompesa'
 
-    // Simulação de chamada API M-Pesa
-    // Na implementação real, usar biblioteca oficial ou REST API
-    const response = await fetch('https://api.mpesa.vodacom.co.mz/v1/payment', {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${mpesaConfig.apiKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        amount: payment.amount,
-        currency: payment.currency,
-        msisdn: method.account_number, // Número M-Pesa
-        serviceProviderCode: mpesaConfig.serviceProviderCode,
-        reference: `RENEWAL-${renewal.domain_name}`,
-        transactionReference: payment.id
+        carteira: process.env.MOZPAYMENT_CARTEIRA || '',
+        numero: method.account_number,
+        cliente: payment.user_id || 'Cliente',
+        valor: payment.amount.toString()
       })
     })
 
-    if (!response.ok) {
-      throw new Error('Falha na comunicação com M-Pesa')
-    }
-
+    // O servidor sempre retorna HTTP 200, então precisamos ler o JSON
     const result = await response.json()
 
+    // cod: 200 para sucesso, cod: 409 para falha
+    // Note: O teste real mostrou que os campos podem vir dentro de um objeto 'response'
+    const cod = result.cod || result.response?.cod
+    const isSuccess = cod === 200 || cod === "200"
+
     return {
-      success: result.status === 'success',
-      transaction_id: result.transactionId,
+      success: isSuccess,
+      transaction_id: result.transacao || result.response?.transacao || null,
       response: result,
-      receipt_url: result.receiptUrl || null,
-      message: result.status === 'success' ? 'Pagamento M-Pesa confirmado' : result.errorMessage
+      receipt_url: null,
+      message: isSuccess 
+        ? (result.mensagem || result.response?.mensagem || 'Pagamento processado') 
+        : (result.mensagem || result.response?.mensagem || result.response?.carteira_invalida || 'Pagamento falhou ou foi rejeitado')
     }
   } catch (error: any) {
-    console.error('Erro M-Pesa:', error)
+    console.error('Erro MozPayment:', error)
     return {
       success: false,
       transaction_id: null,
       response: { error: error?.message || 'Erro desconhecido' },
       receipt_url: null,
-      message: 'Erro ao processar pagamento M-Pesa'
+      message: 'Erro ao processar pagamento via MozPayment'
     }
   }
 }

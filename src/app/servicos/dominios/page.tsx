@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useI18n } from '@/lib/i18n'
 import { Globe, Shield, RefreshCw, Search, Zap, Lock, HardDrive } from 'lucide-react'
 import DomainSearch from '@/components/DomainSearch'
@@ -11,22 +12,26 @@ export default function Dominios() {
     {
       icone: <Search className="w-8 h-8" />,
       titulo: "Registar",
-      descricao: "Encontre e registe o nome perfeito para o seu site em segundos."
+      descricao: "Encontre e registe o nome perfeito para o seu site em segundos.",
+      href: "/servicos/dominios"
     },
     {
       icone: <RefreshCw className="w-8 h-8" />,
       titulo: "Transferir",
-      descricao: "Traga seu domínio para nós e aproveite nossa gestão simplificada."
+      descricao: "Traga seu domínio para nós e aproveite nossa gestão simplificada.",
+      href: "/servicos/dominios"
     },
     {
       icone: <Zap className="w-8 h-8" />,
       titulo: "Renovar",
-      descricao: "Mantenha seu domínio ativo e evite que outros o registem."
+      descricao: "Mantenha seu domínio ativo e evite que outros o registem.",
+      href: "/servicos/dominios"
     },
     {
       icone: <HardDrive className="w-8 h-8" />,
       titulo: "Parquear",
-      descricao: "Reserve seu nome de domínio mesmo antes de criar o site."
+      descricao: "Reserve seu nome de domínio mesmo antes de criar o site.",
+      href: "/servicos/dominios"
     }
   ]
 
@@ -66,34 +71,19 @@ export default function Dominios() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {cardsApelo.map((card, index) => (
-              <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                <div className="text-red-600 mb-4">
+              <Link href={card.href} key={index} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-red-200 transition-all group flex flex-col h-full">
+                <div className="text-red-600 mb-4 transition-transform group-hover:scale-110">
                   {card.icone}
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-2">{card.titulo}</h3>
-                <p className="text-sm text-slate-600">{card.descricao}</p>
-              </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-red-600 transition-colors">{card.titulo}</h3>
+                <p className="text-sm text-slate-600 flex-1">{card.descricao}</p>
+                <div className="mt-4 text-xs font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Saiba mais →</div>
+              </Link>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Lista de Preços */}
-      <div className="py-20 bg-white">
-        <div className="container mx-auto max-w-7xl px-6">
-          <div className="text-center max-w-3xl mx-auto mb-12">
-            <h2 className="text-3xl font-bold text-slate-800 mb-4">Tabela de Preços de Domínios</h2>
-            <p className="text-lg text-slate-600">
-              Confira os preços de registo, transferência e renovação para as principais extensões.
-            </p>
-          </div>
-
-          {/* Componente de busca com a aba de preços ativa */}
-          <div className="max-w-4xl mx-auto">
-            <DomainSearch activeTab="pricing" />
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

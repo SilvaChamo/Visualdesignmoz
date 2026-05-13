@@ -3,7 +3,7 @@
 // Painel Admin como "cérebro" das configurações DNS
 // ==========================================
 
-import { cyberPanelAPI } from './cyberpanel-api';
+import { directAdminHostingAPI } from './directadmin-hosting-api';
 
 // Tipos de dados
 export interface DomainDNSStatus {
@@ -129,7 +129,7 @@ export async function checkDomainSyncStatus(domain: string): Promise<DomainDNSSt
 export async function createDNSZone(domain: string): Promise<boolean> {
   try {
     // Usar a API do CyberPanel para criar zona
-    const result = await cyberPanelAPI.createDNSZone({ domain });
+    const result = await directAdminHostingAPI.createDNSZone({ domain });
     console.log('DNS Zone created for', domain, result);
     return true;
   } catch (error) {
@@ -201,7 +201,7 @@ export async function syncDomainToCyberPanel(domain: string): Promise<boolean> {
  */
 export async function getCyberPanelDomains(): Promise<string[]> {
   try {
-    const sites = await cyberPanelAPI.listWebsites();
+    const sites = await directAdminHostingAPI.listWebsites();
     return sites.map((site: any) => site.domain);
   } catch (error) {
     console.error('Error fetching CyberPanel domains:', error);

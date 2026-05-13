@@ -134,7 +134,7 @@ export function ContactFormComponent() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-red-600 hover:bg-red-700 text-white"
+        className="w-auto px-8 bg-red-600 hover:bg-red-700 text-white font-bold"
       >
         {loading ? (t('contact.sending') || 'Enviando...') : (t('contact.send') || 'Enviar Mensagem')}
       </Button>

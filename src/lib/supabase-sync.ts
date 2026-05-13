@@ -10,7 +10,9 @@ export async function syncWebsiteToSupabase(website: {
   package?: string
   owner?: string
   status?: string
-  diskUsage?: string
+  state?: string
+  diskUsage?: string | number
+  bandwidth?: number
   bandwidthUsage?: string
   wpInstalled?: boolean
   siteType?: string
@@ -21,9 +23,9 @@ export async function syncWebsiteToSupabase(website: {
       admin_email: website.adminEmail || '',
       package: website.package || 'Default',
       owner: website.owner || 'admin',
-      status: website.status || 'Active',
-      disk_usage: website.diskUsage || '0',
-      bandwidth_usage: website.bandwidthUsage || '0',
+      status: website.status || website.state || 'Active',
+      disk_usage: String(website.diskUsage ?? '0'),
+      bandwidth_usage: String(website.bandwidthUsage ?? website.bandwidth ?? '0'),
       wp_installed: website.wpInstalled ?? false,
       site_type: website.siteType || 'empty',
       synced_at: new Date().toISOString(),

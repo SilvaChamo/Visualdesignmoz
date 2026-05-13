@@ -167,7 +167,7 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
     else setLoading(true)
 
     try {
-      const data = await directAdminAPI.listSubdomains(domain)
+      const data = await directAdminAPI.listSubdomains(domain) as DirectAdminSubdomain[]
       if (data.length > 0) {
         setSubdomains(data)
         data.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
@@ -3075,11 +3075,7 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
         setLoading(true)
         const [fw, ips] = await Promise.all([directAdminAPI.getFirewallStatus(), directAdminAPI.getBlockedIPs()])
         setFirewallOn(fw)
-        // Garantir que blockedIPs é sempre um array
-        const result = ips || []
-        const blockedArray = Array.isArray(result) ? result :
-          typeof result === 'string' ? result.split('\n').filter((ip: string) => ip.trim()) : []
-        setBlockedIPs(blockedArray)
+        setBlockedIPs(Array.isArray(ips) ? ips : [])
       } catch (error) {
         console.error('Error loading security status:', error)
         setMsg('Erro ao carregar dados de segurança/firewall.')
@@ -3665,8 +3661,13 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
 
   const handleInstallLiteSpeed = async (domain: string) => {
     setInstallingLS(domain); setLsMsg(null)
-    const ok = await directAdminAPI.installWPPlugin({ domain, plugin: 'litespeed-cache' })
-    setLsMsg({ domain, ok, text: ok ? 'LiteSpeed Cache instalado!' : 'Erro ao instalar LiteSpeed Cache.' })
+    try {
+      const res = await directAdminAPI.installWPPlugin({ domain, plugin: 'litespeed-cache' })
+      const ok = res?.success === true
+      setLsMsg({ domain, ok, text: ok ? 'LiteSpeed Cache instalado!' : 'Erro ao instalar LiteSpeed Cache.' })
+    } catch {
+      setLsMsg({ domain, ok: false, text: 'Erro ao instalar LiteSpeed Cache.' })
+    }
     setInstallingLS(null)
   }
 

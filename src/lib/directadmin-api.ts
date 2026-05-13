@@ -1,8 +1,8 @@
 export {
   panelHostingAPI as directAdminAPI,
-  cyberPanelAPI,
+  directAdminHostingAPI,
   panelHostingAPI,
-} from './cyberpanel-api';
+} from './directadmin-hosting-api';
 
 export type {
   PanelWebsite as DirectAdminWebsite,
@@ -21,4 +21,4 @@ export type {
   PanelEmailAccount,
   PanelPHPConfig as DirectAdminPHPConfig,
   PanelPHPConfig,
-} from './cyberpanel-api';
+} from './directadmin-hosting-api';

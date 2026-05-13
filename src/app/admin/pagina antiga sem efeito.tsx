@@ -30,17 +30,17 @@ import {
 } from 'lucide-react'
 import { CpanelDashboard } from './CpanelDashboard'
 import { lsGet, lsSet } from '@/lib/local-storage'
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
-import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
+import { directAdminHostingAPI } from '@/lib/directadmin-hosting-api'
+import type { PanelWebsite, PanelUser, PanelPackage } from '@/lib/directadmin-hosting-api'
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [sidebarWidth, setSidebarWidth] = useState(180)
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isResizing, setIsResizing] = useState(false)
-  const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
-  const [cyberPanelUsers, setCyberPanelUsers] = useState<CyberPanelUser[]>([])
-  const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
+  const [cyberPanelSites, setCyberPanelSites] = useState<PanelWebsite[]>([])
+  const [cyberPanelUsers, setCyberPanelUsers] = useState<PanelUser[]>([])
+  const [cyberPanelPackages, setCyberPanelPackages] = useState<PanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
@@ -59,9 +59,9 @@ export default function AdminPage() {
       if (!adminToken) return
 
       const [sites, users, packages] = await Promise.all([
-        cyberPanelAPI.listWebsites(),
-        cyberPanelAPI.listUsers(),
-        cyberPanelAPI.listPackages()
+        directAdminHostingAPI.listWebsites(),
+        directAdminHostingAPI.listUsers(),
+        directAdminHostingAPI.listPackages()
       ])
 
       setCyberPanelSites(sites)

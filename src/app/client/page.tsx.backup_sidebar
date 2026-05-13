@@ -23,8 +23,8 @@ import {
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
   // ClientesSection // Removido - não usado no painel do cliente
 } from '../admin/CyberPanelSections'
-import { cyberPanelAPI } from '@/lib/cyberpanel-api'
-import type { CyberPanelWebsite, CyberPanelUser, CyberPanelPackage } from '@/lib/cyberpanel-api'
+import { directAdminHostingAPI } from '@/lib/directadmin-hosting-api'
+import type { PanelWebsite, PanelUser, PanelPackage } from '@/lib/directadmin-hosting-api'
 
 const CORES_PALETA = [
   '#000000','#434343','#666666','#999999','#b7b7b7','#cccccc','#d9d9d9','#ffffff',
@@ -1815,7 +1815,7 @@ function ContaSection() {
 }
 
 // Secções que precisam de criar websites
-function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPackage[], onRefresh: () => void }) {
+function CreateWebsiteSection({ packages, onRefresh }: { packages: PanelPackage[], onRefresh: () => void }) {
   const [form, setForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: '8.2' })
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
@@ -1824,7 +1824,7 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
     if (!form.domain || !form.email) return
     setCreating(true); setMsg('')
     try {
-      const ok = await cyberPanelAPI.createWebsite(form)
+      const ok = await directAdminHostingAPI.createWebsite(form)
       setMsg('Website criado com sucesso!')
       onRefresh()
     } catch (e: any) {
@@ -1862,9 +1862,9 @@ function CreateWebsiteSection({ packages, onRefresh }: { packages: CyberPanelPac
 }
 
 function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadCyberPanelData, syncing, handleSync }: {
-  sites: CyberPanelWebsite[], 
+  sites: PanelWebsite[], 
   onRefresh: () => void, 
-  packages: CyberPanelPackage[],
+  packages: PanelPackage[],
   setActiveSection: (section: string) => void,
   setFileManagerDomain: (domain: string) => void,
   setSelectedDNSDomain: (domain: string) => void,
@@ -2381,9 +2381,9 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [fileManagerDomain, setFileManagerDomain] = useState('')
-  const [cyberPanelSites, setCyberPanelSites] = useState<CyberPanelWebsite[]>([])
-  const [cyberPanelUsers, setCyberPanelUsers] = useState<CyberPanelUser[]>([])
-  const [cyberPanelPackages, setCyberPanelPackages] = useState<CyberPanelPackage[]>([])
+  const [cyberPanelSites, setCyberPanelSites] = useState<PanelWebsite[]>([])
+  const [cyberPanelUsers, setPanelUsers] = useState<PanelUser[]>([])
+  const [cyberPanelPackages, setPanelPackages] = useState<PanelPackage[]>([])
   const [isFetchingCyberPanel, setIsFetchingCyberPanel] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
@@ -2417,13 +2417,13 @@ export default function AdminPage() {
     setIsFetchingCyberPanel(true)
     try {
       const [sites, users, packages] = await Promise.all([
-        cyberPanelAPI.listWebsites().catch(() => []),
-        cyberPanelAPI.listUsers().catch(() => []),
-        cyberPanelAPI.listPackages().catch(() => []),
+        directAdminHostingAPI.listWebsites().catch(() => []),
+        directAdminHostingAPI.listUsers().catch(() => []),
+        directAdminHostingAPI.listPackages().catch(() => []),
       ])
       setCyberPanelSites(Array.isArray(sites) ? sites : [])
-      setCyberPanelUsers(Array.isArray(users) ? users : [])
-      setCyberPanelPackages(Array.isArray(packages) ? packages : [])
+      setPanelUsers(Array.isArray(users) ? users : [])
+      setPanelPackages(Array.isArray(packages) ? packages : [])
     } catch (error) {
       console.error('Erro ao carregar dados CyberPanel:', error)
     } finally {

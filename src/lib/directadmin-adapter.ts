@@ -1,5 +1,4 @@
 /**
- * Ponte legada — integração DirectAdmin removida.
- * Mantém apenas re-export para imports antigos no servidor.
+ * Re-export da camada de hospedagem (`directadmin-hosting-api`) para rotas API.
  */
-export { cyberPanelAPI, panelHostingAPI } from './cyberpanel-api';
+export { directAdminHostingAPI, panelHostingAPI } from './directadmin-hosting-api';

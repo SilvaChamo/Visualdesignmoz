@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
+import { cn } from '@/lib/utils'
 
 export function Navbar() {
   const { t } = useI18n()
@@ -17,6 +18,7 @@ export function Navbar() {
   const [lastScrollY, setLastScrollY] = useState(0)
   const launchpadRef = useRef<HTMLDivElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showAllProducts, setShowAllProducts] = useState(false)
 
   // Itens de Acesso Rápido (sempre visíveis quando não há busca)
   const quickAccessItems = [
@@ -106,6 +108,10 @@ export function Navbar() {
       if (launchpadRef.current && !launchpadRef.current.contains(event.target as Node)) {
         setShowLaunchpad(false)
       }
+      const target = event.target as HTMLElement;
+      if (!target.closest('.products-menu-container')) {
+        setShowAllProducts(false);
+      }
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -128,14 +134,20 @@ export function Navbar() {
           {/* Coluna Esquerda: Menu inspirado na imagem */}
           <div className="flex items-center gap-5">
             {/* Todos os produtos */}
-            <div className="relative group">
-              <button className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
+            <div className="relative products-menu-container">
+              <button 
+                onClick={() => setShowAllProducts(!showAllProducts)}
+                className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1"
+              >
                 Todos os produtos
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
-              <div className="absolute top-full left-0 hidden group-hover:block bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1">
-                <Link href="/servicos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Todos os Serviços</Link>
-                <Link href="/precos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors">Preços</Link>
+              <div className={cn(
+                "absolute top-full left-0 bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1 transition-all duration-200",
+                showAllProducts ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-2'
+              )}>
+                <Link href="/servicos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors" onClick={() => setShowAllProducts(false)}>Todos os Serviços</Link>
+                <Link href="/precos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors" onClick={() => setShowAllProducts(false)}>Preços</Link>
               </div>
             </div>
 
@@ -143,7 +155,7 @@ export function Navbar() {
 
             {/* FAQ */}
             <div className="relative">
-              <Link href="/faq" className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
+              <Link href="/precos/suporte" className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1">
                 FAQ
               </Link>
             </div>

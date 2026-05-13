@@ -65,7 +65,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
         setScrolled(false)
       }
 
-      if (currentScrollY > lastScrollY && currentScrollY > 200) {
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
         setShowTopBar(false)
       } else {
         setShowTopBar(true)
@@ -74,8 +74,18 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
       setLastScrollY(currentScrollY)
     }
 
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.menu-item-container')) {
+        setActiveDropdown(null);
+      }
+    };
     window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    document.addEventListener('click', handleClickOutside)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('click', handleClickOutside)
+    }
   }, [lastScrollY])
 
   const toggleMobileMenu = () => {
@@ -90,18 +100,18 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const otherLangLabel = lang === 'pt' ? 'EN' : 'PT'
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md' : 'bg-white'}`}>
+    <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm ${scrolled ? 'shadow-md' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
       {/* Red line top bar */}
-      <div className={`h-1 bg-red-600 transition-all duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
+      <div className={`h-[2.5px] bg-red-600 transition-all duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
       
       <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative w-full">
+        <div className="grid grid-cols-[1fr_2fr_1fr] items-stretch h-[70px] relative w-full">
           {/* Left Column - Logo */}
           <div className="flex items-center justify-start">
             <Link href="/" className="flex-shrink-0">
-              <div className="h-[40px] w-[160px] relative">
+              <div className="h-[48px] w-[192px] relative">
                 <img 
-                  src="/assets/Logo.png" 
+                  src="/assets/Horizontal_logo.png" 
                   alt="VisualDesign Logo" 
                   className="w-full h-full object-contain"
                 />
@@ -110,29 +120,37 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
           </div>
 
           {/* Center Column - Navigation */}
-          <div className="flex items-center justify-center">
-            <nav className="hidden lg:flex items-center justify-center w-full">
-              <div className="flex items-center space-x-6">
+          <div className="flex items-stretch justify-center">
+            <nav className="hidden lg:flex items-stretch justify-center w-full">
+              <div className="flex items-stretch space-x-6">
                 {navigation.map((item) => {
                   return (
-                    <div key={item.name} className={item.isMega ? "group" : "relative group"}>
+                    <div 
+                      key={item.name} 
+                      className={item.isMega ? "menu-item-container" : "relative menu-item-container"}
+                    >
                       <button 
-                        className="text-slate-800 text-base font-medium hover:text-red-600 transition-colors flex items-center gap-1 py-4"
+                        onClick={() => setActiveDropdown(activeDropdown === item.name ? null : item.name)}
+                        className="text-slate-800 text-base font-medium hover:text-red-600 transition-colors flex items-center gap-1 h-full"
                       >
                         {item.name}
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                       
                       {item.isMega ? (
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-6 w-[900px] z-[70] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2">
+                        <div className={cn(
+                          "absolute top-full left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-6 w-[900px] z-[70] transition-all duration-300 mt-1",
+                          activeDropdown === item.name ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'
+                        )}>
                           <div className="grid grid-cols-3 gap-6">
                             {item.items?.map((subItem) => (
                               <Link 
                                 key={subItem.name} 
                                 href={subItem.href} 
-                                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors group"
+                                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors group/item"
+                                onClick={() => setActiveDropdown(null)}
                               >
-                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 text-slate-500 group-hover:text-red-600 transition-colors">
+                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 text-slate-400 transition-colors">
                                   {/* Icones Finos */}
                                   {subItem.icon === 'globe' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>}
                                   {subItem.icon === 'tag' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
@@ -152,25 +170,29 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                                   {subItem.icon === 'help-circle' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-bold text-slate-800 group-hover:text-red-600 transition-colors">{subItem.name}</h4>
-                                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{subItem.desc}</p>
+                                  <h4 className="text-base font-bold text-slate-800 group-hover/item:text-red-600 transition-colors">{subItem.name}</h4>
+                                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{subItem.desc}</p>
                                 </div>
                               </Link>
                             ))}
                           </div>
                         </div>
                       ) : (
-                        <div className="absolute top-full left-0 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-48 z-[70] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2">
+                        <div className={cn(
+                          "absolute top-full left-0 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-max z-[70] transition-all duration-300 mt-1",
+                          activeDropdown === item.name ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'
+                        )}>
                           {item.dropdown?.map((subItem) => (
                             <Link
                               key={subItem.name}
                               href={subItem.href}
-                              className="flex items-center gap-2 py-1.5 text-sm text-slate-800 hover:text-red-600 transition-colors group"
+                              className="flex items-center gap-2 py-1.5 text-base text-slate-600 hover:text-red-600 transition-colors group whitespace-nowrap"
+                              onClick={() => setActiveDropdown(null)}
                             >
-                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-slate-400 group-hover:text-red-600 transition-colors">
-                                {subItem.icon === 'monitor' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
-                                {subItem.icon === 'tag' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
-                                {subItem.icon === 'help-circle' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 text-slate-400 transition-colors">
+                                {subItem.icon === 'monitor' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+                                {subItem.icon === 'tag' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
+                                {subItem.icon === 'help-circle' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                               </div>
                               {subItem.name}
                             </Link>

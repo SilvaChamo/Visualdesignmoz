@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { cyberPanelAPI as directAdminAPI } from '@/lib/directadmin-adapter';
+import { directAdminHostingAPI as directAdminAPI } from '@/lib/directadmin-adapter';
 import type { DirectAdminWebsite } from '@/lib/directadmin-api';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';

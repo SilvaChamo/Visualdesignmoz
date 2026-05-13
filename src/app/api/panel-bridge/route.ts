@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cyberPanelAPI } from '@/lib/directadmin-adapter';
+import { directAdminHostingAPI } from '@/lib/directadmin-adapter';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ success: false, error: 'domain é obrigatório' }, { status: 400 });
         }
 
-        const accounts = await cyberPanelAPI.listEmails(params.domain);
+        const accounts = await directAdminHostingAPI.listEmails(params.domain);
         return NextResponse.json({
           success: true,
           emails: accounts.map((account) => account.email),

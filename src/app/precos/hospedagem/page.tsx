@@ -18,12 +18,6 @@ export default function PrecosHospedagem() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="container mx-auto max-w-7xl px-6 pt-[100px] pb-[60px] flex items-center justify-center min-h-[300px] relative z-10">
           <div className="text-center">
-            <div className="flex items-center justify-center mb-4">
-              <Link href="/" className="text-white hover:text-red-500 transition-colors flex items-center">
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                {t('common.backToHome')}
-              </Link>
-            </div>
             <h1 className="text-3xl font-bold text-white mb-2">
               {t('pricing.hosting.title')}
             </h1>

@@ -154,7 +154,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             campaignId,
-            provider: 'cyberpanel-api',
+            provider: 'directadmin-hosting-api',
             details: {
                 success: totalSent,
                 failed: totalFailed,
