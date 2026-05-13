@@ -1,1 +1,1 @@
-export * from './CyberPanelSections';
+export * from './HostingSections';

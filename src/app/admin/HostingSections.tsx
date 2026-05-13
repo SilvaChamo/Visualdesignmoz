@@ -494,7 +494,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
     setEditForm(null)
     setSelectedIds([])
     try {
-      const res = await fetch(`/api/directadmin-dns?domain=${encodeURIComponent(domain)}`)
+      const res = await fetch(`/api/panel-dns?domain=${encodeURIComponent(domain)}`)
       const data = await res.json()
       if (data.success) {
         const list = Array.isArray(data.records) ? data.records : []
@@ -629,7 +629,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
           ? `${newRecord.priority} ${newRecord.value}`
           : newRecord.value
 
-      const res = await fetch('/api/directadmin-dns', {
+      const res = await fetch('/api/panel-dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -668,7 +668,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
     setLoading(true)
     setMsg('')
     try {
-      const res = await fetch('/api/directadmin-dns', {
+      const res = await fetch('/api/panel-dns', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domainName: selectedDomain, id: record.id }),
@@ -695,7 +695,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
     try {
       await Promise.all(
         selectedIds.map(id =>
-          fetch('/api/directadmin-dns', {
+          fetch('/api/panel-dns', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domainName: selectedDomain, id }),
@@ -744,7 +744,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
     setLoading(true)
     setMsg('')
     try {
-      await fetch('/api/directadmin-dns', {
+      await fetch('/api/panel-dns', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domainName: selectedDomain, id: editingRecordId }),
@@ -756,7 +756,7 @@ export function DNSZoneEditorSection({ sites, initialDomain }: { sites: DirectAd
           ? `${editForm.priority} ${editForm.value}`
           : editForm.value
 
-      const res = await fetch('/api/directadmin-dns', {
+      const res = await fetch('/api/panel-dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6349,7 +6349,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
   const loadWPInfo = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/directadmin-wp', {
+      const response = await fetch('/api/panel-wp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6370,7 +6370,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   const loadBackups = async () => {
     try {
-      const response = await fetch('/api/directadmin-wp', {
+      const response = await fetch('/api/panel-wp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6393,7 +6393,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
     setMessage('')
 
     try {
-      const response = await fetch('/api/directadmin-wp', {
+      const response = await fetch('/api/panel-wp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6423,7 +6423,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   const handleDeleteBackup = async (backupId: string) => {
     try {
-      const response = await fetch('/api/directadmin-wp', {
+      const response = await fetch('/api/panel-wp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6761,7 +6761,7 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
     }
     setCreatingEmail(true)
     try {
-      const res = await fetch('/api/directadmin-email', {
+      const res = await fetch('/api/email-contas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -7197,7 +7197,7 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/directadmin-email', {
+      const res = await fetch('/api/email-contas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

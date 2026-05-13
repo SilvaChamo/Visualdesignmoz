@@ -1,112 +1,10 @@
-import { cacheService } from './cache-service';
+/**
+ * Cliente do painel de hospedagem (legado).
+ * Integração com DirectAdmin / painéis externos está DESACTIVADA — não há chamadas de rede.
+ * Tipos mantêm aliases históricos (DirectAdmin*) via `@/lib/directadmin-api`.
+ */
 
-const PANEL_API = '/api/da';
-const LONG_TIMEOUT = 120000;
-
-const MUTATION_ACTIONS = new Set([
-  'createUser',
-  'modifyUser',
-  'deleteUser',
-  'createWebsite',
-  'deleteWebsite',
-  'suspendWebsite',
-  'unsuspendWebsite',
-  'createEmail',
-  'deleteEmail',
-  'suspendEmail',
-  'unsuspendEmail',
-  'createSubdomain',
-  'deleteSubdomain',
-  'createDatabase',
-  'deleteDatabase',
-  'createFTPAccount',
-  'deleteFTPAccount',
-  'changeEmailPassword',
-  'setEmailLimits',
-  'addEmailForwarding',
-  'setCatchAllEmail',
-  'addPatternForwarding',
-  'togglePlusAddressing',
-  'enableDKIM',
-  'issueSSL',
-  'createDNSZone',
-  'deleteDNSZone',
-  'resetDNSConfigurations',
-  'changePHPVersion',
-  'savePHPConfig',
-  'toggleFirewall',
-  'toggleModSecurity',
-  'blockIP',
-  'unblockIP',
-  'installWordPress',
-  'installWPPlugin',
-  'toggleWPPlugin',
-  'restoreWPBackup',
-  'createRemoteBackup',
-]);
-
-async function run(action: string, params: Record<string, any> = {}, timeoutMs: number = 60000) {
-  const isMutation = MUTATION_ACTIONS.has(action);
-  const cacheKey = `directadmin_${action}_${JSON.stringify(params)}`;
-
-  if (!isMutation) {
-    const cached = cacheService.get(cacheKey);
-    if (cached) return cached;
-  } else {
-    cacheService.clear();
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(new Error(`Timeout: ${action} demorou mais de ${timeoutMs}ms`)),
-    timeoutMs
-  );
-
-  try {
-    const res = await fetch(PANEL_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, params, timeoutMs }),
-      signal: controller.signal,
-    });
-
-    const responseText = await res.text();
-    let json: any = null;
-    try {
-      json = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      json = null;
-    }
-
-    if (!res.ok) {
-      const details = json?.error || responseText || res.statusText;
-      throw new Error(`HTTP ${res.status}: ${details}`);
-    }
-
-    if (!json) {
-      throw new Error('Resposta inválida da API DirectAdmin');
-    }
-
-    if (!json.success) throw new Error(json.error || 'Pedido DirectAdmin falhou');
-
-    if (!isMutation) {
-      const ttl = action.includes('list') ? 5 * 60 * 1000 : 60 * 1000;
-      cacheService.set(cacheKey, json.data, ttl);
-    }
-
-    return json.data;
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      throw new Error(`Pedido expirou após ${timeoutMs / 1000}s`);
-    }
-    console.error(`[DIRECTADMIN API ERROR] ${action}:`, error.message);
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-export interface CyberPanelWebsite {
+export interface PanelWebsite {
   id: string | number;
   domain: string;
   adminEmail?: string;
@@ -127,7 +25,10 @@ export interface CyberPanelWebsite {
   siteType?: 'wordpress' | 'nextjs' | 'html' | 'empty';
 }
 
-export interface CyberPanelPackage {
+/** @deprecated Use PanelWebsite */
+export type CyberPanelWebsite = PanelWebsite;
+
+export interface PanelPackage {
   id: string | number;
   packageName: string;
   diskSpace?: number;
@@ -136,7 +37,10 @@ export interface CyberPanelPackage {
   dataBases?: number;
 }
 
-export interface CyberPanelUser {
+/** @deprecated Use PanelPackage */
+export type CyberPanelPackage = PanelPackage;
+
+export interface PanelUser {
   id: string | number;
   userName: string;
   email?: string;
@@ -145,30 +49,42 @@ export interface CyberPanelUser {
   existsOnServer?: boolean;
 }
 
-export interface CyberPanelSubdomain {
+/** @deprecated Use PanelUser */
+export type CyberPanelUser = PanelUser;
+
+export interface PanelSubdomain {
   id?: string | number;
   domain: string;
   subdomain: string;
   path?: string;
 }
 
-export interface CyberPanelDatabase {
+/** @deprecated Use PanelSubdomain */
+export type CyberPanelSubdomain = PanelSubdomain;
+
+export interface PanelDatabase {
   id?: string | number;
   dbName: string;
   dbUser?: string;
   domain?: string;
 }
 
-export interface CyberPanelFTPAccount {
+/** @deprecated Use PanelDatabase */
+export type CyberPanelDatabase = PanelDatabase;
+
+export interface PanelFTPAccount {
   id?: string | number;
   username: string;
   userName?: string;
-  [key: string]: any;
+  [key: string]: unknown;
   domain?: string;
   path?: string;
 }
 
-export interface CyberPanelEmail {
+/** @deprecated Use PanelFTPAccount */
+export type CyberPanelFTPAccount = PanelFTPAccount;
+
+export interface PanelEmailAccount {
   id?: string | number;
   email: string;
   domain?: string;
@@ -179,97 +95,146 @@ export interface CyberPanelEmail {
   cliente_id?: string | null;
 }
 
-export interface CyberPanelPHPConfig {
+/** @deprecated Use PanelEmailAccount */
+export type CyberPanelEmail = PanelEmailAccount;
+
+export interface PanelPHPConfig {
   domain: string;
   phpVersion?: string;
 }
 
-export const cyberPanelAPI = {
-  listWebsites: (timeoutMs?: number) => run('listWebsites', {}, timeoutMs),
+/** @deprecated Use PanelPHPConfig */
+export type CyberPanelPHPConfig = PanelPHPConfig;
+
+const EMPTY_LIST = new Set([
+  'listWebsites',
+  'listPackages',
+  'listUsers',
+  'listSubdomains',
+  'listDatabases',
+  'listFTPAccounts',
+  'listEmails',
+  'listACLs',
+  'listWordPress',
+  'listWPPlugins',
+  'listWPBackups',
+  'listDNS',
+  'getBlockedIPs',
+]);
+
+const EMPTY_OBJECT = new Set([
+  'getEmailForwarding',
+  'getCatchAllEmail',
+  'getPatternForwarding',
+  'getPlusAddressing',
+  'getPHPConfig',
+  'getDKIMStatus',
+  'getFirewallStatus',
+  'getModSecurityStatus',
+]);
+
+async function run(action: string): Promise<unknown> {
+  if (EMPTY_LIST.has(action)) return [];
+  if (EMPTY_OBJECT.has(action)) return {};
+  if (action === 'serverStats' || action === 'serverStatus') {
+    return { disabled: true, message: 'Sem métricas de hospedagem externa.' };
+  }
+  if (action === 'generateAPIToken') return null;
+
+  throw new Error(
+    'Operação desactivada: a gestão de domínios, DNS e email passa a ser feita dentro deste painel (sem ligação a painéis de hospedagem externos).'
+  );
+}
+
+export const panelHostingAPI = {
+  listWebsites: (timeoutMs?: number) => run('listWebsites'),
   listPackages: () => run('listPackages'),
   listUsers: () => run('listUsers'),
-  createWebsite: (params: any) => run('createWebsite', params, LONG_TIMEOUT),
-  suspendWebsite: (domain: string) => run('suspendWebsite', { domain }),
-  unsuspendWebsite: (domain: string) => run('unsuspendWebsite', { domain }),
-  deleteWebsite: (domain: string) => run('deleteWebsite', { domain }, LONG_TIMEOUT),
-  modifyWebsite: (params: any) => run('modifyWebsite', params, LONG_TIMEOUT),
+  createWebsite: (_params: unknown) => run('createWebsite'),
+  suspendWebsite: (_domain: string) => run('suspendWebsite'),
+  unsuspendWebsite: (_domain: string) => run('unsuspendWebsite'),
+  deleteWebsite: (_domain: string) => run('deleteWebsite'),
+  modifyWebsite: (_params: unknown) => run('modifyWebsite'),
 
-  listSubdomains: (domain: string) => run('listSubdomains', { domain }),
-  createSubdomain: (domain: string, subdomain: string) => run('createSubdomain', { domain, subdomain }),
-  deleteSubdomain: (domain: string, subdomain: string) => run('deleteSubdomain', { domain, subdomain }),
+  listSubdomains: (_domain: string) => run('listSubdomains'),
+  createSubdomain: (_domain: string, _subdomain: string) => run('createSubdomain'),
+  deleteSubdomain: (_domain: string, _subdomain: string) => run('deleteSubdomain'),
 
-  listDatabases: (domain: string) => run('listDatabases', { domain }),
-  createDatabase: (params: any) => run('createDatabase', params),
-  deleteDatabase: (params: any) => run('deleteDatabase', params),
+  listDatabases: (_domain: string) => run('listDatabases'),
+  createDatabase: (_params: unknown) => run('createDatabase'),
+  deleteDatabase: (_params: unknown) => run('deleteDatabase'),
 
-  listFTPAccounts: (domain: string) => run('listFTPAccounts', { domain }),
-  createFTPAccount: (params: any) => run('createFTPAccount', params),
-  deleteFTPAccount: (params: any) => run('deleteFTPAccount', params),
+  listFTPAccounts: (_domain: string) => run('listFTPAccounts'),
+  createFTPAccount: (_params: unknown) => run('createFTPAccount'),
+  deleteFTPAccount: (_params: unknown) => run('deleteFTPAccount'),
 
-  listEmails: (domain: string) => run('listEmails', { domain }),
-  createEmail: (params: any) => run('createEmail', params),
-  deleteEmail: (params: any) => run('deleteEmail', params),
-  suspendEmail: (email: string) => run('suspendEmail', { email }),
-  unsuspendEmail: (email: string) => run('unsuspendEmail', { email }),
-  changeEmailPassword: (params: any) => run('changeEmailPassword', params),
-  setEmailLimits: (params: any) => run('setEmailLimits', params),
-  getEmailForwarding: (params: any) => run('getEmailForwarding', params),
-  addEmailForwarding: (params: any) => run('addEmailForwarding', params),
-  getCatchAllEmail: (domain: string) => run('getCatchAllEmail', { domain }),
-  setCatchAllEmail: (params: any) => run('setCatchAllEmail', params),
-  getPatternForwarding: (domain: string) => run('getPatternForwarding', { domain }),
-  addPatternForwarding: (params: any) => run('addPatternForwarding', params),
-  getPlusAddressing: (domain: string) => run('getPlusAddressing', { domain }),
-  togglePlusAddressing: (params: any) => run('togglePlusAddressing', params),
-  enableDKIM: (domain: string) => run('enableDKIM', { domain }),
-  getDKIMStatus: (domain: string) => run('getDKIMStatus', { domain }),
+  listEmails: (_domain: string) => run('listEmails'),
+  createEmail: (_params: unknown) => run('createEmail'),
+  deleteEmail: (_params: unknown) => run('deleteEmail'),
+  suspendEmail: (_email: string) => run('suspendEmail'),
+  unsuspendEmail: (_email: string) => run('unsuspendEmail'),
+  changeEmailPassword: (_params: unknown) => run('changeEmailPassword'),
+  setEmailLimits: (_params: unknown) => run('setEmailLimits'),
+  getEmailForwarding: (_params: unknown) => run('getEmailForwarding'),
+  addEmailForwarding: (_params: unknown) => run('addEmailForwarding'),
+  getCatchAllEmail: (_domain: string) => run('getCatchAllEmail'),
+  setCatchAllEmail: (_params: unknown) => run('setCatchAllEmail'),
+  getPatternForwarding: (_domain: string) => run('getPatternForwarding'),
+  addPatternForwarding: (_params: unknown) => run('addPatternForwarding'),
+  getPlusAddressing: (_domain: string) => run('getPlusAddressing'),
+  togglePlusAddressing: (_params: unknown) => run('togglePlusAddressing'),
+  enableDKIM: (_domain: string) => run('enableDKIM'),
+  getDKIMStatus: (_domain: string) => run('getDKIMStatus'),
 
-  issueSSL: (domain: string) => run('issueSSL', { domain }, LONG_TIMEOUT),
-  getPHPConfig: (domain: string) => run('getPHPConfig', { domain }),
-  savePHPConfig: (params: any) => run('savePHPConfig', params),
-  changePHPVersion: (params: any) => run('changePHPVersion', params, LONG_TIMEOUT),
+  issueSSL: (_domain: string) => run('issueSSL'),
+  getPHPConfig: (_domain: string) => run('getPHPConfig'),
+  savePHPConfig: (_params: unknown) => run('savePHPConfig'),
+  changePHPVersion: (_params: unknown) => run('changePHPVersion'),
 
   getServerStatus: () => run('serverStats'),
   getServerStats: () => run('serverStats'),
   getFirewallStatus: () => run('getFirewallStatus'),
-  toggleFirewall: (params: any) => run('toggleFirewall', params),
+  toggleFirewall: (_params: unknown) => run('toggleFirewall'),
   getModSecurityStatus: () => run('getModSecurityStatus'),
-  toggleModSecurity: (params: any) => run('toggleModSecurity', params),
+  toggleModSecurity: (_params: unknown) => run('toggleModSecurity'),
   getBlockedIPs: () => run('getBlockedIPs'),
-  blockIP: (params: any) => run('blockIP', params),
-  unblockIP: (params: any) => run('unblockIP', params),
+  blockIP: (_params: unknown) => run('blockIP'),
+  unblockIP: (_params: unknown) => run('unblockIP'),
 
-  createUser: (params: any) => run('createUser', params, LONG_TIMEOUT),
-  modifyUser: (params: any) => run('modifyUser', params, LONG_TIMEOUT),
-  deleteUser: (params: any) => run('deleteUser', params, LONG_TIMEOUT),
+  createUser: (_params: unknown) => run('createUser'),
+  modifyUser: (_params: unknown) => run('modifyUser'),
+  deleteUser: (_params: unknown) => run('deleteUser'),
   listACLs: () => run('listACLs'),
-  createACL: (params: any) => run('createACL', params),
-  deleteACL: (params: any) => run('deleteACL', params),
+  createACL: (_params: unknown) => run('createACL'),
+  deleteACL: (_params: unknown) => run('deleteACL'),
 
-  listWordPress: (domain: string) => run('listWordPress', { domain }),
-  installWordPress: (params: any) => run('installWordPress', params, LONG_TIMEOUT),
-  listWPPlugins: (params: any) => run('listWPPlugins', params),
-  installWPPlugin: (params: any) => run('installWPPlugin', params, LONG_TIMEOUT),
-  toggleWPPlugin: (params: any) => run('toggleWPPlugin', params),
-  listWPBackups: (domain: string) => run('listWPBackups', { domain }),
-  restoreWPBackup: (params: any) => run('restoreWPBackup', params, LONG_TIMEOUT),
-  createRemoteBackup: (params: any) => run('createRemoteBackup', params, LONG_TIMEOUT),
+  listWordPress: (_domain: string) => run('listWordPress'),
+  installWordPress: (_params: unknown) => run('installWordPress'),
+  listWPPlugins: (_params: unknown) => run('listWPPlugins'),
+  installWPPlugin: (_params: unknown) => run('installWPPlugin'),
+  toggleWPPlugin: (_params: unknown) => run('toggleWPPlugin'),
+  listWPBackups: (_domain: string) => run('listWPBackups'),
+  restoreWPBackup: (_params: unknown) => run('restoreWPBackup'),
+  createRemoteBackup: (_params: unknown) => run('createRemoteBackup'),
 
-  configDefaultNameservers: (params: any) => run('configDefaultNameservers', params),
-  createNameserver: (params: any) => run('createNameserver', params),
-  createDNSZone: (params: any) => run('createDNSZone', params),
-  deleteDNSZone: (params: any) => run('deleteDNSZone', params),
-  resetDNSConfigurations: (domain: string) => run('resetDNSConfigurations', { domain }),
-  configCloudFlare: (params: any) => run('configCloudFlare', params),
-  listDNS: (domain: string) => run('listDNS', { domain }),
+  configDefaultNameservers: (_params: unknown) => run('configDefaultNameservers'),
+  createNameserver: (_params: unknown) => run('createNameserver'),
+  createDNSZone: (_params: unknown) => run('createDNSZone'),
+  deleteDNSZone: (_params: unknown) => run('deleteDNSZone'),
+  resetDNSConfigurations: (_domain: string) => run('resetDNSConfigurations'),
+  configCloudFlare: (_params: unknown) => run('configCloudFlare'),
+  listDNS: (_domain: string) => run('listDNS'),
 
   generateAPIToken: () => run('generateAPIToken'),
   execCommand: (_command: string) =>
     Promise.resolve({
       success: false,
       supported: false,
-      error: 'Comandos SSH diretos foram desativados na migração para DirectAdmin',
+      error: 'Comandos remotos no servidor de hospedagem estão desactivados.',
     }),
 };
 
-export default cyberPanelAPI;
+/** Alias histórico — mesmo objecto que `panelHostingAPI`. */
+export const cyberPanelAPI = panelHostingAPI;
+
+export default panelHostingAPI;

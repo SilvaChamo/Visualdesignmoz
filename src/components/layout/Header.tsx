@@ -11,34 +11,36 @@ import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
 
 const navigation = [
-  { name: 'Domínio', href: '/servicos/dominios', dropdown: [
-      { name: 'Registo de Domínios', href: '/servicos/dominios' },
-      { name: 'Preços de Domínios', href: '/precos/dominios' }
+  { name: 'Domínio', href: '/servicos/dominios', isMega: true, items: [
+      { name: 'Registo de Domínios', href: '/servicos/dominios', desc: 'Registe seu domínio com segurança e rapidez no mercado.', icon: 'globe' },
+      { name: 'Preços de Domínios', href: '/precos/dominios', desc: 'Consulte a tabela completa de preços de todas as extensões.', icon: 'tag' },
+      { name: 'Transferência', href: '/servicos/transferencia', desc: 'Traga seu domínio para nós e aproveite nossas vantagens.', icon: 'refresh' },
+      { name: 'Renovação', href: '/auth/login?from=/admin/dominios', desc: 'Renove seu domínio existente. É necessário fazer login.', icon: 'lock' },
+      { name: 'Domínios Premium', href: '/servicos/premium', desc: 'Adquira nomes exclusivos para destacar seu negócio online.', icon: 'award' },
+      { name: 'Privacidade WHOIS', href: '/servicos/privacidade', desc: 'Proteja seus dados pessoais contra spam e roubo de identidade.', icon: 'shield' }
     ]
   },
   { name: 'Hospedagem', href: '/servicos/hospedagem', dropdown: [
-      { name: 'Hospedagem Web', href: '/servicos/hospedagem' },
-      { name: 'Preços de Hospedagem', href: '/precos/hospedagem' }
+      { name: 'Hospedagem Web', href: '/servicos/hospedagem', icon: 'monitor' },
+      { name: 'Preços de Hospedagem', href: '/precos/hospedagem', icon: 'tag' }
     ]
   },
   { name: 'Servidor', href: '/servicos/servidor', dropdown: [
-      { name: 'VPS / Cloud', href: '/servicos/servidor' }
+      { name: 'VPS / Cloud', href: '/servicos/servidor', icon: 'monitor' }
     ]
   },
   { name: 'Serviços', href: '/servicos', isMega: true, items: [
-      { name: 'Web Design', href: '/servicos/webdesign', desc: 'Criação de sites profissionais.', icon: 'monitor' },
-      { name: 'Design Gráfico', href: '/servicos/design-grafico', desc: 'Identidade visual e logótipos.', icon: 'palette' },
-      { name: 'Marketing Digital', href: '/servicos/marketing-digital', desc: 'Gestão de redes sociais e tráfego.', icon: 'trending-up' },
-      { name: 'Branding', href: '/servicos/branding', desc: 'Construção de marcas fortes.', icon: 'award' },
-      { name: 'SEO', href: '/servicos/seo', desc: 'Otimização para motores de busca.', icon: 'search' },
-      { name: 'Redes Sociais', href: '/servicos/redes-sociais', desc: 'Gestão de conteúdo e engajamento.', icon: 'users' },
-      { name: 'Produção de Vídeo', href: '/servicos/video-producao', desc: 'Vídeos institucionais e comerciais.', icon: 'video' },
-      { name: 'Suporte Técnico', href: '/servicos/suporte', desc: 'Apoio e manutenção para o seu site.', icon: 'help-circle' }
+      { name: 'Web Design', href: '/servicos/webdesign', desc: 'Criação de sites profissionais e responsivos para o seu negócio.', icon: 'monitor' },
+      { name: 'Design Gráfico', href: '/servicos/design-grafico', desc: 'Identidade visual, logótipos e materiais de comunicação.', icon: 'palette' },
+      { name: 'Marketing Digital', href: '/servicos/marketing-digital', desc: 'Gestão de redes sociais e tráfego pago para crescer online.', icon: 'trending-up' },
+      { name: 'Feiras e Eventos', href: '/servicos/feiras-eventos', desc: 'Organização completa, stands e logística para eventos.', icon: 'calendar' },
+      { name: 'Katring', href: '/servicos/katring', desc: 'Serviço de catering completo para eventos corporativos e sociais.', icon: 'coffee' },
+      { name: 'Aluguer de Material', href: '/servicos/aluguer', desc: 'Equipamentos de som, luz, tendas e mobiliário para eventos.', icon: 'truck' }
     ]
   },
   { name: 'Apoio, suporte', href: '/servicos/suporte', dropdown: [
-      { name: 'Suporte Técnico', href: '/servicos/suporte' },
-      { name: 'FAQ', href: '/faq' }
+      { name: 'Suporte Técnico', href: '/servicos/suporte', icon: 'help-circle' },
+      { name: 'FAQ', href: '/faq', icon: 'help-circle' }
     ]
   }
 ]
@@ -56,24 +58,24 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-      setScrolled(currentScrollY > 20)
       
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+      if (currentScrollY > 50) {
+        setScrolled(true)
+      } else {
+        setScrolled(false)
+      }
+
+      if (currentScrollY > lastScrollY && currentScrollY > 200) {
         setShowTopBar(false)
       } else {
         setShowTopBar(true)
       }
+      
       setLastScrollY(currentScrollY)
     }
-    const handleClickOutside = () => {
-      setActiveDropdown(null)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    document.addEventListener('click', handleClickOutside)
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      document.removeEventListener('click', handleClickOutside)
-    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
 
   const toggleMobileMenu = () => {
@@ -88,89 +90,99 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const otherLangLabel = lang === 'pt' ? 'EN' : 'PT'
 
   return (
-    <header
-      className={`fixed ${showTopBar ? 'top-[40px]' : 'top-0'} left-0 right-0 z-50 transition-all duration-300 bg-white border-b border-gray-100 ${scrolled ? 'shadow-md' : ''}`}
-    >
-      <div className="relative">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative w-full">
-            {/* Left Column - Logo */}
-            <div className="flex items-center justify-start">
-              <Link href="/" className="flex items-center">
-                <div className="w-12 h-12 lg:w-40 lg:h-12 flex items-center justify-center overflow-hidden hover:scale-105 transition-transform duration-200">
-                  <img
-                    src="/assets/Horizontal_logo.png"
-                    alt="Visual Design Logo"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </Link>
-            </div>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md' : 'bg-white'}`}>
+      {/* Red line top bar */}
+      <div className={`h-1 bg-red-600 transition-all duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
+      
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-[1fr_2fr_1fr] items-center h-[70px] relative w-full">
+          {/* Left Column - Logo */}
+          <div className="flex items-center justify-start">
+            <Link href="/" className="flex-shrink-0">
+              <div className="h-[40px] w-[160px] relative">
+                <img 
+                  src="/assets/Logo.png" 
+                  alt="VisualDesign Logo" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </Link>
+          </div>
 
-            {/* Center Column - Navigation */}
-            <div className="flex items-center justify-center">
-              <nav className="hidden lg:flex items-center justify-center w-full">
-                <div className="flex items-center space-x-6">
-                  {navigation.map((item) => (
-                    <div key={item.name} className="relative">
+          {/* Center Column - Navigation */}
+          <div className="flex items-center justify-center">
+            <nav className="hidden lg:flex items-center justify-center w-full">
+              <div className="flex items-center space-x-6">
+                {navigation.map((item) => {
+                  return (
+                    <div key={item.name} className={item.isMega ? "group" : "relative group"}>
                       <button 
-                        onClick={(e) => handleDropdownClick(e, item.name)}
-                        className="text-slate-800 text-sm font-medium hover:text-red-600 transition-colors flex items-center gap-1 py-2"
+                        className="text-slate-800 text-base font-medium hover:text-red-600 transition-colors flex items-center gap-1 py-4"
                       >
                         {item.name}
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                       
-                      {activeDropdown === item.name && (
-                        item.isMega ? (
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-6 mt-2 w-[650px] z-[70]">
-                            <div className="grid grid-cols-2 gap-4">
-                              {item.items?.map((subItem) => (
-                                <Link 
-                                  key={subItem.name} 
-                                  href={subItem.href} 
-                                  className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors group"
-                                  onClick={() => setActiveDropdown(null)}
-                                >
-                                  <div className="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
-                                    {/* Icones dinâmicos baseados no nome ou string */}
-                                    {subItem.icon === 'monitor' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
-                                    {subItem.icon === 'palette' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
-                                    {subItem.icon === 'trending-up' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
-                                    {subItem.icon === 'award' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.674M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547a3.374 3.374 0 00-.493.732l-.323.324a.75.75 0 01-1.06 0l-.324-.324a3.374 3.374 0 00-.493-.732l-.548-.547z" /></svg>}
-                                    {subItem.icon === 'search' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>}
-                                    {subItem.icon === 'users' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
-                                    {subItem.icon === 'video' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
-                                    {subItem.icon === 'help-circle' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-                                  </div>
-                                  <div>
-                                    <h4 className="text-sm font-bold text-slate-800 group-hover:text-red-600 transition-colors">{subItem.name}</h4>
-                                    <p className="text-xs text-slate-500 mt-1">{subItem.desc}</p>
-                                  </div>
-                                </Link>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="absolute top-full left-0 bg-white rounded-lg shadow-lg border border-slate-200 py-2 w-48 z-[70] mt-1">
-                            {item.dropdown?.map((subItem) => (
-                              <Link
-                                key={subItem.name}
-                                href={subItem.href}
-                                className="block px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 hover:text-red-600 transition-colors"
-                                onClick={() => setActiveDropdown(null)}
+                      {item.isMega ? (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-6 w-[900px] z-[70] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2">
+                          <div className="grid grid-cols-3 gap-6">
+                            {item.items?.map((subItem) => (
+                              <Link 
+                                key={subItem.name} 
+                                href={subItem.href} 
+                                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors group"
                               >
-                                {subItem.name}
+                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 text-slate-500 group-hover:text-red-600 transition-colors">
+                                  {/* Icones Finos */}
+                                  {subItem.icon === 'globe' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>}
+                                  {subItem.icon === 'tag' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
+                                  {subItem.icon === 'refresh' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.582m0 0a8.001 8.001 0 01-15.356-2m0 0H15" /></svg>}
+                                  {subItem.icon === 'lock' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>}
+                                  {subItem.icon === 'award' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.674M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547a3.374 3.374 0 00-.493.732l-.323.324a.75.75 0 01-1.06 0l-.324-.324a3.374 3.374 0 00-.493-.732l-.548-.547z" /></svg>}
+                                  {subItem.icon === 'shield' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
+                                  {subItem.icon === 'settings' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+                                  {subItem.icon === 'map-pin' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+                                  
+                                  {subItem.icon === 'monitor' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+                                  {subItem.icon === 'palette' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                                  {subItem.icon === 'trending-up' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+                                  {subItem.icon === 'calendar' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                                  {subItem.icon === 'coffee' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 20h16a1 1 0 001-1v-3a4 4 0 00-4-4H7a4 4 0 00-4 4v3a1 1 0 001 1z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0v4M12 3v2" /></svg>}
+                                  {subItem.icon === 'truck' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4-4m-4 4l4 4" /></svg>}
+                                  {subItem.icon === 'help-circle' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-bold text-slate-800 group-hover:text-red-600 transition-colors">{subItem.name}</h4>
+                                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{subItem.desc}</p>
+                                </div>
                               </Link>
                             ))}
                           </div>
-                        )
+                        </div>
+                      ) : (
+                        <div className="absolute top-full left-0 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-48 z-[70] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2">
+                          {item.dropdown?.map((subItem) => (
+                            <Link
+                              key={subItem.name}
+                              href={subItem.href}
+                              className="flex items-center gap-2 py-1.5 text-sm text-slate-800 hover:text-red-600 transition-colors group"
+                            >
+                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-slate-400 group-hover:text-red-600 transition-colors">
+                                {subItem.icon === 'monitor' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+                                {subItem.icon === 'tag' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
+                                {subItem.icon === 'help-circle' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                              </div>
+                              {subItem.name}
+                            </Link>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              </nav>
-            </div>
+                  )
+                })}
+              </div>
+            </nav>
+          </div>
 
             {/* Right Column - Buttons */}
             <div className="flex items-center justify-end gap-2">
@@ -197,7 +209,6 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Mobile Menu */}
       <div
@@ -208,34 +219,34 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
       >
         <div className="container mx-auto px-4 py-4 space-y-4">
           {navigation.map((item) => (
-            <div key={item.nameKey}>
-              {item.dropdown ? (
+            <div key={item.name}>
+              {(item.dropdown || item.items) ? (
                 <div>
                   <button
-                    onClick={(e) => handleDropdownClick(e, item.nameKey)}
+                    onClick={(e) => handleDropdownClick(e, item.name)}
                     className="flex items-center justify-between w-full text-left text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2"
                   >
-                    <span>{t(item.nameKey)}</span>
+                    <span>{item.name}</span>
                     <ChevronDown className={cn(
                       'w-4 h-4 transition-transform',
-                      activeDropdown === item.nameKey ? 'rotate-180' : ''
+                      activeDropdown === item.name ? 'rotate-180' : ''
                     )} />
                   </button>
                   <div
                     className={cn(
                       'overflow-hidden transition-all duration-200 ease-in-out',
-                      activeDropdown === item.nameKey ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                      activeDropdown === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                     )}
                   >
                     <div className="mt-2 space-y-2">
-                      {item.dropdown?.map((dropdownItem) => (
+                      {(item.dropdown || item.items)?.map((dropdownItem) => (
                         <Link
-                          key={dropdownItem.nameKey}
+                          key={dropdownItem.name}
                           href={dropdownItem.href}
                           className="block px-4 py-3 text-white hover:text-white hover:bg-red-600 rounded-lg transition-colors"
                           onClick={() => setIsOpen(false)}
                         >
-                          {t(dropdownItem.nameKey)}
+                          {dropdownItem.name}
                         </Link>
                       ))}
                     </div>
@@ -248,13 +259,14 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                     "text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2",
                     pathname === item.href && "text-red-600"
                   )}
-                  onClick={() => { setActiveDropdown(null); setIsOpen(false); }}
+                  onClick={() => setIsOpen(false)}
                 >
-                  {t(item.nameKey)}
+                  {item.name}
                 </Link>
               )}
             </div>
           ))}
+
           <Link
             href="/auth/login?from=/admin"
             className="flex items-center gap-2 px-4 py-3 bg-red-600/10 text-red-600 rounded-xl font-bold text-sm"
