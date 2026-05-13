@@ -44,6 +44,9 @@ export interface PanelUser {
   firstName?: string;
   lastName?: string;
   acl?: string;
+  websitesLimit?: number;
+  emailsLimit?: number;
+  status?: string;
 }
 
 export interface PanelSubdomain {

@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { Menu, X, ChevronDown, User, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -52,7 +51,6 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   const [showTopBar, setShowTopBar] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
-  const pathname = usePathname()
   const { items, setIsCartOpen } = useCart()
 
   useEffect(() => {
@@ -242,50 +240,37 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
         <div className="container mx-auto px-4 py-4 space-y-4">
           {navigation.map((item) => (
             <div key={item.name}>
-              {(item.dropdown || item.items) ? (
-                <div>
-                  <button
-                    onClick={(e) => handleDropdownClick(e, item.name)}
-                    className="flex items-center justify-between w-full text-left text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2"
-                  >
-                    <span>{item.name}</span>
-                    <ChevronDown className={cn(
-                      'w-4 h-4 transition-transform',
-                      activeDropdown === item.name ? 'rotate-180' : ''
-                    )} />
-                  </button>
-                  <div
-                    className={cn(
-                      'overflow-hidden transition-all duration-200 ease-in-out',
-                      activeDropdown === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                    )}
-                  >
-                    <div className="mt-2 space-y-2">
-                      {(item.dropdown || item.items)?.map((dropdownItem) => (
-                        <Link
-                          key={dropdownItem.name}
-                          href={dropdownItem.href}
-                          className="block px-4 py-3 text-white hover:text-white hover:bg-red-600 rounded-lg transition-colors"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          {dropdownItem.name}
-                        </Link>
-                      ))}
-                    </div>
+              <div>
+                <button
+                  onClick={(e) => handleDropdownClick(e, item.name)}
+                  className="flex items-center justify-between w-full text-left text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2"
+                >
+                  <span>{item.name}</span>
+                  <ChevronDown className={cn(
+                    'w-4 h-4 transition-transform',
+                    activeDropdown === item.name ? 'rotate-180' : ''
+                  )} />
+                </button>
+                <div
+                  className={cn(
+                    'overflow-hidden transition-all duration-200 ease-in-out',
+                    activeDropdown === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  )}
+                >
+                  <div className="mt-2 space-y-2">
+                    {(item.dropdown || item.items)?.map((dropdownItem) => (
+                      <Link
+                        key={dropdownItem.name}
+                        href={dropdownItem.href}
+                        className="block px-4 py-3 text-white hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        {dropdownItem.name}
+                      </Link>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2",
-                    pathname === item.href && "text-red-600"
-                  )}
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              )}
+              </div>
             </div>
           ))}
 

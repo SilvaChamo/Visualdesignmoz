@@ -2095,15 +2095,26 @@ export default function ResellerPage() {
       // Background Sync to Supabase
       void (async () => {
         for (const s of validSites) await syncWebsiteToSupabase(s)
-        for (const u of validUsers) await syncUserToSupabase({
-          username: u.userName,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          acl: u.acl,
-          websitesLimit: u.websitesLimit,
-          status: u.status
-        })
+        for (const u of validUsers) {
+          const usr = u as DirectAdminUser & {
+            firstName?: string
+            lastName?: string
+            acl?: string
+            websitesLimit?: number
+            emailsLimit?: number
+            status?: string
+          }
+          await syncUserToSupabase({
+            username: usr.userName,
+            firstName: usr.firstName,
+            lastName: usr.lastName,
+            email: usr.email,
+            acl: usr.acl,
+            websitesLimit: usr.websitesLimit,
+            emailsLimit: usr.emailsLimit,
+            status: usr.status,
+          })
+        }
         for (const p of validPackages) await syncPackageToSupabase(p)
       })()
 
