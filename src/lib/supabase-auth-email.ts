@@ -9,15 +9,24 @@ function useSiteSmtpForPasswordReset(): boolean {
 }
 
 function siteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://visualdesignmoz.com')
-  ).replace(/\/$/, '');
+  const fromEnv =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  // Nunca usar VERCEL_URL — gera links visualdesigne-*.vercel.app no email.
+  return 'https://visualdesignmoz.com';
 }
 
 function recoveryRedirectTo(): string {
   return `${siteUrl()}/auth/confirm?next=/auth/reset-password`;
+}
+
+/** Link directo para /auth/confirm — evita redirect_to errado do Supabase (ex.: visualdesigne.com). */
+function buildRecoveryConfirmLink(hashedToken: string): string {
+  const url = new URL(recoveryRedirectTo());
+  url.searchParams.set('token_hash', hashedToken);
+  url.searchParams.set('type', 'recovery');
+  return url.toString();
 }
 
 function resetEmailErrorMessage(error: { message?: string; status?: number }): string {
@@ -87,15 +96,12 @@ async function sendViaSiteSmtp(email: string, redirectTo: string): Promise<void>
 
   if (error) throw new Error(resetEmailErrorMessage(error));
 
-  const actionLink =
-    data?.properties?.action_link?.trim() ||
-    (data as { action_link?: string } | null)?.action_link?.trim();
-
-  if (!actionLink) {
+  const hashedToken = data?.properties?.hashed_token?.trim();
+  if (!hashedToken) {
     throw new Error('Não foi possível gerar o link. Confirme que a conta existe.');
   }
 
-  await sendRecoveryEmailViaSmtp(email, actionLink);
+  await sendRecoveryEmailViaSmtp(email, buildRecoveryConfirmLink(hashedToken));
 }
 
 export async function requestPasswordResetEmail(email: string): Promise<void> {
