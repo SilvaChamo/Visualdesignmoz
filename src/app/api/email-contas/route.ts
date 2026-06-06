@@ -3,7 +3,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
-import nodemailer from 'nodemailer'
+import { VD_EMAIL } from '@/lib/email-accounts';
+import { getDefaultFrom, getServerEmail, sendSmtpMail } from '@/lib/smtp-mail';
 import { 
   getServerHost, 
   getHestiaUrl 
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
         username: user,
         quota_mb: 1024,
         quota: '1 GB',
-        contactEmail: 'admin@visualdesignmoz.com'
+        contactEmail: getServerEmail(),
       }
 
       // Gerar conteúdos do email
@@ -258,20 +259,8 @@ export async function POST(req: NextRequest) {
       const outlookConfig = generateOutlookConfigFile(accountInfo, serverConfig)
       const termsAndConditions = getWarmupTermsAndConditions()
 
-      // Porta 587 fixa - STARTTLS (nunca 465)
-      const transporter = nodemailer.createTransport({
-        host: 'mail.visualdesignmoz.com',
-        port: 587,
-        secure: false, // 587 = STARTTLS
-        auth: {
-          user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com',
-          pass: process.env.SMTP_MASTER_PASSWORD || ''
-        },
-        tls: { rejectUnauthorized: false }
-      })
-
-      await transporter.sendMail({
-        from: `"VisualDesign Email" <admin@visualdesignmoz.com>`,
+      await sendSmtpMail({
+        from: getDefaultFrom(),
         to: email,
         subject: `🎉 Nova Conta de Email Configurada - ${email}`,
         text: welcomeText,

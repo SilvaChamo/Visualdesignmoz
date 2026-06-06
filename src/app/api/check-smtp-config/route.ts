@@ -1,37 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import {
+  getDefaultFrom,
+  getMarketingFromEmail,
+  getNotifyEmail,
+  getServerEmail,
+  getSupportEmail,
+  getSmtpHost,
+  getSmtpPort,
+  getSmtpUser,
+  isSmtpConfigured,
+  parseFromEmail,
+} from '@/lib/smtp-mail';
+import { BREVO_SENDERS_VISUALDESIGN } from '@/lib/email-accounts';
 
 export async function GET() {
-  // Verificar configurações SMTP (sem expor senhas completas)
-  const config = {
-    smtp: {
-      host: 'mail.visualdesignmoz.com',
-      port: 587,  // Porta fixa - sempre 587
-      user: process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com',
-      hasPassword: !!process.env.SMTP_MASTER_PASSWORD,
-      passwordLength: process.env.SMTP_MASTER_PASSWORD?.length || 0,
-    },
-    gmail: {
-      email: process.env.GMAIL_CLIENT_EMAIL || null,
-      hasPassword: !!process.env.GMAIL_CLIENT_APP_PASSWORD,
-    },
-    cyberpanel: {
-      host: getServerHost(),
-      port: 465,
-      status: 'online' // assumindo online
-    }
-  };
-
-  const isConfigured = config.smtp.hasPassword || config.gmail.hasPassword;
+  const configured = isSmtpConfigured();
 
   return NextResponse.json({
-    configured: isConfigured,
-    config: config,
-    message: isConfigured 
-      ? 'SMTP configurado' 
-      : 'SMTP não configurado - necessário adicionar senha',
-    recommendation: !isConfigured 
-      ? 'Adicione SMTP_MASTER_PASSWORD ao .env.local ou configure GMAIL_CLIENT_EMAIL + GMAIL_CLIENT_APP_PASSWORD'
-      : null
+    configured,
+    provider: 'brevo',
+    config: {
+      host: getSmtpHost(),
+      port: getSmtpPort(),
+      user: getSmtpUser() ? `${getSmtpUser().slice(0, 8)}***` : null,
+      fromAutomatic: parseFromEmail(getDefaultFrom()),
+      fromMarketing: getMarketingFromEmail(),
+      notifyEmail: getNotifyEmail(),
+      supportEmail: getSupportEmail(),
+      serverEmail: getServerEmail(),
+      brevoSendersToVerify: BREVO_SENDERS_VISUALDESIGN,
+    },
+    message: configured
+      ? 'Brevo SMTP configurado'
+      : 'Defina SMTP_HOST, SMTP_USER e SMTP_PASS (ou DA_SMTP_*) na Vercel',
   });
 }

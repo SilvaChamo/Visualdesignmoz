@@ -1,23 +1,42 @@
 'use client'
 import React, { useState } from 'react'
-import { useAuth } from '../../../components/auth/AuthProvider'
+
+function formatResetError(err: unknown): string {
+  if (err instanceof Error && err.message && err.message !== '{}') return err.message
+  return 'Não foi possível enviar o email de recuperação. Tente mais tarde.'
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState('')
-  const { resetPassword } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      await resetPassword(email)
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const ct = res.headers.get('content-type') || ''
+      const data = ct.includes('application/json')
+        ? await res.json().catch(() => ({}))
+        : {
+            error:
+              res.status === 404
+                ? 'Serviço indisponível. Aguarde o redeploy do site.'
+                : `Erro ${res.status} ao enviar email.`,
+          }
+      if (!res.ok) {
+        throw new Error(String(data?.error || 'Erro ao enviar email.'))
+      }
       setEnviado(true)
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar email.')
+    } catch (err: unknown) {
+      setError(formatResetError(err))
     } finally {
       setLoading(false)
     }

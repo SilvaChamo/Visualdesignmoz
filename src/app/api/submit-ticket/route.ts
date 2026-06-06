@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { detectDomainConfig } from '@/lib/email-autoconfig'
+import { getDefaultFrom, getSupportEmail, sendSmtpMail } from '@/lib/smtp-mail'
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,22 +56,8 @@ export async function POST(req: NextRequest) {
       console.error('Erro ao guardar ticket no DB:', dbErr)
     }
 
-    // 3. Enviar email para suporte@visualdesignmoz.com
-    const masterEmail = process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com'
-    const domainConfig = detectDomainConfig(masterEmail)
-
-    const transporter = nodemailer.createTransport({
-      host: domainConfig.smtp,
-      port: domainConfig.ports.smtp,
-      secure: domainConfig.ports.smtp === 465,
-      auth: {
-        user: masterEmail,
-        pass: process.env.SMTP_MASTER_PASSWORD || 'Ad.Vd#2425?*'
-      },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 10000,
-      socketTimeout: 15000,
-    })
+    const fromAddress = getDefaultFrom()
+    const notifyEmail = getSupportEmail()
 
     const ticketRef = ticketId ? `#${String(ticketId).substring(0, 8)}` : `#${Date.now()}`
 
@@ -122,9 +107,9 @@ export async function POST(req: NextRequest) {
       </div>
     `
 
-    await transporter.sendMail({
-      from: `"Portal VisualDesigne" <${process.env.SMTP_MASTER_EMAIL || 'admin@visualdesignmoz.com'}>`,
-      to: 'suporte@visualdesignmoz.com',
+    await sendSmtpMail({
+      from: fromAddress,
+      to: notifyEmail,
       replyTo: clienteEmail,
       subject: `[Ticket ${ticketRef}] [${prioridade || 'Normal'}] ${assunto}`,
       html: htmlEmail
@@ -155,8 +140,8 @@ export async function POST(req: NextRequest) {
     `
 
     try {
-      await transporter.sendMail({
-        from: `"Suporte VisualDesigne" <suporte@visualdesignmoz.com>`,
+      await sendSmtpMail({
+        from: fromAddress,
         to: clienteEmail,
         subject: `[Suporte VD] Confirmação de Ticket ${ticketRef}`,
         html: htmlConfirmacao
