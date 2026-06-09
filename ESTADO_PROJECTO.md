@@ -87,7 +87,7 @@
 - Project URL:
   - `https://gwankhxcbkrtgxopbxwd.supabase.co`
 - Anon public key (usar como `NEXT_PUBLIC_SUPABASE_ANON_KEY`):
-  - `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3YW5raHhjYmtydGd4b3BieHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjY2NzUsImV4cCI6MjA4NTgwMjY3NX0.Wmx16vE2PQBuuyCT0wWrLQTDemMufo2VJeM5NF9IfcY`
+  - `<NEXT_PUBLIC_SUPABASE_ANON_KEY — ver Vercel / Supabase Docker>`
 
 ### Variáveis de ambiente (produção)
 - Ficheiro no servidor:

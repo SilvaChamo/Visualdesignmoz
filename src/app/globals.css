@@ -87,3 +87,62 @@ body {
 .dark .panel-content :is(input, select, textarea)::placeholder {
   color: #71717a !important;
 }
+
+.dark .panel-content :is(
+  .bg-blue-50, .bg-green-50, .bg-red-50, .bg-yellow-50, .bg-orange-50,
+  .bg-purple-50, .bg-pink-50, .bg-indigo-50, .bg-cyan-50, .bg-teal-50,
+  .bg-amber-50, .bg-lime-50, .bg-emerald-50, .bg-sky-50, .bg-violet-50
+) {
+  background-color: #27272a !important;
+}
+
+.dark .panel-content :is(
+  .bg-blue-100, .bg-green-100, .bg-red-100, .bg-yellow-100, .bg-orange-100,
+  .bg-purple-100, .bg-pink-100
+) {
+  background-color: #3f3f46 !important;
+}
+
+.dark .panel-content :is(
+  .text-blue-900, .text-blue-800, .text-blue-700,
+  .text-green-900, .text-green-800, .text-green-700,
+  .text-red-900, .text-red-800, .text-red-700,
+  .text-yellow-900, .text-yellow-800, .text-orange-800,
+  .text-purple-900, .text-purple-800, .text-indigo-900
+) {
+  color: #e4e4e7 !important;
+}
+
+.dark .panel-content :is(.text-blue-600, .text-green-600, .text-red-600, .text-orange-600, .text-purple-600) {
+  color: #fca5a5 !important;
+}
+
+.dark .panel-content :is(.border-blue-200, .border-green-200, .border-red-200, .border-yellow-200, .border-orange-200, .border-purple-200) {
+  border-color: #3f3f46 !important;
+}
+
+.dark .panel-shell :is(.bg-white) {
+  background-color: #18181b !important;
+}
+
+.dark .panel-shell .fixed .bg-white,
+.dark .panel-shell .fixed .bg-white\/95,
+.dark .panel-shell [class*="shadow-2xl"].bg-white {
+  background-color: #18181b !important;
+  color: #f4f4f5 !important;
+}
+
+.dark .panel-shell .fixed .bg-gray-50,
+.dark .panel-shell .fixed .bg-gray-50\/50 {
+  background-color: #27272a !important;
+}
+
+.dark .panel-content button.bg-white,
+.dark .panel-content a.bg-white {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+}
+
+.dark .panel-content .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}

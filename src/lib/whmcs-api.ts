@@ -26,8 +26,8 @@ export interface WhmcsWhoisResponse {
 
 class WhmcsAPI {
     private apiUrl = 'https://www.mozserver.co.mz/includes/api.php'
-    private email = 'silva.chamo@gmail.com'
-    private password = 'Meckito#77'
+    private email = process.env.WHMCS_API_EMAIL || ''
+    private password = process.env.WHMCS_API_PASSWORD || ''
 
     private async makeRequest(action: string, params: Record<string, any> = {}): Promise<any> {
         try {

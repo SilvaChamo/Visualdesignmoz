@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 // Credenciais do Contabo
 const SSH_HOST = getServerHost();
 const SSH_USER = 'ADMIN';
-const SSH_PASS = 'Meckito#77?*';
+const SSH_PASS = process.env.VPS_PASS || process.env.SSH_PASS || '';
 
 export async function POST(req: NextRequest) {
   try {

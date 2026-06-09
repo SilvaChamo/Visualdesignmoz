@@ -100,16 +100,8 @@ export function EmailWebmailSection({
 
   const memoEmailsOrigem = useMemo(() => emailsOrigem, [emailsOrigem])
 
-  // Mapa de credenciais padrão para emails do sistema (fallback)
-  const CREDENCIAIS_PADRAO: Record<string, string> = {
-    'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
-    'duduchamatavele@visualdesignmoz.com': 'Dudu#2425?*',
-    'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
-    'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
-    'info@visualdesignmoz.com': 'Informação!#2020?*',
-    'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
-    'noreply@visualdesignmoz.com': 'VisualDesign#2026',
-  }
+  // Sem passwords no código — usar /api/email-senha ou dados da conta
+  const CREDENCIAIS_PADRAO: Record<string, string> = {}
 
   // 🚀 FUNÇÃO HELPER: Buscar senha dinamicamente da API segura
   const buscarSenhaDinamica = async (email: string): Promise<string | null> => {
@@ -289,8 +281,6 @@ export function EmailWebmailSection({
               password: emailOrigemPassword || (() => {
                 const senhas: Record<string, string> = {
                   'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
-                  'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
-                  'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
                   'noreply@visualdesignmoz.com': 'VisualDesign#2026',
                   'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
                 }
@@ -848,13 +838,13 @@ export function EmailWebmailSection({
 
     if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
       emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+      passwordParaUsar = emailsOrigem[0].password || ''
     }
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
       emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = 'Ad.Vd#2425?*'
+      passwordParaUsar = ''
     }
 
     // Debug para verificar parâmetros antes de enviar
@@ -909,7 +899,7 @@ export function EmailWebmailSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: emailOrigem,
-          password: emailOrigemPassword || 'Ad.Vd#2425?*',
+          password: emailOrigemPassword || '',
           emailId: modalEmail.id,
           forwardTo,
           folder: pastaActiva
@@ -937,13 +927,13 @@ export function EmailWebmailSection({
 
     if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
       emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+      passwordParaUsar = emailsOrigem[0].password || ''
     }
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
       emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = 'Ad.Vd#2425?*'
+      passwordParaUsar = ''
     }
 
     // Debug para verificar parâmetros antes de enviar
@@ -997,13 +987,13 @@ export function EmailWebmailSection({
 
     if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
       emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || 'Ad.Vd#2425?*'
+      passwordParaUsar = emailsOrigem[0].password || ''
     }
 
     // Se ainda não tiver credenciais, usar fallback padrão
     if (!passwordParaUsar) {
       emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = 'Ad.Vd#2425?*'
+      passwordParaUsar = ''
     }
 
     if (!emailId || !emailParaUsar) {

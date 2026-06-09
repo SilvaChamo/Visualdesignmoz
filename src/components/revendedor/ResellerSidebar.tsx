@@ -10,6 +10,7 @@ import {
   resellerMenuParentForSection,
   type ResellerMenuIcon,
 } from '@/lib/directadmin-panel-menu';
+import { SidebarAccount } from '@/components/panel/SidebarAccount';
 
 interface ResellerSidebarProps {
   activeSection: string;
@@ -85,18 +86,18 @@ export function ResellerSidebar({
       className="font-panel relative flex h-screen shrink-0 flex-col border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="border-b border-zinc-200 px-3 py-4 dark:border-zinc-800">
+      <div className="border-b border-zinc-200 px-2 pb-4 pt-4 dark:border-zinc-800">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
               src={logoUrl}
               alt="Logo"
-              className="h-9 w-9 cursor-pointer rounded-md object-contain"
+              className="h-10 w-full cursor-pointer object-contain"
               onClick={() => { window.location.href = '/revendedor'; }}
             />
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
               title="Expandir"
             >
               <ChevronRight size={18} />
@@ -107,12 +108,12 @@ export function ResellerSidebar({
             <img
               src={logoUrl}
               alt="Logo"
-              className="h-9 max-w-[132px] cursor-pointer rounded-md object-contain"
+              className="h-10 max-w-[140px] cursor-pointer object-contain"
               onClick={() => { window.location.href = '/revendedor'; }}
             />
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
               title="Recolher"
             >
               <LogOut size={18} className="-scale-x-100" />
@@ -121,8 +122,8 @@ export function ResellerSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-2 py-2.5">
+        <div className="space-y-0">
           {RESELLER_DA_MENU.map((item) => {
             const Icon = ICON_MAP[item.icon];
             const subIds = item.subItems?.map((s) => s.id) || [];
@@ -130,43 +131,43 @@ export function ResellerSidebar({
             const isOpen = expandedMenu === item.id && !!item.subItems?.length;
 
             return (
-              <div key={item.id}>
+              <div key={item.id} className="mb-1">
                 <button
                   onClick={() => handleParentClick(item)}
-                  className={`group flex w-full items-center rounded-md px-2.5 py-2 text-sm transition-colors ${
-                    isCollapsed ? 'justify-center' : ''
-                  } ${
-                    isActive || isOpen
-                      ? 'bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-50'
-                      : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100'
+                  className={`group flex w-full items-center transition-all duration-200 ease-out hover:translate-x-1 ${
+                    isCollapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'
+                  } rounded-lg ${
+                    isActive
+                      ? 'text-red-600 font-bold border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
+                      : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
                   }`}
                   title={isCollapsed ? item.label : item.description || item.label}
                 >
                   <Icon
-                    size={18}
-                    className={`shrink-0 ${isActive || isOpen ? 'text-red-600 dark:text-red-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'}`}
+                    size={22}
+                    className={isActive ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500'}
                   />
-                  {!isCollapsed && <span className="ml-2.5 truncate">{item.label}</span>}
+                  {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
                   {!isCollapsed && item.subItems?.length ? (
                     <ChevronRight
                       size={14}
-                      className={`ml-auto text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      className={`ml-auto text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                     />
                   ) : null}
                 </button>
 
                 {!isCollapsed && item.subItems && isOpen && (
-                  <div className="mb-1 ml-5 mt-0.5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+                  <div className="mt-1 ml-9 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800">
                     {item.subItems.map((sub) => {
                       const isSubActive = activeSection === sub.id;
                       return (
                         <button
                           key={sub.id}
                           onClick={() => onNavigate(sub.id)}
-                          className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                          className={`relative flex items-center px-3 py-[5px] text-left text-sm transition-colors ${
                             isSubActive
-                              ? 'bg-red-50 font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300'
-                              : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200'
+                              ? 'font-bold text-red-600 before:absolute before:-left-[1px] before:top-1/2 before:h-3 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-red-600'
+                              : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
                           }`}
                         >
                           {sub.label}
@@ -182,21 +183,7 @@ export function ResellerSidebar({
       </nav>
 
       <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-semibold text-white">
-            {sessionUser?.charAt(0).toUpperCase() || 'R'}
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                {sessionUser ? sessionUser.split('@')[0] : 'Revendedor'}
-              </p>
-              <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                {sessionUser || 'Conta revenda'}
-              </p>
-            </div>
-          )}
-        </div>
+        <SidebarAccount email={sessionUser} isCollapsed={isCollapsed} fallbackEmail="revendedor@visualdesignmoz.com" />
       </div>
     </div>
   );

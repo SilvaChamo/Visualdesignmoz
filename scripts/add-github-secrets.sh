@@ -123,9 +123,15 @@ else
   echo "    Adiciona manualmente: https://github.com/SilvaChamo/Visualdesigne/settings/secrets/actions"
 fi
 
-add_secret "NEXT_PUBLIC_SUPABASE_URL" "https://gwankhxcbkrtgxopbxwd.supabase.co"
-add_secret "NEXT_PUBLIC_SUPABASE_ANON_KEY" "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3YW5raHhjYmtydGd4b3BieHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjY2NzUsImV4cCI6MjA4NTgwMjY3NX0.Wmx16vE2PQBuuyCT0wWrLQTDemMufo2VJeM5NF9IfcY"
-add_secret "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3YW5raHhjYmtydGd4b3BieHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjY2NzUsImV4cCI6MjA4NTgwMjY3NX0.Wmx16vE2PQBuuyCT0wWrLQTDemMufo2VJeM5NF9IfcY"
+SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-https://supabase.visualdesignmoz.com}"
+SUPABASE_ANON="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}"
+if [ -z "$SUPABASE_ANON" ]; then
+  echo "⚠️  Defina NEXT_PUBLIC_SUPABASE_ANON_KEY no ambiente antes de correr este script."
+  exit 1
+fi
+add_secret "NEXT_PUBLIC_SUPABASE_URL" "$SUPABASE_URL"
+add_secret "NEXT_PUBLIC_SUPABASE_ANON_KEY" "$SUPABASE_ANON"
+add_secret "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" "$SUPABASE_ANON"
 
 echo ""
 echo "✅ Secrets adicionados com sucesso!"

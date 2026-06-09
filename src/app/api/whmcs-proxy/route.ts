@@ -7,8 +7,8 @@ export async function POST(request: NextRequest) {
         const { action, params = {} } = body
 
         const apiUrl = 'https://www.mozserver.co.mz/includes/api.php'
-        const email = 'silva.chamo@gmail.com'
-        const password = 'Meckito#77'
+        const email = process.env.WHMCS_API_EMAIL || ''
+        const password = process.env.WHMCS_API_PASSWORD || ''
 
         // Build form data
         const formData = new URLSearchParams()
