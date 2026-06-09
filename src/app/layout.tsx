@@ -6,6 +6,7 @@ import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CartProvider } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 export const metadata: Metadata = {
   title: {
@@ -56,8 +57,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-MZ" style={{ fontFamily: '"Exo 2", sans-serif' }}>
+    <html lang="pt-MZ" suppressHydrationWarning style={{ fontFamily: '"Exo 2", sans-serif' }}>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('vd-theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -91,17 +97,19 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`antialiased`}>
-        <AuthProvider>
-          <CartProvider>
-            <I18nProvider>
-              <ConditionalNavbar />
-              {children}
-              <CartDrawer />
-              <PWAInstallPrompt />
-            </I18nProvider>
-          </CartProvider>
-        </AuthProvider>
+      <body className="antialiased">
+        <ThemeProvider>
+          <AuthProvider>
+            <CartProvider>
+              <I18nProvider>
+                <ConditionalNavbar />
+                {children}
+                <CartDrawer />
+                <PWAInstallPrompt />
+              </I18nProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

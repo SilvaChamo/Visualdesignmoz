@@ -1,25 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: "Exo 2", var(--font-exo-2), system-ui, sans-serif;
+  --font-panel: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --panel-canvas: #f4f4f5;
+  --panel-surface: #ffffff;
+  --panel-elevated: #ffffff;
+  --panel-border: #e4e4e7;
+  --panel-muted: #71717a;
+  --panel-accent: #dc2626;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --panel-canvas: #09090b;
+  --panel-surface: #18181b;
+  --panel-elevated: #27272a;
+  --panel-border: #3f3f46;
+  --panel-muted: #a1a1aa;
+  --panel-accent: #f87171;
 }
 
 body {
-  background: white;
+  background: var(--background);
   color: var(--foreground);
   font-family: "Exo 2", system-ui, -apple-system, sans-serif !important;
 }
 
-/* Forçar em todos os elementos para garantir */
 * {
   font-family: "Exo 2", system-ui, -apple-system, sans-serif;
+}
+
+.font-panel,
+.font-panel * {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.panel-shell {
+  background: var(--panel-canvas);
+  color: #18181b;
+}
+
+.dark .panel-shell {
+  color: #f4f4f5;
+}
+
+.panel-content :is(.bg-white) {
+  background-color: var(--panel-surface) !important;
+}
+
+.dark .panel-content :is(.bg-gray-50, .bg-gray-50\/50) {
+  background-color: #27272a !important;
+}
+
+.dark .panel-content :is(.border-gray-100, .border-gray-200, .border-gray-300) {
+  border-color: var(--panel-border) !important;
+}
+
+.dark .panel-content :is(.text-gray-900, .text-gray-800, .text-gray-700) {
+  color: #f4f4f5 !important;
+}
+
+.dark .panel-content :is(.text-gray-600, .text-gray-500, .text-gray-400) {
+  color: #a1a1aa !important;
+}
+
+.dark .panel-content :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+
+.dark .panel-content :is(input, select, textarea)::placeholder {
+  color: #71717a !important;
 }

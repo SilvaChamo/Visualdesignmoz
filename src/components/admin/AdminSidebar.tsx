@@ -125,7 +125,7 @@ export function AdminSidebar({
   setIsCollapsed,
   sessionUser
 }: AdminSidebarProps) {
-  const currentSidebarWidth = isCollapsed ? 80 : 250;
+  const currentSidebarWidth = isCollapsed ? 72 : 248;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
     adminMenuParentForSection(activeSection),
   );
@@ -157,51 +157,45 @@ export function AdminSidebar({
 
   return (
     <div
-      className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm h-screen transition-all duration-300"
+      className="font-panel relative flex h-screen shrink-0 flex-col border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="px-2 pb-4 border-b border-gray-100 pt-4">
+      <div className="border-b border-zinc-200 px-3 py-4 dark:border-zinc-800">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
               src="/assets/simbolo.png"
               alt="Logo"
-              className="h-12 object-contain cursor-pointer"
-              onClick={() => window.location.href = '/'}
+              className="h-9 w-9 cursor-pointer rounded-md object-contain"
+              onClick={() => { window.location.href = '/'; }}
             />
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded hover:bg-gray-100 transition-colors p-1"
+              className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               title="Expandir"
             >
-              <LogOut size={22} className="text-gray-500" />
+              <ChevronRight size={18} />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <img
-              src="/assets/simbolo.png"
-              alt="Logo"
-              className="w-14 h-14 object-contain cursor-pointer"
-              onClick={() => window.location.href = '/'}
-            />
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-900">Painel Admin</h1>
-              <p className="text-xs text-gray-500">Portal Digital</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">Painel Admin</h1>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">VisualDesign</p>
             </div>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded hover:bg-gray-100 transition-colors p-1"
+              className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               title="Recolher"
             >
-              <LogOut size={22} className="text-gray-500 -scale-x-100" />
+              <LogOut size={18} className="-scale-x-100" />
             </button>
           </div>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2.5">
-        <div className="space-y-0">
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <div className="space-y-0.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id ||
@@ -212,44 +206,44 @@ export function AdminSidebar({
               (item.id === 'gestao-sites' && GESTAO_HOSPEDAGEM_SECTIONS.includes(activeSection)) ||
               (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
               (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection));
+            const isOpen = expandedMenu === item.id && !!item.subItems;
 
             return (
-              <div key={item.id} className="mb-1">
+              <div key={item.id}>
                 <button
                   onClick={() => handleParentClick(item)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${isActive || (expandedMenu === item.id && item.subItems)
-                    ? item.id === 'dashboard'
-                      ? 'text-red-600 font-bold bg-red-50 border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
-                      : 'text-black font-bold'
-                    : 'hover:text-red-600 text-gray-600'
-                    }`}
+                  className={`group flex w-full items-center rounded-md px-2.5 py-2 text-sm transition-colors ${
+                    isCollapsed ? 'justify-center' : ''
+                  } ${
+                    isActive || isOpen
+                      ? 'bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-50'
+                      : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100'
+                  }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={`${isActive || expandedMenu === item.id ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
-                  {!isCollapsed && (
-                    <span className="ml-3 text-[15px]">{item.label}</span>
-                  )}
+                  <Icon
+                    size={18}
+                    className={`shrink-0 ${isActive || isOpen ? 'text-red-600 dark:text-red-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'}`}
+                  />
+                  {!isCollapsed && <span className="ml-2.5 truncate">{item.label}</span>}
                   {!isCollapsed && item.subItems && (
-                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenu === item.id ? 'rotate-90' : ''}`} />
-                  )}
-                  {!isCollapsed && !item.subItems && isActive && (
-                    <ChevronRight size={14} className={`ml-auto ${item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900'}`} />
+                    <ChevronRight size={14} className={`ml-auto text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   )}
                 </button>
 
-                {!isCollapsed && item.subItems && expandedMenu === item.id && (
-                  <div className="mt-1 ml-9 border-l border-gray-200 flex flex-col gap-1">
-                    {item.subItems.map(sub => {
+                {!isCollapsed && item.subItems && isOpen && (
+                  <div className="mb-1 ml-5 mt-0.5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+                    {item.subItems.map((sub) => {
                       const isSubActive = activeSection === sub.id;
                       return (
                         <button
                           key={sub.id}
-                          onClick={() => {
-                            onNavigate(sub.id);
-                          }}
-                          className={`flex items-center text-left px-3 py-[5px] text-sm transition-colors relative ${isSubActive
-                            ? 'text-red-600 font-bold before:absolute before:-left-[1px] before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full before:z-10'
-                            : 'text-gray-600 hover:text-red-600'}`}
+                          onClick={() => onNavigate(sub.id)}
+                          className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                            isSubActive
+                              ? 'bg-red-50 font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                              : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200'
+                          }`}
                         >
                           {sub.label}
                         </button>
@@ -263,19 +257,19 @@ export function AdminSidebar({
         </div>
       </nav>
 
-      <div className="p-3 border-t border-gray-100">
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">
-              {sessionUser?.charAt(0).toUpperCase() || 'SC'}
-            </span>
+      <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-semibold text-white">
+            {sessionUser?.charAt(0).toUpperCase() || 'A'}
           </div>
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                {sessionUser ? sessionUser.split('@')[0] : 'Silva Chamo'}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                {sessionUser ? sessionUser.split('@')[0] : 'Admin'}
               </p>
-              <p className="text-[10px] text-gray-400 truncate">{sessionUser || 'admin@your-domain.com'}</p>
+              <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                {sessionUser || 'admin@your-domain.com'}
+              </p>
             </div>
           )}
         </div>

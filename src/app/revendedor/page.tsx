@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { PanelHeader } from '@/components/panel/PanelHeader'
 import { ResellerDirectAccessSection } from '@/components/revendedor/ResellerDirectAccessSection'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -2605,7 +2606,7 @@ export default function ResellerPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="panel-shell font-panel flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
       <ResellerSidebar
         activeSection={activeSection}
         onNavigate={handleNavigate}
@@ -2614,56 +2615,54 @@ export default function ResellerPage() {
         sessionUser={sessionUser}
         customLogo={logoUrl}
       />
-      <div className="flex-1 flex flex-col overflow-hidden bg-white">
-        {/* Top Header - Escondido quando compose está ativo na seção de webmail */}
-        <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {getSectionInfo(activeSection).title}
-              </h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {getSectionInfo(activeSection).description}
-              </p>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <PanelHeader
+          title={getSectionInfo(activeSection).title}
+          description={getSectionInfo(activeSection).description}
+          hidden={isComposeActive && activeSection === 'webmail'}
+          actions={
+            <>
+              <a
+                href={getDirectAdminAccessUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <Server size={13} /> DirectAdmin
+              </a>
+              <a
+                href={sessionUser ? `/api/roundcube-sso?email=${encodeURIComponent(sessionUser)}` : '/api/roundcube-sso'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <Mail size={13} /> Roundcube
+              </a>
+              <button
+                onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                title={t('sidebar.logout')}
+              >
+                <LogOut size={14} />
+                <span>Sair</span>
+              </button>
+            </>
+          }
+        >
+          {activeSection === 'dashboard' && (
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={dashboardSearch}
+                onChange={(e) => setDashboardSearch(e.target.value)}
+                placeholder="Pesquisar ferramentas..."
+                className="w-full rounded-md border border-zinc-200 bg-white py-2 pl-9 pr-4 text-sm text-zinc-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
             </div>
-            <div className="flex items-center gap-3">
-              {activeSection === 'dashboard' && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    value={dashboardSearch}
-                    onChange={e => setDashboardSearch(e.target.value)}
-                    placeholder="Pesquisar ferramentas..."
-                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2">
+          )}
+        </PanelHeader>
 
-                <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer"
-                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
-                  <Server size={13} /> DirectAdmin
-                </a>
-                <a
-                  href={sessionUser ? `/api/roundcube-sso?email=${encodeURIComponent(sessionUser)}` : '/api/roundcube-sso'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
-                >
-                  <Mail size={13} /> Roundcube
-                </a>
-                <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                  className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all" title={t('sidebar.logout')}>
-                  <LogOut size={14} />
-                  <span>Sair da Conta</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className={`flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
+        <main className={`panel-content flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
           <div className={`${['webmail', 'dashboard'].includes(activeSection) ? 'h-full min-h-0 overflow-y-auto' : 'min-h-full'}`}>
             {renderSection()}
           </div>
