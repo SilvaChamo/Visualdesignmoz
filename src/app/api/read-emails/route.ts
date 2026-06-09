@@ -17,8 +17,8 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
-// Domínios hospedados no servidor CyberPanel
-const CYBERPANEL_DOMAINS = [
+// Domínios hospedados no servidor
+const HOSTED_MAIL_DOMAINS = [
   'visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt',
   'anap.co.mz', 'entrecampos.co.mz',
   'aamihe.com', 'entrecampos.co.mz',
@@ -34,13 +34,13 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
   if (domain === 'yahoo.com' || domain === 'yahoo.co.uk' || domain === 'ymail.com') return { host: 'imap.mail.yahoo.com', port: 993, secure: true }
   if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') return { host: 'imap.mail.me.com', port: 993, secure: true }
 
-  // Domínios no CyberPanel — usar IP directo (evita falhas DNS e instabilidade de SSL no mail.*)
-  const isCyberPanel = CYBERPANEL_DOMAINS.includes(domain) || 
-                      CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d)) ||
+  // Domínios no servidor — usar IP directo (evita falhas DNS e instabilidade de SSL no mail.*)
+  const isHostedMail = HOSTED_MAIL_DOMAINS.includes(domain) || 
+                      HOSTED_MAIL_DOMAINS.some(d => domain.endsWith('.' + d)) ||
                       domain.endsWith('.co.mz') || 
                       domain.endsWith('.mz') || domain.endsWith('.co.mz')
 
-  if (isCyberPanel) {
+  if (isHostedMail) {
     return { host: getServerHost(), port: 993, secure: true }
   }
 
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
       const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com']
       const isAdmin = adminEmails.includes(session.user?.email || '')
-      let query = supabaseAdmin.from('email_contas').select('email, senha_cyberpanel')
+      let query = supabaseAdmin.from('email_contas').select('email, senha_servidor')
       if (!isAdmin) query = query.eq('cliente_id', session.user.id)
       const { data: contas } = await query.or('status.eq.active,status.eq.activo')
 
@@ -134,8 +134,8 @@ export async function POST(req: NextRequest) {
           for (const folderPath of pastasParaProcessar) {
             let contaClient: ImapFlow | null = null
             try {
-              if (!conta.senha_cyberpanel) continue
-              const pass = decryptPassword(conta.senha_cyberpanel)
+              if (!conta.senha_servidor) continue
+              const pass = decryptPassword(conta.senha_servidor)
               contaClient = await createFreshClient(conta.email, pass, resolveImapConfig(conta.email))
               if (!contaClient) continue
 

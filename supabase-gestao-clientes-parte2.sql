@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS email_contas (
     cliente_id UUID REFERENCES clientes(id) ON DELETE CASCADE,
     site_id UUID REFERENCES sites_cliente(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
-    senha_cyberpanel TEXT,
+    senha_servidor TEXT,
     quota_mb INTEGER DEFAULT 1024,
     quota_usada_mb INTEGER DEFAULT 0,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),

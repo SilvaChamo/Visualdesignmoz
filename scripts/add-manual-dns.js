@@ -2,7 +2,7 @@ const fetch = require('node-fetch');
 
 async function addRecords() {
     const domain = 'visualdesignmoz.com';
-    const apiUrl = 'http://localhost:3002/api/cyberpanel-dns';
+    const apiUrl = 'http://localhost:3002/api/panel-dns';
 
     const records = [
         {

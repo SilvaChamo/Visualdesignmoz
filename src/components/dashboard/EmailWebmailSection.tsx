@@ -94,7 +94,7 @@ export function EmailWebmailSection({
   ])
   const [mostrarConfigContactos, setMostrarConfigContactos] = useState(false)
   const [novoContacto, setNovoContacto] = useState({ nome: '', email: '' })
-  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string, senha_cyberpanel?: string }[]>([])
+  const [emailsOrigem, setEmailsOrigem] = useState<{ email: string, tipo: string, nome: string, password?: string, senha_servidor?: string }[]>([])
   const [emailOrigem, setEmailOrigem] = useState('')
   const [emailOrigemPassword, setEmailOrigemPassword] = useState('')
 
@@ -312,10 +312,10 @@ export function EmailWebmailSection({
     }
   }, [modalEmail])
 
-  // 🚀 Carregar contas do CyberPanel + Supabase (consolidado)
+  // 🚀 Carregar contas do servidor + Supabase (consolidado)
   // ⚡ OTIMIZAÇÃO: Se hideSidebar=true e propEmailOrigem existe, não carregar todas as contas
   useEffect(() => {
-    const carregarContasCyberPanel = async () => {
+    const carregarContasServidor = async () => {
       // 🎯 MODO RÁPIDO: Painel do cliente com email já selecionado
       if (hideSidebar && propEmailOrigem) {
         console.log('📧 [RÁPIDO] Modo cliente com email predefinido:', propEmailOrigem)
@@ -333,10 +333,10 @@ export function EmailWebmailSection({
         return
       }
 
-      console.log('📧 [Contacts] Iniciando carregamento de contactos (CyberPanel + Supabase)...')
+      console.log('📧 [Contacts] Iniciando carregamento de contactos (servidor + Supabase)...')
       setCarregandoEmails(true)
       
-      // Buscar emails consolidados (CyberPanel + Supabase)
+      // Buscar emails consolidados (servidor + Supabase)
       const allEmails: any[] = []
       // 🎯 NO MODO CLIENTE (hideSidebar=true): mostrar apenas emails do domínio do cliente logado
       // No modo admin: mostrar apenas domínios da VisualDesigne
@@ -349,7 +349,7 @@ export function EmailWebmailSection({
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000)
         try {
-          // Usar novo endpoint que combina CyberPanel + Supabase
+          // Usar endpoint que combina servidor + Supabase
           const res = await fetch(`/api/get-all-contacts?domain=${encodeURIComponent(domain)}&includeSupabase=true`, {
             signal: controller.signal
           })
@@ -412,7 +412,7 @@ export function EmailWebmailSection({
       setCarregandoEmails(false)
     }
     
-    carregarContasCyberPanel()
+    carregarContasServidor()
   }, [sites, hideSidebar, propEmailOrigem])
 
   // Debounce para a pesquisa
@@ -2031,7 +2031,7 @@ export function EmailWebmailSection({
               <button onClick={() => { setMostrarAlterarSenhaModal(false); setNovaSenha(''); setConfirmNovaSenha('') }} className="p-2 text-gray-500 hover:text-gray-800">Fechar</button>
             </div>
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">Irá actualizar a senha no CyberPanel e sincronizar a conta aqui.</p>
+              <p className="text-sm text-gray-600">Irá actualizar a senha no servidor e sincronizar a conta aqui.</p>
               <label className="block text-xs font-medium text-gray-700">Nova Senha</label>
               <input type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className="w-full rounded-md border px-3 py-2" />
               <label className="block text-xs font-medium text-gray-700">Confirmar Nova Senha</label>
@@ -2045,7 +2045,7 @@ export function EmailWebmailSection({
                   if (!novaSenha || novaSenha !== confirmNovaSenha) { alert('Senhas não coincidem'); return }
                   try {
                     setAlterandoSenha(true)
-                    const res = await fetch('/api/cyberpanel-email', {
+                    const res = await fetch('/api/email-contas', {
                       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ email: targetEmail, action: 'changePassword', newPassword: novaSenha })
                     })

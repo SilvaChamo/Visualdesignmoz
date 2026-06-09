@@ -1,4 +1,4 @@
-// Shared localStorage store — ALL CyberPanel/panel data
+// Shared localStorage store — ALL panel data
 // Works without Supabase tables — persists across page refreshes in same browser
 
 export const LS_SITES_KEY  = 'cp_sites_v1'

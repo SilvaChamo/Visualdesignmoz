@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
-import { executeCyberPanelCommand } from '@/lib/cyberpanel-exec'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import { VD_EMAIL } from '@/lib/email-accounts';
 import { getDefaultFrom, getServerEmail, sendSmtpMail } from '@/lib/smtp-mail';
@@ -164,17 +163,6 @@ export async function POST(req: NextRequest) {
     const domain = email.split('@')[1]
     const user = email.split('@')[0]
 
-    // Criar conta no CyberPanel
-    let cpSuccess = false
-    try {
-      const output = await executeCyberPanelCommand(`cyberpanel createEmail --domainName ${domain} --userName ${user} --password '${password}'`);
-      if (output.includes('successfully') || output.includes('"success": 1')) {
-        cpSuccess = true
-      }
-    } catch (cpError) {
-      console.error('Erro ao criar no CyberPanel:', cpError);
-    }
-
     // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
     let authUserId = cliente_id
     let authUserCreated = false
@@ -220,7 +208,7 @@ export async function POST(req: NextRequest) {
       .upsert({
         cliente_id: authUserId, // Vincula ao usuário Auth criado
         email,
-        senha_cyberpanel: encrypt(password),
+        senha_servidor: encrypt(password),
         tipo_conta: tipo,
         status: 'active'
       }, { onConflict: 'email' })
@@ -345,7 +333,7 @@ VisualDesign - ${new Date().getFullYear()}
   }
 }
 
-// 🆕 PUT: Atualizar/Sincronizar conta existente (para contas criadas diretamente no CyberPanel)
+// 🆕 PUT: Atualizar/Sincronizar conta existente (para contas criadas directamente no servidor)
 export async function PUT(req: NextRequest) {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
@@ -373,7 +361,7 @@ export async function PUT(req: NextRequest) {
       smtp: `mail.${domain}`,
       ports: { imap: 993, smtp: 587 },
       ssl: true,
-      webmail: `https://mail.${domain}`
+      webmail: `https://webmail.${domain}`
     }
 
     // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
@@ -414,7 +402,7 @@ export async function PUT(req: NextRequest) {
         cliente_id: authUserId, // Vincula ao usuário Auth
         email,
         tipo_conta: 'webmail',
-        senha_cyberpanel: encrypt(password),
+        senha_servidor: encrypt(password),
         status: 'active'
       }, { onConflict: 'email' })
       .select()

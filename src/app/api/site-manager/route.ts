@@ -29,11 +29,11 @@ async function execSSH(command: string): Promise<string> {
         });
 
         conn.connect({
-            host: process.env.CYBERPANEL_IP || getServerHost(),
-            port: parseInt(process.env.CYBERPANEL_SSH_PORT || '22'),
-            username: process.env.CYBERPANEL_SSH_USER || 'root',
+            host: process.env.SERVER_IP || getServerHost(),
+            port: parseInt(process.env.SSH_PORT || process.env.SERVER_SSH_PORT || '2234', 10),
+            username: process.env.SSH_USER || 'root',
             privateKey,
-            password: process.env.CYBERPANEL_PASS, // Fallback to password
+            password: process.env.SSH_PASS,
         });
     });
 }

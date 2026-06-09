@@ -1,5 +1,5 @@
 <?php
-// Corrige todos os problemas de email no CyberPanel
+// Corrige todos os problemas de email no DirectAdmin
 
 $file = '/usr/local/CyberCP/public/send-email-api.php';
 $content = file_get_contents($file);
@@ -17,7 +17,7 @@ $old_headers = '$headers_mail = "From: " . $fromName . " <" . $from . ">\r\n";
     $headers_mail .= "Date: " . date("r") . "\r\n";
     $headers_mail .= "MIME-Version: 1.0\r\n";
     $headers_mail .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers_mail .= "X-Mailer: CyberPanel-Marketing/2.0\r\n";
+    $headers_mail .= "X-Mailer: DirectAdmin-Marketing/2.0\r\n";
     $headers_mail .= "Precedence: bulk\r\n";
     $headers_mail .= "X-Auto-Response-Suppress: OOF, AutoReply\r\n";
     $headers_mail .= "List-Unsubscribe: <mailto:unsubscribe@{$domain}?subject=unsubscribe>\r\n";';
@@ -29,7 +29,7 @@ $new_headers = '$fromHeader = sprintf("From: %s <%s>", $fromName, $from);
     $date = sprintf("Date: %s", date("r"));
     $mime = "MIME-Version: 1.0";
     $contentType = "Content-Type: text/html; charset=UTF-8";
-    $xmailer = "X-Mailer: CyberPanel-Marketing/2.0";
+    $xmailer = "X-Mailer: DirectAdmin-Marketing/2.0";
     $prec = "Precedence: bulk";
     $autosup = "X-Auto-Response-Suppress: OOF, AutoReply";
     $listunsub = sprintf("List-Unsubscribe: <mailto:unsubscribe@%s?subject=unsubscribe>", $domain);

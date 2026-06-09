@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "📝 Melhorando headers de email..."
-SERVER="109.199.104.22"
+SERVER="37.27.17.25"
 FILE="/usr/local/CyberCP/public/send-email-api.php"
 
 ssh root@$SERVER "
@@ -32,7 +32,7 @@ cat >> /tmp/send-email-new.php << 'NEWCODE'
     \$headers_mail .= "List-Id: " . \$listId . "\\r\\n";
     \$headers_mail .= "MIME-Version: 1.0\\r\\n";
     \$headers_mail .= "Content-Type: text/html; charset=UTF-8\\r\\n";
-    \$headers_mail .= "X-Mailer: CyberPanel-Marketing/2.0\\r\\n";
+    \$headers_mail .= "X-Mailer: DirectAdmin-Marketing/2.0\\r\\n";
     \$headers_mail .= "Precedence: bulk\\r\\n";
     \$headers_mail .= "X-Auto-Response-Suppress: OOF, AutoReply\\r\\n";
     \$headers_mail .= "X-Priority: 3 (Normal)\\r\\n";

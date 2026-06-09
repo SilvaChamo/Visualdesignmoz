@@ -19,7 +19,7 @@ export const authService = {
       },
     })
 
-    // If signUp succeeded, trigger server-side on-register to create profile and cyberpanel email
+    // If signUp succeeded, trigger server-side on-register to create profile
     try {
       if (data?.user?.email) {
         await fetch('/api/on-register', {

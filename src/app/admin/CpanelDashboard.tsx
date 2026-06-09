@@ -7,7 +7,8 @@ import {
   Upload, Download, PlusCircle, Lock, RefreshCw, Cloud, Key,
   Layers, Globe2, FileText, AlertCircle, Edit, Trash2, List,
   RotateCcw, Power, Plug, ArrowRight, Filter, Settings, Search,
-  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity, ShoppingCart
+  Wifi, Zap, BookOpen, Monitor, Archive, Eye, Layout, Activity, ShoppingCart,
+  Palette,
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost } from '@/lib/server-config'
@@ -124,12 +125,10 @@ export function CpanelDashboard({
       headerIcon: <Globe className="w-5 h-5" />,
       color: 'text-blue-700', bgColor: 'bg-blue-50',
       tools: [
-        { id: 'porkbun-domains', name: 'Registar / comprar domínio', icon: <ShoppingCart className="w-9 h-9 text-blue-600" />, highlight: true },
+        { id: 'porkbun-domains', name: 'Registar domínio', icon: <ShoppingCart className="w-9 h-9 text-blue-600" />, highlight: true },
         { id: 'porkbun-my-domains', name: 'Os seus domínios', icon: <List className="w-9 h-9 text-blue-500" /> },
         { id: 'dns-central', name: 'DNS Central', icon: <Globe2 className="w-9 h-9 text-blue-500" /> },
-        { id: 'domains-new', name: 'Criar Website', icon: <PlusCircle className="w-9 h-9 text-blue-500" /> },
-        { id: 'domain-manager', name: 'Domínios', icon: <Globe className="w-9 h-9 text-blue-500" /> },
-        { id: 'domains', name: 'Listar Websites', icon: <Globe className="w-9 h-9 text-blue-500" /> },
+        { id: 'domain-manager', name: 'Gestor de domínios', icon: <Globe className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-subdomains', name: 'Criar Subdomínio', icon: <Layers className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-list-subdomains', name: 'Listar Sub/Addon', icon: <List className="w-9 h-9 text-blue-500" /> },
         { id: 'cp-modify-website', name: 'Modificar Website', icon: <Edit className="w-9 h-9 text-blue-500" /> },
@@ -139,13 +138,12 @@ export function CpanelDashboard({
       ]
     },
     {
-      id: 'wordpress', name: 'WordPress',
-      headerIcon: <Globe2 className="w-5 h-5" />,
-      color: 'text-indigo-700', bgColor: 'bg-indigo-50',
+      id: 'construtores', name: 'Construtores',
+      headerIcon: <Palette className="w-5 h-5" />,
+      color: 'text-fuchsia-700', bgColor: 'bg-fuchsia-50',
       tools: [
-        { id: 'wordpress-install', name: 'Instalar WordPress', icon: <Globe className="w-9 h-9 text-blue-500" /> },
-        { id: 'cp-wp-list', name: 'Painel WP Admin', icon: <Monitor className="w-9 h-9 text-indigo-500" /> },
-        { id: 'cp-wp-plugins', name: 'Gerir Plugins', icon: <Plug className="w-9 h-9 text-indigo-500" /> },
+        { id: 'page-builders', name: 'Abrir Construtores', icon: <Palette className="w-9 h-9 text-fuchsia-500" /> },
+        { id: 'templates-saved', name: 'Templates Salvos', icon: <Layout className="w-9 h-9 text-fuchsia-500" /> },
       ]
     },
     {
@@ -418,12 +416,10 @@ export function CpanelDashboard({
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Acesso Rápido</p>
           <div className="space-y-1">
             {[
-              { label: 'Registar / comprar domínio', id: 'porkbun-domains', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
-              { label: 'Os seus domínios', id: 'porkbun-my-domains', icon: <List className="w-3.5 h-3.5" /> },
-              { label: 'DNS Central', id: 'dns-central', icon: <Globe2 className="w-3.5 h-3.5" /> },
-              { label: 'Criar Website', id: 'domains-new', icon: <Globe className="w-3.5 h-3.5" /> },
+              { label: 'Registar domínio', id: 'porkbun-domains', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+              { label: 'Listar Websites', id: 'domains', icon: <Globe className="w-3.5 h-3.5" /> },
+              { label: 'Construtores', id: 'page-builders', icon: <Palette className="w-3.5 h-3.5" /> },
               { label: 'Criar Email', id: 'emails-new', icon: <Mail className="w-3.5 h-3.5" /> },
-              { label: 'Instalar WordPress', id: 'wordpress-install', icon: <Download className="w-3.5 h-3.5" /> },
               { label: 'Criar Utilizador', id: 'cp-users', icon: <Users className="w-3.5 h-3.5" /> },
               { label: 'Emitir SSL', id: 'cp-ssl', icon: <Lock className="w-3.5 h-3.5" /> },
               { label: 'Criar Pacote', id: 'packages-new', icon: <Package className="w-3.5 h-3.5" /> },

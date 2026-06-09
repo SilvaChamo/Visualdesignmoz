@@ -5,6 +5,7 @@ import { useAuth } from '../../../components/auth/AuthProvider'
 import { supabase } from '../../../lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { Globe } from 'lucide-react'
+import { googleOAuthUserMessage, LOGIN_NO_ACCOUNT_HINT } from '@/lib/auth-messages'
 
 function LoginPageContent() {
   const [email, setEmail] = useState('')
@@ -32,15 +33,7 @@ function LoginPageContent() {
     const urlError = searchParams.get('error')
     const urlErrorDesc = searchParams.get('error_description')
     if (urlError) {
-      let title = t('login.errorAuth')
-      let desc = urlErrorDesc || t('login.errorUnexpected')
-      if (urlError === 'access_denied') {
-        title = t('login.errorAccessDenied')
-        desc = t('login.errorAccessDeniedDesc')
-      } else if (urlError === 'callback_error') {
-        title = t('login.errorCallback')
-        desc = desc
-      }
+      const { title, desc } = googleOAuthUserMessage(urlError, urlErrorDesc)
       setOauthError({ title, desc })
     }
   }, [searchParams])
@@ -93,7 +86,10 @@ function LoginPageContent() {
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
-        setError('Credenciais inválidas ou conta não confirmada. Por favor, verifique se clicou no link enviado para o seu e-mail e tente novamente.')
+        setError(
+          'Email ou password incorrectos. Se ainda não tem conta, use «Criar conta». ' +
+          'Se esqueceu a password, use «Esqueci a password».',
+        )
       } else {
         setError((err as Error).message || t('login.errorGeneric'))
       }
@@ -288,8 +284,12 @@ function LoginPageContent() {
           </div>
         </form>
 
+        <p className="text-center text-white/40 text-[11px] mt-4 leading-relaxed px-2">
+          {LOGIN_NO_ACCOUNT_HINT}
+        </p>
+
         {/* Link registo */}
-        <p className="text-center text-white/50 text-sm mt-6">
+        <p className="text-center text-white/50 text-sm mt-4">
           {t('login.noAccount')}{' '}
           <a href="/auth/register" className="text-white hover:text-red-400 transition font-semibold uppercase tracking-wider">
             {t('login.register')}

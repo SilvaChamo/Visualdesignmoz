@@ -1,0 +1,6 @@
+#!/usr/local/bin/php
+<?php
+$_SERVER['SESSION_ID'] = $ENV['SESSION_ID'] ?? getenv('SESSION_ID');
+$_SERVER['SESSION_KEY'] = $ENV['SESSION_KEY'] ?? getenv('SESSION_KEY');
+$_SERVER['REMOTE_ADDR'] = $ENV['REMOTE_ADDR'] ?? getenv('REMOTE_ADDR');
+require '/usr/local/directadmin/plugins/uploadfile/scripts/upload_ui.php';

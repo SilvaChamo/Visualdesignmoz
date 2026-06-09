@@ -1522,7 +1522,7 @@ function ManageWebsiteSection({
   }
 
   // ============================================================
-  // CUSTOM ICONS (CYBERPANEL STYLE)
+  // CUSTOM ICONS (PANEL STYLE)
   // ============================================================
   const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
     // Usar Lucide com cores premium
@@ -2195,7 +2195,7 @@ export default function AdminPage() {
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
       'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
       'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
-      'cp-users': { title: 'Dashboard', description: 'Utilizadores DirectAdmin' },
+      'cp-users': { title: 'Utilizadores', description: 'Contas de acesso a todos os painéis' },
       'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
       'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
       'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
@@ -2290,7 +2290,7 @@ export default function AdminPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <DirectAdminManualNotice title="Gestão de ficheiros" description="A gestão de ficheiros dentro do painel foi desligada. Use o File Manager nativo do DirectAdmin." href={getDirectAdminFileManagerUrl(fileManagerDomain || primaryDomain, filteredSites.find(s => s.domain === (fileManagerDomain || primaryDomain))?.owner || 'admin')} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} />
       case 'infra-manager':
         return <InfraManagerSection />
       case 'news-manager':
@@ -2298,25 +2298,25 @@ export default function AdminPage() {
       case 'clientes':
         return <ClientesSection />
       case 'domains-new':
-        return <DirectAdminManualNotice title="Criar website" description="A criação automática pelo painel foi desligada. Crie o website diretamente no DirectAdmin." />
+        return <DomainManagerSection sites={filteredSites} packages={directAdminPackages} onCreateEmail={(domain) => { setPreSelectedEmailDomain(domain); setActiveSection('cp-email-mgmt') }} />
       case 'cp-subdomains':
-        return <DirectAdminManualNotice title="Subdomínios" description="A gestão de subdomínios pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
       case 'email-import':
         return <EmailImportSection sites={filteredSites} />
       case 'cp-list-subdomains':
-        return <DirectAdminManualNotice title="Subdomínios" description="A listagem por API foi desligada. Use o DirectAdmin nativo." />
+        return <ListSubdomainsSection sites={filteredSites} />
       case 'cp-modify-website':
-        return <DirectAdminManualNotice title="Modificar website" description="A modificação automática pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <ModifyWebsiteSection sites={filteredSites} packages={directAdminPackages} />
       case 'cp-suspend-website':
-        return <DirectAdminManualNotice title="Suspender website" description="A suspensão automática pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-delete-website':
-        return <DirectAdminManualNotice title="Apagar website" description="A remoção automática pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-databases':
-        return <DirectAdminManualNotice title="Bases de dados" description="A gestão de bases de dados pelo painel foi desligada. Use o DirectAdmin/phpMyAdmin nativo." />
+        return <DatabasesSection sites={filteredSites} initialDomain={selectedDNSDomain || primaryDomain} />
       case 'cp-ftp':
-        return <DirectAdminManualNotice title="FTP" description="A gestão FTP pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <FTPSection sites={filteredSites} />
       case 'webmail':
       case 'emails-webmail':
         return <WebmailSection
@@ -2330,25 +2330,25 @@ export default function AdminPage() {
         />
       case 'emails-new':
       case 'cp-email-mgmt':
-        return <DirectAdminManualNotice title="E-mails DirectAdmin" description="A gestão de contas de e-mail via DirectAdmin foi desligada no painel. Use o DirectAdmin nativo." />
+        return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} />
       case 'cp-email-delete':
-        return <DirectAdminManualNotice title="Apagar e-mails" description="A remoção de e-mails pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <EmailDeleteSection sites={filteredSites} />
       case 'cp-email-limits':
-        return <DirectAdminManualNotice title="Limites de e-mail" description="A alteração de limites pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <EmailLimitsSection sites={filteredSites} />
       case 'cp-email-forwarding':
-        return <DirectAdminManualNotice title="Encaminhamento" description="A gestão de encaminhamentos pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <EmailForwardingSection sites={filteredSites} />
       case 'cp-email-catchall':
-        return <DirectAdminManualNotice title="Catch-All" description="A gestão Catch-All pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <CatchAllEmailSection sites={filteredSites} />
       case 'cp-email-pattern-fwd':
-        return <DirectAdminManualNotice title="Pattern Forwarding" description="A gestão pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <PatternForwardingSection sites={filteredSites} />
       case 'cp-email-plus-addr':
-        return <DirectAdminManualNotice title="Plus Addressing" description="A gestão pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <PlusAddressingSection sites={filteredSites} />
       case 'cp-email-change-pass':
-        return <DirectAdminManualNotice title="Alterar password de e-mail" description="A alteração pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <EmailChangePasswordSection sites={filteredSites} />
       case 'cp-email-dkim':
-        return <DirectAdminManualNotice title="DKIM" description="A gestão DKIM pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <DKIMManagerSection sites={filteredSites} />
       case 'da-emails':
-        return <DirectAdminManualNotice title="E-mails DirectAdmin" description="A integração foi desligada. Use o DirectAdmin nativo." />
+        return <DirectAdminEmailsSection />
       case 'setup-smtp':
         return <SMTPConfigSection />
       case 'email-diagnostico':
@@ -2362,30 +2362,30 @@ export default function AdminPage() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <DirectAdminManualNotice title="Contas DirectAdmin" description="A gestão de utilizadores pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <CPUsersSection variant="panels" />
       case 'cp-reseller':
-        return <DirectAdminManualNotice title="Revenda DirectAdmin" description="A gestão de revenda pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <ResellerSection />
       case 'cp-ssl':
-        return <DirectAdminManualNotice title="SSL" description="A emissão automática pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <SSLSection sites={filteredSites} />
       case 'cp-security':
-        return <DirectAdminManualNotice title="Segurança" description="A gestão de segurança pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <SecuritySection sites={filteredSites} />
       case 'cp-php':
-        return <DirectAdminManualNotice title="PHP" description="A gestão PHP pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <PHPConfigSection sites={filteredSites} />
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
       case 'cp-wp-list':
-        return <DirectAdminManualNotice title="WordPress" description="A gestão WordPress pelo painel foi desligada. Use o DirectAdmin nativo ou o wp-admin do próprio site." />
+        return <WPListSection sites={filteredSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} />
       case 'cp-wp-plugins':
-        return <DirectAdminManualNotice title="Plugins WordPress" description="A gestão de plugins pelo painel foi desligada. Use o WordPress ou DirectAdmin nativo." />
+        return <WPPluginsSection sites={filteredSites} />
       case 'cp-wp-restore-backup':
-        return <DirectAdminManualNotice title="Restaurar WordPress" description="A gestão de backups WordPress pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <WPRestoreBackupSection sites={filteredSites} />
       case 'cp-wp-remote-backup':
-        return <DirectAdminManualNotice title="Backup remoto WordPress" description="A gestão de backups pelo painel foi desligada. Use o DirectAdmin nativo." />
+        return <WPRemoteBackupSection sites={filteredSites} />
       case 'cp-audit-sync':
-        return <DirectAdminManualNotice title="Auditoria e Sync" description="A sincronização com DirectAdmin foi desligada." />
+        return <AuditSyncSection onRefresh={loadDirectAdminData} />
       case 'wordpress-install':
-        return <DirectAdminManualNotice title="Instalar WordPress" description="A instalação automática pelo painel foi desligada. Instale pelo DirectAdmin nativo ou pelo instalador disponível no servidor." />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={loadDirectAdminData} />
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':

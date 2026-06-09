@@ -14,7 +14,7 @@ import {
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
   Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell
 } from 'lucide-react'
-import { CpanelDashboard } from '../admin/CpanelDashboard'
+import { ClientProductsHub } from '@/components/client/ClientProductsHub'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -3524,7 +3524,8 @@ export default function AdminPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <ClienteDashboardHome clienteProp={cliente} sitesProp={directAdminSites} isLoading={isFetchingDirectAdmin} />
+      case 'meus-produtos':
+        return <ClientProductsHub onNavigate={setActiveSection} />
       case 'emails-new':
         return <EmailWebmailSection
           mostrarAdicionarConta={mostrarAdicionarConta}
@@ -3732,7 +3733,7 @@ export default function AdminPage() {
         // return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       default:
-        return <CpanelDashboard sites={directAdminSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={loadDirectAdminData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <ClientProductsHub onNavigate={setActiveSection} />
     }
   }
 

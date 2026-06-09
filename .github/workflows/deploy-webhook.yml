@@ -36,7 +36,7 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
-          cd /home/visualdesign.ao/public_html
+          cd /home/visualdesignmoz.com/public_html
           git pull origin main
           npm ci
           npm run build

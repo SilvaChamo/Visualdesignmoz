@@ -1,9 +1,11 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { ensureResellerProvisioned } from "@/lib/reseller-auto-provision";
+import { ResellerAutoProvision } from "@/components/revendedor/ResellerAutoProvision";
 
 export const metadata: Metadata = {
-    title: "Painel Admin",
+    title: "Painel Revendedor — Osher Collective",
     robots: 'noindex, nofollow',
 };
 
@@ -37,7 +39,10 @@ export default async function AdminLayout({
         adminEmails
     });
 
-    if (userRole !== 'admin' && userRole !== 'reseller' && !isExplicitAdmin) {
+    const isReseller = userRole === 'reseller';
+    const isAdminAccess = userRole === 'admin' || isExplicitAdmin;
+
+    if (!isReseller && !isAdminAccess) {
         const userEmail = (user.email || '').toLowerCase();
         if (userEmail.includes('silva.chamo') || userEmail.includes('chamo.silva')) {
             console.log('ResellerLayout: FORCE BYPASS for silva.chamo');
@@ -47,5 +52,22 @@ export default async function AdminLayout({
         }
     }
 
-    return <>{children}</>;
+    if (isReseller && user.email) {
+        try {
+            await ensureResellerProvisioned({
+                userId: user.id,
+                email: user.email,
+                nome: (user.user_metadata?.nome as string) || undefined,
+            });
+        } catch (e) {
+            console.error('[revendedor/layout] auto-provision:', e);
+        }
+    }
+
+    return (
+        <>
+            {isReseller ? <ResellerAutoProvision /> : null}
+            {children}
+        </>
+    );
 }

@@ -13,7 +13,7 @@ async function execSSH(command: string): Promise<string> {
     }
     
     const privateKey = rawKey.replace(/\\n/g, '\n');
-    const host = process.env.CYBERPANEL_IP || getServerHost();
+    const host = process.env.SERVER_IP || getServerHost();
 
     const timeout = setTimeout(() => {
       conn.end();
@@ -48,7 +48,7 @@ async function execSSH(command: string): Promise<string> {
 export async function GET() {
   const result: any = {
     timestamp: new Date().toISOString(),
-    server: process.env.CYBERPANEL_IP || getServerHost(),
+    server: process.env.SERVER_IP || getServerHost(),
     tests: {}
   };
 
@@ -344,9 +344,8 @@ ${body}
         return NextResponse.json({ error: 'Domínio não especificado' }, { status: 400 });
       }
       
-      // Verificar se domínio existe no CyberPanel
       const output = await execSSH(`
-        echo "=== Verificação de Domínio no CyberPanel ==="
+        echo "=== Verificação de Domínio no Servidor ==="
         echo "Domínio: ${domain}"
         echo ""
         
@@ -364,21 +363,9 @@ ${body}
         echo "3. Verificando tabelas virtuais:"
         postmap -s hash:/etc/postfix/virtual 2>/dev/null | grep "${domain}" || echo "Não encontrado em virtual"
         
-        # Verificar se website existe no CyberPanel via Django
         echo ""
-        echo "4. Verificando no CyberPanel (Django):"
-        cd /usr/local/CyberCP && /usr/local/CyberPanel/bin/python -c "
-import django
-import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
-django.setup()
-from websiteFunctions.models import Websites
-try:
-    site = Websites.objects.get(domain='${domain}')
-    print(f'Site encontrado: {site.domain} (state={site.state})')
-except:
-    print('Site NÃO encontrado no CyberPanel')
-" 2>/dev/null || echo "Erro ao consultar Django"
+        echo "4. Verificando domínio no DirectAdmin:"
+        ls -la /usr/local/directadmin/data/users/*/domains.list 2>/dev/null | grep -i "${domain}" || echo "Domínio não listado no DirectAdmin"
         
         # Verificar logs de email recentes para este domínio
         echo ""
@@ -480,12 +467,12 @@ except:
         LOCALPART=$(echo "${email}" | cut -d'@' -f1)
         echo "Localpart: $LOCALPART"
         
-        # Verificar no MySQL (CyberPanel)
-        MYSQL_RESULT=$(mysql -u cyberpanel -pdBSzMuQ5CLq7Dz cyberpanel -se "SELECT email FROM e_users WHERE email='${email}';" 2>/dev/null)
-        if [ -n "$MYSQL_RESULT" ]; then
-          echo "✅ Conta encontrada no MySQL: $MYSQL_RESULT"
+        # Verificar no DirectAdmin
+        DA_RESULT=$(grep -r "${email}" /usr/local/directadmin/data/users/*/email 2>/dev/null | head -1)
+        if [ -n "$DA_RESULT" ]; then
+          echo "✅ Conta encontrada no DirectAdmin"
         else
-          echo "❌ Conta não encontrada no MySQL"
+          echo "❌ Conta não encontrada no DirectAdmin"
         fi
         POSTMAP_RESULT=$(postmap -q "${email}" mysql:/etc/postfix/mysql-virtual_mailboxes.cf 2>/dev/null)
         if [ -n "$POSTMAP_RESULT" ]; then
@@ -576,93 +563,20 @@ except:
     }
 
     if (action === 'resetAdminPassword') {
-      const newPassword = params?.password || 'Admin123!';
-      const output = await execSSH(`
-        echo "=== Resetando senha do admin do CyberPanel ==="
-        cd /usr/local/CyberCP
-        
-        # Usar Django shell para resetar senha
-        /usr/local/CyberPanel/bin/python -c "
-import django
-import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
-django.setup()
-from loginSystem.models import Administrator
-from django.contrib.auth.hashers import make_password
-
-try:
-    admin = Administrator.objects.get(userName='admin')
-    admin.password = make_password('${newPassword}')
-    admin.save()
-    print('Senha do admin resetada com sucesso!')
-    print('Nova senha: ${newPassword}')
-except Exception as e:
-    print(f'Erro: {e}')
-"
-        
-        echo ""
-        echo "=== Verificando acesso ==="
-        curl -k -s https://localhost:8090/api/login -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"${newPassword}"}' | head -c 200
-      `);
-      return NextResponse.json({ success: true, output, newPassword });
+      return NextResponse.json({
+        success: false,
+        disabled: true,
+        output: 'Reset de senha do painel desactivado. Use o DirectAdmin nativo.',
+      });
     }
 
-    if (action === 'checkCyberPanelLogin') {
-      // Diagnosticar problema de login no CyberPanel
-      const output = await execSSH(`
-        echo "=== Diagnóstico do CyberPanel Login ==="
-        echo ""
-        
-        # 1. Verificar se o CyberPanel está rodando
-        echo "1. Status do CyberPanel:"
-        systemctl status lscpd 2>/dev/null | head -5 || echo "lscpd não encontrado"
-        systemctl status cyberpanel 2>/dev/null | head -5 || echo "cyberpanel service não encontrado"
-        echo ""
-        
-        # 2. Verificar logs do CyberPanel
-        echo "2. Logs recentes do CyberPanel:"
-        tail -20 /var/log/cyberpanel/error-logs.txt 2>/dev/null || echo "Arquivo de logs não encontrado"
-        echo ""
-        
-        # 3. Verificar se o admin existe no banco
-        echo "3. Verificando usuário admin no banco:"
-        cd /usr/local/CyberCP
-        /usr/local/CyberPanel/bin/python -c "
-import django
-import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
-django.setup()
-from loginSystem.models import Administrator
-try:
-    admin = Administrator.objects.get(userName='admin')
-    print(f'Admin encontrado: id={admin.id}, username={admin.userName}')
-    print(f'Password hash presente: {bool(admin.password)}')
-except Exception as e:
-    print(f'Erro ao buscar admin: {e}')
-" 2>/dev/null || echo "Erro ao executar Django"
-        echo ""
-        
-        # 4. Verificar permissões dos arquivos
-        echo "4. Permissões do CyberPanel:"
-        ls -la /usr/local/CyberCP/ | head -5
-        echo ""
-        
-        # 5. Verificar se há processos rodando
-        echo "5. Processos do CyberPanel:"
-        ps aux | grep -i cyberpanel | grep -v grep | head -5 || echo "Nenhum processo encontrado"
-        echo ""
-        
-        # 6. Teste de conexão na porta 8090
-        echo "6. Teste de conexão na porta 8090:"
-        netstat -tlnp | grep 8090 || ss -tlnp | grep 8090 || echo "Porta 8090 não está ouvindo"
-        echo ""
-        
-        # 7. Tentar reiniciar o CyberPanel
-        echo "7. Tentando reiniciar CyberPanel:"
-        systemctl restart lscpd 2>&1 && echo "lscpd reiniciado com sucesso" || echo "Falha ao reiniciar lscpd"
-        systemctl restart lsws 2>&1 && echo "LiteSpeed reiniciado com sucesso" || echo "Falha ao reiniciar lsws"
-      `);
-      return NextResponse.json({ success: true, output });
+
+    if (action === 'checkHostingLogin') {
+      return NextResponse.json({
+        success: false,
+        disabled: true,
+        output: 'Diagnóstico de login do painel de hospedagem desactivado. Use o DirectAdmin nativo.',
+      });
     }
 
     if (action === 'fixPostfixStartup') {
@@ -732,69 +646,12 @@ except Exception as e:
       return NextResponse.json({ success: true, output });
     }
 
-    if (action === 'fixCyberPanelLogin') {
-      // Tentar corrigir o problema de login
-      const output = await execSSH(`
-        echo "=== Corrigindo Problema de Login do CyberPanel ==="
-        echo ""
-        
-        # 1. Verificar e corrigir permissões
-        echo "1. Corrigindo permissões..."
-        chown -R cyberpanel:cyberpanel /usr/local/CyberCP 2>/dev/null || chown -R root:root /usr/local/CyberCP 2>/dev/null
-        chmod 755 /usr/local/CyberCP
-        echo "Permissões corrigidas"
-        echo ""
-        
-        # 2. Verificar instalação do CyberPanel
-        echo "2. Verificando instalação..."
-        cd /usr/local/CyberCP
-        /usr/local/CyberPanel/bin/python -c "import django; print(f'Django: {django.VERSION}')" 2>/dev/null || echo "Django não encontrado"
-        echo ""
-        
-        # 3. Recriar usuário admin se necessário
-        echo "3. Verificando/Criando usuário admin..."
-        /usr/local/CyberPanel/bin/python -c "
-import django
-import os
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CyberCP.settings')
-django.setup()
-from loginSystem.models import Administrator
-from django.contrib.auth.hashers import make_password
-
-try:
-    admin = Administrator.objects.get(userName='admin')
-    print(f'Admin existe: {admin.userName}')
-except Administrator.DoesNotExist:
-    print('Criando novo usuário admin...')
-    admin = Administrator(userName='admin', password=make_password('Admin123!'))
-    admin.save()
-    print('Admin criado com sucesso')
-except Exception as e:
-    print(f'Erro: {e}')
-" 2>/dev/null
-        echo ""
-        
-        # 4. Limpar cache
-        echo "4. Limpando cache..."
-        rm -rf /usr/local/CyberCP/__pycache__ 2>/dev/null
-        rm -rf /usr/local/CyberCP/*/__pycache__ 2>/dev/null
-        echo "Cache limpo"
-        echo ""
-        
-        # 5. Reiniciar serviços
-        echo "5. Reiniciando serviços..."
-        systemctl restart lscpd 2>&1
-        systemctl restart lsws 2>&1
-        echo "Serviços reiniciados"
-        echo ""
-        
-        echo "=== Correção concluída ==="
-        echo "Tente fazer login novamente em: ${getHestiaUrl()}"
-        echo "Usuário: admin"
-        echo "Senha: Admin123! (ou a senha que você definiu)"
-      `);
-      return NextResponse.json({ success: true, output });
+    if (action === 'fixHostingLogin') {
+      return NextResponse.json({
+        success: false,
+        disabled: true,
+        output: 'Correcção de login do painel desactivada. Use o DirectAdmin nativo.',
+      });
     }
 
     if (action === 'checkNetwork') {
@@ -863,55 +720,18 @@ except Exception as e:
       return NextResponse.json({ success: true, output, domain });
     }
 
-    if (action === 'checkCyberPanelStatus') {
-      const output = await execSSH(`
-        echo "=== Verificação do CyberPanel ==="
-        echo ""
-        
-        # 1. Verificar se serviço está rodando
-        echo "1. Status do serviço CyberPanel:"
-        systemctl status lscpd 2>/dev/null | head -5 || service lscpd status 2>/dev/null | head -5 || echo "Serviço não encontrado"
-        echo ""
-        
-        # 2. Verificar porta 8090
-        echo "2. Porta 8090 (CyberPanel):"
-        netstat -tlnp 2>/dev/null | grep ":8090" || ss -tlnp | grep ":8090" || echo "Porta 8090 não está ouvindo"
-        echo ""
-        
-        # 3. Testar API local
-        echo "3. Teste de API local:"
-        curl -s -k https://localhost:8090/api/login -m 5 2>&1 | head -3 || echo "Não foi possível conectar na API"
-        echo ""
-        
-        # 4. Verificar IP e blacklist
-        echo "4. Verificação de IP e Blacklist:"
-        IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
-        echo "IP do servidor: $IP"
-        echo ""
-        
-        # Verificar blacklists DNS
-        REVERSE_IP=$(echo $IP | awk -F. '{print $4".$3".$2".$1}')
-        echo "Verificando blacklists:"
-        host \${REVERSE_IP}.zen.spamhaus.org 2>/dev/null && echo "❌ LISTADO: Spamhaus ZEN" || echo "✓ OK: Spamhaus ZEN"
-        host \${REVERSE_IP}.b.barracudacentral.org 2>/dev/null && echo "❌ LISTADO: Barracuda" || echo "✓ OK: Barracuda"
-        host \${REVERSE_IP}.bl.spamcop.net 2>/dev/null && echo "❌ LISTADO: SpamCop" || echo "✓ OK: SpamCop"
-        host \${REVERSE_IP}.dnsbl.sorbs.net 2>/dev/null && echo "❌ LISTADO: Sorbs" || echo "✓ OK: Sorbs"
-        host \${REVERSE_IP}.dnsbl-1.uceprotect.net 2>/dev/null && echo "❌ LISTADO: UCEPROTECT" || echo "✓ OK: UCEPROTECT"
-        echo ""
-        
-        # 5. Logs recentes do CyberPanel
-        echo "5. Logs recentes do CyberPanel:"
-        tail -10 /var/log/cyberpanel/error-logs.txt 2>/dev/null || echo "Arquivo de log não encontrado"
-        echo ""
-        
-        echo "=== Fim da verificação ==="
-        echo "Verificação online completa: https://mxtoolbox.com/blacklists.aspx?ip=$IP"
-      `);
-      return NextResponse.json({ success: true, output });
+    if (action === 'checkHostingStatus') {
+      return NextResponse.json({
+        success: false,
+        disabled: true,
+        output: 'Verificação do painel de hospedagem desactivada. Use o DirectAdmin nativo.',
+      });
     }
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro interno';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+

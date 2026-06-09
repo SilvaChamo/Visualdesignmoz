@@ -20,6 +20,14 @@ import {
   Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X, Clock, Loader2
 } from 'lucide-react'
 
+function isDaCommandOk(result: unknown): boolean {
+  if (result === true) return true
+  if (result && typeof result === 'object' && 'success' in result) {
+    return (result as { success?: boolean }).success !== false
+  }
+  return Boolean(result)
+}
+
 // ============================================================
 // SHARED UTILITIES & SKELETONS
 // ============================================================
@@ -1413,7 +1421,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: DirectAdminW
     setCreating(true); setMsg('')
     try {
       const ok = await directAdminAPI.createDatabase({ domain: selectedDomain, dbName, dbUser, dbPassword: dbPass })
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         cpSaveDatabase(selectedDomain, dbName, dbUser)
         void (async () => { try { await supabase.from('directadmin_databases').upsert({ domain: selectedDomain, db_name: dbName, db_user: dbUser }, { onConflict: 'domain,db_name' }) } catch { } })()
         setLastCreated({ dbName, dbUser, dbPass })
@@ -1433,7 +1441,7 @@ export function DatabasesSection({ sites, initialDomain }: { sites: DirectAdminW
     if (!confirm(`Eliminar base de dados ${name}?`)) return
     try {
       const ok = await directAdminAPI.deleteDatabase({ dbName: name })
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         cpRemoveDatabase(selectedDomain, name)
         void (async () => { try { await supabase.from('directadmin_databases').delete().eq('domain', selectedDomain).eq('db_name', name) } catch { } })()
         loadDBs(selectedDomain)
@@ -1551,7 +1559,7 @@ export function FTPSection({ sites }: { sites: DirectAdminWebsite[] }) {
     setCreating(true); setMsg('')
     try {
       const ok = await directAdminAPI.createFTPAccount({ domain: selectedDomain, username: ftpUser, password: ftpPass, path: ftpPath })
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         cpSaveFTP(selectedDomain, ftpUser, ftpPath)
         void (async () => { try { await supabase.from('directadmin_ftp').upsert({ domain: selectedDomain, username: ftpUser, path: ftpPath }, { onConflict: 'domain,username' }) } catch { } })()
         setMsg('Conta FTP criada com sucesso!')
@@ -1570,7 +1578,7 @@ export function FTPSection({ sites }: { sites: DirectAdminWebsite[] }) {
     if (!confirm(`Eliminar conta FTP ${user}?`)) return
     try {
       const ok = await directAdminAPI.deleteFTPAccount({ username: user })
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         cpRemoveFTP(selectedDomain, user)
         void (async () => { try { await supabase.from('directadmin_ftp').delete().eq('domain', selectedDomain).eq('username', user) } catch { } })()
         loadFTP(selectedDomain)
@@ -2333,10 +2341,43 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
 }
 
 // ============================================================
-// CYBERPANEL USERS SECTION
+// PANEL USERS SECTION
 // ============================================================
-export function CPUsersSection() {
+type PanelRoleFilter = 'all' | 'admin' | 'reseller' | 'client' | 'guest'
+
+type PanelAccount = {
+  id: string
+  email: string
+  userName: string
+  panelRole: PanelRoleFilter extends 'all' ? string : PanelRoleFilter | string
+  panelPath: string
+  state?: string
+  lastSignIn?: string | null
+  nome?: string | null
+}
+
+const PANEL_ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  reseller: 'Revendedor',
+  client: 'Cliente',
+  guest: 'Visitante',
+}
+
+const PANEL_ROLE_BADGE: Record<string, string> = {
+  admin: 'bg-purple-100 text-purple-700',
+  reseller: 'bg-blue-100 text-blue-700',
+  client: 'bg-gray-100 text-gray-700',
+  guest: 'bg-amber-100 text-amber-800',
+}
+
+export function CPUsersSection({ variant = 'directadmin' }: { variant?: 'directadmin' | 'panels' }) {
+  const isPanelsMode = variant === 'panels'
   const [users, setUsers] = useState<DirectAdminUser[]>([])
+  const [panelAccounts, setPanelAccounts] = useState<PanelAccount[]>([])
+  const [panelFilter, setPanelFilter] = useState<PanelRoleFilter>('all')
+  const [panelCounts, setPanelCounts] = useState<Record<string, number>>({})
+  const [searchQuery, setSearchQuery] = useState('')
+  const [syncingPanels, setSyncingPanels] = useState(false)
   const [loading, setLoading] = useState(false)
   const [acls, setAcls] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
@@ -2352,7 +2393,60 @@ export function CPUsersSection() {
     show: false, title: '', message: '', onConfirm: () => {} 
   })
 
+  const loadPanelAccounts = async () => {
+    setLoading(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/admin/panel-users', { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao carregar contas dos painéis')
+      }
+      setPanelAccounts(data.users || [])
+      setPanelCounts(data.counts || {})
+    } catch (e: any) {
+      setMsg(`❌ ${e.message}`)
+    }
+    setLoading(false)
+  }
+
+  const handleSyncPanelAccounts = async () => {
+    setSyncingPanels(true)
+    setMsg('A sincronizar contas de todos os painéis...')
+    try {
+      const res = await fetch('/api/admin/panel-users', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro na sincronização')
+      }
+      setPanelAccounts(data.users || [])
+      const r = data.results || {}
+      const prov = r.resellerProvisioned ?? 0;
+      const provErr = (r.resellerProvisionErrors as string[] | undefined)?.length ?? 0;
+      setMsg(
+        `✅ Sync: ${r.authAccounts ?? 0} contas Auth, ${r.profilesSynced ?? 0} perfis.` +
+          (prov > 0 ? ` ${prov} revendedor(es) provisionado(s) no DirectAdmin.` : '') +
+          (provErr > 0 ? ` (${provErr} erro(s) — ver consola)` : ''),
+      )
+      setPanelCounts({
+        all: data.users?.length ?? 0,
+        admin: data.users?.filter((u: PanelAccount) => u.panelRole === 'admin').length ?? 0,
+        reseller: data.users?.filter((u: PanelAccount) => u.panelRole === 'reseller').length ?? 0,
+        client: data.users?.filter((u: PanelAccount) => u.panelRole === 'client').length ?? 0,
+        guest: data.users?.filter((u: PanelAccount) => u.panelRole === 'guest').length ?? 0,
+      })
+    } catch (e: any) {
+      setMsg(`❌ ${e.message}`)
+    }
+    setSyncingPanels(false)
+  }
+
   const loadUsers = async () => {
+    if (isPanelsMode) {
+      await loadPanelAccounts()
+      return
+    }
+
     const lsUsers = cpGetUsers()
     if (lsUsers.length > 0) setUsers(lsUsers)
     else setLoading(true)
@@ -2416,7 +2510,18 @@ export function CPUsersSection() {
     setLoading(false)
   }
 
-  useEffect(() => { loadUsers() }, [])
+  useEffect(() => { loadUsers() }, [variant])
+
+  const filteredPanelAccounts = panelAccounts.filter((account) => {
+    const matchesRole = panelFilter === 'all' || account.panelRole === panelFilter
+    const q = searchQuery.trim().toLowerCase()
+    const matchesSearch =
+      !q ||
+      account.email.toLowerCase().includes(q) ||
+      account.userName.toLowerCase().includes(q) ||
+      (account.nome || '').toLowerCase().includes(q)
+    return matchesRole && matchesSearch
+  })
 
   const handleCreate = async (data: any) => {
     if (data.password !== data.confirmPassword) {
@@ -2424,6 +2529,40 @@ export function CPUsersSection() {
     }
     setCreating(true); setMsg('')
     try {
+      if (data.acl === 'reseller') {
+        const provRes = await fetch('/api/admin/reseller-provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            nome: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+            userName: data.userName,
+            domain: data.domain,
+            packageName: data.packageName,
+            websitesLimit: data.websitesLimit,
+            emailsLimit: data.emailsLimit,
+            linkExisting: data.linkExisting ?? true,
+          }),
+        })
+        const provData = await provRes.json()
+        if (!provRes.ok || !provData.success) {
+          throw new Error(provData.error || 'Falha ao provisionar revendedor')
+        }
+        const daUser = provData.result?.daUsername || '—'
+        const autoNote = provData.result?.generatedPassword
+          ? ' Password gerada automaticamente (login Visual = DirectAdmin).'
+          : ''
+        setMsg(`✅ Revendedor automático: DA "${daUser}" → /revendedor.${autoNote}`)
+        setUserModal({ ...userModal, show: false })
+        loadUsers()
+        if (isPanelsMode) await loadPanelAccounts()
+        setCreating(false)
+        return
+      }
+
       console.log('[handleCreate] Sending to API:', JSON.stringify(data).substring(0, 300))
       const res = await directAdminAPI.createUser(data)
       console.log('[handleCreate] API Response:', JSON.stringify(res).substring(0, 500))
@@ -2607,27 +2746,171 @@ export function CPUsersSection() {
     setLoading(false)
   }
 
+  const displayCount = isPanelsMode ? filteredPanelAccounts.length : users.length
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-gray-900">Utilizadores DirectAdmin</h1><p className="text-gray-500 mt-1 text-sm font-medium">Gira acessos e permissões do servidor.</p></div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isPanelsMode ? 'Utilizadores dos Painéis' : 'Utilizadores DirectAdmin'}
+          </h1>
+          <p className="text-gray-500 mt-1 text-sm font-medium">
+            {isPanelsMode
+              ? 'Todos os emails com acesso aos painéis Admin, Revenda, Cliente e Visitante.'
+              : 'Gira acessos e permissões do servidor.'}
+          </p>
+        </div>
         <div className="flex gap-2">
+          {isPanelsMode && (
+            <>
+              <button
+                onClick={() =>
+                  setUserModal({
+                    show: true,
+                    mode: 'create',
+                    data: {
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      userName: '',
+                      password: '',
+                      confirmPassword: '',
+                      domain: '',
+                      websitesLimit: 10,
+                      emailsLimit: 100,
+                      acl: 'reseller',
+                      linkExisting: false,
+                    },
+                  })
+                }
+                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" /> Novo revendedor
+              </button>
+              <button
+                onClick={handleSyncPanelAccounts}
+                disabled={syncingPanels}
+                className="bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncingPanels ? 'animate-spin' : ''}`} />
+                {syncingPanels ? 'A sincronizar...' : 'Sincronizar contas'}
+              </button>
+            </>
+          )}
           <button onClick={loadUsers} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
-          <button 
-            onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })} 
-            className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"
-          >
-            <PlusCircle className="w-4 h-4" /> Novo Utilizador
-          </button>
+          {!isPanelsMode && (
+            <button 
+              onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })} 
+              className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"
+            >
+              <PlusCircle className="w-4 h-4" /> Novo Utilizador
+            </button>
+          )}
         </div>
       </div>
 
-      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
+      {isPanelsMode && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={panelFilter}
+            onChange={(e) => setPanelFilter(e.target.value as PanelRoleFilter)}
+            className="bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
+          >
+            <option value="all">Todos os painéis ({panelCounts.all ?? panelAccounts.length})</option>
+            <option value="admin">Admin ({panelCounts.admin ?? 0})</option>
+            <option value="reseller">Revenda ({panelCounts.reseller ?? 0})</option>
+            <option value="client">Cliente ({panelCounts.client ?? 0})</option>
+            <option value="guest">Visitante ({panelCounts.guest ?? 0})</option>
+          </select>
+          <div className="flex-1">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Pesquisar por email ou nome..."
+              className="w-full bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-red-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('✅') || msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
 
       <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden relative">
         {loading && <TableSkeleton columns={5} rows={8} />}
-        {!loading && users.length === 0 ? (
+        {!loading && displayCount === 0 ? (
           <div className="py-12 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum utilizador encontrado.</p></div>
+        ) : !loading && isPanelsMode ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Nome</th>
+                <th className="px-4 py-2.5">Painel</th>
+                <th className="px-4 py-2.5">Papel</th>
+                <th className="px-4 py-2.5">Último acesso</th>
+                <th className="px-4 py-2.5">Acções</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPanelAccounts.map((account) => (
+                <tr key={account.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-2.5 font-medium text-gray-900">{account.email}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{account.nome || account.userName || '—'}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight bg-slate-100 text-slate-700">
+                      {account.panelPath}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${PANEL_ROLE_BADGE[account.panelRole] || 'bg-gray-100 text-gray-700'}`}>
+                      {PANEL_ROLE_LABELS[account.panelRole] || account.panelRole}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-500 text-xs">
+                    {account.lastSignIn
+                      ? new Date(account.lastSignIn).toLocaleString('pt-PT')
+                      : 'Nunca'}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {account.panelRole !== 'reseller' && account.panelRole !== 'admin' && (
+                      <button
+                        type="button"
+                        disabled={creating}
+                        onClick={async () => {
+                          setCreating(true)
+                          setMsg('A provisionar revendedor automaticamente...')
+                          try {
+                            const res = await fetch('/api/admin/panel-users', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                userId: account.id,
+                                role: 'reseller',
+                                email: account.email,
+                                nome: account.nome || account.userName,
+                              }),
+                            })
+                            const d = await res.json()
+                            if (d.success) {
+                              setMsg(`✅ ${d.message}`)
+                              await loadPanelAccounts()
+                            } else setMsg(`❌ ${d.error}`)
+                          } catch (e: unknown) {
+                            setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+                          }
+                          setCreating(false)
+                        }}
+                        className="text-xs font-bold text-blue-600 hover:underline disabled:opacity-50"
+                      >
+                        Tornar revendedor (auto)
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : !loading && (
           <table className="w-full text-sm">
             <thead>
@@ -2733,6 +3016,20 @@ export function CPUsersSection() {
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                {userModal.data.acl === 'reseller' && userModal.mode === 'create' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Domínio revenda</label>
+                      <input value={userModal.data.domain || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, domain: e.target.value}})} placeholder="oshercollective.com (opcional — detecta do email)" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5 col-span-1 flex items-end">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" checked={Boolean(userModal.data.linkExisting)} onChange={e => setUserModal({...userModal, data: {...userModal.data, linkExisting: e.target.checked}})} className="rounded border-gray-300" />
+                        Ligar conta DA já existente (não criar nova)
+                      </label>
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1.5 col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Utilizador (ACL)</label>
                   <select 
@@ -3468,7 +3765,7 @@ export function ModifyWebsiteSection({ sites, packages }: { sites: DirectAdminWe
     setSaving(true); setMsg('')
     try {
       const ok = await directAdminAPI.modifyWebsite({ domain: selectedDomain, packageName, phpVersion })
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         setMsg('Website modified successfully!')
       } else {
         setMsg('Error modifying website.')
@@ -3532,7 +3829,7 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: DirectAdmin
     const action = currentState === 'Active' ? 'suspend' : 'unsuspend'
     try {
       const ok = action === 'suspend' ? await directAdminAPI.suspendWebsite(domain) : await directAdminAPI.unsuspendWebsite(domain)
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         await syncWebsiteToSupabase({ domain, status: action === 'suspend' ? 'Suspended' : 'Active' })
         onRefresh()
         setMsg(`${domain} ${action === 'suspend' ? 'suspenso' : 'activado'} com sucesso!`)
@@ -3606,7 +3903,7 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: DirectAdminW
     setDeleting(domain); setMsg('')
     try {
       const ok = await directAdminAPI.deleteWebsite(domain)
-      if (ok && ok.success !== false) {
+      if (isDaCommandOk(ok)) {
         await removeWebsiteFromSupabase(domain)
         onRefresh()
         setMsg(`${domain} deleted successfully.`)
@@ -6670,8 +6967,8 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
       const json = await res.json();
       console.log('[loadDomains] Resposta API:', json);
 
-      if (json.success && json.data?.sites) {
-        const sitesArray = json.data.sites;
+      if (json.success && json.data) {
+        const sitesArray = Array.isArray(json.data) ? json.data : (json.data.sites || []);
         
         // Filtro básico
         const filtered = sitesArray.filter((s: any) =>

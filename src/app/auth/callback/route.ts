@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
+import { fetchUserProductsSummary } from '@/lib/user-products'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,25 +62,38 @@ export async function GET(request: Request) {
       return NextResponse.redirect(loginUrl)
     }
 
-    // Determinar destino com base no role/email
-    const userEmail = (data.user.email || '').toLowerCase()
-    const userRole = data.user.user_metadata?.role
-    const adminEmails = ['admin@your-domain.com', 'geral@your-domain.com', 'silva.chamo@gmail.com', 'silva.chamo@your-domain.com']
+    // Novos utilizadores OAuth sem role → guest
+    if (!data.user.user_metadata?.role) {
+      await supabase.auth.updateUser({
+        data: {
+          ...data.user.user_metadata,
+          role: 'guest',
+          nome:
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            data.user.email?.split('@')[0],
+        },
+      })
+    }
 
-    // Verificar também na tabela profiles
+    const products = await fetchUserProductsSummary(supabase, data.user.id)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', data.user.id)
-      .single()
+      .maybeSingle()
 
-    let redirectPath = '/client'
-    if (adminEmails.includes(userEmail) || userRole === 'admin' || profile?.role === 'admin') {
-      redirectPath = '/admin'
-    } else if (userRole === 'reseller' || profile?.role === 'reseller') {
-      redirectPath = '/client'
-    }
+    const role = resolveUserRole({
+      email: data.user.email,
+      userMetadata: data.user.user_metadata?.role
+        ? data.user.user_metadata
+        : { ...data.user.user_metadata, role: 'guest' },
+      appMetadata: data.user.app_metadata,
+      profileRole: profile?.role,
+      hasPaidProducts: products.hasPaidProducts,
+    })
 
+    const redirectPath = getRedirectPathForRole(role)
     return NextResponse.redirect(new URL(redirectPath, requestUrl.origin))
   }
 

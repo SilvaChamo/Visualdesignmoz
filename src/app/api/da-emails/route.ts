@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { daRequest } from '@/lib/directadmin';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 /**
  * GET  ?action=list&domain=visualdesignmoz.com  → lista emails
@@ -10,24 +11,24 @@ import { daRequest } from '@/lib/directadmin';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+    const ctx = auth.user;
+
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action') || 'list';
     const domain = searchParams.get('domain') || '';
 
     if (action === 'domains') {
       // Listar todos os domínios que têm email no servidor
-      const res = await daRequest('CMD_API_SHOW_ALL_USERS', 'GET', { json: 'yes' });
-      // Alternativa: usar o CMD_API_DOMAIN_OWNERS para listar domínios
-      const domainsRes = await daRequest('CMD_API_ADDITIONAL_DOMAINS', 'GET', { domain: 'admin' });
+      const res = await daRequest('CMD_API_SHOW_ALL_USERS', 'GET', { json: 'yes' }, ctx.role, ctx);
+      const domainsRes = await daRequest('CMD_API_ADDITIONAL_DOMAINS', 'GET', { domain: 'admin' }, ctx.role, ctx);
       return NextResponse.json({ success: true, raw: domainsRes });
     }
 
     if (action === 'list' && domain) {
       // CMD_API_POP lista as contas de email para um domínio
-      const res = await daRequest('CMD_API_POP', 'GET', {
-        action: 'list',
-        domain,
-      });
+      const res = await daRequest('CMD_API_POP', 'GET', { action: 'list', domain }, ctx.role, ctx);
 
       if (res.error) {
         return NextResponse.json({ success: false, error: res.text || 'Erro ao listar emails' });
@@ -64,6 +65,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+    const ctx = auth.user;
+
     const { action, domain, username, password, quota = '250' } = await req.json();
 
     if (!domain || !username || !password) {
@@ -71,14 +76,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create') {
-      const res = await daRequest('CMD_API_POP', 'POST', {
-        action: 'create',
-        domain,
-        user: username,
-        passwd: password,
-        passwd2: password,
-        quota: String(quota),
-      });
+      const res = await daRequest(
+        'CMD_API_POP',
+        'POST',
+        { action: 'create', domain, user: username, passwd: password, passwd2: password, quota: String(quota) },
+        ctx.role,
+        ctx,
+      );
 
       if (res.error) {
         return NextResponse.json({ success: false, error: res.details || res.text || 'Erro ao criar email' });
@@ -98,17 +102,17 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+    const ctx = auth.user;
+
     const { domain, username } = await req.json();
 
     if (!domain || !username) {
       return NextResponse.json({ success: false, error: 'domain e username são obrigatórios' }, { status: 400 });
     }
 
-    const res = await daRequest('CMD_API_POP', 'POST', {
-      action: 'delete',
-      domain,
-      user: username,
-    });
+    const res = await daRequest('CMD_API_POP', 'POST', { action: 'delete', domain, user: username }, ctx.role, ctx);
 
     if (res.error) {
       return NextResponse.json({ success: false, error: res.details || res.text || 'Erro ao apagar email' });
@@ -122,19 +126,23 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+    const ctx = auth.user;
+
     const { domain, username, password } = await req.json();
 
     if (!domain || !username || !password) {
       return NextResponse.json({ success: false, error: 'domain, username e password são obrigatórios' }, { status: 400 });
     }
 
-    const res = await daRequest('CMD_API_POP', 'POST', {
-      action: 'modify',
-      domain,
-      user: username,
-      passwd: password,
-      passwd2: password,
-    });
+    const res = await daRequest(
+      'CMD_API_POP',
+      'POST',
+      { action: 'modify', domain, user: username, passwd: password, passwd2: password },
+      ctx.role,
+      ctx,
+    );
 
     if (res.error) {
       return NextResponse.json({ success: false, error: res.details || res.text || 'Erro ao alterar password' });

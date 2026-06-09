@@ -176,7 +176,7 @@ const dict: Record<Lang, Dict> = {
     'admin.wp.installing': 'A instalar...',
 
     'admin.settings.title': 'Configurações',
-    'admin.settings.cyberpanel': 'CyberPanel',
+    'admin.settings.hostingPanel': 'Painel de Hospedagem',
     'admin.settings.supabase': 'Supabase',
     'admin.settings.save': 'Guardar',
     'admin.settings.saving': 'A guardar...',
@@ -831,7 +831,7 @@ const dict: Record<Lang, Dict> = {
     'admin.wp.installing': 'Installing...',
 
     'admin.settings.title': 'Settings',
-    'admin.settings.cyberpanel': 'CyberPanel',
+    'admin.settings.hostingPanel': 'Painel de Hospedagem',
     'admin.settings.supabase': 'Supabase',
     'admin.settings.save': 'Save',
     'admin.settings.saving': 'Saving...',

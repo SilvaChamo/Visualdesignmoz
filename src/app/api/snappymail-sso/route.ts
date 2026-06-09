@@ -3,8 +3,9 @@ import { Client } from 'ssh2';
 import { createClient } from '@/utils/supabase/server';
 import { getServerHost, getCPUrl } from '@/lib/server-config';
 
-const SNAPPYMAIL_ADMIN_PATH = '/usr/local/lscp/cyberpanel/snappymail';
-const SNAPPYMAIL_DATA_PATH = `${SNAPPYMAIL_ADMIN_PATH}/data/_data_/_default_`;
+const SNAPPYMAIL_DATA_PATH =
+  process.env.SNAPPYMAIL_DATA_PATH?.trim() ||
+  '/var/lib/snappymail/data/_data_/_default_';
 
 async function execSSH(command: string): Promise<string> {
   return new Promise((resolve, reject) => {

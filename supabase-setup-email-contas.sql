@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS email_contas (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
-    senha_cyberpanel TEXT,
+    senha_servidor TEXT,
     tipo_conta VARCHAR(50) DEFAULT 'webmail',
     status VARCHAR(50) DEFAULT 'active',
     cliente_id UUID REFERENCES auth.users(id),
@@ -86,13 +86,13 @@ CREATE TRIGGER update_email_contas_updated_at
 -- Nota: Execute estes INSERTs manualmente se quiser pre-popular
 -- As senhas devem ser encriptadas em base64
 
--- INSERT INTO email_contas (email, senha_cyberpanel, tipo_conta, status) VALUES
+-- INSERT INTO email_contas (email, senha_servidor, tipo_conta, status) VALUES
 -- ('geral@visualdesignmoz.com', 'R2UuVmQjMjQyNT8q', 'webmail', 'active'),
 -- ('admin@visualdesignmoz.com', 'RW1haWxBZG1pbiMyNDI1', 'webmail', 'active'),
 -- ('suporte@visualdesignmoz.com', 'U3VwYUVtYWlsIzIwMjY/Kg==', 'webmail', 'active'),
 -- ('info@visualdesignmoz.com', 'SW5mb3JtYcOnw6NvISMjMjAyMD8q', 'webmail', 'active')
 -- ON CONFLICT (email) DO UPDATE SET
---     senha_cyberpanel = EXCLUDED.senha_cyberpanel,
+--     senha_servidor = EXCLUDED.senha_servidor,
 --     updated_at = NOW();
 
 -- ============================================

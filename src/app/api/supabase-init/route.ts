@@ -25,7 +25,7 @@ export async function POST() {
     try {
       await supabase.rpc('exec_sql', {
         sql: `
-          CREATE TABLE IF NOT EXISTS cyberpanel_sites (
+          CREATE TABLE IF NOT EXISTS panel_sites (
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
             domain TEXT UNIQUE NOT NULL,
             admin_email TEXT,
@@ -47,7 +47,7 @@ export async function POST() {
     try {
       await supabase.rpc('exec_sql', {
         sql: `
-          CREATE TABLE IF NOT EXISTS cyberpanel_users (
+          CREATE TABLE IF NOT EXISTS panel_users (
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
             user_id UUID REFERENCES auth.users(id),
             username TEXT UNIQUE NOT NULL,
@@ -65,8 +65,8 @@ export async function POST() {
           -- Ensure user_id column exists if table was already created
           DO $$ 
           BEGIN 
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cyberpanel_users' AND column_name='user_id') THEN
-              ALTER TABLE cyberpanel_users ADD COLUMN user_id UUID REFERENCES auth.users(id);
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='panel_users' AND column_name='user_id') THEN
+              ALTER TABLE panel_users ADD COLUMN user_id UUID REFERENCES auth.users(id);
             END IF;
           END $$;
         `
@@ -78,7 +78,7 @@ export async function POST() {
     try {
       await supabase.rpc('exec_sql', {
         sql: `
-          CREATE TABLE IF NOT EXISTS cyberpanel_packages (
+          CREATE TABLE IF NOT EXISTS panel_packages (
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
             package_name TEXT UNIQUE NOT NULL,
             disk_space INTEGER DEFAULT 1000,
@@ -145,16 +145,34 @@ export async function POST() {
       // RPC error
     }
 
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `
+          ALTER TABLE public.profiles
+            ADD COLUMN IF NOT EXISTS da_username TEXT,
+            ADD COLUMN IF NOT EXISTS da_password_encrypted TEXT,
+            ADD COLUMN IF NOT EXISTS da_domain TEXT,
+            ADD COLUMN IF NOT EXISTS da_provisioned_at TIMESTAMPTZ;
+          ALTER TABLE public.panel_users
+            ADD COLUMN IF NOT EXISTS auth_user_id UUID,
+            ADD COLUMN IF NOT EXISTS da_password_encrypted TEXT,
+            ADD COLUMN IF NOT EXISTS da_domain TEXT;
+        `,
+      });
+    } catch {
+      /* RPC indisponível */
+    }
+
     // Test if tables exist by trying to select from them
-    const { error: sitesError } = await supabase.from('cyberpanel_sites').select('id').limit(1);
-    const { error: usersError } = await supabase.from('cyberpanel_users').select('id').limit(1);
+    const { error: sitesError } = await supabase.from('panel_sites').select('id').limit(1);
+    const { error: usersError } = await supabase.from('panel_users').select('id').limit(1);
     const { error: profilesError } = await supabase.from('profiles').select('id').limit(1);
 
     return NextResponse.json({
       success: true,
       tables: {
-        cyberpanel_sites: sitesError ? `Error: ${sitesError.message}` : 'OK',
-        cyberpanel_users: usersError ? `Error: ${usersError.message}` : 'OK',
+        panel_sites: sitesError ? `Error: ${sitesError.message}` : 'OK',
+        panel_users: usersError ? `Error: ${usersError.message}` : 'OK',
         profiles: profilesError ? `Error: ${profilesError.message}` : 'OK',
         pagamentos: 'OK',
         tickets_suporte: 'OK'
@@ -167,7 +185,7 @@ export async function POST() {
     return NextResponse.json({
       success: false,
       error: error.message,
-      instructions: 'Please run the SQL scripts manually in Supabase Dashboard > SQL Editor. Files: supabase-cyberpanel-sites.sql and supabase-cyberpanel-users.sql'
+      instructions: 'Please run the SQL scripts manually in Supabase Dashboard > SQL Editor. File: supabase-setup-completo.sql'
     }, { status: 500 });
   }
 }

@@ -30,11 +30,11 @@ export async function syncWebsiteToSupabase(website: {
       site_type: website.siteType || 'empty',
       synced_at: new Date().toISOString(),
     }
-    const { data: existing } = await supabase.from('cyberpanel_sites').select('id').eq('domain', website.domain).single()
+    const { data: existing } = await supabase.from('panel_sites').select('id').eq('domain', website.domain).single()
     if (existing) {
-      await supabase.from('cyberpanel_sites').update(payload).eq('id', existing.id)
+      await supabase.from('panel_sites').update(payload).eq('id', existing.id)
     } else {
-      await supabase.from('cyberpanel_sites').insert([payload])
+      await supabase.from('panel_sites').insert([payload])
     }
   } catch (e) {
     console.warn('[supabase-sync] syncWebsiteToSupabase error:', e)
@@ -43,7 +43,7 @@ export async function syncWebsiteToSupabase(website: {
 
 export async function removeWebsiteFromSupabase(domain: string) {
   try {
-    await supabase.from('cyberpanel_sites').delete().eq('domain', domain)
+    await supabase.from('panel_sites').delete().eq('domain', domain)
   } catch (e) {
     console.warn('[supabase-sync] removeWebsiteFromSupabase error:', e)
   }
@@ -52,7 +52,7 @@ export async function removeWebsiteFromSupabase(domain: string) {
 export async function markWPInstalledInSupabase(domain: string) {
   try {
     await supabase
-      .from('cyberpanel_sites')
+      .from('panel_sites')
       .update({ wp_installed: true, synced_at: new Date().toISOString() })
       .eq('domain', domain)
   } catch (e) {
@@ -86,12 +86,12 @@ export async function syncUserToSupabase(user: {
     }
 
     // Check if user exists first to replace `upsert` which requires a UNIQUE constraint on `username` that might be missing
-    const { data: existing } = await supabase.from('cyberpanel_users').select('id').eq('username', user.username).single()
+    const { data: existing } = await supabase.from('panel_users').select('id').eq('username', user.username).single()
     
     if (existing) {
-      await supabase.from('cyberpanel_users').update(payload).eq('id', existing.id)
+      await supabase.from('panel_users').update(payload).eq('id', existing.id)
     } else {
-      await supabase.from('cyberpanel_users').insert([payload])
+      await supabase.from('panel_users').insert([payload])
     }
   } catch (e) {
     console.warn('[supabase-sync] syncUserToSupabase error:', e)
@@ -100,7 +100,7 @@ export async function syncUserToSupabase(user: {
 
 export async function getUsersFromSupabase() {
   try {
-    const { data, error } = await supabase.from('cyberpanel_users').select('*')
+    const { data, error } = await supabase.from('panel_users').select('*')
     if (error) throw error
     return data || []
   } catch (e) {
@@ -111,7 +111,7 @@ export async function getUsersFromSupabase() {
 
 export async function removeUserFromSupabase(username: string) {
   try {
-    await supabase.from('cyberpanel_users').delete().eq('username', username)
+    await supabase.from('panel_users').delete().eq('username', username)
   } catch (e) {
     console.warn('[supabase-sync] removeUserFromSupabase error:', e)
   }
@@ -161,12 +161,12 @@ export async function syncPackageToSupabase(pkg: {
       allowed_domains: pkg.allowedDomains ?? 1,
       synced_at: new Date().toISOString(),
     }
-    const { data: existing } = await supabase.from('cyberpanel_packages').select('id').eq('package_name', pkg.packageName).single()
+    const { data: existing } = await supabase.from('panel_packages').select('id').eq('package_name', pkg.packageName).single()
     if (existing) {
-      const { error } = await supabase.from('cyberpanel_packages').update(payload).eq('id', existing.id)
+      const { error } = await supabase.from('panel_packages').update(payload).eq('id', existing.id)
       if (error) throw error
     } else {
-      const { error } = await supabase.from('cyberpanel_packages').insert([payload])
+      const { error } = await supabase.from('panel_packages').insert([payload])
       if (error) throw error
     }
   } catch (e) {
@@ -176,7 +176,7 @@ export async function syncPackageToSupabase(pkg: {
 
 export async function removePackageFromSupabase(packageName: string) {
   try {
-    const { error } = await supabase.from('cyberpanel_packages').delete().eq('package_name', packageName)
+    const { error } = await supabase.from('panel_packages').delete().eq('package_name', packageName)
     if (error) throw error
   } catch (e) {
     console.warn('[supabase-sync] removePackageFromSupabase error:', e)

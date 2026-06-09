@@ -223,7 +223,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       if (!selectedSite) return;
       setLoadingDomainEmails(true);
       try {
-        const [supabaseRes, cyberpanelRes] = await Promise.allSettled([
+        const [supabaseRes, panelRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
           fetch('/api/panel-bridge', {
             method: 'POST',
@@ -248,8 +248,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           }
         }
         
-        if (cyberpanelRes.status === 'fulfilled') {
-          const result = await cyberpanelRes.value.json();
+        if (panelRes.status === 'fulfilled') {
+          const result = await panelRes.value.json();
           if (result.success && Array.isArray(result.emails)) {
             allEmailsList = [...allEmailsList, ...result.emails];
           }

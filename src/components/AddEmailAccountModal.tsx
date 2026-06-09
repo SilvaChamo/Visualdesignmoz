@@ -75,7 +75,7 @@ export function AddEmailAccountModal({ isOpen, onClose, onAccountAdded, clienteI
     
     setLoading(true)
     try {
-      // 🔄 Usar PUT para sincronizar conta existente (do CyberPanel) no Supabase
+      // 🔄 Usar PUT para sincronizar conta existente (do servidor) no Supabase
       const res = await fetch('/api/email-contas', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

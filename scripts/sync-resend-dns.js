@@ -11,9 +11,9 @@ async function syncDNS() {
 
     const records = JSON.parse(fs.readFileSync(recordsPath, 'utf8'));
     const domain = 'visualdesignmoz.com';
-    const apiUrl = 'http://localhost:3002/api/cyberpanel-dns';
+    const apiUrl = 'http://localhost:3002/api/panel-dns';
 
-    console.log(`Syncing ${records.length} records to CyberPanel for ${domain}...`);
+    console.log(`Syncing ${records.length} records to DirectAdmin for ${domain}...`);
 
     for (const record of records) {
         const payload = {

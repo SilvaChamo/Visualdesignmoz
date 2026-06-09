@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
       logger: false
     }
 
-    // Configuração IMAP CyberPanel (servidor próprio)
-    const cyberpanelConfig = {
-      host: getServerHost(), // IP do servidor CyberPanel
+    // Configuração IMAP servidor (servidor próprio)
+    const destConfig = {
+      host: getServerHost(), // IP do servidor servidor
       port: 993,
       secure: true,
       auth: {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       logger: false
     }
 
-    // Mapeamento de pastas Gmail → CyberPanel
+    // Mapeamento de pastas Gmail → servidor
     const folderMapping: Record<string, string> = {
       'INBOX': 'INBOX',
       '[Gmail]/Sent Mail': 'Sent',
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
       const gmailClient = new ImapFlow.ImapFlow(gmailConfig as any)
       await gmailClient.connect()
 
-      // Conectar ao CyberPanel
-      const cyberpanelClient = new ImapFlow.ImapFlow(cyberpanelConfig as any)
-      await cyberpanelClient.connect()
+      // Conectar ao servidor
+      const destClient = new ImapFlow.ImapFlow(destConfig as any)
+      await destClient.connect()
 
       // Listar pastas do Gmail
       const gmailFolders = await gmailClient.list()
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       // Para cada pasta, copiar mensagens
       for (const gmailFolder of foldersToImport) {
         currentFolder = gmailFolder
-        const cyberpanelFolder = folderMapping[gmailFolder]
+        const destFolder = folderMapping[gmailFolder]
 
         try {
           // Selecionar pasta no Gmail
@@ -83,13 +83,13 @@ export async function POST(request: NextRequest) {
 
             // Garantir que pasta existe no destino
             try {
-              await cyberpanelClient.mailboxCreate(cyberpanelFolder)
+              await destClient.mailboxCreate(destFolder)
             } catch (e) {
               // Pasta pode já existir
             }
 
-            // Selecionar pasta no CyberPanel
-            await cyberpanelClient.mailboxOpen(cyberpanelFolder)
+            // Selecionar pasta no servidor
+            await destClient.mailboxOpen(destFolder)
 
             // Copiar cada mensagem
             for (const uid of messages) {
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
                 if (messageData && typeof messageData === 'object' && 'source' in messageData) {
                   const source = (messageData as any).source
                   if (source) {
-                    await cyberpanelClient.append(source, cyberpanelFolder, ['\\Seen'])
+                    await destClient.append(source, destFolder, ['\\Seen'])
                     copiedMessages++
                   }
                 }
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
       // Fechar conexões
       await gmailClient.logout()
-      await cyberpanelClient.logout()
+      await destClient.logout()
 
     } catch (connectionError: any) {
       return NextResponse.json({ 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
+import { supabase } from '@/lib/supabase-client';
 import { X, Trash2, ShoppingCart, CreditCard, ChevronRight, Loader2, CheckCircle2, Shield, Server, Trash, Mail, Globe, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 export function CartDrawer() {
@@ -11,6 +12,8 @@ export function CartDrawer() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [redirectPath, setRedirectPath] = useState('/client');
   const [showPassword, setShowPassword] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
@@ -23,16 +26,44 @@ export function CartDrawer() {
   };
 
   const handleCheckout = async () => {
+    setCheckoutError('');
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    setIsSuccess(true);
-    setTimeout(() => {
-      clearCart();
-      setIsSuccess(false);
-      setStep('cart');
-      setIsCartOpen(false);
-    }, 3000);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsProcessing(false);
+      setCheckoutError('Faça login para concluir a compra.');
+      window.location.href = '/auth/login';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/checkout/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          items,
+          paymentMethod,
+          phoneNumber,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao processar pagamento');
+      }
+      setRedirectPath(data.redirectPath || '/client');
+      setIsSuccess(true);
+      setTimeout(() => {
+        clearCart();
+        setIsCartOpen(false);
+        window.location.href = data.redirectPath || '/client';
+      }, 2200);
+    } catch (err: unknown) {
+      setCheckoutError(err instanceof Error ? err.message : 'Erro ao processar pagamento');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const typeLabel: Record<string, string> = { domain: 'Domínio', hosting: 'Alojamento', email: 'Email', ssl: 'SSL' };
@@ -102,7 +133,10 @@ export function CartDrawer() {
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
               <CheckCircle2 className="w-20 h-20 text-green-500" />
               <h3 className="text-2xl font-black text-slate-800">Pagamento Concluído!</h3>
-              <p className="text-slate-500 text-sm max-w-xs">O seu serviço foi ativado com sucesso. Verifique o seu email para os detalhes de acesso.</p>
+              <p className="text-slate-500 text-sm max-w-xs">
+                O seu serviço foi activado. A redireccionar para o painel…
+              </p>
+              <p className="text-xs text-slate-400">{redirectPath}</p>
             </div>
 
           /* EMPTY */
@@ -370,6 +404,10 @@ export function CartDrawer() {
                   Continuar <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+            )}
+
+            {checkoutError && (
+              <p className="text-sm text-red-600 font-medium">{checkoutError}</p>
             )}
 
             {step === 'payment' && (

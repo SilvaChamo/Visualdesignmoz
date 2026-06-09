@@ -3,13 +3,13 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
-// Domínios hospedados no servidor CyberPanel
-const CYBERPANEL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+// Domínios hospedados no servidor
+const HOSTED_MAIL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
 
 const resolveImapHost = (email: string): string => {
   if (process.env.IMAP_HOST) return process.env.IMAP_HOST
   const domain = email.split('@')[1]?.toLowerCase() || ''
-  if (CYBERPANEL_DOMAINS.includes(domain) || CYBERPANEL_DOMAINS.some(d => domain.endsWith('.' + d))) {
+  if (HOSTED_MAIL_DOMAINS.includes(domain) || HOSTED_MAIL_DOMAINS.some(d => domain.endsWith('.' + d))) {
     return getServerHost() // IP directo — evita falhas DNS
   }
   return `mail.${domain}`

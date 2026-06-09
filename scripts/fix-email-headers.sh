@@ -5,7 +5,7 @@ echo "📧 MELHORANDO HEADERS DE EMAIL"
 echo "==============================="
 echo ""
 
-SERVER="109.199.104.22"
+SERVER="37.27.17.25"
 PHP_FILE="/usr/local/CyberCP/public/send-email-api.php"
 
 echo "📋 Criando backup..."
@@ -41,7 +41,7 @@ OLD;
     \$headers_mail .= "Date: " . date('r') . "\\r\\n";
     \$headers_mail .= "MIME-Version: 1.0\\r\\n";
     \$headers_mail .= "Content-Type: text/html; charset=UTF-8\\r\\n";
-    \$headers_mail .= "X-Mailer: CyberPanel Marketing API\\r\\n";
+    \$headers_mail .= "X-Mailer: DirectAdmin Marketing API\\r\\n";
     \$headers_mail .= "Precedence: bulk\\r\\n";
     \$headers_mail .= "X-Auto-Response-Suppress: OOF, AutoReply\\r\\n";
     \$headers_mail .= "X-Priority: 3\\r\\n";
@@ -54,8 +54,8 @@ NEW;
 
 // Também melhorar o X-Mailer no header HTTP
 \$content = str_replace(
-    "header('X-Mailer: CyberPanel Marketing API');",
-    "header('X-Mailer: CyberPanel Marketing API/2.0');",
+    "header('X-Mailer: DirectAdmin Marketing API');",
+    "header('X-Mailer: DirectAdmin Marketing API/2.0');",
     \$content
 );
 

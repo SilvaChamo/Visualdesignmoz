@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Buscar a conta no Supabase
     const { data: conta, error } = await supabaseAdmin
       .from('email_contas')
-      .select('email, senha_cyberpanel, cliente_id, tipo_conta')
+      .select('email, senha_servidor, cliente_id, tipo_conta')
       .eq('email', email)
       .single();
     
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Decriptar a senha
-    const senha = conta.senha_cyberpanel ? decrypt(conta.senha_cyberpanel) : '';
+    const senha = conta.senha_servidor ? decrypt(conta.senha_servidor) : '';
     
     return NextResponse.json({ 
       success: true, 

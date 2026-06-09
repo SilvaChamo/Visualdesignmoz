@@ -1,16 +1,16 @@
-# Estado do Projecto — VisualDesign (Gestão + CyberPanel)
+# Estado do Projecto — VisualDesign (Gestão + DirectAdmin)
 
 ## O que já está feito
 
 ### Infra / Produção
 - Domínio oficial em uso: `visualdesignmoz.com`.
-- DNS funcional a apontar para o VPS Contabo: `109.199.104.22` (via nameservers MozServer + Zone Editor MozServer).
+- DNS funcional a apontar para o VPS Hetzner: `37.27.17.25` (via nameservers MozServer + Zone Editor MozServer).
 - Aplicação Next.js já faz build em produção sem falhar (`next build` OK).
 - PM2 a executar a app:
   - Nome do processo: `visualdesign`
   - CWD (no servidor): `/home/visualdesignmoz.com/public_html`
   - Porta interna da app (proxy): `127.0.0.1:3001`
-- OpenLiteSpeed/CyberPanel configurado para servir a app:
+- DirectAdmin/DirectAdmin configurado para servir a app:
   - VirtualHost `visualdesignmoz.com` configurado com reverse proxy para `127.0.0.1:3001`.
 - SSL instalado e funcional para o domínio:
   - Certificado Let’s Encrypt válido para `visualdesignmoz.com`.
@@ -24,15 +24,13 @@
   - Placeholder: `src/app/simple-login/page.tsx`
 - `next.config.ts` configurado para `output: 'standalone'`.
 
-### Integração CyberPanel
-- API client completo: `src/lib/cyberpanel-api.ts`.
-- Proxy genérico para endpoints CyberPanel:
-  - `src/app/api/cyberpanel-proxy/route.ts`
-- Rotas API para operações CyberPanel (exemplos):
-  - `src/app/api/cyberpanel-db/route.ts`
-  - `src/app/api/cyberpanel-dns/route.ts`
-  - `src/app/api/cyberpanel-email/route.ts`
-  - `src/app/api/cyberpanel-packages/route.ts`
+### Integração DirectAdmin
+- Cliente DirectAdmin: `src/lib/directadmin.ts`
+- Rotas API relevantes:
+  - `src/app/api/directadmin-access/route.ts`
+  - `src/app/api/panel-dns/route.ts`
+  - `src/app/api/panel-bridge/route.ts`
+  - `src/app/api/email-contas/route.ts`
 
 ### Supabase
 - SQL do sistema de gestão de clientes pronto:
@@ -52,13 +50,13 @@
 - Confirmar que o painel do cliente (`/client`) lê dados reais das tabelas/views (RLS) e não apenas “mock/placeholder”.
 - Confirmar que o painel admin (`/admin`) sincroniza e apresenta corretamente:
   - Sites
-  - Utilizadores CyberPanel
+  - Utilizadores DirectAdmin
   - Subdomínios/DNS/Email/SSL
 
 ### Limpeza / Consistência
 - Remover/depreciar referências antigas a `visualdesign.ao` e vhosts/subdomínios de teste no servidor (se já não forem necessários).
 - Rever MX/Email:
-  - No DNS MozServer, MX atualmente aponta para o próprio domínio; decidir se email fica MozServer temporariamente ou migra para CyberPanel.
+  - No DNS MozServer, MX atualmente aponta para o próprio domínio; decidir se email fica MozServer temporariamente ou migra para DirectAdmin.
 
 ### Automatização / Qualidade
 - (Opcional) CI/CD (GitHub Actions) para deploy automático.
@@ -75,12 +73,12 @@
   - `ns3.mozserver.com`
   - `ns4.mozserver.com`
 - Registos críticos no Zone Editor MozServer:
-  - `visualdesignmoz.com` A -> `109.199.104.22` (TTL 300)
+  - `visualdesignmoz.com` A -> `37.27.17.25` (TTL 300)
   - `www` CNAME -> `visualdesignmoz.com`
 
-### Servidor Contabo
-- IP: `109.199.104.22`
-- CyberPanel: `https://109.199.104.22:8090`
+### Servidor Hetzner
+- IP: `37.27.17.25`
+- DirectAdmin: `https://37.27.17.25:2222`
 - Deploy path: `/home/visualdesignmoz.com/public_html`
 - PM2:
   - Processo: `visualdesign`

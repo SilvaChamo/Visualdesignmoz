@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 
 // Simulação de Rate Limiting
 const RATE_LIMIT_MS = 2000
@@ -72,31 +73,24 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // Role detection
-  const userEmail = user.email?.toLowerCase() || ''
-  const userRole = user.app_metadata?.role || user.user_metadata?.role
-  const adminEmails = [
-    'admin@your-domain.com',
-    'geral@your-domain.com',
-    'silva.chamo@gmail.com',
-    'silva.chamo@your-domain.com'
-  ]
+  const role = resolveUserRole({
+    email: user.email,
+    userMetadata: user.user_metadata,
+    appMetadata: user.app_metadata,
+  })
 
-  let role = 'client'
-  if (adminEmails.includes(userEmail) || userRole === 'admin') role = 'admin'
-  else if (userRole === 'reseller') role = 'reseller'
+  if (pathname.startsWith('/client') && role !== 'client') {
+    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+  }
 
+  if (pathname.startsWith('/guest') && role !== 'guest') {
+    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+  }
 
+  if (pathname.startsWith('/revendedor') && role !== 'reseller' && role !== 'admin') {
+    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+  }
 
-  // Admin access control - REMOVIDO: deixar layout admin verificar permissões
-  // if (pathname.startsWith('/admin')) {
-  //   if (role === 'admin' || userEmail.includes('silva.chamo')) {
-  //     return response
-  //   }
-  //   return NextResponse.rewrite(new URL('/404-admin-only', request.url))
-  // }
-
-  // Dashboard access control
   if (pathname.startsWith('/dashboard') && role === 'client') {
     return NextResponse.redirect(new URL('/client', request.url))
   }
@@ -109,6 +103,8 @@ export const config = {
     '/admin/:path*',
     '/dashboard/:path*',
     '/client/:path*',
+    '/guest/:path*',
+    '/revendedor/:path*',
     '/auth/:path*',
     '/login',
     '/autenticacao',

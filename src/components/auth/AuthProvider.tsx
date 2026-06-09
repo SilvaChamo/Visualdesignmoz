@@ -1,14 +1,16 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase, auth } from '@/lib/supabase-client'
 import { User } from '@supabase/supabase-js'
+import { getInactivityConfig } from '@/lib/session-inactivity'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   isAdmin: boolean
-  userRole: 'admin' | 'reseller' | 'client' | null
+  userRole: 'admin' | 'reseller' | 'client' | 'guest' | null
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string, nome: string, telefone?: string) => Promise<void>
@@ -20,10 +22,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [userRole, setUserRole] = useState<'admin' | 'reseller' | 'client' | null>(null)
+  const [userRole, setUserRole] = useState<'admin' | 'reseller' | 'client' | 'guest' | null>(null)
 
   useEffect(() => {
     // Verificar sessão inicial
@@ -47,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (roleError) {
             console.error('AuthProvider: Error getting role:', roleError)
             // Default to client if role check fails
-            setUserRole('client')
+            setUserRole('guest')
             setIsAdmin(false)
           }
         }
@@ -64,6 +67,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Rerunning onAuthStateChange is not recommended with SSR cookies, 
     // as it can conflict with the server requests. We only rely on initializeAuth.
   }, [])
+
+  // Inatividade: 10 min no painel DirectAdmin; 20 min no resto da aplicação
+  useEffect(() => {
+    if (!user) return
+
+    let timeoutId: NodeJS.Timeout
+    const { limitMs, minutes, reason } = getInactivityConfig(pathname)
+
+    const handleAutomaticSignOut = async () => {
+      try {
+        console.log(`Inatividade detectada por ${minutes} minutos. Deslogando utilizador...`)
+        await auth.signOut()
+        setUser(null)
+        setIsAdmin(false)
+        setUserRole(null)
+        window.location.href = `/auth/login?reason=${reason}`
+      } catch (err) {
+        console.error('Erro ao efetuar logout por inatividade:', err)
+        window.location.href = `/auth/login?reason=${reason}`
+      }
+    }
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(handleAutomaticSignOut, limitMs)
+    }
+
+    const activityEvents = [
+      'mousedown',
+      'mousemove',
+      'keypress',
+      'scroll',
+      'touchstart',
+      'click',
+    ]
+
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetTimer)
+    })
+
+    resetTimer()
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetTimer)
+      })
+    }
+  }, [user, pathname])
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -92,27 +144,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       const result = await auth.signUp(email, password, { nome, telefone })
 
-      // Após o registo, tentar criar a conta de email no CyberPanel e sincronizar com Supabase
+      // Após o registo, tentar criar a conta de email no servidor e sincronizar com Supabase
       try {
         const parts = email.split('@')
         const user = parts[0]
         const domain = parts[1]
         if (user && domain) {
-          fetch('/api/cyberpanel-email', {
+          fetch('/api/email-contas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domainName: domain, userName: user, password })
           }).then(async res => {
             try {
               const data = await res.json()
-              console.log('CyberPanel create attempt result:', data)
-            } catch (e) {
-              console.log('CyberPanel create responded (no-json)')
+              console.log('Email create attempt result:', data)
+            } catch {
+              console.log('Email create responded (no-json)')
             }
-          }).catch(err => console.error('Erro ao chamar /api/cyberpanel-email:', err))
+          }).catch(err => console.error('Erro ao chamar /api/email-contas:', err))
         }
-      } catch (cpErr) {
-        console.error('Erro ao tentar criar conta no CyberPanel após registo:', cpErr)
+      } catch (emailErr) {
+        console.error('Erro ao tentar criar conta de email após registo:', emailErr)
       }
     } catch (error) {
       throw error

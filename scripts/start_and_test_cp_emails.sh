@@ -19,8 +19,8 @@ echo "Started PID: $NEWPID"
 echo "Waiting for server to boot..."
 sleep 4
 
-echo "Calling API: /api/cyberpanel-email?domain=${DOMAIN}"
-curl -i "http://localhost:${PORT}/api/cyberpanel-email?domain=${DOMAIN}"
+echo "Calling API: /api/panel-email?domain=${DOMAIN}"
+curl -i "http://localhost:${PORT}/api/panel-email?domain=${DOMAIN}"
 
 echo "Log tail (last 40 lines):"
 tail -n 40 backend_debug.log

@@ -3,25 +3,20 @@ import { NextResponse } from 'next/server';
 
 export async function GET(req: Request) {
     try {
-        // Para API routes, usar createClient com service role key para bypass de auth
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // Obter token do header Authorization
         const authHeader = req.headers.get('authorization');
         const token = authHeader?.replace('Bearer ', '');
 
         if (!token) {
-            console.log('No auth token found in client-data API');
             return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
         }
 
-        // Verificar usuário com token
         const { data: { user }, error } = await supabase.auth.getUser(token);
         if (error || !user) {
-            console.log('Invalid token in client-data API:', error);
             return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
         }
 
@@ -29,71 +24,33 @@ export async function GET(req: Request) {
         const userRole = user.user_metadata?.role;
         const isAdmin = adminEmails.includes(user.email || '') || userRole === 'admin' || userRole === 'reseller';
 
-        // Obter o email alvo (usado para admin ver painel de cliente específico)
         const { searchParams } = new URL(req.url);
         const targetEmail = searchParams.get('email');
-
         const userEmail = (isAdmin && targetEmail) ? targetEmail : (user.email || '');
 
-        // Buscar dados do CyberPanel filtrados por email do cliente
-        // Timeout de 8 segundos para evitar processamento infinito
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        
-        let data;
-        try {
-            const response = await fetch('http://localhost:3002/api/server-exec', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'listWebsites',
-                    params: { filter: userEmail }
-                }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            data = await response.json();
-        } catch (fetchError: any) {
-            clearTimeout(timeoutId);
-            if (fetchError.name === 'AbortError') {
-                console.log('CyberPanel API timeout - using empty data');
-                // Retornar dados vazios se timeout
-                return NextResponse.json({
-                    success: true,
-                    data: {
-                        sites: [],
-                        servicos: {
-                            dominios: [],
-                            hospedagem: [],
-                            proximas_renovacoes: []
-                        },
-                        userEmail
-                    }
-                });
-            }
-            throw fetchError;
+        const { data: sites, error: sitesError } = await supabase
+            .from('panel_sites')
+            .select('*')
+            .or(`admin_email.eq.${userEmail},owner.eq.${userEmail}`);
+
+        if (sitesError) {
+            console.warn('panel_sites query failed:', sitesError.message);
         }
 
-        if (!data.success) {
-            throw new Error(data.error || 'Failed to fetch client data');
-        }
+        const clientSites = (sites || []).filter((site) =>
+            site.admin_email === userEmail ||
+            site.owner === userEmail ||
+            site.domain?.includes(userEmail.split('@')[0])
+        );
 
-        // Filtrar sites apenas do cliente
-        const clientSites = data.data.sites?.filter((site: any) =>
-            site.adminEmail === userEmail ||
-            site.domain.includes(userEmail.split('@')[0])
-        ) || [];
-
-        // Dados mock de serviços (até implementar tabela real)
         const servicosMock = {
-            dominios: clientSites.map((site: any) => ({
+            dominios: clientSites.map((site) => ({
                 nome: site.domain,
                 renovacao: '2024-12-15',
-                status: site.state === '1' || site.state === 'Active' ? 'active' : 'suspended',
+                status: site.status === 'Active' ? 'active' : 'suspended',
                 preco: 250
             })),
-            hospedagem: clientSites.map((site: any) => ({
+            hospedagem: clientSites.map((site) => ({
                 dominio: site.domain,
                 plano: site.package || 'Basic',
                 renovacao: '2024-12-15',

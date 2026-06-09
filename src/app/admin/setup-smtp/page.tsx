@@ -40,13 +40,13 @@ export default function SetupSMTPPage() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 flex items-center gap-3">
           <Server className="w-8 h-8 text-red-600" />
-          Configurar SMTP CyberPanel
+          Configurar SMTP do Servidor
         </h1>
 
         <Card className="p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Configuração Automática</h2>
           <p className="text-gray-600 mb-4">
-            Este botão configura o servidor CyberPanel (109.199.104.22) para aceitar ligações SMTP externas.
+            Este botão configura o servidor DirectAdmin para aceitar ligações SMTP externas.
           </p>
           
           <Button

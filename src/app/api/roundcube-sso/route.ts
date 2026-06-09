@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createHmac } from 'crypto'
-import { getDirectAdminUrl } from '@/lib/server-config'
+import { getWebmailUrlForDomain } from '@/lib/server-config'
 
 const SSO_SECRET = 'vd2026sso_secret_key_32chars!!'
-const ROUNDCUBE_URL = `${getDirectAdminUrl()}/roundcube`
+
+function roundcubeUrlForEmail(email?: string): string {
+  const domain = email?.includes('@') ? email.split('@')[1].toLowerCase() : undefined
+  return getWebmailUrlForDomain(domain)
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -15,15 +19,17 @@ export async function GET(req: NextRequest) {
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
-    if (!session) return NextResponse.redirect(ROUNDCUBE_URL)
+    const targetEmail = emailParam || session?.user?.email || ''
+    const roundcubeUrl = roundcubeUrlForEmail(targetEmail)
 
-    const targetEmail = emailParam || session.user.email || ''
-    if (!targetEmail || !password) return NextResponse.redirect(ROUNDCUBE_URL)
+    if (!session) return NextResponse.redirect(roundcubeUrl)
+
+    if (!targetEmail || !password) return NextResponse.redirect(roundcubeUrl)
 
     const ts = Math.floor(Date.now() / 1000)
     const sig = createHmac('sha256', SSO_SECRET).update(targetEmail + ts).digest('hex')
     const token = Buffer.from(JSON.stringify({ user: targetEmail, pass: password, ts, sig })).toString('base64')
-    const ssoUrl = `${ROUNDCUBE_URL}/?_sso=${encodeURIComponent(token)}`
+    const ssoUrl = `${roundcubeUrl}/?_sso=${encodeURIComponent(token)}`
 
     const html = `<!DOCTYPE html>
 <html>
@@ -51,6 +57,6 @@ export async function GET(req: NextRequest) {
     return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   } catch (e) {
     console.error('[roundcube-sso]', e)
-    return NextResponse.redirect(ROUNDCUBE_URL)
+    return NextResponse.redirect(roundcubeUrlForEmail(emailParam || undefined))
   }
 }

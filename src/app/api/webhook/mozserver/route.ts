@@ -4,11 +4,11 @@
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getServerHost } from '@/lib/server-config'
+import { getServerEmail } from '@/lib/smtp-mail';
 
 // Configurações
-const CONTABO_SERVER_IP = getServerHost();
-const CYBERPANEL_URL = '${getHestiaUrl()}';
+const SERVER_IP = getServerHost();
 
 // Tipos de eventos Mozserver
 interface MozserverWebhookPayload {
@@ -37,11 +37,11 @@ interface WebhookResponse {
 // ==========================================
 
 /**
- * 1. CRIAR ZONA DNS NO CYBERPANEL
+ * 1. CRIAR ZONA DNS NO PAINEL DE HOSPEDAGEM
  */
-async function createCyberPanelZone(domain: string): Promise<{ success: boolean; output: string }> {
+async function createHostingDNSZone(domain: string): Promise<{ success: boolean; output: string }> {
   try {
-    // Usar o comando CLI do CyberPanel para criar zona DNS
+    // Criar zona DNS via API interna
     const response = await fetch('/api/server-exec', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,9 +68,9 @@ async function createCyberPanelZone(domain: string): Promise<{ success: boolean;
  */
 async function addDefaultDNSRecords(domain: string): Promise<{ success: boolean; records: string[] }> {
   const records = [
-    { name: '@', type: 'A', value: CONTABO_SERVER_IP, ttl: 14400 },
-    { name: 'www', type: 'A', value: CONTABO_SERVER_IP, ttl: 14400 },
-    { name: 'mail', type: 'A', value: CONTABO_SERVER_IP, ttl: 14400 },
+    { name: '@', type: 'A', value: SERVER_IP, ttl: 14400 },
+    { name: 'www', type: 'A', value: SERVER_IP, ttl: 14400 },
+    { name: 'mail', type: 'A', value: SERVER_IP, ttl: 14400 },
     { name: '@', type: 'MX', value: `mail.${domain}`, ttl: 14400, priority: 10 },
     { name: '@', type: 'TXT', value: 'v=spf1 a mx ~all', ttl: 14400 },
     { name: '@', type: 'NS', value: `ns1.${domain}`, ttl: 86400 },
@@ -82,7 +82,7 @@ async function addDefaultDNSRecords(domain: string): Promise<{ success: boolean;
 
   for (const record of records) {
     try {
-      const response = await fetch('/api/cyberpanel-dns', {
+      const response = await fetch('/api/panel-dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,14 +112,14 @@ async function addDefaultDNSRecords(domain: string): Promise<{ success: boolean;
 }
 
 /**
- * 3. CRIAR WEBSITE NO CYBERPANEL (opcional)
+ * 3. CRIAR WEBSITE NO PAINEL (opcional)
  */
-async function createCyberPanelWebsite(
+async function createHostingWebsite(
   domain: string, 
-  email: string = 'admin@visualdesignmoz.com'
+  email: string = getServerEmail()
 ): Promise<{ success: boolean; output: string }> {
   try {
-    const response = await fetch('/api/cyberpanel-proxy', {
+    const response = await fetch('/api/panel-dns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -198,7 +198,7 @@ async function saveSyncLog(
           actions,
           details,
           timestamp: new Date().toISOString(),
-          server_ip: CONTABO_SERVER_IP
+          server_ip: SERVER_IP
         }
       }),
     });
@@ -244,8 +244,8 @@ export async function POST(request: NextRequest) {
         console.log(`📝 Processando ${payload.event} para ${fullDomain}`);
         
         // AÇÃO 1: Criar Zona DNS
-        actions.push('1. Criar zona DNS no CyberPanel');
-        const zoneResult = await createCyberPanelZone(fullDomain);
+        actions.push('1. Criar zona DNS no painel');
+        const zoneResult = await createHostingDNSZone(fullDomain);
         details.zoneCreation = zoneResult;
         
         if (!zoneResult.success) {
@@ -259,8 +259,8 @@ export async function POST(request: NextRequest) {
         details.recordsCreation = recordsResult;
 
         // AÇÃO 3: Criar Website (se não existir)
-        actions.push('3. Verificar/criar website no CyberPanel');
-        const websiteResult = await createCyberPanelWebsite(
+        actions.push('3. Verificar/criar website no painel');
+        const websiteResult = await createHostingWebsite(
           fullDomain, 
           payload.clientEmail
         );
@@ -307,13 +307,13 @@ export async function POST(request: NextRequest) {
           actions,
           details: {
             domain: fullDomain,
-            ip: CONTABO_SERVER_IP,
+            ip: SERVER_IP,
             zoneCreated: zoneResult.success,
             recordsAdded: recordsResult.records.length,
             websiteCreated: websiteResult.success,
             nameservers: [
-              `ns1.${fullDomain} → ${CONTABO_SERVER_IP}`,
-              `ns2.${fullDomain} → ${CONTABO_SERVER_IP}`
+              `ns1.${fullDomain} → ${SERVER_IP}`,
+              `ns2.${fullDomain} → ${SERVER_IP}`
             ]
           }
         });
@@ -375,7 +375,7 @@ export async function GET() {
       'domain.transferred',
       'domain.updated'
     ],
-    server_ip: CONTABO_SERVER_IP,
+    server_ip: SERVER_IP,
     timestamp: new Date().toISOString()
   });
 }

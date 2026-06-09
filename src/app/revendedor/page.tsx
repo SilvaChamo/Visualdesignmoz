@@ -7,9 +7,9 @@ import { useI18n } from '@/lib/i18n'
 import {
   LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
 } from 'lucide-react'
-import { getCPUrl, getSnappyMailUrl, getCPHost, getHestiaUrl, getServerHost } from '@/lib/server-config';
+import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
-import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
+import { ResellerDirectAccessSection } from '@/components/revendedor/ResellerDirectAccessSection'
 import { CpanelDashboard } from '../admin/CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
@@ -34,6 +34,8 @@ import { NotificationsSection } from '../admin/NotificationsSection'
 import { RenewalsSection } from '../admin/RenewalsSection'
 import { TemplatesSection } from '../admin/TemplatesSection'
 import { DNSCentralSection } from '../admin/DNSCentralSection'
+import { PorkbunResellerSection } from '../admin/PorkbunResellerSection'
+import { PorkbunMyDomainsSection } from '../admin/PorkbunMyDomainsSection'
 import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
@@ -43,6 +45,11 @@ import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/
 import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
+import {
+  fetchPanelSitesFromServer,
+  fetchPanelUsersFromServer,
+  fetchPanelPackagesFromServer,
+} from '@/lib/panel-data-from-server'
 
 const directAdminAPI = panelAPI
 
@@ -1421,7 +1428,7 @@ function ManageWebsiteSection({
   }
 
   // ============================================================
-  // CUSTOM ICONS (CYBERPANEL STYLE)
+  // CUSTOM ICONS (PANEL STYLE)
   // ============================================================
   const CyberIcon = ({ name, className }: { name: string; className?: string }) => {
     // Usar Lucide com cores premium
@@ -2061,7 +2068,7 @@ export default function ResellerPage() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const sites = await directAdminAPI.listWebsites()
+      const sites = await fetchPanelSitesFromServer()
       if (Array.isArray(sites)) {
         setDirectAdminSites(sites)
         // Background sync
@@ -2079,9 +2086,9 @@ export default function ResellerPage() {
     setIsFetchingDirectAdmin(true)
     try {
       const [sites, users, packages] = await Promise.all([
-        directAdminAPI.listWebsites().catch(() => []),
-        directAdminAPI.listUsers().catch(() => []),
-        directAdminAPI.listPackages().catch(() => []),
+        fetchPanelSitesFromServer(),
+        fetchPanelUsersFromServer(),
+        fetchPanelPackagesFromServer(),
       ])
 
       const validSites = Array.isArray(sites) ? sites : []
@@ -2134,23 +2141,12 @@ export default function ResellerPage() {
     ? filteredSites[0].domain
     : 'your-domain.com'
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'domains', label: 'Websites', icon: Globe },
-    { id: 'cp-users', label: 'Contas', icon: Users },
-    { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
-    { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
-    { id: 'newsletter', label: 'Marketing / News', icon: Layout },
-    { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-    { id: 'cp-api', label: 'Configurações', icon: Settings },
-  ]
-
-  const currentSidebarWidth = isCollapsed ? 80 : 250
-
   const getSectionInfo = (section: string): { title: string; description: string } => {
     const info: Record<string, { title: string; description: string }> = {
-      'dashboard': { title: 'Dashboard', description: 'Painel de controlo principal' },
+      'dashboard': { title: 'Centro DirectAdmin', description: 'Todas as ferramentas — espelho do painel DirectAdmin' },
+      'acesso-directo': { title: 'Acesso Directo', description: 'DirectAdmin nativo, Roundcube e webmail' },
+      'porkbun-domains': { title: 'Comprar domínio', description: 'Registo de domínios via Porkbun' },
+      'porkbun-my-domains': { title: 'Os meus domínios', description: 'Domínios registados na sua conta' },
       'domains': { title: 'Dashboard', description: 'Gestão de websites e domínios' },
       'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
       'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
@@ -2217,15 +2213,26 @@ export default function ResellerPage() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <ResellerDashboard
-          sites={filteredSites}
-          isFetching={isFetchingDirectAdmin}
-          onNavigate={setActiveSection}
-          onRefresh={loadDirectAdminData}
-          onSetDNSDomain={setSelectedDNSDomain}
-          onSetFileManagerDomain={setFileManagerDomain}
-          sessionUser={sessionUser}
-        />
+        return (
+          <CpanelDashboard
+            sites={filteredSites}
+            users={directAdminUsers}
+            isFetching={isFetchingDirectAdmin}
+            onNavigate={handleNavigate}
+            onRefresh={loadDirectAdminData}
+            onSetFileManagerDomain={setFileManagerDomain}
+            onSetDNSDomain={setSelectedDNSDomain}
+            searchQuery={dashboardSearch}
+            onSearchChange={setDashboardSearch}
+          />
+        )
+      case 'acesso-directo':
+        return (
+          <ResellerDirectAccessSection
+            sessionEmail={sessionUser}
+            onOpenWebmailInPanel={() => handleNavigate('webmail')}
+          />
+        )
       case 'domains':
         return <ListWebsitesSection
           sites={filteredSites}
@@ -2322,6 +2329,39 @@ export default function ResellerPage() {
         return <SecuritySection sites={filteredSites} />
       case 'cp-php':
         return <PHPConfigSection sites={filteredSites} />
+      case 'cp-api':
+      case 'infrastructure':
+        return <APIConfigSection />
+      case 'porkbun-domains':
+        return <PorkbunResellerSection />
+      case 'porkbun-my-domains':
+        return <PorkbunMyDomainsSection />
+      case 'git-deploy':
+        return <GitDeploySection />
+      case 'deploy':
+        return <DeploySection sites={filteredSites} />
+      case 'packages-new':
+        return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+      case 'reports':
+      case 'analyses':
+      case 'diagnostico':
+      case 'cp-audit-sync':
+        return (
+          <div className="p-6 bg-white border border-gray-200 rounded-lg">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Métricas e relatórios</h2>
+            <p className="text-sm text-gray-500">
+              Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.
+            </p>
+            <a
+              href={getDirectAdminAccessUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex mt-4 text-sm font-bold text-red-600 hover:underline"
+            >
+              Abrir DirectAdmin →
+            </a>
+          </div>
+        )
 
       case 'cp-wp-list':
         return <ListWordPressSection sites={filteredSites} onRefresh={loadDirectAdminData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
@@ -2405,15 +2445,19 @@ export default function ResellerPage() {
       case 'settings-profile':
         return <ResellerProfileSection />;
       default:
-        return <ResellerDashboard 
-          sites={filteredSites} 
-          isFetching={isFetchingDirectAdmin} 
-          onNavigate={setActiveSection} 
-          onRefresh={loadDirectAdminData} 
-          onSetDNSDomain={setSelectedDNSDomain}
-          onSetFileManagerDomain={setFileManagerDomain} 
-          sessionUser={sessionUser}
-        />
+        return (
+          <CpanelDashboard
+            sites={filteredSites}
+            users={directAdminUsers}
+            isFetching={isFetchingDirectAdmin}
+            onNavigate={handleNavigate}
+            onRefresh={loadDirectAdminData}
+            onSetFileManagerDomain={setFileManagerDomain}
+            onSetDNSDomain={setSelectedDNSDomain}
+            searchQuery={dashboardSearch}
+            onSearchChange={setDashboardSearch}
+          />
+        )
     }
   }
 
@@ -2596,9 +2640,17 @@ export default function ResellerPage() {
               )}
               <div className="flex items-center gap-2">
 
-                <a href={getCPUrl()} target="_blank" rel="noopener noreferrer"
+                <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all">
-                  <Globe size={13} /> {t('admin.settings.directadmin')}
+                  <Server size={13} /> DirectAdmin
+                </a>
+                <a
+                  href={sessionUser ? `/api/roundcube-sso?email=${encodeURIComponent(sessionUser)}` : '/api/roundcube-sso'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
+                >
+                  <Mail size={13} /> Roundcube
                 </a>
                 <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
                   className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all" title={t('sidebar.logout')}>

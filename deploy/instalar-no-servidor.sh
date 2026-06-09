@@ -7,10 +7,11 @@
 set -e
 
 # ── Configuração ──────────────────────────────────────────────
-SERVER_IP="109.199.104.22"
+SERVER_IP="37.27.17.25"
 SERVER_USER="root"
-SSH_KEY="/Users/macbook/.ssh/visualdesign_cyberpanel_key"
-APP_DOMAIN="visualdesign.ao"
+SSH_KEY="${SSH_KEY:-/Users/macbook/.ssh/aamihe_hetzner}"
+SSH_PORT="${SSH_PORT:-2234}"
+APP_DOMAIN="visualdesignmoz.com"
 APP_DIR="/home/${APP_DOMAIN}/public_html"
 APP_PORT=3002
 LOCAL_PROJECT="/Users/macbook/Desktop/APP/visualdesign"
@@ -31,12 +32,12 @@ echo ""
 if [ ! -f "$SSH_KEY" ]; then
     echo -e "${YELLOW}AVISO: Chave SSH não encontrada em $SSH_KEY${NC}"
     echo "Tentando com password... (vais ser pedido a password)"
-    SSH_CMD="ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP}"
-    RSYNC_SSH="ssh -o StrictHostKeyChecking=no"
+    SSH_CMD="ssh -p ${SSH_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP}"
+    RSYNC_SSH="ssh -p ${SSH_PORT} -o StrictHostKeyChecking=no"
 else
     echo -e "${GREEN}✓ Chave SSH encontrada${NC}"
-    SSH_CMD="ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP}"
-    RSYNC_SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no"
+    SSH_CMD="ssh -i $SSH_KEY -p ${SSH_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP}"
+    RSYNC_SSH="ssh -i $SSH_KEY -p ${SSH_PORT} -o StrictHostKeyChecking=no"
 fi
 
 echo ""
@@ -91,24 +92,32 @@ elif [ -f "${LOCAL_PROJECT}/.env.local" ]; then
 fi
 
 # Validar variáveis obrigatórias
-if [ -z "$CYBERPANEL_PASS" ]; then
-    echo -e "${YELLOW}ERRO: CYBERPANEL_PASS não está definida. Define-a no teu ambiente ou num ficheiro .env.production${NC}"
+if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+    echo -e "${YELLOW}ERRO: SUPABASE_SERVICE_ROLE_KEY não está definida. Usa deploy/env.production.template como referência.${NC}"
     exit 1
 fi
 
 $SSH_CMD << REMOTE
 cd ${APP_DIR}
 
-# Cria o ficheiro .env.local para produção (sem passwords hardcoded no script)
-cat > .env.local << 'ENVFILE'
-NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://gwankhxcbkrtgxopbxwd.supabase.co}
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
-CYBERPANEL_URL=${CYBERPANEL_URL:-https://localhost:8090/api}
-CYBERPANEL_PASS=${CYBERPANEL_PASS}
-CYBERPANEL_USER=${CYBERPANEL_USER:-admin}
-CYBERPANEL_IP=${CYBERPANEL_IP:-127.0.0.1}
-CYBERPANEL_SSH_USER=${CYBERPANEL_SSH_USER:-root}
-CYBERPANEL_USE_LOCAL_EXEC=true
+cat > .env.local << ENVFILE
+NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://supabase.visualdesignmoz.com}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+NEXT_PUBLIC_SERVER_IP=${NEXT_PUBLIC_SERVER_IP:-37.27.17.25}
+NEXT_PUBLIC_WEBMAIL_URL=${NEXT_PUBLIC_WEBMAIL_URL:-https://webmail.visualdesignmoz.com}
+DIRECTADMIN_HOST=${DIRECTADMIN_HOST:-host.visualdesignmoz.com}
+DIRECTADMIN_PORT=${DIRECTADMIN_PORT:-2222}
+DIRECTADMIN_PROTOCOL=${DIRECTADMIN_PROTOCOL:-https}
+DIRECTADMIN_USER=${DIRECTADMIN_USER:-admin}
+DIRECTADMIN_PASSWORD=${DIRECTADMIN_PASSWORD}
+SMTP_HOST=${SMTP_HOST:-smtp-relay.brevo.com}
+SMTP_PORT=${SMTP_PORT:-587}
+SMTP_USER=${SMTP_USER}
+SMTP_PASS=${SMTP_PASS}
+BREVO_API_KEY=${BREVO_API_KEY}
+SITE_EMAIL_FROM=${SITE_EMAIL_FROM:-Visualdesign <noreply@visualdesignmoz.com>}
+NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-https://visualdesignmoz.com}
 ENVFILE
 REMOTE
 echo "Instalando dependências (pode demorar 2-3 minutos)..."
@@ -147,9 +156,9 @@ echo ""
 echo -e "Site a correr em: ${BLUE}http://${SERVER_IP}:${APP_PORT}${NC}"
 echo ""
 echo -e "${YELLOW}PRÓXIMO PASSO:${NC}"
-echo "No CyberPanel, configura o proxy reverso para o domínio ${APP_DOMAIN}:"
+echo "No DirectAdmin, configura o proxy reverso para o domínio ${APP_DOMAIN}:"
 echo ""
-echo -e "${BLUE}https://${SERVER_IP}:8090${NC}"
+echo -e "${BLUE}https://${SERVER_IP}:2222${NC}"
 echo "→ Websites → ${APP_DOMAIN} → Rewrite Rules"
 echo "→ Adiciona:"
 echo ""

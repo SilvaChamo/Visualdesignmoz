@@ -1,0 +1,65 @@
+{
+  "user": {
+    "appends": {
+      "entries": [
+        {
+          "id": "ud-uploadfile",
+          "name": "Upload File",
+          "icon": "ICON_PLACEHOLDER",
+          "href": "/CMD_PLUGINS/uploadfile",
+          "newTab": false,
+          "category": "user-system-information",
+          "enabled": true,
+          "position": 7
+        }
+      ],
+      "categories": []
+    },
+    "updates": {
+      "entries": {},
+      "categories": {}
+    }
+  },
+  "reseller": {
+    "appends": {
+      "entries": [
+        {
+          "id": "ud-uploadfile-reseller",
+          "name": "Upload File",
+          "icon": "ICON_PLACEHOLDER",
+          "href": "/CMD_PLUGINS_RESELLER/uploadfile",
+          "newTab": false,
+          "category": "reseller-system-information",
+          "enabled": true,
+          "position": 7
+        }
+      ],
+      "categories": []
+    },
+    "updates": {
+      "entries": {},
+      "categories": {}
+    }
+  },
+  "admin": {
+    "appends": {
+      "entries": [
+        {
+          "id": "ud-uploadfile-admin",
+          "name": "Upload File",
+          "icon": "ICON_PLACEHOLDER",
+          "href": "/CMD_PLUGINS_ADMIN/uploadfile",
+          "newTab": false,
+          "category": "admin-system-information",
+          "enabled": true,
+          "position": 7
+        }
+      ],
+      "categories": []
+    },
+    "updates": {
+      "entries": {},
+      "categories": {}
+    }
+  }
+}

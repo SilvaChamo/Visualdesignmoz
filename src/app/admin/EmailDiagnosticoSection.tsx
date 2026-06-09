@@ -147,9 +147,9 @@ export function EmailDiagnosticoSection() {
           <h4 className="text-sm font-semibold text-purple-900 mb-3">🔧 DirectAdmin e Blacklist</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { action: 'checkCyberPanelStatus', label: 'Verificar DirectAdmin', color: 'bg-blue-600 hover:bg-blue-700' },
-              { action: 'checkCyberPanelLogin', label: 'Diagnóstico Login', color: 'bg-purple-600 hover:bg-purple-700' },
-              { action: 'fixCyberPanelLogin', label: 'Corrigir Login', color: 'bg-red-600 hover:bg-red-700' },
+              { action: 'checkHostingStatus', label: 'Verificar DirectAdmin', color: 'bg-blue-600 hover:bg-blue-700' },
+              { action: 'checkHostingLogin', label: 'Diagnóstico Login', color: 'bg-purple-600 hover:bg-purple-700' },
+              { action: 'fixHostingLogin', label: 'Corrigir Login', color: 'bg-red-600 hover:bg-red-700' },
             ].map(({ action, label, color }) => (
               <button key={action} onClick={() => runMaintenanceAction(action)}
                 disabled={maintenanceLoading === action}

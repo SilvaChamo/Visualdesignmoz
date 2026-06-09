@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, password, nome } = await request.json();
+
+    if (!email || !password || !nome) {
+      return NextResponse.json({ error: 'Preencha nome, email e password.' }, { status: 400 });
+    }
+
+    if (String(password).length < 6) {
+      return NextResponse.json({ error: 'A password deve ter no mínimo 6 caracteres.' }, { status: 400 });
+    }
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!url || !serviceKey) {
+      return NextResponse.json(
+        { error: 'Servidor de autenticação não configurado.' },
+        { status: 500 },
+      );
+    }
+
+    const admin = createAdminClient(url, serviceKey);
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const { data, error } = await admin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: String(password),
+      email_confirm: true,
+      user_metadata: {
+        role: 'guest',
+        nome: String(nome).trim(),
+      },
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+        return NextResponse.json(
+          {
+            error:
+              'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta». ' +
+              'Se criou com Google antes, use o botão Google.',
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (data.user?.id) {
+      await admin.from('profiles').upsert(
+        {
+          id: data.user.id,
+          email: normalizedEmail,
+          role: 'guest',
+        },
+        { onConflict: 'id' },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message:
+        'Conta criada com sucesso. Já pode entrar com email e password — não precisa confirmar email.',
+      email: normalizedEmail,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro ao criar conta';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

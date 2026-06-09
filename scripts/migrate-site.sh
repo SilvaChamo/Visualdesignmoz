@@ -1,20 +1,20 @@
 #!/bin/bash
 # ============================================================
-# Visual Design — Migração de Site: MozServer → VPS Contabo
+# Visual Design — Migração de Site: MozServer → VPS Hetzner
 # ============================================================
 # USO:  ./migrate-site.sh <dominio> 
 # EXEMPLO:  ./migrate-site.sh visualdesignmoz.com
 #
 # REQUISITOS:
-# - SSH root no VPS (109.199.104.22)
-# - CyberPanel instalado e funcional
+# - SSH root no VPS (37.27.17.25)
+# - DirectAdmin instalado e funcional
 # - Backup cPanel (.tar.gz) do site na pasta ~/backups/
 # ============================================================
 
 set -e
 
 # ---- CONFIGURAÇÃO ----
-VPS_IP="109.199.104.22"
+VPS_IP="37.27.17.25"
 VPS_USER="root"
 VPS_PORT="22"
 BACKUP_DIR="$HOME/backups"
@@ -52,18 +52,18 @@ log "Domínio:  ${DOMAIN}"
 log "Backup:   ${BACKUP_FILE}"
 log "VPS:      ${VPS_USER}@${VPS_IP}:${VPS_PORT}"
 
-# ---- ETAPA 1: CRIAR SITE NO CYBERPANEL ----
-step "ETAPA 1/5 — Criar website no CyberPanel"
-warn "A seguir, o script vai criar o site '${DOMAIN}' no CyberPanel via API."
+# ---- ETAPA 1: CRIAR SITE NO SERVER ----
+step "ETAPA 1/5 — Criar website no DirectAdmin"
+warn "A seguir, o script vai criar o site '${DOMAIN}' no DirectAdmin via API."
 read -p "Pressione ENTER para continuar ou Ctrl+C para cancelar..."
 
 ssh -p ${VPS_PORT} ${VPS_USER}@${VPS_IP} << REMOTE_CMD
-  # Criar website via CyberPanel CLI
-  cyberpanel createWebsite --domainName ${DOMAIN} --email admin@${DOMAIN} --package Default --owner admin
-  echo "Site '${DOMAIN}' criado no CyberPanel."
+  # Criar website via DirectAdmin CLI
+  panel createWebsite --domainName ${DOMAIN} --email admin@${DOMAIN} --package Default --owner admin
+  echo "Site '${DOMAIN}' criado no DirectAdmin."
 REMOTE_CMD
 
-log "Website criado no CyberPanel!"
+log "Website criado no DirectAdmin!"
 
 # ---- ETAPA 2: ENVIAR BACKUP PARA O VPS ----
 step "ETAPA 2/5 — Enviar backup para o VPS"
@@ -125,7 +125,7 @@ ssh -p ${VPS_PORT} ${VPS_USER}@${VPS_IP} << 'REMOTE_CMD'
     echo "${SQL_FILES}"
     echo ""
     echo "Para importar manualmente, use:"
-    echo "  cyberpanel createDatabase --databaseWebsite <dominio> --dbName <nome> --dbUsername <user> --dbPassword <pass>"
+    echo "  panel createDatabase --databaseWebsite <dominio> --dbName <nome> --dbUsername <user> --dbPassword <pass>"
     echo "  mysql -u <user> -p <dbname> < ficheiro.sql"
   else
     echo "Nenhum ficheiro SQL encontrado. Verifique se o backup contém dumps de DB."
@@ -134,7 +134,7 @@ ssh -p ${VPS_PORT} ${VPS_USER}@${VPS_IP} << 'REMOTE_CMD'
     echo "  mysqldump -u <user> -p <database> > backup.sql"
     echo ""
     echo "Para importar no novo VPS:"
-    echo "  1. Crie a DB no CyberPanel (Websites > <dominio> > Databases)"
+    echo "  1. Crie a DB no DirectAdmin (Websites > <dominio> > Databases)"
     echo "  2. mysql -u <user> -p <newdb> < backup.sql"
   fi
   
@@ -177,6 +177,6 @@ echo ""
 warn "PRÓXIMOS PASSOS:"
 echo "  1. Teste o site via /etc/hosts ou curl antes de alterar o DNS"
 echo "  2. Actualize o wp-config.php (se WordPress) com as novas credenciais DB"
-echo "  3. Configure SSL: cyberpanel issueSSL --domainName ${DOMAIN}"
+echo "  3. Configure SSL: panel issueSSL --domainName ${DOMAIN}"
 echo "  4. Quando estiver tudo OK, altere o registo A do DNS para ${VPS_IP}"
 echo ""

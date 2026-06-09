@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script para configurar SPF e DKIM no servidor CyberPanel
+# Script para configurar SPF e DKIM no servidor DirectAdmin
 # Autor: VisualDesign
 # Data: 2026-04-15
 
@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # Variáveis
 DOMAIN="visualdesignmoz.com"
-SERVER_IP="109.199.104.22"
+SERVER_IP="37.27.17.25"
 SELECTOR="mail"
 DKIM_DIR="/etc/opendkim"
 
@@ -92,7 +92,7 @@ echo ""
 echo -e "${YELLOW}5️⃣ Configurando domínios...${NC}"
 echo "visualdesignmoz.com mail:/etc/opendkim/keys/visualdesignmoz.com/mail.private" > /etc/opendkim/key.table
 echo "*@visualdesignmoz.com visualdesignmoz.com" > /etc/opendkim/signing.table
-echo "109.199.104.22/32" > /etc/opendkim/trusted.hosts
+echo "37.27.17.25/32" > /etc/opendkim/trusted.hosts
 echo "localhost" >> /etc/opendkim/trusted.hosts
 echo "127.0.0.1" >> /etc/opendkim/trusted.hosts
 

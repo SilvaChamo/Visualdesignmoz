@@ -4,7 +4,7 @@ module.exports = {
       name: 'visualdesign',
       script: 'node_modules/.bin/next',
       args: 'start --port 3002',
-      cwd: '/home/visualdesign.ao/public_html',
+      cwd: '/home/visualdesignmoz.com/public_html',
       instances: 1,
       autorestart: true,
       watch: false,

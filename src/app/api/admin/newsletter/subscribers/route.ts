@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createBrowserClient } from '@supabase/ssr';
-
-// Note: Using createClient from supabase-js for server-side if needed, 
-// but since we have a browser client, we'll adapt or use the service role for admin tasks.
 import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -11,6 +8,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET(request: Request) {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     
@@ -30,6 +30,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     try {
         const body = await request.json();
         const { email, full_name, tags, metadata } = body;
@@ -56,6 +59,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     

@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../../components/auth/AuthProvider'
+import { googleOAuthUserMessage } from '@/lib/auth-messages'
 
 export default function RegisterPage() {
   const [nome, setNome] = useState('')
@@ -14,7 +15,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [sucesso, setSucesso] = useState(false)
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,24 +31,33 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      await signUp(email, password, nome)
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, nome }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao criar conta.')
+      }
       setSucesso(true)
     } catch (err: unknown) {
-      let msg = (err as Error).message || 'Erro ao criar conta.'
-      if (msg.includes('Error sending confirmation email')) {
-        msg = 'O envio de e-mails falhou. Para contornar provisoriamente, vá ao painel do Supabase > Authentication > Providers > Email e DESATIVE a opção "Confirm email".'
-      }
-      setError(msg)
+      setError((err as Error).message || 'Erro ao criar conta.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setLoadingGoogle(true)
     setError('')
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-    window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin + '/auth/callback')}`
+    try {
+      await signInWithGoogle()
+    } catch (err: unknown) {
+      setLoadingGoogle(false)
+      const { desc } = googleOAuthUserMessage('callback_error', (err as Error).message)
+      setError(desc)
+    }
   }
 
   return (
@@ -93,17 +103,15 @@ export default function RegisterPage() {
         {sucesso ? (
           <div className="text-center py-8">
             <div className="text-5xl mb-5">📧</div>
-            <p className="text-white font-bold text-xl mb-3">Confirma o teu email!</p>
-            <p className="text-gray-300 text-sm leading-relaxed mb-2">Enviámos um email de confirmação para:</p>
+            <p className="text-white font-bold text-xl mb-3">Conta criada!</p>
+            <p className="text-gray-300 text-sm leading-relaxed mb-2">Pode entrar agora com:</p>
             <p className="text-red-400 font-bold text-sm mb-4 break-all">{email}</p>
             <p className="text-gray-400 text-xs leading-relaxed mb-6">
-              Abre o teu email, clica no link de confirmação e depois volta aqui para entrar na tua conta.
+              Não precisa confirmar email. A sua conta começa como <strong className="text-gray-300">visitante (guest)</strong> —
+              após a primeira compra passa a cliente.
             </p>
-            <div className="p-3 bg-white/5 border border-white/10 rounded-lg text-gray-500 text-xs">
-              Não recebeste? Verifica a pasta de spam ou tenta registar novamente.
-            </div>
-            <a href="/auth/login" className="inline-block mt-6 text-red-400 hover:text-red-300 transition text-sm font-semibold">
-              ← Voltar ao Login
+            <a href="/auth/login" className="inline-block mt-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-lg text-sm transition">
+              Ir para Entrar →
             </a>
           </div>
         ) : (

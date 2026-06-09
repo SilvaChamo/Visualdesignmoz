@@ -1,8 +1,29 @@
 /**
- * Cliente da camada de hospedagem usada pelo painel (nomenclatura DirectAdmin).
- * As operações estão desactivadas no stub — não há chamadas de rede aqui.
- * Tipos públicos expostos como DirectAdmin* via `@/lib/directadmin-api`.
+ * Cliente da camada de hospedagem — browser chama `/api/da` (BFF).
+ * Tipos partilhados com o adaptador servidor (`directadmin-adapter.ts`).
  */
+
+import { cacheService } from './cache-service';
+
+const PANEL_API = '/api/da';
+const LONG_TIMEOUT = 120_000;
+
+const MUTATION_ACTIONS = new Set([
+  'createUser', 'modifyUser', 'deleteUser',
+  'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
+  'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail',
+  'createSubdomain', 'deleteSubdomain',
+  'createDatabase', 'deleteDatabase',
+  'createFTPAccount', 'deleteFTPAccount',
+  'changeEmailPassword', 'setEmailLimits',
+  'addEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing',
+  'enableDKIM', 'issueSSL',
+  'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
+  'changePHPVersion', 'savePHPConfig',
+  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
+  'installWordPress', 'installWPPlugin', 'toggleWPPlugin',
+  'restoreWPBackup', 'createRemoteBackup',
+]);
 
 export interface PanelWebsite {
   id: string | number;
@@ -88,13 +109,11 @@ export interface PanelPHPConfig {
   phpVersion?: string;
 }
 
-/** Resultado genérico de comandos do stub (evita `{}` literal em strict mode). */
 export interface HostingCommandResult {
   success?: boolean;
   error?: string;
   record?: string;
   publicKey?: string;
-  /** Saída textual (ex.: CLI) quando o painel devolve detalhes de erro. */
   output?: string;
   disabled?: boolean;
   message?: string;
@@ -102,111 +121,141 @@ export interface HostingCommandResult {
   [key: string]: unknown;
 }
 
-async function run(action: string): Promise<HostingCommandResult> {
-  if (action === 'serverStats' || action === 'serverStatus') {
-    return { disabled: true, message: 'Sem métricas de hospedagem externa.' };
+async function run<T = HostingCommandResult>(
+  action: string,
+  params: Record<string, unknown> = {},
+  timeoutMs = 60_000,
+): Promise<T> {
+  const isMutation = MUTATION_ACTIONS.has(action);
+  const cacheKey = `directadmin_${action}_${JSON.stringify(params)}`;
+
+  if (!isMutation) {
+    const cached = cacheService.get<T>(cacheKey);
+    if (cached) return cached;
+  } else {
+    cacheService.clear();
   }
 
-  throw new Error(
-    'Operação desactivada: a gestão de domínios, DNS e email passa a ser feita dentro deste painel (sem ligação a painéis de hospedagem externos).'
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(new Error(`Timeout: ${action} demorou mais de ${timeoutMs}ms`)),
+    timeoutMs,
   );
-}
 
-function emptyList<T>(): Promise<T[]> {
-  return Promise.resolve([]);
+  try {
+    const res = await fetch(PANEL_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params, timeoutMs }),
+      signal: controller.signal,
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || `HTTP ${res.status}`);
+    }
+
+    if (!isMutation) {
+      const ttl = action.includes('list') ? 5 * 60_000 : 60_000;
+      cacheService.set(cacheKey, json.data, ttl);
+    }
+
+    return json.data as T;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Pedido expirou após ${timeoutMs / 1000}s`);
+    }
+    const message = error instanceof Error ? error.message : 'Pedido DirectAdmin falhou';
+    console.error(`[DIRECTADMIN CLIENT] ${action}:`, message);
+    throw error instanceof Error ? error : new Error(message);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export const panelHostingAPI = {
-  listWebsites: (_timeoutMs?: number): Promise<PanelWebsite[]> => emptyList<PanelWebsite>(),
-  listPackages: (): Promise<PanelPackage[]> => emptyList<PanelPackage>(),
-  listUsers: (): Promise<PanelUser[]> => emptyList<PanelUser>(),
-  createWebsite: (_params: unknown) => run('createWebsite'),
-  suspendWebsite: (_domain: string) => run('suspendWebsite'),
-  unsuspendWebsite: (_domain: string) => run('unsuspendWebsite'),
-  deleteWebsite: (_domain: string) => run('deleteWebsite'),
-  modifyWebsite: (_params: unknown) => run('modifyWebsite'),
+  listWebsites: (timeoutMs?: number) => run<PanelWebsite[]>('listWebsites', {}, timeoutMs),
+  listPackages: () => run<PanelPackage[]>('listPackages'),
+  listUsers: () => run<PanelUser[]>('listUsers'),
+  createWebsite: (params: unknown) => run('createWebsite', params as Record<string, unknown>, LONG_TIMEOUT),
+  suspendWebsite: (domain: string) => run('suspendWebsite', { domain }),
+  unsuspendWebsite: (domain: string) => run('unsuspendWebsite', { domain }),
+  deleteWebsite: (domain: string) => run('deleteWebsite', { domain }, LONG_TIMEOUT),
+  modifyWebsite: (params: unknown) => run('modifyWebsite', params as Record<string, unknown>, LONG_TIMEOUT),
 
-  listSubdomains: (_domain: string): Promise<PanelSubdomain[]> => emptyList<PanelSubdomain>(),
-  createSubdomain: (_domain: string, _subdomain: string) => run('createSubdomain'),
-  deleteSubdomain: (_domain: string, _subdomain: string) => run('deleteSubdomain'),
+  listSubdomains: (domain: string) => run<PanelSubdomain[]>('listSubdomains', { domain }),
+  createSubdomain: (domain: string, subdomain: string) => run('createSubdomain', { domain, subdomain }),
+  deleteSubdomain: (domain: string, subdomain: string) => run('deleteSubdomain', { domain, subdomain }),
 
-  listDatabases: (_domain: string): Promise<PanelDatabase[]> => emptyList<PanelDatabase>(),
-  createDatabase: (_params: unknown) => run('createDatabase'),
-  deleteDatabase: (_params: unknown) => run('deleteDatabase'),
+  listDatabases: (domain: string) => run<PanelDatabase[]>('listDatabases', { domain }),
+  createDatabase: (params: unknown) => run('createDatabase', params as Record<string, unknown>),
+  deleteDatabase: (params: unknown) => run('deleteDatabase', params as Record<string, unknown>),
 
-  listFTPAccounts: (_domain: string): Promise<PanelFTPAccount[]> => emptyList<PanelFTPAccount>(),
-  createFTPAccount: (_params: unknown) => run('createFTPAccount'),
-  deleteFTPAccount: (_params: unknown) => run('deleteFTPAccount'),
+  listFTPAccounts: (domain: string) => run<PanelFTPAccount[]>('listFTPAccounts', { domain }),
+  createFTPAccount: (params: unknown) => run('createFTPAccount', params as Record<string, unknown>),
+  deleteFTPAccount: (params: unknown) => run('deleteFTPAccount', params as Record<string, unknown>),
 
-  listEmails: (_domain: string): Promise<PanelEmailAccount[]> => emptyList<PanelEmailAccount>(),
-  createEmail: (_params: unknown) => run('createEmail'),
-  deleteEmail: (_params: unknown) => run('deleteEmail'),
-  suspendEmail: (_email: string) => run('suspendEmail'),
-  unsuspendEmail: (_email: string) => run('unsuspendEmail'),
-  changeEmailPassword: (_params: unknown) => run('changeEmailPassword'),
-  setEmailLimits: (_params: unknown) => run('setEmailLimits'),
-  getEmailForwarding: (_params: unknown): Promise<string[]> => emptyList<string>(),
-  addEmailForwarding: (_params: unknown) => run('addEmailForwarding'),
-  getCatchAllEmail: (_domain: string): Promise<string> => Promise.resolve(''),
-  setCatchAllEmail: (_params: unknown) => run('setCatchAllEmail'),
-  getPatternForwarding: (_domain: string): Promise<Record<string, unknown>[]> =>
-    emptyList<Record<string, unknown>>(),
-  addPatternForwarding: (_params: unknown) => run('addPatternForwarding'),
-  getPlusAddressing: (_domain: string): Promise<boolean> => Promise.resolve(false),
-  togglePlusAddressing: (_params: unknown) => run('togglePlusAddressing'),
-  enableDKIM: (_domain: string) => run('enableDKIM'),
-  getDKIMStatus: (_domain: string): Promise<HostingCommandResult> => Promise.resolve({ output: '' }),
+  listEmails: (domain: string) => run<PanelEmailAccount[]>('listEmails', { domain }),
+  createEmail: (params: unknown) => run('createEmail', params as Record<string, unknown>),
+  deleteEmail: (params: unknown) => run('deleteEmail', params as Record<string, unknown>),
+  suspendEmail: (email: string) => run('suspendEmail', { email }),
+  unsuspendEmail: (email: string) => run('unsuspendEmail', { email }),
+  changeEmailPassword: (params: unknown) => run('changeEmailPassword', params as Record<string, unknown>),
+  setEmailLimits: (params: unknown) => run('setEmailLimits', params as Record<string, unknown>),
+  getEmailForwarding: (params: unknown) => run<string[]>('getEmailForwarding', params as Record<string, unknown>),
+  addEmailForwarding: (params: unknown) => run('addEmailForwarding', params as Record<string, unknown>),
+  getCatchAllEmail: (domain: string) => run<string>('getCatchAllEmail', { domain }),
+  setCatchAllEmail: (params: unknown) => run('setCatchAllEmail', params as Record<string, unknown>),
+  getPatternForwarding: (domain: string) => run<Record<string, unknown>[]>('getPatternForwarding', { domain }),
+  addPatternForwarding: (params: unknown) => run('addPatternForwarding', params as Record<string, unknown>),
+  getPlusAddressing: (domain: string) => run<boolean>('getPlusAddressing', { domain }),
+  togglePlusAddressing: (params: unknown) => run('togglePlusAddressing', params as Record<string, unknown>),
+  enableDKIM: (domain: string) => run('enableDKIM', { domain }),
+  getDKIMStatus: (domain: string) => run<HostingCommandResult>('getDKIMStatus', { domain }),
 
-  issueSSL: (_domain: string) => run('issueSSL'),
-  getPHPConfig: (_domain: string): Promise<PanelPHPConfig> =>
-    Promise.resolve({ domain: _domain }),
-  savePHPConfig: (_params: unknown) => run('savePHPConfig'),
-  changePHPVersion: (_params: unknown) => run('changePHPVersion'),
+  issueSSL: (domain: string) => run('issueSSL', { domain }, LONG_TIMEOUT),
+  getPHPConfig: (domain: string) => run<PanelPHPConfig>('getPHPConfig', { domain }),
+  savePHPConfig: (params: unknown) => run('savePHPConfig', params as Record<string, unknown>),
+  changePHPVersion: (params: unknown) => run('changePHPVersion', params as Record<string, unknown>, LONG_TIMEOUT),
 
   getServerStatus: () => run('serverStats'),
   getServerStats: () => run('serverStats'),
-  getFirewallStatus: (): Promise<boolean> => Promise.resolve(false),
-  toggleFirewall: (_params: unknown) => run('toggleFirewall'),
-  getModSecurityStatus: (): Promise<boolean> => Promise.resolve(false),
-  toggleModSecurity: (_params: unknown) => run('toggleModSecurity'),
-  getBlockedIPs: (): Promise<string[]> => emptyList<string>(),
-  blockIP: (_params: unknown) => run('blockIP'),
-  unblockIP: (_params: unknown) => run('unblockIP'),
+  getFirewallStatus: () => run<boolean>('getFirewallStatus'),
+  toggleFirewall: (params: unknown) => run('toggleFirewall', params as Record<string, unknown>),
+  getModSecurityStatus: () => run<boolean>('getModSecurityStatus'),
+  toggleModSecurity: (params: unknown) => run('toggleModSecurity', params as Record<string, unknown>),
+  getBlockedIPs: () => run<string[]>('getBlockedIPs'),
+  blockIP: (params: unknown) => run('blockIP', params as Record<string, unknown>),
+  unblockIP: (params: unknown) => run('unblockIP', params as Record<string, unknown>),
 
-  createUser: (_params: unknown) => run('createUser'),
-  modifyUser: (_params: unknown) => run('modifyUser'),
-  deleteUser: (_params: unknown) => run('deleteUser'),
-  listACLs: (): Promise<string[]> => emptyList<string>(),
-  createACL: (_params: unknown) => run('createACL'),
-  deleteACL: (_params: unknown) => run('deleteACL'),
+  createUser: (params: unknown) => run('createUser', params as Record<string, unknown>, LONG_TIMEOUT),
+  modifyUser: (params: unknown) => run('modifyUser', params as Record<string, unknown>, LONG_TIMEOUT),
+  deleteUser: (params: unknown) => run('deleteUser', params as Record<string, unknown>, LONG_TIMEOUT),
+  listACLs: () => run<string[]>('listACLs'),
+  createACL: (params: unknown) => run('createACL', params as Record<string, unknown>),
+  deleteACL: (params: unknown) => run('deleteACL', params as Record<string, unknown>),
 
-  listWordPress: (_domain: string): Promise<unknown[]> => emptyList<unknown>(),
-  installWordPress: (_params: unknown) => run('installWordPress'),
-  listWPPlugins: (_params: unknown): Promise<unknown[]> => emptyList<unknown>(),
-  installWPPlugin: (_params: unknown) => run('installWPPlugin'),
-  toggleWPPlugin: (_params: unknown) => run('toggleWPPlugin'),
-  listWPBackups: (_domain: string): Promise<string[]> => emptyList<string>(),
-  restoreWPBackup: (_params: unknown) => run('restoreWPBackup'),
-  createRemoteBackup: (_params: unknown) => run('createRemoteBackup'),
+  listWordPress: (domain: string) => run<unknown[]>('listWordPress', { domain }),
+  installWordPress: (params: unknown) => run('installWordPress', params as Record<string, unknown>, LONG_TIMEOUT),
+  listWPPlugins: (params: unknown) => run<unknown[]>('listWPPlugins', params as Record<string, unknown>),
+  installWPPlugin: (params: unknown) => run('installWPPlugin', params as Record<string, unknown>, LONG_TIMEOUT),
+  toggleWPPlugin: (params: unknown) => run('toggleWPPlugin', params as Record<string, unknown>),
+  listWPBackups: (domain: string) => run<string[]>('listWPBackups', { domain }),
+  restoreWPBackup: (params: unknown) => run('restoreWPBackup', params as Record<string, unknown>, LONG_TIMEOUT),
+  createRemoteBackup: (params: unknown) => run('createRemoteBackup', params as Record<string, unknown>, LONG_TIMEOUT),
 
-  configDefaultNameservers: (_params: unknown) => run('configDefaultNameservers'),
-  createNameserver: (_params: unknown) => run('createNameserver'),
-  createDNSZone: (_params: unknown) => run('createDNSZone'),
-  deleteDNSZone: (_params: unknown) => run('deleteDNSZone'),
-  resetDNSConfigurations: (_domain: string) => run('resetDNSConfigurations'),
-  configCloudFlare: (_params: unknown) => run('configCloudFlare'),
-  listDNS: (_domain: string): Promise<unknown[]> => emptyList<unknown>(),
+  configDefaultNameservers: (params: unknown) => run('configDefaultNameservers', params as Record<string, unknown>),
+  createNameserver: (params: unknown) => run('createNameserver', params as Record<string, unknown>),
+  createDNSZone: (params: unknown) => run('createDNSZone', params as Record<string, unknown>),
+  deleteDNSZone: (params: unknown) => run('deleteDNSZone', params as Record<string, unknown>),
+  resetDNSConfigurations: (domain: string) => run('resetDNSConfigurations', { domain }),
+  configCloudFlare: (params: unknown) => run('configCloudFlare', params as Record<string, unknown>),
+  listDNS: (domain: string) => run<unknown[]>('listDNS', { domain }),
 
-  generateAPIToken: (): Promise<null> => Promise.resolve(null),
-  execCommand: (_command: string): Promise<HostingCommandResult> =>
-    Promise.resolve({
-      success: false,
-      supported: false,
-      error: 'Comandos remotos no servidor de hospedagem estão desactivados.',
-    }),
+  generateAPIToken: () => run<string | null>('generateAPIToken'),
+  execCommand: (command: string) =>
+    run<HostingCommandResult>('execCommand', { command }),
 };
 
-/** Mesmo objecto que `panelHostingAPI` — nome explícito para imports no servidor. */
 export const directAdminHostingAPI = panelHostingAPI;
-
 export default panelHostingAPI;

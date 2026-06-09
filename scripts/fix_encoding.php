@@ -1,5 +1,5 @@
 <?php
-// Corrige encoding do email no CyberPanel
+// Corrige encoding do email no DirectAdmin
 
 $file = '/usr/local/CyberCP/public/send-email-api.php';
 $content = file_get_contents($file);

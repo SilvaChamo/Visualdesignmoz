@@ -1,12 +1,12 @@
 // ==========================================
-// DNS Sync API - Mozserver ↔ CyberPanel
+// DNS Sync API - Mozserver ↔ DirectAdmin
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   checkDomainSyncStatus, 
-  syncDomainToCyberPanel, 
-  getCyberPanelDomains,
+  syncDomainToHosting, 
+  getHostingDomains,
   handleMozserverWebhook 
 } from '@/lib/dns-sync';
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: status });
 
       case 'list':
-        const domains = await getCyberPanelDomains();
+        const domains = await getHostingDomains();
         const domainsWithStatus = await Promise.all(
           domains.map(d => checkDomainSyncStatus(d))
         );
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         if (!domain) {
           return NextResponse.json({ error: 'Domain required' }, { status: 400 });
         }
-        const syncResult = await syncDomainToCyberPanel(domain);
+        const syncResult = await syncDomainToHosting(domain);
         return NextResponse.json({
           success: syncResult,
           message: syncResult 
@@ -82,10 +82,10 @@ export async function POST(request: NextRequest) {
         });
 
       case 'sync-all':
-        const domains = await getCyberPanelDomains();
+        const domains = await getHostingDomains();
         const results = await Promise.all(
           domains.map(async (d) => {
-            const synced = await syncDomainToCyberPanel(d);
+            const synced = await syncDomainToHosting(d);
             return { domain: d, synced };
           })
         );

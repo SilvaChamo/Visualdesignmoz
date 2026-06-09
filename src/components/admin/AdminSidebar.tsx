@@ -2,9 +2,9 @@
 
 import React from 'react';
 import {
-  Home, Globe, Mail, Layout, Package,
+  Home, Globe, Mail, Layout,
   LogOut, ChevronRight, Server, Download,
-  Bell, Palette, Newspaper
+  Bell,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -22,10 +22,13 @@ interface MenuItem {
   subItems?: { id: string; label: string }[];
 }
 
+const GESTAO_HOSPEDAGEM_SECTIONS = [
+  'domains', 'packages-list', 'cp-databases', 'cp-ftp', 'cp-ssl',
+  'cp-security', 'cp-php', 'backup-manager', 'infrastructure', 'cp-reseller',
+];
+
 const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'infra-manager', label: 'Infraestrutura & Cópia', icon: Server },
-  { id: 'news-manager', label: 'Gestor de Notícias', icon: Newspaper },
   {
     id: 'gestao-paineis',
     label: 'Gestão de Painéis',
@@ -38,46 +41,37 @@ const menuItems: MenuItem[] = [
   },
   {
     id: 'gestao-sites',
-    label: 'Gestão de Sites',
-    icon: Globe,
+    label: 'Gestor de Hospedagem',
+    icon: Server,
     subItems: [
       { id: 'domains', label: 'Listar Websites' },
       { id: 'packages-list', label: 'Pacotes' },
+      { id: 'cp-databases', label: 'Bases de Dados' },
+      { id: 'cp-ftp', label: 'Contas FTP' },
+      { id: 'cp-ssl', label: 'SSL / TLS' },
+      { id: 'cp-security', label: 'Segurança' },
+      { id: 'cp-php', label: 'Configuração PHP' },
+      { id: 'backup-manager', label: 'Backups' },
+      { id: 'infrastructure', label: 'Estado do Servidor' },
+      { id: 'cp-reseller', label: 'Centro de Revenda' },
     ]
   },
   {
     id: 'gestao-dominios',
     label: 'Gestão de Domínios',
-    icon: Server,
-    subItems: [
-      { id: 'porkbun-domains', label: 'Registar / comprar domínio' },
-      { id: 'porkbun-my-domains', label: 'Os seus domínios' },
-      { id: 'dns-central', label: 'DNS Central' },
-      { id: 'domains-list', label: 'Listar no servidor' },
-      { id: 'domains-new', label: 'Criar Website' },
-      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
-      { id: 'cp-suspend-website', label: 'Suspender' },
-      { id: 'domains-dns', label: 'Configurar DNS (servidor)' },
-      { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
-    ]
-  },
-  {
-    id: 'wordpress',
-    label: 'WordPress',
     icon: Globe,
     subItems: [
-      { id: 'cp-wp-list', label: 'Listar sites WordPress' },
-      { id: 'wordpress-install', label: 'Instalar WordPress' },
-      { id: 'cp-wp-plugins', label: 'Gerir plugins' },
-    ]
-  },
-  {
-    id: 'page-builders',
-    label: 'Construtores',
-    icon: Palette,
-    subItems: [
-      { id: 'page-builders', label: 'Abrir Construtores' },
-      { id: 'templates-saved', label: 'Templates Salvos' },
+      { id: 'porkbun-domains', label: 'Registar domínio' },
+      { id: 'porkbun-my-domains', label: 'Os seus domínios' },
+      { id: 'dns-central', label: 'DNS Central' },
+      { id: 'domain-manager', label: 'Gestor de domínios' },
+      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
+      { id: 'cp-list-subdomains', label: 'Listar Sub/Addon' },
+      { id: 'cp-modify-website', label: 'Modificar Website' },
+      { id: 'cp-suspend-website', label: 'Suspender' },
+      { id: 'cp-delete-website', label: 'Apagar Website' },
+      { id: 'domains-dns', label: 'Configurar DNS (servidor)' },
+      { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
     ]
   },
   {
@@ -105,9 +99,24 @@ const menuItems: MenuItem[] = [
 ];
 
 const GESTAO_DOMINIOS_SECTIONS = [
-  'domains-list', 'domains-new', 'cp-subdomains', 'cp-suspend-website', 'domains-dns', 'dns-central',
-  'cp-delete-website', 'cp-dns-nameserver', 'porkbun-domains', 'porkbun-my-domains',
+  'cp-subdomains', 'cp-list-subdomains', 'cp-modify-website', 'cp-suspend-website',
+  'cp-delete-website', 'domains-dns', 'dns-central', 'cp-dns-nameserver',
+  'porkbun-domains', 'porkbun-my-domains', 'domain-manager',
 ];
+
+function adminMenuParentForSection(sectionId: string): string | null {
+  for (const item of menuItems) {
+    if (item.id === sectionId) return item.subItems ? item.id : null;
+    if (item.subItems?.some((s) => s.id === sectionId)) return item.id;
+  }
+  if (sectionId.startsWith('cp-email')) return 'gestao-emails';
+  if (['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(sectionId)) return 'gestao-emails';
+  if (GESTAO_DOMINIOS_SECTIONS.includes(sectionId)) return 'gestao-dominios';
+  if (GESTAO_HOSPEDAGEM_SECTIONS.includes(sectionId)) return 'gestao-sites';
+  if (['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(sectionId)) return 'gestao-paineis';
+  if (['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(sectionId)) return 'notificacoes';
+  return null;
+}
 
 export function AdminSidebar({
   activeSection,
@@ -117,18 +126,33 @@ export function AdminSidebar({
   sessionUser
 }: AdminSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 80 : 250;
-  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({
-    'gestao-paineis': false,
-    'gestao-sites': false,
-    'gestao-dominios': false,
-    'wordpress': false,
-    'page-builders': false,
-    'gestao-emails': false,
-    'notificacoes': false,
-  });
+  const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
+    adminMenuParentForSection(activeSection),
+  );
 
-  const toggleExpand = (id: string) => {
-    setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
+  React.useEffect(() => {
+    const parent = adminMenuParentForSection(activeSection);
+    if (parent) setExpandedMenu(parent);
+  }, [activeSection]);
+
+  const handleParentClick = (item: MenuItem) => {
+    if (!item.subItems?.length) {
+      setExpandedMenu(null);
+      if (item.id === 'newsletter') {
+        onNavigate('newsletter');
+      } else {
+        onNavigate(item.id);
+      }
+      return;
+    }
+
+    if (expandedMenu === item.id) {
+      setExpandedMenu(null);
+      return;
+    }
+
+    setExpandedMenu(item.id);
+    onNavigate(item.subItems[0].id);
   };
 
   return (
@@ -181,29 +205,19 @@ export function AdminSidebar({
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id ||
-              (item.id === 'gestao-sites' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
               (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
               (item.id === 'newsletter' && activeSection === 'newsletter') ||
               (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) ||
               (item.id === 'gestao-dominios' && GESTAO_DOMINIOS_SECTIONS.includes(activeSection)) ||
-              (item.id === 'gestao-sites' && ['domains', 'packages-list'].includes(activeSection)) ||
+              (item.id === 'gestao-sites' && GESTAO_HOSPEDAGEM_SECTIONS.includes(activeSection)) ||
               (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) ||
-              (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) ||
-              (item.id === 'wordpress' && ['cp-wp-list', 'wordpress-install', 'cp-wp-plugins', 'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup'].includes(activeSection));
+              (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection));
 
             return (
               <div key={item.id} className="mb-1">
                 <button
-                  onClick={() => {
-                    if (item.subItems) {
-                      toggleExpand(item.id);
-                    } else if (item.id === 'newsletter') {
-                      onNavigate('newsletter');
-                    } else {
-                      onNavigate(item.id);
-                    }
-                  }}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${isActive || (expandedMenus[item.id] && item.subItems)
+                  onClick={() => handleParentClick(item)}
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${isActive || (expandedMenu === item.id && item.subItems)
                     ? item.id === 'dashboard'
                       ? 'text-red-600 font-bold bg-red-50 border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
                       : 'text-black font-bold'
@@ -211,19 +225,19 @@ export function AdminSidebar({
                     }`}
                   title={isCollapsed ? item.label : ''}
                 >
-                  <Icon size={22} className={`${isActive || expandedMenus[item.id] ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
+                  <Icon size={22} className={`${isActive || expandedMenu === item.id ? (item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`} />
                   {!isCollapsed && (
                     <span className="ml-3 text-[15px]">{item.label}</span>
                   )}
                   {!isCollapsed && item.subItems && (
-                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenus[item.id] ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${expandedMenu === item.id ? 'rotate-90' : ''}`} />
                   )}
                   {!isCollapsed && !item.subItems && isActive && (
                     <ChevronRight size={14} className={`ml-auto ${item.id === 'dashboard' ? 'text-red-600' : 'text-gray-900'}`} />
                   )}
                 </button>
 
-                {!isCollapsed && item.subItems && expandedMenus[item.id] && (
+                {!isCollapsed && item.subItems && expandedMenu === item.id && (
                   <div className="mt-1 ml-9 border-l border-gray-200 flex flex-col gap-1">
                     {item.subItems.map(sub => {
                       const isSubActive = activeSection === sub.id;

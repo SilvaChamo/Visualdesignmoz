@@ -76,15 +76,108 @@ export function isSmtpConfigured(): boolean {
   return Boolean(getSmtpHost() && getSmtpUser() && getSmtpPass());
 }
 
+const BREVO_SMTP_HOST = 'smtp-relay.brevo.com';
+const BREVO_SMTP_USER_DEFAULT = 'ad3ca6001@smtp-brevo.com';
+
+/** Credenciais Brevo — entrega externa (Gmail, etc.). Evita Exim/Hetzner onde a porta 25 está bloqueada. */
+export function getBrevoSmtpHost(): string {
+  return (
+    process.env.BREVO_SMTP_HOST?.trim() ||
+    process.env.TRANSACTIONAL_SMTP_HOST?.trim() ||
+    BREVO_SMTP_HOST
+  );
+}
+
+export function getBrevoSmtpUser(): string {
+  return (
+    process.env.BREVO_SMTP_USER?.trim() ||
+    process.env.TRANSACTIONAL_SMTP_USER?.trim() ||
+    BREVO_SMTP_USER_DEFAULT
+  );
+}
+
+export function getBrevoSmtpPass(): string {
+  return (
+    process.env.BREVO_SMTP_PASS?.trim() ||
+    process.env.TRANSACTIONAL_SMTP_PASS?.trim() ||
+    process.env.SMTP_MASTER_PASSWORD?.trim() ||
+    ''
+  );
+}
+
+export function isBrevoSmtpConfigured(): boolean {
+  return Boolean(getBrevoSmtpHost() && getBrevoSmtpUser() && getBrevoSmtpPass());
+}
+
+/** Brevo API ou SMTP relay — qualquer um permite envio transaccional externo. */
+export function isBrevoTransactionalConfigured(): boolean {
+  const apiKey =
+    process.env.BREVO_API_KEY?.trim() ||
+    process.env.SENDINBLUE_API_KEY?.trim();
+  return Boolean(apiKey) || isBrevoSmtpConfigured();
+}
+
+/** True quando SMTP aponta para DirectAdmin/Exim local (aceita mas não entrega para Gmail). */
+export function isDirectAdminSmtpHost(host?: string): boolean {
+  const h = (host || getSmtpHost()).toLowerCase();
+  return (
+    h.includes('visualdesignmoz.com') ||
+    h.includes('host.visualdesign') ||
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(h)
+  );
+}
+
+export function createBrevoTransport(): Mail {
+  return nodemailer.createTransport({
+    host: getBrevoSmtpHost(),
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: getBrevoSmtpUser(),
+      pass: getBrevoSmtpPass(),
+    },
+    connectionTimeout: 15_000,
+    greetingTimeout: 12_000,
+    socketTimeout: 20_000,
+  });
+}
+
+/** Envio transaccional via Brevo (recuperação de senha, confirmações). */
+export async function sendTransactionalSmtpMail(input: SendSmtpMailInput) {
+  if (!isBrevoSmtpConfigured()) {
+    throw new Error(
+      'Brevo SMTP não configurado. Defina BREVO_SMTP_PASS ou SMTP_MASTER_PASSWORD na Vercel.',
+    );
+  }
+  const transport = createBrevoTransport();
+  return transport.sendMail(input);
+}
+
+function smtpTlsOptions(host: string) {
+  const h = host.toLowerCase();
+  // Exim/DirectAdmin no Hetzner: certificado pode falhar verificação CA em Vercel/Node
+  if (
+    h.includes('visualdesignmoz.com') ||
+    h.includes('host.visualdesign') ||
+    process.env.SMTP_TLS_INSECURE === 'true'
+  ) {
+    return { rejectUnauthorized: false, servername: h };
+  }
+  return undefined;
+}
+
 export function createSmtpTransport(): Mail {
   const port = getSmtpPort();
+  const host = getSmtpHost();
   const secure =
     process.env.SMTP_SECURE === 'true' ||
     process.env.SMTP_SECURE === '1' ||
     port === 465;
+  const tls = smtpTlsOptions(host);
 
   return nodemailer.createTransport({
-    host: getSmtpHost(),
+    host,
     port,
     secure,
     requireTLS: !secure && port === 587,
@@ -92,6 +185,7 @@ export function createSmtpTransport(): Mail {
       user: getSmtpUser(),
       pass: getSmtpPass(),
     },
+    tls,
     connectionTimeout: 15_000,
     greetingTimeout: 12_000,
     socketTimeout: 20_000,

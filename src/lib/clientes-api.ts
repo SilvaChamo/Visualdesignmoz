@@ -39,7 +39,7 @@ export interface SiteCliente {
   data_renovacao?: string
   dias_aviso_pre_renovacao: number
   status: 'active' | 'suspended' | 'expired' | 'pending'
-  cyberpanel_id?: number
+  panel_id?: number
   ssl: boolean
   ssl_expira?: string
   backup_diario: boolean

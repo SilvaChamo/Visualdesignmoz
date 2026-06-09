@@ -22,11 +22,11 @@ const resolveSmtpConfig = (fromEmail: string) => {
     return { host: 'smtp.zoho.com', port: 587, secure: false }
   }
 
-  // Genérico / CyberPanel — usa IP direto do servidor
+  // Genérico / servidor hospedado — usa IP directo
   return { host: process.env.SMTP_HOST || getServerHost(), port: 587, secure: false }
 }
 
-// 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (CyberPanel/Postfix)
+// 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (DirectAdmin/Postfix)
 const SMTP_HOST = getServerHost() // IP direto do servidor
 const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
 const SMTP_SECURE = false; // 587 usa STARTTLS (não SSL direto)
@@ -51,7 +51,7 @@ async function sendViaSMTP(
         secure: smtpCfg.secure,   // false para 587 (STARTTLS), true para 465 (SSL)
         requireTLS: !smtpCfg.secure, // Forçar STARTTLS quando porta 587
         auth: {
-            type: 'login',         // Força mecanismo LOGIN (compatível com Dovecot/Postfix CyberPanel)
+            type: 'login',         // Força mecanismo LOGIN (compatível com Dovecot/Postfix)
             user: fromEmail,
             pass: fromPassword
         },
@@ -112,12 +112,12 @@ async function saveToSentFolder(
         console.log('📁 [IMAP] A guardar email na pasta Sent...');
         const { ImapFlow } = await import('imapflow');
         
-        // Usar IP directo do servidor CyberPanel (igual ao read-emails API)
+        // Usar IP directo do servidor (igual ao read-emails API)
         // Evita falhas de DNS que ocorrem com mail.{domínio}
         const senderDomain = from.split('@')[1] || 'visualdesignmoz.com'
-        const CYBERPANEL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
-        const isCyberPanel = CYBERPANEL_DOMAINS.includes(senderDomain) || CYBERPANEL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
-        const imapHost = process.env.IMAP_HOST || (isCyberPanel ? getServerHost() : `mail.${senderDomain}`)
+        const HOSTED_MAIL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+        const isHostedMail = HOSTED_MAIL_DOMAINS.includes(senderDomain) || HOSTED_MAIL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
+        const imapHost = process.env.IMAP_HOST || (isHostedMail ? getServerHost() : `mail.${senderDomain}`)
         
         const imapClient = new ImapFlow({
             host: imapHost,
@@ -131,8 +131,8 @@ async function saveToSentFolder(
 
         await imapClient.connect();
         
-        // Pastas Sent ordenadas por probabilidade no CyberPanel/Dovecot
-        // O Dovecot do CyberPanel cria tipicamente 'INBOX.Sent' ou 'Sent'
+        // Pastas Sent ordenadas por probabilidade no Dovecot
+        // O Dovecot cria tipicamente 'INBOX.Sent' ou 'Sent'
         const sentFolders = ['Sent', 'INBOX.Sent', 'Sent Items', 'INBOX.Sent Items', 'Enviados', 'INBOX.Enviados'];
         
         const toArray = Array.isArray(to) ? to : [to];

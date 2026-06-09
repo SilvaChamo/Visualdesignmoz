@@ -37,15 +37,15 @@ Criar um sistema completo para gestão de clientes de hospedagem, com painel adm
 
 ### 3. Integrações
 
-#### CyberPanel:
-- ✅ Criar site → CyberPanel + MySQL
-- ✅ Suspender site → CyberPanel + notificação
-- ✅ Renovar site → CyberPanel + status
+#### DirectAdmin:
+- ✅ Criar site → DirectAdmin + MySQL
+- ✅ Suspender site → DirectAdmin + notificação
+- ✅ Renovar site → DirectAdmin + status
 - ✅ DNS management em tempo real
 - ✅ SSL auto-config + renovação
 
 #### Email:
-- ✅ Criar contas via CyberPanel
+- ✅ Criar contas via DirectAdmin
 - ✅ Webmail integrado (Roundcube/SnappyMail)
 - ✅ Notificações via SMTP
 - ✅ Templates em português
@@ -54,7 +54,7 @@ Criar um sistema completo para gestão de clientes de hospedagem, com painel adm
 
 ### SQL:
 - `supabase-gestao-clientes.sql` - Estrutura completa do banco
-- `supabase-cyberpanel-users.sql` - Sincronização CyberPanel
+- `supabase-panel-users.sql` - Sincronização DirectAdmin
 
 ### Frontend (próximos passos):
 - Dashboard Admin Component
@@ -101,7 +101,7 @@ VALUES ((SELECT id FROM clientes WHERE email = 'teste@exemplo.com'), 'teste.visu
 ### 5. Testar Integração:
 - Login admin/cliente
 - Criar site via dashboard
-- Verificar CyberPanel sync
+- Verificar DirectAdmin sync
 - Testar notificações
 
 ## Estrutura de Pastas
@@ -128,7 +128,7 @@ src/
 │   ├── supabase-client.ts
 │   ├── auth.ts
 │   ├── notifications.ts
-│   └── cyberpanel-integration.ts
+│   └── panel-integration.ts
 ├── app/
 │   ├── admin/
 │   │   └── page.tsx
@@ -151,9 +151,9 @@ src/
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-CYBERPANEL_API_URL=https://109.199.104.22:8090
-CYBERPANEL_USERNAME=admin
-CYBERPANEL_PASSWORD=your_password
+SERVER_API_URL=https://37.27.17.25:2222
+SERVER_USERNAME=admin
+SERVER_PASSWORD=your_password
 SMTP_HOST=your_smtp_host
 SMTP_PORT=587
 SMTP_USER=your_smtp_user
@@ -241,7 +241,7 @@ pm2 startup
 
 ### Status Atual:
 - ✅ Estrutura SQL completa criada
-- ✅ Integração CyberPanel funcionando
+- ✅ Integração DirectAdmin funcionando
 - ⏳ Frontend em desenvolvimento
 - ⏳ Autenticação pendente
 
@@ -254,7 +254,7 @@ pm2 startup
 
 ### Arquivos Importantes:
 - `supabase-gestao-clientes.sql` - Banco completo
-- `src/app/api/cyberpanel-db/route.ts` - API CyberPanel
+- `src/app/api/panel-db/route.ts` - API DirectAdmin
 - `.windsurf/workflows/gestao-clientes.md` - Este documento
 
 ### Contato:

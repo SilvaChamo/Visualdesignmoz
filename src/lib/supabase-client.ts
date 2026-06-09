@@ -1,7 +1,15 @@
 import { createBrowserClient } from '@supabase/ssr'
+import {
+  resolveUserRole,
+  getRedirectPathForRole,
+  type UserRole,
+} from '@/lib/user-roles'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+  'placeholder-key'
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -40,7 +48,7 @@ export interface SiteCliente {
   data_criacao: string
   data_renovacao?: string
   status: 'active' | 'suspended' | 'expired' | 'pending'
-  cyberpanel_id?: number
+  panel_id?: number
   ssl: boolean
   created_at: string
   updated_at: string
@@ -85,7 +93,7 @@ export interface EmailConta {
   cliente_id: string
   site_id: string
   email: string
-  senha_cyberpanel?: string
+  senha_servidor?: string
   quota_mb: number
   quota_usada_mb: number
   status: 'active' | 'suspended' | 'deleted'
@@ -133,7 +141,7 @@ export const auth = {
       email,
       password,
       options: {
-        data: metadata,
+        data: { ...metadata, role: 'guest' },
         emailRedirectTo: `${window.location.origin}/auth/callback`
       }
     })
@@ -174,23 +182,22 @@ export const auth = {
   },
 
   // Verificar role do utilizador
-  async getUserRole(): Promise<'admin' | 'reseller' | 'client'> {
+  async getUserRole(): Promise<UserRole> {
     const user = await this.getCurrentUser()
-    if (!user) return 'client'
+    if (!user) return 'guest'
 
-    const adminEmails = ['admin@your-domain.com', 'geral@your-domain.com', 'silva.chamo@gmail.com', 'silva.chamo@your-domain.com']
-    if (adminEmails.includes((user.email || '').toLowerCase())) return 'admin'
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
 
-    const metaRole = user.user_metadata?.role
-    if (metaRole === 'admin') return 'admin'
-    if (metaRole === 'reseller') return 'reseller'
-    if (metaRole === 'client') return 'client'
-
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (data?.role === 'admin') return 'admin'
-    if (data?.role === 'reseller') return 'reseller'
-
-    return 'client'
+    return resolveUserRole({
+      email: user.email,
+      userMetadata: user.user_metadata,
+      appMetadata: user.app_metadata,
+      profileRole: profile?.role,
+    })
   },
 
 
@@ -202,20 +209,22 @@ export const auth = {
 
   // Função de redirecionamento baseado no role
   async getRedirectPath(): Promise<string> {
-    const role = await this.getUserRole()
-    console.log('getRedirectPath: Role detected:', role)
-
-    switch (role) {
-      case 'admin':
-        console.log('getRedirectPath: Redirecting to /admin')
-        return '/admin'
-      case 'reseller':
-        console.log('getRedirectPath: Redirecting to /revendedor')
-        return '/revendedor'
-      default:
-        console.log('getRedirectPath: Redirecting to /client')
-        return '/client'
+    try {
+      const res = await fetch('/api/my-products', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        const path = getRedirectPathForRole(data.role)
+        console.log('getRedirectPath:', data.role, '→', path)
+        return path
+      }
+    } catch {
+      /* fallback abaixo */
     }
+
+    const role = await this.getUserRole()
+    const path = getRedirectPathForRole(role)
+    console.log('getRedirectPath:', role, '→', path)
+    return path
   },
 
   // Obter sessão atual

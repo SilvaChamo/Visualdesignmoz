@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerHost, getCPUrl } from '@/lib/server-config'
 
-// Server Panel API Configuration
-const CYBERPANEL_URL = getCPUrl()
-const CYBERPANEL_USER = 'admin'
-const CYBERPANEL_PASS = 'FerramentasWeb#2020'
-
-// MozServer Configuration (para ler dados existentes)
-const MOZSERVER_URL = 'https://za4.mozserver.com:2087'
-const MOZSERVER_USER = 'yknrnlev'
-const MOZSERVER_PASS = 'FerramentasWeb#2020'
+const PANEL_URL = getCPUrl()
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,9 +10,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[MIGRATION] Starting migration for ${domain}`)
 
-    // 1. Preparar dados da migração
-    console.log('[MIGRATION] Preparing migration data...')
-    
     const migrationData = {
       domain: domain,
       source: {
@@ -29,8 +18,8 @@ export async function POST(request: NextRequest) {
         status: 'existing_content'
       },
       destination: {
-        server: 'Server Panel',
-        url: CYBERPANEL_URL,
+        server: 'DirectAdmin',
+        url: PANEL_URL,
         ip: getServerHost(),
         status: 'ready_for_migration'
       },
@@ -59,28 +48,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[MIGRATION] Migration data prepared:', migrationData)
-
-    // 2. Gerar instruções manuais
     const manualSteps = [
       {
         step: 1,
-        title: 'Acessar Painel do Servidor',
-        description: `Abra ${CYBERPANEL_URL} no navegador`,
-        credentials: {
-          username: 'admin',
-          password: 'FerramentasWeb#2020'
-        }
+        title: 'Acessar DirectAdmin',
+        description: `Abra ${PANEL_URL} no navegador`,
       },
       {
         step: 2,
         title: 'Criar Site',
-        description: 'Vá em Websites → Create Website',
+        description: 'Criar domínio e conta de utilizador no DirectAdmin',
         details: {
           domain: domain,
           email: `admin@${domain}`,
-          package: 'Default',
-          owner: 'admin'
         }
       },
       {
@@ -92,7 +72,7 @@ export async function POST(request: NextRequest) {
       {
         step: 4,
         title: 'Migrar Conteúdo',
-        description: preserveContent 
+        description: preserveContent
           ? 'Fazer backup do conteúdo atual e migrar para novo servidor'
           : 'Configurar novo site do zero'
       }
@@ -104,13 +84,9 @@ export async function POST(request: NextRequest) {
       data: {
         migration: migrationData,
         manualSteps: manualSteps,
-        cyberPanel: {
-          url: CYBERPANEL_URL,
+        panel: {
+          url: PANEL_URL,
           ip: getServerHost(),
-          credentials: {
-            username: 'admin',
-            password: 'FerramentasWeb#2020'
-          }
         },
         status: 'ready_for_manual_execution',
         estimatedTime: '30-60 minutos',
@@ -118,14 +94,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro interno durante migração'
     console.error('[MIGRATION ERROR]', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Erro interno durante migração',
-        details: error.stack 
-      },
+      { success: false, error: message },
       { status: 500 }
     )
   }
@@ -135,8 +108,8 @@ export async function GET() {
   return NextResponse.json({
     message: 'Portal Digital Migration API',
     status: 'ready',
-    description: 'API para migrar Portal Digital.com do MozServer para CyberPanel',
-    usage: 'POST /api/migrate-Portal Digital',
+    description: 'API para migrar Portal Digital.com do MozServer para DirectAdmin',
+    usage: 'POST /api/migrate-visualdesign',
     parameters: {
       domain: 'Portal Digital.com (opcional)',
       preserveContent: 'true/false (opcional, default: true)'

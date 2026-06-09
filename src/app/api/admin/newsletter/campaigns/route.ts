@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,6 +9,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET() {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     const { data, error } = await supabaseAdmin
         .from('email_campaigns')
         .select('*, content_html, sender_email, target_audiences, total_recipients, successful_sends, failed_sends')
@@ -18,6 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     try {
         const body = await request.json();
         const { subject, content_html, send_now } = body;

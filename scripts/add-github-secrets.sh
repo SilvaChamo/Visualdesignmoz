@@ -67,7 +67,7 @@ cat << 'EOF'
 ┌─────────────────────────────────────────────────────────────────┐
 │  SECRET NAME                    │  VALOR                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  SERVER_HOST                    │  109.199.104.22             │
+│  SERVER_HOST                    │  37.27.17.25             │
 │  SERVER_USER                    │  root                       │
 │  SERVER_SSH_KEY                 │  (conteúdo da chave SSH)    │
 │  NEXT_PUBLIC_SUPABASE_URL       │  https://gwankhxcbkrtgx...  │
@@ -86,7 +86,7 @@ if ! command -v gh &> /dev/null; then
   echo ""
   echo "Depois corre:"
   echo "  gh auth login"
-  echo "  gh secret set SERVER_HOST --repo=SilvaChamo/Visualdesigne --body=\"109.199.104.22\""
+  echo "  gh secret set SERVER_HOST --repo=SilvaChamo/Visualdesigne --body=\"37.27.17.25\""
   echo ""
   echo "Ou adiciona manualmente em:"
   echo "  https://github.com/SilvaChamo/Visualdesigne/settings/secrets/actions"
@@ -110,11 +110,11 @@ if [[ ! $confirm =~ ^[Ss]$ ]]; then
 fi
 
 # Adicionar secrets
-add_secret "SERVER_HOST" "109.199.104.22"
+add_secret "SERVER_HOST" "37.27.17.25"
 add_secret "SERVER_USER" "root"
 
 # Chave SSH - precisa do ficheiro
-SSH_KEY_FILE="/Users/macbook/.ssh/visualdesign_cyberpanel_key"
+SSH_KEY_FILE="/Users/macbook/.ssh/visualdesign_panel_key"
 if [ -f "$SSH_KEY_FILE" ]; then
   SSH_KEY=$(cat "$SSH_KEY_FILE")
   add_secret "SERVER_SSH_KEY" "$SSH_KEY"

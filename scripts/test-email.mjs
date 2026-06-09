@@ -33,13 +33,16 @@ const to = process.argv[2]?.trim();
 const from =
   process.env.SITE_EMAIL_FROM?.trim() || 'Visualdesign <noreply@visualdesignmoz.com>';
 
-const host = process.env.SMTP_HOST || process.env.DA_SMTP_HOST || 'smtp-relay.brevo.com';
+const host = process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com';
 const port = Number.parseInt(process.env.SMTP_PORT || process.env.DA_SMTP_PORT || '587', 10);
-const user = process.env.SMTP_USER || process.env.DA_SMTP_USER || '';
+const user =
+  process.env.BREVO_SMTP_USER ||
+  'ad3ca6001@smtp-brevo.com';
 const pass =
+  process.env.BREVO_SMTP_PASS ||
+  process.env.SMTP_MASTER_PASSWORD ||
   process.env.SMTP_PASS ||
   process.env.DA_SMTP_PASS ||
-  process.env.SMTP_MASTER_PASSWORD ||
   '';
 
 if (!to) {

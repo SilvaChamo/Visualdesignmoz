@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sites_cliente (
     data_renovacao DATE,
     dias_aviso_pre_renovacao INTEGER DEFAULT 7,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'expired', 'pending')),
-    cyberpanel_id INTEGER,
+    panel_id INTEGER,
     ssl BOOLEAN DEFAULT false,
     ssl_expira DATE,
     backup_diario BOOLEAN DEFAULT true,
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS email_contas (
     cliente_id UUID REFERENCES clientes(id) ON DELETE CASCADE,
     site_id UUID REFERENCES sites_cliente(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
-    senha_cyberpanel TEXT, -- Apenas referência, senha real fica no CyberPanel
+    senha_servidor TEXT, -- Apenas referência, senha real fica no DirectAdmin
     quota_mb INTEGER DEFAULT 1024,
     quota_usada_mb INTEGER DEFAULT 0,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),

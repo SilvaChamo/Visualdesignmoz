@@ -4,7 +4,7 @@
 echo "📧 Testando envio de admin@visualdesignmoz.com..."
 
 # Verificar se admin@visualdesignmoz.com existe
-grep "admin@visualdesignmoz.com" /etc/postfix/virtual 2>/dev/null || echo "Verificando no CyberPanel..."
+grep "admin@visualdesignmoz.com" /etc/postfix/virtual 2>/dev/null || echo "Verificando no DirectAdmin..."
 
 # Testar envio (precisa de senha)
 # Vamos usar swaks para testar

@@ -20,13 +20,22 @@ export function getDirectAdminFallbackUrl(): string {
   return getWebmailUrl();
 }
 
-/** Usar em links internos para redirecionar com `/api/webmail-redirect`. */
+/** Redireciona para o login do DirectAdmin (com fallback automático). */
 export function getDirectAdminAccessUrl(): string {
-  return '/api/webmail-redirect';
+  return '/api/directadmin-access';
+}
+
+/** Gestor web para uploads grandes (FileGator, chunked até 2 GB). Login = user + password DirectAdmin. */
+export function getWebFileManagerUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_WEB_FILE_MANAGER_URL ||
+    process.env.NEXT_PUBLIC_DIRECTADMIN_HOST ||
+    'https://host.visualdesignmoz.com';
+  return `${base.replace(/\/$/, '')}/files/dist/`;
 }
 
 export function getDirectAdminFileManagerUrl(_domain: string, _owner = 'admin'): string {
-  return getWebmailUrl();
+  return getWebFileManagerUrl();
 }
 
 export function getDirectAdminWordPressUrl(): string {
@@ -49,8 +58,15 @@ export function getHestiaUrl(): string {
   return getWebmailUrl();
 }
 
-export function getSnappyMailUrl(_domain?: string): string {
-  return `${getWebmailUrl()}/`;
+/** URL público do Roundcube: https://webmail.{domínio} */
+export function getWebmailUrlForDomain(domain?: string): string {
+  const clean = domain?.replace(/^www\./i, '').trim();
+  if (clean) return `https://webmail.${clean}`;
+  return getWebmailUrl();
+}
+
+export function getSnappyMailUrl(domain?: string): string {
+  return getWebmailUrlForDomain(domain);
 }
 
 export function getActivePanelUrl(): string {

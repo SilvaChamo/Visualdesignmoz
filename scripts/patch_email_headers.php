@@ -1,5 +1,5 @@
 <?php
-// Script para melhorar headers de email no CyberPanel
+// Script para melhorar headers de email no DirectAdmin
 
 $file = '/usr/local/CyberCP/public/send-email-api.php';
 
@@ -26,7 +26,7 @@ $new_headers = <<<'HEADERS'
     $headers_mail .= "Date: " . date('r') . "\r\n";
     $headers_mail .= "MIME-Version: 1.0\r\n";
     $headers_mail .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers_mail .= "X-Mailer: CyberPanel-Marketing/2.0\r\n";
+    $headers_mail .= "X-Mailer: DirectAdmin-Marketing/2.0\r\n";
     $headers_mail .= "Precedence: bulk\r\n";
     $headers_mail .= "X-Auto-Response-Suppress: OOF, AutoReply\r\n";
     $headers_mail .= "List-Unsubscribe: <mailto:unsubscribe@{$domain}?subject=unsubscribe>\r\n";

@@ -15,14 +15,14 @@ export async function POST(req: NextRequest) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
       const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
-      const { data: contas } = await supabaseAdmin.from('email_contas').select('email, senha_cyberpanel').eq('cliente_id', session.user.id).eq('status', 'activo')
+      const { data: contas } = await supabaseAdmin.from('email_contas').select('email, senha_servidor').eq('cliente_id', session.user.id).eq('status', 'activo')
 
       if (contas && contas.length > 0) {
         const todosEmails: any[] = []
         
         const promises = contas.map(async (conta) => {
           try {
-            const senhaDescriptada = decryptPassword(conta.senha_cyberpanel)
+            const senhaDescriptada = decryptPassword(conta.senha_servidor)
             const client = new ImapFlow({
               host: process.env.IMAP_HOST || '109.199.104.22',
               port: 993,

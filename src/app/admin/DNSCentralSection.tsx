@@ -12,7 +12,7 @@ import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 interface DomainDNSStatus {
   domain: string
   mozserverRegistered: boolean
-  cyberPanelZone: boolean
+  hostingZone: boolean
   synced: boolean
   lastSync?: string
   records: DNSRecord[]
@@ -34,7 +34,7 @@ interface DomainDetail {
     expiresAt: string
     nameservers: string[]
   }
-  cyberPanelData?: {
+  hostingPanelData?: {
     records: DNSRecord[]
     zoneCreated: boolean
   }
@@ -185,7 +185,7 @@ export function DNSCentralSection() {
   const getSyncStatusIcon = (status: DomainDNSStatus) => {
     if (status.synced) {
       return <CheckCircle className="w-5 h-5 text-green-500" />
-    } else if (status.mozserverRegistered && !status.cyberPanelZone) {
+    } else if (status.mozserverRegistered && !status.hostingZone) {
       return <AlertCircle className="w-5 h-5 text-yellow-500" />
     } else {
       return <XCircle className="w-5 h-5 text-red-500" />
@@ -194,7 +194,7 @@ export function DNSCentralSection() {
 
   const getSyncStatusText = (status: DomainDNSStatus) => {
     if (status.synced) return 'Sincronizado'
-    if (status.mozserverRegistered && !status.cyberPanelZone) return 'Pendente'
+    if (status.mozserverRegistered && !status.hostingZone) return 'Pendente'
     if (!status.mozserverRegistered) return 'Não registado'
     return 'Não sincronizado'
   }
@@ -385,7 +385,7 @@ export function DNSCentralSection() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            {domain.cyberPanelZone ? (
+                            {domain.hostingZone ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
                                 <CheckCircle className="w-3 h-3" /> Ativo
                               </span>

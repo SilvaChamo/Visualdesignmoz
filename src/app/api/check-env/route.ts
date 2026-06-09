@@ -1,10 +1,16 @@
-
 export async function GET() {
-    return new Response(JSON.stringify({
-        clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 10) + '...',
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET?.substring(0, 10) + '...',
-        match: process.env.GOOGLE_CLIENT_SECRET === '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'
-    }), {
-        headers: { 'Content-Type': 'application/json' }
-    });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  return new Response(
+    JSON.stringify({
+      supabaseHost: supabaseUrl ? new URL(supabaseUrl).host : '(empty)',
+      supabaseConfigured: Boolean(supabaseUrl && anonKey),
+      isHetzner: supabaseUrl.includes('supabase.visualdesignmoz.com'),
+      isCloud: supabaseUrl.includes('supabase.co'),
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || '(empty)',
+      passwordResetSmtp: process.env.PASSWORD_RESET_USE_SITE_SMTP || '(unset)',
+      smtpHost: process.env.SMTP_HOST || '(empty)',
+    }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
 }

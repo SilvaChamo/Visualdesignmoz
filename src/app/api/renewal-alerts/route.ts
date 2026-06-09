@@ -5,7 +5,7 @@ import path from 'path';
 export async function GET(request: NextRequest) {
   try {
     // Caminho para o arquivo de alertas gerado pelo script Python
-    const alertsPath = '/tmp/cyberpanel_renewal_alerts.json';
+    const alertsPath = '/tmp/panel_renewal_alerts.json';
     
     // Verificar se o arquivo existe
     if (!fs.existsSync(alertsPath)) {
