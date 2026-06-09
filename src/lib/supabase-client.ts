@@ -13,9 +13,10 @@ const supabaseAnonKey =
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    detectSessionInUrl: true,
+    // O callback em /auth/callback/route.ts faz exchangeCodeForSession no servidor
+    detectSessionInUrl: false,
     flowType: 'pkce',
-  }
+  },
 })
 
 // Tipos para o nosso sistema

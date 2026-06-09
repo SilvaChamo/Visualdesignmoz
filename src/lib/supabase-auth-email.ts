@@ -1,4 +1,5 @@
 import { sendBrevoTransactionalEmail, isBrevoApiConfigured } from '@/lib/brevo-mail';
+import { getDefaultFromForDomain, getDomainFromEmail } from '@/lib/email-domains';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import {
   getDefaultFrom,
@@ -41,17 +42,22 @@ function passwordRecoveryRequestedAt(): string {
   return new Date().toLocaleString('pt-PT', { timeZone: 'Africa/Maputo' });
 }
 
+/** Logo PNG 198×120 (~14 KB) — pré-redimensionado para carregamento rápido em clientes de email. */
+export const PASSWORD_RECOVERY_LOGO_PATH = '/assets/email-logo-120.png';
+const PASSWORD_RECOVERY_LOGO_WIDTH = 198;
+const PASSWORD_RECOVERY_LOGO_HEIGHT = 120;
+
 /** Layout premium 600px — preto/vermelho VisualDesign (restaurado do template original). */
 export function generatePasswordRecoveryEmailHtml(actionLink: string): string {
-  const logoUrl = `${siteUrl()}/assets/logotipoII.png`;
+  const logoUrl = `${siteUrl()}${PASSWORD_RECOVERY_LOGO_PATH}`;
   const requestedAt = passwordRecoveryRequestedAt();
   const year = new Date().getFullYear();
 
   return `
 <div style="font-family:'Inter',Arial,sans-serif;background-color:#f3f4f6;padding:24px 12px;">
   <div style="background-color:#000;color:#fff;padding:40px 40px 30px;border-radius:16px;max-width:600px;margin:0 auto;border:1px solid #333;">
-    <div style="text-align:center;margin-bottom:15px;">
-      <img src="${logoUrl}" alt="VisualDesign" style="height:90px;" />
+    <div style="text-align:center;margin-bottom:15px;line-height:0;">
+      <img src="${logoUrl}" alt="VisualDesign" width="${PASSWORD_RECOVERY_LOGO_WIDTH}" height="${PASSWORD_RECOVERY_LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${PASSWORD_RECOVERY_LOGO_WIDTH}px;height:${PASSWORD_RECOVERY_LOGO_HEIGHT}px;max-width:100%;border:0;outline:none;text-decoration:none;" />
     </div>
     <h1 style="color:#fff;font-size:24px;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:2px;margin:0 0 18px 0;">
       Recuperação de Acesso
@@ -65,8 +71,8 @@ export function generatePasswordRecoveryEmailHtml(actionLink: string): string {
       </a>
     </div>
     <h3 style="color:#fff;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:center;margin:0 0 8px 0;">Detalhes de Segurança</h3>
-    <p style="color:#888;font-size:13px;text-align:center;margin:0 0 30px 0;font-style:italic;">Hora do Pedido: ${requestedAt}</p>
-    <div style="color:#666;font-size:12px;text-align:center;border-top:1px solid #333;padding-top:20px;">
+    <p style="color:#888;font-size:13px;text-align:center;margin:0 0 10px 0;font-style:italic;">Hora do Pedido: ${requestedAt}</p>
+    <div style="color:#666;font-size:12px;text-align:center;border-top:1px solid #333;padding-top:12px;">
       <p style="margin:0 0 10px 0;">Este link expira em 60 minutos por razões de segurança.</p>
       <p style="margin:0;">VisualDesign &copy; ${year}. Todos os direitos reservados.</p>
     </div>
@@ -123,8 +129,11 @@ async function sendRecoveryEmailViaBrevo(email: string, actionLink: string): Pro
     );
   }
 
-  const from = getDefaultFrom();
-  const subject = 'Recuperação de Password - VisualDesign';
+  const from =
+    getDefaultFromForDomain(getDomainFromEmail(email)) || getDefaultFrom();
+  const subject = getDomainFromEmail(email) === 'oshercollective.com'
+    ? 'Recuperação de Password - Osher Collective'
+    : 'Recuperação de Password - VisualDesign';
   const payload = {
     from,
     to: email,

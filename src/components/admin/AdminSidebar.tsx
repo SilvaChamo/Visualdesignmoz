@@ -81,6 +81,7 @@ const menuItems: MenuItem[] = [
     icon: Mail,
     subItems: [
       { id: 'emails-new', label: 'E-mails' },
+      { id: 'setup-smtp', label: 'Envio e Recepção' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ]
@@ -111,7 +112,7 @@ function adminMenuParentForSection(sectionId: string): string | null {
     if (item.subItems?.some((s) => s.id === sectionId)) return item.id;
   }
   if (sectionId.startsWith('cp-email')) return 'gestao-emails';
-  if (['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(sectionId)) return 'gestao-emails';
+  if (['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'setup-smtp'].includes(sectionId)) return 'gestao-emails';
   if (GESTAO_DOMINIOS_SECTIONS.includes(sectionId)) return 'gestao-dominios';
   if (GESTAO_HOSPEDAGEM_SECTIONS.includes(sectionId)) return 'gestao-sites';
   if (['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(sectionId)) return 'gestao-paineis';
@@ -125,7 +126,7 @@ function isAdminItemActive(item: MenuItem, activeSection: string): boolean {
   if (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) return true;
   if (item.id === 'gestao-dominios' && GESTAO_DOMINIOS_SECTIONS.includes(activeSection)) return true;
   if (item.id === 'gestao-sites' && GESTAO_HOSPEDAGEM_SECTIONS.includes(activeSection)) return true;
-  if (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim'].includes(activeSection)) return true;
+  if (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'setup-smtp'].includes(activeSection)) return true;
   if (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) return true;
   if (item.subItems?.some((s) => s.id === activeSection)) return true;
   return false;

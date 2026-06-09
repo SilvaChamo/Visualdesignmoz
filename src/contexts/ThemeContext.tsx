@@ -22,7 +22,6 @@ function applyTheme(theme: ThemeMode) {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('light');
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -38,7 +37,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       applyTheme('light');
     }
-    setReady(true);
   }, []);
 
   const setTheme = useCallback((next: ThemeMode) => {
@@ -63,10 +61,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
-
-  if (!ready) {
-    return <>{children}</>;
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

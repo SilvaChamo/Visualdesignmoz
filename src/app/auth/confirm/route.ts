@@ -1,6 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
 import { type EmailOtpType } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -13,18 +12,18 @@ export async function GET(request: NextRequest) {
     redirectTo.pathname = next
     redirectTo.search = ''
 
-    const cookieStore = await cookies()
+    const cookieJar = NextResponse.next()
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
                 getAll() {
-                    return cookieStore.getAll()
+                    return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        cookieStore.set(name, value, options)
+                        cookieJar.cookies.set(name, value, options)
                     })
                 },
             },
@@ -34,7 +33,9 @@ export async function GET(request: NextRequest) {
     if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
-            return NextResponse.redirect(redirectTo)
+            const response = NextResponse.redirect(redirectTo)
+            cookieJar.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value))
+            return response
         }
         console.error('Auth Confirm (code) Error:', error)
     }
@@ -46,7 +47,9 @@ export async function GET(request: NextRequest) {
         })
 
         if (!error) {
-            return NextResponse.redirect(redirectTo)
+            const response = NextResponse.redirect(redirectTo)
+            cookieJar.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value))
+            return response
         }
 
         console.error('Auth Confirm (token_hash) Error:', error)

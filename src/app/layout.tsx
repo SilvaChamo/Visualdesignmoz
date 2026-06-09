@@ -16,7 +16,10 @@ export const metadata: Metadata = {
   description: "Painel de gestão de clientes e campanhas de email marketing",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", sizes: "48x48", type: "image/png" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
     shortcut: "/favicon.png",
     apple: "/icons/icon-192x192.png",
   },

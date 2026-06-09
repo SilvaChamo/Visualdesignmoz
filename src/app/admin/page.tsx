@@ -2214,7 +2214,7 @@ export default function AdminPage() {
       'cp-email-change-pass': { title: 'Dashboard', description: 'Alterar password de e-mail' },
       'cp-email-dkim': { title: 'Dashboard', description: 'Gestão de DKIM' },
       'cp-email-limits': { title: 'Dashboard', description: 'Limites de e-mail' },
-      'setup-smtp': { title: 'Dashboard', description: 'Configurar SMTP' },
+      'setup-smtp': { title: 'Envio e Recepção', description: 'Brevo + DirectAdmin' },
       'cp-wp-list': { title: 'Dashboard', description: 'Painel WordPress' },
       'cp-wp-plugins': { title: 'Dashboard', description: 'Plugins WordPress' },
       'cp-wp-backup': { title: 'Dashboard', description: 'Backup WordPress' },

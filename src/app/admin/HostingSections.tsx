@@ -8295,101 +8295,196 @@ export function EmailImportSection({ sites }: { sites: DirectAdminWebsite[] }) {
 }
 
 // ============================================================
-// SMTP CONFIG SECTION
+// SMTP / BREVO CONFIG SECTION
 // ============================================================
+type BrevoEmailStatus = {
+  configured?: boolean
+  brevoTransactional?: boolean
+  brevoApi?: boolean
+  brevoSmtp?: boolean
+  message?: string
+  config?: {
+    host?: string
+    port?: number
+    user?: string | null
+    fromAutomatic?: { email?: string; name?: string }
+    fromMarketing?: string
+    notifyEmail?: string
+    supportEmail?: string
+    serverEmail?: string
+  }
+  receive?: {
+    mx?: Array<{ priority: number; host: string }>
+    spf?: string
+    webhookUrl?: string
+    mailboxes?: string
+  }
+  marketing?: {
+    from?: string
+    route?: string
+  }
+}
+
 export function SMTPConfigSection() {
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<BrevoEmailStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [domain, setDomain] = useState('oshercollective.com')
+  const [applyLoading, setApplyLoading] = useState<'one' | 'all' | null>(null)
+  const [applyResult, setApplyResult] = useState<string | null>(null)
+  const [applyError, setApplyError] = useState<string | null>(null)
 
-  const configureSMTP = async () => {
-    setLoading(true)
-    setError(null)
-    setResult(null)
-
+  const loadStatus = async () => {
+    setStatusLoading(true)
     try {
-      const response = await fetch('/api/setup-smtp-server', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
+      const response = await fetch('/api/check-smtp-config')
       const data = await response.json()
-
-      if (response.ok) {
-        setResult(data)
-      } else {
-        setError(data.error || 'Falha na configuração')
-      }
-    } catch (err: any) {
-      setError(err.message)
+      setStatus(data)
+    } catch {
+      setStatus(null)
     } finally {
-      setLoading(false)
+      setStatusLoading(false)
     }
   }
 
+  useEffect(() => {
+    loadStatus()
+  }, [])
+
+  const applyBrevoMx = async (all = false) => {
+    setApplyLoading(all ? 'all' : 'one')
+    setApplyError(null)
+    setApplyResult(null)
+    try {
+      const response = await fetch('/api/email-dns-brevo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(all ? { all: true } : { domain: domain.trim() }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data.success) {
+        setApplyError(data.error || data.output || 'Falha ao aplicar DNS Brevo')
+      } else {
+        setApplyResult(data.output || `MX Brevo aplicado${all ? ' em todos os domínios' : ` em ${domain}`}`)
+      }
+    } catch (err: unknown) {
+      setApplyError(err instanceof Error ? err.message : 'Erro de rede')
+    } finally {
+      setApplyLoading(null)
+    }
+  }
+
+  const sendOk = Boolean(status?.brevoTransactional)
+  const receiveMx = status?.receive?.mx || []
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
-          <Server className="w-5 h-5 text-blue-600" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Envio e Recepção (Brevo)</h1>
+            <p className="text-xs text-gray-600">
+              Envio via Brevo · Caixas no DirectAdmin · Recepção via MX Brevo → webhook
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Configurar SMTP</h1>
-          <p className="text-xs text-gray-600">Configuração do servidor de email DirectAdmin</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Configuração Automática</h2>
-        <p className="text-gray-600 text-sm mb-6">
-          Configure o servidor ({getServerHost()}) para aceitar ligações SMTP externas.
-        </p>
-
         <button
-          onClick={configureSMTP}
-          disabled={loading}
-          className="w-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:opacity-50  py-3 px-4 rounded font-bold flex items-center justify-center gap-2 transition-colors"
+          onClick={loadStatus}
+          disabled={statusLoading}
+          className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
         >
-          {loading ? (
-            <><RefreshCw className="w-5 h-5 animate-spin" /> Configurando...</>
-          ) : (
-            <><Server className="w-5 h-5" /> Configurar SMTP Automaticamente</>
-          )}
+          <RefreshCw className={cn('w-4 h-4', statusLoading && 'animate-spin')} />
+          Actualizar
         </button>
       </div>
 
-      {result && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle className="w-6 h-6 text-green-600" />
-            <h3 className="text-lg font-semibold text-green-800">Configuração Executada!</h3>
-          </div>
-
-          <pre className="bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-60 font-mono">
-            {result.output}
-          </pre>
-
-          {result.nextSteps && (
-            <div className="mt-4">
-              <h4 className="font-semibold text-gray-800 mb-2">Próximos passos:</h4>
-              <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                {result.nextSteps.map((step: string, i: number) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ul>
+      {statusLoading && !status ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-500">A carregar estado...</div>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                {sendOk ? <CheckCircle className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
+                <h2 className="text-lg font-semibold text-gray-900">Envio</h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">{status?.message}</p>
+              <dl className="text-sm space-y-2 text-gray-700">
+                <div><dt className="font-medium inline">SMTP relay: </dt><dd className="inline">{status?.config?.host}:{status?.config?.port}</dd></div>
+                <div><dt className="font-medium inline">API Brevo: </dt><dd className="inline">{status?.brevoApi ? 'activa' : 'em falta'}</dd></div>
+                <div><dt className="font-medium inline">Transacções: </dt><dd className="inline">{status?.config?.fromAutomatic?.email || '—'}</dd></div>
+                <div><dt className="font-medium inline">Mailmarketing: </dt><dd className="inline">{status?.marketing?.from || status?.config?.fromMarketing || '—'}</dd></div>
+              </dl>
+              <p className="text-xs text-gray-500 mt-4">
+                Campanhas: secção <strong>Mailmarketing</strong> no menu lateral.
+              </p>
             </div>
-          )}
-        </div>
-      )}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-6 h-6 text-red-600" />
-            <h3 className="text-lg font-semibold text-red-800">Erro</h3>
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Recepção</h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Gmail e outros enviam para MX Brevo → webhook injecta na caixa DirectAdmin ({status?.receive?.mailboxes}).
+              </p>
+              <dl className="text-sm space-y-2 text-gray-700">
+                {receiveMx.map((mx) => (
+                  <div key={mx.host}>
+                    <dt className="font-medium inline">MX {mx.priority}: </dt>
+                    <dd className="inline font-mono text-xs">{mx.host}</dd>
+                  </div>
+                ))}
+                <div><dt className="font-medium inline">SPF: </dt><dd className="inline font-mono text-xs break-all">{status?.receive?.spf}</dd></div>
+                <div><dt className="font-medium inline">Webhook: </dt><dd className="inline font-mono text-xs break-all">{status?.receive?.webhookUrl}</dd></div>
+              </dl>
+              <p className="text-xs text-gray-500 mt-4">
+                Leitura: secção <strong>Webmail</strong> ou Outlook/IMAP.
+              </p>
+            </div>
           </div>
-          <p className="text-red-700 mt-2">{error}</p>
-        </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Aplicar DNS de recepção (MX Brevo)</h2>
+            <p className="text-gray-600 text-sm mb-4">
+              Actualiza as zonas BIND no servidor ({getServerHost()}) para receber email externo via Brevo.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <input
+                type="text"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="dominio.com"
+                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+              <button
+                onClick={() => applyBrevoMx(false)}
+                disabled={applyLoading !== null || !domain.trim()}
+                className="bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 py-2 px-4 rounded font-medium text-sm"
+              >
+                {applyLoading === 'one' ? 'A aplicar...' : 'Aplicar neste domínio'}
+              </button>
+              <button
+                onClick={() => applyBrevoMx(true)}
+                disabled={applyLoading !== null}
+                className="bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50 py-2 px-4 rounded font-medium text-sm"
+              >
+                {applyLoading === 'all' ? 'A aplicar...' : 'Aplicar em todos'}
+              </button>
+            </div>
+
+            {applyResult && (
+              <pre className="bg-green-50 border border-green-200 text-green-800 p-3 rounded text-xs overflow-auto max-h-40 font-mono whitespace-pre-wrap">
+                {applyResult}
+              </pre>
+            )}
+            {applyError && (
+              <p className="text-red-700 text-sm bg-red-50 border border-red-200 rounded p-3">{applyError}</p>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

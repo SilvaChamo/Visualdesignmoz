@@ -6,8 +6,9 @@ import {
   AlertCircle, Globe, Loader2, Copy, ExternalLink, Shield
 } from 'lucide-react'
 import { getDirectAdminAccessUrl } from '@/lib/server-config'
+import { DIRECTADMIN_EMAIL_DOMAINS } from '@/lib/email-domains'
 
-const DA_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'oshercollective.com']
+const DA_DOMAINS = [...DIRECTADMIN_EMAIL_DOMAINS]
 
 interface EmailAccount {
   email: string
@@ -140,7 +141,7 @@ export function DirectAdminEmailsSection() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Emails DirectAdmin</h1>
-          <p className="text-gray-500 mt-1">Gerir contas de email alojadas no servidor DirectAdmin.</p>
+          <p className="text-gray-500 mt-1">Caixas no DirectAdmin — webmail, Outlook e Apple Mail (IMAP/SMTP 587).</p>
         </div>
         <div className="flex items-center gap-2">
           <a

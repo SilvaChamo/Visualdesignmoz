@@ -1,3 +1,8 @@
+import {
+  getDefaultFromForDomain,
+  getDomainFromEmail,
+  OSHER_DOMAIN,
+} from '@/lib/email-domains';
 import { parseFromEmail } from '@/lib/smtp-mail';
 
 export function getBrevoApiKey(): string {
@@ -23,7 +28,21 @@ export type BrevoTransactionalInput = {
 function parseFromName(from: string): string {
   const trimmed = from.trim();
   const match = trimmed.match(/^([^<]+)</);
-  return match?.[1]?.trim() || 'VisualDesign';
+  if (match?.[1]?.trim()) return match[1].trim();
+  const email = parseFromEmail(trimmed);
+  if (getDomainFromEmail(email) === OSHER_DOMAIN) return 'Osher Collective';
+  return 'VisualDesign';
+}
+
+/** From por defeito para um endereço @domínio (Brevo exige remetente verificado). */
+export function resolveBrevoFromForRecipient(
+  to: string,
+  explicitFrom?: string,
+): string {
+  if (explicitFrom?.trim()) return explicitFrom.trim();
+  const domain = getDomainFromEmail(to);
+  const domainFrom = getDefaultFromForDomain(domain);
+  return domainFrom || '';
 }
 
 /** Envio transaccional via API REST Brevo (alternativa ao SMTP relay). */
@@ -35,6 +54,11 @@ export async function sendBrevoTransactionalEmail(
     throw new Error('BREVO_API_KEY não configurada na Vercel.');
   }
 
+  const fromHeader =
+    input.from.trim() ||
+    resolveBrevoFromForRecipient(input.to) ||
+    'Visualdesign <noreply@visualdesignmoz.com>';
+
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -44,8 +68,8 @@ export async function sendBrevoTransactionalEmail(
     },
     body: JSON.stringify({
       sender: {
-        email: parseFromEmail(input.from),
-        name: parseFromName(input.from),
+        email: parseFromEmail(fromHeader),
+        name: parseFromName(fromHeader),
       },
       to: [{ email: input.to }],
       subject: input.subject,

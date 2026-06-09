@@ -18,6 +18,36 @@ export function googleOAuthUserMessage(error?: string | null, description?: stri
   }
 
   if (
+    code === 'request_timeout' ||
+    detail.includes('request_timeout') ||
+    detail.includes('timed out') ||
+    detail.includes('504')
+  ) {
+    return {
+      title: 'Login com Google demorou demasiado',
+      desc:
+        'O servidor de autenticação não conseguiu contactar o Google a tempo. ' +
+        'Isto costuma ser temporário — tente de novo em 1 minuto. ' +
+        'Se persistir, use email e password.',
+    };
+  }
+
+  if (
+    detail.includes('code verifier') ||
+    detail.includes('pkce') ||
+    detail.includes('both auth code and code verifier') ||
+    detail.includes('invalid flow state')
+  ) {
+    return {
+      title: 'Sessão Google expirou',
+      desc:
+        'O navegador perdeu a chave temporária do login (cookies bloqueados ou sessão antiga). ' +
+        'Feche outras abas do site, limpe cookies de visualdesignmoz.com e tente de novo. ' +
+        'Use janela normal (não privada) se possível.',
+    };
+  }
+
+  if (
     code === 'callback_error' ||
     detail.includes('invalid_client') ||
     detail.includes('redirect_uri') ||
@@ -27,10 +57,9 @@ export function googleOAuthUserMessage(error?: string | null, description?: stri
     return {
       title: 'Login com Google temporariamente indisponível',
       desc:
-        'A ligação Google ↔ servidor de autenticação não está correcta (configuração OAuth). ' +
-        'Não é porque a sua conta não existe. ' +
-        'Use email e password, ou contacte o suporte. ' +
-        'Quando o Google estiver activo, a conta é criada automaticamente na primeira entrada bem-sucedida.',
+        'Não foi possível concluir o login após o Google (erro no callback). ' +
+        'Tente de novo em 1 minuto ou use email e password. ' +
+        'Na primeira entrada bem-sucedida, a conta é criada automaticamente.',
     };
   }
 

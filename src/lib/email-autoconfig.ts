@@ -1,4 +1,4 @@
-import { getServerHost, getCPUrl, getSnappyMailUrl } from './server-config';
+import { getServerHost, getSnappyMailUrl } from './server-config';
 
 // Sistema de configurações automáticas para contas de e-mail
 // Este arquivo mapeia domínios para seus servidores IMAP/SMTP e URLs de Webmail.
@@ -32,9 +32,10 @@ export const getDefaultConfig = (domain?: string): DomainEmailConfig => {
 export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
   'aamihe.com': getDefaultConfig('aamihe.com'),
   'visualdesignmoz.com': getDefaultConfig('visualdesignmoz.com'),
+  'oshercollective.com': getDefaultConfig('oshercollective.com'),
   'visualdesigne.pt': getDefaultConfig('visualdesigne.pt'),
   'anap.co.mz': getDefaultConfig('anap.co.mz'),
-  'entrecampos.co.mz': getDefaultConfig('entrecampos.co.mz')
+  'entrecampos.co.mz': getDefaultConfig('entrecampos.co.mz'),
 };
 
 /**
@@ -42,7 +43,7 @@ export const DOMAIN_CONFIGS: Record<string, DomainEmailConfig> = {
  */
 export function detectDomainConfig(email: string): DomainEmailConfig {
   if (!email || !email.includes('@')) return getDefaultConfig();
-  
+
   const domain = email.split('@')[1].toLowerCase();
   return DOMAIN_CONFIGS[domain] || getDefaultConfig(domain);
 }

@@ -12,7 +12,13 @@ import {
   parseFromEmail,
 } from '@/lib/smtp-mail';
 import { isBrevoApiConfigured } from '@/lib/brevo-mail';
-import { BREVO_SENDERS_VISUALDESIGN } from '@/lib/email-accounts';
+import { BREVO_SENDERS_OSHER, BREVO_SENDERS_VISUALDESIGN } from '@/lib/email-accounts';
+import {
+  BREVO_INBOUND_MX,
+  BREVO_INBOUND_WEBHOOK_PATH,
+  buildEmailSpfRecord,
+} from '@/lib/email-dns-defaults';
+import { getServerHost } from '@/lib/server-config';
 import {
   getBrevoSmtpUser,
   isBrevoSmtpConfigured,
@@ -40,6 +46,20 @@ export async function GET() {
       supportEmail: getSupportEmail(),
       serverEmail: getServerEmail(),
       brevoSendersToVerify: BREVO_SENDERS_VISUALDESIGN,
+      brevoOsherAppSenders: BREVO_SENDERS_OSHER,
+    },
+    receive: {
+      provider: 'brevo-inbound',
+      mx: BREVO_INBOUND_MX.map((mx) => ({ priority: mx.priority, host: mx.host })),
+      spf: buildEmailSpfRecord(getServerHost()),
+      webhookPath: BREVO_INBOUND_WEBHOOK_PATH,
+      webhookUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com'}${BREVO_INBOUND_WEBHOOK_PATH}`,
+      mailboxes: 'DirectAdmin / IMAP / Webmail',
+    },
+    marketing: {
+      provider: 'brevo-smtp-relay',
+      from: getMarketingFromEmail(),
+      route: '/api/mailmarketing-send',
     },
     message: brevoTransactional
       ? isBrevoApiConfigured()

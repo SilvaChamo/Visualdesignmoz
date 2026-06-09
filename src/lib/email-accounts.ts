@@ -2,7 +2,8 @@
  * Contas @visualdesignmoz.com — papéis e uso.
  *
  * Brevo: verificar cada remetente usado no "De:" (Remetentes no painel).
- * DirectAdmin: caixa tem de existir para enviar/receber no webmail do painel.
+ * DirectAdmin: caixas @visualdesignmoz.com no servidor (IMAP/webmail).
+ * Osher: caixas no DirectAdmin; Brevo só para emails automáticos do site
  */
 export const VD_EMAIL = {
   /** Automáticos: recuperar senha, confirmações — site + Supabase */
@@ -28,3 +29,5 @@ export const BREVO_SENDERS_VISUALDESIGN = [
   VD_EMAIL.servidor,
   VD_EMAIL.silvaChamo,
 ] as const;
+
+export { OSHER_EMAIL, BREVO_SENDERS_OSHER } from '@/lib/email-domains';

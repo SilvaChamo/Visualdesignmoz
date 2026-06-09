@@ -1,6 +1,7 @@
 // DNS Synchronization — Mozserver ↔ painel de hospedagem (DirectAdmin)
 
 import { directAdminHostingAPI } from './directadmin-hosting-api';
+import { getDefaultEmailDnsRecords } from './email-dns-defaults';
 import { getServerHost } from './server-config';
 
 export interface DomainDNSStatus {
@@ -119,9 +120,13 @@ export async function addDefaultDNSRecords(
     const defaultRecords = [
       { name: '@', type: 'A', value: serverIP, ttl: 14400 },
       { name: 'www', type: 'A', value: serverIP, ttl: 14400 },
-      { name: 'mail', type: 'A', value: serverIP, ttl: 14400 },
-      { name: '@', type: 'MX', value: `mail.${domain}`, ttl: 14400, priority: 10 },
-      { name: '@', type: 'TXT', value: 'v=spf1 a mx ~all', ttl: 14400 },
+      ...getDefaultEmailDnsRecords(domain, serverIP).map((r) => ({
+        name: r.name,
+        type: r.type,
+        value: r.value,
+        ttl: r.ttl,
+        priority: r.priority,
+      })),
     ];
 
     for (const record of defaultRecords) {
@@ -134,7 +139,7 @@ export async function addDefaultDNSRecords(
           type: record.type,
           value: record.value,
           ttl: record.ttl,
-          priority: record.priority,
+          priority: 'priority' in record ? record.priority : undefined,
         }),
       });
     }

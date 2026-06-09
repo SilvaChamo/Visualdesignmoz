@@ -71,8 +71,9 @@ async function addDefaultDNSRecords(domain: string): Promise<{ success: boolean;
     { name: '@', type: 'A', value: SERVER_IP, ttl: 14400 },
     { name: 'www', type: 'A', value: SERVER_IP, ttl: 14400 },
     { name: 'mail', type: 'A', value: SERVER_IP, ttl: 14400 },
-    { name: '@', type: 'MX', value: `mail.${domain}`, ttl: 14400, priority: 10 },
-    { name: '@', type: 'TXT', value: 'v=spf1 a mx ~all', ttl: 14400 },
+    { name: '@', type: 'MX', value: 'inbound1.sendinblue.com.', ttl: 14400, priority: 10 },
+    { name: '@', type: 'MX', value: 'inbound2.sendinblue.com.', ttl: 14400, priority: 20 },
+    { name: '@', type: 'TXT', value: 'v=spf1 include:spf.brevo.com ~all', ttl: 14400 },
     { name: '@', type: 'NS', value: `ns1.${domain}`, ttl: 86400 },
     { name: '@', type: 'NS', value: `ns2.${domain}`, ttl: 86400 },
   ];

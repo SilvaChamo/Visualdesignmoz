@@ -267,8 +267,12 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const fromEmail = extractEmail(String(sender || getMarketingFromEmail() || `marketing@${clientDomain}`));
-    const fromName = senderName || 'VisualDesigne Marketing';
+    const { getDefaultFromForDomain } = await import('@/lib/email-domains');
+    const domainFrom = getDefaultFromForDomain(String(clientDomain));
+    const fromEmail = extractEmail(
+      String(sender || domainFrom || getMarketingFromEmail() || `marketing@${clientDomain}`),
+    );
+    const fromName = senderName || (domainFrom ? 'Osher Collective' : 'VisualDesigne Marketing');
 
     console.log(`🚀 Campanha enfileirada para envio assíncrono:`, {
       host: getSmtpHost(),
