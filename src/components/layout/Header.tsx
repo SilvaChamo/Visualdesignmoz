@@ -108,9 +108,9 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
           <div className="flex items-center justify-start">
             <Link href="/" className="flex-shrink-0">
               <div className="h-[48px] w-[192px] relative">
-                <img 
-                  src="/assets/Horizontal_logo.png" 
-                  alt="VisualDesign Logo" 
+                <img
+                  src="/assets/logotype.png"
+                  alt="VisualDesign Logo"
                   className="w-full h-full object-contain"
                 />
               </div>
