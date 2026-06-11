@@ -2,11 +2,17 @@
 
 import React from 'react';
 import {
-  Home, Globe, Mail, Layout,
-  LogOut, ChevronRight, Server, Download,
-  Bell,
+  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
 } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
+import {
+  ADMIN_MENU_ITEM_DEFS,
+  LEGACY_ALIAS,
+  adminMenuParentForSection,
+  isPanelMenuItemActive,
+  resolveSectionId,
+  type PanelMenuItemDef,
+} from '@/lib/panel-admin-menu';
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -16,121 +22,26 @@ interface AdminSidebarProps {
   sessionUser: string | null;
 }
 
-interface MenuItem {
-  id: string;
-  label: string;
+interface MenuItem extends PanelMenuItemDef {
   icon: React.ElementType;
-  subItems?: { id: string; label: string }[];
 }
 
-const GESTAO_HOSPEDAGEM_SECTIONS = [
-  'domains', 'packages-list', 'cp-databases', 'cp-ftp', 'cp-ssl',
-  'cp-security', 'cp-php', 'backup-manager', 'infrastructure', 'cp-reseller',
-];
+const MENU_ICONS: Record<string, React.ElementType> = {
+  dashboard: Home,
+  utilizadores: Users,
+  'nov-hospedagem': Server,
+  'nov-email': Mail,
+  'nov-dominios': Globe,
+  'nov-notificacoes': Bell,
+  newsletter: Layout,
+  'nov-sistema': Settings,
+  'menu-anterior': Archive,
+};
 
-const menuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home },
-  {
-    id: 'gestao-paineis',
-    label: 'Gestão de Painéis',
-    icon: Layout,
-    subItems: [
-      { id: 'cp-client-permissions', label: 'Painel do Cliente' },
-      { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
-      { id: 'cp-users', label: 'Utilizadores' },
-    ]
-  },
-  {
-    id: 'gestao-sites',
-    label: 'Gestor de Hospedagem',
-    icon: Server,
-    subItems: [
-      { id: 'domains', label: 'Listar Websites' },
-      { id: 'packages-list', label: 'Pacotes' },
-      { id: 'cp-databases', label: 'Bases de Dados' },
-      { id: 'cp-ftp', label: 'Contas FTP' },
-      { id: 'cp-ssl', label: 'SSL / TLS' },
-      { id: 'cp-security', label: 'Segurança' },
-      { id: 'cp-php', label: 'Configuração PHP' },
-      { id: 'backup-manager', label: 'Backups' },
-      { id: 'infrastructure', label: 'Estado do Servidor' },
-      { id: 'cp-reseller', label: 'Centro de Revenda' },
-    ]
-  },
-  {
-    id: 'gestao-dominios',
-    label: 'Gestão de Domínios',
-    icon: Globe,
-    subItems: [
-      { id: 'porkbun-domains', label: 'Registar domínio' },
-      { id: 'porkbun-my-domains', label: 'Os seus domínios' },
-      { id: 'dns-central', label: 'DNS Central' },
-      { id: 'domain-manager', label: 'Gestor de domínios' },
-      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
-      { id: 'cp-list-subdomains', label: 'Listar Sub/Addon' },
-      { id: 'cp-modify-website', label: 'Modificar Website' },
-      { id: 'cp-suspend-website', label: 'Suspender' },
-      { id: 'cp-delete-website', label: 'Apagar Website' },
-      { id: 'domains-dns', label: 'Configurar DNS (servidor)' },
-      { id: 'cp-dns-nameserver', label: 'Gerir Nameservers' },
-    ]
-  },
-  {
-    id: 'gestao-emails',
-    label: 'Gestão de E-mails',
-    icon: Mail,
-    subItems: [
-      { id: 'emails-new', label: 'E-mails' },
-      { id: 'setup-smtp', label: 'Envio e Recepção' },
-      { id: 'webmail', label: 'Webmail' },
-      { id: 'cp-email-dkim', label: 'DKIM Manager' },
-    ]
-  },
-  { id: 'newsletter', label: 'Mailmarketing', icon: Layout },
-  {
-    id: 'notificacoes',
-    label: 'Notificações',
-    icon: Bell,
-    subItems: [
-      { id: 'renewals', label: 'Visão Geral' },
-      { id: 'cadastrar-renovacao', label: 'Cadastrar' },
-      { id: 'templates-renovacao', label: 'Templates' },
-    ]
-  },
-  { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-];
-
-const GESTAO_DOMINIOS_SECTIONS = [
-  'cp-subdomains', 'cp-list-subdomains', 'cp-modify-website', 'cp-suspend-website',
-  'cp-delete-website', 'domains-dns', 'dns-central', 'cp-dns-nameserver',
-  'porkbun-domains', 'porkbun-my-domains', 'domain-manager',
-];
-
-function adminMenuParentForSection(sectionId: string): string | null {
-  for (const item of menuItems) {
-    if (item.id === sectionId) return item.subItems ? item.id : null;
-    if (item.subItems?.some((s) => s.id === sectionId)) return item.id;
-  }
-  if (sectionId.startsWith('cp-email')) return 'gestao-emails';
-  if (['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'setup-smtp'].includes(sectionId)) return 'gestao-emails';
-  if (GESTAO_DOMINIOS_SECTIONS.includes(sectionId)) return 'gestao-dominios';
-  if (GESTAO_HOSPEDAGEM_SECTIONS.includes(sectionId)) return 'gestao-sites';
-  if (['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(sectionId)) return 'gestao-paineis';
-  if (['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(sectionId)) return 'notificacoes';
-  return null;
-}
-
-function isAdminItemActive(item: MenuItem, activeSection: string): boolean {
-  if (activeSection === item.id) return true;
-  if (item.id === 'newsletter' && activeSection === 'newsletter') return true;
-  if (item.id === 'gestao-paineis' && ['cp-client-permissions', 'cp-reseller-permissions', 'cp-users'].includes(activeSection)) return true;
-  if (item.id === 'gestao-dominios' && GESTAO_DOMINIOS_SECTIONS.includes(activeSection)) return true;
-  if (item.id === 'gestao-sites' && GESTAO_HOSPEDAGEM_SECTIONS.includes(activeSection)) return true;
-  if (item.id === 'gestao-emails' && ['emails-new', 'criar-email', 'webmail', 'cp-email-dkim', 'setup-smtp'].includes(activeSection)) return true;
-  if (item.id === 'notificacoes' && ['renewals', 'cadastrar-renovacao', 'templates-renovacao'].includes(activeSection)) return true;
-  if (item.subItems?.some((s) => s.id === activeSection)) return true;
-  return false;
-}
+const menuItems: MenuItem[] = ADMIN_MENU_ITEM_DEFS.map((item) => ({
+  ...item,
+  icon: MENU_ICONS[item.id] || Archive,
+}));
 
 export function AdminSidebar({
   activeSection,
@@ -139,7 +50,7 @@ export function AdminSidebar({
   setIsCollapsed,
   sessionUser
 }: AdminSidebarProps) {
-  const currentSidebarWidth = isCollapsed ? 72 : 248;
+  const currentSidebarWidth = isCollapsed ? 64 : 242;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
     adminMenuParentForSection(activeSection),
   );
@@ -152,11 +63,7 @@ export function AdminSidebar({
   const handleParentClick = (item: MenuItem) => {
     if (!item.subItems?.length) {
       setExpandedMenu(null);
-      if (item.id === 'newsletter') {
-        onNavigate('newsletter');
-      } else {
-        onNavigate(item.id);
-      }
+      onNavigate(item.id);
       return;
     }
 
@@ -166,8 +73,15 @@ export function AdminSidebar({
     }
 
     setExpandedMenu(item.id);
-    onNavigate(item.subItems[0].id);
+    const firstNavigable = item.subItems.find((s) => !s.id.endsWith('-header'));
+    if (firstNavigable) onNavigate(resolveSectionId(firstNavigable.id));
   };
+
+  const handleSubClick = (subId: string) => {
+    onNavigate(resolveSectionId(subId));
+  };
+
+  let shownNewHeader = false;
 
   return (
     <div
@@ -217,54 +131,83 @@ export function AdminSidebar({
       <nav className="flex-1 overflow-y-auto px-2 py-2.5">
         <div className="space-y-0">
           {menuItems.map((item) => {
+            if (item.isNewMenu && !shownNewHeader && !isCollapsed) {
+              shownNewHeader = true;
+            }
+            const showNewLabel = item.id === 'dashboard' && !isCollapsed;
             const Icon = item.icon;
-            const isActive = isAdminItemActive(item, activeSection);
+            const isActive = isPanelMenuItemActive(item, activeSection);
             const isOpen = expandedMenu === item.id && !!item.subItems?.length;
+            const isLegacy = item.id === 'menu-anterior';
 
             return (
-              <div key={item.id} className="mb-1">
-                <button
-                  onClick={() => handleParentClick(item)}
-                  className={`group flex w-full items-center transition-all duration-200 ease-out hover:translate-x-1 ${
-                    isCollapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'
-                  } rounded-lg ${
-                    isActive
-                      ? 'text-red-600 font-bold border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
-                      : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
-                  }`}
-                  title={isCollapsed ? item.label : ''}
-                >
-                  <Icon
-                    size={22}
-                    className={isActive ? 'text-red-600' : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500'}
-                  />
-                  {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
-                  {!isCollapsed && item.subItems && (
-                    <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                  )}
-                </button>
-
-                {!isCollapsed && item.subItems && isOpen && (
-                  <div className="mt-1 ml-9 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800">
-                    {item.subItems.map((sub) => {
-                      const isSubActive = activeSection === sub.id;
-                      return (
-                        <button
-                          key={sub.id}
-                          onClick={() => onNavigate(sub.id)}
-                          className={`relative flex items-center px-3 py-[5px] text-left text-sm transition-colors ${
-                            isSubActive
-                              ? 'font-bold text-red-600 before:absolute before:-left-[1px] before:top-1/2 before:h-3 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-red-600'
-                              : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
-                          }`}
-                        >
-                          {sub.label}
-                        </button>
-                      );
-                    })}
+              <React.Fragment key={item.id}>
+                {showNewLabel && (
+                  <div className="px-2.5 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                    Menu novo (proposta)
                   </div>
                 )}
-              </div>
+                {isLegacy && !isCollapsed && (
+                  <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Menu anterior
+                  </div>
+                )}
+                <div className="mb-1">
+                  <button
+                    onClick={() => handleParentClick(item)}
+                    className={`group flex w-full items-center transition-all duration-200 ease-out hover:translate-x-1 ${
+                      isCollapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'
+                    } rounded-lg ${
+                      isActive
+                        ? 'text-red-600 font-bold'
+                        : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
+                    }`}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <Icon
+                      size={22}
+                      className={
+                        isActive
+                          ? 'text-red-600'
+                          : 'text-gray-500 group-hover:text-red-600'
+                      }
+                    />
+                    {!isCollapsed && <span className="ml-3 text-[14px]">{item.label}</span>}
+                    {!isCollapsed && item.subItems && (
+                      <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
+                    )}
+                  </button>
+
+                  {!isCollapsed && item.subItems && isOpen && (
+                    <div className="mt-1 ml-9 flex max-h-[55vh] flex-col gap-0.5 overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
+                      {item.subItems.map((sub) => {
+                        if (sub.id.endsWith('-header')) {
+                          return (
+                            <div key={sub.id} className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                              {sub.label.replace(/^—\s*|\s*—$/g, '')}
+                            </div>
+                          );
+                        }
+                        const resolved = resolveSectionId(sub.id);
+                        const isSubActive = resolveSectionId(activeSection) === resolved;
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => handleSubClick(sub.id)}
+                            className={`relative flex items-center px-3 py-[5px] text-left text-sm transition-colors ${
+                              isSubActive
+                                ? 'font-bold text-red-600 before:absolute before:left-0 before:top-1/2 before:z-10 before:h-3 before:w-[4px] before:-translate-x-[2.5px] before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
+                                : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
+                            }`}
+                          >
+                            {sub.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </React.Fragment>
             );
           })}
         </div>

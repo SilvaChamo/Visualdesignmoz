@@ -23,21 +23,21 @@ export async function POST(req: NextRequest) {
     // 2. Obter dados do perfil do cliente (para nome e empresa)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('nome, empresa')
-      .eq('id', session.user.id)
-      .single()
+      .select('name, user_id')
+      .or(`user_id.eq.${session.user.id},id.eq.${session.user.id}`)
+      .maybeSingle()
+
+    const displayName = profile?.name || email.split('@')[0]
 
     // 3. Gerar assinatura básica
-    const signature = profile?.empresa 
-      ? `${profile.nome}\n${profile.empresa}`
-      : profile?.nome || email.split('@')[0]
+    const signature = displayName
 
     return NextResponse.json({
       success: true,
       config: {
         ...config,
-        displayName: profile?.nome || email.split('@')[0],
-        organization: profile?.empresa || '',
+        displayName,
+        organization: '',
         signature: signature
       }
     })

@@ -11,17 +11,10 @@ MENU_SRC=/usr/local/directadmin/scripts/uploadfile-menu-v4.json
 MENU_FALLBACK="$SCRIPT_DIR/menu-v4-clean.json"
 DA_SCRIPTS=/usr/local/directadmin/scripts
 
-mkdir -p "$HOOKS" "$IMAGES" "$(dirname "$ADMIN_MENU")"
+mkdir -p "$IMAGES" "$(dirname "$ADMIN_MENU")"
 
-cat > "$HOOKS/user_txt.html" <<'EOF'
-<a href="/CMD_PLUGINS/uploadfile">Upload File</a>
-EOF
-cat > "$HOOKS/reseller_txt.html" <<'EOF'
-<a href="/CMD_PLUGINS_RESELLER/uploadfile">Upload File</a>
-EOF
-cat > "$HOOKS/admin_txt.html" <<'EOF'
-<a href="/CMD_PLUGINS_ADMIN/uploadfile">Upload File</a>
-EOF
+# Sem hooks: Evolution monta plugins em Extra Features. Menu lateral via menu-v4.json.
+rm -rf "$HOOKS"
 
 cat > "$IMAGES/user_icon.svg" <<'EOF'
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
@@ -41,7 +34,7 @@ if [ -f /var/www/html/files/private/sso_secret ]; then
 fi
 
 chown -R diradmin:diradmin "$PLUGIN"
-chmod 755 "$HOOKS"/*.html "$PLUGIN"/*/index.html "$PLUGIN/scripts/upload_ui.php" 2>/dev/null || true
+chmod 755 "$PLUGIN"/*/index.html "$PLUGIN/scripts/upload_ui.php" 2>/dev/null || true
 chmod 644 "$IMAGES"/*.svg
 
 # Menu canónico (admin) — herda para todo o servidor

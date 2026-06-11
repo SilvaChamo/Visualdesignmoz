@@ -187,10 +187,11 @@ export const auth = {
     const user = await this.getCurrentUser()
     if (!user) return 'guest'
 
+    const { profileAuthOrFilter } = await import('@/lib/profile-db')
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
-      .eq('id', user.id)
+      .select('role, da_username')
+      .or(profileAuthOrFilter(user.id))
       .maybeSingle()
 
     return resolveUserRole({
@@ -198,6 +199,7 @@ export const auth = {
       userMetadata: user.user_metadata,
       appMetadata: user.app_metadata,
       profileRole: profile?.role,
+      daUsername: profile?.da_username ?? null,
     })
   },
 

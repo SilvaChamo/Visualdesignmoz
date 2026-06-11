@@ -9,9 +9,8 @@ import {
 } from 'lucide-react'
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
-import { PanelHeader } from '@/components/panel/PanelHeader'
 import { ResellerDirectAccessSection } from '@/components/revendedor/ResellerDirectAccessSection'
-import { CpanelDashboard } from '../admin/CpanelDashboard'
+import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
@@ -38,18 +37,20 @@ import { DNSCentralSection } from '../admin/DNSCentralSection'
 import { PorkbunResellerSection } from '../admin/PorkbunResellerSection'
 import { PorkbunMyDomainsSection } from '../admin/PorkbunMyDomainsSection'
 import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
+import { ProvisionClienteSection } from '../admin/ProvisionClienteSection'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
-import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 import {
-  fetchPanelSitesFromServer,
-  fetchPanelUsersFromServer,
-  fetchPanelPackagesFromServer,
+  fetchPanelBootstrap,
+  fetchPanelBootstrapStaleWhileRevalidate,
+  readBootstrapCache,
+  clearPanelBootstrapCache,
+  type PanelBootstrapData,
 } from '@/lib/panel-data-from-server'
 
 const directAdminAPI = panelAPI
@@ -1968,6 +1969,9 @@ export default function ResellerPage() {
   }, [selectedManageDomain])
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
+  const [resellerDaUsername, setResellerDaUsername] = useState<string | null>(null)
+  const [resellerPrimaryDomain, setResellerPrimaryDomain] = useState<string | null>(null)
+  const [impersonateAs, setImpersonateAs] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [logoUrl, setLogoUrl] = useState<string>('/assets/simbolo.png');
@@ -2033,20 +2037,20 @@ export default function ResellerPage() {
     }
   }, [activeSection]);
 
-  // Obter sessão do usuário
+
   useEffect(() => {
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await createClientInstance.auth.getSession()
-        if (session?.user?.email) {
-          setSessionUser(session.user.email)
-        }
-      } catch (error) {
-        console.error('Erro ao obter sessão:', error)
-      }
-    }
-    getSession()
-  }, [])
+    fetch('/api/admin/impersonate', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.active && d?.daUsername) setImpersonateAs(String(d.daUsername));
+      })
+      .catch(() => {});
+  }, []);
+
+  const exitImpersonation = async () => {
+    await fetch('/api/admin/impersonate', { method: 'DELETE' });
+    window.location.href = '/admin?section=clientes';
+  };
 
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
@@ -2063,84 +2067,74 @@ export default function ResellerPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   useEffect(() => {
-    loadDirectAdminData()
+    void loadDirectAdminData(false)
   }, [])
 
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const sites = await fetchPanelSitesFromServer()
-      if (Array.isArray(sites)) {
-        setDirectAdminSites(sites)
-        // Background sync
-        void (async () => {
-          for (const s of sites) {
-            await syncWebsiteToSupabase(s)
-          }
-        })()
-      }
+      clearPanelBootstrapCache('reseller')
+      await loadDirectAdminData(true)
     } catch (e) { console.error(e) }
     setSyncing(false)
   }
 
-  const loadDirectAdminData = async () => {
-    setIsFetchingDirectAdmin(true)
+  const applyBootstrap = (boot: PanelBootstrapData) => {
+    setDirectAdminSites(boot.sites)
+    setDirectAdminUsers(boot.users)
+    setDirectAdminPackages(boot.packages)
+
+    if (boot.resellerContext) {
+      setResellerDaUsername(boot.resellerContext.daUsername)
+      setSessionUser(boot.resellerContext.email)
+      if (boot.resellerContext.primaryDomain) {
+        setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
+      }
+    }
+  }
+
+  const loadDirectAdminData = async (fresh = false) => {
+    if (fresh) clearPanelBootstrapCache('reseller')
+
+    const cached = !fresh ? readBootstrapCache('reseller') : null
+    if (cached) {
+      applyBootstrap(cached)
+    } else {
+      setIsFetchingDirectAdmin(true)
+    }
+
     try {
-      const [sites, users, packages] = await Promise.all([
-        fetchPanelSitesFromServer(),
-        fetchPanelUsersFromServer(),
-        fetchPanelPackagesFromServer(),
-      ])
+      if (cached && !fresh) {
+        await fetchPanelBootstrapStaleWhileRevalidate(applyBootstrap, 'reseller')
+      } else {
+        const boot = await fetchPanelBootstrap({ fresh: true, scope: 'reseller' })
+        applyBootstrap(boot)
+      }
 
-      const validSites = Array.isArray(sites) ? sites : []
-      const validUsers = Array.isArray(users) ? users : []
-      const validPackages = Array.isArray(packages) ? packages : []
-
-      setDirectAdminSites(validSites)
-      setDirectAdminUsers(validUsers)
-      setDirectAdminPackages(validPackages)
-
-      // Background Sync to Supabase
-      void (async () => {
-        for (const s of validSites) await syncWebsiteToSupabase(s)
-        for (const u of validUsers) {
-          const usr = u as DirectAdminUser & {
-            firstName?: string
-            lastName?: string
-            acl?: string
-            websitesLimit?: number
-            emailsLimit?: number
-            status?: string
-          }
-          await syncUserToSupabase({
-            username: usr.userName,
-            firstName: usr.firstName,
-            lastName: usr.lastName,
-            email: usr.email,
-            acl: usr.acl,
-            websitesLimit: usr.websitesLimit,
-            emailsLimit: usr.emailsLimit,
-            status: usr.status,
-          })
+      if (!cached?.resellerContext) {
+        const { data: { session } } = await createClientInstance.auth.getSession()
+        if (session?.user?.email) {
+          setSessionUser(session.user.email.toLowerCase())
         }
-        for (const p of validPackages) await syncPackageToSupabase(p)
-      })()
-
+      }
     } catch (error) {
-      console.error('Erro ao carregar dados DirectAdmin:', error)
+      console.error('Erro ao carregar dados do painel:', error)
     } finally {
       setIsFetchingDirectAdmin(false)
     }
   }
 
-  // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
-  const filteredSites = directAdminSites.filter(s =>
-    !s.domain.includes('contaboserver') &&
-    !s.domain.toLowerCase().startsWith('mail.')
-  )
-  const primaryDomain = filteredSites.length > 0
-    ? filteredSites[0].domain
-    : 'your-domain.com'
+  // Apenas sites do revendedor activo
+  const filteredSites = directAdminSites.filter((s) => {
+    if (s.domain.includes('contaboserver')) return false
+    if (s.domain.toLowerCase().startsWith('mail.')) return false
+    if (resellerDaUsername && s.owner && s.owner !== resellerDaUsername) return false
+    return true
+  })
+  const primaryDomain =
+    resellerPrimaryDomain ||
+    (filteredSites.length > 0 ? filteredSites[0].domain : null) ||
+    'your-domain.com'
 
   const getSectionInfo = (section: string): { title: string; description: string } => {
     const info: Record<string, { title: string; description: string }> = {
@@ -2201,7 +2195,7 @@ export default function ResellerPage() {
       'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
       'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
       'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
-      'dns-central': { title: 'DNS Central', description: 'Gestão unificada Mozserver ↔ Contabo' },
+      'dns-central': { title: 'DNS Central', description: 'Gestão de zonas DNS' },
       'newsletter': { title: 'Dashboard', description: 'Email marketing' },
       'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
       'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
@@ -2215,16 +2209,14 @@ export default function ResellerPage() {
     switch (activeSection) {
       case 'dashboard':
         return (
-          <CpanelDashboard
+          <ResellerDashboard
             sites={filteredSites}
-            users={directAdminUsers}
             isFetching={isFetchingDirectAdmin}
             onNavigate={handleNavigate}
-            onRefresh={loadDirectAdminData}
+            onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
             onSetDNSDomain={setSelectedDNSDomain}
-            searchQuery={dashboardSearch}
-            onSearchChange={setDashboardSearch}
+            sessionUser={sessionUser}
           />
         )
       case 'acesso-directo':
@@ -2237,7 +2229,7 @@ export default function ResellerPage() {
       case 'domains':
         return <ListWebsitesSection
           sites={filteredSites}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
           packages={directAdminPackages}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
@@ -2249,16 +2241,29 @@ export default function ResellerPage() {
       case 'domains-list':
         return <ListDomainsSection
           sites={filteredSites}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
           setActiveSection={setActiveSection}
         />
       case 'file-manager':
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={directAdminSites} />
+      case 'cp-client-permissions':
+        return <PanelPermissionsConfig role="client" />
+      case 'cp-reseller-permissions':
+        return <PanelPermissionsConfig role="reseller" />
+      case 'provision-client':
+        return (
+          <ProvisionClienteSection
+            packages={directAdminPackages}
+            onComplete={loadDirectAdminData}
+          />
+        )
       case 'clientes':
         return <ClientesSection />
+      case 'revendedores':
+        return <ClientesSection />
       case 'domains-new':
-        return <CreateWebsiteSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+        return <CreateWebsiteSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
@@ -2270,9 +2275,9 @@ export default function ResellerPage() {
       case 'cp-modify-website':
         return <ModifyWebsiteSection sites={filteredSites} packages={directAdminPackages} />
       case 'cp-suspend-website':
-        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <SuspendWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-delete-website':
-        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-databases':
         return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain} />
       case 'cp-ftp':
@@ -2283,7 +2288,7 @@ export default function ResellerPage() {
           userEmail={sessionUser}
           sites={filteredSites}
           useDirectAdminAPI={true}
-          emailOrigem="geral@visualdesignmoz.com"
+          emailOrigem={sessionUser || `noreply@${primaryDomain}`}
           onComposeStateChange={setIsComposeActive}
           isAdmin={false}
           onNavigate={handleNavigate}
@@ -2342,7 +2347,7 @@ export default function ResellerPage() {
       case 'deploy':
         return <DeploySection sites={filteredSites} />
       case 'packages-new':
-        return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'reports':
       case 'analyses':
       case 'diagnostico':
@@ -2365,7 +2370,7 @@ export default function ResellerPage() {
         )
 
       case 'cp-wp-list':
-        return <ListWordPressSection sites={filteredSites} onRefresh={loadDirectAdminData} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
+        return <ListWordPressSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} setActiveSection={setActiveSection} setFileManagerDomain={setFileManagerDomain} setSelectedDNSDomain={setSelectedDNSDomain} />
       case 'cp-wp-plugins':
         return <WPPluginsSection sites={filteredSites} />
       case 'cp-wp-restore-backup':
@@ -2390,7 +2395,12 @@ export default function ResellerPage() {
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
       case 'dns-central':
-        return <DNSCentralSection />
+        return (
+          <DNSCentralSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'newsletter':
@@ -2407,7 +2417,7 @@ export default function ResellerPage() {
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
@@ -2421,7 +2431,7 @@ export default function ResellerPage() {
         />
 
       case 'packages-list':
-        return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'manage-website':
         return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
@@ -2431,7 +2441,7 @@ export default function ResellerPage() {
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
           packages={directAdminPackages}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
         />
       case 'page-builders':
         // Redirecionar para a página de construtores do revendedor
@@ -2447,16 +2457,14 @@ export default function ResellerPage() {
         return <ResellerProfileSection />;
       default:
         return (
-          <CpanelDashboard
+          <ResellerDashboard
             sites={filteredSites}
-            users={directAdminUsers}
             isFetching={isFetchingDirectAdmin}
             onNavigate={handleNavigate}
-            onRefresh={loadDirectAdminData}
+            onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
             onSetDNSDomain={setSelectedDNSDomain}
-            searchQuery={dashboardSearch}
-            onSearchChange={setDashboardSearch}
+            sessionUser={sessionUser}
           />
         )
     }
@@ -2598,15 +2606,14 @@ export default function ResellerPage() {
       setShowCadastroModal(true)
       return
     }
-    // Se navegar para gestão de emails, definir domínio padrão visualdesignmoz.com
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
-      setPreSelectedEmailDomain('visualdesignmoz.com')
+      setPreSelectedEmailDomain(primaryDomain !== 'your-domain.com' ? primaryDomain : '')
     }
     setActiveSection(section)
   }
 
   return (
-    <div className="panel-shell font-panel flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <ResellerSidebar
         activeSection={activeSection}
         onNavigate={handleNavigate}
@@ -2615,54 +2622,66 @@ export default function ResellerPage() {
         sessionUser={sessionUser}
         customLogo={logoUrl}
       />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <PanelHeader
-          title={getSectionInfo(activeSection).title}
-          description={getSectionInfo(activeSection).description}
-          hidden={isComposeActive && activeSection === 'webmail'}
-          actions={
-            <>
-              <a
-                href={getDirectAdminAccessUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Server size={13} /> DirectAdmin
-              </a>
-              <a
-                href={sessionUser ? `/api/roundcube-sso?email=${encodeURIComponent(sessionUser)}` : '/api/roundcube-sso'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Mail size={13} /> Roundcube
-              </a>
-              <button
-                onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                title={t('sidebar.logout')}
-              >
-                <LogOut size={14} />
-                <span>Sair</span>
-              </button>
-            </>
-          }
-        >
-          {activeSection === 'dashboard' && (
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              <input
-                value={dashboardSearch}
-                onChange={(e) => setDashboardSearch(e.target.value)}
-                placeholder="Pesquisar ferramentas..."
-                className="w-full rounded-md border border-zinc-200 bg-white py-2 pl-9 pr-4 text-sm text-zinc-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              />
+      <div className="flex-1 flex flex-col overflow-hidden bg-white">
+        {impersonateAs && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-sm text-amber-950">
+            <span>
+              A ver o painel como <strong className="font-semibold">{impersonateAs}</strong> (sessão de administrador)
+            </span>
+            <button
+              type="button"
+              onClick={() => void exitImpersonation()}
+              className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              <ArrowLeft size={14} /> Voltar ao admin
+            </button>
+          </div>
+        )}
+        <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {getSectionInfo(activeSection).title}
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {getSectionInfo(activeSection).description}
+              </p>
             </div>
-          )}
-        </PanelHeader>
+            <div className="flex items-center gap-3">
+              {activeSection === 'dashboard' && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    value={dashboardSearch}
+                    onChange={(e) => setDashboardSearch(e.target.value)}
+                    placeholder="Pesquisar ferramentas..."
+                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <a
+                  href={getDirectAdminAccessUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
+                >
+                  <Globe size={13} /> {t('admin.settings.directadmin')}
+                </a>
+                <button
+                  onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
+                  className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all"
+                  title={t('sidebar.logout')}
+                >
+                  <LogOut size={14} />
+                  <span>Sair da Conta</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
 
-        <main className={`panel-content flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
+        <main className={`flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
           <div className={`${['webmail', 'dashboard'].includes(activeSection) ? 'h-full min-h-0 overflow-y-auto' : 'min-h-full'}`}>
             {renderSection()}
           </div>

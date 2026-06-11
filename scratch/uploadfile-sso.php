@@ -55,7 +55,7 @@ $user->setUsername($data['user']);
 $user->setName($data['user']);
 $user->setRole('user');
 $user->setHomedir($homedir);
-$user->setPermissions('read|write|upload|download|batchdownload|zip', true);
+$user->setPermissions('read|write|upload|download|batchdownload|zip|chmod', true);
 
 $hash = sha1($user->getUsername() . $user->getHomeDir() . $user->getRole());
 $session->set('ftp_auth', $user);

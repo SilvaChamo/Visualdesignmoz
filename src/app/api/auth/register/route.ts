@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
       user_metadata: {
         role: 'guest',
         nome: String(nome).trim(),
+        site: PANEL_SLUG,
       },
     });
 
@@ -52,14 +54,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.user?.id) {
-      await admin.from('profiles').upsert(
-        {
-          id: data.user.id,
-          email: normalizedEmail,
-          role: 'guest',
-        },
-        { onConflict: 'id' },
-      );
+      const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+      await saveProfileForAuthUser(admin, data.user.id, {
+        email: normalizedEmail,
+        role: 'guest',
+        name: String(nome).trim() || normalizedEmail.split('@')[0],
+      });
     }
 
     return NextResponse.json({

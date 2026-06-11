@@ -56,6 +56,12 @@ export function PorkbunMyDomainsSection() {
         </button>
       </div>
 
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <strong>DirectAdmin:</strong> os websites alojados no servidor estão em{' '}
+        <strong>Hospedagem → Listar Websites</strong>, não nesta página.
+        Esta secção lista apenas domínios comprados via <strong>Spaceship</strong> (registador).
+      </div>
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
       )}

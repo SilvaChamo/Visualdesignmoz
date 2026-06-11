@@ -80,6 +80,13 @@ export async function resolveDirectAdminCredentials(
     }
   }
 
+  // Sem credenciais ligadas a esta conta — não usar env legado (evita ver dados de outro revendedor).
+  if (context?.id || context?.email) {
+    throw new Error(
+      'Conta de revenda em provisionamento. Aguarde alguns segundos ou sincronize em Admin → Utilizadores.',
+    );
+  }
+
   const legacy = await resolveLegacyEnvReseller();
   if (legacy) return legacy;
 

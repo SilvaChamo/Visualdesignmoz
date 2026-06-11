@@ -2708,12 +2708,12 @@ function ContaSection() {
       const { data: profile } = await createClientInstance
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
-        .single()
+        .eq('user_id', user.id)
+        .maybeSingle()
 
       if (profile) {
         setDados({
-          nome: profile.nome || '',
+          nome: profile.name || profile.nome || '',
           email: user.email || '',
           telefone: profile.telefone || '',
           empresa: profile.empresa || '',
@@ -2757,20 +2757,22 @@ function ContaSection() {
         return
       }
 
+      const { data: existing } = await createClientInstance
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
       const profileData = {
-        id: user.id,
-        nome: dados.nome,
-        telefone: dados.telefone,
-        empresa: dados.empresa,
-        morada: dados.morada,
-        cidade: dados.cidade,
+        user_id: user.id,
+        name: dados.nome,
         email: dados.email,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       }
 
-      const { error } = await createClientInstance
-        .from('profiles')
-        .upsert(profileData, { onConflict: 'id' })
+      const { error } = existing?.id
+        ? await createClientInstance.from('profiles').update(profileData).eq('id', existing.id)
+        : await createClientInstance.from('profiles').insert(profileData)
 
       if (error) {
         console.error('Erro ao guardar dados:', error.message, error.code, error.details, error.hint)
@@ -3436,11 +3438,11 @@ export default function AdminPage() {
           const { data: profile } = await createClientInstance
             .from('profiles')
             .select('*')
-            .eq('id', user.id)
-            .single()
+            .eq('user_id', user.id)
+            .maybeSingle()
 
           setCliente({
-            nome: profile?.nome || user.user_metadata?.nome || 'Utilizador',
+            nome: profile?.name || profile?.nome || user.user_metadata?.nome || 'Utilizador',
             email: user.email
           })
         }

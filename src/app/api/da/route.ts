@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import { scheduleDaSync } from '@/lib/da-sync-engine';
+import { mirrorAfterDaMutation, mutationSucceeded } from '@/lib/panel-mirror-write';
+import {
+  listMirrorDns,
+  listMirrorDatabases,
+  listMirrorEmails,
+  listMirrorFtp,
+  listMirrorPackages,
+  listMirrorSubdomains,
+  listMirrorUsers,
+  listMirrorWebsites,
+} from '@/lib/panel-mirror-read';
+import { resolveMirrorOrLive } from '@/lib/panel-list-resolve';
+
+const MUTATION_ACTIONS = new Set([
+  'createUser', 'modifyUser', 'deleteUser',
+  'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite', 'modifyWebsite',
+  'createPackage', 'modifyPackage', 'editPackage', 'deletePackage',
+  'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail',
+  'changeEmailPassword', 'setEmailLimits',
+  'addEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing',
+  'createSubdomain', 'deleteSubdomain',
+  'createDatabase', 'deleteDatabase',
+  'createFTPAccount', 'deleteFTPAccount',
+  'issueSSL', 'enableDKIM',
+  'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
+  'configDefaultNameservers', 'createNameserver', 'configCloudFlare',
+  'changePHPVersion', 'savePHPConfig',
+  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
+  'installWordPress', 'installWPPlugin', 'toggleWPPlugin',
+  'restoreWPBackup', 'createRemoteBackup',
+]);
 
 /**
  * BFF DirectAdmin — o painel revendedor e admin chamam esta rota.
@@ -10,8 +42,8 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 async function resolveApi() {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return { error: auth.error } as const;
-  const daApi = await getDirectAdminAPIForAuth(auth.user);
-  return { daApi, role: auth.user.role } as const;
+  const ctx = await resolvePanelDaContext(auth);
+  return { daApi: ctx.daApi, user: auth.user, mirrorScope: ctx.mirrorScope } as const;
 }
 
 export async function POST(req: NextRequest) {
@@ -19,7 +51,8 @@ export async function POST(req: NextRequest) {
     const resolved = await resolveApi();
     if ('error' in resolved) return resolved.error;
 
-    const { daApi } = resolved;
+    const { daApi, user, mirrorScope } = resolved;
+
     const body = await req.json();
     const { action, params = {}, timeoutMs } = body;
 
@@ -30,9 +63,18 @@ export async function POST(req: NextRequest) {
     let data: unknown;
 
     switch (action) {
-      case 'listWebsites':
-        data = await daApi.listWebsites(timeoutMs);
+      case 'listWebsites': {
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorWebsites(mirrorScope),
+          live: async () => {
+            const rows = await daApi.listWebsites(timeoutMs);
+            if (rows.length > 0) scheduleDaSync(500);
+            return rows;
+          },
+        });
         break;
+      }
       case 'createWebsite':
         data = await daApi.createWebsite(params);
         break;
@@ -49,9 +91,15 @@ export async function POST(req: NextRequest) {
         data = await daApi.modifyWebsite(params);
         break;
 
-      case 'listSubdomains':
-        data = await daApi.listSubdomains(params.domain);
+      case 'listSubdomains': {
+        const domain = String(params.domain || '');
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorSubdomains(domain, mirrorScope),
+          live: async () => daApi.listSubdomains(domain),
+        });
         break;
+      }
       case 'createSubdomain':
         data = await daApi.createSubdomain(params.domain, params.subdomain);
         break;
@@ -59,13 +107,41 @@ export async function POST(req: NextRequest) {
         data = await daApi.deleteSubdomain(params.domain, params.subdomain);
         break;
 
-      case 'listPackages':
-        data = await daApi.listPackages();
+      case 'listPackages': {
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorPackages(mirrorScope),
+          live: async () => {
+            const rows = await daApi.listPackages();
+            if (rows.length > 0) scheduleDaSync(500);
+            return rows;
+          },
+        });
+        break;
+      }
+      case 'createPackage':
+        data = await daApi.createPackage(params);
+        break;
+      case 'modifyPackage':
+      case 'editPackage':
+        data = await daApi.modifyPackage(params);
+        break;
+      case 'deletePackage':
+        data = await daApi.deletePackage(String(params.packageName || ''));
         break;
 
-      case 'listUsers':
-        data = await daApi.listUsers();
+      case 'listUsers': {
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorUsers(mirrorScope),
+          live: async () => {
+            const rows = await daApi.listUsers();
+            if (rows.length > 0) scheduleDaSync(500);
+            return rows;
+          },
+        });
         break;
+      }
       case 'createUser':
         data = await daApi.createUser(params);
         break;
@@ -76,9 +152,15 @@ export async function POST(req: NextRequest) {
         data = await daApi.deleteUser(params);
         break;
 
-      case 'listEmails':
-        data = await daApi.listEmails(params.domain);
+      case 'listEmails': {
+        const domain = String(params.domain || '');
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorEmails(domain, mirrorScope),
+          live: async () => daApi.listEmails(domain),
+        });
         break;
+      }
       case 'createEmail':
         data = await daApi.createEmail(params);
         break;
@@ -122,9 +204,15 @@ export async function POST(req: NextRequest) {
         data = await daApi.togglePlusAddressing(params);
         break;
 
-      case 'listDatabases':
-        data = await daApi.listDatabases(params.domain);
+      case 'listDatabases': {
+        const domain = String(params.domain || '');
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorDatabases(domain, mirrorScope),
+          live: async () => daApi.listDatabases(domain),
+        });
         break;
+      }
       case 'createDatabase':
         data = await daApi.createDatabase(params);
         break;
@@ -132,9 +220,15 @@ export async function POST(req: NextRequest) {
         data = await daApi.deleteDatabase(params);
         break;
 
-      case 'listFTPAccounts':
-        data = await daApi.listFTPAccounts(params.domain);
+      case 'listFTPAccounts': {
+        const domain = String(params.domain || '');
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorFtp(domain, mirrorScope),
+          live: async () => daApi.listFTPAccounts(domain),
+        });
         break;
+      }
       case 'createFTPAccount':
         data = await daApi.createFTPAccount(params);
         break;
@@ -146,9 +240,15 @@ export async function POST(req: NextRequest) {
         data = await daApi.issueSSL(params.domain);
         break;
 
-      case 'listDNS':
-        data = await daApi.listDNS(params.domain);
+      case 'listDNS': {
+        const domain = String(params.domain || '');
+        data = await resolveMirrorOrLive({
+          onStale: () => scheduleDaSync(0),
+          mirror: () => listMirrorDns(domain, mirrorScope),
+          live: async () => daApi.listDNS(domain),
+        });
         break;
+      }
       case 'createDNSZone':
         data = await daApi.createDNSZone(params);
         break;
@@ -259,6 +359,13 @@ export async function POST(req: NextRequest) {
         );
     }
 
+    if (MUTATION_ACTIONS.has(action)) {
+      if (mutationSucceeded(data)) {
+        await mirrorAfterDaMutation(action, params as Record<string, unknown>);
+      }
+      scheduleDaSync(1500);
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro interno';
@@ -272,7 +379,7 @@ export async function GET(req: NextRequest) {
     const resolved = await resolveApi();
     if ('error' in resolved) return resolved.error;
 
-    const { daApi } = resolved;
+    const { daApi, user, mirrorScope } = resolved;
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
 
@@ -282,15 +389,21 @@ export async function GET(req: NextRequest) {
 
     let data: unknown;
     switch (action) {
-      case 'listUsers':
-        data = await daApi.listUsers();
+      case 'listUsers': {
+        data = await listMirrorUsers(mirrorScope);
+        if (!Array.isArray(data) || data.length === 0) data = await daApi.listUsers();
         break;
-      case 'listPackages':
-        data = await daApi.listPackages();
+      }
+      case 'listPackages': {
+        data = await listMirrorPackages(mirrorScope);
+        if (!Array.isArray(data) || data.length === 0) data = await daApi.listPackages();
         break;
-      case 'listWebsites':
-        data = await daApi.listWebsites();
+      }
+      case 'listWebsites': {
+        data = await listMirrorWebsites(mirrorScope);
+        if (!Array.isArray(data) || data.length === 0) data = await daApi.listWebsites();
         break;
+      }
       default:
         return NextResponse.json(
           { success: false, error: `GET action "${action}" não suportada` },

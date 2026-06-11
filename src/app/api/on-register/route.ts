@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (userId) {
-      await admin.from('profiles').upsert({ id: userId, nome: name || null, email }, { onConflict: 'id' })
+      const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+      await saveProfileForAuthUser(admin, userId, { email, name: name || null });
     }
 
     return NextResponse.json({ success: true })

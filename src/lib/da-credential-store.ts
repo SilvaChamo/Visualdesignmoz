@@ -81,6 +81,43 @@ export async function loadResellerCredentialsByUserId(
   };
 }
 
+export async function loadResellerCredentialsByDaUsername(
+  daUsername: string,
+): Promise<StoredResellerCredentials | null> {
+  const admin = adminClient();
+  const username = daUsername.trim().toLowerCase();
+
+  const { data: panelUser } = await admin
+    .from('panel_users')
+    .select('username, da_password_encrypted, da_domain')
+    .eq('username', daUsername)
+    .maybeSingle();
+
+  if (panelUser?.username && panelUser?.da_password_encrypted) {
+    return {
+      user: panelUser.username,
+      password: decryptDaSecret(panelUser.da_password_encrypted),
+      domain: panelUser.da_domain,
+    };
+  }
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('da_username, da_password_encrypted, da_domain')
+    .ilike('da_username', username)
+    .maybeSingle();
+
+  if (profile?.da_username && profile?.da_password_encrypted) {
+    return {
+      user: profile.da_username,
+      password: decryptDaSecret(profile.da_password_encrypted),
+      domain: profile.da_domain,
+    };
+  }
+
+  return null;
+}
+
 export async function loadResellerCredentialsByEmail(
   email: string,
 ): Promise<(StoredResellerCredentials & { userId?: string }) | null> {
@@ -134,19 +171,16 @@ export async function saveResellerCredentials(input: {
   const encrypted = encryptDaSecret(input.daPassword);
   const now = new Date().toISOString();
 
-  await admin.from('profiles').upsert(
-    {
-      id: input.userId,
-      email: input.email.toLowerCase(),
-      role: 'reseller',
-      nome: input.nome || input.email.split('@')[0],
-      da_username: input.daUsername,
-      da_password_encrypted: encrypted,
-      da_domain: input.daDomain,
-      da_provisioned_at: now,
-    },
-    { onConflict: 'id' },
-  );
+  const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+  await saveProfileForAuthUser(admin, input.userId, {
+    email: input.email.toLowerCase(),
+    role: 'reseller',
+    name: input.nome || input.email.split('@')[0],
+    da_username: input.daUsername,
+    da_password_encrypted: encrypted,
+    da_domain: input.daDomain,
+    da_provisioned_at: now,
+  });
 
   const { data: existing } = await admin
     .from('panel_users')

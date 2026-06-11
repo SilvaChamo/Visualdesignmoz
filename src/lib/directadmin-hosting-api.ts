@@ -11,6 +11,7 @@ const LONG_TIMEOUT = 120_000;
 const MUTATION_ACTIONS = new Set([
   'createUser', 'modifyUser', 'deleteUser',
   'createWebsite', 'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
+  'createPackage', 'modifyPackage', 'editPackage', 'deletePackage',
   'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail',
   'createSubdomain', 'deleteSubdomain',
   'createDatabase', 'deleteDatabase',
@@ -68,6 +69,8 @@ export interface PanelUser {
   websitesLimit?: number;
   emailsLimit?: number;
   status?: string;
+  registeredAt?: string;
+  parentUsername?: string;
 }
 
 export interface PanelSubdomain {
@@ -177,6 +180,9 @@ export const panelHostingAPI = {
   listWebsites: (timeoutMs?: number) => run<PanelWebsite[]>('listWebsites', {}, timeoutMs),
   listPackages: () => run<PanelPackage[]>('listPackages'),
   listUsers: () => run<PanelUser[]>('listUsers'),
+  createPackage: (params: unknown) => run('createPackage', params as Record<string, unknown>, LONG_TIMEOUT),
+  modifyPackage: (params: unknown) => run('modifyPackage', params as Record<string, unknown>, LONG_TIMEOUT),
+  deletePackage: (packageName: string) => run('deletePackage', { packageName }, LONG_TIMEOUT),
   createWebsite: (params: unknown) => run('createWebsite', params as Record<string, unknown>, LONG_TIMEOUT),
   suspendWebsite: (domain: string) => run('suspendWebsite', { domain }),
   unsuspendWebsite: (domain: string) => run('unsuspendWebsite', { domain }),

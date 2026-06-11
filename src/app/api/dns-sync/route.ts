@@ -3,16 +3,20 @@
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  checkDomainSyncStatus, 
-  syncDomainToHosting, 
+import {
+  checkDomainSyncStatus,
+  syncDomainToHosting,
   getHostingDomains,
-  handleMozserverWebhook 
+  handleMozserverWebhook,
 } from '@/lib/dns-sync';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 // GET: Verificar status de sincronização
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain');
     const action = searchParams.get('action');
@@ -59,6 +63,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, domain, webhook } = body;
+
+    if (!webhook) {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+    }
 
     // Webhook do Mozserver
     if (webhook) {

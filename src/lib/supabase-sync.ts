@@ -71,6 +71,7 @@ export async function syncUserToSupabase(user: {
   websitesLimit?: number
   emailsLimit?: number
   status?: string
+  suspended?: boolean
 }) {
   try {
     const payload = {
@@ -81,7 +82,7 @@ export async function syncUserToSupabase(user: {
       acl: user.acl || 'user',
       websites_limit: user.websitesLimit ?? 0,
       emails_limit: user.emailsLimit ?? 0,
-      status: user.status || 'Active',
+      status: user.suspended ? 'Suspended' : user.status || 'Active',
       synced_at: new Date().toISOString(),
     }
 

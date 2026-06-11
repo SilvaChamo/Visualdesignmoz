@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Shield, Save, CheckSquare, Square, CheckCircle2, ExternalLink, Plus, X } from 'lucide-react'
+import { ResellerMenuPermissionsConfig } from './ResellerMenuPermissionsConfig'
 
 interface PermissionOption {
   id: string
@@ -56,7 +57,7 @@ interface Props {
   role: 'client' | 'reseller'
 }
 
-export function PanelPermissionsConfig({ role }: Props) {
+function ClientPanelPermissionsConfig() {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({})
   const [customOptions, setCustomOptions] = useState<PermissionOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,16 +66,14 @@ export function PanelPermissionsConfig({ role }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newOption, setNewOption] = useState({ id: '', label: '', description: '' })
 
-  const roleName = role === 'client' ? 'Painel do Cliente' : 'Painel do Revendedor'
-  const roleDesc = role === 'client' 
-    ? 'Defina quais os módulos e acessos que os seus clientes finais podem visualizar e interagir no painel principal.'
-    : 'Configuração dos limites e funcionalidades visíveis para quem subscreve planos de Revenda.'
+  const roleName = 'Painel do Cliente'
+  const roleDesc = 'Defina quais os módulos e acessos que os seus clientes finais podem visualizar e interagir no painel principal.'
 
   // Carregar configurações da base de dados
   useEffect(() => {
     const fetchPerms = async () => {
       try {
-        const res = await fetch(`/api/admin/permissions?role=${role}`)
+        const res = await fetch('/api/admin/permissions?role=client')
         if (res.ok) {
           const data = await res.json()
           setPermissions(data.permissions || {})
@@ -83,7 +82,7 @@ export function PanelPermissionsConfig({ role }: Props) {
           // Fallback para defaults
           const defaults: Record<string, boolean> = {}
           PERMISSION_GRID.forEach(cat => cat.options.forEach(opt => {
-            defaults[opt.id] = role === 'reseller' ? true : opt.default
+            defaults[opt.id] = opt.default
           }))
           setPermissions(defaults)
           setCustomOptions([])
@@ -92,7 +91,7 @@ export function PanelPermissionsConfig({ role }: Props) {
         // Fallback
         const defaults: Record<string, boolean> = {}
         PERMISSION_GRID.forEach(cat => cat.options.forEach(opt => {
-          defaults[opt.id] = role === 'reseller' ? true : opt.default
+          defaults[opt.id] = opt.default
         }))
         setPermissions(defaults)
         setCustomOptions([])
@@ -101,7 +100,7 @@ export function PanelPermissionsConfig({ role }: Props) {
       }
     }
     fetchPerms()
-  }, [role])
+  }, [])
 
   const togglePermission = (id: string) => {
     setPermissions(prev => ({
@@ -158,7 +157,7 @@ export function PanelPermissionsConfig({ role }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          role, 
+          role: 'client',
           permissions,
           customOptions 
         })
@@ -361,4 +360,11 @@ export function PanelPermissionsConfig({ role }: Props) {
       </div>
     </div>
   )
+}
+
+export function PanelPermissionsConfig({ role }: Props) {
+  if (role === 'reseller') {
+    return <ResellerMenuPermissionsConfig />
+  }
+  return <ClientPanelPermissionsConfig />
 }

@@ -1,17 +1,19 @@
+import {
+  ADMIN_BOOTSTRAP_EMAILS,
+  resolveRegistryPanelRole,
+} from '@/lib/panel-user-registry';
+
 export type UserRole = 'admin' | 'reseller' | 'client' | 'guest';
 
-/** Únicos emails com acesso administrativo total */
-export const ADMIN_EMAILS = new Set([
-  'silva.chamo@gmail.com',
-  'silva.chamo@visualdesignmoz.com',
-  'admin@visualdesignmoz.com',
-]);
+/** Emails com acesso bootstrap ao painel admin (não promovem papel na listagem). */
+export const ADMIN_EMAILS = ADMIN_BOOTSTRAP_EMAILS;
 
 type RoleSource = {
   email?: string | null;
   userMetadata?: Record<string, unknown> | null;
   appMetadata?: Record<string, unknown> | null;
   profileRole?: string | null;
+  daUsername?: string | null;
   hasPaidProducts?: boolean;
 };
 
@@ -26,20 +28,21 @@ function readRole(value: unknown): UserRole | null {
 export function resolveUserRole(source: RoleSource): UserRole {
   const email = (source.email || '').toLowerCase();
 
-  if (ADMIN_EMAILS.has(email)) return 'admin';
-
   const metaRole = readRole(source.userMetadata?.role) ?? readRole(source.appMetadata?.role);
-  if (metaRole === 'admin') return 'admin';
-  if (metaRole === 'reseller') return 'reseller';
-
   const profileRole = readRole(source.profileRole);
-  if (profileRole === 'admin') return 'admin';
-  if (profileRole === 'reseller') return 'reseller';
-  if (profileRole === 'client') return 'client';
-  if (profileRole === 'guest') return 'guest';
 
-  if (metaRole === 'client') return 'client';
-  if (metaRole === 'guest') return 'guest';
+  // Admin só por promoção manual (perfil ou metadata), nunca por email fixo.
+  if (profileRole === 'admin' || metaRole === 'admin') return 'admin';
+
+  const registryRole = resolveRegistryPanelRole({
+    email,
+    daUsername: source.daUsername,
+  });
+  if (registryRole) return registryRole;
+
+  if (profileRole === 'reseller' || metaRole === 'reseller') return 'reseller';
+  if (profileRole === 'client' || metaRole === 'client') return 'client';
+  if (profileRole === 'guest' || metaRole === 'guest') return 'guest';
 
   // Comprou algo mas ainda marcado como guest → promove a cliente
   if (source.hasPaidProducts) return 'client';

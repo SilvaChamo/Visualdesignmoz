@@ -200,8 +200,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .err{color:#b91c1c;margin-top:14px;font-size:.9rem}
 .hint{color:#64748b;font-size:.82rem;margin:16px 0 0;line-height:1.45}
 .empty{color:#94a3b8;font-size:.9rem;margin:0 0 12px}
-.status{margin-top:14px;padding:12px 14px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;font-size:.9rem;color:#1e3a8a;display:none}
-.status strong{display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -223,29 +221,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
       <?php endforeach; ?>
     </select>
     <button type="button" id="openBtn" <?= $domains && !$configError ? '' : 'disabled' ?>>Abrir gestor de upload</button>
-    <div class="status" id="statusBox">
-      <strong id="statusTitle">A preparar sessão…</strong>
-      <span id="statusMeta">Tempo: 0s</span>
-    </div>
   </div>
-  <p class="hint">Upload até 2 GB por ficheiro, sem voltar a pedir password — usa a sua sessão DirectAdmin. O tempo total de carregamento aparece durante o upload.</p>
+  <p class="hint">Upload até 2 GB por ficheiro, sem voltar a pedir password — usa a sua sessão DirectAdmin. O tempo restante aparece durante o upload no gestor de ficheiros.</p>
 </div>
 <script>
 (function () {
   var urls = <?= json_encode($ssoUrls, JSON_UNESCAPED_SLASHES) ?>;
   var select = document.getElementById('domain');
   var btn = document.getElementById('openBtn');
-  var statusBox = document.getElementById('statusBox');
-  var statusTitle = document.getElementById('statusTitle');
-  var statusMeta = document.getElementById('statusMeta');
   if (!select || !btn) return;
-
-  function fmtTime(sec) {
-    sec = Math.max(0, Math.floor(sec || 0));
-    var m = Math.floor(sec / 60);
-    var s = sec % 60;
-    return (m ? m + 'm ' : '') + s + 's';
-  }
 
   btn.addEventListener('click', function () {
     var domain = select.value;
@@ -255,17 +239,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
     }
     btn.disabled = true;
     btn.textContent = 'A abrir…';
-    statusBox.style.display = 'block';
-    statusTitle.textContent = 'A ligar ao gestor de ficheiros…';
-    var started = Date.now();
-    var timer = setInterval(function () {
-      statusMeta.textContent = 'Tempo: ' + fmtTime((Date.now() - started) / 1000);
-    }, 500);
     var url = urls[domain];
-    setTimeout(function () {
-      clearInterval(timer);
-      try { window.top.location.assign(url); } catch (e) { window.location.assign(url); }
-    }, 120);
+    try { window.top.location.assign(url); } catch (e) { window.location.assign(url); }
   });
 })();
 </script>

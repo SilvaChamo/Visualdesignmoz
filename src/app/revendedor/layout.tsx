@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ensureResellerProvisioned } from "@/lib/reseller-auto-provision";
+import { userBelongsToCurrentPanel } from "@/lib/panel-tenant";
 import { ResellerAutoProvision } from "@/components/revendedor/ResellerAutoProvision";
 
 export const metadata: Metadata = {
@@ -26,6 +27,10 @@ export default async function AdminLayout({
 
     if (!user) {
         console.log('AdminLayout: No user session found.');
+        notFound();
+    }
+
+    if (!userBelongsToCurrentPanel(user)) {
         notFound();
     }
 

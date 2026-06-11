@@ -1,6 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { resolveUserRole } from '@/lib/user-roles';
+import { profileAuthOrFilter } from '@/lib/profile-db';
+import { userBelongsToCurrentPanel } from '@/lib/panel-tenant';
 import { fetchUserProductsSummary } from '@/lib/user-products';
 import { getRedirectPathForRole } from '@/lib/user-roles';
 
@@ -12,11 +14,13 @@ export default async function GuestLayout({ children }: { children: React.ReactN
 
   if (!user) notFound();
 
+  if (!userBelongsToCurrentPanel(user)) notFound();
+
   const products = await fetchUserProductsSummary(supabase, user.id);
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
-    .eq('id', user.id)
+    .select('role, da_username')
+    .or(profileAuthOrFilter(user.id))
     .maybeSingle();
 
   const role = resolveUserRole({

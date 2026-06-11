@@ -70,12 +70,12 @@ export async function POST() {
             .eq('dominio', domain)
             .maybeSingle();
 
-          await admin.from('profiles').upsert({
-            id: userId,
+          const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+          await saveProfileForAuthUser(admin, userId, {
             email,
-            nome: email.split('@')[0],
+            name: email.split('@')[0],
             role: 'client',
-          }, { onConflict: 'id' });
+          });
 
           await admin.from('email_contas').upsert({
             email,

@@ -194,18 +194,14 @@ export async function provisionResellerAccount(
   }
 
   if (linkedExisting) {
-    await daRequest(
-      'CMD_API_MODIFY_USER',
-      'POST',
-      {
-        action: 'single',
-        user: daUsername,
-        email,
-        passwd: input.password,
-        passwd2: input.password,
-      },
-      'admin',
-    );
+    const syncBody: Record<string, string> = {
+      action: 'single',
+      user: daUsername,
+      passwd: input.password,
+      passwd2: input.password,
+    };
+    if (email.includes('@')) syncBody.email = email;
+    await daRequest('CMD_API_MODIFY_USER', 'POST', syncBody, 'admin');
   }
 
   const auth = await ensureAuthUser({ ...input, userName: daUsername });

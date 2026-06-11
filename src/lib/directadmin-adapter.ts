@@ -24,6 +24,12 @@ type DaData = Record<string, unknown>;
 function extractList(data: DaData, prefix = 'list'): string[] {
   const direct = data[prefix];
   if (Array.isArray(direct)) return direct.map(String);
+  const numericKeys = Object.keys(data)
+    .filter((k) => /^\d+$/.test(k))
+    .sort((a, b) => Number(a) - Number(b));
+  if (numericKeys.length > 0) {
+    return numericKeys.map((k) => String(data[k]));
+  }
   const results: string[] = [];
   for (const [k, v] of Object.entries(data)) {
     if (k === prefix || k.startsWith(`${prefix}[`) || /^list\d*$/.test(k)) {
@@ -44,17 +50,111 @@ async function daGet(creds: DirectAdminCredentials, cmd: string, qs: Record<stri
   return res.data || {};
 }
 
+/** Alguns comandos DA (ex. SHOW_USER_DOMAINS) falham ou ficam vazios com json=yes neste servidor. */
+async function daGetPlain(
+  creds: DirectAdminCredentials,
+  cmd: string,
+  qs: Record<string, string> = {},
+): Promise<DaData> {
+  const res = await daRequest(cmd, 'GET', qs, creds);
+  if (res.error) throw new Error(res.details || res.text || `DirectAdmin ${cmd} falhou`);
+  return res.data || {};
+}
+
+function normalizeDomainKey(key: string): string {
+  return decodeURIComponent(key).replace(/%2E/gi, '.').toLowerCase();
+}
+
+function extractDomainKeys(data: DaData): string[] {
+  const skip = new Set(['error', 'text', 'details', 'success', 'client_ip', 'have_lost_password']);
+  return [
+    ...new Set(
+      Object.keys(data)
+        .filter((k) => !skip.has(k) && !k.startsWith('list'))
+        .map(normalizeDomainKey)
+        .filter((d) => d.includes('.')),
+    ),
+  ];
+}
+
+async function resolveDaAccountUsers(credentials: DirectAdminCredentials): Promise<string[]> {
+  const users = new Set<string>([credentials.user]);
+  if (credentials.role === 'admin') {
+    try {
+      const allData = await daGetPlain(credentials, 'CMD_API_SHOW_ALL_USERS');
+      const all = extractList(allData, 'list');
+      if (all.length > 0) return [...new Set(all)];
+    } catch {
+      /* fallback abaixo */
+    }
+    try {
+      const resellersData = await daGetPlain(credentials, 'CMD_API_SHOW_RESELLERS');
+      extractList(resellersData, 'list').forEach((u) => users.add(u));
+    } catch {
+      /* revendedores opcionais */
+    }
+  } else {
+    try {
+      const subData = await daGetPlain(credentials, 'CMD_API_SHOW_USERS');
+      extractList(subData, 'list').forEach((u) => users.add(u));
+    } catch {
+      /* sub-contas opcionais */
+    }
+  }
+  return [...users];
+}
+
+function formatDaError(res: { error?: boolean; details?: string; text?: string; data?: DaData }): string {
+  const data = res.data || {};
+  const result = typeof data.result === 'string' ? data.result : '';
+  const err = typeof data.error === 'string' ? data.error : '';
+  return [err, result, res.details, res.text].filter(Boolean).join(' — ') || 'Pedido DirectAdmin falhou';
+}
+
 async function daPost(
   creds: DirectAdminCredentials,
   cmd: string,
   body: Record<string, string>,
 ): Promise<{ ok: boolean; error?: string }> {
   const res = await daRequest(cmd, 'POST', { json: 'yes', ...body }, creds);
-  return { ok: !res.error, error: res.error ? res.details || res.text : undefined };
+  return { ok: !res.error, error: res.error ? formatDaError(res) : undefined };
 }
 
 export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
   const cachePrefix = `da_${credentials.role}_${credentials.user}_`;
+  let ownerByDomain: Map<string, string> | null = null;
+
+  async function resolveDomainOwner(domain: string): Promise<string | undefined> {
+    if (credentials.role === 'reseller') {
+      return credentials.user;
+    }
+    try {
+      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+      const fromMirror = await getMirrorSiteOwner(domain);
+      if (fromMirror) return fromMirror;
+    } catch {
+      /* espelho indisponível */
+    }
+    if (!ownerByDomain) {
+      try {
+        const sites = await api.listWebsites();
+        ownerByDomain = new Map(
+          sites.filter((s) => s.domain).map((s) => [s.domain, s.owner || credentials.user]),
+        );
+      } catch {
+        ownerByDomain = new Map();
+      }
+    }
+    return ownerByDomain.get(domain) || credentials.user;
+  }
+
+  function withDomainUser(qs: Record<string, string>, domain: string, owner?: string) {
+    const params = { ...qs };
+    const account = owner || credentials.user;
+    if (credentials.role === 'admin' && account) params.user = account;
+    if (!params.domain && domain) params.domain = domain;
+    return params;
+  }
 
   const api = {
     listWebsites: async (_timeoutMs?: number): Promise<PanelWebsite[]> => {
@@ -62,13 +162,12 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const cached = cacheService.get(cacheKey);
       if (cached) return cached as PanelWebsite[];
 
-      const usersData = await daGet(credentials, 'CMD_API_SHOW_ALL_USERS');
-      const users = extractList(usersData);
+      const users = await resolveDaAccountUsers(credentials);
       const sites: PanelWebsite[] = [];
 
       for (const user of users) {
-        const domainsData = await daGet(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user });
-        const domains = extractList(domainsData);
+        const domainsData = await daGetPlain(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user });
+        const domains = extractDomainKeys(domainsData);
         const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user });
 
         for (const domain of domains) {
@@ -103,14 +202,26 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const packages: PanelPackage[] = [];
 
       for (const name of names) {
-        const pkgSp = await daGet(credentials, 'CMD_API_MANAGE_USER_PACKAGES', { package: name });
+        let quota = '0';
+        let bandwidth = '0';
+        let nemails = '0';
+        let mysql = '0';
+        try {
+          const pkgSp = await daGet(credentials, 'CMD_API_MANAGE_USER_PACKAGES', { package: name });
+          quota = field(pkgSp, 'quota') || quota;
+          bandwidth = field(pkgSp, 'bandwidth') || bandwidth;
+          nemails = field(pkgSp, 'nemails') || nemails;
+          mysql = field(pkgSp, 'mysql') || mysql;
+        } catch {
+          /* quotas opcionais neste servidor */
+        }
         packages.push({
           id: name,
           packageName: name,
-          diskSpace: parseInt(field(pkgSp, 'quota') || '0', 10),
-          bandwidth: parseInt(field(pkgSp, 'bandwidth') || '0', 10),
-          emailAccounts: parseInt(field(pkgSp, 'nemails') || '0', 10),
-          dataBases: parseInt(field(pkgSp, 'mysql') || '0', 10),
+          diskSpace: parseInt(quota, 10) || 1000,
+          bandwidth: parseInt(bandwidth, 10) || 10000,
+          emailAccounts: parseInt(nemails, 10) || 10,
+          dataBases: parseInt(mysql, 10) || 1,
         });
       }
 
@@ -118,25 +229,85 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       return packages;
     },
 
+    createPackage: async (p: Record<string, unknown>) => {
+      cacheService.clear();
+      const name = String(p.packageName || '');
+      const cmd =
+        credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
+      const result = await daPost(credentials, cmd, {
+        action: 'create',
+        package: name,
+        quota: String(p.diskSpace || '1000'),
+        bandwidth: String(p.bandwidth || '10000'),
+        nemails: String(p.emailAccounts || '10'),
+        mysql: String(p.dataBases || '5'),
+        ftp: String(p.ftpAccounts || '5'),
+        vdomains: String(p.allowedDomains || '1'),
+      });
+      return { success: result.ok, output: result.error || 'Pacote criado', error: result.error };
+    },
+
+    modifyPackage: async (p: Record<string, unknown>) => {
+      cacheService.clear();
+      const name = String(p.packageName || '');
+      const cmd =
+        credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
+      const result = await daPost(credentials, cmd, {
+        action: 'modify',
+        package: name,
+        quota: String(p.diskSpace || '1000'),
+        bandwidth: String(p.bandwidth || '10000'),
+        nemails: String(p.emailAccounts || '10'),
+        mysql: String(p.dataBases || '5'),
+        ftp: String(p.ftpAccounts || '5'),
+        vdomains: String(p.allowedDomains || '1'),
+      });
+      return { success: result.ok, output: result.error || 'Pacote actualizado', error: result.error };
+    },
+
+    deletePackage: async (packageName: string) => {
+      cacheService.clear();
+      const cmd =
+        credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
+      const result = await daPost(credentials, cmd, { action: 'delete', package: packageName });
+      return { success: result.ok, output: result.error || 'Pacote apagado', error: result.error };
+    },
+
     listUsers: async (): Promise<PanelUser[]> => {
       const cacheKey = `${cachePrefix}listUsers`;
       const cached = cacheService.get(cacheKey);
       if (cached) return cached as PanelUser[];
 
-      const usersData = await daGet(credentials, 'CMD_API_SHOW_ALL_USERS');
-      const usernames = extractList(usersData);
+      const usernames = await resolveDaAccountUsers(credentials);
       const users: PanelUser[] = [];
 
       for (const username of usernames) {
         const conf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user: username });
         const usertype = field(conf, 'usertype');
+        const dateRaw =
+          field(conf, 'date') ||
+          field(conf, 'creation_date') ||
+          field(conf, 'created') ||
+          '';
+        const vdomains = parseInt(field(conf, 'vdomains') || field(conf, 'ubandwidth') || '0', 10);
+        const nemails = parseInt(field(conf, 'nemails') || '0', 10);
         users.push({
           id: username,
           userName: username,
           email: field(conf, 'email'),
+          firstName: field(conf, 'name') || field(conf, 'name1') || undefined,
+          lastName: field(conf, 'name2') || undefined,
           type: usertype === 'reseller' ? 'reseller' : usertype === 'admin' ? 'admin' : 'user',
+          acl: usertype === 'reseller' ? 'reseller' : usertype === 'admin' ? 'admin' : 'user',
           suspended: field(conf, 'suspended') === 'yes',
           existsOnServer: true,
+          registeredAt: dateRaw || undefined,
+          websitesLimit: Number.isFinite(vdomains) && vdomains > 0 ? vdomains : undefined,
+          emailsLimit: Number.isFinite(nemails) && nemails > 0 ? nemails : undefined,
+          parentUsername: (() => {
+            const creator = field(conf, 'creator').trim();
+            return creator && creator !== username ? creator : undefined;
+          })(),
         });
       }
 
@@ -174,30 +345,72 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     deleteUser: async (p: Record<string, unknown>) => {
       cacheService.clear();
-      return daPost(credentials, 'CMD_API_SELECT_USERS', {
+      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', {
         delete: 'yes',
-        select0: String(p.userName || ''),
+        select0: String(p.userName || p.username || ''),
       });
+      return { success: result.ok, error: result.error };
     },
 
-    listACLs: async () => [
-      { id: 1, name: 'admin' },
-      { id: 2, name: 'reseller' },
-      { id: 3, name: 'user' },
-    ],
+    suspendUser: async (userName: string) => {
+      cacheService.clear();
+      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', {
+        suspend: 'yes',
+        select0: userName,
+      });
+      return { success: result.ok, error: result.error };
+    },
+
+    unsuspendUser: async (userName: string) => {
+      cacheService.clear();
+      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', {
+        suspend: 'no',
+        select0: userName,
+      });
+      return { success: result.ok, error: result.error };
+    },
+
+    createUserLoginUrl: async (userName: string) => {
+      const keyname = `vd${Date.now()}`.slice(0, 16);
+      const res = await daRequest('CMD_API_LOGIN_KEYS', 'POST', {
+        json: 'yes',
+        action: 'create',
+        type: 'one_time_url',
+        user: userName,
+        keyname,
+      }, credentials);
+      if (res.error) {
+        return { success: false, error: formatDaError(res) };
+      }
+      const data = res.data || {};
+      const url =
+        (typeof data.url === 'string' && data.url) ||
+        (typeof data.text === 'string' && data.text.startsWith('http') ? data.text : '') ||
+        (typeof res.text === 'string' && res.text.startsWith('http') ? res.text : '');
+      if (!url) {
+        return { success: false, error: 'URL de sessão não devolvida pelo servidor.' };
+      }
+      return { success: true, url };
+    },
+
+    listACLs: async () => ['admin', 'reseller', 'user'],
 
     createACL: async (_p: Record<string, unknown>) => ({ success: false, error: 'ACLs geridas pelo DirectAdmin' }),
     deleteACL: async (_p: Record<string, unknown>) => ({ success: false, error: 'ACLs geridas pelo DirectAdmin' }),
 
     createWebsite: async (p: Record<string, unknown>) => {
       cacheService.clear();
+      const domain = String(p.domainName || p.domain || '');
+      const derivedUser = domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase() || 'site';
+      const username = String(p.owner || p.username || p.userName || derivedUser);
+      const password = String(p.password || 'ChangeMe123!');
       const result = await daPost(credentials, 'CMD_API_ACCOUNT_USER', {
         action: 'create',
-        username: String(p.owner || p.username || ''),
+        username,
         email: String(p.email || p.adminEmail || ''),
-        passwd: String(p.password || 'ChangeMe123!'),
-        passwd2: String(p.password || 'ChangeMe123!'),
-        domain: String(p.domainName || p.domain || ''),
+        passwd: password,
+        passwd2: password,
+        domain,
         package: String(p.package || p.packageName || 'Default'),
         ip: 'shared',
         notify: 'no',
@@ -239,7 +452,12 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const cached = cacheService.get(cacheKey);
       if (cached) return cached as PanelEmailAccount[];
 
-      const data = await daGet(credentials, 'CMD_API_POP', { action: 'list', domain });
+      const owner = await resolveDomainOwner(domain);
+      const data = await daGet(
+        credentials,
+        'CMD_API_POP',
+        withDomainUser({ action: 'list', domain }, domain, owner),
+      );
       const accounts = extractList(data);
 
       const emails: PanelEmailAccount[] = accounts.map((account) => ({
@@ -365,7 +583,12 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     listSubdomains: async (domain: string) => {
-      const data = await daGet(credentials, 'CMD_API_SUBDOMAINS', { action: 'list', domain });
+      const owner = await resolveDomainOwner(domain);
+      const data = await daGetPlain(
+        credentials,
+        'CMD_API_SUBDOMAINS',
+        withDomainUser({ action: 'list', domain }, domain, owner),
+      );
       return extractList(data).map((sub) => ({ domain, subdomain: sub }));
     },
 
@@ -380,10 +603,11 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     listDatabases: async (domain: string): Promise<PanelDatabase[]> => {
-      const sites = await api.listWebsites();
-      const site = sites.find((s) => s.domain === domain);
-      if (!site?.owner) return [];
-      const data = await daGet(credentials, 'CMD_API_DATABASES', { user: site.owner });
+      const owner =
+        credentials.role === 'reseller'
+          ? credentials.user
+          : (await resolveDomainOwner(domain)) || credentials.user;
+      const data = await daGet(credentials, 'CMD_API_DATABASES', { user: owner });
       return extractList(data).map((db) => ({ dbName: db, domain, dbUser: db }));
     },
 
@@ -409,7 +633,12 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     listFTPAccounts: async (domain: string): Promise<PanelFTPAccount[]> => {
-      const data = await daGet(credentials, 'CMD_API_FTP', { action: 'list', domain });
+      const owner = await resolveDomainOwner(domain);
+      const data = await daGet(
+        credentials,
+        'CMD_API_FTP',
+        withDomainUser({ action: 'list', domain }, domain, owner),
+      );
       return extractList(data).map((username) => ({ username, domain }));
     },
 
@@ -437,12 +666,53 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     listDNS: async (domain: string) => {
-      const data = await daGet(credentials, 'CMD_API_DNS_CONTROL', { action: 'list', domain });
+      const owner = await resolveDomainOwner(domain);
+      const data = await daGet(
+        credentials,
+        'CMD_API_DNS_CONTROL',
+        withDomainUser({ action: 'list', domain }, domain, owner),
+      );
+      const raw = data.records;
+      if (Array.isArray(raw)) {
+        return raw.map((rec: Record<string, unknown>) => {
+          const name = String(rec.name || '').replace(/\.$/, '');
+          const value = String(rec.value || rec.content || '');
+          return {
+            name,
+            type: String(rec.type || 'A').toUpperCase(),
+            content: value,
+            value,
+            ttl: Number(rec.ttl) || 3600,
+            combined: String(rec.combined || ''),
+          };
+        });
+      }
       const records: Record<string, unknown>[] = [];
+      const typePrefixes: Record<string, string> = {
+        arecs: 'A',
+        aaaarecs: 'AAAA',
+        mxrecs: 'MX',
+        txtrecs: 'TXT',
+        cnamerecs: 'CNAME',
+        nsrecs: 'NS',
+        ptrrecs: 'PTR',
+        srvrecs: 'SRV',
+      };
       for (const [k, v] of Object.entries(data)) {
-        if (/^(a|aaaa|mx|txt|cname|ns|srv)\d+$/i.test(k)) {
-          records.push({ name: k, type: k.replace(/\d+$/, '').toUpperCase(), content: v, ttl: 300 });
-        }
+        const m = k.match(/^(arecs|aaaarecs|mxrecs|txtrecs|cnamerecs|nsrecs|ptrrecs|srvrecs)\d*$/i);
+        if (!m) continue;
+        const combined = String(v);
+        const params = new URLSearchParams(combined.replace(/&/g, '&'));
+        const name = (params.get('name') || domain).replace(/\.$/, '');
+        const value = params.get('value') || combined;
+        records.push({
+          name,
+          type: typePrefixes[m[1].toLowerCase()] || 'A',
+          content: value,
+          value,
+          ttl: Number(params.get('ttl')) || 3600,
+          combined,
+        });
       }
       return records;
     },
@@ -574,6 +844,20 @@ export const directAdminHostingAPI = {
 export async function getDirectAdminAPIForAuth(auth: DirectAdminAuthContext) {
   const creds = await resolveDirectAdminCredentials(auth.role, auth);
   return createDirectAdminAPI(creds);
+}
+
+/** API DirectAdmin autenticada como revendedor DA (ex.: oshercollective). */
+export async function getDirectAdminAPIForDaUsername(daUsername: string) {
+  const { loadResellerCredentialsByDaUsername } = await import('@/lib/da-credential-store');
+  const stored = await loadResellerCredentialsByDaUsername(daUsername);
+  if (!stored) {
+    throw new Error(`Credenciais DirectAdmin não encontradas para "${daUsername}".`);
+  }
+  return createDirectAdminAPI({
+    role: 'reseller',
+    user: stored.user,
+    password: stored.password,
+  });
 }
 
 export async function getDirectAdminAPI(

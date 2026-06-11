@@ -1,10 +1,120 @@
 /**
- * Carrega sites / utilizadores / pacotes a partir de `/api/server-exec`
- * — a mesma fonte usada pelas secções do painel (MySQL no host via SSH).
- * Não altera o DirectAdmin no servidor; apenas consome a API interna.
+ * Carrega sites / utilizadores / pacotes do espelho Supabase via `/api/panel/bootstrap`
+ * (uma única chamada). Fallback legado: `/api/server-exec` por acção.
  */
 
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api';
+
+const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v1';
+const BOOTSTRAP_CACHE_MS = 180_000;
+
+export type PanelBootstrapScope = 'admin' | 'reseller';
+
+function bootstrapStorageKey(scope?: PanelBootstrapScope): string {
+  return scope ? `${BOOTSTRAP_CACHE_KEY}_${scope}` : BOOTSTRAP_CACHE_KEY;
+}
+
+export type PanelBootstrapResellerContext = {
+  daUsername: string;
+  email: string;
+  primaryDomain: string | null;
+  impersonating: boolean;
+};
+
+export type PanelBootstrapData = {
+  sites: DirectAdminWebsite[];
+  users: DirectAdminUser[];
+  packages: DirectAdminPackage[];
+  resellerContext: PanelBootstrapResellerContext | null;
+  meta?: { source?: string; lastSyncedAt?: string | null };
+};
+
+export function readBootstrapCache(scope?: PanelBootstrapScope): PanelBootstrapData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(bootstrapStorageKey(scope));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; data: PanelBootstrapData };
+    if (Date.now() - parsed.at > BOOTSTRAP_CACHE_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeBootstrapCache(data: PanelBootstrapData, scope?: PanelBootstrapScope) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(bootstrapStorageKey(scope), JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function clearPanelBootstrapCache(scope?: PanelBootstrapScope) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (scope) {
+      sessionStorage.removeItem(bootstrapStorageKey(scope));
+      return;
+    }
+    sessionStorage.removeItem(bootstrapStorageKey('admin'));
+    sessionStorage.removeItem(bootstrapStorageKey('reseller'));
+    sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function fetchPanelBootstrap(options?: {
+  fresh?: boolean;
+  scope?: PanelBootstrapScope;
+}): Promise<PanelBootstrapData> {
+  const scope = options?.scope;
+  if (!options?.fresh) {
+    const cached = readBootstrapCache(scope);
+    if (cached) return cached;
+  }
+
+  const res = await fetch('/api/panel/bootstrap');
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || 'Falha ao carregar dados do painel');
+  }
+
+  const data: PanelBootstrapData = {
+    sites: Array.isArray(json.sites) ? json.sites : [],
+    users: Array.isArray(json.users) ? json.users : [],
+    packages: Array.isArray(json.packages) ? json.packages : [],
+    resellerContext: json.resellerContext || null,
+    meta: json.meta,
+  };
+
+  writeBootstrapCache(data, scope);
+  return data;
+}
+
+/** Cache instantâneo + actualização em background (sem bloquear UI). */
+export async function fetchPanelBootstrapStaleWhileRevalidate(
+  onUpdate: (data: PanelBootstrapData) => void,
+  scope?: PanelBootstrapScope,
+): Promise<PanelBootstrapData | null> {
+  const cached = readBootstrapCache(scope);
+  if (cached) {
+    onUpdate(cached);
+    void fetchPanelBootstrap({ fresh: true, scope })
+      .then(onUpdate)
+      .catch(() => {});
+    return cached;
+  }
+  try {
+    const fresh = await fetchPanelBootstrap({ fresh: true, scope });
+    onUpdate(fresh);
+    return fresh;
+  } catch {
+    return null;
+  }
+}
 
 function unwrapArray(data: unknown): unknown[] {
   if (Array.isArray(data)) return data;
@@ -91,15 +201,30 @@ async function postServerExec(action: string, params: Record<string, unknown> = 
 }
 
 export async function fetchPanelSitesFromServer(): Promise<DirectAdminWebsite[]> {
+  const { sites } = await fetchPanelSitesFromServerWithError();
+  return sites;
+}
+
+export async function fetchPanelSitesFromServerWithError(): Promise<{
+  sites: DirectAdminWebsite[];
+  error?: string;
+}> {
   try {
     const json = await postServerExec('listWebsites', {});
-    if (!json.success) return [];
-    return unwrapArray(json.data)
+    if (!json.success) {
+      return {
+        sites: [],
+        error: json.error || 'Falha ao listar websites no DirectAdmin',
+      };
+    }
+    const sites = unwrapArray(json.data)
       .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
       .filter((r) => typeof r.domain === 'string' && r.domain.length > 0)
       .map(mapServerSite);
-  } catch {
-    return [];
+    return { sites };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Erro de ligação ao DirectAdmin';
+    return { sites: [], error: message };
   }
 }
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminAccessUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -39,13 +40,22 @@ import { DNSCentralSection } from './DNSCentralSection'
 import { PorkbunResellerSection } from './PorkbunResellerSection'
 import { PorkbunMyDomainsSection } from './PorkbunMyDomainsSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
+import { ProvisionClienteSection } from './ProvisionClienteSection'
+import { ClientesDaSection } from './ClientesDaSection'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
-import { syncWebsiteToSupabase, syncUserToSupabase, syncPackageToSupabase, removeWebsiteFromSupabase } from '@/lib/supabase-sync'
+import { removeWebsiteFromSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
+import {
+  fetchPanelBootstrap,
+  fetchPanelBootstrapStaleWhileRevalidate,
+  readBootstrapCache,
+  clearPanelBootstrapCache,
+  type PanelBootstrapData,
+} from '@/lib/panel-data-from-server'
 
 const directAdminAPI = panelAPI
 
@@ -605,7 +615,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   )
 }
 
-function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadDirectAdminData, syncing, handleSync }: {
+function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadDirectAdminData, syncing, handleSync, daLoadError }: {
   sites: DirectAdminWebsite[],
   onRefresh: () => void,
   packages: DirectAdminPackage[],
@@ -614,7 +624,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   setSelectedDNSDomain: (domain: string) => void,
   loadDirectAdminData: () => void,
   syncing: boolean,
-  handleSync: () => void
+  handleSync: () => void,
+  daLoadError?: string,
 }) {
   const [expandedSite, setExpandedSite] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<{ domain: string, field: string } | null>(null)
@@ -803,6 +814,24 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       </div>
 
       {msg && <div className="px-4 py-2.5 rounded text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>}
+
+      {daLoadError && (
+        <div className="px-4 py-3 rounded text-sm bg-red-50 text-red-800 border border-red-200">
+          <strong>DirectAdmin:</strong> {daLoadError}
+          {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+            <p className="mt-2 text-red-700/90">
+              Em <code>localhost</code> a API do DirectAdmin pode falhar (IP bloqueado ou sem acesso directo). Use o painel em produção{' '}
+              (<strong>visualdesignmoz.com/admin</strong>), o DirectAdmin em{' '}
+              <strong>https://host.visualdesignmoz.com:2026/</strong>, ou configure <code>SSH_PRIVATE_KEY</code> no{' '}
+              <code>.env.local</code> para SSH <code>root@37.27.17.25 -p 2234</code>.
+            </p>
+          )}
+        </div>
+      )}
+
+      {filtered.length === 0 && !daLoadError && (
+        <p className="text-center text-gray-500 py-8">Nenhum website encontrado no DirectAdmin.</p>
+      )}
 
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
@@ -2039,6 +2068,15 @@ function ManageWebsiteSection({
 }
 
 export default function AdminPage() {
+  return (
+    <AdminSectionChromeProvider>
+      <AdminPageContent />
+    </AdminSectionChromeProvider>
+  );
+}
+
+function AdminPageContent() {
+  const { chrome } = useAdminSectionChrome();
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -2137,6 +2175,7 @@ export default function AdminPage() {
   }, [])
 
   const [syncing, setSyncing] = useState(false)
+  const [daLoadError, setDaLoadError] = useState('')
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [dashboardSearch, setDashboardSearch] = useState('')
 
@@ -2151,12 +2190,57 @@ export default function AdminPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   const handleSync = async () => {
+    setSyncing(true)
+    try {
+      clearPanelBootstrapCache('admin')
+      await loadDirectAdminData(true)
+    } catch (e) {
+      console.error(e)
+    }
     setSyncing(false)
   }
 
-  const loadDirectAdminData = async () => {
-    setIsFetchingDirectAdmin(false)
+  const applyBootstrap = (boot: PanelBootstrapData) => {
+    setDirectAdminSites(boot.sites)
+    setDirectAdminUsers(boot.users)
+    setDirectAdminPackages(boot.packages)
+    if (!boot.sites.length && boot.meta?.source === 'mirror') {
+      setDaLoadError('Sem sites no espelho — sincronização em curso.')
+    } else {
+      setDaLoadError('')
+    }
   }
+
+  const loadDirectAdminData = async (fresh = false) => {
+    if (fresh) clearPanelBootstrapCache('admin')
+
+    const cached = !fresh ? readBootstrapCache('admin') : null
+    if (cached) {
+      applyBootstrap(cached)
+    } else {
+      setIsFetchingDirectAdmin(true)
+    }
+    setDaLoadError('')
+
+    try {
+      if (cached && !fresh) {
+        await fetchPanelBootstrapStaleWhileRevalidate(applyBootstrap, 'admin')
+      } else {
+        const boot = await fetchPanelBootstrap({ fresh: true, scope: 'admin' })
+        applyBootstrap(boot)
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Erro ao carregar dados'
+      setDaLoadError(message)
+      console.error(e)
+    } finally {
+      setIsFetchingDirectAdmin(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadDirectAdminData(false)
+  }, [])
 
   // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
   const filteredSites = directAdminSites.filter(s =>
@@ -2179,8 +2263,6 @@ export default function AdminPage() {
     { id: 'cp-api', label: 'Configurações', icon: Settings },
   ]
 
-  const currentSidebarWidth = isCollapsed ? 80 : 250
-
   const getSectionInfo = (section: string): { title: string; description: string } => {
     const info: Record<string, { title: string; description: string }> = {
       'dashboard': { title: 'Dashboard', description: 'Painel de controlo principal' },
@@ -2191,7 +2273,8 @@ export default function AdminPage() {
       'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros DirectAdmin' },
       'infra-manager': { title: 'Dashboard', description: 'Gestão de Infraestrutura' },
       'news-manager': { title: 'Dashboard', description: 'Gestão de Notícias' },
-      'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
+      'clientes': { title: 'Clientes', description: 'Clientes com acesso ao painel cliente' },
+      'revendedores': { title: 'Revendedores', description: 'Contas de revenda no painel' },
       'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
       'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
@@ -2226,6 +2309,7 @@ export default function AdminPage() {
       'cp-suspend-website': { title: 'Dashboard', description: 'Suspender website' },
       'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
       'domain-manager': { title: 'Dashboard', description: 'Gestor de domínios' },
+      'provision-client': { title: 'Criar conta completa', description: 'Utilizador + pacote + domínio num só formulário' },
       'website-preview': { title: 'Dashboard', description: 'Preview de website' },
       'manage-website': { title: 'Gestão de Website', description: 'Gerir website e serviços' },
       'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
@@ -2239,7 +2323,7 @@ export default function AdminPage() {
       'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
       'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
       'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
-      'dns-central': { title: 'DNS Central', description: 'Gestão unificada Mozserver ↔ Contabo' },
+      'dns-central': { title: 'DNS Central', description: 'Gestão de zonas DNS' },
       'porkbun-domains': { title: 'Registar domínios', description: 'Pesquisa, preço em tempo real e registo na conta ligada ao painel' },
       'porkbun-my-domains': { title: 'Os seus domínios', description: 'Lista e estado dos domínios na conta de registo' },
       'newsletter': { title: 'Dashboard', description: 'Email marketing' },
@@ -2258,13 +2342,20 @@ export default function AdminPage() {
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':
         return <PanelPermissionsConfig role="reseller" />
+      case 'provision-client':
+        return (
+          <ProvisionClienteSection
+            packages={directAdminPackages}
+            onComplete={loadDirectAdminData}
+          />
+        )
       case 'dashboard':
         return <CpanelDashboard
           sites={filteredSites}
           users={directAdminUsers}
           isFetching={isFetchingDirectAdmin}
           onNavigate={setActiveSection}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
           searchQuery={dashboardSearch}
@@ -2273,7 +2364,7 @@ export default function AdminPage() {
       case 'domains':
         return <ListWebsitesSection
           sites={filteredSites}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
           packages={directAdminPackages}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
@@ -2281,11 +2372,12 @@ export default function AdminPage() {
           loadDirectAdminData={loadDirectAdminData}
           syncing={syncing}
           handleSync={handleSync}
+          daLoadError={daLoadError}
         />
       case 'domains-list':
         return <ListDomainsSection
           sites={filteredSites}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
         />
@@ -2297,7 +2389,9 @@ export default function AdminPage() {
       case 'news-manager':
         return <NewsManagerSection />
       case 'clientes':
-        return <ClientesSection />
+        return <CPUsersSection variant="panels" panelScope="client" />
+      case 'revendedores':
+        return <CPUsersSection variant="panels" panelScope="reseller" />
       case 'domains-new':
         return <DomainManagerSection sites={filteredSites} packages={directAdminPackages} onCreateEmail={(domain) => { setPreSelectedEmailDomain(domain); setActiveSection('cp-email-mgmt') }} />
       case 'cp-subdomains':
@@ -2311,9 +2405,9 @@ export default function AdminPage() {
       case 'cp-modify-website':
         return <ModifyWebsiteSection sites={filteredSites} packages={directAdminPackages} />
       case 'cp-suspend-website':
-        return <SuspendWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <SuspendWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-delete-website':
-        return <DeleteWebsiteSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-databases':
         return <DatabasesSection sites={filteredSites} initialDomain={selectedDNSDomain || primaryDomain} />
       case 'cp-ftp':
@@ -2363,7 +2457,7 @@ export default function AdminPage() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection variant="panels" />
+        return <CPUsersSection variant="panels" panelScope="users" />
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':
@@ -2384,9 +2478,9 @@ export default function AdminPage() {
       case 'cp-wp-remote-backup':
         return <WPRemoteBackupSection sites={filteredSites} />
       case 'cp-audit-sync':
-        return <AuditSyncSection onRefresh={loadDirectAdminData} />
+        return <AuditSyncSection onRefresh={() => void loadDirectAdminData(true)} />
       case 'wordpress-install':
-        return <WordPressInstallSection sites={filteredSites} onRefresh={loadDirectAdminData} />
+        return <WordPressInstallSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
@@ -2409,7 +2503,12 @@ export default function AdminPage() {
       case 'porkbun-my-domains':
         return <PorkbunMyDomainsSection />
       case 'dns-central':
-        return <DNSCentralSection />
+        return (
+          <DNSCentralSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-zone-editor':
         return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'newsletter':
@@ -2440,7 +2539,7 @@ export default function AdminPage() {
       case 'deploy':
         return <DeploySection sites={directAdminSites} />
       case 'packages-list':
-        return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} />
+        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'manage-website':
         return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
@@ -2449,7 +2548,7 @@ export default function AdminPage() {
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
           packages={directAdminPackages}
-          onRefresh={loadDirectAdminData}
+          onRefresh={() => void loadDirectAdminData(true)}
         />
       case 'page-builders':
         // Redirecionar para a página de construtores
@@ -2460,7 +2559,7 @@ export default function AdminPage() {
       case 'templates-saved':
         return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       default:
-        return <CpanelDashboard sites={filteredSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={loadDirectAdminData} onSetFileManagerDomain={setFileManagerDomain} />
+        return <CpanelDashboard sites={filteredSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={() => void loadDirectAdminData(true)} onSetFileManagerDomain={setFileManagerDomain} />
     }
   }
 
@@ -2618,42 +2717,33 @@ export default function AdminPage() {
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PanelHeader
-          title={getSectionInfo(activeSection).title}
-          description={getSectionInfo(activeSection).description}
+          title={chrome?.title ?? getSectionInfo(activeSection).title}
+          description={chrome?.description ?? getSectionInfo(activeSection).description}
+          back={chrome?.back}
+          search={
+            chrome?.search ??
+            (activeSection === 'dashboard' && !chrome
+              ? {
+                  value: dashboardSearch,
+                  onChange: setDashboardSearch,
+                  placeholder: 'Pesquisar ferramentas...',
+                }
+              : undefined)
+          }
+          toolbar={chrome?.toolbar}
+          alerts={chrome?.alerts}
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
-            <>
-              <a
-                href={getActivePanelUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Globe size={13} /> {t('admin.settings.directadmin')}
-              </a>
-              <button
-                onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                title={t('sidebar.logout')}
-              >
-                <LogOut size={14} />
-                <span>Sair</span>
-              </button>
-            </>
+            <button
+              onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
+              className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              title={t('sidebar.logout')}
+            >
+              <LogOut size={14} />
+              <span>Sair</span>
+            </button>
           }
-        >
-          {activeSection === 'dashboard' && (
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              <input
-                value={dashboardSearch}
-                onChange={(e) => setDashboardSearch(e.target.value)}
-                placeholder="Pesquisar ferramentas..."
-                className="w-full rounded-md border border-zinc-200 bg-white py-2 pl-9 pr-4 text-sm text-zinc-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              />
-            </div>
-          )}
-        </PanelHeader>
+        />
 
         <main className={`panel-content flex-1 ${['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>

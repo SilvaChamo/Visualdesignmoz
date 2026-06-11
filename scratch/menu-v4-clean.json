@@ -4,7 +4,7 @@
       "entries": [
         {
           "id": "ud-uploadfile",
-          "name": "Upload de Ficheiros",
+          "name": "Upload File",
           "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSI+CiAgPHJlY3QgeD0iMTAiIHk9IjE0IiB3aWR0aD0iNDQiIGhlaWdodD0iMzYiIHJ4PSI1IiBzdHJva2U9IiMxZDRlZDgiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxwYXRoIGQ9Ik0zMiAzOFYyNk0zMiAyNmwtNyA3TTMyIDI2bDcgNyIgc3Ryb2tlPSIjMWQ0ZWQ4IiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0yMCA0NmgyNCIgc3Ryb2tlPSIjNjBhNWZhIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K",
           "href": "/plugin?src=%2FCMD_PLUGINS%2Fuploadfile",
           "newTab": false,
@@ -22,7 +22,7 @@
       "entries": [
         {
           "id": "ud-uploadfile-reseller",
-          "name": "Upload de Ficheiros",
+          "name": "Upload File",
           "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSI+CiAgPHJlY3QgeD0iMTAiIHk9IjE0IiB3aWR0aD0iNDQiIGhlaWdodD0iMzYiIHJ4PSI1IiBzdHJva2U9IiMxZDRlZDgiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxwYXRoIGQ9Ik0zMiAzOFYyNk0zMiAyNmwtNyA3TTMyIDI2bDcgNyIgc3Ryb2tlPSIjMWQ0ZWQ4IiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0yMCA0NmgyNCIgc3Ryb2tlPSIjNjBhNWZhIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K",
           "href": "/plugin?src=%2FCMD_PLUGINS_RESELLER%2Fuploadfile",
           "newTab": false,
@@ -40,7 +40,7 @@
       "entries": [
         {
           "id": "ud-uploadfile-admin",
-          "name": "Upload de Ficheiros",
+          "name": "Upload File",
           "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSI+CiAgPHJlY3QgeD0iMTAiIHk9IjE0IiB3aWR0aD0iNDQiIGhlaWdodD0iMzYiIHJ4PSI1IiBzdHJva2U9IiMxZDRlZDgiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxwYXRoIGQ9Ik0zMiAzOFYyNk0zMiAyNmwtNyA3TTMyIDI2bDcgNyIgc3Ryb2tlPSIjMWQ0ZWQ4IiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik0yMCA0NmgyNCIgc3Ryb2tlPSIjNjBhNWZhIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K",
           "href": "/plugin?src=%2FCMD_PLUGINS_ADMIN%2Fuploadfile",
           "newTab": false,

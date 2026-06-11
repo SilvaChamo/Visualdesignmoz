@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { resolveUserRole, getRedirectPathForRole } from "@/lib/user-roles";
+import { profileAuthOrFilter } from "@/lib/profile-db";
+import { userBelongsToCurrentPanel } from "@/lib/panel-tenant";
 import { fetchUserProductsSummary } from "@/lib/user-products";
 
 export default async function ClientLayout({
@@ -15,11 +17,15 @@ export default async function ClientLayout({
         notFound();
     }
 
+    if (!userBelongsToCurrentPanel(user)) {
+        notFound();
+    }
+
     const products = await fetchUserProductsSummary(supabase, user.id);
     const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
-        .eq('id', user.id)
+        .select('role, da_username')
+        .or(profileAuthOrFilter(user.id))
         .maybeSingle();
 
     const role = resolveUserRole({

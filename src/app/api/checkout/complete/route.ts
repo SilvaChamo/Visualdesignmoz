@@ -120,14 +120,15 @@ export async function POST(request: NextRequest) {
             user.email?.split('@')[0],
         },
       });
-      await admin.from('profiles').upsert(
-        {
-          id: user.id,
-          email: user.email,
-          role: 'client',
-        },
-        { onConflict: 'id' },
-      );
+      const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+      await saveProfileForAuthUser(admin, user.id, {
+        email: user.email,
+        role: 'client',
+        name:
+          (user.user_metadata?.nome as string) ||
+          (user.user_metadata?.full_name as string) ||
+          user.email?.split('@')[0],
+      });
     }
 
     const products = await fetchUserProductsSummary(supabase, user.id);

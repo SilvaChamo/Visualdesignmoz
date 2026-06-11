@@ -105,15 +105,12 @@ async function syncAuthPassword(userId: string, password: string): Promise<void>
 
 async function setResellerRole(userId: string, email: string, nome?: string): Promise<void> {
   const admin = adminClient();
-  await admin.from('profiles').upsert(
-    {
-      id: userId,
-      email: email.toLowerCase(),
-      role: 'reseller',
-      nome: nome || email.split('@')[0],
-    },
-    { onConflict: 'id' },
-  );
+  const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+  await saveProfileForAuthUser(admin, userId, {
+    email: email.toLowerCase(),
+    role: 'reseller',
+    name: nome || email.split('@')[0],
+  });
 }
 
 /** Garante que um revendedor tem conta DA + credenciais guardadas. */
@@ -178,7 +175,7 @@ export async function provisionAllPendingResellers(): Promise<{
 
   const { data: profiles, error } = await admin
     .from('profiles')
-    .select('id, email, nome, role, da_username')
+    .select('id, user_id, email, name, role, da_username')
     .eq('role', 'reseller');
 
   if (error) throw error;
@@ -195,9 +192,9 @@ export async function provisionAllPendingResellers(): Promise<{
     }
     try {
       const r = await ensureResellerProvisioned({
-        userId: p.id,
+        userId: (p.user_id as string) || p.id,
         email: p.email,
-        nome: p.nome || undefined,
+        nome: (p.name as string) || undefined,
       });
       if (r.alreadyProvisioned) skipped += 1;
       else provisioned += 1;

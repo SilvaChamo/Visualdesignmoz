@@ -164,7 +164,10 @@ export async function daRequest(
 
     if (params.json === 'yes' || textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
       try {
-        const jsonData = JSON.parse(textData) as Record<string, unknown>;
+        const jsonData = JSON.parse(textData) as Record<string, unknown> | unknown[];
+        if (Array.isArray(jsonData)) {
+          return { error: false, data: { list: jsonData } };
+        }
         return normalizeJsonResponse(jsonData);
       } catch {
         return parseDaResponse(textData);

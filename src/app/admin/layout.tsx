@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { userBelongsToCurrentPanel } from "@/lib/panel-tenant";
 
 export const metadata: Metadata = {
     title: "Painel Admin",
@@ -24,6 +25,10 @@ export default async function AdminLayout({
 
     if (!user) {
         console.log('AdminLayout: No user session found.');
+        notFound();
+    }
+
+    if (!userBelongsToCurrentPanel(user)) {
         notFound();
     }
 

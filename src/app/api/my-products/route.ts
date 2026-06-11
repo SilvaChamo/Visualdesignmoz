@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { fetchUserProductsSummary } from '@/lib/user-products';
 import { resolveUserRole } from '@/lib/user-roles';
+import { profileAuthOrFilter } from '@/lib/profile-db';
 
 export async function GET() {
   const supabase = await createClient();
@@ -17,8 +18,8 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
-    .eq('id', user.id)
+    .select('role, da_username')
+    .or(profileAuthOrFilter(user.id))
     .maybeSingle();
 
   const role = resolveUserRole({

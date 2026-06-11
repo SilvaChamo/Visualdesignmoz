@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-const ADMIN_EMAILS = new Set([
-  'admin@visualdesignmoz.com',
-  'geral@visualdesignmoz.com',
-  'suporte@visualdesignmoz.com',
-  'silva.chamo@gmail.com',
-]);
+import { ADMIN_EMAILS } from '@/lib/user-roles';
 
-type PanelAuthSuccess = {
+export type PanelAuthSuccess = {
   user: {
     id: string;
     email?: string;

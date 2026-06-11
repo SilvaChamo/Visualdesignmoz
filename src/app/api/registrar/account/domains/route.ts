@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
-import { porkbunAPI } from '@/lib/porkbun-adapter';
+import { spaceshipAPI } from '@/lib/spaceship-adapter';
 
-/** Lista domínios na conta do registrador (uso interno Visual Design). */
+/** Lista domínios na conta Spaceship (registador). */
 export async function GET() {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
-  const result = await porkbunAPI.listAllDomains(0);
-  if (result.status !== 'SUCCESS') {
+  const result = await spaceshipAPI.listAllDomains();
+  if (!result.success) {
     return NextResponse.json(
-      { success: false, error: (result as { message?: string }).message || 'Erro ao listar domínios' },
-      { status: 400 }
+      { success: false, error: result.error || 'Erro ao listar domínios' },
+      { status: 400 },
     );
   }
 
-  const domains = (result as { domains?: unknown[] }).domains || [];
-  return NextResponse.json({ success: true, domains });
+  return NextResponse.json({ success: true, domains: result.domains });
 }
