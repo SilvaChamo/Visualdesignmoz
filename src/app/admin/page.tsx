@@ -11,6 +11,7 @@ import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanel
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
+import { panelBtnSecondary } from '@/lib/panel-ui'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
@@ -2279,7 +2280,7 @@ function AdminPageContent() {
       'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
       'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
       'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
-      'cp-users': { title: 'Utilizadores', description: 'Contas de acesso a todos os painéis' },
+      'cp-users': { title: 'Utilizadores', description: '' },
       'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
       'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
       'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
@@ -2736,7 +2737,7 @@ function AdminPageContent() {
           actions={
             <button
               onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-              className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={panelBtnSecondary}
               title={t('sidebar.logout')}
             >
               <LogOut size={14} />

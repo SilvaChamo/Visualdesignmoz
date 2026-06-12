@@ -270,8 +270,26 @@ async function buildPanelAccounts(options?: {
   return rows;
 }
 
+function filterUsersForCaller(
+  users: PanelAccountRow[],
+  callerRole: 'admin' | 'reseller',
+): PanelAccountRow[] {
+  if (callerRole === 'admin') return users;
+  return users.filter((u) => u.panelRole === 'client');
+}
+
+function buildPanelUserCounts(users: PanelAccountRow[]) {
+  return {
+    all: users.length,
+    admin: users.filter((u) => u.panelRole === 'admin').length,
+    reseller: users.filter((u) => u.panelRole === 'reseller').length,
+    client: users.filter((u) => u.panelRole === 'client').length,
+    guest: users.filter((u) => u.panelRole === 'guest').length,
+  };
+}
+
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
   try {
@@ -279,28 +297,20 @@ export async function GET() {
       panelUsersServerCache &&
       Date.now() - panelUsersServerCache.at < PANEL_USERS_SERVER_CACHE_MS
     ) {
-      const users = panelUsersServerCache.users;
-      const counts = {
-        all: users.length,
-        admin: users.filter((u) => u.panelRole === 'admin').length,
-        reseller: users.filter((u) => u.panelRole === 'reseller').length,
-        client: users.filter((u) => u.panelRole === 'client').length,
-        guest: users.filter((u) => u.panelRole === 'guest').length,
-      };
-      return NextResponse.json({ success: true, users, counts, cached: true });
+      const users = filterUsersForCaller(panelUsersServerCache.users, auth.user.role);
+      return NextResponse.json({
+        success: true,
+        users,
+        counts: buildPanelUserCounts(users),
+        cached: true,
+      });
     }
 
-    const users = await buildPanelAccounts({ sync: false, includePaidCheck: false });
-    panelUsersServerCache = { at: Date.now(), users };
-    const counts = {
-      all: users.length,
-      admin: users.filter((u) => u.panelRole === 'admin').length,
-      reseller: users.filter((u) => u.panelRole === 'reseller').length,
-      client: users.filter((u) => u.panelRole === 'client').length,
-      guest: users.filter((u) => u.panelRole === 'guest').length,
-    };
+    const allUsers = await buildPanelAccounts({ sync: false, includePaidCheck: false });
+    panelUsersServerCache = { at: Date.now(), users: allUsers };
+    const users = filterUsersForCaller(allUsers, auth.user.role);
 
-    return NextResponse.json({ success: true, users, counts });
+    return NextResponse.json({ success: true, users, counts: buildPanelUserCounts(users) });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao listar contas';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

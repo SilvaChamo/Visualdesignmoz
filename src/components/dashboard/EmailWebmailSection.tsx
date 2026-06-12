@@ -1480,7 +1480,7 @@ export function EmailWebmailSection({
                   </button>
                   <div className="w-px h-5 bg-gray-200 mx-1" />
                   <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded" onChange={(e) => execCmd('fontName', e.target.value)}>
-                    <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                    <option>Exo 2</option><option>Calibri</option><option>Times New Roman</option>
                   </select>
                   <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14" onChange={(e) => {
                     const mapeamento: Record<string, string> = { '11': '1', '12': '2', '14': '3', '16': '4', '18': '5' }
@@ -2163,7 +2163,7 @@ export function EmailWebmailSection({
                 </button>
                 <div className="w-px h-5 bg-gray-200 mx-1" />
                 <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded" onChange={(e) => execCmd('fontName', e.target.value)}>
-                  <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                  <option>Exo 2</option><option>Calibri</option><option>Times New Roman</option>
                 </select>
                 <select className="bg-white border border-gray-200 text-gray-900 text-xs px-2 py-1.5 rounded w-14" onChange={(e) => {
                   const mapeamento: Record<string, string> = { '11': '1', '12': '2', '14': '3', '16': '4', '18': '5' }
@@ -2728,7 +2728,7 @@ export function EmailWebmailSection({
                 <select 
                   onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontName', false, e.target.value) } }}
                   className={`text-xs px-2 py-1.5 rounded outline-none ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-900'}`}>
-                  <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                  <option>Exo 2</option><option>Calibri</option><option>Times New Roman</option>
                 </select>
                 <select 
                   onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontSize', false, e.target.value) } }}

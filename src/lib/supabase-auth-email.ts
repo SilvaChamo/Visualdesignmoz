@@ -54,7 +54,7 @@ export function generatePasswordRecoveryEmailHtml(actionLink: string): string {
   const year = new Date().getFullYear();
 
   return `
-<div style="font-family:'Inter',Arial,sans-serif;background-color:#f3f4f6;padding:24px 12px;">
+<div style="font-family:'Exo 2',sans-serif;background-color:#f3f4f6;padding:24px 12px;">
   <div style="background-color:#000;color:#fff;padding:40px 40px 30px;border-radius:16px;max-width:600px;margin:0 auto;border:1px solid #333;">
     <div style="text-align:center;margin-bottom:15px;line-height:0;">
       <img src="${logoUrl}" alt="VisualDesign" width="${PASSWORD_RECOVERY_LOGO_WIDTH}" height="${PASSWORD_RECOVERY_LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${PASSWORD_RECOVERY_LOGO_WIDTH}px;height:${PASSWORD_RECOVERY_LOGO_HEIGHT}px;max-width:100%;border:0;outline:none;text-decoration:none;" />

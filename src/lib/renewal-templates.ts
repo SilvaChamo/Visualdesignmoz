@@ -548,7 +548,7 @@ export function processTemplate(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${processed.emailSubject}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6;">
+<body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td align="center" style="padding: 10px 0; background: #f3f4f6;">

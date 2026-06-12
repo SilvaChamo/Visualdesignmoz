@@ -3,6 +3,7 @@
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { panelControlHeight } from '@/lib/panel-ui';
 
 type ThemeToggleProps = {
   className?: string;
@@ -18,10 +19,10 @@ export function ThemeToggle({ className, size = 'md' }: ThemeToggleProps) {
       type="button"
       onClick={toggleTheme}
       className={cn(
-        'inline-flex items-center justify-center rounded-md border transition-colors',
+        'inline-flex shrink-0 items-center justify-center rounded border transition-colors',
         'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900',
-        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100',
-        size === 'sm' ? 'h-8 w-8' : 'h-9 w-9',
+        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-red-400',
+        size === 'sm' ? `${panelControlHeight} w-[38px]` : 'h-9 w-9',
         className,
       )}
       title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}

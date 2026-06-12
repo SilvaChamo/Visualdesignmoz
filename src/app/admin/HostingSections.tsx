@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui'
 import { directAdminAPI } from '@/lib/directadmin-api'
 import type {
   DirectAdminWebsite, DirectAdminSubdomain, DirectAdminUser, DirectAdminDatabase,
@@ -21,7 +23,7 @@ import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
-  ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw,
+  ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
   Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X, Clock, Loader2
 } from 'lucide-react'
 
@@ -2236,6 +2238,71 @@ const PANEL_ROLE_BADGE: Record<string, string> = {
   guest: 'bg-amber-100 text-amber-800',
 }
 
+function PanelAccountActionsMenu({
+  anchorRect,
+  account,
+  onAction,
+  onClose,
+}: {
+  anchorRect: DOMRect
+  account: PanelAccount
+  onAction: (action: string) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  const items = [
+    ...(account.panelRole === 'reseller'
+      ? [{ id: 'loginAs', label: 'Entrar como revendedor' }]
+      : []),
+    { id: 'edit', label: 'Editar conta' },
+    { id: 'delete', label: 'Eliminar', danger: true },
+  ]
+
+  const menuW = 168
+  const estimatedH = items.length * 30 + 4
+  let top = anchorRect.bottom + 4
+  let left = Math.max(8, anchorRect.right - menuW)
+  if (typeof window !== 'undefined' && top + estimatedH > window.innerHeight - 8) {
+    top = anchorRect.top - estimatedH - 4
+  }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onScroll = () => onClose()
+    document.addEventListener('mousedown', handler)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onScroll)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top, left, zIndex: 9999 }}
+      className="w-max rounded border border-zinc-200 bg-white py-0.5 text-xs shadow-2xl"
+    >
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => { onAction(item.id); onClose() }}
+          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 hover:bg-zinc-50 ${item.danger ? 'text-red-600' : 'text-zinc-700'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
+}
+
 const PANEL_PAGE_TITLES: Record<PanelRoleFilter, { title: string; description: string }> = {
   all: {
     title: 'Utilizadores dos Painéis',
@@ -2243,7 +2310,7 @@ const PANEL_PAGE_TITLES: Record<PanelRoleFilter, { title: string; description: s
   },
   admin: {
     title: 'Utilizadores',
-    description: 'Contas com acesso aos painéis — administradores, visitantes e clientes.',
+    description: '',
   },
   reseller: {
     title: 'Revendedores',
@@ -2280,6 +2347,7 @@ export function CPUsersSection({
   const [acls, setAcls] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [panelOpenMenu, setPanelOpenMenu] = useState<{ accountId: string; rect: DOMRect } | null>(null)
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
@@ -2475,6 +2543,40 @@ export function CPUsersSection({
         confirmPassword: '',
       },
     })
+  }
+
+  const handlePanelLoginAs = async (account: PanelAccount) => {
+    setCreating(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: account.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Não foi possível entrar como revendedor')
+      }
+      window.location.href = data.redirect || '/revendedor'
+    } catch (e: unknown) {
+      setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+      setCreating(false)
+    }
+  }
+
+  const handlePanelRowAction = (account: PanelAccount, action: string) => {
+    if (action === 'loginAs') {
+      void handlePanelLoginAs(account)
+      return
+    }
+    if (action === 'edit') {
+      openPanelEditModal(account)
+      return
+    }
+    if (action === 'delete') {
+      handlePanelDelete(account)
+    }
   }
 
   const handlePanelDelete = (account: PanelAccount) => {
@@ -2836,52 +2938,58 @@ export function CPUsersSection({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {panelHeaderTitle}
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm font-medium">
-            {panelHeaderDescription}
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:shrink-0">
-          {isPanelsMode && panelScope === 'users' && (
-            <select
-              value={usersScopeFilter}
-              onChange={(e) => setUsersScopeFilter(e.target.value as UsersScopeFilter)}
-              className="bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
-            >
-              <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
-              <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
-              <option value="guest">Visitantes ({usersScopeCounts.guest ?? 0})</option>
-              <option value="client">Clientes ({usersScopeCounts.client ?? 0})</option>
-            </select>
-          )}
+      <div className={`flex flex-col gap-3 ${isPanelsMode ? 'sm:flex-row sm:items-center sm:justify-between' : 'lg:flex-row lg:items-start lg:justify-between'}`}>
+        {!isPanelsMode ? (
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {panelHeaderTitle}
+            </h1>
+            {panelHeaderDescription ? (
+              <p className="text-gray-500 mt-1 text-sm font-medium">
+                {panelHeaderDescription}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${isPanelsMode ? 'w-full sm:justify-between' : 'w-full lg:w-auto lg:shrink-0'}`}>
           {isPanelsMode && (
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar por email ou nome..."
-              className="w-full sm:w-64 bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-red-500"
-            />
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+              {panelScope === 'users' && (
+                <select
+                  value={usersScopeFilter}
+                  onChange={(e) => setUsersScopeFilter(e.target.value as UsersScopeFilter)}
+                  className={`${panelField} w-full shrink-0 sm:w-[8.25rem]`}
+                >
+                  <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
+                  <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
+                  <option value="guest">Visitantes ({usersScopeCounts.guest ?? 0})</option>
+                  <option value="client">Clientes ({usersScopeCounts.client ?? 0})</option>
+                </select>
+              )}
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Pesquisar por email ou nome..."
+                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[20rem]' : 'sm:w-72'}`}
+              />
+            </div>
           )}
           {!isPanelsMode && (
             <>
-              <button onClick={loadUsers} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
+              <button onClick={loadUsers} className={`${panelBtnSecondary} font-semibold`}><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
               <button
                 onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })}
-                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"
+                className={panelBtnPrimary}
               >
                 <PlusCircle className="w-4 h-4" /> Novo Utilizador
               </button>
             </>
           )}
           {isPanelsMode && panelScope && (
-            <>
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={openPanelCreateModal}
-                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap"
+                className={`${panelBtnPrimary} whitespace-nowrap`}
               >
                 <PlusCircle className="w-4 h-4" /> {panelCreateButtonLabel}
               </button>
@@ -2890,11 +2998,11 @@ export function CPUsersSection({
                 onClick={() => void refreshPanelAccounts()}
                 disabled={refreshing || loading}
                 title="Actualizar"
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded text-sm font-bold transition-all flex items-center justify-center disabled:opacity-50"
+                className={panelBtnSecondary}
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -2908,7 +3016,7 @@ export function CPUsersSection({
         ) : !loading && isPanelsMode ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
+              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900/50">
                 <th className="px-4 py-2.5">Email</th>
                 <th className="px-4 py-2.5">Nome</th>
                 <th className="px-4 py-2.5">Painel</th>
@@ -2919,7 +3027,7 @@ export function CPUsersSection({
             </thead>
             <tbody>
               {filteredPanelAccounts.map((account) => (
-                <tr key={account.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <tr key={account.id} className="border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400">
                   <td className="px-4 py-2.5 font-medium text-gray-900">{account.email}</td>
                   <td className="px-4 py-2.5 text-gray-600">{account.nome || account.userName || '—'}</td>
                   <td className="px-4 py-2.5">
@@ -2939,22 +3047,27 @@ export function CPUsersSection({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {account.panelRole === 'reseller' && (
+                        <button
+                          type="button"
+                          disabled={creating}
+                          onClick={() => void handlePanelLoginAs(account)}
+                          className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                        >
+                          Entrar
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => openPanelEditModal(account)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
-                        title="Editar"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          if (panelOpenMenu?.accountId === account.id) setPanelOpenMenu(null)
+                          else setPanelOpenMenu({ accountId: account.id, rect })
+                        }}
+                        className="inline-flex rounded p-2 hover:bg-gray-100 dark:hover:bg-transparent dark:hover:text-red-400"
+                        aria-label="Mais opções"
                       >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={creating}
-                        onClick={() => handlePanelDelete(account)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-all disabled:opacity-50"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        <MoreVertical className="w-[18px] h-[18px]" />
                       </button>
                     </div>
                   </td>
@@ -3050,6 +3163,19 @@ export function CPUsersSection({
         )}
       </div>
 
+      {panelOpenMenu && (() => {
+        const account = filteredPanelAccounts.find((a) => a.id === panelOpenMenu.accountId)
+        if (!account) return null
+        return (
+          <PanelAccountActionsMenu
+            anchorRect={panelOpenMenu.rect}
+            account={account}
+            onAction={(action) => handlePanelRowAction(account, action)}
+            onClose={() => setPanelOpenMenu(null)}
+          />
+        )
+      })()}
+
       {/* Modal de Utilizador (Unified) */}
       {userModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -3139,31 +3265,46 @@ export function CPUsersSection({
                 )}
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input 
-                        type={showUserPass ? 'text' : 'password'} 
-                        value={userModal.data.password || ''} 
-                        onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
-                        placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
-                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
-                      />
-                      <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                        {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <button type="button" onClick={() => { 
-                      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'; 
-                      let p = ''; 
-                      for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length)); 
-                      setUserModal({...userModal, data: {...userModal.data, password: p, confirmPassword: p}}) 
-                    }} className="px-3 py-2 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 rounded text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3" /> Gerar
+                  <div className="relative">
+                    <input 
+                      type={showUserPass ? 'text' : 'password'} 
+                      value={userModal.data.password || ''} 
+                      onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
+                      placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
+                    />
+                    <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   {userModal.mode === 'edit' && <p className="text-[9px] text-gray-400 mt-1 italic">Vazio = Manter a password atual (o DirectAdmin não permite ler a password antiga).</p>}
                 </div>
-                <div className="space-y-1.5 lg:col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label><div className="relative"><input type={showUserPass ? 'text' : 'password'} value={userModal.data.confirmPassword || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Password" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" /></div></div>
+                <div className="space-y-1.5 lg:col-span-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showUserPass ? 'text' : 'password'}
+                        value={userModal.data.confirmPassword || ''}
+                        onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})}
+                        placeholder="Confirmar Password"
+                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'
+                        let p = ''
+                        for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length))
+                        setUserModal({ ...userModal, data: { ...userModal.data, password: p, confirmPassword: p } })
+                      }}
+                      className="px-3 py-2 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 rounded text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Gerar
+                    </button>
+                  </div>
+                </div>
                 {!isPanelAuthForm && (
                   <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
                 )}

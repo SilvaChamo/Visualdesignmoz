@@ -43,6 +43,11 @@ const menuItems: MenuItem[] = ADMIN_MENU_ITEM_DEFS.map((item) => ({
   icon: MENU_ICONS[item.id] || Archive,
 }));
 
+/** Altura fixa — cada linha do menu principal (não cresce nem encolhe com o conteúdo). */
+const MENU_ROW_CLASS = 'box-border h-11 min-h-11 max-h-11 shrink-0';
+/** Submenu: texto maior, mas linhas mais apertadas entre si. */
+const SUB_ROW_CLASS = 'box-border h-8 min-h-8 max-h-8 shrink-0 leading-none';
+
 export function AdminSidebar({
   activeSection,
   onNavigate,
@@ -94,7 +99,7 @@ export function AdminSidebar({
             <img
               src="/assets/simbolo.png"
               alt="Logo"
-              className="h-10 cursor-pointer object-contain"
+              className="h-11 w-11 cursor-pointer object-contain"
               onClick={() => { window.location.href = '/'; }}
             />
             <button
@@ -110,12 +115,12 @@ export function AdminSidebar({
             <img
               src="/assets/simbolo.png"
               alt="Logo"
-              className="h-10 w-10 object-contain cursor-pointer"
+              className="h-11 w-11 object-contain cursor-pointer"
               onClick={() => { window.location.href = '/'; }}
             />
             <div className="flex-1 min-w-0">
-              <h1 className="truncate text-sm font-bold text-gray-900 dark:text-zinc-100">Painel Admin</h1>
-              <p className="text-[11px] text-gray-500 dark:text-zinc-400">Portal Digital</p>
+              <h1 className="truncate text-lg font-bold text-gray-900 dark:text-zinc-100">Painel Admin</h1>
+              <p className="text-xs text-gray-500 dark:text-zinc-400">Portal Digital</p>
             </div>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
@@ -128,7 +133,7 @@ export function AdminSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2.5">
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
         <div className="space-y-0">
           {menuItems.map((item) => {
             if (item.isNewMenu && !shownNewHeader && !isCollapsed) {
@@ -152,11 +157,11 @@ export function AdminSidebar({
                     Menu anterior
                   </div>
                 )}
-                <div className="mb-1">
+                <div>
                   <button
                     onClick={() => handleParentClick(item)}
-                    className={`group flex w-full items-center transition-all duration-200 ease-out hover:translate-x-1 ${
-                      isCollapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'
+                    className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-colors duration-200 ${
+                      isCollapsed ? 'justify-center px-2' : 'px-2.5'
                     } rounded-lg ${
                       isActive
                         ? 'text-red-600 font-bold'
@@ -165,21 +170,21 @@ export function AdminSidebar({
                     title={isCollapsed ? item.label : ''}
                   >
                     <Icon
-                      size={22}
-                      className={
+                      size={20}
+                      className={`shrink-0 ${
                         isActive
                           ? 'text-red-600'
                           : 'text-gray-500 group-hover:text-red-600'
-                      }
+                      }`}
                     />
-                    {!isCollapsed && <span className="ml-3 text-[14px]">{item.label}</span>}
+                    {!isCollapsed && <span className="ml-3 truncate text-base leading-none">{item.label}</span>}
                     {!isCollapsed && item.subItems && (
                       <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
                     )}
                   </button>
 
                   {!isCollapsed && item.subItems && isOpen && (
-                    <div className="mt-1 ml-9 flex max-h-[55vh] flex-col gap-0.5 overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
+                    <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
                       {item.subItems.map((sub) => {
                         if (sub.id.endsWith('-header')) {
                           return (
@@ -194,7 +199,7 @@ export function AdminSidebar({
                           <button
                             key={sub.id}
                             onClick={() => handleSubClick(sub.id)}
-                            className={`relative flex items-center px-3 py-[5px] text-left text-sm transition-colors ${
+                            className={`relative flex items-center overflow-hidden px-3 text-left text-[15px] transition-colors ${SUB_ROW_CLASS} ${
                               isSubActive
                                 ? 'font-bold text-red-600 before:absolute before:left-0 before:top-1/2 before:z-10 before:h-3 before:w-[4px] before:-translate-x-[2.5px] before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
                                 : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'

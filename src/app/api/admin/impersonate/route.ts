@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { IMPERSONATE_COOKIE } from '@/lib/panel-api-context';
 import { listMirrorUsers } from '@/lib/panel-mirror-read';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
+import { getProfileForAuthUser } from '@/lib/profile-db';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function isResellerAccount(acl?: string | null): boolean {
   return String(acl || '').toLowerCase() === 'reseller';
@@ -38,9 +43,19 @@ export async function POST(req: NextRequest) {
   if ('error' in auth) return auth.error;
 
   const body = await req.json().catch(() => ({}));
-  const userName = String(body.userName || '').trim().toLowerCase();
+  let userName = String(body.userName || '').trim().toLowerCase();
+
+  if (!userName && body.userId && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const profile = await getProfileForAuthUser(admin, String(body.userId));
+    userName = String(profile?.da_username || '').trim().toLowerCase();
+  }
+
   if (!userName) {
-    return NextResponse.json({ success: false, error: 'userName é obrigatório' }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: 'Conta revendedor sem utilizador DA ligado.' },
+      { status: 400 },
+    );
   }
 
   const users = await listMirrorUsers({ role: 'admin', userId: auth.user.id });

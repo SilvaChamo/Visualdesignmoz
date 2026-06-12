@@ -423,8 +423,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, style,
                     className="h-7 text-[11px] font-bold border border-slate-200 rounded text-slate-600 px-1 outline-none hover:border-emerald-500 hover:text-emerald-700 transition-all cursor-pointer appearance-none min-w-fit pr-4 mr-1 shrink-0"
                 >
                     <option value="">Fonte Padrão</option>
-                    <option value="Arial">Arial</option>
-                    <option value="Inter">Inter</option>
+                    <option value="Exo 2">Exo 2</option>
                     <option value="Roboto">Roboto</option>
                     <option value="Times New Roman">Times New Roman</option>
                     <option value="Courier New">Courier</option>

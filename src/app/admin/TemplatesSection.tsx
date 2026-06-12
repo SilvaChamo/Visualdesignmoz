@@ -187,15 +187,15 @@ export function TemplatesSection() {
             ${tableContent}
           </table>
           <div class="vd-table-controls" style="position:absolute;right:-30px;top:0;display:none;flex-direction:column;gap:4px;z-index:100;">
-            <button onclick="vdAddColumn(this)" style="width:24px;height:24px;border:none;background:#6b7280;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Arial;" title="Adicionar coluna">+</button>
-            <button onclick="vdDeleteColumn(this)" style="width:24px;height:24px;border:none;background:#ef4444;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Arial;" title="Eliminar coluna">−</button>
+            <button onclick="vdAddColumn(this)" style="width:24px;height:24px;border:none;background:#6b7280;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:"Exo 2",sans-serif;" title="Adicionar coluna">+</button>
+            <button onclick="vdDeleteColumn(this)" style="width:24px;height:24px;border:none;background:#ef4444;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:"Exo 2",sans-serif;" title="Eliminar coluna">−</button>
           </div>
           <div class="vd-table-row-controls" style="position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);display:none;gap:4px;z-index:100;">
-            <button onclick="vdAddRow(this)" style="width:24px;height:24px;border:none;background:#6b7280;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Arial;" title="Adicionar linha">+</button>
-            <button onclick="vdDeleteRow(this)" style="width:24px;height:24px;border:none;background:#ef4444;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Arial;" title="Eliminar linha">−</button>
+            <button onclick="vdAddRow(this)" style="width:24px;height:24px;border:none;background:#6b7280;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:"Exo 2",sans-serif;" title="Adicionar linha">+</button>
+            <button onclick="vdDeleteRow(this)" style="width:24px;height:24px;border:none;background:#ef4444;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:"Exo 2",sans-serif;" title="Eliminar linha">−</button>
           </div>
           <div class="vd-table-delete" style="position:absolute;right:-30px;bottom:0;display:none;z-index:100;">
-            <button onclick="vdDeleteTable(this)" style="width:24px;height:24px;border:none;background:#dc2626;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-family:Arial;" title="Eliminar tabela">✕</button>
+            <button onclick="vdDeleteTable(this)" style="width:24px;height:24px;border:none;background:#dc2626;color:white;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-family:"Exo 2",sans-serif;" title="Eliminar tabela">✕</button>
           </div>
         </div>
         <style>
@@ -1060,7 +1060,7 @@ export function TemplatesSection() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-b min-h-[300px] max-h-[400px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-left"
                       style={{ 
                         minHeight: '300px',
-                        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                        fontFamily: '"Exo 2", sans-serif',
                         fontSize: '14px',
                         lineHeight: '1.6',
                         whiteSpace: 'pre-wrap',

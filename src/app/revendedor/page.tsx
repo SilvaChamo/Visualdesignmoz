@@ -2259,7 +2259,7 @@ export default function ResellerPage() {
           />
         )
       case 'clientes':
-        return <ClientesSection />
+        return <CPUsersSection variant="panels" panelScope="client" />
       case 'revendedores':
         return <ClientesSection />
       case 'domains-new':

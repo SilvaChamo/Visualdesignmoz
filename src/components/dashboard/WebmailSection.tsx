@@ -1920,7 +1920,7 @@ export function WebmailSection({
               <select 
                 onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontName', false, e.target.value) } }}
                 className={`text-xs px-2 py-1.5 rounded outline-none ${modoEscuroAssinatura ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-900'}`}>
-                <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                <option>Exo 2</option><option>Calibri</option><option>Times New Roman</option>
               </select>
               <select 
                 onChange={(e) => { if (assinaturaEditorRef.current) { assinaturaEditorRef.current.focus(); document.execCommand('fontSize', false, e.target.value) } }}

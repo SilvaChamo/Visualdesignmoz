@@ -17,7 +17,7 @@ const templates = [
         icon: Newspaper,
         color: 'emerald',
         html: `
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Segoe UI',Arial,sans-serif;background-color:#ffffff;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Exo 2',sans-serif;background-color:#ffffff;">
   <tr>
     <td align="center">
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
@@ -82,7 +82,7 @@ const templates = [
   - Cor texto principal: #ffffff (branco no header)
   - Cor texto secundário: #fff7ed (laranja claro no header)
 -->
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Segoe UI',Arial,sans-serif;background-color:#ffffff;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Exo 2',sans-serif;background-color:#ffffff;">
   <tr>
     <td align="center">
       <!-- Container principal: 600px largura (padrão email) = ~50% em telas grandes -->
@@ -149,7 +149,7 @@ const templates = [
         icon: AlertTriangle,
         color: 'blue',
         html: `
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Segoe UI',Arial,sans-serif;background-color:#ffffff;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Exo 2',sans-serif;background-color:#ffffff;">
   <tr>
     <td align="center">
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
