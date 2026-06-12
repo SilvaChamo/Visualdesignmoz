@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
+import { getAdminDirectAdminAPI, getDirectAdminAPIForDaUsername } from '@/lib/directadmin-adapter';
 import { daPostViaSsh } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';

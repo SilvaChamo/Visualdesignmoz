@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
+import { getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
