@@ -3831,9 +3831,14 @@ export function APIConfigSection() {
 
   const loadStatus = async () => {
     setLoadingStatus(true)
-    const s = await directAdminAPI.getServerStatus()
-    setServerStatus(s)
-    setLoadingStatus(false)
+    try {
+      const s = await directAdminAPI.getServerStatus()
+      setServerStatus(s)
+    } catch {
+      setServerStatus(null)
+    } finally {
+      setLoadingStatus(false)
+    }
   }
 
   useEffect(() => { loadStatus() }, [])
@@ -3881,7 +3886,7 @@ export function APIConfigSection() {
           </div>
           {loadingStatus ? <div className="py-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : serverStatus ? (
             <div className="space-y-3">
-              {Object.entries(serverStatus).filter(([k]) => !['status', 'error_message'].includes(k)).slice(0, 8).map(([key, val]) => (
+              {Object.entries(serverStatus).filter(([k]) => !['status', 'error_message', 'source'].includes(k)).slice(0, 8).map(([key, val]) => (
                 <div key={key} className="flex justify-between items-center py-2 border-b border-gray-50">
                   <span className="text-sm text-gray-600 capitalize">{key.replace(/_/g, ' ')}</span>
                   <span className="text-sm font-bold text-gray-900">{String(val)}</span>

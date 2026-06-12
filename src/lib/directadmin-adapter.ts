@@ -18,6 +18,7 @@ import type {
   PanelFTPAccount,
   HostingCommandResult,
 } from './directadmin-hosting-api';
+import { fetchServerStatsViaSsh, type ServerStats } from '@/lib/server-stats';
 
 type DaData = Record<string, unknown>;
 
@@ -766,13 +767,23 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       return { success: result.ok, output: result.error || `PHP alterado para ${phpVer}` };
     },
 
-    getServerStatus: async () => {
-      const data = await daGet(credentials, 'CMD_API_SYSTEM');
-      return {
-        cpu: field(data, 'cpu') || '0',
-        memory: field(data, 'mem_used') || '0',
-        disk: field(data, 'disk') || '0',
-      };
+    getServerStatus: async (): Promise<ServerStats> => {
+      try {
+        return await fetchServerStatsViaSsh();
+      } catch (sshErr) {
+        try {
+          const data = await daGet(credentials, 'CMD_API_SYSTEM');
+          return {
+            source: 'directadmin',
+            cpu: field(data, 'cpu') || '0',
+            memory: field(data, 'mem_used') || '0',
+            disk: field(data, 'disk') || '0',
+          };
+        } catch {
+          const msg = sshErr instanceof Error ? sshErr.message : 'Falha ao ler estado do servidor';
+          throw new Error(msg);
+        }
+      }
     },
 
     getServerStats: async () => api.getServerStatus(),

@@ -169,7 +169,9 @@ async function run<T = HostingCommandResult>(
       throw new Error(`Pedido expirou após ${timeoutMs / 1000}s`);
     }
     const message = error instanceof Error ? error.message : 'Pedido DirectAdmin falhou';
-    console.error(`[DIRECTADMIN CLIENT] ${action}:`, message);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[DIRECTADMIN CLIENT] ${action}:`, message);
+    }
     throw error instanceof Error ? error : new Error(message);
   } finally {
     clearTimeout(timeoutId);
