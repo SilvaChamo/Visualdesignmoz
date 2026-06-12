@@ -1,33 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Globe, Loader2, RefreshCw } from 'lucide-react';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { Loader2, Plus, RefreshCw, Server } from 'lucide-react';
+import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
+import type { DirectAdminWebsite } from '@/lib/directadmin-api';
 
-type PorkbunDomainRow = {
-  domain: string;
-  status?: string;
-  expireDate?: string;
-  tld?: string;
-};
-
-export function PorkbunMyDomainsSection() {
-  const [domains, setDomains] = useState<PorkbunDomainRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const { setChrome } = useAdminSectionChrome();
+export function PorkbunMyDomainsSection({
+  sites = [],
+  onAddHostingDomain,
+}: {
+  sites?: DirectAdminWebsite[];
+  onAddHostingDomain?: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    setError('');
     try {
-      const res = await fetch('/api/registrar/account/domains', { credentials: 'include' });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao carregar');
-      setDomains(Array.isArray(data.domains) ? data.domains : []);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar');
-      setDomains([]);
+      await fetch('/api/registrar/account/domains', { credentials: 'include' });
     } finally {
       setLoading(false);
     }
@@ -37,68 +27,61 @@ export function PorkbunMyDomainsSection() {
     void load();
   }, []);
 
-  useEffect(() => {
-    setChrome({
-      toolbar: (
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-        >
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {onAddHostingDomain && (
+          <button type="button" onClick={onAddHostingDomain} className={panelBtnPrimary}>
+            <Plus className="h-4 w-4" />
+            Adicionar domínio
+          </button>
+        )}
+        <button type="button" onClick={() => void load()} disabled={loading} className={panelBtnSecondary}>
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
-      ),
-    });
-    return () => setChrome(null);
-  }, [loading, setChrome]);
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        <strong>DirectAdmin:</strong> os websites alojados no servidor estão em{' '}
-        <strong>Hospedagem → Sites</strong>, não nesta página. Esta secção lista apenas domínios
-        comprados via <strong>Spaceship</strong> (registador).
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-slate-500">
-          <Loader2 className="h-6 w-6 animate-spin" /> A carregar…
-        </div>
-      ) : domains.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 shadow-sm">
-          <Globe className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          Nenhum domínio encontrado na conta de registo.
+      {sites.length === 0 ? (
+        <div className="rounded border border-gray-200 bg-white py-10 text-center text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
+          Nenhum domínio de hospedagem encontrado.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-bold uppercase text-slate-500">
+            <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
               <tr>
-                <th className="px-4 py-3">Domínio</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">TLD</th>
-                <th className="px-4 py-3">Expira</th>
+                <th className="px-4 py-2">Domínio</th>
+                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Pacote</th>
+                <th className="px-4 py-2">Owner</th>
               </tr>
             </thead>
             <tbody>
-              {domains.map((d, i) => (
-                <tr key={`${d.domain}-${i}`} className="border-t border-slate-100 hover:bg-slate-50/80">
-                  <td className="px-4 py-3 font-semibold text-slate-900">{d.domain}</td>
-                  <td className="px-4 py-3 text-slate-600">{d.status || '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{d.tld || '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{d.expireDate || '—'}</td>
+              {sites.map((s) => (
+                <tr
+                  key={s.domain}
+                  className="border-t border-gray-100 hover:bg-gray-50/80 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                >
+                  <td className="px-4 py-2">
+                    <span className="flex items-center gap-2 text-[15px] font-semibold text-gray-900 dark:text-zinc-100">
+                      <Server className="h-4 w-4 shrink-0 text-gray-400" />
+                      {s.domain}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600 dark:text-zinc-400">{s.state || s.status || 'Active'}</td>
+                  <td className="px-4 py-2 text-gray-600 dark:text-zinc-400">{s.package || '—'}</td>
+                  <td className="px-4 py-2 text-gray-600 dark:text-zinc-400">{s.owner || 'admin'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {loading && sites.length === 0 && (
+        <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin" /> A carregar…
         </div>
       )}
     </div>

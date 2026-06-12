@@ -23,7 +23,7 @@ import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
-  CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
+  CPUsersSection, SSLSection, SSLViewSection, SecuritySection, PHPConfigSection,
   APIConfigSection, GitDeploySection, WPListSection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
   DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
@@ -35,7 +35,7 @@ import {
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
-  SMTPConfigSection, AuditSyncSection
+  SMTPConfigSection, AuditSyncSection, NameserverManagementSection
 } from './DirectAdminSections'
 import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
 import { NotificationsSection } from './NotificationsSection'
@@ -46,17 +46,19 @@ import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { PorkbunResellerSection } from './PorkbunResellerSection'
 import { PorkbunMyDomainsSection } from './PorkbunMyDomainsSection'
+import { DomainTransferSection } from './DomainTransferSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache'
+import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
-import { removeWebsiteFromSupabase } from '@/lib/supabase-sync'
+import { removeWebsiteFromSupabase, syncWebsiteToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
 import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
@@ -66,7 +68,9 @@ import {
   readBootstrapCache,
   clearPanelBootstrapCache,
   type PanelBootstrapData,
+  type PanelBootstrapScope,
 } from '@/lib/panel-data-from-server'
+import { auth as panelAuth } from '@/lib/supabase-client'
 
 const directAdminAPI = panelAPI
 
@@ -692,13 +696,32 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
   )
 }
 
-function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, loadDirectAdminData, syncing, handleSync, daLoadError }: {
+function sortSitesPrimaryFirst(list: DirectAdminWebsite[], primaryDomain?: string | null) {
+  if (!primaryDomain) return list
+  const primary = primaryDomain.toLowerCase()
+  return [...list].sort((a, b) => {
+    const aPri = a.domain.toLowerCase() === primary ? 0 : 1
+    const bPri = b.domain.toLowerCase() === primary ? 0 : 1
+    if (aPri !== bPri) return aPri - bPri
+    return a.domain.localeCompare(b.domain)
+  })
+}
+
+function isAdminOwnedSite(site: DirectAdminWebsite, resellerOwners: Set<string>): boolean {
+  const owner = (site.owner || 'admin').trim().toLowerCase()
+  if (resellerOwners.has(owner)) return false
+  return owner === 'admin'
+}
+
+function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, setSelectedSslDomain, primaryDomain, loadDirectAdminData, syncing, handleSync, daLoadError }: {
   sites: DirectAdminWebsite[],
   onRefresh: () => void,
   packages: DirectAdminPackage[],
   setActiveSection: (section: string) => void,
   setFileManagerDomain: (domain: string) => void,
   setSelectedDNSDomain: (domain: string) => void,
+  setSelectedSslDomain: (domain: string) => void,
+  primaryDomain?: string | null,
   loadDirectAdminData: () => void,
   syncing: boolean,
   handleSync: () => void,
@@ -717,14 +740,16 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [creating, setCreating] = useState(false)
   const [createMsg, setCreateMsg] = useState('')
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
-  const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>({})
+  const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>(() => readSiteSslCache())
 
-  // Filtrar sites activos — tem conteúdo real instalado
   const sitesArray = Array.isArray(sites) ? sites : []
-  const filtered = sitesArray.filter(s =>
-    s.domain.toLowerCase().includes(search.toLowerCase()) &&
-    !s.domain.includes('contaboserver') &&
-    !s.domain.toLowerCase().startsWith('mail')
+  const filtered = sortSitesPrimaryFirst(
+    sitesArray.filter(s =>
+      s.domain.toLowerCase().includes(search.toLowerCase()) &&
+      !s.domain.includes('contaboserver') &&
+      !s.domain.toLowerCase().startsWith('mail')
+    ),
+    primaryDomain,
   )
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
@@ -738,27 +763,37 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   }, [sites])
 
   useEffect(() => {
-    const domains = sitesArray.map((s) => s.domain).filter(Boolean)
+    const domains = filtered.map((s) => s.domain).filter(Boolean)
     if (!domains.length) return
+
+    const cached = readSiteSslCache()
+    const missing = domains.filter((d) => cached[d] === undefined)
+    if (!missing.length) {
+      setLiveSsl(cached)
+      return
+    }
+
     let cancelled = false
     const loadSsl = async () => {
       try {
         const res = await fetch('/api/server-exec', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'checkSitesSsl', params: { domains } }),
+          body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: missing } }),
         })
         const data = await res.json()
         if (!cancelled && data.success && data.data?.ssl) {
-          setLiveSsl(data.data.ssl as Record<string, boolean>)
+          const merged = { ...cached, ...(data.data.ssl as Record<string, boolean>) }
+          writeSiteSslCache(merged)
+          setLiveSsl(merged)
         }
       } catch {
-        /* mantém estado do espelho */
+        /* mantém cache */
       }
     }
     void loadSsl()
     return () => { cancelled = true }
-  }, [sites])
+  }, [filtered.map((s) => s.domain).join('|')])
 
   useEffect(() => {
     if (!expandedSite || siteDiskInfo[expandedSite]) return
@@ -791,12 +826,6 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     return status === 'secure' || status.includes('activ') || status.includes('enabled')
   }
 
-  const openManageWebsite = (domain: string) => {
-    // @ts-ignore
-    window.__selectedManageDomain = domain
-    setActiveSection('manage-website')
-  }
-
   const daOk = (result: unknown) => {
     if (!result || typeof result !== 'object') return true
     return (result as { success?: boolean }).success !== false
@@ -818,28 +847,23 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     setTimeout(() => setActiveSection('cp-databases'), 50)
   }
 
-  const handleIssueSsl = async (domain: string) => {
-    setLoading(`${domain}-ssl`)
-    try {
-      const result = await directAdminAPI.issueSSL(domain)
-      if (daOk(result)) {
-        alert(`✅ SSL solicitado com sucesso para ${domain}!`)
-        await onRefresh()
-      } else {
-        alert('❌ Erro ao emitir SSL.')
-      }
-    } catch (e: unknown) {
-      alert('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
-    }
-    setLoading(null)
+  const openSslPage = (domain: string) => {
+    setSelectedSslDomain(domain)
+    setTimeout(() => setActiveSection('cp-ssl'), 50)
   }
 
-  // Expandir automaticamente o primeiro site ao carregar
+  const openBackupPage = (domain: string) => {
+    // @ts-ignore
+    window.__selectedBackupDomain = domain
+    setTimeout(() => setActiveSection('backup-manager'), 50)
+  }
+
+  // Manter sempre o primeiro card da página expandido
   useEffect(() => {
-    if (paginatedSites.length > 0 && !expandedSite) {
+    if (paginatedSites.length > 0) {
       setExpandedSite(paginatedSites[0].domain)
     }
-  }, [paginatedSites, expandedSite])
+  }, [currentPage, paginatedSites.map((s) => s.domain).join('|')])
 
   const handleDelete = async (domain: string) => {
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
@@ -865,6 +889,10 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         ? await directAdminAPI.suspendWebsite(domain)
         : await directAdminAPI.unsuspendWebsite(domain)
       if (daOk(result)) {
+        await syncWebsiteToSupabase({
+          domain,
+          status: state === 'Active' ? 'Suspended' : 'Active',
+        })
         await onRefresh()
       } else {
         alert('Erro ao alterar estado do site.')
@@ -986,28 +1014,20 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   return (
     <div className="w-full space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-base font-bold text-gray-900">Websites ({filtered.length})</span>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-base font-bold text-gray-900 shrink-0">Websites ({filtered.length})</span>
 
-          <button onClick={() => setShowCreateModal(true)}
-            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition-all">
+        <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+          <div className="relative flex-1 max-w-md min-w-[14rem]">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Pesquisar websites..."
+              className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-full" />
+          </div>
+          <button onClick={() => setActiveSection('wordpress-install')}
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition-all shrink-0">
             <Plus className="w-3 h-3" /> Criar Website
           </button>
-          <button onClick={() => {
-            const rows = [['Domínio', 'IP', 'Estado', 'Pacote']]
-            sites.forEach(s => rows.push([s.domain, getServerHost(), s.state || 'Active', (s as any).package || 'Default']))
-            const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'websites.csv'; a.click()
-          }} className="bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900 px-4 py-2 rounded text-xs font-bold transition-all">
-            ↓ Exportar CSV
-          </button>
-        </div>
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar websites..."
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-52" />
         </div>
       </div>
 
@@ -1063,19 +1083,47 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     <Lock className="w-3.5 h-3.5" /> SSL Activo
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  <button
+                    type="button"
+                    onClick={() => openSslPage(s.domain)}
+                    className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400 hover:underline underline-offset-2"
+                  >
                     <LockOpen className="w-3.5 h-3.5" /> Sem SSL
-                  </span>
+                  </button>
                 )}
               </div>
 
               {/* Acções */}
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => openFileManager(s.domain)}
                   className="text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 text-xs font-medium transition-colors underline-offset-2 hover:underline">
                   Explorar directório
+                </button>
+                <span
+                  className="w-px h-[0.85em] shrink-0 bg-gray-300/80 dark:bg-zinc-600/80"
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  disabled={loading === `${s.domain}-suspend`}
+                  onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
+                  className="text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 text-xs font-medium transition-colors underline-offset-2 hover:underline disabled:opacity-50">
+                  {loading === `${s.domain}-suspend`
+                    ? 'A processar...'
+                    : parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
+                </button>
+                <span
+                  className="w-px h-[0.85em] shrink-0 bg-gray-300/80 dark:bg-zinc-600/80"
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  disabled={loading === s.domain}
+                  onClick={() => handleDelete(s.domain)}
+                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs font-medium transition-colors underline-offset-2 hover:underline disabled:opacity-50">
+                  {loading === s.domain ? 'A apagar...' : 'Apagar'}
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1091,40 +1139,19 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     side="left"
                     align="center"
                     sideOffset={6}
-                    className="z-[200] w-44 max-w-[11rem] p-1 text-xs !bg-white dark:!bg-zinc-900 border border-gray-200 dark:border-zinc-700 shadow-lg"
+                    className="z-[200] w-32 max-w-[8rem] p-1 text-xs !bg-white dark:!bg-zinc-900 border border-gray-200 dark:border-zinc-700 shadow-lg"
                   >
-                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openManageWebsite(s.domain)}>
-                      Gerir
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-xs px-2 py-1.5"
-                      disabled={loading === `${s.domain}-ssl`}
-                      onClick={() => handleIssueSsl(s.domain)}
-                    >
-                      {loading === `${s.domain}-ssl` ? 'A emitir SSL...' : 'Issue SSL'}
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openSslPage(s.domain)}>
+                      Emitir SSL
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openDnsEditor(s.domain)}>
                       Editar DNS
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => setActiveSection('backup-manager')}>
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openBackupPage(s.domain)}>
                       Backup
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openDatabases(s.domain)}>
                       Base de Dados
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-xs px-2 py-1.5"
-                      disabled={loading === `${s.domain}-suspend`}
-                      onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
-                    >
-                      {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-xs px-2 py-1.5 text-red-600 focus:text-red-600"
-                      disabled={loading === s.domain}
-                      onClick={() => handleDelete(s.domain)}
-                    >
-                      {loading === s.domain ? 'A apagar...' : 'Apagar'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -2183,18 +2210,7 @@ function AdminPageContent() {
   const [directAdminPackages, setDirectAdminPackages] = useState<DirectAdminPackage[]>([])
   const [isFetchingDirectAdmin, setIsFetchingDirectAdmin] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
-  const [selectedManageDomain, setSelectedManageDomain] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('last_managed_domain') || ''
-    }
-    return ''
-  })
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && selectedManageDomain) {
-      localStorage.setItem('last_managed_domain', selectedManageDomain)
-    }
-  }, [selectedManageDomain])
+  const [selectedBackupDomain, setSelectedBackupDomain] = useState('')
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
@@ -2236,16 +2252,16 @@ function AdminPageContent() {
     }
   }, [activeSection]);
 
-  // Efeito para capturar domínio vindo do botão "Gerir"
+  // Efeito para capturar domínio vindo do botão "Backup"
   useEffect(() => {
     // @ts-ignore
-    if (window.__selectedManageDomain && activeSection === 'manage-website') {
+    if (window.__selectedBackupDomain && activeSection === 'backup-manager') {
       // @ts-ignore
-      setSelectedManageDomain(window.__selectedManageDomain);
+      setSelectedBackupDomain(window.__selectedBackupDomain);
       // @ts-ignore
-      window.__selectedManageDomain = null;
-    } else if (activeSection !== 'manage-website') {
-      setSelectedManageDomain('');
+      window.__selectedBackupDomain = null;
+    } else if (activeSection !== 'backup-manager') {
+      setSelectedBackupDomain('');
     }
   }, [activeSection]);
 
@@ -2253,6 +2269,16 @@ function AdminPageContent() {
   useEffect(() => {
     if (!activeSection.includes('email') && !activeSection.includes('cp-email')) {
       setPreSelectedEmailDomain('');
+    }
+  }, [activeSection]);
+
+  // Efeito para limpar domínio SSL quando sair da secção
+  useEffect(() => {
+    if (activeSection !== 'cp-ssl') {
+      setSelectedSslDomain('');
+    }
+    if (activeSection !== 'cp-ssl-view') {
+      setSelectedSslViewHostname('');
     }
   }, [activeSection]);
 
@@ -2274,6 +2300,10 @@ function AdminPageContent() {
   const [syncing, setSyncing] = useState(false)
   const [daLoadError, setDaLoadError] = useState('')
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
+  const [selectedSslDomain, setSelectedSslDomain] = useState<string>('')
+  const [selectedSslViewHostname, setSelectedSslViewHostname] = useState<string>('')
+  const [accountDaUsername, setAccountDaUsername] = useState<string>('visualdesign')
+  const [accountPrimaryDomain, setAccountPrimaryDomain] = useState<string | null>(null)
   const [dashboardSearch, setDashboardSearch] = useState('')
 
   // Modal de criação de email (movido para nível do AdminPage)
@@ -2286,10 +2316,16 @@ function AdminPageContent() {
   const [creatingEmail, setCreatingEmail] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
 
+  const resolveBootstrapScope = async (): Promise<PanelBootstrapScope> => {
+    const role = await panelAuth.getUserRole()
+    return role === 'reseller' ? 'reseller' : 'admin'
+  }
+
   const handleSync = async () => {
     setSyncing(true)
     try {
-      clearPanelBootstrapCache('admin')
+      const scope = await resolveBootstrapScope()
+      clearPanelBootstrapCache(scope)
       await loadDirectAdminData(true)
     } catch (e) {
       console.error(e)
@@ -2301,6 +2337,30 @@ function AdminPageContent() {
     setDirectAdminSites(boot.sites)
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
+    if (boot.resellerContext?.daUsername) {
+      setAccountDaUsername(boot.resellerContext.daUsername)
+    }
+    const username = (boot.resellerContext?.daUsername ?? accountDaUsername).toLowerCase()
+    let primary: string | null = boot.resellerContext?.primaryDomain?.toLowerCase() ?? null
+    if (!primary && username) {
+      const ownerSites = boot.sites.filter((s) => {
+        const o = (s.owner || 'admin').toLowerCase()
+        return (o === username || (o === 'admin' && (username === 'visualdesign' || username === 'admin')))
+          && !s.domain.includes('contaboserver')
+      })
+      const match = ownerSites.find((s) => s.domain.toLowerCase().startsWith(username))
+        ?? ownerSites.find((s) => s.domain.toLowerCase().includes(username))
+      primary = match?.domain.toLowerCase() ?? ownerSites[0]?.domain.toLowerCase() ?? null
+    }
+    if (!primary) {
+      const vd = boot.sites.find((s) => s.domain.toLowerCase() === 'visualdesignmoz.com')
+        ?? boot.sites.find((s) => {
+          const o = (s.owner || 'admin').toLowerCase()
+          return o === username || (o === 'admin' && (username === 'visualdesign' || username === 'admin'))
+        })
+      primary = vd?.domain.toLowerCase() ?? null
+    }
+    setAccountPrimaryDomain(primary)
     if (!boot.sites.length && boot.meta?.source === 'mirror') {
       setDaLoadError('Sem sites no espelho — sincronização em curso.')
     } else {
@@ -2309,9 +2369,10 @@ function AdminPageContent() {
   }
 
   const loadDirectAdminData = async (fresh = false) => {
-    if (fresh) clearPanelBootstrapCache('admin')
+    const scope = await resolveBootstrapScope()
+    if (fresh) clearPanelBootstrapCache(scope)
 
-    const cached = !fresh ? readBootstrapCache('admin') : null
+    const cached = !fresh ? readBootstrapCache(scope) : null
     if (cached) {
       applyBootstrap(cached)
     } else {
@@ -2321,9 +2382,9 @@ function AdminPageContent() {
 
     try {
       if (cached && !fresh) {
-        await fetchPanelBootstrapStaleWhileRevalidate(applyBootstrap, 'admin')
+        await fetchPanelBootstrapStaleWhileRevalidate(applyBootstrap, scope)
       } else {
-        const boot = await fetchPanelBootstrap({ fresh: true, scope: 'admin' })
+        const boot = await fetchPanelBootstrap({ fresh: true, scope })
         applyBootstrap(boot)
       }
     } catch (e) {
@@ -2337,16 +2398,44 @@ function AdminPageContent() {
 
   useEffect(() => {
     void loadDirectAdminData(false)
+    const loadProfileOwner = async () => {
+      try {
+        const user = await panelAuth.getCurrentUser()
+        if (!user) return
+        const { profileAuthOrFilter } = await import('@/lib/profile-db')
+        const { data } = await createClientInstance
+          .from('profiles')
+          .select('da_username, role')
+          .or(profileAuthOrFilter(user.id))
+          .maybeSingle()
+        const fromProfile = data?.da_username?.trim()
+        if (fromProfile) {
+          setAccountDaUsername(fromProfile)
+        } else if (data?.role === 'admin') {
+          setAccountDaUsername('visualdesign')
+        }
+      } catch (e) {
+        console.error('Erro ao carregar owner da conta:', e)
+      }
+    }
+    void loadProfileOwner()
   }, [])
 
-  // Definir domínio principal - filtrar contaboserver e domínios que começam com mail.
-  const filteredSites = directAdminSites.filter(s =>
-    !s.domain.includes('contaboserver') &&
-    !s.domain.toLowerCase().startsWith('mail.')
+  // Filtrar sites — conta admin vê todos os sites com owner "admin"
+  const resellerOwners = new Set(
+    directAdminUsers
+      .filter((u) => (u.acl || u.type || '').toLowerCase() === 'reseller')
+      .map((u) => String(u.userName || u.id).toLowerCase()),
   )
-  const primaryDomain = filteredSites.length > 0
-    ? filteredSites[0].domain
-    : 'your-domain.com'
+  const filteredSitesBase = directAdminSites.filter(s => {
+    if (s.domain.includes('contaboserver')) return false
+    if (s.domain.toLowerCase().startsWith('mail.')) return false
+    if (!isAdminOwnedSite(s, resellerOwners)) return false
+    return true
+  })
+  const filteredSites = sortSitesPrimaryFirst(filteredSitesBase, accountPrimaryDomain)
+  const primaryDomain = accountPrimaryDomain
+    || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -2395,6 +2484,8 @@ function AdminPageContent() {
           setActiveSection={setActiveSection}
           setFileManagerDomain={setFileManagerDomain}
           setSelectedDNSDomain={setSelectedDNSDomain}
+          setSelectedSslDomain={setSelectedSslDomain}
+          primaryDomain={accountPrimaryDomain}
           loadDirectAdminData={loadDirectAdminData}
           syncing={syncing}
           handleSync={handleSync}
@@ -2487,7 +2578,22 @@ function AdminPageContent() {
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':
-        return <SSLSection sites={filteredSites} />
+        return (
+          <SSLSection
+            sites={filteredSites}
+            initialDomain={selectedSslDomain || primaryDomain}
+            setActiveSection={setActiveSection}
+            setSelectedSslViewHostname={setSelectedSslViewHostname}
+          />
+        )
+      case 'cp-ssl-view':
+        return (
+          <SSLViewSection
+            sites={filteredSites}
+            initialHostname={selectedSslViewHostname || selectedSslDomain || primaryDomain}
+            setActiveSection={setActiveSection}
+          />
+        )
       case 'cp-security':
         return <SecuritySection sites={filteredSites} />
       case 'cp-php':
@@ -2495,9 +2601,13 @@ function AdminPageContent() {
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
-      case 'wp-sites':
-      case 'wp-plugins':
+      case 'backup-manager':
+      case 'cp-backup':
+      case 'cp-wp-backup':
       case 'wp-backup':
+        return <BackupManagerSection sites={filteredSites} initialDomain={selectedBackupDomain || primaryDomain} />
+      case 'wp-plugins':
+      case 'wp-sites':
       case 'wordpress-install':
         return (
           <WordPressHubSection
@@ -2506,11 +2616,9 @@ function AdminPageContent() {
             initialTab={
               activeSection === 'wp-sites'
                 ? 'sites'
-                : activeSection === 'wp-backup'
-                  ? 'backup'
-                  : activeSection === 'wordpress-install'
-                    ? 'install'
-                    : 'plugins'
+                : activeSection === 'wordpress-install'
+                  ? 'install'
+                  : 'plugins'
             }
             autoSelectFirstWp={activeSection === 'wp-plugins' || activeSection === 'wp-sites'}
             setFileManagerDomain={setFileManagerDomain}
@@ -2520,7 +2628,6 @@ function AdminPageContent() {
         )
       case 'cp-wp-list':
       case 'cp-wp-plugins':
-      case 'cp-wp-backup':
       case 'cp-wp-restore-backup':
       case 'cp-wp-remote-backup':
       case 'wp-update':
@@ -2531,9 +2638,7 @@ function AdminPageContent() {
             initialTab={
               resolveSectionId(activeSection) === 'wp-sites'
                 ? 'sites'
-                : resolveSectionId(activeSection) === 'wp-backup'
-                  ? 'backup'
-                  : 'plugins'
+                : 'plugins'
             }
             autoSelectFirstWp
             setFileManagerDomain={setFileManagerDomain}
@@ -2544,7 +2649,7 @@ function AdminPageContent() {
       case 'cp-audit-sync':
         return <AuditSyncSection onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-dns-nameserver':
-        return <DNSNameserverSection sites={filteredSites} />
+        return <NameserverManagementSection sites={filteredSites} />
       case 'cp-dns-default-ns':
         return <DNSDefaultNSSection />
       case 'cp-dns-create-zone':
@@ -2560,10 +2665,17 @@ function AdminPageContent() {
         return <CloudFlareSection sites={filteredSites} />
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
+      case 'transferir-dominio':
+        return <DomainTransferSection />
       case 'porkbun-domains':
         return <PorkbunResellerSection />
       case 'porkbun-my-domains':
-        return <PorkbunMyDomainsSection />
+        return (
+          <PorkbunMyDomainsSection
+            sites={filteredSites}
+            onAddHostingDomain={() => setActiveSection('domain-manager')}
+          />
+        )
       case 'dns-central':
         return (
           <DNSCentralSection
@@ -2584,32 +2696,25 @@ function AdminPageContent() {
         )
       case 'git-deploy':
         return <GitDeploySection />
-      case 'backup-manager':
-      case 'cp-backup':
-        return <BackupManagerSection sites={filteredSites} />
       case 'domain-manager':
-        return <DomainManagerSection
-          sites={filteredSites}
-          packages={directAdminPackages}
-          onCreateEmail={(domain) => {
-            setPreSelectedEmailDomain(domain)
-            setActiveSection('cp-email-mgmt')
-          }}
-        />
+        return (
+          <DomainManagerSection
+            sites={filteredSites}
+            packages={directAdminPackages}
+            onCreateEmail={(domain) => {
+              setPreSelectedEmailDomain(domain)
+              setActiveSection('cp-email-mgmt')
+            }}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              setActiveSection(section)
+            }}
+          />
+        )
       case 'deploy':
         return <DeploySection sites={directAdminSites} />
       case 'packages-list':
         return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
-      case 'manage-website':
-        return <ManageWebsiteSection
-          domain={selectedManageDomain || primaryDomain}
-          sites={filteredSites}
-          setActiveSection={setActiveSection}
-          setFileManagerDomain={setFileManagerDomain}
-          setSelectedDNSDomain={setSelectedDNSDomain}
-          packages={directAdminPackages}
-          onRefresh={() => void loadDirectAdminData(true)}
-        />
       case 'page-builders':
         // Redirecionar para a página de construtores
         if (typeof window !== 'undefined') {

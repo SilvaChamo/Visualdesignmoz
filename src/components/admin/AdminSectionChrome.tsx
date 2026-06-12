@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 export type SectionChromeSearch = {
   value: string;
@@ -33,8 +33,9 @@ const AdminSectionChromeContext = createContext<ChromeContextValue>({
 });
 
 export function AdminSectionChromeProvider({ children }: { children: ReactNode }) {
-  const [chrome, setChrome] = useState<SectionChromeState>(null);
-  const value = useMemo(() => ({ chrome, setChrome }), [chrome]);
+  const [chrome, setChromeState] = useState<SectionChromeState>(null);
+  const setChrome = useCallback((next: SectionChromeState) => setChromeState(next), []);
+  const value = useMemo(() => ({ chrome, setChrome }), [chrome, setChrome]);
   return (
     <AdminSectionChromeContext.Provider value={value}>
       {children}

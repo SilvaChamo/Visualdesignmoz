@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui'
@@ -15,17 +15,23 @@ import {
   fetchPanelUsersStaleWhileRevalidate,
   readPanelUsersCache,
 } from '@/lib/panel-users-cache'
+import {
+  readDomainListCache,
+  writeDomainListCache,
+  type CachedDomainRow,
+} from '@/lib/panel-domain-list-cache'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
-  Upload, Download, Power, Plug, FileText, ArrowRight, Rocket, Archive, Check, X, Clock, Loader2
+  Upload, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2
 } from 'lucide-react'
 
 function isDaCommandOk(result: unknown): boolean {
@@ -486,6 +492,8 @@ export function DNSZoneEditorSection({
   const perPage = 20
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showActionsDropdown, setShowActionsDropdown] = useState(false)
+  const isCentral = variant === 'central'
+  const { setChrome } = useAdminSectionChrome()
 
   const typeColors: Record<string, string> = {
     A: 'bg-blue-100 text-blue-800',
@@ -568,6 +576,27 @@ export function DNSZoneEditorSection({
       .catch(() => undefined)
       .finally(() => setSyncing(false))
   }
+
+  useEffect(() => {
+    if (!isCentral) return
+    setChrome({
+      description: selectedDomain
+        ? `Zone records for "${selectedDomain}"`
+        : 'Seleccione um domínio para ver os registos',
+      toolbar: (
+        <button
+          type="button"
+          onClick={handleSyncMirror}
+          disabled={!selectedDomain || syncing}
+          className={panelBtnPrimary}
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing || refreshing ? 'animate-spin' : ''}`} />
+          Sincronizar
+        </button>
+      ),
+    })
+    return () => setChrome(null)
+  }, [isCentral, selectedDomain, syncing, refreshing, setChrome])
 
   const handleFilterChange = (next: DNSFilterType) => {
     setFilter(next)
@@ -800,22 +829,32 @@ export function DNSZoneEditorSection({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-4">
-        <div className="w-full md:w-64">
-          <select
-            value={selectedDomain}
-            onChange={e => handleDomainChange(e.target.value)}
-            className="w-full px-3 py-2 rounded border border-gray-300 text-sm bg-white"
-          >
-            <option value="">Seleccione um domínio...</option>
-            {sites.map(s => (
-              <option key={s.domain} value={s.domain}>
-                {s.domain}
-              </option>
-            ))}
-          </select>
+      {isCentral && (
+        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-gray-600 dark:text-zinc-400">
+          <span className="uppercase font-semibold tracking-wide">Nameservers:</span>
+          <span className="font-mono">{VISUALDESIGN_DEFAULT_NS.ns1}</span>
+          <span className="font-mono">{VISUALDESIGN_DEFAULT_NS.ns2}</span>
         </div>
-      </div>
+      )}
+
+      {!isCentral && (
+        <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-4">
+          <div className="w-full md:w-64">
+            <select
+              value={selectedDomain}
+              onChange={e => handleDomainChange(e.target.value)}
+              className={`${panelField} w-full`}
+            >
+              <option value="">Seleccione um domínio...</option>
+              {sites.map(s => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -824,31 +863,38 @@ export function DNSZoneEditorSection({
               key={f}
               type="button"
               onClick={() => handleFilterChange(f)}
-              className={`px-4 py-2 rounded text-xs font-semibold border ${filter === f ? 'bg-red-50 border border-red-300 text-red-600  border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                }`}
+              className={`px-4 py-2 rounded text-xs font-semibold border transition-colors ${
+                filter === f
+                  ? 'border-red-300 bg-red-600/10 text-red-600 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-300 dark:hover:text-red-400'
+              }`}
             >
               {f}
             </button>
           ))}
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <input
-            type="text"
-            value={search}
-            onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Pesquisar por nome ou registo..."
-            className="w-full sm:w-72 px-3 py-2 border border-gray-300 rounded text-sm"
-          />
-          <button
-            type="button"
-            onClick={handleSyncMirror}
-            disabled={!selectedDomain || syncing}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 shrink-0"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncing || refreshing ? 'animate-spin' : ''}`} />
-            Sincronizar
-          </button>
-          <div className="flex items-center gap-2 text-xs text-gray-600">
+          {!isCentral && (
+            <>
+              <input
+                type="text"
+                value={search}
+                onChange={e => handleSearchChange(e.target.value)}
+                placeholder="Pesquisar por nome ou registo..."
+                className={`${panelField} w-full sm:w-72`}
+              />
+              <button
+                type="button"
+                onClick={handleSyncMirror}
+                disabled={!selectedDomain || syncing}
+                className={panelBtnPrimary}
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing || refreshing ? 'animate-spin' : ''}`} />
+                Sincronizar
+              </button>
+            </>
+          )}
+          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-zinc-400">
             <button
               type="button"
               onClick={() => setPage(1)}
@@ -892,40 +938,53 @@ export function DNSZoneEditorSection({
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <button
               type="button"
               disabled={selectedIds.length === 0 || loading}
               onClick={() => setShowActionsDropdown(!showActionsDropdown)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-gray-300 bg-white text-xs font-semibold text-gray-700 disabled:opacity-50"
+              className={`${panelBtnSecondary} text-xs font-semibold`}
             >
               Acções
               <span className="text-gray-400 text-[10px]">▼</span>
             </button>
             {showActionsDropdown && selectedIds.length > 0 && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-10">
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-10 dark:border-zinc-700 dark:bg-zinc-900">
                 <button
                   type="button"
                   onClick={() => {
                     setShowActionsDropdown(false)
                     handleDeleteSelected()
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg"
+                  className="w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 first:rounded-t last:rounded-b"
                 >
                   Remover ({selectedIds.length})
                 </button>
               </div>
             )}
           </div>
+          {isCentral && (
+            <select
+              value={selectedDomain}
+              onChange={e => handleDomainChange(e.target.value)}
+              className={`${panelField} min-w-[12rem] text-xs`}
+            >
+              <option value="">Seleccione um domínio...</option>
+              {sites.map(s => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        {/* Botões Save All Records e Add Record juntos */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSaveAll}
             disabled={loading || !selectedDomain}
-            className="inline-flex items-center px-3 py-2 rounded bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-semibold disabled:opacity-50"
+            className={panelBtnSecondary}
           >
             Save All Records
           </button>
@@ -933,7 +992,7 @@ export function DNSZoneEditorSection({
             type="button"
             onClick={() => setShowAddForm(v => !v)}
             disabled={!selectedDomain}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-semibold disabled:opacity-50"
+            className={panelBtnPrimary}
           >
             + Add Record
           </button>
@@ -1035,7 +1094,7 @@ export function DNSZoneEditorSection({
         </div>
       )}
 
-      <div className={`bg-white rounded shadow-sm border border-gray-200 overflow-hidden ${refreshing ? 'opacity-80' : ''}`}>
+      <div className={`rounded border border-gray-200 bg-white overflow-hidden dark:border-zinc-700 dark:bg-zinc-900 ${refreshing ? 'opacity-80' : ''}`}>
         {loading && records.length === 0 ? (
           <div className="py-12 text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
@@ -3692,117 +3751,618 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
 }
 
 // ============================================================
-// SSL CERTIFICATES SECTION
+// SSL CERTIFICATES SECTION (estilo cPanel — domínio + subdomínios + email)
 // ============================================================
-export function SSLSection({ sites }: { sites: DirectAdminWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [issuing, setIssuing] = useState(false)
-  const [msg, setMsg] = useState('')
+type SslHostRow = {
+  hostname: string
+  parentDomain: string
+  type: string
+}
 
-  const handleCreate = async (newDomain: string) => {
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'createWebsite',
-        params: {
-          domainName: newDomain,
-          email: 'admin@example.com',
-          packageName: 'Default',
-          php: 'PHP 8.2'
+function sslHostEntries(domain: string, subdomains: string[]): SslHostRow[] {
+  const rows: SslHostRow[] = []
+  const seen = new Set<string>()
+  const add = (hostname: string, type: string) => {
+    const key = hostname.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    rows.push({ hostname, parentDomain: domain, type })
+  }
+  add(domain, 'Domínio principal')
+  add(`www.${domain}`, 'Alias www')
+  add(`mail.${domain}`, 'Email')
+  add(`webmail.${domain}`, 'Webmail')
+  for (const sub of subdomains) {
+    const name = sub.trim()
+    if (!name) continue
+    if (name.includes('.')) {
+      add(name, 'Subdomínio')
+    } else {
+      add(`${name}.${domain}`, 'Subdomínio')
+    }
+  }
+  return rows
+}
+
+export function SSLSection({
+  sites,
+  initialDomain,
+  setActiveSection,
+  setSelectedSslViewHostname,
+}: {
+  sites: DirectAdminWebsite[]
+  initialDomain?: string
+  setActiveSection?: (section: string) => void
+  setSelectedSslViewHostname?: (hostname: string) => void
+}) {
+  const defaultDomain = initialDomain || sites[0]?.domain || ''
+  const [filterDomain, setFilterDomain] = useState(defaultDomain)
+  const [hosts, setHosts] = useState<SslHostRow[]>([])
+  const [hostSsl, setHostSsl] = useState<Record<string, boolean>>({})
+  const [selectedHosts, setSelectedHosts] = useState<Set<string>>(new Set())
+  const [issuing, setIssuing] = useState<string | null>(null)
+  const [bulkIssuing, setBulkIssuing] = useState(false)
+  const [loadingHosts, setLoadingHosts] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [forceIssue, setForceIssue] = useState(false)
+  const [renewMode, setRenewMode] = useState(false)
+  const [autoRenewDays, setAutoRenewDays] = useState('60')
+
+  useEffect(() => {
+    if (initialDomain) setFilterDomain(initialDomain)
+    else if (!filterDomain && sites[0]?.domain) setFilterDomain(sites[0].domain)
+  }, [initialDomain, sites])
+
+  const visibleSites = useMemo(
+    () => (filterDomain ? sites.filter((s) => s.domain === filterDomain) : sites),
+    [filterDomain, sites],
+  )
+
+  const siteDomainsKey = useMemo(
+    () => `${filterDomain}|${visibleSites.map((s) => s.domain).sort().join('|')}`,
+    [filterDomain, visibleSites],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadHosts = async () => {
+      if (!filterDomain || !visibleSites.length) {
+        setHosts([])
+        setHostSsl({})
+        setSelectedHosts(new Set())
+        return
+      }
+      setLoadingHosts(true)
+      const allRows: SslHostRow[] = []
+
+      await Promise.all(
+        visibleSites.map(async (site) => {
+          let subs: string[] = []
+          try {
+            const res = await fetch('/api/da', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'listSubdomains', params: { domain: site.domain } }),
+            })
+            const json = await res.json()
+            if (json.success && Array.isArray(json.data)) {
+              subs = json.data.map((row: { subdomain?: string }) => String(row.subdomain || ''))
+            }
+          } catch {
+            /* espelho vazio */
+          }
+          allRows.push(...sslHostEntries(site.domain, subs))
+        }),
+      )
+
+      if (cancelled) return
+      setHosts(allRows)
+      setSelectedHosts(new Set())
+
+      const hostnames = allRows.map((h) => h.hostname)
+      if (!hostnames.length) {
+        setHostSsl({})
+        setLoadingHosts(false)
+        return
+      }
+
+      try {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
+        })
+        const data = await res.json()
+        if (!cancelled && data.success && data.data?.ssl) {
+          setHostSsl(data.data.ssl as Record<string, boolean>)
         }
+      } catch {
+        /* mantém estado anterior */
+      }
+      if (!cancelled) setLoadingHosts(false)
+    }
+
+    void loadHosts()
+    return () => { cancelled = true }
+  }, [siteDomainsKey])
+
+  const sslOptions = () => ({
+    force: forceIssue,
+    renew: renewMode,
+    autoRenewDays,
+  })
+
+  const runSslAction = async (
+    action: 'issueSSL' | 'replaceSSL' | 'deleteSSL' | 'cancelSslRenewal' | 'setForceSsl',
+    hostname: string,
+    confirmMsg?: string,
+  ) => {
+    if (confirmMsg && !confirm(`⚠️ ${confirmMsg}`)) return false
+    setIssuing(`${action}-${hostname}`)
+    setMsg('')
+    try {
+      const body: Record<string, unknown> = { action, params: { domain: hostname, hostname } }
+      if (action === 'issueSSL') body.params = { domain: hostname, ...sslOptions() }
+      if (action === 'setForceSsl') body.params = { domain: hostname, enabled: true }
+      const res = await fetch('/api/da', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
+      const data = await res.json()
+      const ok = data.success && (data.data?.success !== false)
+      const output = data.data?.output || data.error || ''
+      if (ok) {
+        if (action === 'deleteSSL') {
+          setHostSsl((prev) => ({ ...prev, [hostname]: false }))
+        } else if (action !== 'cancelSslRenewal') {
+          setHostSsl((prev) => ({ ...prev, [hostname]: true }))
+        }
+        if ((action === 'issueSSL' || action === 'replaceSSL') && forceIssue) {
+          await fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'setForceSsl', params: { domain: hostname, enabled: true } }),
+          })
+        }
+        setMsg(`${hostname}: operação concluída com sucesso.`)
+        return true
+      }
+      setMsg(output || `Falha em ${hostname}`)
+      return false
+    } catch (e: unknown) {
+      setMsg('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
+      return false
+    } finally {
+      setIssuing(null)
+    }
+  }
+
+  const handleIssueSSL = (hostname: string) => void runSslAction('issueSSL', hostname)
+
+  const handleBulkIssue = async () => {
+    const targets = selectedHosts.size
+      ? [...selectedHosts]
+      : hosts.filter((h) => !hostSsl[h.hostname]).map((h) => h.hostname)
+    if (!targets.length) {
+      setMsg('Seleccione pelo menos um hostname sem SSL.')
+      return
+    }
+    setBulkIssuing(true)
+    setMsg('')
+    let ok = 0
+    for (const hostname of targets) {
+      const res = await fetch('/api/da', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'issueSSL', params: { domain: hostname, ...sslOptions() } }),
+      })
+      const data = await res.json()
+      if (data.success && data.data?.success !== false) {
+        ok++
+        setHostSsl((prev) => ({ ...prev, [hostname]: true }))
+        if (forceIssue) {
+          await fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'setForceSsl', params: { domain: hostname, enabled: true } }),
+          })
+        }
+      }
+    }
+    setMsg(`${ok}/${targets.length} certificado(s) emitido(s).`)
+    setBulkIssuing(false)
+    setSelectedHosts(new Set())
+  }
+
+  const toggleHost = (hostname: string) => {
+    setSelectedHosts((prev) => {
+      const next = new Set(prev)
+      if (next.has(hostname)) next.delete(hostname)
+      else next.add(hostname)
+      return next
     })
   }
 
-  const handleIssueSSL = async () => {
-    if (!selectedDomain) return
-    setIssuing(true); setMsg('')
-
-    try {
-      // Primeiro verificar se o domínio resolve para o IP correcto
-      const checkRes = await fetch('/api/server-exec', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'execCommand',
-          params: { command: `dig +short ${selectedDomain} 2>&1` }
-        })
-      })
-      const checkData = await checkRes.json()
-      const resolvedIP = (checkData.data?.output || '').trim()
-      const serverIP = getServerHost()
-
-      if (!resolvedIP) {
-        setMsg(`⚠️ DNS não propagou ainda!\n\nO domínio "${selectedDomain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
-        setIssuing(false)
-        return
-      }
-
-      if (!resolvedIP.includes(serverIP)) {
-        setMsg(`⚠️ DNS ainda não propagou!\n\nO domínio "${selectedDomain}" está a resolver para:\n${resolvedIP}\n\nMas devia resolver para:\n${serverIP}\n\nAguarda a propagação DNS e tenta novamente.`)
-        setIssuing(false)
-        return
-      }
-
-      const sslRes = await fetch('/api/server-exec', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'issueSSL', params: { domain: selectedDomain } }),
-      })
-      const sslData = await sslRes.json()
-      const output = sslData.data?.output || sslData.error || ''
-
-      if (sslData.success) {
-        setMsg(`✅ SSL emitido com sucesso para ${selectedDomain}!`)
-      } else {
-        setMsg(`⚠️ Erro ao emitir SSL:\n\n${output || 'Falha na emissão'}`)
-      }
-
-    } catch (e: any) {
-      setMsg('Erro: ' + e.message)
-    }
-    setIssuing(false)
+  const toggleAllHosts = () => {
+    if (selectedHosts.size === hosts.length) setSelectedHosts(new Set())
+    else setSelectedHosts(new Set(hosts.map((h) => h.hostname)))
   }
 
-  return (
-    <div className="space-y-6">
+  const openViewSsl = (hostname: string) => {
+    setSelectedSslViewHostname?.(hostname)
+    setActiveSection?.('cp-ssl-view')
+  }
 
-      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-wrap gap-4 items-end mb-6">
-          <div className="flex-1 min-w-[250px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-            <select value={selectedDomain} onChange={(e) => setSelectedDomain(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
-              <option value="">Seleccione um domínio...</option>
-              {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+  const isHostSecure = (hostname: string) => hostSsl[hostname] === true
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-zinc-900 rounded shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div className="w-full max-w-xs">
+            <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1.5">Website</label>
+            <select
+              value={filterDomain}
+              onChange={(e) => setFilterDomain(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+            >
+              {sites.map((s) => (
+                <option key={s.domain} value={s.domain}>{s.domain}</option>
+              ))}
             </select>
           </div>
-          <button onClick={handleIssueSSL} disabled={issuing || !selectedDomain}
-            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-            {issuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />} Emitir SSL
+          <div className="flex flex-wrap gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={() => filterDomain && openViewSsl(filterDomain)}
+              disabled={!filterDomain}
+              className="px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+            >
+              Ver SSL
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 items-end mb-4 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
+            <input type="checkbox" checked={forceIssue} onChange={(e) => setForceIssue(e.target.checked)} className="rounded" />
+            Forçar SSL
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
+            <input type="checkbox" checked={renewMode} onChange={(e) => setRenewMode(e.target.checked)} className="rounded" />
+            Renovar
+          </label>
+          <div>
+            <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1">Renovação automática</label>
+            <select
+              value={autoRenewDays}
+              onChange={(e) => setAutoRenewDays(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800"
+            >
+              <option value="30">30 dias antes</option>
+              <option value="60">60 dias antes</option>
+              <option value="90">90 dias antes</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleBulkIssue()}
+            disabled={bulkIssuing || !hosts.length}
+            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {bulkIssuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            Emitir em massa
           </button>
         </div>
 
-        {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-
-        <div className="mt-6">
-          <h3 className="font-bold text-gray-900 mb-3">Estado SSL dos Websites</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sites.map(s => (
-              <div key={s.domain} className={`flex items-center gap-3 p-4 border rounded
-                ${s.ssl ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-                {s.ssl
-                  ? <Lock className="w-5 h-5 text-green-500" />
-                  : <LockOpen className="w-5 h-5 text-red-400" />
-                }
-                <div>
-                  <p className="text-sm font-bold text-gray-900">{s.domain}</p>
-                  <p className={`text-xs font-medium ${s.ssl ? 'text-green-600' : 'text-red-500'}`}>
-                    {s.ssl ? 'SSL Activo' : 'Sem SSL'}
-                  </p>
-                </div>
-              </div>
-            ))}
+        {msg && (
+          <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium whitespace-pre-line ${msg.includes('sucesso') || msg.includes('emitido') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {msg}
           </div>
+        )}
+
+        <div className="overflow-x-auto border border-gray-200 dark:border-zinc-700 rounded">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 text-left">
+                <th className="px-3 py-2.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={hosts.length > 0 && selectedHosts.size === hosts.length}
+                    onChange={toggleAllHosts}
+                    aria-label="Seleccionar todos"
+                  />
+                </th>
+                <th className="px-4 py-2.5 text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Domínio</th>
+                <th className="px-4 py-2.5 text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Tipo</th>
+                <th className="px-4 py-2.5 text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Certificado</th>
+                <th className="px-4 py-2.5 text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase text-right">Acções</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingHosts && !hosts.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                    A carregar domínios e subdomínios...
+                  </td>
+                </tr>
+              )}
+              {!loadingHosts && !hosts.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">Nenhum domínio encontrado.</td>
+                </tr>
+              )}
+              {hosts.map((row) => {
+                const secure = isHostSecure(row.hostname)
+                const busy = issuing === `issueSSL-${row.hostname}` || issuing?.endsWith(`-${row.hostname}`)
+                return (
+                  <tr key={row.hostname} className="border-b border-gray-100 dark:border-zinc-800 last:border-0 hover:bg-gray-50/80 dark:hover:bg-zinc-800/50">
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedHosts.has(row.hostname)}
+                        onChange={() => toggleHost(row.hostname)}
+                        aria-label={`Seleccionar ${row.hostname}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">{row.hostname}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-zinc-400">{row.type}</td>
+                    <td className="px-4 py-3">
+                      {secure ? (
+                        <button
+                          type="button"
+                          onClick={() => openViewSsl(row.hostname)}
+                          className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs hover:underline"
+                        >
+                          <Lock className="w-3.5 h-3.5" /> SSL Activo
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-500 font-semibold text-xs">
+                          <LockOpen className="w-3.5 h-3.5" /> Sem SSL
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+                        {!secure && (
+                          <button
+                            type="button"
+                            onClick={() => void handleIssueSSL(row.hostname)}
+                            disabled={busy}
+                            className="text-green-600 hover:underline font-medium disabled:opacity-50"
+                          >
+                            {busy ? 'A emitir...' : 'Emitir SSL'}
+                          </button>
+                        )}
+                        {secure && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void runSslAction('replaceSSL', row.hostname, `Substituir certificado de ${row.hostname}?`)}
+                            className="text-gray-600 dark:text-zinc-400 hover:underline font-medium disabled:opacity-50"
+                          >
+                            Substituir
+                          </button>
+                        )}
+                        {secure && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void runSslAction('deleteSSL', row.hostname, `Excluir certificado de ${row.hostname}?`)}
+                            className="text-red-600 hover:underline font-medium disabled:opacity-50"
+                          >
+                            Excluir
+                          </button>
+                        )}
+                        {secure && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void runSslAction('cancelSslRenewal', row.hostname, `Cancelar renovação automática de ${row.hostname}?`)}
+                            className="text-gray-600 dark:text-zinc-400 hover:underline font-medium disabled:opacity-50"
+                          >
+                            Cancelar SSL
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
+      </div>
+    </div>
+  )
+}
+
+export function SSLViewSection({
+  sites,
+  initialHostname,
+  setActiveSection,
+}: {
+  sites: DirectAdminWebsite[]
+  initialHostname?: string
+  setActiveSection?: (section: string) => void
+}) {
+  const [hostname, setHostname] = useState(initialHostname || sites[0]?.domain || '')
+  const [loading, setLoading] = useState(false)
+  const [cert, setCert] = useState<{
+    subject?: string
+    issuer?: string
+    dates?: string
+    serial?: string
+    keyType?: string
+    dnsNames?: string
+    certificate?: string
+    privateKey?: string
+  } | null>(null)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState<'cert' | 'key' | null>(null)
+
+  useEffect(() => {
+    if (initialHostname) setHostname(initialHostname)
+  }, [initialHostname])
+
+  const loadCert = async (host: string) => {
+    if (!host) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/da', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getSslCertificate', params: { hostname: host } }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.success !== false && json.data?.certificate) {
+        setCert(json.data)
+      } else {
+        setCert(null)
+        setError(json.data?.error || json.error || 'Certificado não encontrado')
+      }
+    } catch (e) {
+      setCert(null)
+      setError(e instanceof Error ? e.message : 'Erro ao carregar certificado')
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (hostname) void loadCert(hostname)
+  }, [hostname])
+
+  const parseDate = (dates?: string, which: 'notBefore' | 'notAfter' = 'notAfter') => {
+    if (!dates) return '—'
+    const match = dates.match(new RegExp(`${which}=([^\\n]+)`, 'i'))
+    if (!match) return '—'
+    try {
+      return new Date(match[1].trim()).toLocaleString('pt-PT')
+    } catch {
+      return match[1].trim()
+    }
+  }
+
+  const expiresIn = (dates?: string) => {
+    const match = dates?.match(/notAfter=([^\n]+)/i)
+    if (!match) return '—'
+    try {
+      const end = new Date(match[1].trim())
+      const diff = end.getTime() - Date.now()
+      const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+      if (days < 0) return 'expirado'
+      const months = Math.floor(days / 30)
+      return months > 0 ? `em ${months} ${months === 1 ? 'mês' : 'meses'} (${parseDate(dates, 'notAfter')})` : `em ${days} dias (${parseDate(dates, 'notAfter')})`
+    } catch {
+      return parseDate(dates, 'notAfter')
+    }
+  }
+
+  const copyText = async (text: string, kind: 'cert' | 'key') => {
+    await navigator.clipboard.writeText(text)
+    setCopied(kind)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const downloadText = (text: string, filename: string) => {
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-zinc-900 rounded shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+          <div className="w-full max-w-xs">
+            <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1.5">Website</label>
+            <select
+              value={hostname}
+              onChange={(e) => setHostname(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800"
+            >
+              {sites.map((s) => (
+                <option key={s.domain} value={s.domain}>{s.domain}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSection?.('cp-ssl')}
+            className="px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800"
+          >
+            ← Emitir SSL
+          </button>
+        </div>
+
+        <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100 mb-6 pb-4 border-b border-gray-200 dark:border-zinc-700">
+          Ver certificado
+        </h2>
+
+        {loading && (
+          <div className="py-12 text-center text-gray-500">
+            <RefreshCw className="w-6 h-6 animate-spin inline mr-2" />
+            A carregar certificado...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="px-4 py-3 rounded bg-red-50 text-red-700 border border-red-200 text-sm">{error}</div>
+        )}
+
+        {!loading && cert && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-8 text-sm">
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Subject</span><span className="font-mono text-gray-900 dark:text-zinc-100">{cert.subject || '—'}</span></div>
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Issuer</span><span className="font-mono text-gray-900 dark:text-zinc-100">{cert.issuer || '—'}</span></div>
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Emitido em</span><span className="text-gray-900 dark:text-zinc-100">{parseDate(cert.dates, 'notBefore')}</span></div>
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Expira</span><span className="text-gray-900 dark:text-zinc-100">{expiresIn(cert.dates)}</span></div>
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Domínios e IPs</span><span className="font-mono text-gray-900 dark:text-zinc-100">{cert.dnsNames || hostname}</span></div>
+              <div><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Tipo de chave</span><span className="text-gray-900 dark:text-zinc-100">{cert.keyType || '—'}</span></div>
+              <div className="md:col-span-2"><span className="text-gray-500 dark:text-zinc-400 block text-xs uppercase mb-1">Número de série</span><span className="font-mono text-gray-900 dark:text-zinc-100 break-all">{cert.serial || '—'}</span></div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-2">Certificado</h3>
+              <textarea
+                readOnly
+                value={cert.certificate || ''}
+                className="w-full h-48 font-mono text-xs p-4 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded resize-none text-gray-800 dark:text-zinc-300"
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => cert.certificate && downloadText(cert.certificate, `${hostname}.crt`)} className="px-3 py-1.5 border border-gray-300 dark:border-zinc-600 rounded text-xs font-medium">Download</button>
+                <button type="button" onClick={() => cert.certificate && void copyText(cert.certificate, 'cert')} className="px-3 py-1.5 border border-gray-300 dark:border-zinc-600 rounded text-xs font-medium inline-flex items-center gap-1">
+                  {copied === 'cert' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  Copiar
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-2">Private key</h3>
+              <textarea
+                readOnly
+                value={cert.privateKey || ''}
+                className="w-full h-36 font-mono text-xs p-4 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded resize-none text-gray-800 dark:text-zinc-300"
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => cert.privateKey && downloadText(cert.privateKey, `${hostname}.key`)} className="px-3 py-1.5 border border-gray-300 dark:border-zinc-600 rounded text-xs font-medium">Download</button>
+                <button type="button" onClick={() => cert.privateKey && void copyText(cert.privateKey, 'key')} className="px-3 py-1.5 border border-gray-300 dark:border-zinc-600 rounded text-xs font-medium inline-flex items-center gap-1">
+                  {copied === 'key' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  Copiar
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -4417,6 +4977,163 @@ export function DNSNameserverSection({ sites }: { sites: DirectAdminWebsite[] })
         {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('created') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleCreate} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />} Create Nameservers
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function NameserverManagementSection({ sites }: { sites: DirectAdminWebsite[] }) {
+  const [mode, setMode] = useState<'default' | 'custom'>('default')
+  const [selectedDomain, setSelectedDomain] = useState('')
+  const [ns1, setNs1] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns1)
+  const [ns2, setNs2] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns2)
+  const [ns1IP, setNs1IP] = useState('')
+  const [ns2IP, setNs2IP] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    if (mode === 'default') {
+      setNs1(VISUALDESIGN_DEFAULT_NS.ns1)
+      setNs2(VISUALDESIGN_DEFAULT_NS.ns2)
+    } else if (selectedDomain) {
+      setNs1(`ns1.${selectedDomain}`)
+      setNs2(`ns2.${selectedDomain}`)
+    }
+  }, [mode, selectedDomain])
+
+  const handleSaveDefault = async () => {
+    setSaving(true)
+    setMsg('')
+    const ok = await directAdminAPI.configDefaultNameservers({
+      ns1: VISUALDESIGN_DEFAULT_NS.ns1,
+      ns2: VISUALDESIGN_DEFAULT_NS.ns2,
+    })
+    setMsg(ok ? 'Nameservers predefinidos Visual Design activados.' : 'Erro ao configurar nameservers.')
+    setSaving(false)
+  }
+
+  const handleCreateCustom = async () => {
+    if (!selectedDomain || !ns1 || !ns1IP || !ns2 || !ns2IP) return
+    setSaving(true)
+    setMsg('')
+    const ok = await directAdminAPI.createNameserver({ domain: selectedDomain, ns1, ns1IP, ns2, ns2IP })
+    setMsg(ok ? 'Nameservers personalizados criados.' : 'Erro ao criar nameservers.')
+    setSaving(false)
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+        <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
+          Escolha os nameservers que os novos domínios devem usar por defeito ou configure nameservers personalizados por domínio.
+        </p>
+
+        <div className="space-y-3 mb-6">
+          <label className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-4 dark:border-zinc-700">
+            <input
+              type="radio"
+              name="ns-mode"
+              checked={mode === 'default'}
+              onChange={() => setMode('default')}
+              className="mt-1"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">DNS predefinido Visual Design</p>
+              <p className="mt-1 font-mono text-xs text-gray-600 dark:text-zinc-400">
+                {VISUALDESIGN_DEFAULT_NS.ns1}
+                <br />
+                {VISUALDESIGN_DEFAULT_NS.ns2}
+              </p>
+            </div>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-4 dark:border-zinc-700">
+            <input
+              type="radio"
+              name="ns-mode"
+              checked={mode === 'custom'}
+              onChange={() => setMode('custom')}
+              className="mt-1"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Nameservers personalizados</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-zinc-400">
+                Criar child nameservers (glue records) para um domínio específico.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {mode === 'custom' && (
+          <div className="mb-6 space-y-4 border-t border-gray-100 pt-4 dark:border-zinc-800">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Domínio</label>
+              <select
+                value={selectedDomain}
+                onChange={(e) => setSelectedDomain(e.target.value)}
+                className={`${panelField} w-full max-w-md`}
+              >
+                <option value="">Seleccione...</option>
+                {sites.map((s) => (
+                  <option key={s.domain} value={s.domain}>
+                    {s.domain}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
+                <input value={ns1} onChange={(e) => setNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1 IP</label>
+                <input
+                  value={ns1IP}
+                  onChange={(e) => setNs1IP(e.target.value)}
+                  placeholder={getServerHost()}
+                  className={`${panelField} w-full font-mono`}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
+                <input value={ns2} onChange={(e) => setNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2 IP</label>
+                <input
+                  value={ns2IP}
+                  onChange={(e) => setNs2IP(e.target.value)}
+                  placeholder={getServerHost()}
+                  className={`${panelField} w-full font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {msg && (
+          <div
+            className={`mb-4 rounded border px-4 py-2.5 text-sm ${
+              msg.includes('Erro')
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
+                : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+            }`}
+          >
+            {msg}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => (mode === 'default' ? void handleSaveDefault() : void handleCreateCustom())}
+          disabled={saving || (mode === 'custom' && (!selectedDomain || !ns1IP || !ns2IP))}
+          className={panelBtnPrimary}
+        >
+          {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+          {mode === 'default' ? 'Activar DNS Visual Design' : 'Criar nameservers'}
         </button>
       </div>
     </div>
@@ -6029,7 +6746,7 @@ export function FileManagerSection({ domain, sites }: {
 // ============================================================
 // BACKUP MANAGER SECTION
 // ============================================================
-export function BackupManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
+export function BackupManagerSection({ sites, initialDomain }: { sites: DirectAdminWebsite[], initialDomain?: string }) {
   const [activeTab, setActiveTab] = useState<'full' | 'files' | 'databases' | 'emails' | 'ftp'>('full')
   const [selectedDomain, setSelectedDomain] = useState('')
   const [backups, setBackups] = useState<any[]>([])
@@ -6097,10 +6814,12 @@ export function BackupManagerSection({ sites }: { sites: DirectAdminWebsite[] })
   }, [selectedDomain]) // Disparar quando selectedDomain muda
 
   useEffect(() => {
-    if (sites.length > 0 && !selectedDomain) {
+    if (initialDomain) {
+      setSelectedDomain(initialDomain)
+    } else if (sites.length > 0 && !selectedDomain) {
       setSelectedDomain(sites[0].domain)
     }
-  }, [sites])
+  }, [sites, initialDomain])
 
   const { setChrome } = useAdminSectionChrome()
 
@@ -6397,9 +7116,50 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
   }
 
   const handleInstall = async () => {
-    setInstalling(false)
+    if (!form.domain || !form.adminUsername || !form.adminPassword || !form.adminEmail) {
+      setMessage('Preencha domínio, utilizador admin, password e email.')
+      setSuccess(false)
+      return
+    }
+    if (!form.databaseName || !form.databaseUser || !form.databasePassword) {
+      setMessage('Credenciais da base de dados em falta.')
+      setSuccess(false)
+      return
+    }
+
+    setInstalling(true)
     setSuccess(false)
-    setMessage('A instalação automática ainda não está ligada ao DirectAdmin. Abre o WordPress Manager do DirectAdmin para instalar este domínio.')
+    setMessage('')
+
+    try {
+      const res = await fetch('/api/admin/wp-install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: form.domain,
+          directory: form.directory,
+          protocol: form.protocol,
+          siteName: form.siteName || form.domain,
+          adminUsername: form.adminUsername,
+          adminPassword: form.adminPassword,
+          adminEmail: form.adminEmail,
+          databaseName: form.databaseName,
+          databaseUser: form.databaseUser,
+          databasePassword: form.databasePassword,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSuccess(true)
+        setMessage('WordPress instalado com sucesso!')
+        if (onRefresh) await onRefresh()
+      } else {
+        setMessage(data.error || 'Falha na instalação.')
+      }
+    } catch (e: unknown) {
+      setMessage('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
+    }
+    setInstalling(false)
   }
 
   const getPasswordStrengthColor = () => {
@@ -7104,13 +7864,25 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
 }
 
 // Domain Manager Section
-export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { sites: DirectAdminWebsite[], packages?: DirectAdminPackage[], onCreateEmail?: (domain: string) => void }) {
+export function DomainManagerSection({
+  sites,
+  packages = [],
+  onCreateEmail,
+  onNavigate,
+}: {
+  sites: DirectAdminWebsite[]
+  packages?: DirectAdminPackage[]
+  onCreateEmail?: (domain: string) => void
+  onNavigate?: (section: string, opts?: { domain?: string }) => void
+}) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
-  const [domains, setDomains] = useState<any[]>([])
+  const [domains, setDomains] = useState<CachedDomainRow[]>([])
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
+  const [openMenuDomain, setOpenMenuDomain] = useState<string | null>(null)
+  const [openGerirDomain, setOpenGerirDomain] = useState<string | null>(null)
 
   // Formulário criar domínio - atualizado para igual ao DirectAdmin
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
@@ -7133,61 +7905,88 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
   }
-  const loadDomains = async () => {
-    setLoading(true);
-    console.log('[loadDomains] Início carregamento...');
+  const sitesToDomainRows = (list: DirectAdminWebsite[]): CachedDomainRow[] =>
+    list
+      .filter(
+        (s) =>
+          s.domain &&
+          !s.domain.includes('contaboserver') &&
+          !s.domain.includes('localhost') &&
+          !s.domain.toLowerCase().startsWith('mail'),
+      )
+      .map((s) => ({
+        domain: s.domain,
+        adminEmail: s.adminEmail,
+        package: s.package,
+        state: s.state || s.status,
+        status: s.status,
+        owner: s.owner,
+      }))
+
+  const loadDomains = async (opts?: { background?: boolean }) => {
+    const fromSites = sitesToDomainRows(sites)
+    if (fromSites.length > 0) {
+      setDomains(fromSites)
+      writeDomainListCache(fromSites)
+    } else {
+      const cached = readDomainListCache()
+      if (cached.length > 0) setDomains(cached)
+    }
+    if (!opts?.background) setLoading(true)
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listWebsites', params: {} })
-      });
-      const json = await res.json();
-      console.log('[loadDomains] Resposta API:', json);
-
+        body: JSON.stringify({ action: 'listWebsites', params: {} }),
+      })
+      const json = await res.json()
       if (json.success && json.data) {
-        const sitesArray = Array.isArray(json.data) ? json.data : (json.data.sites || []);
-        
-        // Filtro básico
-        const filtered = sitesArray.filter((s: any) =>
-          s.domain &&
-          !s.domain.includes('contaboserver') &&
-          !s.domain.includes('localhost') &&
-          !s.domain.toLowerCase().startsWith('mail')
-        );
-        
-        setDomains(filtered);
-        console.log('[loadDomains] Domínios definidos:', filtered.length);
-
-        // Sincronizar em background para não bloquear a UI
+        const sitesArray = Array.isArray(json.data) ? json.data : json.data.sites || []
+        const siteDomains = new Set(sites.map((s) => s.domain.toLowerCase()))
+        const filtered = sitesArray.filter(
+          (s: { domain?: string }) => s.domain && siteDomains.has(s.domain.toLowerCase()),
+        )
+        const rows = sitesToDomainRows(filtered as DirectAdminWebsite[])
+        if (rows.length > 0) {
+          setDomains(rows)
+          writeDomainListCache(rows)
+        }
         void (async () => {
-          for (const site of sitesArray) {
+          for (const site of filtered) {
             try {
               await syncWebsiteToSupabase({
                 domain: site.domain,
                 adminEmail: site.adminEmail,
                 package: site.package,
                 status: site.state || 'Active',
-              });
-            } catch (err) {
-              console.warn('[sync] Erro ao sincronizar:', site.domain, err);
+              })
+            } catch {
+              /* sync best-effort */
             }
           }
-        })();
-      } else {
-        console.warn('[loadDomains] Resposta inválida ou vazia');
-        setDomains([]);
+        })()
       }
-    } catch (e: any) {
-      console.error('[loadDomains] Erro fatal:', e);
-      setMsg('Erro ao carregar domínios: ' + e.message);
-      setMsgType('error');
+    } catch (e: unknown) {
+      if (domains.length === 0) {
+        setMsg('Erro ao carregar domínios: ' + (e instanceof Error ? e.message : 'desconhecido'))
+        setMsgType('error')
+      }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  useEffect(() => { loadDomains() }, [])
+  useEffect(() => {
+    const cached = readDomainListCache()
+    const fromSites = sitesToDomainRows(sites)
+    if (fromSites.length > 0) {
+      setDomains(fromSites)
+      writeDomainListCache(fromSites)
+    } else if (cached.length > 0) {
+      setDomains(cached)
+    }
+    void loadDomains({ background: true })
+  }, [sites])
 
   useEffect(() => {
     if (newDomain) setDocRoot(newDomain)
@@ -7282,72 +8081,151 @@ export function DomainManagerSection({ sites, packages = [], onCreateEmail }: { 
   }
 
   // VISTA: LISTA DE DOMÍNIOS
+  const domainManageActions = (d: CachedDomainRow) => (
+    <>
+      <button
+        type="button"
+        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        onClick={() => {
+          setOpenMenuDomain(null)
+          setOpenGerirDomain(null)
+          onNavigate?.('porkbun-my-domains')
+        }}
+      >
+        Alterar bloqueio de registo
+      </button>
+      <button
+        type="button"
+        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        onClick={() => {
+          setOpenMenuDomain(null)
+          setOpenGerirDomain(null)
+          onNavigate?.('cadastrar-renovacao', { domain: d.domain })
+        }}
+      >
+        Renovar domínio
+      </button>
+      <button
+        type="button"
+        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        onClick={() => {
+          setOpenMenuDomain(null)
+          setOpenGerirDomain(null)
+          onNavigate?.('dns-central', { domain: d.domain })
+        }}
+      >
+        Editar Zona de DNS
+      </button>
+    </>
+  )
+
   if (view === 'list') return (
     <div className="w-full space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Domínios</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Lista de domínios registados no servidor</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={loadDomains} disabled={loading}
-            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
-            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Sincronizar
-          </button>
-          <button onClick={() => setDomainModal(true)}
-            className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors">
-            <Plus className="w-4 h-4" /> Adicionar Domínio
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={() => void loadDomains()} disabled={loading} className={panelBtnSecondary}>
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Sincronizar
+        </button>
+        <button type="button" onClick={() => setDomainModal(true)} className={panelBtnPrimary}>
+          <Plus className="h-4 w-4" /> Adicionar domínio
+        </button>
       </div>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
-          }`}>{msg}</div>
+        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${
+          msgType === 'success'
+            ? 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+            : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
+        }`}>{msg}</div>
       )}
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
-              <th className="px-4 py-3">Domínio</th>
-              <th className="px-4 py-3">Document Root</th>
-              <th className="px-4 py-3">Redirect</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Acções</th>
+            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
+              <th className="px-4 py-2">Domínio</th>
+              <th className="px-4 py-2">Document Root</th>
+              <th className="px-4 py-2">Redirect</th>
+              <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2 text-right">Acções</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto text-gray-400" />
+            {loading && domains.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center">
+                <RefreshCw className="mx-auto h-5 w-5 animate-spin text-gray-400" />
               </td></tr>
             ) : domains.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-zinc-500">
                 Nenhum domínio encontrado
               </td></tr>
-            ) : domains.map((d, i) => (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-blue-600">{d.domain}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">/public_html/{d.domain}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">Not Redirected</td>
-                <td className="px-4 py-3">
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-500">
+            ) : domains.map((d) => (
+              <tr key={d.domain} className="border-b border-gray-50 hover:bg-gray-50/80 dark:border-zinc-800 dark:hover:bg-zinc-800/40">
+                <td className="px-4 py-2">
+                  <span className="text-[15px] font-semibold text-gray-900 dark:text-zinc-100">{d.domain}</span>
+                </td>
+                <td className="px-4 py-2 text-xs text-gray-600 dark:text-zinc-400">/public_html/{d.domain}</td>
+                <td className="px-4 py-2 text-xs text-gray-500 dark:text-zinc-500">Not Redirected</td>
+                <td className="px-4 py-2">
+                  <span className="rounded border border-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400">
                     Domínio
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => { setSelectedDomain(d); setView('manage') }}
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-xs font-bold transition-colors">
-                      Gerenciar
+                <td className="px-4 py-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenGerirDomain(openGerirDomain === d.domain ? null : d.domain)}
+                        className={panelBtnSecondary}
+                        title="Gerir domínio"
+                      >
+                        Gerir
+                      </button>
+                      {openGerirDomain === d.domain && (
+                        <div className="absolute right-0 top-full z-20 mt-1 min-w-[12rem] rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                          {domainManageActions(d)}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      title="Criar e-mail"
+                      onClick={() => setEmailModal({ show: true, domain: d.domain })}
+                      className={`${panelBtnSecondary} !px-2.5`}
+                    >
+                      <Mail className="h-4 w-4" />
                     </button>
-                    <button onClick={() => {
-                      setEmailModal({ show: true, domain: d.domain })
-                    }}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-xs font-bold transition-colors">
-                      Criar Email
+                    <button
+                      type="button"
+                      title="Redireccionamento"
+                      onClick={() => { setSelectedDomain(d); setView('manage') }}
+                      className={`${panelBtnSecondary} !px-2.5`}
+                    >
+                      <ArrowRightLeft className="h-4 w-4" />
                     </button>
+                    <button
+                      type="button"
+                      title="Abrir site"
+                      onClick={() => window.open(`https://${d.domain}`, '_blank', 'noopener,noreferrer')}
+                      className={`${panelBtnSecondary} !px-2.5`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        title="Mais opções"
+                        onClick={() => setOpenMenuDomain(openMenuDomain === d.domain ? null : d.domain)}
+                        className={`${panelBtnSecondary} !px-2.5`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                      {openMenuDomain === d.domain && (
+                        <div className="absolute right-0 top-full z-20 mt-1 min-w-[12rem] rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                          {domainManageActions(d)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
               </tr>
