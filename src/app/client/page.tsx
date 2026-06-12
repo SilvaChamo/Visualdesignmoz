@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense, lazy } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { supabase } from '@/lib/supabase-client'
 
@@ -12,9 +12,10 @@ import {
   Home, Globe, Users, Mail, Shield, Database, Settings, Target,
   ChevronLeft, ChevronRight, Plus, Search, Download, ExternalLink,
   Edit2, Pause, Play, Trash2, RefreshCw, LogOut, Package, Server, Lock, LockOpen, Edit, Power, FolderOpen, FileText, Archive, Globe as GlobeIcon, ChevronRight as ChevronRightIcon, Image as ImageIcon, MessageSquare, Menu,
-  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell
+  Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell, Plug
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
+import { WPUpdateSection } from '@/app/admin/WPUpdateSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -3415,6 +3416,9 @@ export default function AdminPage() {
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [cliente, setCliente] = useState<any>(null)
+  const [clientPermissions, setClientPermissions] = useState<Record<string, boolean>>({
+    update_wp_plugins: false,
+  })
 
   // Estados para gestão de contas de email
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
@@ -3422,6 +3426,20 @@ export default function AdminPage() {
 
   // Estado para controlar visibilidade do header quando compose está ativo
   const [isComposeActive, setIsComposeActive] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/permissions?role=client')
+      .then((r) => r.json())
+      .then((data) => {
+        const perms = data.permissions || {};
+        setClientPermissions((prev) => ({
+          ...prev,
+          ...perms,
+          update_wp_plugins: perms.update_wp_plugins === true,
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   // Obter sessão e perfil do usuário
   useEffect(() => {
@@ -3506,20 +3524,34 @@ export default function AdminPage() {
     }
   }
 
-  // Definir domínio principal
+  // Domínio principal — preferir site WordPress na hospedagem
   const primaryDomain = directAdminSites.length > 0
     ? directAdminSites.find(s => !s.domain.includes('contaboserver'))?.domain || directAdminSites[0].domain
     : 'oseudominio.com'
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'domains', label: 'O Meu Site', icon: Globe },
-    { id: 'webmail', label: 'Webmail', icon: Mail },
-    { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
-    { id: 'tickets', label: 'Suporte', icon: Users },
-    { id: 'faturas', label: 'Faturas', icon: FileText },
-    { id: 'conta', label: 'Conta', icon: Settings },
-  ]
+  const clientWpDomain = useMemo(() => {
+    const wpSite = directAdminSites.find(
+      (s) => s.hasWordPress || s.siteType === 'wordpress',
+    );
+    const fallback = directAdminSites.find((s) => !s.domain.includes('contaboserver'));
+    return (wpSite || fallback || directAdminSites[0])?.domain?.toLowerCase() || '';
+  }, [directAdminSites]);
+
+  const menuItems = useMemo(() => {
+    const items = [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'domains', label: 'O Meu Site', icon: Globe },
+      { id: 'webmail', label: 'Webmail', icon: Mail },
+      { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
+      { id: 'tickets', label: 'Suporte', icon: Users },
+      { id: 'faturas', label: 'Faturas', icon: FileText },
+      { id: 'conta', label: 'Conta', icon: Settings },
+    ];
+    if (clientPermissions.update_wp_plugins) {
+      items.splice(2, 0, { id: 'wp-update', label: 'Actualização WP', icon: Plug });
+    }
+    return items;
+  }, [clientPermissions.update_wp_plugins]);
 
   const currentSidebarWidth = isCollapsed ? 80 : 250
 
@@ -3681,6 +3713,16 @@ export default function AdminPage() {
       case 'cp-wp-plugins':
         // return <WPPluginsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Plugins WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+      case 'wp-update':
+        return (
+          <WPUpdateSection
+            sites={directAdminSites}
+            apiBase="/api/client/wp-update"
+            initialDomain={clientWpDomain}
+            autoSelectFirstWp
+            hideDomainSelector={directAdminSites.length <= 1}
+          />
+        )
       case 'cp-wp-restore-backup':
         // return <WPRestoreBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Restaurar Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3797,6 +3839,7 @@ export default function AdminPage() {
               const Icon = item.icon
               const isActive = activeSection === item.id ||
                 (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
+                (item.id === 'wp-update' && activeSection === 'wp-update') ||
                 (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
                 (item.id === 'webmail' && activeSection === 'webmail') ||
                 (item.id === 'cp-security' && activeSection === 'cp-security')

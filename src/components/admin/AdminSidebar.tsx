@@ -86,8 +86,6 @@ export function AdminSidebar({
     onNavigate(resolveSectionId(subId));
   };
 
-  let shownNewHeader = false;
-
   return (
     <div
       className="font-panel relative flex h-screen shrink-0 flex-col border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
@@ -104,7 +102,7 @@ export function AdminSidebar({
             />
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-zinc-800"
+              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-transparent dark:hover:text-red-400"
               title="Expandir"
             >
               <ChevronRight size={18} />
@@ -124,7 +122,7 @@ export function AdminSidebar({
             </div>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
+              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-transparent dark:hover:text-red-400"
               title="Recolher"
             >
               <LogOut size={18} className="-scale-x-100" />
@@ -136,10 +134,6 @@ export function AdminSidebar({
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         <div className="space-y-0">
           {menuItems.map((item) => {
-            if (item.isNewMenu && !shownNewHeader && !isCollapsed) {
-              shownNewHeader = true;
-            }
-            const showNewLabel = item.id === 'dashboard' && !isCollapsed;
             const Icon = item.icon;
             const isActive = isPanelMenuItemActive(item, activeSection);
             const isOpen = expandedMenu === item.id && !!item.subItems?.length;
@@ -147,11 +141,6 @@ export function AdminSidebar({
 
             return (
               <React.Fragment key={item.id}>
-                {showNewLabel && (
-                  <div className="px-2.5 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    Menu novo (proposta)
-                  </div>
-                )}
                 {isLegacy && !isCollapsed && (
                   <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     Menu anterior
@@ -199,7 +188,7 @@ export function AdminSidebar({
                           <button
                             key={sub.id}
                             onClick={() => handleSubClick(sub.id)}
-                            className={`relative flex items-center overflow-hidden px-3 text-left text-[15px] transition-colors ${SUB_ROW_CLASS} ${
+                            className={`relative flex items-center overflow-hidden px-3 text-left text-[15px] transition-colors focus:outline-none ${SUB_ROW_CLASS} ${
                               isSubActive
                                 ? 'font-bold text-red-600 before:absolute before:left-0 before:top-1/2 before:z-10 before:h-3 before:w-[4px] before:-translate-x-[2.5px] before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
                                 : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'

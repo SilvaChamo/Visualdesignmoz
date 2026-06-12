@@ -330,21 +330,7 @@ export function DNSZoneEditorSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="w-full space-y-4">
-      {/* LINHA 1: Título apenas */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">DNS Zone Editor</h1>
-          {selectedDomain ? (
-            <p className="text-gray-500 mt-1">
-              Zone records for <span className="font-semibold">&quot;{selectedDomain}&quot;</span>
-            </p>
-          ) : (
-            <p className="text-gray-500 mt-1">Selecione um domínio para gerir os registos DNS.</p>
-          )}
-        </div>
-      </div>
-
-      {/* LINHA 2: Nameservers do domínio como tags cinzentas */}
+      {/* Nameservers do domínio como tags cinzentas */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="uppercase font-semibold text-gray-500 mr-1">Nameservers:</span>
         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-mono">

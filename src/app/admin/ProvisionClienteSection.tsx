@@ -122,13 +122,7 @@ export function ProvisionClienteSection({ packages, onComplete }: Props) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Criar conta completa</h1>
-        <p className="text-gray-500 mt-1">
-          Um formulário para criar utilizador no servidor, escolher pacote e domínio de uma vez.
-          O <strong>Menu Anterior</strong> na barra lateral mantém todas as opções antigas separadas.
-        </p>
-      </div>
+
 
       <div className="flex gap-1 overflow-x-auto pb-1">
         {steps.map((s) => (

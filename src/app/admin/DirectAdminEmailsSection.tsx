@@ -139,10 +139,7 @@ export function DirectAdminEmailsSection() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Emails DirectAdmin</h1>
-          <p className="text-gray-500 mt-1">Caixas no DirectAdmin — webmail, Outlook e Apple Mail (IMAP/SMTP 587).</p>
-        </div>
+
         <div className="flex items-center gap-2">
           <a
             href={getDirectAdminAccessUrl()}

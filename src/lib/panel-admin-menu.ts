@@ -71,6 +71,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'infrastructure', label: 'Estado do servidor' },
       { id: 'backup-manager', label: 'Backups' },
       { id: 'git-deploy', label: 'Deploy / GitHub' },
+      { id: 'wp-update', label: 'Actualização WP' },
     ],
   },
 ];
@@ -161,6 +162,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   infrastructure: 'nov-sistema',
   'backup-manager': 'nov-sistema',
   'git-deploy': 'nov-sistema',
+  'wp-update': 'nov-sistema',
 };
 
 export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [

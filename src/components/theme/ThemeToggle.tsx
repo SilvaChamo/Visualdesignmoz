@@ -21,7 +21,7 @@ export function ThemeToggle({ className, size = 'md' }: ThemeToggleProps) {
       className={cn(
         'inline-flex shrink-0 items-center justify-center rounded border transition-colors',
         'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900',
-        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-red-400',
+        'dark:border-zinc-700 dark:bg-transparent dark:text-zinc-300 dark:hover:bg-transparent dark:hover:text-red-400',
         size === 'sm' ? `${panelControlHeight} w-[38px]` : 'h-9 w-9',
         className,
       )}

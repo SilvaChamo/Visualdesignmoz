@@ -255,7 +255,7 @@ export function CpanelDashboard({
           <div key={section.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <button
               onClick={() => toggle(section.id)}
-              className={`w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors border-b ${collapsed[section.id] ? 'border-transparent' : 'border-gray-100'}`}
+              className={`w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b ${collapsed[section.id] ? 'border-transparent' : 'border-gray-100 dark:border-zinc-800'}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`${section.bgColor} ${section.color} p-1.5 rounded`}>
@@ -275,17 +275,17 @@ export function CpanelDashboard({
                   {section.tools.map((tool, i) =>
                     tool.external ? (
                       <a key={i} href={tool.external} target="_blank" rel="noopener noreferrer"
-                        className={`flex flex-col items-center gap-2 p-3 rounded hover:bg-gray-50 border transition-all group text-center ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                        className={`dashboard-tool flex flex-col items-center gap-2 p-3 rounded border transition-all group text-center hover:bg-gray-50 dark:hover:bg-white/10 dark:hover:border-zinc-700 ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:border-zinc-700 dark:bg-transparent' : 'border-transparent hover:border-gray-200'
                           }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
-                        <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
+                        <span className={`text-xs font-medium leading-tight dark:text-zinc-400 group-hover:dark:text-red-400 ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </a>
                     ) : (
                       <button key={i} onClick={() => handleDNSNavigate(tool.id)}
-                        className={`flex flex-col items-center gap-2 p-3 rounded hover:bg-gray-50 border transition-all group text-center w-full ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-200'
+                        className={`dashboard-tool flex flex-col items-center gap-2 p-3 rounded border transition-all group text-center w-full hover:bg-gray-50 dark:hover:bg-white/10 dark:hover:border-zinc-700 ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:border-zinc-700 dark:bg-transparent' : 'border-transparent hover:border-gray-200'
                           }`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
-                        <span className={`text-xs font-medium leading-tight ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
+                        <span className={`text-xs font-medium leading-tight dark:text-zinc-400 group-hover:dark:text-red-400 ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </button>
                     )
                   )}

@@ -20,6 +20,7 @@ import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomai
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
+import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
@@ -212,10 +213,7 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Subdomínios</h1>
-          <p className="text-gray-500 mt-1">Crie e gira subdomínios para os seus websites.</p>
-        </div>
+
       </div>
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
@@ -327,10 +325,7 @@ export function WebsitePreviewSection({ sites }: { sites: DirectAdminWebsite[] }
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Website Preview</h1>
-          <p className="text-gray-500 mt-1">Visualize screenshots dos seus websites.</p>
-        </div>
+
         <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
           <RefreshCw size={14} />
           Último check: {lastUpdate ? lastUpdate.toLocaleTimeString('pt-PT') : 'N/A'}
@@ -803,21 +798,9 @@ export function DNSZoneEditorSection({
     }
   }
 
-  const pageTitle = variant === 'central' ? 'DNS Central' : 'Editor de zona DNS'
-
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
-          {selectedDomain ? (
-            <p className="text-gray-500 mt-1 text-sm">
-              Registos de <span className="font-semibold">{selectedDomain}</span>
-            </p>
-          ) : (
-            <p className="text-gray-500 mt-1 text-sm">Seleccione um domínio para ver os registos.</p>
-          )}
-        </div>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-4">
         <div className="w-full md:w-64">
           <select
             value={selectedDomain}
@@ -1325,7 +1308,6 @@ export function DatabasesSection({ sites, initialDomain }: { sites: DirectAdminW
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Bases de Dados</h1><p className="text-gray-500 mt-1">Crie e gira bases de dados MySQL para os seus websites.</p></div>
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1460,7 +1442,6 @@ export function FTPSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Contas FTP</h1><p className="text-gray-500 mt-1">Gira contas FTP para transferência de ficheiros.</p></div>
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1914,28 +1895,23 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
     return '#22c55e'
   }
 
+  const { setChrome } = useAdminSectionChrome()
+  useEffect(() => {
+    setChrome({
+      toolbar: (
+        <div className="flex items-center gap-2 text-sm text-gray-600 rounded border border-gray-200 bg-white px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+          <span className="font-semibold text-gray-900 dark:text-zinc-100">∞</span> Disponíveis
+          <span className="mx-1 text-gray-400">|</span>
+          <span className="font-semibold text-gray-900 dark:text-zinc-100">{emails.length}</span> Usadas
+        </div>
+      ),
+    })
+    return () => setChrome(null)
+  }, [emails.length, setChrome])
+
   return (
     <div className="text-gray-900">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
-            <Mail className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Gestão de E-mail</h1>
-            <p className="text-xs text-gray-600">Cria, elimina e configura contas de e-mail corporativo</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-1.5 rounded border border-gray-200">
-          <span className="text-gray-900 font-semibold">∞</span> Disponíveis
-          <span className="mx-2 text-gray-400">|</span>
-          <span className="text-gray-900 font-semibold">{emails.length}</span> Usadas
-        </div>
-      </div>
-
-      {/* Domain selector + Search + Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <select
           value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
@@ -2938,19 +2914,7 @@ export function CPUsersSection({
 
   return (
     <div className="space-y-6">
-      <div className={`flex flex-col gap-3 ${isPanelsMode ? 'sm:flex-row sm:items-center sm:justify-between' : 'lg:flex-row lg:items-start lg:justify-between'}`}>
-        {!isPanelsMode ? (
-          <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900">
-              {panelHeaderTitle}
-            </h1>
-            {panelHeaderDescription ? (
-              <p className="text-gray-500 mt-1 text-sm font-medium">
-                {panelHeaderDescription}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+      <div className={`flex flex-col gap-3 ${isPanelsMode ? 'sm:flex-row sm:items-center sm:justify-between' : 'lg:flex-row lg:items-end lg:justify-end'}`}>
         <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${isPanelsMode ? 'w-full sm:justify-between' : 'w-full lg:w-auto lg:shrink-0'}`}>
           {isPanelsMode && (
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
@@ -3394,7 +3358,6 @@ export function ResellerSection() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-gray-900">Centro de Revenda</h1><p className="text-gray-500 mt-1">Gira ACLs (Access Control Lists) e permissões de revendedores.</p></div>
         <button onClick={() => setShowForm(!showForm)} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova ACL</button>
       </div>
 
@@ -3490,7 +3453,6 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Configurações PHP</h1><p className="text-gray-500 mt-1">Configure a versão PHP e parâmetros de execução por website.</p></div>
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-end mb-6">
@@ -3659,7 +3621,6 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Segurança & Firewall</h1><p className="text-gray-500 mt-1">Gira firewall, ModSecurity e IPs bloqueados.</p></div>
 
       {msg && <div className="px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
 
@@ -3803,7 +3764,6 @@ export function SSLSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Certificados SSL</h1><p className="text-gray-500 mt-1">Emita certificados SSL Let&apos;s Encrypt para os seus websites.</p></div>
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-end mb-6">
@@ -3880,7 +3840,6 @@ export function APIConfigSection() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Configurações API</h1><p className="text-gray-500 mt-1">Gira tokens de acesso à API e veja o estado do servidor.</p></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* API Token */}
@@ -3956,7 +3915,6 @@ export function ListSubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">List Sub/Addon Domains</h1><p className="text-gray-500 mt-1">View all subdomains and addon domains for a website.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
@@ -4011,7 +3969,6 @@ export function ModifyWebsiteSection({ sites, packages }: { sites: DirectAdminWe
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Modify Website</h1><p className="text-gray-500 mt-1">Change package and PHP version for a website.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
@@ -4077,7 +4034,6 @@ export function SuspendWebsiteSection({ sites, onRefresh }: { sites: DirectAdmin
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Suspender / Activar Websites</h1><p className="text-gray-500 mt-1">Suspende ou reactiva websites.</p></div>
       {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
@@ -4151,7 +4107,6 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: DirectAdminW
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Delete Website</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: Deleting a website is permanent and cannot be undone.</p></div>
       {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium ${msg.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
       <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
@@ -4207,10 +4162,7 @@ export function WPListSection({ sites, setFileManagerDomain, setActiveSection }:
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Painel WP Admin</h1>
-        <p className="text-gray-500 mt-1">Acesso directo ao painel de administração WordPress de cada site.</p>
-      </div>
+
 
       {loading ? (
         <div className="py-16 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div>
@@ -4298,7 +4250,6 @@ export function WPPluginsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Configure Plugins</h1><p className="text-gray-500 mt-1">Manage WordPress plugins for your websites.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
@@ -4355,7 +4306,6 @@ export function WPRestoreBackupSection({ sites }: { sites: DirectAdminWebsite[] 
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Restore Backups</h1><p className="text-gray-500 mt-1">Restore WordPress from a previous backup.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
@@ -4399,7 +4349,6 @@ export function WPRemoteBackupSection({ sites }: { sites: DirectAdminWebsite[] }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Remote Backup</h1><p className="text-gray-500 mt-1">Create a remote backup of your WordPress site.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
@@ -4445,7 +4394,6 @@ export function DNSNameserverSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Create Nameserver</h1><p className="text-gray-500 mt-1">Create child nameservers for your domain.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="lg:col-span-3">
@@ -4489,7 +4437,6 @@ export function DNSDefaultNSSection() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Config Default Nameservers</h1><p className="text-gray-500 mt-1">Set the default nameservers for new websites.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nameserver 1</label><input value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.yourdomain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" /></div>
@@ -4522,7 +4469,6 @@ export function DNSCreateZoneSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Create DNS Zone</h1><p className="text-gray-500 mt-1">Create a new DNS zone for a domain.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
@@ -4556,7 +4502,6 @@ export function DNSDeleteZoneSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Delete Zone</h1><p className="text-gray-500 mt-1">Delete a DNS zone for a domain.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
@@ -4595,7 +4540,6 @@ export function CloudFlareSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">CloudFlare</h1><p className="text-gray-500 mt-1">Configure CloudFlare integration for your domain.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -4633,7 +4577,6 @@ export function DNSResetSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Reset DNS Configurations</h1><p className="text-gray-500 mt-1 text-red-600 font-medium">Warning: This will reset all DNS records to default.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-3 items-end mb-6">
           <div className="flex-1 max-w-sm">
@@ -4675,7 +4618,6 @@ export function EmailDeleteSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Delete Email</h1><p className="text-gray-500 mt-1">Delete email accounts from a domain.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
@@ -4721,7 +4663,6 @@ export function EmailLimitsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Email Limits</h1><p className="text-gray-500 mt-1">Set sending limits for email accounts.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
@@ -4778,7 +4719,6 @@ export function EmailForwardingSection({ sites }: { sites: DirectAdminWebsite[] 
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Email Forwarding</h1><p className="text-gray-500 mt-1">Configure email forwarding rules.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
           <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
@@ -4832,7 +4772,6 @@ export function CatchAllEmailSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Catch-All Email</h1><p className="text-gray-500 mt-1">Configure a catch-all email address that receives all unmatched emails.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -4876,7 +4815,6 @@ export function PatternForwardingSection({ sites }: { sites: DirectAdminWebsite[
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Forward emails matching a pattern to a destination.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -4920,7 +4858,6 @@ export function PlusAddressingSection({ sites }: { sites: DirectAdminWebsite[] }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Plus-Addressing</h1><p className="text-gray-500 mt-1">Enable plus-addressing (user+tag@domain.com) for email accounts.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="flex gap-4 items-end mb-6">
           <div className="flex-1 max-w-sm"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -4977,7 +4914,6 @@ export function EmailChangePasswordSection({ sites }: { sites: DirectAdminWebsit
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Change Password</h1><p className="text-gray-500 mt-1">Change the password for an email account.</p></div>
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
@@ -5449,21 +5385,8 @@ export function GitDeploySection() {
   const commits: any[] = data?.commits || []
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Deploy / GitHub</h1>
-          <p className="text-gray-500 mt-1">
-            {isLocal ? 'Modo local — commit + push → Vercel faz deploy automático.' : 'Modo produção — Vercel Deploy Hook.'}
-          </p>
-        </div>
-        <button onClick={() => loadStatus()} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Actualizar
-        </button>
-      </div>
-
-      {/* Repo info */}
-      <div className="bg-white rounded border border-gray-200 shadow-sm p-6 space-y-5">
+    <div className="space-y-4">
+      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center shrink-0">
             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -5494,9 +5417,18 @@ export function GitDeploySection() {
               </div>
             )}
           </div>
-          <span className={`text-[10px] font-bold px-2 py-1 rounded-full border shrink-0 ${isLocal ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-            {isLocal ? '⚡ Local Dev' : '☁ Produção'}
-          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => loadStatus()}
+              className="flex items-center gap-2 rounded bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition-all hover:bg-gray-200"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+            </button>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${isLocal ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+              {isLocal ? '⚡ Local Dev' : '☁ Produção'}
+            </span>
+          </div>
         </div>
 
         {/* Local git status */}
@@ -5632,6 +5564,23 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   })
   const [msg, setMsg] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const { setChrome } = useAdminSectionChrome()
+
+  useEffect(() => {
+    setChrome({
+      toolbar: (
+        <button
+          type="button"
+          onClick={() => setShowCreateForm((v) => !v)}
+          className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+        >
+          <Plus className="h-4 w-4" />
+          {showCreateForm ? 'Cancelar' : 'Criar Novo Pacote'}
+        </button>
+      ),
+    })
+    return () => setChrome(null)
+  }, [showCreateForm, setChrome])
 
   const handleCreate = async () => {
     if (!form.packageName) return
@@ -5725,23 +5674,9 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   }
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-gray-900">Pacotes</h1><p className="text-gray-500 mt-1">Crie e gerencie pacotes de hospedagem.</p></div>
-
-      {/* Criar Pacote - Botão no topo */}
-      <div className="bg-white rounded shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-100">
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {showCreateForm ? 'Cancelar' : 'Criar Novo Pacote'}
-          </button>
-        </div>
-
-        {showCreateForm && (
-          <div className="p-6 border-b border-gray-100">
+    <div className="space-y-4">
+      {showCreateForm && (
+          <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Detalhes do Pacote</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
@@ -5757,11 +5692,8 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
             </button>
           </div>
         )}
-      </div>
 
-      {/* Lista de Pacotes */}
-      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Pacotes Existentes</h2>
+      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
         {packages && packages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -6165,6 +6097,8 @@ export function BackupManagerSection({ sites }: { sites: DirectAdminWebsite[] })
     }
   }, [sites])
 
+  const { setChrome } = useAdminSectionChrome()
+
   const handleCreate = async () => {
     if (!selectedDomain) return
     setCreating(true)
@@ -6189,6 +6123,46 @@ export function BackupManagerSection({ sites }: { sites: DirectAdminWebsite[] })
     }
     setCreating(false)
   }
+
+  useEffect(() => {
+    setChrome({
+      toolbar: (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedDomain}
+            onChange={(e) => setSelectedDomain(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-44"
+          >
+            <option value="">Seleccionar domínio...</option>
+            {sites.map((s) => (
+              <option key={s.domain} value={s.domain}>
+                {s.domain}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => loadBackups(selectedDomain)}
+            disabled={!selectedDomain || loading}
+            className="flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+            title="Actualizar lista"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleCreate()}
+            disabled={!selectedDomain || creating}
+            className="flex items-center gap-2 rounded border border-green-300 bg-green-50 px-4 py-2 text-sm font-bold text-green-600 hover:bg-green-100 disabled:opacity-50"
+          >
+            {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {creating ? 'A criar...' : 'Criar Backup'}
+          </button>
+        </div>
+      ),
+    })
+    return () => setChrome(null)
+  }, [selectedDomain, sites, loading, creating, setChrome])
 
   const handleRestore = async (filename: string, path: string) => {
     if (!confirm(`Restaurar "${filename}"?\n\nISTO VAI SUBSTITUIR OS DADOS ACTUAIS!`)) return
@@ -6240,34 +6214,6 @@ export function BackupManagerSection({ sites }: { sites: DirectAdminWebsite[] })
 
   return (
     <div className="w-full space-y-4">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Restore & Download</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Gere backups de sites, ficheiros, bases de dados e emails</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select value={selectedDomain}
-            onChange={e => setSelectedDomain(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded text-sm w-52">
-            <option value="">Seleccionar domínio...</option>
-            {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-          </select>
-          <button onClick={() => loadBackups(selectedDomain)}
-            disabled={!selectedDomain || loading}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-
-          <button onClick={handleCreate} disabled={!selectedDomain || creating}
-            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">
-            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            {creating ? 'A criar...' : 'Criar Backup'}
-          </button>
-        </div>
-      </div>
-
       {/* Mensagem */}
       {msg && (
         <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success'
@@ -6469,10 +6415,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Instalar WordPress</h1>
-        <p className="text-gray-500 mt-1">Instale o WordPress em qualquer domínio com configuração avançada</p>
-      </div>
+
       
       {isWPInstalled && !success && (
         <div className="p-4 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-3">
@@ -6975,10 +6918,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Backup WordPress</h1>
-        <p className="text-gray-500 mt-1">Crie e gerencie backups de instalações WordPress</p>
-      </div>
+
 
       {message && (
         <div className={`p-4 rounded ${message.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -8353,10 +8293,7 @@ export function EmailImportSection({ sites }: { sites: DirectAdminWebsite[] }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Importar Emails</h1>
-          <p className="text-gray-500 mt-1">Importe emails do Gmail para sua conta Digital Services.</p>
-        </div>
+
         <button
           onClick={() => setShowInstructions(!showInstructions)}
           className="text-blue-600 hover:text-blue-700 text-sm font-medium"
@@ -9034,10 +8971,7 @@ export function AuditSyncSection({ onRefresh }: { onRefresh: () => void }) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Auditoria e Sincronização</h1>
-          <p className="text-gray-500 mt-1">Sincronize o DirectAdmin com a base de dados central e resolva inconsistências</p>
-        </div>
+
         <button
           onClick={handleSync}
           disabled={syncing}

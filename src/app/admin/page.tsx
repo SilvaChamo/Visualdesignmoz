@@ -43,6 +43,8 @@ import { PorkbunMyDomainsSection } from './PorkbunMyDomainsSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
+import { WPUpdateSection } from './WPUpdateSection'
+import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
@@ -2264,78 +2266,7 @@ function AdminPageContent() {
     { id: 'cp-api', label: 'Configurações', icon: Settings },
   ]
 
-  const getSectionInfo = (section: string): { title: string; description: string } => {
-    const info: Record<string, { title: string; description: string }> = {
-      'dashboard': { title: 'Dashboard', description: 'Painel de controlo principal' },
-      'domains': { title: 'Dashboard', description: 'Gestão de websites e domínios' },
-      'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
-      'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
-      'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
-      'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros DirectAdmin' },
-      'infra-manager': { title: 'Dashboard', description: 'Gestão de Infraestrutura' },
-      'news-manager': { title: 'Dashboard', description: 'Gestão de Notícias' },
-      'clientes': { title: 'Clientes', description: 'Clientes com acesso ao painel cliente' },
-      'revendedores': { title: 'Revendedores', description: 'Contas de revenda no painel' },
-      'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
-      'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
-      'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
-      'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
-      'cp-users': { title: 'Utilizadores', description: '' },
-      'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
-      'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
-      'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
-      'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
-      'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
-      'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
-      'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
-      'webmail': { title: 'Dashboard', description: 'Webmail' },
-      'cp-email-mgmt': { title: 'Dashboard', description: 'Listar contas de e-mail' },
-      'cp-email-delete': { title: 'Dashboard', description: 'Apagar e-mails' },
-      'cp-email-forwarding': { title: 'Dashboard', description: 'Encaminhamento de e-mails' },
-      'cp-email-catchall': { title: 'Dashboard', description: 'Catch-All' },
-      'cp-email-pattern-fwd': { title: 'Dashboard', description: 'Pattern Forwarding' },
-      'cp-email-plus-addr': { title: 'Dashboard', description: 'Plus Addressing' },
-      'cp-email-change-pass': { title: 'Dashboard', description: 'Alterar password de e-mail' },
-      'cp-email-dkim': { title: 'Dashboard', description: 'Gestão de DKIM' },
-      'cp-email-limits': { title: 'Dashboard', description: 'Limites de e-mail' },
-      'setup-smtp': { title: 'Envio e Recepção', description: 'Brevo + DirectAdmin' },
-      'cp-wp-list': { title: 'Dashboard', description: 'Painel WordPress' },
-      'cp-wp-plugins': { title: 'Dashboard', description: 'Plugins WordPress' },
-      'cp-wp-backup': { title: 'Dashboard', description: 'Backup WordPress' },
-      'cp-wp-restore-backup': { title: 'Dashboard', description: 'Restaurar backup WordPress' },
-      'cp-wp-remote-backup': { title: 'Dashboard', description: 'Backup remoto WordPress' },
-      'wordpress-install': { title: 'Dashboard', description: 'Instalar WordPress' },
-      'wordpress-deploy': { title: 'Dashboard', description: 'Deploy WordPress' },
-      'cp-modify-website': { title: 'Dashboard', description: 'Modificar website' },
-      'cp-suspend-website': { title: 'Dashboard', description: 'Suspender website' },
-      'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
-      'domain-manager': { title: 'Dashboard', description: 'Gestor de domínios' },
-      'provision-client': { title: 'Criar conta completa', description: 'Utilizador + pacote + domínio num só formulário' },
-      'website-preview': { title: 'Dashboard', description: 'Preview de website' },
-      'manage-website': { title: 'Gestão de Website', description: 'Gerir website e serviços' },
-      'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
-      'packages-list': { title: 'Dashboard', description: 'Listar pacotes' },
-      'packages-new': { title: 'Dashboard', description: 'Criar novo pacote' },
-      'cp-reseller': { title: 'Dashboard', description: 'Centro de revenda' },
-      'cp-dns-nameserver': { title: 'Dashboard', description: 'Nameservers' },
-      'cp-dns-default-ns': { title: 'Dashboard', description: 'NS padrão' },
-      'cp-dns-create-zone': { title: 'Dashboard', description: 'Criar zona DNS' },
-      'cp-dns-delete-zone': { title: 'Dashboard', description: 'Apagar zona DNS' },
-      'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
-      'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
-      'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
-      'dns-central': { title: 'DNS Central', description: 'Gestão de zonas DNS' },
-      'porkbun-domains': { title: 'Registar domínios', description: 'Pesquisa, preço em tempo real e registo na conta ligada ao painel' },
-      'porkbun-my-domains': { title: 'Os seus domínios', description: 'Lista e estado dos domínios na conta de registo' },
-      'newsletter': { title: 'Dashboard', description: 'Email marketing' },
-      'da-emails': { title: 'E-mails DirectAdmin', description: 'Contas POP/IMAP no servidor DirectAdmin' },
-      'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
-      'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
-      'reports': { title: 'Dashboard', description: 'Relatórios' },
-      'analyses': { title: 'Dashboard', description: 'Análises' },
-    }
-    return info[section] || { title: 'Dashboard', description: 'Painel de controlo' }
-  }
+  const getSectionInfo = (section: string) => getPanelSectionMeta(section)
 
   const renderSection = () => {
     switch (activeSection) {
@@ -2523,6 +2454,8 @@ function AdminPageContent() {
         )
       case 'git-deploy':
         return <GitDeploySection />
+      case 'wp-update':
+        return <WPUpdateSection sites={filteredSites} autoSelectFirstWp />
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />

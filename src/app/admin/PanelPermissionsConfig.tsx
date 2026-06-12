@@ -30,6 +30,7 @@ const PERMISSION_GRID: PermissionCategory[] = [
     options: [
       { id: 'create_website', label: 'Criar Novos Websites', description: 'Adicionar novos domínios e criar diretórios de websites.', default: false },
       { id: 'install_wp', label: 'Instalações 1-Click (WordPress)', description: 'Ativar instalador automático do WordPress.', default: true },
+      { id: 'update_wp_plugins', label: 'Actualização WP (plugins)', description: 'Permite actualizar plugins WordPress do site principal da conta.', default: false },
       { id: 'file_manager', label: 'Gestor de Ficheiros', description: 'Acesso completo aos ficheiros via browser (File Manager).', default: true },
       { id: 'manage_dns', label: 'Gestão Completa de DNS', description: 'Adicionar/Modificar registos DNS (A, TXT, CNAME).', default: false }
     ]

@@ -171,3 +171,135 @@ samp {
 .dark .panel-shell header button:hover {
   background-color: transparent !important;
 }
+
+/* Dark panel: botões estilo Vercel — sem fundo branco/colorido; hover vermelho */
+.dark .panel-content button:not([class*="rounded-full"]):not([class*="translate-x"]),
+.dark .panel-shell header button {
+  background-color: transparent !important;
+  border-color: var(--panel-border) !important;
+  color: #d4d4d8 !important;
+  box-shadow: none !important;
+}
+
+.dark .panel-content button:not([class*="rounded-full"]):not([class*="translate-x"]):hover:not(:disabled),
+.dark .panel-shell header button:hover:not(:disabled) {
+  background-color: transparent !important;
+  color: #f87171 !important;
+}
+
+.dark .panel-content button[class*="bg-green"],
+.dark .panel-content button[class*="bg-red"],
+.dark .panel-content button[class*="bg-blue"],
+.dark .panel-content button[class*="bg-white"],
+.dark .panel-content button[class*="bg-amber"],
+.dark .panel-content button[class*="bg-emerald"] {
+  background-color: transparent !important;
+}
+
+.dark .panel-content button:is(.p-1, .p-1\.5, .p-2):not([class*="px-3"]):not([class*="px-4"]) {
+  border: none !important;
+  background-color: transparent !important;
+}
+
+.dark .panel-content a:hover,
+.dark .panel-content button.p-1\.5:hover,
+.dark .panel-content button.p-2:hover {
+  background-color: transparent !important;
+  color: #f87171 !important;
+}
+
+/* Badges, chips e etiquetas — sem fundo claro no escuro */
+.dark .panel-content :is(
+  .bg-gray-100, .bg-gray-50, .bg-slate-100, .bg-slate-50, .bg-zinc-100, .bg-zinc-50,
+  .bg-amber-100, .bg-emerald-100, .bg-cyan-100, .bg-teal-100, .bg-fuchsia-100,
+  .bg-violet-100, .bg-indigo-100, .bg-yellow-100
+) {
+  background-color: #27272a !important;
+  color: #d4d4d8 !important;
+}
+
+.dark .panel-content :is(
+  .text-amber-800, .text-amber-700, .text-purple-700, .text-blue-700,
+  .text-slate-700, .text-emerald-700, .text-indigo-700, .text-green-700,
+  .text-red-700, .text-yellow-700, .text-orange-700, .text-teal-700
+) {
+  color: #d4d4d8 !important;
+}
+
+/* Cards e stat boxes — bordas neutras */
+.dark .panel-content :is(
+  .border-emerald-200, .border-indigo-200, .border-amber-200, .border-cyan-200,
+  .border-teal-200, .border-fuchsia-200, .border-violet-200, .border-yellow-200
+) {
+  border-color: var(--panel-border) !important;
+}
+
+/* Barras de progresso / faixas */
+.dark .panel-content :is(.bg-gray-100, .bg-gray-200)[class*="rounded-full"] {
+  background-color: #27272a !important;
+  border-color: var(--panel-border) !important;
+}
+
+/* Botões sólidos coloridos → estilo neutro */
+.dark .panel-content :is(button, a)[class*="bg-emerald-6"],
+.dark .panel-content :is(button, a)[class*="bg-blue-6"],
+.dark .panel-content :is(button, a)[class*="bg-red-6"],
+.dark .panel-content :is(button, a)[class*="bg-green-6"],
+.dark .panel-content :is(button, a)[class*="bg-indigo-6"] {
+  background-color: transparent !important;
+  border: 1px solid var(--panel-border) !important;
+  color: #d4d4d8 !important;
+  box-shadow: none !important;
+}
+
+.dark .panel-content :is(button, a)[class*="bg-emerald-6"]:hover,
+.dark .panel-content :is(button, a)[class*="bg-blue-6"]:hover,
+.dark .panel-content :is(button, a)[class*="bg-red-6"]:hover,
+.dark .panel-content :is(button, a)[class*="bg-green-6"]:hover,
+.dark .panel-content :is(button, a)[class*="bg-indigo-6"]:hover {
+  background-color: transparent !important;
+  color: #f87171 !important;
+}
+
+/* Wizard / pills activos */
+.dark .panel-content button.bg-white,
+.dark .panel-content button[class*="bg-white"][class*="shadow"] {
+  background-color: transparent !important;
+  border-color: var(--panel-border) !important;
+  color: #f4f4f5 !important;
+  box-shadow: none !important;
+}
+
+/* Dashboard: hover ícones — fundo branco transparente */
+.dark .panel-content .dashboard-tool:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Tabs activas — sem azul */
+.dark .panel-content [class*="border-blue-500"] {
+  border-color: #f87171 !important;
+}
+
+.dark .panel-content [class*="text-blue-600"] {
+  color: #f87171 !important;
+}
+
+/* Skeletons: Vercel-like dark mode skeletons */
+.dark :is(.animate-pulse, [class*="animate-pulse"]):is(
+  .bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-gray-300,
+  .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-slate-300,
+  .bg-zinc-50, .bg-zinc-100, .bg-zinc-200, .bg-zinc-300,
+  .bg-neutral-50, .bg-neutral-100, .bg-neutral-200, .bg-neutral-300,
+  [class*="bg-gray-"], [class*="bg-slate-"], [class*="bg-zinc-"], [class*="bg-neutral-"]
+),
+.dark :is(.animate-pulse, [class*="animate-pulse"]) :is(
+  .bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-gray-300,
+  .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-slate-300,
+  .bg-zinc-50, .bg-zinc-100, .bg-zinc-200, .bg-zinc-300,
+  .bg-neutral-50, .bg-neutral-100, .bg-neutral-200, .bg-neutral-300,
+  [class*="bg-gray-"], [class*="bg-slate-"], [class*="bg-zinc-"], [class*="bg-neutral-"]
+) {
+  background-color: #27272a !important; /* zinc-800 - match Vercel style dark mode skeletons */
+  border-color: #3f3f46 !important; /* zinc-700 */
+}
+

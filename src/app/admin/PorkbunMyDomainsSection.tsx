@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Globe, Loader2, RefreshCw } from 'lucide-react';
+import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 
 type PorkbunDomainRow = {
   domain: string;
@@ -14,6 +15,7 @@ export function PorkbunMyDomainsSection() {
   const [domains, setDomains] = useState<PorkbunDomainRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { setChrome } = useAdminSectionChrome();
 
   const load = async () => {
     setLoading(true);
@@ -35,16 +37,9 @@ export function PorkbunMyDomainsSection() {
     void load();
   }, []);
 
-  return (
-    <div className="max-w-5xl mx-auto space-y-6 py-4">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Globe className="w-8 h-8 text-pink-600" />
-            Os seus domínios
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">Domínios associados à conta de registo ligada ao painel Visual Design.</p>
-        </div>
+  useEffect(() => {
+    setChrome({
+      toolbar: (
         <button
           type="button"
           onClick={() => void load()}
@@ -54,24 +49,34 @@ export function PorkbunMyDomainsSection() {
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
-      </div>
+      ),
+    });
+    return () => setChrome(null);
+  }, [loading, setChrome]);
 
+  return (
+    <div className="space-y-4">
       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
         <strong>DirectAdmin:</strong> os websites alojados no servidor estão em{' '}
-        <strong>Hospedagem → Listar Websites</strong>, não nesta página.
-        Esta secção lista apenas domínios comprados via <strong>Spaceship</strong> (registador).
+        <strong>Hospedagem → Sites</strong>, não nesta página. Esta secção lista apenas domínios
+        comprados via <strong>Spaceship</strong> (registador).
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-slate-500 py-12 justify-center">
+        <div className="flex items-center justify-center gap-2 py-12 text-slate-500">
           <Loader2 className="h-6 w-6 animate-spin" /> A carregar…
         </div>
       ) : domains.length === 0 ? (
-        <p className="text-center text-slate-500 py-12">Nenhum domínio encontrado na conta de registo.</p>
+        <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 shadow-sm">
+          <Globe className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          Nenhum domínio encontrado na conta de registo.
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full text-sm">
