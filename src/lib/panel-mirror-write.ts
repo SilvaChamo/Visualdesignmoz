@@ -2,6 +2,7 @@
  * Escrita imediata no espelho Supabase (panel_*) após mutações.
  */
 
+import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 
 function now() {
@@ -461,6 +462,17 @@ export async function mirrorAfterDaMutation(
           php_version: str(params, 'phpVersion', 'php1_release'),
         });
       }
+      break;
+    case 'suspendEmail':
+    case 'unsuspendEmail':
+    case 'changeEmailPassword':
+    case 'setEmailLimits':
+    case 'addEmailForwarding':
+    case 'setCatchAllEmail':
+    case 'createDNSZone':
+    case 'deleteDNSZone':
+    case 'resetDNSConfigurations':
+      scheduleDaSync(800);
       break;
     default:
       break;

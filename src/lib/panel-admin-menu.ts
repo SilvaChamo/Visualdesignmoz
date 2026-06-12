@@ -71,7 +71,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'infrastructure', label: 'Estado do servidor' },
       { id: 'backup-manager', label: 'Backups' },
       { id: 'git-deploy', label: 'Deploy / GitHub' },
-      { id: 'wp-update', label: 'Actualização WP' },
+      { id: 'wp-update', label: 'WordPress' },
     ],
   },
 ];

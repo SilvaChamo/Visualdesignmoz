@@ -133,3 +133,106 @@ export async function updateAllWpPlugins(
     /error:|failed|fatal/i.test(output) && !/success|updated|already/i.test(output);
   return { ok: !failed, output };
 }
+
+function safePluginSlug(plugin: string): string {
+  return plugin.replace(/[^a-zA-Z0-9_/-]/g, '');
+}
+
+function wpCommandFailed(output: string): boolean {
+  return /error:|failed|fatal/i.test(output) && !/success|activated|deactivated|installed|updated|already|removed/i.test(output);
+}
+
+export async function toggleWpPlugin(
+  domain: string,
+  plugin: string,
+  activate: boolean,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const slug = safePluginSlug(plugin);
+  if (!slug) return { ok: false, output: 'Nome de plugin inválido' };
+
+  const verb = activate ? 'activate' : 'deactivate';
+  const output = await runAsWpUser(install.user, install.path, `plugin ${verb} ${shellQuote(slug)}`);
+  return { ok: !wpCommandFailed(output), output };
+}
+
+export async function installWpPluginFromRepo(
+  domain: string,
+  slug: string,
+  activate = true,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const safe = safePluginSlug(slug);
+  if (!safe) return { ok: false, output: 'Slug inválido' };
+
+  const flags = activate ? ' --activate' : '';
+  const output = await runAsWpUser(
+    install.user,
+    install.path,
+    `plugin install ${shellQuote(safe)}${flags}`,
+  );
+  return { ok: !wpCommandFailed(output), output };
+}
+
+export async function deleteWpPlugin(
+  domain: string,
+  plugin: string,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const slug = safePluginSlug(plugin);
+  if (!slug) return { ok: false, output: 'Nome de plugin inválido' };
+
+  const output = await runAsWpUser(
+    install.user,
+    install.path,
+    `plugin delete ${shellQuote(slug)}`,
+  );
+  return { ok: !wpCommandFailed(output), output };
+}
+
+/** Envia ZIP para o servidor e instala com wp-cli. */
+export async function uploadWpPluginZip(
+  domain: string,
+  zipBase64: string,
+  filename: string,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '') || 'plugin.zip';
+  if (!safeName.toLowerCase().endsWith('.zip')) {
+    return { ok: false, output: 'O ficheiro deve ser .zip' };
+  }
+
+  const tmpB64 = `/tmp/wp-plg-${Date.now()}.b64`;
+  const tmpZip = `/tmp/wp-plg-${Date.now()}-${safeName}`;
+  const chunkSize = 48000;
+  const clean = zipBase64.replace(/\s/g, '');
+
+  for (let i = 0; i < clean.length; i += chunkSize) {
+    const chunk = clean.slice(i, i + chunkSize);
+    const op = i === 0 ? `>` : `>>`;
+    await executeServerCommand(`printf '%s' '${chunk}' ${op} ${shellQuote(tmpB64)}`);
+  }
+
+  await executeServerCommand(
+    `base64 -d ${shellQuote(tmpB64)} > ${shellQuote(tmpZip)} && rm -f ${shellQuote(tmpB64)}`,
+  );
+
+  try {
+    const output = await runAsWpUser(
+      install.user,
+      install.path,
+      `plugin install ${shellQuote(tmpZip)} --activate`,
+    );
+    return { ok: !wpCommandFailed(output), output };
+  } finally {
+    await executeServerCommand(`rm -f ${shellQuote(tmpZip)}`).catch(() => undefined);
+  }
+}

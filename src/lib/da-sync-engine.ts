@@ -193,6 +193,66 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     else counts.users++;
   }
 
+  // ── Sub-contas sob revenda (quando SHOW_ALL_USERS não as inclui) ──
+  const resellerNames = new Set<string>();
+  for (const user of users) {
+    const acl = (user.acl || user.type || '').toLowerCase();
+    if (acl.includes('reseller') && user.userName) {
+      resellerNames.add(user.userName);
+    }
+  }
+  const legacyReseller = process.env.DIRECTADMIN_RESELLER_USER?.trim();
+  if (legacyReseller) resellerNames.add(legacyReseller);
+  resellerNames.add('oshercollective');
+
+  for (const resellerUsername of resellerNames) {
+    if (!resellerUsername || resellerUsername === 'admin') continue;
+    try {
+      const stored = await loadResellerCredentialsByDaUsername(resellerUsername);
+      const legacyPass =
+        process.env.DIRECTADMIN_RESELLER_LOGIN_KEY?.trim() ||
+        process.env.DIRECTADMIN_RESELLER_PASSWORD?.trim() ||
+        process.env.DIRECTADMIN_RESELLER_PASS?.trim();
+      let creds: DirectAdminCredentials | null = null;
+      if (stored) {
+        creds = { role: 'reseller', user: stored.user, password: stored.password };
+      } else if (legacyReseller === resellerUsername && legacyPass) {
+        creds = { role: 'reseller', user: legacyReseller, password: legacyPass };
+      }
+      if (!creds) continue;
+
+      const resellerApi = createDirectAdminAPI(creds);
+      const subUsers = await resellerApi.listUsers();
+      for (const sub of subUsers) {
+        const username = sub.userName;
+        if (!username || username === resellerUsername) continue;
+        liveUsernames.add(username);
+        const { error } = await admin.from('panel_users').upsert(
+          {
+            username,
+            first_name: sub.firstName || '',
+            last_name: sub.lastName || '',
+            email: sub.email || '',
+            acl: sub.acl || sub.type || 'user',
+            websites_limit: sub.websitesLimit ?? 0,
+            emails_limit: sub.emailsLimit ?? 0,
+            parent_username: resellerUsername,
+            status: sub.suspended ? 'Suspended' : sub.status || 'Active',
+            synced_at: syncedAt,
+            updated_at: syncedAt,
+          },
+          { onConflict: 'username' },
+        );
+        if (error) errors.push(`reseller sub ${username}: ${error.message}`);
+        else counts.users++;
+      }
+    } catch (e: unknown) {
+      errors.push(
+        `reseller subs ${resellerUsername}: ${e instanceof Error ? e.message : 'erro'}`,
+      );
+    }
+  }
+
   const { data: existingUsers } = await admin.from('panel_users').select('username');
   const staleUsers = (existingUsers || [])
     .map((r) => r.username as string)

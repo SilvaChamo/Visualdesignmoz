@@ -63,11 +63,18 @@ export async function POST(req: NextRequest) {
   const auth = await requireClient();
   if ('error' in auth) return auth.error;
 
-  let body: { domain?: string; plugin?: string; all?: boolean };
+  let body: { domain?: string } & Parameters<typeof handleWpUpdatePost>[1];
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ success: false, error: 'JSON inválido' }, { status: 400 });
+  }
+
+  if (body.action === 'upload' || body.action === 'install' || body.action === 'delete') {
+    return NextResponse.json(
+      { success: false, error: 'Operação não permitida no painel cliente' },
+      { status: 403 },
+    );
   }
 
   const domain = String(body.domain || '').trim().toLowerCase();
