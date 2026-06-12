@@ -18,6 +18,15 @@ import {
 } from 'lucide-react';
 import type { DirectAdminWebsite } from '@/lib/directadmin-api';
 import type { WpPluginAction } from '@/lib/wp-update-handlers';
+import {
+  invalidateWpPluginsCache,
+  readWpInstallsCache,
+  readWpPluginsCache,
+  writeWpInstallsCache,
+  writeWpPluginsCache,
+} from '@/lib/wp-panel-cache';
+
+const SELECTED_DOMAIN_KEY = 'vd_wp_selected_domain';
 
 const WordPressInstallSection = dynamic(
   () => import('./HostingSections').then((m) => ({ default: m.WordPressInstallSection })),
@@ -61,12 +70,23 @@ export type WordPressHubSectionProps = {
   onRefresh?: () => void | Promise<void>;
 };
 
-const TABS: { id: WordPressHubTab; label: string }[] = [
-  { id: 'sites', label: 'Sites WordPress' },
-  { id: 'plugins', label: 'Plugins' },
-  { id: 'install', label: 'Instalar WP' },
-  { id: 'backup', label: 'Backups' },
-];
+function readPersistedDomain(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return sessionStorage.getItem(SELECTED_DOMAIN_KEY)?.toLowerCase() || '';
+  } catch {
+    return '';
+  }
+}
+
+function persistDomain(domain: string) {
+  if (typeof window === 'undefined' || !domain) return;
+  try {
+    sessionStorage.setItem(SELECTED_DOMAIN_KEY, domain.toLowerCase());
+  } catch {
+    /* ignore */
+  }
+}
 
 function pickFirstWpDomain(
   domainOptions: { domain: string; hasWp?: boolean }[],
@@ -94,11 +114,19 @@ export function WordPressHubSection({
   onRefresh,
 }: WordPressHubSectionProps) {
   const [tab, setTab] = useState<WordPressHubTab>(initialTab);
-  const [wpDomains, setWpDomains] = useState<WpInstall[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState(initialDomain.toLowerCase());
-  const [plugins, setPlugins] = useState<WpPlugin[]>([]);
-  const [wpVersion, setWpVersion] = useState<string | null>(null);
-  const [loadingList, setLoadingList] = useState(true);
+  const [wpDomains, setWpDomains] = useState<WpInstall[]>(() => readWpInstallsCache() || []);
+  const [selectedDomain, setSelectedDomain] = useState(
+    () => initialDomain.toLowerCase() || readPersistedDomain(),
+  );
+  const [plugins, setPlugins] = useState<WpPlugin[]>(() => {
+    const d = initialDomain.toLowerCase() || readPersistedDomain();
+    return d ? readWpPluginsCache(d)?.plugins || [] : [];
+  });
+  const [wpVersion, setWpVersion] = useState<string | null>(() => {
+    const d = initialDomain.toLowerCase() || readPersistedDomain();
+    return d ? readWpPluginsCache(d)?.wpVersion ?? null : null;
+  });
+  const [loadingList, setLoadingList] = useState(() => !readWpInstallsCache());
   const [loadingPlugins, setLoadingPlugins] = useState(false);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -130,48 +158,76 @@ export function WordPressHubSection({
     return merged.sort((a, b) => a.domain.localeCompare(b.domain));
   }, [sites, wpDomains]);
 
-  const loadWpDomains = useCallback(async () => {
-    setLoadingList(true);
+  const loadWpDomains = useCallback(async (options?: { fresh?: boolean }) => {
+    if (!options?.fresh) {
+      const cached = readWpInstallsCache();
+      if (cached?.length) {
+        setWpDomains(cached);
+        setLoadingList(false);
+      } else {
+        setLoadingList(true);
+      }
+    } else {
+      setLoadingList(true);
+    }
+
     try {
       const res = await fetch(apiBase);
       const data = await res.json();
       if (data.success && Array.isArray(data.installs)) {
         setWpDomains(data.installs);
+        writeWpInstallsCache(data.installs);
       }
     } catch {
-      /* mantém sites do painel */
+      /* mantém cache ou sites do painel */
     } finally {
       setLoadingList(false);
     }
   }, [apiBase]);
 
   const loadPlugins = useCallback(
-    async (domain: string) => {
+    async (domain: string, options?: { fresh?: boolean }) => {
       if (!domain) {
         setPlugins([]);
         setWpVersion(null);
         return;
       }
+
+      if (!options?.fresh) {
+        const cached = readWpPluginsCache(domain);
+        if (cached) {
+          setPlugins(cached.plugins);
+          setWpVersion(cached.wpVersion);
+        }
+      }
+
       setLoadingPlugins(true);
       setMsg(null);
       try {
         const res = await fetch(`${apiBase}?domain=${encodeURIComponent(domain)}`);
         const data = await res.json();
         if (!data.success) {
-          setPlugins([]);
-          setWpVersion(null);
-          setMsg({ ok: false, text: data.error || 'Não foi possível carregar plugins.' });
+          if (!readWpPluginsCache(domain)) {
+            setPlugins([]);
+            setWpVersion(null);
+            setMsg({ ok: false, text: data.error || 'Não foi possível carregar plugins.' });
+          }
           return;
         }
-        setPlugins(Array.isArray(data.plugins) ? data.plugins : []);
-        setWpVersion(data.install?.wpVersion || null);
+        const rows = Array.isArray(data.plugins) ? data.plugins : [];
+        const version = data.install?.wpVersion || null;
+        setPlugins(rows);
+        setWpVersion(version);
+        writeWpPluginsCache(domain, rows, version);
       } catch (e: unknown) {
-        setPlugins([]);
-        setWpVersion(null);
-        setMsg({
-          ok: false,
-          text: e instanceof Error ? e.message : 'Erro de ligação ao servidor.',
-        });
+        if (!readWpPluginsCache(domain)) {
+          setPlugins([]);
+          setWpVersion(null);
+          setMsg({
+            ok: false,
+            text: e instanceof Error ? e.message : 'Erro de ligação ao servidor.',
+          });
+        }
       } finally {
         setLoadingPlugins(false);
       }
@@ -193,8 +249,13 @@ export function WordPressHubSection({
         const data = await res.json();
         if (data.success) {
           setMsg({ ok: true, text: data.output || 'Operação concluída.' });
-          if (Array.isArray(data.plugins)) setPlugins(data.plugins);
-          else await loadPlugins(selectedDomain);
+          if (Array.isArray(data.plugins)) {
+            setPlugins(data.plugins);
+            writeWpPluginsCache(selectedDomain, data.plugins, wpVersion);
+          } else {
+            invalidateWpPluginsCache(selectedDomain);
+            await loadPlugins(selectedDomain, { fresh: true });
+          }
         } else {
           setMsg({ ok: false, text: data.error || data.output || 'Operação falhou.' });
         }
@@ -245,8 +306,13 @@ export function WordPressHubSection({
       const data = await res.json();
       if (data.success) {
         setMsg({ ok: true, text: data.output || 'Plugin instalado a partir do ZIP.' });
-        if (Array.isArray(data.plugins)) setPlugins(data.plugins);
-        else await loadPlugins(selectedDomain);
+        if (Array.isArray(data.plugins)) {
+          setPlugins(data.plugins);
+          writeWpPluginsCache(selectedDomain, data.plugins, wpVersion);
+        } else {
+          invalidateWpPluginsCache(selectedDomain);
+          await loadPlugins(selectedDomain, { fresh: true });
+        }
       } else {
         setMsg({ ok: false, text: data.error || data.output || 'Upload falhou.' });
       }
@@ -257,6 +323,14 @@ export function WordPressHubSection({
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (selectedDomain) persistDomain(selectedDomain);
+  }, [selectedDomain]);
 
   useEffect(() => {
     void loadWpDomains();
@@ -314,26 +388,20 @@ export function WordPressHubSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2 dark:border-zinc-800">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
-              tab === t.id
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-zinc-900 dark:text-zinc-300'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       {tab === 'sites' && (
         <div className="space-y-4">
-          {loadingList ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => void loadWpDomains({ fresh: true })}
+              disabled={loadingList}
+              className="inline-flex items-center gap-2 rounded border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingList ? 'animate-spin' : ''}`} />
+              Actualizar
+            </button>
+          </div>
+          {loadingList && siteCards.length === 0 ? (
             <div className="py-16 text-center">
               <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-400" />
             </div>
@@ -380,8 +448,9 @@ export function WordPressHubSection({
                     <button
                       type="button"
                       onClick={() => {
+                        persistDomain(s.domain);
                         setSelectedDomain(s.domain);
-                        setTab('plugins');
+                        setActiveSection?.('wp-plugins');
                       }}
                       className="flex w-full items-center justify-center gap-2 rounded border border-violet-200 bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition-all hover:bg-violet-100"
                     >
@@ -397,7 +466,7 @@ export function WordPressHubSection({
               <p className="font-medium">Nenhum WordPress detectado no servidor.</p>
               <button
                 type="button"
-                onClick={() => setTab('install')}
+                onClick={() => setActiveSection?.('wordpress-install')}
                 className="mt-3 text-sm font-bold text-indigo-600 hover:underline"
               >
                 Instalar WordPress
@@ -427,7 +496,7 @@ export function WordPressHubSection({
               </select>
               <button
                 type="button"
-                onClick={() => selectedDomain && void loadPlugins(selectedDomain)}
+                onClick={() => selectedDomain && void loadPlugins(selectedDomain, { fresh: true })}
                 disabled={!selectedDomain || loadingPlugins}
                 className="inline-flex shrink-0 items-center gap-2 rounded border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
               >

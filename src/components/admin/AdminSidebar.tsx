@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
+  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings, Plug,
 } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
 import {
@@ -34,6 +34,7 @@ const MENU_ICONS: Record<string, React.ElementType> = {
   'nov-dominios': Globe,
   'nov-notificacoes': Bell,
   newsletter: Layout,
+  'nov-wordpress': Plug,
   'nov-sistema': Settings,
   'menu-anterior': Archive,
 };

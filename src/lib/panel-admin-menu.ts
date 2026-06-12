@@ -64,6 +64,17 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
   },
   { id: 'newsletter', label: 'Mailmarketing', isNewMenu: true },
   {
+    id: 'nov-wordpress',
+    label: 'WordPress',
+    isNewMenu: true,
+    subItems: [
+      { id: 'wp-sites', label: 'Sites' },
+      { id: 'wp-plugins', label: 'Plugins' },
+      { id: 'wordpress-install', label: 'Instalar WP' },
+      { id: 'wp-backup', label: 'Backups' },
+    ],
+  },
+  {
     id: 'nov-sistema',
     label: 'Sistema',
     isNewMenu: true,
@@ -71,7 +82,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'infrastructure', label: 'Estado do servidor' },
       { id: 'backup-manager', label: 'Backups' },
       { id: 'git-deploy', label: 'Deploy / GitHub' },
-      { id: 'wp-update', label: 'WordPress' },
     ],
   },
 ];
@@ -133,6 +143,12 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'cadastrar-renovacao-legacy': 'cadastrar-renovacao',
   'templates-renovacao-legacy': 'templates-renovacao',
   'git-deploy-legacy': 'git-deploy',
+  'wp-update': 'wp-plugins',
+  'cp-wp-list': 'wp-sites',
+  'cp-wp-plugins': 'wp-plugins',
+  'cp-wp-backup': 'wp-backup',
+  'cp-wp-restore-backup': 'wp-backup',
+  'cp-wp-remote-backup': 'wp-backup',
 };
 
 export const LEGACY_ONLY_IDS = new Set(
@@ -159,10 +175,13 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'cadastrar-renovacao': 'nov-notificacoes',
   'templates-renovacao': 'nov-notificacoes',
   newsletter: 'newsletter',
+  'wp-sites': 'nov-wordpress',
+  'wp-plugins': 'nov-wordpress',
+  'wordpress-install': 'nov-wordpress',
+  'wp-backup': 'nov-wordpress',
   infrastructure: 'nov-sistema',
   'backup-manager': 'nov-sistema',
   'git-deploy': 'nov-sistema',
-  'wp-update': 'nov-sistema',
 };
 
 export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [

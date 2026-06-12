@@ -45,6 +45,7 @@ import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
+import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
@@ -2401,50 +2402,54 @@ function AdminPageContent() {
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
+      case 'wp-sites':
+      case 'wp-plugins':
+      case 'wp-backup':
+      case 'wordpress-install':
+        return (
+          <WordPressHubSection
+            key={activeSection}
+            sites={filteredSites}
+            initialTab={
+              activeSection === 'wp-sites'
+                ? 'sites'
+                : activeSection === 'wp-backup'
+                  ? 'backup'
+                  : activeSection === 'wordpress-install'
+                    ? 'install'
+                    : 'plugins'
+            }
+            autoSelectFirstWp={activeSection === 'wp-plugins' || activeSection === 'wp-sites'}
+            setFileManagerDomain={setFileManagerDomain}
+            setActiveSection={setActiveSection}
+            onRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
       case 'cp-wp-list':
-        return (
-          <WordPressHubSection
-            sites={filteredSites}
-            initialTab="sites"
-            autoSelectFirstWp
-            setFileManagerDomain={setFileManagerDomain}
-            setActiveSection={setActiveSection}
-            onRefresh={() => void loadDirectAdminData(true)}
-          />
-        )
       case 'cp-wp-plugins':
-        return (
-          <WordPressHubSection
-            sites={filteredSites}
-            initialTab="plugins"
-            autoSelectFirstWp
-            setFileManagerDomain={setFileManagerDomain}
-            setActiveSection={setActiveSection}
-            onRefresh={() => void loadDirectAdminData(true)}
-          />
-        )
+      case 'cp-wp-backup':
       case 'cp-wp-restore-backup':
       case 'cp-wp-remote-backup':
+      case 'wp-update':
         return (
           <WordPressHubSection
+            key={resolveSectionId(activeSection)}
             sites={filteredSites}
-            initialTab="backup"
+            initialTab={
+              resolveSectionId(activeSection) === 'wp-sites'
+                ? 'sites'
+                : resolveSectionId(activeSection) === 'wp-backup'
+                  ? 'backup'
+                  : 'plugins'
+            }
+            autoSelectFirstWp
             setFileManagerDomain={setFileManagerDomain}
             setActiveSection={setActiveSection}
+            onRefresh={() => void loadDirectAdminData(true)}
           />
         )
       case 'cp-audit-sync':
         return <AuditSyncSection onRefresh={() => void loadDirectAdminData(true)} />
-      case 'wordpress-install':
-        return (
-          <WordPressHubSection
-            sites={filteredSites}
-            initialTab="install"
-            onRefresh={() => void loadDirectAdminData(true)}
-            setFileManagerDomain={setFileManagerDomain}
-            setActiveSection={setActiveSection}
-          />
-        )
       case 'cp-dns-nameserver':
         return <DNSNameserverSection sites={filteredSites} />
       case 'cp-dns-default-ns':
@@ -2486,22 +2491,9 @@ function AdminPageContent() {
         )
       case 'git-deploy':
         return <GitDeploySection />
-      case 'wp-update':
-        return (
-          <WordPressHubSection
-            sites={filteredSites}
-            initialTab="plugins"
-            autoSelectFirstWp
-            setFileManagerDomain={setFileManagerDomain}
-            setActiveSection={setActiveSection}
-            onRefresh={() => void loadDirectAdminData(true)}
-          />
-        )
       case 'backup-manager':
       case 'cp-backup':
         return <BackupManagerSection sites={filteredSites} />
-      case 'cp-wp-backup':
-        return <WPBackupSection sites={filteredSites} />
       case 'domain-manager':
         return <DomainManagerSection
           sites={filteredSites}
