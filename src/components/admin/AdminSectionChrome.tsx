@@ -14,7 +14,7 @@ export type SectionChromeBack = {
 };
 
 export type SectionChromeState = {
-  title: string;
+  title?: string;
   description?: string;
   back?: SectionChromeBack;
   search?: SectionChromeSearch;
