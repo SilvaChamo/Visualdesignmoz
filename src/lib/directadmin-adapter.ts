@@ -45,6 +45,45 @@ function field(data: DaData, key: string): string {
   return v != null ? String(v) : '';
 }
 
+async function resolveDomainSslStatus(
+  credentials: DirectAdminCredentials,
+  domain: string,
+): Promise<'Secure' | 'No SSL'> {
+  try {
+    const sslData = await daGet(credentials, 'CMD_API_SSL', { domain });
+    const raw = JSON.stringify(sslData).toLowerCase();
+    if (
+      raw.includes('certificate') ||
+      raw.includes('letsencrypt') ||
+      raw.includes('begin cert') ||
+      field(sslData, 'active') === 'yes' ||
+      field(sslData, 'leco') === '1'
+    ) {
+      return 'Secure';
+    }
+  } catch {
+    /* tentar HTTPS */
+  }
+
+  try {
+    const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+    const out = await executeServerCommand(
+      `curl -skI --max-time 8 "https://${domain}" 2>&1 | head -1`,
+    );
+    const line = out.toLowerCase();
+    if (
+      /http\/[12]/.test(line) &&
+      (line.includes('200') || line.includes('301') || line.includes('302'))
+    ) {
+      return 'Secure';
+    }
+  } catch {
+    /* sem SSH ou domínio inacessível */
+  }
+
+  return 'No SSL';
+}
+
 async function daGet(creds: DirectAdminCredentials, cmd: string, qs: Record<string, string> = {}): Promise<DaData> {
   const res = await daRequest(cmd, 'GET', { json: 'yes', ...qs }, creds);
   if (res.error) throw new Error(res.details || res.text || `DirectAdmin ${cmd} falhou`);
@@ -171,20 +210,25 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         const domains = extractDomainKeys(domainsData);
         const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user });
 
-        for (const domain of domains) {
-          sites.push({
-            id: `${user}_${domain}`,
-            domain,
-            adminEmail: field(userConf, 'email'),
-            package: field(userConf, 'package') || 'Default',
-            state: field(userConf, 'suspended') === 'yes' ? 'Suspended' : 'Active',
-            owner: user,
-            phpVersion: field(userConf, 'php1_release') || 'PHP 8.3',
-            sslStatus: 'No SSL',
-            diskUsage: field(userConf, 'quota_used') || '0',
-            bandwidth: parseInt(field(userConf, 'bandwidth') || '0', 10),
-          });
-        }
+        const domainRows = await Promise.all(
+          domains.map(async (domain) => {
+            const sslStatus = await resolveDomainSslStatus(credentials, domain);
+            return {
+              id: `${user}_${domain}`,
+              domain,
+              adminEmail: field(userConf, 'email'),
+              package: field(userConf, 'package') || 'Default',
+              state: field(userConf, 'suspended') === 'yes' ? 'Suspended' : 'Active',
+              owner: user,
+              phpVersion: field(userConf, 'php1_release') || 'PHP 8.3',
+              sslStatus,
+              ssl: sslStatus === 'Secure',
+              diskUsage: field(userConf, 'quota_used') || '0',
+              bandwidth: parseInt(field(userConf, 'bandwidth') || '0', 10),
+            } satisfies PanelWebsite;
+          }),
+        );
+        sites.push(...domainRows);
       }
 
       cacheService.set(cacheKey, sites, 30_000);

@@ -60,7 +60,7 @@ function mapSite(row: Record<string, unknown>): PanelWebsite {
     owner: row.owner ? String(row.owner) : undefined,
     diskUsage: row.disk_usage != null ? String(row.disk_usage) : '0',
     bandwidth: Number(row.bandwidth_usage) || 0,
-    ssl: row.ssl_status === 'Secure',
+    ssl: row.ssl_status === 'Secure' || String(row.ssl_status || '').toLowerCase().includes('activ'),
     sslStatus: row.ssl_status ? String(row.ssl_status) : undefined,
     phpVersion: row.php_version ? String(row.php_version) : undefined,
     ip: row.ip ? String(row.ip) : undefined,

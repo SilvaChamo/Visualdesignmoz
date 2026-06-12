@@ -29,7 +29,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
     subItems: [
       { id: 'provision-client', label: 'Criar conta completa' },
-      { id: 'domains', label: 'Sites' },
       { id: 'packages-list', label: 'Pacotes' },
     ],
   },
@@ -68,7 +67,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'WordPress',
     isNewMenu: true,
     subItems: [
-      { id: 'wp-sites', label: 'Sites' },
+      { id: 'domains', label: 'Sites' },
       { id: 'wp-plugins', label: 'Plugins' },
       { id: 'wordpress-install', label: 'Instalar WP' },
       { id: 'wp-backup', label: 'Backups' },
@@ -164,8 +163,8 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   revendedores: 'utilizadores',
   clientes: 'utilizadores',
   'provision-client': 'nov-hospedagem',
-  domains: 'nov-hospedagem',
   'packages-list': 'nov-hospedagem',
+  domains: 'nov-wordpress',
   'emails-new': 'nov-email',
   webmail: 'nov-email',
   'dns-central': 'nov-dominios',

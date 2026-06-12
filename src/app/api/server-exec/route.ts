@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
 import { getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
@@ -164,10 +166,64 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, data: stats });
       }
 
+      if (action === 'siteDiskUsage') {
+        const domain = String(params.domain || '').trim();
+        const owner = String(params.owner || 'admin').trim();
+        if (!domain) {
+          return NextResponse.json({ success: true, data: { usage: '—' } });
+        }
+        try {
+          const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+          const sitePath = `/home/${owner}/domains/${domain}`;
+          const output = await executeServerCommand(
+            `du -sh ${sitePath} 2>/dev/null | awk '{print $1}'`,
+          );
+          const usage = output.trim() || '—';
+          return NextResponse.json({ success: true, data: { usage } });
+        } catch {
+          return NextResponse.json({
+            success: true,
+            data: { usage: '—', host: getServerHost() },
+          });
+        }
+      }
+
       return NextResponse.json({
         success: true,
         data: { disabled: false, host: getServerHost() },
       });
+    }
+
+    if (action === 'checkSitesSsl') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const raw = params.domains;
+      const domains = Array.isArray(raw)
+        ? raw.map((d) => String(d).trim()).filter(Boolean)
+        : [String(params.domain || '').trim()].filter(Boolean);
+
+      const ssl: Record<string, boolean> = {};
+      if (domains.length) {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        await Promise.all(
+          domains.slice(0, 30).map(async (domain) => {
+            try {
+              const out = await executeServerCommand(
+                `curl -skI --max-time 8 "https://${domain}" 2>&1 | head -1`,
+              );
+              const line = out.toLowerCase();
+              ssl[domain] =
+                /http\/[12]/.test(line) &&
+                (line.includes('200') || line.includes('301') || line.includes('302'));
+            } catch {
+              ssl[domain] = false;
+            }
+          }),
+        );
+      }
+
+      return NextResponse.json({ success: true, data: { ssl } });
     }
 
     return NextResponse.json(
@@ -187,12 +243,33 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
-  const domain = searchParams.get('domain') || 'visualdesignmoz.com';
+  const domain = searchParams.get('domain')?.trim();
+  const width = searchParams.get('w') || '600';
 
-  if (action === 'getScreenshot') {
-    return NextResponse.redirect(
-      `https://image.thum.io/get/width/600/crop/400/noanimate/https://${domain}`,
-    );
+  if (action === 'getScreenshot' && domain) {
+    const src = `https://image.thum.io/get/width/${width}/crop/600/noanimate/https://${domain}`;
+    try {
+      const res = await fetch(src, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VisualDesignPanel/1.0)' },
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) {
+        return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
+      }
+      const contentType = res.headers.get('content-type') || 'image/png';
+      const buffer = await res.arrayBuffer();
+      if (buffer.byteLength < 2000) {
+        return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
+      }
+      return new NextResponse(buffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=300',
+        },
+      });
+    } catch {
+      return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
+    }
   }
 
   return NextResponse.json({ error: 'Action not allowed via GET' }, { status: 405 });

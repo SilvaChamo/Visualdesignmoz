@@ -5,8 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Palette, Calendar, Clock
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Calendar, Clock, MoreVertical
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminAccessUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
@@ -45,6 +51,7 @@ import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
+import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -69,6 +76,72 @@ const parseState = (state: any): string => {
   if (state === 0 || state === '0' || state === 'Active') return 'Active'
   if (state === 1 || state === '1' || state === 'Suspended') return 'Suspended'
   return state || 'Active'
+}
+
+function formatSiteDiskUsage(value?: string | number | null): string {
+  if (value == null || value === '' || value === '0') return '—'
+  const str = String(value).trim()
+  if (/[a-zA-Z]/.test(str)) return str
+  const num = parseFloat(str)
+  if (Number.isNaN(num)) return str
+  if (num >= 1024) return `${(num / 1024).toFixed(2)} GB`
+  return `${num.toFixed(1)} MB`
+}
+
+function formatSitePhpVersion(site: DirectAdminWebsite): string {
+  const v = site.phpVersion?.trim()
+  if (!v) return '—'
+  return v.toUpperCase().startsWith('PHP') ? v : `PHP ${v}`
+}
+
+function getSiteIpAddress(site: DirectAdminWebsite): string {
+  return site.ip?.trim() || getServerHost()
+}
+
+function SiteThumbnail({
+  domain,
+  width = 600,
+  className,
+}: {
+  domain: string
+  width?: number
+  className?: string
+}) {
+  const [src, setSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setSrc(null)
+
+    const load = async () => {
+      for (let attempt = 0; attempt < 2 && !cancelled; attempt++) {
+        const url = await loadScreenshot(domain, width)
+        if (cancelled) return
+        if (url) {
+          setSrc(url)
+          return
+        }
+        await new Promise((r) => setTimeout(r, 1200))
+      }
+    }
+
+    void load()
+    return () => { cancelled = true }
+  }, [domain, width])
+
+  if (!src) {
+    return <div className={`animate-pulse bg-gray-200 dark:bg-zinc-700 ${className || ''}`} />
+  }
+
+  return (
+    <img
+      src={src}
+      alt={`Pré-visualização de ${domain}`}
+      className={`block object-cover object-top ${className || ''}`}
+      loading="eager"
+      decoding="async"
+    />
+  )
 }
 
 function DirectAdminManualNotice({
@@ -638,31 +711,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [loading, setLoading] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 4
+  const itemsPerPage = 6
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState({ domain: '', email: '', username: 'admin', packageName: 'Default', php: 'PHP 8.2' })
   const [creating, setCreating] = useState(false)
   const [createMsg, setCreateMsg] = useState('')
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    if (expandedSite && !siteDiskInfo[expandedSite]) {
-      const fetchUsage = async () => {
-        try {
-          const res = await fetch('/api/server-exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'siteDiskUsage', params: { domain: expandedSite } })
-          })
-          const data = await res.json()
-          if (data.success) {
-            setSiteDiskInfo(prev => ({ ...prev, [expandedSite]: data.data.usage }))
-          }
-        } catch (e) { console.error(e) }
-      }
-      fetchUsage()
-    }
-  }, [expandedSite])
+  const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>({})
 
   // Filtrar sites activos — tem conteúdo real instalado
   const sitesArray = Array.isArray(sites) ? sites : []
@@ -676,6 +731,109 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedSites = filtered.slice(startIndex, startIndex + itemsPerPage)
 
+  useEffect(() => {
+    sitesArray.forEach((s) => {
+      void prefetchScreenshot(s.domain, 600)
+    })
+  }, [sites])
+
+  useEffect(() => {
+    const domains = sitesArray.map((s) => s.domain).filter(Boolean)
+    if (!domains.length) return
+    let cancelled = false
+    const loadSsl = async () => {
+      try {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'checkSitesSsl', params: { domains } }),
+        })
+        const data = await res.json()
+        if (!cancelled && data.success && data.data?.ssl) {
+          setLiveSsl(data.data.ssl as Record<string, boolean>)
+        }
+      } catch {
+        /* mantém estado do espelho */
+      }
+    }
+    void loadSsl()
+    return () => { cancelled = true }
+  }, [sites])
+
+  useEffect(() => {
+    if (!expandedSite || siteDiskInfo[expandedSite]) return
+    const site = sitesArray.find((s) => s.domain === expandedSite)
+    const fetchUsage = async () => {
+      try {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'siteDiskUsage',
+            params: { domain: expandedSite, owner: site?.owner || 'admin' },
+          }),
+        })
+        const data = await res.json()
+        if (data.success && data.data?.usage) {
+          setSiteDiskInfo((prev) => ({ ...prev, [expandedSite]: data.data.usage }))
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    void fetchUsage()
+  }, [expandedSite, sites, siteDiskInfo])
+
+  const isSslActive = (site: DirectAdminWebsite) => {
+    if (liveSsl[site.domain] !== undefined) return liveSsl[site.domain]
+    if (site.ssl === true) return true
+    const status = (site.sslStatus || '').toLowerCase()
+    return status === 'secure' || status.includes('activ') || status.includes('enabled')
+  }
+
+  const openManageWebsite = (domain: string) => {
+    // @ts-ignore
+    window.__selectedManageDomain = domain
+    setActiveSection('manage-website')
+  }
+
+  const daOk = (result: unknown) => {
+    if (!result || typeof result !== 'object') return true
+    return (result as { success?: boolean }).success !== false
+  }
+
+  const openFileManager = (domain: string) => {
+    setFileManagerDomain(domain)
+    setTimeout(() => setActiveSection('file-manager'), 50)
+  }
+
+  const openDnsEditor = (domain: string) => {
+    setSelectedDNSDomain(domain)
+    setTimeout(() => setActiveSection('domains-dns'), 50)
+  }
+
+  const openDatabases = (domain: string) => {
+    // @ts-ignore
+    window.__selectedDatabaseDomain = domain
+    setTimeout(() => setActiveSection('cp-databases'), 50)
+  }
+
+  const handleIssueSsl = async (domain: string) => {
+    setLoading(`${domain}-ssl`)
+    try {
+      const result = await directAdminAPI.issueSSL(domain)
+      if (daOk(result)) {
+        alert(`✅ SSL solicitado com sucesso para ${domain}!`)
+        await onRefresh()
+      } else {
+        alert('❌ Erro ao emitir SSL.')
+      }
+    } catch (e: unknown) {
+      alert('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
+    }
+    setLoading(null)
+  }
+
   // Expandir automaticamente o primeiro site ao carregar
   useEffect(() => {
     if (paginatedSites.length > 0 && !expandedSite) {
@@ -687,75 +845,111 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
     setLoading(domain)
     try {
-      const ok = await directAdminAPI.deleteWebsite(domain)
-      if (ok) {
+      const result = await directAdminAPI.deleteWebsite(domain)
+      if (daOk(result)) {
         await removeWebsiteFromSupabase(domain)
         await onRefresh()
       } else {
         alert('Erro ao apagar o site.')
       }
-    } catch (e: any) {
-      alert('Erro: ' + e.message)
+    } catch (e: unknown) {
+      alert('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
     }
     setLoading(null)
   }
 
   const handleSuspend = async (domain: string, state: string) => {
-    setLoading(domain)
+    setLoading(`${domain}-suspend`)
     try {
-      if (state === 'Active') {
-        await directAdminAPI.suspendWebsite(domain)
+      const result = state === 'Active'
+        ? await directAdminAPI.suspendWebsite(domain)
+        : await directAdminAPI.unsuspendWebsite(domain)
+      if (daOk(result)) {
+        await onRefresh()
       } else {
-        await directAdminAPI.unsuspendWebsite(domain)
+        alert('Erro ao alterar estado do site.')
       }
-      await onRefresh()
-    } catch (e: any) {
-      alert('Erro: ' + e.message)
+    } catch (e: unknown) {
+      alert('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
     }
     setLoading(null)
   }
 
   const handleSaveField = async (domain: string, field: string, value: string) => {
-    setLoading(domain)
-    let command = ''
+    setLoading(`${domain}-edit`)
+    try {
+      const site = sitesArray.find((s) => s.domain === domain)
 
-    if (field === 'php') {
-      command = `directadmin changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
-    } else if (field === 'package') {
-      command = `directadmin changePackage --domainName ${domain} --packageName "${value}" 2>&1`
-    } else {
-      // Para outros campos, usa modifyWebsite
-      await fetch('/api/server-exec', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
-      })
+      if (field === 'state') {
+        const result = value === 'Active'
+          ? await directAdminAPI.unsuspendWebsite(domain)
+          : await directAdminAPI.suspendWebsite(domain)
+        if (!daOk(result)) {
+          alert('Erro ao alterar estado.')
+          return
+        }
+      } else if (field === 'php') {
+        const result = await directAdminAPI.changePHPVersion({
+          domain,
+          phpVersion: value,
+          owner: site?.owner || 'admin',
+        })
+        if (!daOk(result)) {
+          alert('Erro ao alterar versão PHP.')
+          return
+        }
+      } else if (field === 'package') {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'execCommand',
+            params: { command: `directadmin changePackage --domainName ${domain} --packageName "${value}" 2>&1` },
+          }),
+        })
+        const data = await res.json()
+        const output = data.data?.output || ''
+        if (!data.success || output.toLowerCase().includes('error')) {
+          alert('Erro: ' + (output || data.error || 'desconhecido'))
+          return
+        }
+      } else {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } }),
+        })
+        const data = await res.json()
+        if (!data.success) {
+          alert('Erro: ' + (data.error || 'desconhecido'))
+          return
+        }
+      }
+
       setEditingField(null)
       await onRefresh()
-      setLoading(null)
-      return
+    } catch (e: unknown) {
+      alert('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
     }
-
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'execCommand', params: { command } })
-    })
-    const data = await res.json()
-    if (!data.success) {
-      alert('Erro: ' + (data.data?.output || data.error || 'desconhecido'))
-    }
-    setEditingField(null)
-    await onRefresh()
     setLoading(null)
   }
+
+  const SITE_DETAIL_CARD = 'bg-gray-50 rounded p-3 border border-gray-200 h-[4.75rem] min-h-[4.75rem] box-border overflow-hidden'
 
   const EditableField = ({ domain, field, value, label }: { domain: string, field: string, value: string, label: string }) => {
     const isEditing = editingField?.domain === domain && editingField?.field === field
     return (
-      <div className="bg-gray-50 rounded p-3 border border-gray-200">
+      <div className={SITE_DETAIL_CARD}>
         <p className="text-xs font-bold text-gray-400 uppercase mb-1">{label}</p>
         {isEditing ? (
           <div className="flex items-center gap-2">
-            {field === 'php' ? (
+            {field === 'state' ? (
+              <select value={editValue} onChange={e => setEditValue(e.target.value)}
+                className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1">
+                <option>Active</option>
+                <option>Suspended</option>
+              </select>
+            ) : field === 'php' ? (
               <select value={editValue} onChange={e => setEditValue(e.target.value)}
                 className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1">
                 <option>PHP 7.4</option><option>PHP 8.0</option>
@@ -840,7 +1034,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
         {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} overflow-hidden transition-all`}>
+          <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} transition-all`}>
 
             {/* Linha do site com botões explícitos */}
             <div className="flex items-center justify-between px-4 py-4">
@@ -854,11 +1048,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 >
                   <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedSite === s.domain ? 'rotate-90' : ''}`} />
                 </button>
-                <Globe className="w-4 h-4 text-blue-500" />
-                <a href={`https://${s.domain}`} target="_blank"
-                  className="text-blue-600 hover:underline font-bold text-sm">
+                <span className="font-bold text-sm text-gray-900 dark:text-zinc-100">
                   {s.domain}
-                </a>
+                </span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(s.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {parseState(s.state) || 'Active'}
                 </span>
@@ -866,53 +1058,76 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
                 {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black  rounded-full text-xs font-bold">Next.js</span>}
                 {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
-                {s.ssl ? (
-                  <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
+                {isSslActive(s) ? (
+                  <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     <Lock className="w-3.5 h-3.5" /> SSL Activo
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-red-500 text-xs font-bold">
+                  <span className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
                     <LockOpen className="w-3.5 h-3.5" /> Sem SSL
                   </span>
                 )}
               </div>
 
-              {/* Botões */}
-              <div className="flex items-center gap-3">
-                {/* Botão GrapesJS Builder */}
+              {/* Acções */}
+              <div className="flex items-center gap-1 shrink-0">
                 <button
-                  onClick={() => window.open(`/admin/websites/${s.domain}/builder/grapes`, '_blank')}
-                  className="bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
-                  <Palette className="w-3.5 h-3.5" /> GrapesJS
-                </button>
-                
-                {/* Botão Craft.js Builder */}
-                <button
-                  onClick={() => window.open(`/admin/websites/${s.domain}/builder/craft`, '_blank')}
-                  className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5" /> Craft.js
-                </button>
-
-                {/* Botão Gerir — abre seção de gestão integrada */}
-                <button
-                  onClick={() => {
-                    // @ts-ignore
-                    window.__selectedManageDomain = s.domain;
-                    setActiveSection('manage-website');
-                  }}
-                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-1.5 rounded text-xs font-bold transition-all">
-                  Gerir
-                </button>
-
-                {/* Botão Explorar Directório — sem fundo, texto link */}
-                <button
-                  onClick={() => {
-                    setFileManagerDomain(s.domain)
-                    setTimeout(() => setActiveSection('file-manager'), 50)
-                  }}
-                  className="text-gray-600 hover:text-red-600 text-xs font-medium transition-colors underline-offset-2 hover:underline">
+                  type="button"
+                  onClick={() => openFileManager(s.domain)}
+                  className="text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 text-xs font-medium transition-colors underline-offset-2 hover:underline">
                   Explorar directório
                 </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400"
+                      aria-label="Mais opções"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    side="left"
+                    align="center"
+                    sideOffset={6}
+                    className="z-[200] w-44 max-w-[11rem] p-1 text-xs !bg-white dark:!bg-zinc-900 border border-gray-200 dark:border-zinc-700 shadow-lg"
+                  >
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openManageWebsite(s.domain)}>
+                      Gerir
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-xs px-2 py-1.5"
+                      disabled={loading === `${s.domain}-ssl`}
+                      onClick={() => handleIssueSsl(s.domain)}
+                    >
+                      {loading === `${s.domain}-ssl` ? 'A emitir SSL...' : 'Issue SSL'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openDnsEditor(s.domain)}>
+                      Editar DNS
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => setActiveSection('backup-manager')}>
+                      Backup
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openDatabases(s.domain)}>
+                      Base de Dados
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-xs px-2 py-1.5"
+                      disabled={loading === `${s.domain}-suspend`}
+                      onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
+                    >
+                      {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-xs px-2 py-1.5 text-red-600 focus:text-red-600"
+                      disabled={loading === s.domain}
+                      onClick={() => handleDelete(s.domain)}
+                    >
+                      {loading === s.domain ? 'A apagar...' : 'Apagar'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -920,162 +1135,35 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             {expandedSite === s.domain && (
               <div className="border-t border-gray-100 p-4 space-y-4">
 
-                {/* Grid de cards de detalhes editáveis */}
-                <div className="grid grid-cols-4 gap-3">
-
-                  {/* COLUNA 1 — Screenshot */}
-                  <div className="bg-gray-100 rounded overflow-hidden border border-gray-200 h-36 relative">
-                    <img
-                      src={`/api/server-exec?action=getScreenshot&domain=${s.domain}`}
-                      alt={s.domain}
-                      className="w-full h-full object-cover rounded"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder-site.png'
-                      }}
+                {/* Miniatura + 6 cards uniformes */}
+                <div className="flex gap-3 items-stretch min-h-[10.5rem]">
+                  <div className="w-[38%] max-w-[300px] shrink-0 h-[10.5rem] overflow-hidden rounded border border-gray-200 dark:border-zinc-600">
+                    <SiteThumbnail
+                      domain={s.domain}
+                      width={600}
+                      className="h-full w-full"
                     />
                   </div>
 
-                  {/* COLUNA 2 — State + Disk Usage */}
-                  <div className="flex flex-col gap-3">
+                  <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-3">
                     <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
-                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
-                      <p className="text-sm font-bold text-gray-900">{siteDiskInfo[s.domain] || '...'}</p>
-                    </div>
-                  </div>
-
-                  {/* COLUNA 3 — IP + Package */}
-                  <div className="flex flex-col gap-3">
-                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                    <div className={SITE_DETAIL_CARD}>
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">IP Address</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).ip || getServerHost()}</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{getSiteIpAddress(s)}</p>
                     </div>
-                    <EditableField domain={s.domain} field="package" value={(s as any).package || 'Default'} label="Package" />
-                  </div>
-
-                  {/* COLUNA 4 — PHP + Owner */}
-                  <div className="flex flex-col gap-3">
-                    <EditableField domain={s.domain} field="php" value={(s as any).phpVersion || 'PHP 8.2'} label="PHP Version" />
-                    <div className="bg-gray-50 rounded p-3 border border-gray-200">
+                    <EditableField domain={s.domain} field="php" value={formatSitePhpVersion(s)} label="PHP Version" />
+                    <div className={SITE_DETAIL_CARD}>
+                      <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">
+                        {siteDiskInfo[s.domain] || formatSiteDiskUsage(s.diskUsage)}
+                      </p>
+                    </div>
+                    <EditableField domain={s.domain} field="package" value={s.package || 'Default'} label="Package" />
+                    <div className={SITE_DETAIL_CARD}>
                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">Owner</p>
-                      <p className="text-sm font-bold text-gray-900">{(s as any).owner || 'admin'}</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{s.owner || '—'}</p>
                     </div>
                   </div>
-
-                </div>
-
-                {/* Botões de acção numa linha */}
-                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                  <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-xs font-bold transition-colors">
-                    <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
-                  </a>
-                  <button
-                    onClick={async () => {
-                      setLoading(s.domain + '-ssl')
-                      try {
-                        // Primeiro verificar se o domínio resolve para o IP correcto
-                        const checkRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `dig +short ${s.domain} 2>&1` }
-                          })
-                        })
-                        const checkData = await checkRes.json()
-                        const resolvedIP = (checkData.data?.output || '').trim()
-                        const serverIP = getServerHost()
-
-                        if (!resolvedIP) {
-                          alert(`⚠️ DNS não propagou ainda!\n\nO domínio "${s.domain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
-
-                        if (!resolvedIP.includes(serverIP)) {
-                          alert(`⚠️ DNS ainda não propagou!\n\nO domínio "${s.domain}" está a resolver para:\n${resolvedIP}\n\nMas devia resolver para:\n${serverIP}\n\nAguarda a propagação DNS e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
-
-                        // DNS está correcto — emitir SSL
-                        const sslRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `directadmin issueSSL --domainName ${s.domain} 2>&1` }
-                          })
-                        })
-                        const sslData = await sslRes.json()
-                        const output = sslData.data?.output || ''
-
-                        if (output.toLowerCase().includes('success') || output.toLowerCase().includes('issued')) {
-                          alert(`✅ SSL emitido com sucesso para ${s.domain}!`)
-                          onRefresh()
-                        } else {
-                          alert(`⚠️ Erro ao emitir SSL:\n\n${output}`)
-                        }
-
-                      } catch (e: any) {
-                        alert('Erro: ' + e.message)
-                      }
-                      setLoading(null)
-                    }} disabled={loading === s.domain + '-ssl'}
-                    className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
-                    <Lock className="w-3.5 h-3.5" /> {loading === s.domain + '-ssl' ? 'A verificar...' : 'Issue SSL'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedDNSDomain(s.domain)
-                      setActiveSection('domains-dns')
-                    }}
-                    className="flex items-center gap-1.5 bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 hover:text-purple-700 px-4 py-2 rounded text-xs font-bold transition-colors">
-                    <Server className="w-3.5 h-3.5" /> Editar DNS
-                  </button>
-                  <button onClick={async () => {
-                    setLoading(s.domain + '-backup')
-                    try {
-                      await fetch('/api/server-exec', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'execCommand',
-                          params: { command: `mkdir -p /home/backup/full && directadmin createBackup --domainName ${s.domain} --backupPath /home/backup/full 2>&1` }
-                        })
-                      })
-                      alert(`✅ Backup de "${s.domain}" criado com sucesso!\n\nPode ver na página Backups.`)
-                    } catch (e: any) {
-                      alert('Erro ao criar backup: ' + e.message)
-                    }
-                    setLoading(null)
-                  }}
-                    disabled={loading === s.domain + '-backup'}
-                    className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
-                    {loading === s.domain + '-backup'
-                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      : <Archive className="w-3.5 h-3.5" />
-                    }
-                    {loading === s.domain + '-backup' ? 'A criar...' : 'Backup'}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      // @ts-ignore
-                      window.__selectedDatabaseDomain = s.domain;
-                      setActiveSection('cp-databases');
-                    }}
-                    className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-300 text-cyan-600 hover:bg-cyan-100 hover:text-cyan-700 px-4 py-2 rounded text-xs font-bold transition-colors"
-                  >
-                    <Database className="w-3.5 h-3.5" /> Base de Dados
-                  </button>
-
-                  <button onClick={() => handleSuspend(s.domain, parseState(s.state) || 'Active')}
-                    className="flex items-center gap-1.5 bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-100 hover:text-orange-700 px-4 py-2 rounded text-xs font-bold transition-colors">
-                    <Power className="w-3.5 h-3.5" /> {parseState(s.state) === 'Active' ? 'Suspender' : 'Activar'}
-                  </button>
-                  <button onClick={() => handleDelete(s.domain)} disabled={loading === s.domain}
-                    className="flex items-center gap-1.5 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
-                    <Trash2 className="w-3.5 h-3.5" /> {loading === s.domain ? 'A apagar...' : 'Apagar'}
-                  </button>
                 </div>
               </div>
             )}
@@ -1167,16 +1255,21 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <button onClick={async () => {
                 if (!createForm.domain || !createForm.email) return
                 setCreating(true); setCreateMsg('')
-                const res = await fetch('/api/server-exec', {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'createWebsite', params: createForm })
-                })
-                const data = await res.json()
-                if (data.success) {
-                  setCreateMsg('Website criado com sucesso!')
-                  setTimeout(() => { setShowCreateModal(false); setCreateMsg(''); onRefresh() }, 1500)
-                } else {
-                  setCreateMsg('Erro: ' + (data.data?.output || data.error || 'desconhecido'))
+                try {
+                  const result = await directAdminAPI.createWebsite({
+                    domain: createForm.domain,
+                    email: createForm.email,
+                    packageName: createForm.packageName,
+                    phpVersion: createForm.php,
+                  })
+                  if (daOk(result)) {
+                    setCreateMsg('Website criado com sucesso!')
+                    setTimeout(() => { setShowCreateModal(false); setCreateMsg(''); onRefresh() }, 1500)
+                  } else {
+                    setCreateMsg('Erro: ' + ((result as { output?: string; error?: string })?.output || (result as { error?: string })?.error || 'desconhecido'))
+                  }
+                } catch (e: unknown) {
+                  setCreateMsg('Erro: ' + (e instanceof Error ? e.message : 'desconhecido'))
                 }
                 setCreating(false)
               }} disabled={creating || !createForm.domain || !createForm.email}
@@ -2342,7 +2435,7 @@ function AdminPageContent() {
       case 'cp-delete-website':
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDNSDomain || primaryDomain} />
+        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':

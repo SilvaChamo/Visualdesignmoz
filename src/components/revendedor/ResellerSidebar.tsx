@@ -2,9 +2,28 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings, Plug,
+  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
 } from 'lucide-react';
+
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
+
+function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
+  return (
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center ${className || ''}`}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <Globe size={size} strokeWidth={1.75} className="absolute inset-0" />
+      <span
+        className="relative font-black leading-none text-current"
+        style={{ fontSize: Math.max(8, Math.round(size * 0.42)) }}
+      >
+        W
+      </span>
+    </span>
+  );
+}
 import {
   RESELLER_ADMIN_MENU_DEFS,
   adminMenuParentForSection,
@@ -35,7 +54,7 @@ const MENU_ICONS: Record<string, React.ElementType> = {
   'nov-dominios': Globe,
   'nov-notificacoes': Bell,
   newsletter: Layout,
-  'nov-wordpress': Plug,
+  'nov-wordpress': WordPressMenuIcon,
   'nov-sistema': Settings,
   'menu-anterior': Archive,
 };
@@ -183,10 +202,21 @@ export function ResellerSidebar({
                     }`}
                     title={isCollapsed ? item.label : ''}
                   >
-                    <Icon
-                      size={22}
-                      className={`${isActive || expandedMenu === item.id ? (isDashboard ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`}
-                    />
+                    {item.id === 'nov-wordpress' ? (
+                      <WordPressMenuIcon
+                        size={22}
+                        className={
+                          isActive || expandedMenu === item.id
+                            ? (isDashboard ? 'text-red-600' : 'text-gray-900')
+                            : 'text-gray-500 group-hover:text-red-600'
+                        }
+                      />
+                    ) : (
+                      <Icon
+                        size={22}
+                        className={`${isActive || expandedMenu === item.id ? (isDashboard ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`}
+                      />
+                    )}
                     {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
                     {!isCollapsed && item.subItems && (
                       <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
