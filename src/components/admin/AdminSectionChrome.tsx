@@ -34,7 +34,13 @@ const AdminSectionChromeContext = createContext<ChromeContextValue>({
 
 export function AdminSectionChromeProvider({ children }: { children: ReactNode }) {
   const [chrome, setChromeState] = useState<SectionChromeState>(null);
-  const setChrome = useCallback((next: SectionChromeState) => setChromeState(next), []);
+  const setChrome = useCallback((next: SectionChromeState) => {
+    setChromeState((prev) => {
+      if (prev === next) return prev;
+      if (prev === null && next === null) return prev;
+      return next;
+    });
+  }, []);
   const value = useMemo(() => ({ chrome, setChrome }), [chrome, setChrome]);
   return (
     <AdminSectionChromeContext.Provider value={value}>

@@ -253,7 +253,7 @@ export function WordPressHubSection({
       if (cached) {
         setPlugins(cached.plugins);
         setWpVersion(cached.wpVersion);
-        if (!options?.fresh) return;
+        if (!options?.fresh && cached.plugins.length > 0) return;
       }
 
       setLoadingPlugins(true);
@@ -262,12 +262,15 @@ export function WordPressHubSection({
         const res = await fetch(`${apiBase}?domain=${encodeURIComponent(domain)}`, {
           credentials: 'include',
         });
-        const data = await res.json();
-        if (!data.success) {
-          if (!cached) {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          const errText =
+            data.error ||
+            (res.status === 401 ? 'Não autorizado — volte a iniciar sessão.' : 'Não foi possível carregar plugins.');
+          if (!cached?.plugins.length) {
             setPlugins([]);
             setWpVersion(null);
-            setMsg({ ok: false, text: data.error || 'Não foi possível carregar plugins.' });
+            setMsg({ ok: false, text: errText });
           }
           return;
         }

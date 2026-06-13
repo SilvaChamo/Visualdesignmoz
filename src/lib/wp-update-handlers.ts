@@ -34,8 +34,17 @@ export async function handleWpUpdateGet(domain: string) {
     };
   }
 
-  const plugins = await listWpPlugins(domain);
-  return { success: true as const, install, plugins };
+  try {
+    const plugins = await listWpPlugins(domain);
+    return { success: true as const, install, plugins };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Erro ao listar plugins';
+    return {
+      success: false as const,
+      error: message,
+      status: 500,
+    };
+  }
 }
 
 export async function handleWpUpdatePost(

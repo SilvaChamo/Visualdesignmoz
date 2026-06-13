@@ -226,6 +226,74 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { ssl } });
     }
 
+    if (action === 'resolveSitePath') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const targetDomain = String(params.domain || '').trim().toLowerCase();
+      if (!targetDomain) {
+        return NextResponse.json({ success: false, error: 'domain é obrigatório' }, { status: 400 });
+      }
+
+      const { resolveDomainSitePath } = await import('@/lib/wp-cli-server');
+      const site = await resolveDomainSitePath(targetDomain);
+      if (!site) {
+        return NextResponse.json({ success: false, error: 'Caminho do site não encontrado' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: { path: site.path, owner: site.user },
+      });
+    }
+
+    if (action === 'listDirectory') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const targetPath = String(params.path || '').trim();
+      if (!targetPath.startsWith('/home/') || targetPath.includes('..')) {
+        return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+      }
+
+      const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+      const script = [
+        'import os, json, stat, datetime as dt',
+        `p = ${JSON.stringify(targetPath)}`,
+        'if not os.path.isdir(p):',
+        '    print(json.dumps({"error": "not_found"}))',
+        'else:',
+        '    rows = []',
+        '    for name in sorted(os.listdir(p), key=str.lower):',
+        "        if name in ('.', '..'): continue",
+        '        fp = os.path.join(p, name)',
+        '        try:',
+        '            st = os.lstat(fp)',
+        '            rows.append({',
+        '                "name": name,',
+        '                "isDir": stat.S_ISDIR(st.st_mode),',
+        '                "isLink": stat.S_ISLNK(st.st_mode),',
+        '                "size": st.st_size,',
+        '                "permissions": oct(st.st_mode)[-3:],',
+        '                "date": dt.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M"),',
+        '            })',
+        '        except OSError:',
+        '            pass',
+        '    print(json.dumps(rows))',
+      ].join('\n');
+
+      const output = await executeServerCommand(`python3 -c ${JSON.stringify(script)}`);
+      try {
+        const parsed = JSON.parse(output.trim());
+        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+          return NextResponse.json({ success: false, error: 'Pasta não encontrada' }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, data: { files: Array.isArray(parsed) ? parsed : [] } });
+      } catch {
+        return NextResponse.json({ success: false, error: output.slice(0, 300) || 'Erro ao listar pasta' }, { status: 500 });
+      }
+    }
+
     if (action === 'execCommand') {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
@@ -274,29 +342,35 @@ export async function GET(req: NextRequest) {
   const width = searchParams.get('w') || '600';
 
   if (action === 'getScreenshot' && domain) {
-    const src = `https://image.thum.io/get/width/${width}/crop/600/noanimate/https://${domain}`;
-    try {
-      const res = await fetch(src, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VisualDesignPanel/1.0)' },
-        signal: AbortSignal.timeout(30000),
-      });
-      if (!res.ok) {
-        return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
+    const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, '');
+    const proto = searchParams.get('proto') === 'http' ? 'http' : 'https';
+    const sources = [
+      `https://image.thum.io/get/width/${width}/crop/600/noanimate/${proto}://${safeDomain}`,
+      `https://image.thum.io/get/width/${width}/noanimate/${proto}://${safeDomain}`,
+    ];
+
+    for (const src of sources) {
+      try {
+        const res = await fetch(src, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VisualDesignPanel/1.0)' },
+          signal: AbortSignal.timeout(35000),
+        });
+        if (!res.ok) continue;
+        const contentType = res.headers.get('content-type') || 'image/png';
+        const buffer = await res.arrayBuffer();
+        if (buffer.byteLength < 2000) continue;
+        return new NextResponse(buffer, {
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=300',
+          },
+        });
+      } catch {
+        /* tenta próximo URL */
       }
-      const contentType = res.headers.get('content-type') || 'image/png';
-      const buffer = await res.arrayBuffer();
-      if (buffer.byteLength < 2000) {
-        return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
-      }
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=300',
-        },
-      });
-    } catch {
-      return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
     }
+
+    return NextResponse.json({ error: 'Screenshot indisponível' }, { status: 502 });
   }
 
   return NextResponse.json({ error: 'Action not allowed via GET' }, { status: 405 });

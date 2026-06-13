@@ -466,10 +466,12 @@ export function DNSZoneEditorSection({
   sites,
   initialDomain,
   variant = 'default',
+  isActive = true,
 }: {
   sites: DirectAdminWebsite[]
   initialDomain?: string
   variant?: 'default' | 'central'
+  isActive?: boolean
 }) {
   const [selectedDomain, setSelectedDomain] = useState('')
   const [records, setRecords] = useState<DNSRecordRow[]>([])
@@ -579,7 +581,7 @@ export function DNSZoneEditorSection({
   }
 
   useEffect(() => {
-    if (!isCentral) return
+    if (!isCentral || !isActive) return
     setChrome({
       description: selectedDomain
         ? `Zone records for "${selectedDomain}"`
@@ -597,7 +599,7 @@ export function DNSZoneEditorSection({
       ),
     })
     return () => setChrome(null)
-  }, [isCentral, selectedDomain, syncing, refreshing, setChrome])
+  }, [isCentral, isActive, selectedDomain, syncing, refreshing, setChrome])
 
   const handleFilterChange = (next: DNSFilterType) => {
     setFilter(next)
@@ -1556,7 +1558,15 @@ export function FTPSection({ sites }: { sites: DirectAdminWebsite[] }) {
 // ============================================================
 // EMAIL MANAGEMENT SECTION (Extended)
 // ============================================================
-export function EmailManagementSection({ sites, preSelectedDomain }: { sites: DirectAdminWebsite[], preSelectedDomain?: string }) {
+export function EmailManagementSection({
+  sites,
+  preSelectedDomain,
+  isActive = true,
+}: {
+  sites: DirectAdminWebsite[]
+  preSelectedDomain?: string
+  isActive?: boolean
+}) {
   const [selectedDomain, setSelectedDomain] = useState(preSelectedDomain || '__ALL__')
   const [emails, setEmails] = useState<DirectAdminEmail[]>([])
   const [loading, setLoading] = useState(false)
@@ -1957,6 +1967,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
 
   const { setChrome } = useAdminSectionChrome()
   useEffect(() => {
+    if (!isActive) return
     setChrome({
       toolbar: (
         <div className="flex items-center gap-2 text-sm text-gray-600 rounded border border-gray-200 bg-white px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
@@ -1967,7 +1978,7 @@ export function EmailManagementSection({ sites, preSelectedDomain }: { sites: Di
       ),
     })
     return () => setChrome(null)
-  }, [emails.length, setChrome])
+  }, [isActive, emails.length, setChrome])
 
   return (
     <div className="text-gray-900">
@@ -6291,7 +6302,15 @@ export function GitDeploySection() {
   )
 }
 
-export function PackagesSection({ packages, onRefresh }: { packages: any[], onRefresh: () => void }) {
+export function PackagesSection({
+  packages,
+  onRefresh,
+  isActive = true,
+}: {
+  packages: any[]
+  onRefresh: () => void
+  isActive?: boolean
+}) {
   const [livePackages, setLivePackages] = useState<any[]>(packages)
   const [loadingLive, setLoadingLive] = useState(false)
   const [form, setForm] = useState({ 
@@ -6353,6 +6372,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   const displayPackages = livePackages.length > 0 ? livePackages : packages
 
   useEffect(() => {
+    if (!isActive) return
     setChrome({
       toolbar: (
         <button
@@ -6366,7 +6386,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       ),
     })
     return () => setChrome(null)
-  }, [showCreateForm, setChrome])
+  }, [isActive, showCreateForm, setChrome])
 
   const handleCreate = async () => {
     if (!form.packageName) return
@@ -6629,26 +6649,48 @@ export function FileManagerSection({ domain, sites }: {
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
+  const [siteRoot, setSiteRoot] = useState('')
   const [error, setError] = useState('')
 
   const getOwner = (targetDomain: string) =>
     sites.find(s => s.domain === targetDomain)?.owner || 'admin'
 
-  const getSiteRoot = (targetDomain: string) =>
-    `/home/${getOwner(targetDomain)}/domains/${targetDomain}/public_html`
+  const resolveRoot = async (targetDomain: string) => {
+    if (!targetDomain) return ''
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resolveSitePath', params: { domain: targetDomain } }),
+      })
+      const data = await res.json()
+      if (data.success && data.data?.path) {
+        return String(data.data.path)
+      }
+    } catch {
+      /* fallback abaixo */
+    }
+    return `/home/${getOwner(targetDomain)}/domains/${targetDomain}/public_html`
+  }
 
-  // Sempre que o domain prop muda, actualiza domain e path
   useEffect(() => {
     const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
-    if (d) {
-      setSelectedDomain(d)
-      setPath(getSiteRoot(d))
-    }
-  }, [domain])
+    if (!d) return
 
-  // Carregar ficheiros sempre que path muda
+    let cancelled = false
+    setSelectedDomain(d)
+    void resolveRoot(d).then((root) => {
+      if (cancelled || !root) return
+      setSiteRoot(root)
+      setPath(root)
+    })
+
+    return () => { cancelled = true }
+  }, [domain, sites])
+
   useEffect(() => {
-    if (path) loadFiles(path)
+    if (path) void loadFiles(path)
   }, [path])
 
   const loadFiles = async (currentPath: string) => {
@@ -6657,36 +6699,22 @@ export function FileManagerSection({ domain, sites }: {
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'execCommand',
-          params: { command: `ls -la "${currentPath}" 2>&1` }
-        })
+          action: 'listDirectory',
+          params: { path: currentPath },
+        }),
       })
       const data = await res.json()
-      const output = data.data?.output || ''
-      if (!res.ok || !data.success || output.includes('No such file')) {
-        setError(data.error || output || 'Não foi possível listar ficheiros.')
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Não foi possível listar ficheiros.')
         setFiles([])
         return
       }
-      const lines = output.split('\n').filter((l: string) =>
-        l && !l.startsWith('total') && l.trim()
-      )
-      const parsed = lines.map((line: string) => {
-        const parts = line.trim().split(/\s+/)
-        return {
-          permissions: parts[0],
-          size: parts[4],
-          date: `${parts[5]} ${parts[6]} ${parts[7]}`,
-          name: parts.slice(8).join(' '),
-          isDir: parts[0]?.startsWith('d'),
-          isLink: parts[0]?.startsWith('l'),
-        }
-      }).filter((f: any) => f.name && f.name !== '.' && f.name !== '..')
-      setFiles(parsed)
-    } catch (e: any) {
-      setError(e.message || 'Erro ao carregar ficheiros.')
+      setFiles(Array.isArray(data.data?.files) ? data.data.files : [])
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
       setFiles([])
     } finally {
       setLoading(false)
@@ -6694,15 +6722,16 @@ export function FileManagerSection({ domain, sites }: {
   }
 
   const navigateTo = (folder: string) => {
-    const siteRoot = getSiteRoot(selectedDomain)
+    const root = siteRoot || `/home/${getOwner(selectedDomain)}/domains/${selectedDomain}/public_html`
     if (folder === '..') {
-      if (path === siteRoot) return
-      const parts = path.split('/')
+      if (path === root) return
+      const parts = path.split('/').filter(Boolean)
       parts.pop()
-      const nextPath = parts.join('/') || siteRoot
-      setPath(nextPath.startsWith(siteRoot) ? nextPath : siteRoot)
+      const nextPath = `/${parts.join('/')}`
+      setPath(nextPath.startsWith(root) ? nextPath : root)
     } else {
-      setPath(`${path}/${folder}`)
+      const next = `${path.replace(/\/$/, '')}/${folder}`
+      setPath(next)
     }
   }
 
@@ -6721,8 +6750,15 @@ export function FileManagerSection({ domain, sites }: {
         {/* Selector de domínio */}
         <div className="flex items-center gap-2">
           <select value={selectedDomain}
-            onChange={e => { setSelectedDomain(e.target.value); setPath(getSiteRoot(e.target.value)) }}
-            className="px-3 py-2 border border-gray-300 rounded text-sm">
+            onChange={e => {
+              const next = e.target.value
+              setSelectedDomain(next)
+              void resolveRoot(next).then((root) => {
+                setSiteRoot(root)
+                setPath(root)
+              })
+            }}
+            className="px-3 py-2 border border-gray-300 rounded text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
           {selectedDomain && (
@@ -6740,8 +6776,7 @@ export function FileManagerSection({ domain, sites }: {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 text-sm bg-white border border-gray-200 rounded px-4 py-2">
-        <button onClick={() => setPath(getSiteRoot(selectedDomain))}
-          className="text-blue-500 hover:text-blue-700 font-medium">home</button>
+        <button onClick={() => setPath(siteRoot || path)} className="text-blue-500 hover:text-red-600 font-medium dark:text-red-400">home</button>
         {pathParts.map((part, i) => (
           <span key={i} className="flex items-center gap-1">
             <span className="text-gray-400">/</span>
@@ -6824,7 +6859,15 @@ export function FileManagerSection({ domain, sites }: {
 // ============================================================
 // BACKUP MANAGER SECTION
 // ============================================================
-export function BackupManagerSection({ sites, initialDomain }: { sites: DirectAdminWebsite[], initialDomain?: string }) {
+export function BackupManagerSection({
+  sites,
+  initialDomain,
+  isActive = true,
+}: {
+  sites: DirectAdminWebsite[]
+  initialDomain?: string
+  isActive?: boolean
+}) {
   const [activeTab, setActiveTab] = useState<'full' | 'files' | 'databases' | 'emails' | 'ftp'>('full')
   const [selectedDomain, setSelectedDomain] = useState('')
   const [backups, setBackups] = useState<any[]>([])
@@ -6892,12 +6935,13 @@ export function BackupManagerSection({ sites, initialDomain }: { sites: DirectAd
   }, [selectedDomain]) // Disparar quando selectedDomain muda
 
   useEffect(() => {
+    if (!isActive) return
     if (initialDomain) {
       setSelectedDomain(initialDomain)
-    } else if (sites.length > 0 && !selectedDomain) {
-      setSelectedDomain(sites[0].domain)
+    } else if (sites.length > 0) {
+      setSelectedDomain((prev) => prev || sites[0].domain)
     }
-  }, [sites, initialDomain])
+  }, [isActive, initialDomain, sites.length, sites[0]?.domain])
 
   const { setChrome } = useAdminSectionChrome()
 
@@ -6926,7 +6970,10 @@ export function BackupManagerSection({ sites, initialDomain }: { sites: DirectAd
     setCreating(false)
   }
 
+  const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
+
   useEffect(() => {
+    if (!isActive) return
     setChrome({
       toolbar: (
         <div className="flex flex-wrap items-center gap-2">
@@ -6964,7 +7011,7 @@ export function BackupManagerSection({ sites, initialDomain }: { sites: DirectAd
       ),
     })
     return () => setChrome(null)
-  }, [selectedDomain, sites, loading, creating, setChrome])
+  }, [isActive, selectedDomain, siteDomainKey, loading, creating, setChrome])
 
   const handleRestore = async (filename: string, path: string) => {
     if (!confirm(`Restaurar "${filename}"?\n\nISTO VAI SUBSTITUIR OS DADOS ACTUAIS!`)) return
