@@ -8,6 +8,7 @@ import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 export function Navbar() {
   const { t } = useI18n()
@@ -108,10 +109,6 @@ export function Navbar() {
       if (launchpadRef.current && !launchpadRef.current.contains(event.target as Node)) {
         setShowLaunchpad(false)
       }
-      const target = event.target as HTMLElement;
-      if (!target.closest('.products-menu-container')) {
-        setShowAllProducts(false);
-      }
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -127,27 +124,37 @@ export function Navbar() {
     <>
       {/* Top Menu Bar - Esconde ao scrollar para baixo, mostra ao scrollar para cima */}
       <div
-        className={`fixed left-0 right-0 z-[60] bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
+        className={`fixed left-0 right-0 z-[60] bg-black dark:bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg dark:shadow-none dark:border-b dark:border-white/10 ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
           }`}
       >
         <div className="max-w-7xl mx-auto w-full px-4 flex justify-between items-center h-full">
           {/* Coluna Esquerda: Menu inspirado na imagem */}
           <div className="flex items-center gap-5">
             {/* Todos os produtos */}
-            <div className="relative products-menu-container">
+            <div
+              className="relative products-menu-container"
+              onMouseEnter={() => setShowAllProducts(true)}
+              onMouseLeave={() => setShowAllProducts(false)}
+            >
               <button 
-                onClick={() => setShowAllProducts(!showAllProducts)}
+                type="button"
                 className="text-slate-300 text-xs font-bold hover:text-red-500 transition-colors flex items-center gap-1"
               >
-                Todos os produtos
+                <span className="sm:hidden">Produtos</span>
+                <span className="hidden sm:inline">Todos os produtos</span>
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
               <div className={cn(
-                "absolute top-full left-0 bg-white text-slate-800 text-xs py-2 rounded-lg shadow-lg w-48 z-[70] border border-slate-200 mt-1 transition-all duration-200",
-                showAllProducts ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-2'
+                "absolute top-full left-0 pt-1 w-48 z-[70]",
+                showAllProducts ? 'visible' : 'invisible'
               )}>
-                <Link href="/servicos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors" onClick={() => setShowAllProducts(false)}>Todos os Serviços</Link>
-                <Link href="/precos" className="block px-4 py-2 hover:bg-slate-50 hover:text-red-600 transition-colors" onClick={() => setShowAllProducts(false)}>Preços</Link>
+                <div className={cn(
+                  "bg-white text-xs py-2 rounded-lg shadow-lg border border-slate-200 transition-all duration-200 dark:bg-black dark:border-white/25",
+                  showAllProducts ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+                )}>
+                <Link href="/servicos" className="block px-4 py-2 text-slate-800 hover:bg-red-600 hover:text-white dark:text-white transition-colors" onClick={() => setShowAllProducts(false)}>Todos os Serviços</Link>
+                <Link href="/precos" className="block px-4 py-2 text-slate-800 hover:bg-red-600 hover:text-white dark:text-white transition-colors" onClick={() => setShowAllProducts(false)}>Preços</Link>
+                </div>
               </div>
             </div>
 
@@ -181,18 +188,18 @@ export function Navbar() {
                   />
 
                   {/* Modal Centralizado (Layout Claro) */}
-                  <div ref={launchpadRef} className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                  <div ref={launchpadRef} className="relative w-full max-w-2xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
 
                     {/* Barra de Pesquisa */}
-                    <div className="p-6 border-b border-slate-300 bg-slate-50">
-                      <div className="flex items-center gap-3 px-3 py-2 bg-white rounded-xl border border-slate-200">
+                    <div className="p-6 border-b border-slate-300 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900">
+                      <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-black rounded-xl border border-slate-200 dark:border-zinc-700">
                         <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input
                           type="text"
                           placeholder="Encontra qualquer coisa no VisualDesign"
-                          className="bg-transparent border-none outline-none text-slate-800 text-sm flex-1 placeholder-slate-400"
+                          className="bg-transparent border-none outline-none text-slate-800 dark:text-zinc-100 text-sm flex-1 placeholder-slate-400 dark:placeholder-zinc-500"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           autoFocus
@@ -210,14 +217,14 @@ export function Navbar() {
                               <button 
                                 key={index}
                                 onClick={() => handleItemClick(item)}
-                                className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm text-left"
+                                className="flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-zinc-900 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 hover:shadow-sm text-left"
                               >
                                 <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
                                   <item.icon className={`w-6 h-6 ${item.text}`} />
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors">{item.title}</span>
-                                  <span className="text-slate-500 text-sm mt-0.5">{item.desc}</span>
+                                  <span className="text-base font-bold text-slate-800 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-white transition-colors">{item.title}</span>
+                                  <span className="text-slate-500 dark:text-zinc-400 text-sm mt-0.5">{item.desc}</span>
                                 </div>
                               </button>
                             ))}
@@ -229,13 +236,13 @@ export function Navbar() {
                             <button
                               key={index}
                               onClick={() => handleItemClick(item)}
-                              className="flex items-center gap-4 hover:bg-slate-50 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 hover:shadow-sm text-left"
+                              className="flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-zinc-900 p-4 rounded-xl transition-all duration-200 group border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 hover:shadow-sm text-left"
                             >
                               <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
                                 <item.icon className={`w-6 h-6 ${item.text}`} />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-base font-bold text-slate-800 group-hover:text-red-600 transition-colors flex items-center gap-1.5">
+                                <span className="text-base font-bold text-slate-800 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-white transition-colors flex items-center gap-1.5">
                                   {item.title}
                                   {item.requiresLogin && <Lock className="w-3 h-3 text-slate-400" />}
                                 </span>
@@ -265,11 +272,6 @@ export function Navbar() {
 
           {/* Coluna Direita: Ícones limpos com tooltips instantâneos */}
           <div className="flex items-center gap-5">
-            <Link href="/client/domains" className="text-slate-300 hover:text-red-500 transition-colors relative group">
-              <Globe className="w-4 h-4" />
-              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Meus Domínios</span>
-            </Link>
-
             <Link href="/client/notificacoes" className="text-slate-300 hover:text-red-500 transition-colors relative group">
               <Bell className="w-4 h-4" />
               {/* Exemplo de badge de notificação */}
@@ -294,6 +296,11 @@ export function Navbar() {
               <User className="w-4 h-4" />
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>
             </Link>
+
+            <ThemeToggle
+              size="sm"
+              className="hidden lg:inline-flex !h-auto !w-auto !border-0 !bg-transparent !p-0 !text-white hover:!text-red-500 hover:!bg-transparent shadow-none dark:!text-zinc-300 dark:hover:!text-red-400 dark:!bg-transparent"
+            />
           </div>
         </div>
       </div>

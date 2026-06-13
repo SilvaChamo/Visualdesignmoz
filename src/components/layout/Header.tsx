@@ -2,44 +2,46 @@
 // Force re-render to fix hydration mismatch after logo size change
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Menu, X, ChevronDown, User, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 const navigation = [
-  { name: 'Domínio', href: '/servicos/dominios', isMega: true, items: [
-      { name: 'Registo de Domínios', href: '/servicos/dominios', desc: 'Registe seu domínio com segurança e rapidez no mercado.', icon: 'globe' },
-      { name: 'Preços de Domínios', href: '/precos/dominios', desc: 'Consulte a tabela completa de preços de todas as extensões.', icon: 'tag' },
-      { name: 'Transferência', href: '/servicos/transferencia', desc: 'Traga seu domínio para nós e aproveite nossas vantagens.', icon: 'refresh' },
-      { name: 'Renovação', href: '/auth/login?from=/admin/dominios', desc: 'Renove seu domínio existente. É necessário fazer login.', icon: 'lock' },
-      { name: 'Domínios Premium', href: '/servicos/premium', desc: 'Adquira nomes exclusivos para destacar seu negócio online.', icon: 'award' },
-      { name: 'Privacidade WHOIS', href: '/servicos/privacidade', desc: 'Proteja seus dados pessoais contra spam e roubo de identidade.', icon: 'shield' }
+  { id: 'domain', nameKey: 'header.nav.domain', href: '/servicos/dominios', isMega: true, items: [
+      { nameKey: 'header.nav.domain.register', descKey: 'header.nav.domain.register.desc', href: '/servicos/dominios', icon: 'globe' },
+      { nameKey: 'header.nav.domain.prices', descKey: 'header.nav.domain.prices.desc', href: '/precos/dominios', icon: 'tag' },
+      { nameKey: 'header.nav.domain.transfer', descKey: 'header.nav.domain.transfer.desc', href: '/servicos/transferencia', icon: 'refresh' },
+      { nameKey: 'header.nav.domain.renewal', descKey: 'header.nav.domain.renewal.desc', href: '/auth/login?from=/admin/dominios', icon: 'lock' },
+      { nameKey: 'header.nav.domain.premium', descKey: 'header.nav.domain.premium.desc', href: '/servicos/premium', icon: 'award' },
+      { nameKey: 'header.nav.domain.privacy', descKey: 'header.nav.domain.privacy.desc', href: '/servicos/privacidade', icon: 'shield' }
     ]
   },
-  { name: 'Hospedagem', href: '/servicos/hospedagem', dropdown: [
-      { name: 'Hospedagem Web', href: '/servicos/hospedagem', icon: 'monitor' },
-      { name: 'Preços de Hospedagem', href: '/precos/hospedagem', icon: 'tag' }
+  { id: 'hosting', nameKey: 'header.nav.hosting', href: '/servicos/hospedagem', dropdown: [
+      { nameKey: 'header.nav.hosting.web', href: '/servicos/hospedagem', icon: 'monitor' },
+      { nameKey: 'header.nav.hosting.prices', href: '/precos/hospedagem', icon: 'tag' }
     ]
   },
-  { name: 'Servidor', href: '/servicos/servidor', dropdown: [
-      { name: 'VPS / Cloud', href: '/servicos/servidor', icon: 'monitor' }
+  { id: 'server', nameKey: 'header.nav.server', href: '/servicos/servidor', dropdown: [
+      { nameKey: 'header.nav.server.vps', href: '/servicos/servidor', icon: 'monitor' }
     ]
   },
-  { name: 'Serviços', href: '/servicos', isMega: true, items: [
-      { name: 'Web Design', href: '/servicos/webdesign', desc: 'Criação de sites profissionais e responsivos para o seu negócio.', icon: 'monitor' },
-      { name: 'Design Gráfico', href: '/servicos/design-grafico', desc: 'Identidade visual, logótipos e materiais de comunicação.', icon: 'palette' },
-      { name: 'Marketing Digital', href: '/servicos/marketing-digital', desc: 'Gestão de redes sociais e tráfego pago para crescer online.', icon: 'trending-up' },
-      { name: 'Feiras e Eventos', href: '/servicos/feiras-eventos', desc: 'Organização completa, stands e logística para eventos.', icon: 'calendar' },
-      { name: 'Katring', href: '/servicos/katring', desc: 'Serviço de catering completo para eventos corporativos e sociais.', icon: 'coffee' },
-      { name: 'Aluguer de Material', href: '/servicos/aluguer', desc: 'Equipamentos de som, luz, tendas e mobiliário para eventos.', icon: 'truck' }
+  { id: 'services', nameKey: 'header.nav.services', href: '/servicos', isMega: true, items: [
+      { nameKey: 'header.nav.services.webdesign', descKey: 'header.nav.services.webdesign.desc', href: '/servicos/webdesign', icon: 'monitor' },
+      { nameKey: 'header.nav.services.graphic', descKey: 'header.nav.services.graphic.desc', href: '/servicos/design-grafico', icon: 'palette' },
+      { nameKey: 'header.nav.services.marketing', descKey: 'header.nav.services.marketing.desc', href: '/servicos/marketing-digital', icon: 'trending-up' },
+      { nameKey: 'header.nav.services.events', descKey: 'header.nav.services.events.desc', href: '/servicos/feiras-eventos', icon: 'calendar' },
+      { nameKey: 'header.nav.services.catering', descKey: 'header.nav.services.catering.desc', href: '/servicos/katring', icon: 'coffee' },
+      { nameKey: 'header.nav.services.rental', descKey: 'header.nav.services.rental.desc', href: '/servicos/aluguer', icon: 'truck' }
     ]
   },
-  { name: 'Apoio, suporte', href: '/servicos/suporte', dropdown: [
-      { name: 'Suporte Técnico', href: '/servicos/suporte', icon: 'help-circle' },
-      { name: 'FAQ', href: '/faq', icon: 'help-circle' }
+  { id: 'support', nameKey: 'header.nav.support', href: '/servicos/suporte', dropdown: [
+      { nameKey: 'header.nav.support.technical', href: '/servicos/suporte', icon: 'help-circle' },
+      { nameKey: 'header.nav.support.faq', href: '/faq', icon: 'help-circle' }
     ]
   }
 ]
@@ -72,17 +74,9 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
       setLastScrollY(currentScrollY)
     }
 
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.menu-item-container')) {
-        setActiveDropdown(null);
-      }
-    };
     window.addEventListener('scroll', handleScroll)
-    document.addEventListener('click', handleClickOutside)
     return () => {
       window.removeEventListener('scroll', handleScroll)
-      document.removeEventListener('click', handleClickOutside)
     }
   }, [lastScrollY])
 
@@ -90,28 +84,40 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
     setIsOpen(!isOpen)
   }
 
-  const handleDropdownClick = (e: React.MouseEvent, name: string) => {
+  const handleDropdownClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    setActiveDropdown(activeDropdown === name ? null : name)
+    setActiveDropdown(activeDropdown === id ? null : id)
   }
 
   const otherLangLabel = lang === 'pt' ? 'EN' : 'PT'
 
+  const selectLang = (target: 'pt' | 'en') => {
+    if (lang !== target) toggleLang()
+  }
+
+  const mobileBarBtn =
+    'h-8 w-9 sm:w-10 rounded-lg border border-gray-600 dark:border-zinc-700 flex items-center justify-center transition-colors'
+
   return (
-    <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm ${scrolled ? 'shadow-md' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
+    <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm dark:bg-white/10 dark:backdrop-blur-md dark:shadow-none dark:border-b dark:border-white/15 ${scrolled ? 'shadow-md dark:shadow-none' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
       {/* Red line top bar */}
       <div className={`h-[2.5px] bg-red-600 transition-all duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
       
       <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-[1fr_2fr_1fr] items-stretch h-[70px] relative w-full">
+        <div className="flex lg:grid lg:grid-cols-[1fr_2fr_1fr] items-center lg:items-stretch h-[70px] w-full gap-2">
           {/* Left Column - Logo */}
-          <div className="flex items-center justify-start">
+          <div className="flex items-center justify-start min-w-0 shrink">
             <Link href="/" className="flex-shrink-0">
-              <div className="h-[48px] w-[192px] relative">
+              <div className="h-[36px] w-[130px] sm:h-[48px] sm:w-[192px] relative">
                 <img
-                  src="/assets/logotype.png"
+                  src="/assets/Logo - horizontal.jpg"
                   alt="VisualDesign Logo"
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain dark:hidden"
+                />
+                <img
+                  src="/assets/Logo - Branco.png"
+                  alt="VisualDesign Logo"
+                  className="hidden h-full w-full object-contain dark:block"
                 />
               </div>
             </Link>
@@ -124,31 +130,37 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                 {navigation.map((item) => {
                   return (
                     <div 
-                      key={item.name} 
+                      key={item.id} 
                       className={item.isMega ? "menu-item-container" : "relative menu-item-container"}
+                      onMouseEnter={() => setActiveDropdown(item.id)}
+                      onMouseLeave={() => setActiveDropdown(null)}
                     >
                       <button 
-                        onClick={() => setActiveDropdown(activeDropdown === item.name ? null : item.name)}
-                        className="text-slate-800 text-base font-medium hover:text-red-600 transition-colors flex items-center gap-1 h-full"
+                        type="button"
+                        className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center gap-1 h-full"
                       >
-                        {item.name}
+                        {t(item.nameKey)}
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                       
                       {item.isMega ? (
                         <div className={cn(
-                          "absolute top-full left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-slate-100 p-6 w-[900px] z-[70] transition-all duration-300 mt-1",
-                          activeDropdown === item.name ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'
+                          "absolute top-full left-1/2 -translate-x-1/2 pt-1 w-[900px] z-[70]",
+                          activeDropdown === item.id ? 'visible' : 'invisible'
                         )}>
+                          <div className={cn(
+                            "bg-white border border-slate-200 rounded-xl shadow-xl p-6 transition-all duration-300 dark:bg-black dark:border-white/25",
+                            activeDropdown === item.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                          )}>
                           <div className="grid grid-cols-3 gap-6">
                             {item.items?.map((subItem) => (
                               <Link 
-                                key={subItem.name} 
+                                key={subItem.nameKey} 
                                 href={subItem.href} 
-                                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors group/item"
+                                className="flex items-start gap-4 p-3 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors group/item"
                                 onClick={() => setActiveDropdown(null)}
                               >
-                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 text-slate-400 transition-colors">
+                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 text-slate-400 dark:text-zinc-500 transition-colors">
                                   {/* Icones Finos */}
                                   {subItem.icon === 'globe' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>}
                                   {subItem.icon === 'tag' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
@@ -168,33 +180,39 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                                   {subItem.icon === 'help-circle' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                 </div>
                                 <div>
-                                  <h4 className="text-base font-bold text-slate-800 group-hover/item:text-red-600 transition-colors">{subItem.name}</h4>
-                                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{subItem.desc}</p>
+                                  <h4 className="text-base font-bold text-slate-900 group-hover/item:text-red-600 dark:text-white dark:group-hover/item:text-red-500 transition-colors">{t(subItem.nameKey)}</h4>
+                                  <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1 line-clamp-2">{subItem.descKey ? t(subItem.descKey) : ''}</p>
                                 </div>
                               </Link>
                             ))}
                           </div>
+                          </div>
                         </div>
                       ) : (
                         <div className={cn(
-                          "absolute top-full left-0 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-max z-[70] transition-all duration-300 mt-1",
-                          activeDropdown === item.name ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'
+                          "absolute top-full left-0 pt-1 z-[70]",
+                          activeDropdown === item.id ? 'visible' : 'invisible'
                         )}>
+                          <div className={cn(
+                            "bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-max transition-all duration-300 dark:bg-black dark:border-white/25",
+                            activeDropdown === item.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                          )}>
                           {item.dropdown?.map((subItem) => (
                             <Link
-                              key={subItem.name}
+                              key={subItem.nameKey}
                               href={subItem.href}
-                              className="flex items-center gap-2 py-1.5 text-base text-slate-600 hover:text-red-600 transition-colors group whitespace-nowrap"
+                              className="flex items-center gap-2 py-1.5 text-base text-slate-800 hover:text-red-600 dark:text-white dark:hover:text-red-500 transition-colors group whitespace-nowrap"
                               onClick={() => setActiveDropdown(null)}
                             >
-                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 text-slate-400 transition-colors">
+                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 text-slate-400 dark:text-zinc-500 transition-colors">
                                 {subItem.icon === 'monitor' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
                                 {subItem.icon === 'tag' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
                                 {subItem.icon === 'help-circle' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                               </div>
-                              {subItem.name}
+                              {t(subItem.nameKey)}
                             </Link>
                           ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -205,67 +223,93 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
           </div>
 
             {/* Right Column - Buttons */}
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-1.5 sm:gap-2 ml-auto lg:ml-0 shrink-0">
+              <ThemeToggle
+                size="sm"
+                className={cn(
+                  mobileBarBtn,
+                  'lg:hidden !bg-black dark:!bg-zinc-900 hover:!bg-red-600 dark:hover:!bg-zinc-800 !text-white dark:!text-white dark:hover:!text-white !border-gray-600 dark:!border-zinc-700'
+                )}
+              />
               <button
                 onClick={toggleLang}
-                className="h-8 w-10 rounded-lg bg-black hover:bg-red-600 border border-gray-600 flex items-center justify-center text-white transition-colors text-xs font-extrabold"
+                className={cn(
+                  mobileBarBtn,
+                  'bg-black dark:bg-zinc-900 hover:bg-red-600 dark:hover:bg-zinc-800 text-white text-xs font-extrabold',
+                  isOpen ? 'hidden lg:flex' : 'flex'
+                )}
                 type="button"
               >
                 {otherLangLabel}
               </button>
               <Link
                 href="/auth/login?from=/admin"
-                className="px-4 py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black hover:text-white transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 group whitespace-nowrap"
+                className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
               >
-                <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                Login
+                <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
+                <span>Login</span>
               </Link>
               <button
                 onClick={toggleMobileMenu}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                className={cn(
+                  mobileBarBtn,
+                  'lg:hidden text-slate-800 dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-900'
+                )}
+                type="button"
               >
-                {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
         </div>
 
+      {isOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="lg:hidden fixed inset-0 z-[49] bg-black/70"
+            onClick={() => setIsOpen(false)}
+            aria-hidden
+          />,
+          document.body
+        )}
+
       {/* Mobile Menu */}
       <div
         className={cn(
-          'lg:hidden bg-black border-t border-gray-300 absolute top-full left-0 right-0 z-50 overflow-hidden transition-all duration-300 ease-in-out',
+          'lg:hidden absolute top-full right-0 w-[80%] max-w-sm z-[55] overflow-hidden transition-all duration-300 ease-in-out bg-white border-l border-t border-slate-200 shadow-xl dark:bg-black dark:border-white/25',
           isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className="container mx-auto px-4 py-4 space-y-4">
-          {navigation.map((item) => (
-            <div key={item.name}>
+        <div className="py-1">
+          {navigation.map((item, index) => (
+            <div key={item.id} className={index === navigation.length - 1 ? 'pb-5' : undefined}>
               <div>
                 <button
-                  onClick={(e) => handleDropdownClick(e, item.name)}
-                  className="flex items-center justify-between w-full text-left text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-2"
+                  onClick={(e) => handleDropdownClick(e, item.id)}
+                  className="flex items-center justify-between w-full text-left text-slate-800 dark:text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-1.5 !pl-[20px] pr-4"
                 >
-                  <span>{item.name}</span>
+                  <span>{t(item.nameKey)}</span>
                   <ChevronDown className={cn(
-                    'w-4 h-4 transition-transform',
-                    activeDropdown === item.name ? 'rotate-180' : ''
+                    'w-4 h-4 transition-transform shrink-0 mr-4',
+                    activeDropdown === item.id ? 'rotate-180' : ''
                   )} />
                 </button>
                 <div
                   className={cn(
                     'overflow-hidden transition-all duration-200 ease-in-out',
-                    activeDropdown === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    activeDropdown === item.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                   )}
                 >
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-0 bg-slate-100 dark:bg-zinc-800 border-y border-slate-200 dark:border-white/10">
                     {(item.dropdown || item.items)?.map((dropdownItem) => (
                       <Link
-                        key={dropdownItem.name}
+                        key={dropdownItem.nameKey}
                         href={dropdownItem.href}
-                        className="block px-4 py-3 text-white hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                        className="block w-full !pl-[20px] pr-4 py-1.5 text-slate-800 dark:text-white hover:text-white hover:bg-red-600 transition-colors"
                         onClick={() => setIsOpen(false)}
                       >
-                        {dropdownItem.name}
+                        {t(dropdownItem.nameKey)}
                       </Link>
                     ))}
                   </div>
@@ -274,21 +318,30 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
             </div>
           ))}
 
-          <Link
-            href="/auth/login?from=/admin"
-            className="flex items-center gap-2 px-4 py-3 bg-red-600/10 text-red-600 rounded-xl font-bold text-sm"
-            onClick={() => setIsOpen(false)}
-          >
-            <User className="w-4 h-4" />
-            Login
-          </Link>
-          <div className="pt-4 border-t border-gray-300 space-y-3">
+          <div className="flex border-t border-slate-200 dark:border-white/25">
             <button
-              onClick={toggleLang}
-              className="w-full flex items-center justify-center py-3 rounded-lg bg-black hover:bg-red-600 border border-gray-600 text-white transition-colors font-extrabold"
+              onClick={() => selectLang('pt')}
+              className={cn(
+                'flex-1 py-2.5 text-sm font-extrabold transition-colors',
+                lang === 'pt'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white dark:bg-black text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-900'
+              )}
               type="button"
             >
-              {otherLangLabel}
+              {t('lang.portuguese')}
+            </button>
+            <button
+              onClick={() => selectLang('en')}
+              className={cn(
+                'flex-1 py-2.5 text-sm font-extrabold transition-colors border-l border-slate-200 dark:border-white/25',
+                lang === 'en'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-white dark:bg-black text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-900'
+              )}
+              type="button"
+            >
+              {t('lang.english')}
             </button>
           </div>
         </div>

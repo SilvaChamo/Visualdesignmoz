@@ -181,7 +181,7 @@ export async function listMirrorUsers(scope: MirrorScope): Promise<PanelUser[]> 
 
   let query = admin.from('panel_users').select('*').order('username');
   if (!isAdmin && daUsername) {
-    query = query.eq('username', daUsername);
+    query = query.or(`username.eq.${daUsername},parent_username.eq.${daUsername}`);
   }
   const { data, error } = await query;
   if (error) return [];

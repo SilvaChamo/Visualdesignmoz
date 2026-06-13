@@ -151,9 +151,6 @@ export function CpanelDashboard({
       headerIcon: <Archive className="w-5 h-5" />,
       color: 'text-violet-700', bgColor: 'bg-violet-50',
       tools: [
-        { id: 'cp-wp-backup', name: 'Fazer Backup', icon: <Archive className="w-9 h-9 text-violet-500" /> },
-        { id: 'cp-wp-restore-backup', name: 'Restaurar Backup', icon: <RotateCcw className="w-9 h-9 text-violet-500" /> },
-        { id: 'cp-wp-remote-backup', name: 'Backup Remoto', icon: <Cloud className="w-9 h-9 text-violet-500" /> },
         { id: 'backup-manager', name: 'Gestão de Backups', icon: <HardDrive className="w-9 h-9 text-violet-500" /> },
       ]
     },
@@ -179,7 +176,6 @@ export function CpanelDashboard({
         { id: 'cp-dns-create-zone', name: 'Criar Zona DNS', icon: <PlusCircle className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-delete-zone', name: 'Apagar Zona DNS', icon: <Trash2 className="w-9 h-9 text-red-500" /> },
         { id: 'domains-dns', name: 'Adicionar Registos', icon: <FileText className="w-9 h-9 text-amber-600" /> },
-        { id: 'cp-dns-cloudflare', name: 'CloudFlare', icon: <Cloud className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-reset', name: 'Reset DNS', icon: <RotateCcw className="w-9 h-9 text-amber-600" /> },
       ]
     },
@@ -189,8 +185,6 @@ export function CpanelDashboard({
       color: 'text-red-700', bgColor: 'bg-red-50',
       tools: [
         { id: 'cp-ssl', name: 'SSL / TLS', icon: <Lock className="w-9 h-9 text-red-500" /> },
-        { id: 'cp-security', name: 'Firewall & ModSecurity', icon: <Shield className="w-9 h-9 text-red-500" /> },
-        { id: 'cp-security', name: 'IPs Bloqueados', icon: <AlertCircle className="w-9 h-9 text-red-500" /> },
         { id: 'cp-api', name: 'Configurações API', icon: <Settings className="w-9 h-9 text-red-500" /> },
       ]
     },
@@ -225,8 +219,6 @@ export function CpanelDashboard({
       color: 'text-slate-700', bgColor: 'bg-slate-50',
       tools: [
         { id: 'infrastructure', name: 'Estado do Servidor', icon: <Server className="w-9 h-9 text-slate-500" /> },
-        { id: 'reports', name: 'Relatórios', icon: <BarChart2 className="w-9 h-9 text-slate-500" /> },
-        { id: 'analyses', name: 'Análises', icon: <Wifi className="w-9 h-9 text-slate-500" /> },
       ]
     },
     {
@@ -235,7 +227,7 @@ export function CpanelDashboard({
       color: 'text-red-700', bgColor: 'bg-red-50',
       tools: [
         { id: 'cp-audit-sync', name: 'Auditoria & Sync', icon: <ShieldCheck className="w-9 h-9 text-red-500" /> },
-        { id: 'diagnostico', name: 'Diagnóstico', icon: <Activity className="w-9 h-9 text-red-500" /> },
+        { id: 'email-diagnostico', name: 'Diagnóstico Email', icon: <Activity className="w-9 h-9 text-red-500" /> },
       ]
     },
   ]

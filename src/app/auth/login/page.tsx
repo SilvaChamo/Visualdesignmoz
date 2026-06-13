@@ -1,9 +1,11 @@
 'use client'
 import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../../components/auth/AuthProvider'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
+import { getRedirectPathForRole } from '@/lib/user-roles'
 import { AuthPageShell, AuthLoadingShell } from '@/components/auth/AuthPageShell'
 import {
   authCardClass,
@@ -25,16 +27,10 @@ function LoginPageContent() {
   const [error, setError] = useState('')
   const [internalField, setInternalField] = useState('')
   const [oauthError, setOauthError] = useState<{ title: string, desc: string } | null>(null)
-  const { signIn, signInWithGoogle, getRedirectPath, user, loading: sessionLoading } = useAuth()
+  const { signIn, signInWithGoogle, getRedirectPath, user, userRole, loading: sessionLoading } = useAuth()
   const searchParams = useSearchParams()
   const { t } = useI18n()
   const hasChecked = React.useRef(false)
-  const [loadingTimeout, setLoadingTimeout] = React.useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoadingTimeout(true), 3000)
-    return () => clearTimeout(timer)
-  }, [])
 
   useEffect(() => {
     const urlError = searchParams.get('error')
@@ -51,14 +47,14 @@ function LoginPageContent() {
       const isFromOAuth = window.location.search.includes('code=') ||
         document.referrer.includes('/auth/callback')
       if (user && !isFromOAuth) {
-        getRedirectPath().then((path) => window.location.assign(path))
+        if (userRole) {
+          window.location.assign(getRedirectPathForRole(userRole))
+        } else {
+          getRedirectPath().then((path) => window.location.assign(path))
+        }
       }
     }
-  }, [user, sessionLoading, getRedirectPath])
-
-  if (sessionLoading && !loadingTimeout) {
-    return <AuthLoadingShell />
-  }
+  }, [user, userRole, sessionLoading, getRedirectPath])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,9 +64,8 @@ function LoginPageContent() {
     setLoading(true)
     setError('')
     try {
-      await signIn(email, password)
-      const redirectPath = await getRedirectPath()
-      window.location.assign(redirectPath)
+      const role = await signIn(email, password)
+      window.location.assign(getRedirectPathForRole(role))
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
@@ -169,9 +164,14 @@ function LoginPageContent() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+                aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
               >
-                {showPassword ? 'Ocultar' : 'Ver'}
+                {showPassword ? (
+                  <EyeOff className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                ) : (
+                  <Eye className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                )}
               </button>
             </div>
             <a href="/auth/forgot-password" className={`mt-2 inline-block text-xs ${authLinkClass}`}>

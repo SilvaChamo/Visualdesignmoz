@@ -2,10 +2,11 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
+  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Palette, Layers, Wrench,
 } from 'lucide-react';
 
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
+import { useResellerNotificationBadge } from '@/components/revendedor/ResellerNotificationsInbox';
 
 function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
   return (
@@ -24,9 +25,10 @@ function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?
     </span>
   );
 }
+
 import {
-  RESELLER_ADMIN_MENU_DEFS,
-  adminMenuParentForSection,
+  RESELLER_MAIN_MENU_DEFS,
+  RESELLER_LEGACY_MENU_DEFS,
   isPanelMenuItemActive,
   resolveSectionId,
   type PanelMenuItemDef,
@@ -39,6 +41,7 @@ interface ResellerSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   sessionUser: string | null;
+  displayName?: string | null;
   customLogo?: string;
 }
 
@@ -46,17 +49,23 @@ interface MenuItem extends PanelMenuItemDef {
   icon: React.ElementType;
 }
 
-const MENU_ICONS: Record<string, React.ElementType> = {
+const MAIN_MENU_ICONS: Record<string, React.ElementType> = {
   dashboard: Home,
-  utilizadores: Users,
   'nov-hospedagem': Server,
   'nov-email': Mail,
   'nov-dominios': Globe,
   'nov-notificacoes': Bell,
-  newsletter: Layout,
   'nov-wordpress': WordPressMenuIcon,
-  'nov-sistema': Settings,
-  'menu-anterior': Archive,
+  'nov-definicoes': Settings,
+};
+
+const LEGACY_MENU_ICONS: Record<string, React.ElementType> = {
+  'leg-gestao-sites': Globe,
+  'leg-gestao-dominios': Server,
+  'leg-wordpress': WordPressMenuIcon,
+  'leg-construtores': Palette,
+  'leg-gestao-emails': Mail,
+  'leg-outros': Wrench,
 };
 
 const DASHBOARD_ITEM: MenuItem = {
@@ -71,33 +80,36 @@ export function ResellerSidebar({
   isCollapsed,
   setIsCollapsed,
   sessionUser,
+  displayName,
   customLogo,
 }: ResellerSidebarProps) {
   const { privileges } = useResellerMenuPrivileges();
+  const { unreadCount, refreshUnread } = useResellerNotificationBadge();
+  const profileLabel = displayName || (sessionUser ? sessionUser.split('@')[0] : 'Revendedor');
   const currentSidebarWidth = isCollapsed ? 72 : 228;
   const logoUrl = customLogo || '/assets/simbolo.png';
 
-  const adminMenuItems: MenuItem[] = filterMenuByPrivileges(RESELLER_ADMIN_MENU_DEFS, privileges).map(
+  const mainMenuItems: MenuItem[] = filterMenuByPrivileges(RESELLER_MAIN_MENU_DEFS, privileges).map(
     (item) => ({
       ...item,
-      icon: MENU_ICONS[item.id] || Archive,
+      icon: MAIN_MENU_ICONS[item.id] || Server,
     }),
   );
 
-  const menuItems: MenuItem[] = [DASHBOARD_ITEM, ...adminMenuItems];
-
-  const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
-    activeSection === 'dashboard' ? null : adminMenuParentForSection(activeSection),
+  const legacyMenuItems: MenuItem[] = filterMenuByPrivileges(RESELLER_LEGACY_MENU_DEFS, privileges).map(
+    (item) => ({
+      ...item,
+      icon: LEGACY_MENU_ICONS[item.id] || Layers,
+    }),
   );
 
+  const [expandedMenu, setExpandedMenu] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    if (activeSection === 'dashboard') {
-      setExpandedMenu(null);
-      return;
+    if (activeSection === 'notificacoes-recebidas') {
+      void refreshUnread();
     }
-    const parent = adminMenuParentForSection(activeSection);
-    if (parent) setExpandedMenu(parent);
-  }, [activeSection]);
+  }, [activeSection, refreshUnread]);
 
   const handleParentClick = (item: MenuItem) => {
     if (!item.subItems?.length) {
@@ -112,36 +124,132 @@ export function ResellerSidebar({
     }
 
     setExpandedMenu(item.id);
-    const firstNavigable = item.subItems.find((s) => !s.id.endsWith('-header'));
-    if (firstNavigable) onNavigate(resolveSectionId(firstNavigable.id));
   };
 
   const handleSubClick = (subId: string) => {
     onNavigate(resolveSectionId(subId));
   };
 
-  let shownNewHeader = false;
+  const renderMenuBlock = (items: MenuItem[], options?: { includeDashboard?: boolean }) => {
+    const blockItems = options?.includeDashboard ? [DASHBOARD_ITEM, ...items] : items;
+
+    return blockItems.map((item) => {
+      const Icon = item.icon;
+      const isActive = item.id === 'dashboard'
+        ? activeSection === 'dashboard'
+        : isPanelMenuItemActive(item, activeSection);
+      const isDashboard = item.id === 'dashboard';
+      const showNotifBadge = item.id === 'nov-notificacoes' && unreadCount > 0;
+      const hasSubItems = !!item.subItems?.length;
+      const isOpen = expandedMenu === item.id && hasSubItems;
+
+      return (
+        <div key={item.id} className="mb-1">
+          <button
+            type="button"
+            onClick={() => handleParentClick(item)}
+            className={`group flex w-full items-center rounded-lg transition-all duration-200 ease-out hover:translate-x-1 ${isCollapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'} ${
+              isActive || isOpen
+                ? isDashboard
+                  ? 'ml-[5px] rounded-none border-l-[3px] border-red-600 bg-red-50 pl-1.5 font-bold text-red-600 dark:bg-red-950/30'
+                  : 'font-bold text-black dark:text-zinc-100'
+                : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
+            }`}
+            title={isCollapsed ? item.label : ''}
+          >
+            {item.id === 'nov-wordpress' || item.id === 'leg-wordpress' ? (
+              <WordPressMenuIcon
+                size={22}
+                className={
+                  isActive
+                    ? (isDashboard ? 'text-red-600' : 'text-gray-900 dark:text-zinc-100')
+                    : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                }
+              />
+            ) : (
+              <Icon
+                size={22}
+                className={`${isActive ? (isDashboard ? 'text-red-600' : 'text-gray-900 dark:text-zinc-100') : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'}`}
+              />
+            )}
+            {!isCollapsed && (
+              <span className="ml-3 flex flex-1 items-center gap-2 text-[15px]">
+                {item.label}
+                {showNotifBadge && (
+                  <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </span>
+            )}
+            {!isCollapsed && hasSubItems && (
+              <ChevronRight
+                size={14}
+                className={`${showNotifBadge ? '' : 'ml-auto'} text-gray-400 transition-transform group-hover:text-red-600 dark:group-hover:text-red-400 ${isOpen ? 'rotate-90' : ''}`}
+              />
+            )}
+            {!isCollapsed && !hasSubItems && isActive && (
+              <ChevronRight size={14} className={`ml-auto ${isDashboard ? 'text-red-600' : 'text-gray-900 dark:text-zinc-100'}`} />
+            )}
+          </button>
+
+          {!isCollapsed && hasSubItems && isOpen && (
+            <div className="ml-9 mt-1 flex max-h-[55vh] flex-col gap-0.5 overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
+              {item.subItems!.map((sub) => {
+                if (sub.id.endsWith('-header')) return null;
+                const resolved = resolveSectionId(sub.id);
+                const isSubActive = resolveSectionId(activeSection) === resolved || activeSection === sub.id;
+                const isRecebidas = sub.id === 'notificacoes-recebidas';
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleSubClick(sub.id)}
+                    className={`relative flex items-center px-3 py-[5px] text-left text-sm transition-colors ${
+                      isSubActive
+                        ? 'font-bold text-red-600 before:absolute before:-left-[1px] before:top-1/2 before:z-10 before:h-3 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-red-600'
+                        : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
+                    }`}
+                  >
+                    <span className="flex flex-1 items-center gap-2">
+                      {sub.label}
+                      {isRecebidas && unreadCount > 0 && (
+                        <span className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold leading-none text-white">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
 
   return (
     <div
-      className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm h-screen transition-all duration-300"
+      className="relative flex h-screen flex-col border-r border-gray-200 bg-white text-gray-800 shadow-sm transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="px-2 pb-4 border-b border-gray-100 pt-4">
+      <div className="border-b border-gray-100 px-2 pb-4 pt-4 dark:border-zinc-800">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
               src={logoUrl}
               alt="Logo"
-              className="h-12 w-full object-contain cursor-pointer"
+              className="h-12 w-full cursor-pointer object-contain"
               onClick={() => { window.location.href = '/revendedor'; }}
             />
             <button
+              type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded hover:bg-gray-100 transition-colors p-1"
+              className="rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-transparent dark:hover:text-red-400"
               title="Expandir"
             >
-              <LogOut size={22} className="text-gray-500" />
+              <LogOut size={22} className="text-gray-500 dark:text-zinc-400" />
             </button>
           </div>
         ) : (
@@ -149,15 +257,16 @@ export function ResellerSidebar({
             <img
               src={logoUrl}
               alt="Logo"
-              className="w-auto h-12 max-w-[140px] object-contain cursor-pointer"
+              className="h-12 max-w-[140px] w-auto cursor-pointer object-contain"
               onClick={() => { window.location.href = '/revendedor'; }}
             />
             <button
+              type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="rounded hover:bg-gray-100 transition-colors p-1"
+              className="rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-transparent dark:hover:text-red-400"
               title="Recolher"
             >
-              <LogOut size={22} className="text-gray-500 -scale-x-100" />
+              <LogOut size={22} className="-scale-x-100 text-gray-500 dark:text-zinc-400" />
             </button>
           </div>
         )}
@@ -165,115 +274,33 @@ export function ResellerSidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 py-2.5">
         <div className="space-y-0">
-          {menuItems.map((item) => {
-            if (item.isNewMenu && !shownNewHeader && !isCollapsed) {
-              shownNewHeader = true;
-            }
-            const showNewLabel = item.id === 'utilizadores' && !isCollapsed;
-            const Icon = item.icon;
-            const isActive = item.id === 'dashboard'
-              ? activeSection === 'dashboard'
-              : isPanelMenuItemActive(item, activeSection);
-            const isOpen = expandedMenu === item.id && !!item.subItems?.length;
-            const isLegacy = item.id === 'menu-anterior';
-            const isDashboard = item.id === 'dashboard';
+          {renderMenuBlock(mainMenuItems, { includeDashboard: true })}
+        </div>
 
-            return (
-              <React.Fragment key={item.id}>
-                {showNewLabel && (
-                  <div className="px-2.5 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    Menu admin
-                  </div>
-                )}
-                {isLegacy && !isCollapsed && (
-                  <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Menu anterior
-                  </div>
-                )}
-                <div className="mb-1">
-                  <button
-                    onClick={() => handleParentClick(item)}
-                    className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} ${isCollapsed ? 'px-2 py-2' : 'px-2.5 py-2'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 group ${
-                      isActive || (expandedMenu === item.id && item.subItems)
-                        ? isDashboard
-                          ? 'text-red-600 font-bold bg-red-50 border-l-[3px] border-red-600 ml-[5px] pl-1.5 rounded-none'
-                          : 'text-black font-bold'
-                        : 'hover:text-red-600 text-gray-600'
-                    }`}
-                    title={isCollapsed ? item.label : ''}
-                  >
-                    {item.id === 'nov-wordpress' ? (
-                      <WordPressMenuIcon
-                        size={22}
-                        className={
-                          isActive || expandedMenu === item.id
-                            ? (isDashboard ? 'text-red-600' : 'text-gray-900')
-                            : 'text-gray-500 group-hover:text-red-600'
-                        }
-                      />
-                    ) : (
-                      <Icon
-                        size={22}
-                        className={`${isActive || expandedMenu === item.id ? (isDashboard ? 'text-red-600' : 'text-gray-900') : 'text-gray-500 group-hover:text-red-600'}`}
-                      />
-                    )}
-                    {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
-                    {!isCollapsed && item.subItems && (
-                      <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
-                    )}
-                    {!isCollapsed && !item.subItems && isActive && (
-                      <ChevronRight size={14} className={`ml-auto ${isDashboard ? 'text-red-600' : 'text-gray-900'}`} />
-                    )}
-                  </button>
+        {!isCollapsed && legacyMenuItems.length > 0 && (
+          <div className="my-3 border-t border-gray-200 dark:border-zinc-700" aria-hidden="true" />
+        )}
 
-                  {!isCollapsed && item.subItems && isOpen && (
-                    <div className="mt-1 ml-9 border-l border-gray-200 flex flex-col gap-0.5 max-h-[55vh] overflow-y-auto">
-                      {item.subItems.map((sub) => {
-                        if (sub.id.endsWith('-header')) {
-                          return (
-                            <div key={sub.id} className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                              {sub.label.replace(/^—\s*|\s*—$/g, '')}
-                            </div>
-                          );
-                        }
-                        const resolved = resolveSectionId(sub.id);
-                        const isSubActive = resolveSectionId(activeSection) === resolved;
-                        return (
-                          <button
-                            key={sub.id}
-                            onClick={() => handleSubClick(sub.id)}
-                            className={`flex items-center text-left px-3 py-[5px] text-sm transition-colors relative ${
-                              isSubActive
-                                ? 'text-red-600 font-bold before:absolute before:-left-[1px] before:top-1/2 before:-translate-y-1/2 before:w-[2px] before:h-3 before:bg-red-600 before:rounded-full before:z-10'
-                                : 'text-gray-600 hover:text-red-600'
-                            }`}
-                          >
-                            {sub.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </React.Fragment>
-            );
-          })}
+        <div className="space-y-0">
+          {renderMenuBlock(legacyMenuItems)}
         </div>
       </nav>
 
-      <div className="p-3 border-t border-gray-100">
+      <div className="border-t border-gray-100 p-3 dark:border-zinc-800">
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">
-              {sessionUser?.charAt(0).toUpperCase() || 'SC'}
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600">
+            <span className="text-xs font-bold text-white">
+              {profileLabel.charAt(0).toUpperCase()}
             </span>
           </div>
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                {sessionUser ? sessionUser.split('@')[0] : 'Silva Chamo'}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-gray-900 dark:text-zinc-100">
+                {profileLabel}
               </p>
-              <p className="text-[10px] text-gray-400 truncate">{sessionUser || 'admin@your-domain.com'}</p>
+              <p className="truncate text-[10px] text-gray-400 dark:text-zinc-500">
+                {sessionUser || 'revendedor@email.com'}
+              </p>
             </div>
           )}
         </div>

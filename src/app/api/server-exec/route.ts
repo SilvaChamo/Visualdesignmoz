@@ -226,6 +226,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { ssl } });
     }
 
+    if (action === 'execCommand') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+      if (auth.user.role !== 'admin') {
+        return NextResponse.json({ success: false, error: 'Apenas administradores.' }, { status: 403 });
+      }
+
+      const command = String(params.command || '').trim();
+      if (!command) {
+        return NextResponse.json({ success: false, error: 'Comando obrigatório' }, { status: 400 });
+      }
+
+      const blocked = /[;&|`$(){}<>]/.test(command) || /\brm\s+-rf\b/i.test(command);
+      const allowed =
+        /^ls\s+-lht\s+\/home\/[\w.-]+\/backup\//.test(command) ||
+        /^tar\s+-czf\s+\/home\/[\w.-]+\/backup\//.test(command) ||
+        /^du\s+-sh\s+\/home\//.test(command) ||
+        /^directadmin\s+/.test(command);
+      if (blocked || !allowed) {
+        return NextResponse.json({ success: false, error: 'Comando não permitido.' }, { status: 400 });
+      }
+
+      const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+      const output = await executeServerCommand(command);
+      return NextResponse.json({ success: true, data: { output } });
+    }
+
     return NextResponse.json(
       {
         success: false,

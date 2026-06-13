@@ -5,6 +5,9 @@ import {
   buildDirectAdminFallbackUrl,
 } from '@/lib/directadmin-url';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import { resolveDirectAdminCredentials } from '@/lib/directadmin-credentials';
+import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 
 function readEnv(...keys: string[]): string {
   for (const key of keys) {
@@ -28,11 +31,15 @@ function probeTcp(host: string, port: number, timeoutMs = 3000): Promise<boolean
   });
 }
 
-/** Redireciona para o login do DirectAdmin (canónico ou fallback IP). Só admin/revendedor. */
-export async function GET() {
-  const auth = await requireAdminOrReseller();
-  if ('error' in auth) return auth.error;
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
+async function resolveDirectAdminLoginUrl(): Promise<string> {
   const primary = buildDirectAdminBase({
     explicitUrl: readEnv('DIRECTADMIN_URL'),
     protocol: readEnv('DIRECTADMIN_PROTOCOL', 'NEXT_PUBLIC_DIRECTADMIN_PROTOCOL') || 'https',
@@ -54,18 +61,88 @@ export async function GET() {
         ? 443
         : 80;
     const reachable = await probeTcp(parsed.hostname, port);
-    if (reachable) {
-      return NextResponse.redirect(primary, {
-        status: 307,
-        headers: { 'Cache-Control': 'no-store' },
-      });
-    }
+    if (reachable) return primary;
   } catch {
-    // usa fallback
+    /* usa fallback */
   }
 
-  return NextResponse.redirect(fallback, {
-    status: 307,
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  return fallback;
+}
+
+function buildAutoLoginHtml(loginUrl: string, username: string, password: string): string {
+  const action = `${loginUrl.replace(/\/$/, '')}/CMD_LOGIN`;
+  const safeUser = escapeHtml(username);
+  const safePass = escapeHtml(password);
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <title>A abrir DirectAdmin...</title>
+  <style>
+    body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb;color:#111827}
+    .card{text-align:center;padding:2rem;background:#fff;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+    .spinner{width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#dc2626;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    p{margin:0;color:#6b7280;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <p>A iniciar sessão no DirectAdmin...</p>
+  </div>
+  <form id="daLogin" method="POST" action="${action}">
+    <input type="hidden" name="username" value="${safeUser}" />
+    <input type="hidden" name="password" value="${safePass}" />
+    <input type="hidden" name="redirect" value="/" />
+  </form>
+  <script>document.getElementById('daLogin').submit();</script>
+</body>
+</html>`;
+}
+
+/** Abre o DirectAdmin com credenciais automáticas (mesma conta do painel). */
+export async function GET() {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
+  const loginUrl = await resolveDirectAdminLoginUrl();
+
+  try {
+    const ctx = await resolvePanelDaContext(auth);
+    let creds;
+
+    if (auth.user.role === 'reseller') {
+      creds = await resolveDirectAdminCredentials('reseller', {
+        id: auth.user.id,
+        email: auth.user.email,
+        role: 'reseller',
+      });
+    } else if (ctx.impersonating) {
+      const stored = await loadResellerCredentialsByDaUsername(ctx.impersonating);
+      if (!stored) {
+        return NextResponse.redirect(loginUrl, {
+          status: 307,
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      }
+      creds = { role: 'reseller' as const, user: stored.user, password: stored.password };
+    } else {
+      creds = await resolveDirectAdminCredentials('admin');
+    }
+
+    const html = buildAutoLoginHtml(loginUrl, creds.user, creds.password);
+    return new NextResponse(html, {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch {
+    return NextResponse.redirect(loginUrl, {
+      status: 307,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
 }

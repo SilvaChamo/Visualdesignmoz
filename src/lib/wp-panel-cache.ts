@@ -25,7 +25,7 @@ type PluginsCache = {
 const INSTALLS_KEY = 'vd_wp_installs_v1';
 const PLUGINS_KEY_PREFIX = 'vd_wp_plugins_v1:';
 const INSTALLS_TTL_MS = 5 * 60 * 1000;
-const PLUGINS_TTL_MS = 3 * 60 * 1000;
+const PLUGINS_TTL_MS = 10 * 60 * 1000;
 
 function pluginsKey(domain: string) {
   return `${PLUGINS_KEY_PREFIX}${domain.toLowerCase()}`;

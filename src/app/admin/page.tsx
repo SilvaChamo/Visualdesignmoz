@@ -17,17 +17,18 @@ import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanel
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
+import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { panelBtnSecondary } from '@/lib/panel-ui'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
-  CPUsersSection, SSLSection, SSLViewSection, SecuritySection, PHPConfigSection,
+  CPUsersSection, SSLSection, SSLViewSection, PHPConfigSection,
   APIConfigSection, GitDeploySection, WPListSection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
   DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
-  DNSCreateZoneSection, DNSDeleteZoneSection, CloudFlareSection,
+  DNSCreateZoneSection, DNSDeleteZoneSection,
   DNSResetSection, EmailDeleteSection, EmailLimitsSection,
   EmailForwardingSection, CatchAllEmailSection, PatternForwardingSection,
   PlusAddressingSection, EmailChangePasswordSection, DKIMManagerSection,
@@ -45,7 +46,6 @@ import { RenewalsSection } from './RenewalsSection'
 import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { PorkbunResellerSection } from './PorkbunResellerSection'
-import { PorkbunMyDomainsSection } from './PorkbunMyDomainsSection'
 import { DomainTransferSection } from './DomainTransferSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ProvisionClienteSection } from './ProvisionClienteSection'
@@ -1865,10 +1865,7 @@ function ManageWebsiteSection({
         color="text-teal-700"
         bgColor="bg-teal-50"
       >
-        <MenuItem icon="backups" label="Create Backup" onClick={() => setActiveSection('cp-wp-backup')} />
-        <MenuItem icon="backups" label="Restore Backup" onClick={() => setActiveSection('cp-wp-restore-backup')} />
-        <MenuItem icon="backups" label="Remote Backup" onClick={() => setActiveSection('cp-wp-remote-backup')} />
-        <MenuItem icon="backups" label="Backup Manager" onClick={() => setActiveSection('backup-manager')} />
+        <MenuItem icon="backups" label="Gestão de Backups" onClick={() => setActiveSection('backup-manager')} />
       </SectionCard>
 
       {/* Configurations Section */}
@@ -1910,7 +1907,6 @@ function ManageWebsiteSection({
         <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
         <MenuItem icon="dns-zone" label="Create Zone" onClick={() => setActiveSection('cp-dns-create-zone')} />
         <MenuItem icon="dns-zone" label="Delete Zone" onClick={() => setActiveSection('cp-dns-delete-zone')} />
-        <MenuItem icon="dns-zone" label="CloudFlare" onClick={() => setActiveSection('cp-dns-cloudflare')} />
       </SectionCard>
 
       {/* Domains Section - Resumida */}
@@ -1999,8 +1995,6 @@ function ManageWebsiteSection({
         bgColor="bg-red-50"
       >
         <MenuItem icon="ssl-tls" label="SSL / TLS" onClick={() => setActiveSection('cp-ssl')} />
-        <MenuItem icon="mod-security" label="Firewall" onClick={() => setActiveSection('cp-security')} />
-        <MenuItem icon="ip-blocker" label="Blocked IPs" onClick={() => setActiveSection('cp-security')} />
         <MenuItem icon="ssl-tls" label="SSL Status" external href={`${getHestiaUrl()}/list/web/?domain=${domain}`} />
       </SectionCard>
 
@@ -2015,8 +2009,7 @@ function ManageWebsiteSection({
         <MenuItem icon="wordpress" label="Install WP" external href={getDirectAdminWordPressUrl()} badge="DIRECTADMIN" />
         <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
         <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
-        <MenuItem icon="backups" label="Backup" onClick={() => setActiveSection('cp-wp-backup')} />
-        <MenuItem icon="backups" label="Restore" onClick={() => setActiveSection('cp-wp-restore-backup')} />
+        <MenuItem icon="backups" label="Backups" onClick={() => setActiveSection('backup-manager')} />
       </SectionCard>
 
       {/* Modal de Criação de Domínio */}
@@ -2451,8 +2444,8 @@ function AdminPageContent() {
 
   const getSectionInfo = (section: string) => getPanelSectionMeta(section)
 
-  const renderSection = () => {
-    switch (activeSection) {
+  const renderSectionFor = (sectionId: string) => {
+    switch (sectionId) {
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':
@@ -2473,7 +2466,7 @@ function AdminPageContent() {
           onRefresh={() => void loadDirectAdminData(true)}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
-          searchQuery={dashboardSearch}
+          searchQuery={sectionId === activeSection ? dashboardSearch : ''}
           onSearchChange={setDashboardSearch}
         />
       case 'domains':
@@ -2595,7 +2588,15 @@ function AdminPageContent() {
           />
         )
       case 'cp-security':
-        return <SecuritySection sites={filteredSites} />
+        return <SSLSection sites={filteredSites} setActiveSection={setActiveSection} />
+      case 'cp-dns-cloudflare':
+        return (
+          <DNSZoneEditorSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+            variant="central"
+          />
+        )
       case 'cp-php':
         return <PHPConfigSection sites={filteredSites} />
       case 'cp-api':
@@ -2604,6 +2605,8 @@ function AdminPageContent() {
       case 'backup-manager':
       case 'cp-backup':
       case 'cp-wp-backup':
+      case 'cp-wp-restore-backup':
+      case 'cp-wp-remote-backup':
       case 'wp-backup':
         return <BackupManagerSection sites={filteredSites} initialDomain={selectedBackupDomain || primaryDomain} />
       case 'wp-plugins':
@@ -2611,16 +2614,15 @@ function AdminPageContent() {
       case 'wordpress-install':
         return (
           <WordPressHubSection
-            key={activeSection}
             sites={filteredSites}
             initialTab={
-              activeSection === 'wp-sites'
+              sectionId === 'wp-sites'
                 ? 'sites'
-                : activeSection === 'wordpress-install'
+                : sectionId === 'wordpress-install'
                   ? 'install'
                   : 'plugins'
             }
-            autoSelectFirstWp={activeSection === 'wp-plugins' || activeSection === 'wp-sites'}
+            autoSelectFirstWp={sectionId === 'wp-plugins' || sectionId === 'wp-sites'}
             setFileManagerDomain={setFileManagerDomain}
             setActiveSection={setActiveSection}
             onRefresh={() => void loadDirectAdminData(true)}
@@ -2628,15 +2630,12 @@ function AdminPageContent() {
         )
       case 'cp-wp-list':
       case 'cp-wp-plugins':
-      case 'cp-wp-restore-backup':
-      case 'cp-wp-remote-backup':
       case 'wp-update':
         return (
           <WordPressHubSection
-            key={resolveSectionId(activeSection)}
             sites={filteredSites}
             initialTab={
-              resolveSectionId(activeSection) === 'wp-sites'
+              resolveSectionId(sectionId) === 'wp-sites'
                 ? 'sites'
                 : 'plugins'
             }
@@ -2649,7 +2648,12 @@ function AdminPageContent() {
       case 'cp-audit-sync':
         return <AuditSyncSection onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-dns-nameserver':
-        return <NameserverManagementSection sites={filteredSites} />
+        return (
+          <NameserverManagementSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-default-ns':
         return <DNSDefaultNSSection />
       case 'cp-dns-create-zone':
@@ -2661,8 +2665,6 @@ function AdminPageContent() {
         />
       case 'cp-dns-delete-zone':
         return <DNSDeleteZoneSection sites={filteredSites} />
-      case 'cp-dns-cloudflare':
-        return <CloudFlareSection sites={filteredSites} />
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
       case 'transferir-dominio':
@@ -2671,9 +2673,17 @@ function AdminPageContent() {
         return <PorkbunResellerSection />
       case 'porkbun-my-domains':
         return (
-          <PorkbunMyDomainsSection
+          <DomainManagerSection
             sites={filteredSites}
-            onAddHostingDomain={() => setActiveSection('domain-manager')}
+            packages={directAdminPackages}
+            onCreateEmail={(domain) => {
+              setPreSelectedEmailDomain(domain)
+              setActiveSection('cp-email-mgmt')
+            }}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              setActiveSection(section)
+            }}
           />
         )
       case 'dns-central':
@@ -2912,7 +2922,7 @@ function AdminPageContent() {
 
         <main className={`panel-content flex-1 ${['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
-            {renderSection()}
+            <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>
         </main>
 

@@ -66,18 +66,15 @@ export async function loadResellerCredentialsByUserId(
   userId: string,
 ): Promise<StoredResellerCredentials | null> {
   const admin = adminClient();
-  const { data, error } = await admin
-    .from('profiles')
-    .select('da_username, da_password_encrypted, da_domain')
-    .eq('id', userId)
-    .maybeSingle();
+  const { getProfileForAuthUser } = await import('@/lib/profile-db');
+  const profile = await getProfileForAuthUser(admin, userId);
 
-  if (error || !data?.da_username || !data?.da_password_encrypted) return null;
+  if (!profile?.da_username || !profile?.da_password_encrypted) return null;
 
   return {
-    user: data.da_username,
-    password: decryptDaSecret(data.da_password_encrypted),
-    domain: data.da_domain,
+    user: profile.da_username,
+    password: decryptDaSecret(profile.da_password_encrypted),
+    domain: profile.da_domain,
   };
 }
 

@@ -26,18 +26,60 @@ import {
   writeWpPluginsCache,
 } from '@/lib/wp-panel-cache';
 
+import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache';
+
 const SELECTED_DOMAIN_KEY = 'vd_wp_selected_domain';
+
+function WpSiteScreenshot({ domain }: { domain: string }) {
+  const [src, setSrc] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? null : null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setSrc(null);
+
+    const load = async () => {
+      for (let attempt = 0; attempt < 2 && !cancelled; attempt++) {
+        const url = await loadScreenshot(domain, 400);
+        if (cancelled) return;
+        if (url) {
+          setSrc(url);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+    };
+
+    void load();
+    return () => { cancelled = true; };
+  }, [domain]);
+
+  return (
+    <div className="relative h-32 w-full overflow-hidden rounded border border-gray-200 bg-gray-100 dark:border-zinc-800 dark:bg-zinc-900">
+      {src ? (
+        <img
+          src={src}
+          alt={`Pré-visualização de ${domain}`}
+          className="h-full w-full object-cover object-top"
+          loading="eager"
+          decoding="async"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center">
+          <RefreshCw className="h-5 w-5 animate-spin text-gray-400 dark:text-zinc-500" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const WordPressInstallSection = dynamic(
   () => import('./HostingSections').then((m) => ({ default: m.WordPressInstallSection })),
   { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
 );
-const WPRestoreBackupSection = dynamic(
-  () => import('./HostingSections').then((m) => ({ default: m.WPRestoreBackupSection })),
-  { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
-);
-const WPRemoteBackupSection = dynamic(
-  () => import('./HostingSections').then((m) => ({ default: m.WPRemoteBackupSection })),
+const BackupManagerSection = dynamic(
+  () => import('./HostingSections').then((m) => ({ default: m.BackupManagerSection })),
   { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
 );
 
@@ -93,10 +135,23 @@ function pickFirstWpDomain(
   wpDomains: WpInstall[],
   sites: DirectAdminWebsite[],
 ): string {
-  if (wpDomains.length > 0) return wpDomains[0].domain;
-  const wpSite = sites.find((s) => s.hasWordPress || s.siteType === 'wordpress');
+  const isActiveSite = (domain: string) => {
+    const site = sites.find((s) => s.domain?.toLowerCase() === domain.toLowerCase());
+    if (!site) return true;
+    const state = String(site.state || site.status || '').toLowerCase();
+    return state !== 'suspended' && state !== 'disabled' && state !== 'inactive';
+  };
+
+  if (wpDomains.length > 0) {
+    const active = wpDomains.find((d) => isActiveSite(d.domain));
+    if (active) return active.domain;
+    return wpDomains[0].domain;
+  }
+  const wpSite = sites.find(
+    (s) => (s.hasWordPress || s.siteType === 'wordpress') && isActiveSite(s.domain || ''),
+  );
   if (wpSite?.domain) return wpSite.domain.toLowerCase();
-  const withWpFlag = domainOptions.find((d) => d.hasWp);
+  const withWpFlag = domainOptions.find((d) => d.hasWp && isActiveSite(d.domain));
   if (withWpFlag) return withWpFlag.domain;
   if (sites[0]?.domain) return sites[0].domain.toLowerCase();
   return '';
@@ -131,6 +186,7 @@ export function WordPressHubSection({
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [autoSelected, setAutoSelected] = useState(false);
+  const [highlightedSite, setHighlightedSite] = useState('');
   const [installSlug, setInstallSlug] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -172,7 +228,7 @@ export function WordPressHubSection({
     }
 
     try {
-      const res = await fetch(apiBase);
+      const res = await fetch(apiBase, { credentials: 'include' });
       const data = await res.json();
       if (data.success && Array.isArray(data.installs)) {
         setWpDomains(data.installs);
@@ -193,21 +249,22 @@ export function WordPressHubSection({
         return;
       }
 
-      if (!options?.fresh) {
-        const cached = readWpPluginsCache(domain);
-        if (cached) {
-          setPlugins(cached.plugins);
-          setWpVersion(cached.wpVersion);
-        }
+      const cached = !options?.fresh ? readWpPluginsCache(domain) : null;
+      if (cached) {
+        setPlugins(cached.plugins);
+        setWpVersion(cached.wpVersion);
+        if (!options?.fresh) return;
       }
 
       setLoadingPlugins(true);
       setMsg(null);
       try {
-        const res = await fetch(`${apiBase}?domain=${encodeURIComponent(domain)}`);
+        const res = await fetch(`${apiBase}?domain=${encodeURIComponent(domain)}`, {
+          credentials: 'include',
+        });
         const data = await res.json();
         if (!data.success) {
-          if (!readWpPluginsCache(domain)) {
+          if (!cached) {
             setPlugins([]);
             setWpVersion(null);
             setMsg({ ok: false, text: data.error || 'Não foi possível carregar plugins.' });
@@ -220,7 +277,7 @@ export function WordPressHubSection({
         setWpVersion(version);
         writeWpPluginsCache(domain, rows, version);
       } catch (e: unknown) {
-        if (!readWpPluginsCache(domain)) {
+        if (!cached) {
           setPlugins([]);
           setWpVersion(null);
           setMsg({
@@ -243,6 +300,7 @@ export function WordPressHubSection({
       try {
         const res = await fetch(apiBase, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain: selectedDomain, ...payload }),
         });
@@ -302,7 +360,7 @@ export function WordPressHubSection({
       form.append('domain', selectedDomain);
       form.append('action', 'upload');
       form.append('file', file);
-      const res = await fetch(apiBase, { method: 'POST', body: form });
+      const res = await fetch(apiBase, { method: 'POST', credentials: 'include', body: form });
       const data = await res.json();
       if (data.success) {
         setMsg({ ok: true, text: data.output || 'Plugin instalado a partir do ZIP.' });
@@ -365,7 +423,7 @@ export function WordPressHubSection({
   ]);
 
   useEffect(() => {
-    if (selectedDomain && (tab === 'plugins' || tab === 'sites')) {
+    if (selectedDomain && tab === 'plugins') {
       void loadPlugins(selectedDomain);
     }
   }, [selectedDomain, tab, loadPlugins]);
@@ -385,6 +443,26 @@ export function WordPressHubSection({
             version: d.wpVersion,
             owner: sites.find((s) => s.domain?.toLowerCase() === d.domain)?.owner || '',
           }));
+
+  useEffect(() => {
+    siteCards.forEach((s) => void prefetchScreenshot(s.domain, 400));
+  }, [siteCards]);
+
+  useEffect(() => {
+    if (tab !== 'sites' || siteCards.length === 0) return;
+    const firstActive =
+      siteCards.find((s) => {
+        const site = sites.find((x) => x.domain?.toLowerCase() === s.domain);
+        if (!site) return true;
+        const state = String(site.state || site.status || '').toLowerCase();
+        return state !== 'suspended' && state !== 'disabled' && state !== 'inactive';
+      })?.domain || siteCards[0].domain;
+    if (!highlightedSite && firstActive) {
+      setHighlightedSite(firstActive);
+      persistDomain(firstActive);
+      setSelectedDomain(firstActive);
+    }
+  }, [tab, siteCards, sites, highlightedSite]);
 
   return (
     <div className="space-y-4">
@@ -410,17 +488,33 @@ export function WordPressHubSection({
               {siteCards.map((s) => (
                 <div
                   key={s.domain}
-                  className="space-y-4 rounded border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                  className={`space-y-4 rounded border bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-950 ${
+                    highlightedSite === s.domain
+                      ? 'border-red-400 ring-2 ring-red-500/40 dark:border-red-500'
+                      : 'border-gray-200 dark:border-zinc-800'
+                  }`}
+                  onClick={() => {
+                    setHighlightedSite(s.domain);
+                    persistDomain(s.domain);
+                    setSelectedDomain(s.domain);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setHighlightedSite(s.domain);
+                      persistDomain(s.domain);
+                      setSelectedDomain(s.domain);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                 >
+                  <WpSiteScreenshot domain={s.domain} />
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
-                      <Globe className="h-5 w-5 text-indigo-600" />
-                    </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-gray-900 dark:text-zinc-100">
                         {s.domain}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 dark:text-zinc-500">
                         {s.owner || 'admin'}
                         {s.version ? ` · WP ${s.version}` : ''}
                       </p>
@@ -431,7 +525,7 @@ export function WordPressHubSection({
                       href={`https://${s.domain}/wp-admin`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded border border-indigo-300 bg-indigo-50 px-4 py-2.5 text-xs font-bold text-indigo-600 transition-all hover:bg-indigo-100"
+                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     >
                       <ExternalLink className="h-3.5 w-3.5" /> Abrir WP Admin
                     </a>
@@ -441,7 +535,7 @@ export function WordPressHubSection({
                         if (setFileManagerDomain) setFileManagerDomain(s.domain);
                         setTimeout(() => setActiveSection?.('file-manager'), 50);
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-700 transition-all hover:bg-amber-100"
+                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     >
                       <FolderOpen className="h-3.5 w-3.5" /> Ficheiros
                     </button>
@@ -452,7 +546,7 @@ export function WordPressHubSection({
                         setSelectedDomain(s.domain);
                         setActiveSection?.('wp-plugins');
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded border border-violet-200 bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition-all hover:bg-violet-100"
+                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     >
                       <Plug className="h-3.5 w-3.5" /> Gerir plugins
                     </button>
@@ -689,18 +783,7 @@ export function WordPressHubSection({
       )}
 
       {tab === 'backup' && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">
-              <Archive className="h-3.5 w-3.5" /> Restaurar
-            </span>
-            <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
-              <RotateCcw className="h-3.5 w-3.5" /> Remoto
-            </span>
-          </div>
-          <WPRestoreBackupSection sites={sites} />
-          <WPRemoteBackupSection sites={sites} />
-        </div>
+        <BackupManagerSection sites={sites} initialDomain={selectedDomain || sites[0]?.domain} />
       )}
     </div>
   );

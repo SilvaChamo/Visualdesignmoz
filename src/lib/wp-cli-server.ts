@@ -29,6 +29,73 @@ async function runAsWpUser(user: string, wpPath: string, wpArgs: string): Promis
   return (await executeServerCommand(cmd)).trim();
 }
 
+export async function resolveDomainSitePath(
+  domain: string,
+): Promise<{ user: string; path: string } | null> {
+  const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, '');
+  if (!safeDomain) return null;
+
+  const raw = await executeServerCommand(
+    `find /home -path "*/domains/${safeDomain}/public_html" -type d 2>/dev/null | head -1`,
+  );
+  const path = raw.trim();
+  if (!path) return null;
+
+  const user = (await executeServerCommand(`stat -c '%U' ${shellQuote(path)}`)).trim();
+  return user ? { user, path } : null;
+}
+
+export async function installWordPressSite(input: {
+  domain: string;
+  directory?: string;
+  siteTitle: string;
+  adminUser: string;
+  adminPassword: string;
+  adminEmail: string;
+  dbName: string;
+  dbUser: string;
+  dbPassword: string;
+  protocol?: 'http' | 'https';
+}): Promise<{ ok: boolean; output: string }> {
+  const site = await resolveDomainSitePath(input.domain);
+  if (!site) return { ok: false, output: 'Domínio não encontrado no servidor.' };
+
+  const subdir = (input.directory || '').replace(/^\/+|\/+$/g, '');
+  const wpPath = subdir ? `${site.path}/${subdir}` : site.path;
+  const configPath = `${wpPath}/wp-config.php`;
+
+  const exists = (
+    await executeServerCommand(`test -f ${shellQuote(configPath)} && echo yes || echo no`)
+  ).trim();
+  if (exists === 'yes') {
+    return { ok: false, output: 'WordPress já está instalado neste caminho.' };
+  }
+
+  await executeServerCommand(`mkdir -p ${shellQuote(wpPath)} && chown ${shellQuote(site.user)}:${shellQuote(site.user)} ${shellQuote(wpPath)}`);
+
+  const proto = input.protocol === 'http' ? 'http' : 'https';
+  const url = subdir
+    ? `${proto}://${input.domain}/${subdir}`
+    : `${proto}://${input.domain}`;
+
+  const steps = [
+    'core download',
+    `config create --dbname=${shellQuote(input.dbName)} --dbuser=${shellQuote(input.dbUser)} --dbpass=${shellQuote(input.dbPassword)} --dbhost=localhost --skip-check`,
+    `core install --url=${shellQuote(url)} --title=${shellQuote(input.siteTitle || input.domain)} --admin_user=${shellQuote(input.adminUser)} --admin_password=${shellQuote(input.adminPassword)} --admin_email=${shellQuote(input.adminEmail)} --skip-email`,
+  ];
+
+  const outputs: string[] = [];
+  for (const step of steps) {
+    const out = await runAsWpUser(site.user, wpPath, step);
+    outputs.push(out);
+    if (wpCommandFailed(out)) {
+      return { ok: false, output: out || 'Falha na instalação WordPress.' };
+    }
+  }
+
+  return { ok: true, output: outputs.join('\n') || 'WordPress instalado com sucesso.' };
+}
+
 export async function resolveWpInstall(domain: string): Promise<WpInstallInfo | null> {
   const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, '');
   if (!safeDomain) return null;

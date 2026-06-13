@@ -15,7 +15,12 @@ import {
   Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell, Plug
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
-import { WPUpdateSection } from '@/app/admin/WPUpdateSection'
+import { ClientSidebar } from '@/components/client/ClientSidebar'
+import { clientSectionLabel } from '@/lib/panel-client-menu'
+import { WordPressHubSection } from '@/app/admin/WordPressHubSection'
+import { DNSCentralSection } from '@/app/admin/DNSCentralSection'
+import { PorkbunResellerSection } from '@/app/admin/PorkbunResellerSection'
+import { DomainTransferSection } from '@/app/admin/DomainTransferSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -28,7 +33,8 @@ import {
   PlusAddressingSection, EmailChangePasswordSection, DKIMManagerSection,
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
-  WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection
+  WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
+  NameserverManagementSection,
 } from '../admin/DirectAdminSections'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -3416,9 +3422,6 @@ export default function AdminPage() {
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [cliente, setCliente] = useState<any>(null)
-  const [clientPermissions, setClientPermissions] = useState<Record<string, boolean>>({
-    update_wp_plugins: false,
-  })
 
   // Estados para gestão de contas de email
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
@@ -3426,20 +3429,6 @@ export default function AdminPage() {
 
   // Estado para controlar visibilidade do header quando compose está ativo
   const [isComposeActive, setIsComposeActive] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/admin/permissions?role=client')
-      .then((r) => r.json())
-      .then((data) => {
-        const perms = data.permissions || {};
-        setClientPermissions((prev) => ({
-          ...prev,
-          ...perms,
-          update_wp_plugins: perms.update_wp_plugins === true,
-        }));
-      })
-      .catch(() => {});
-  }, []);
 
   // Obter sessão e perfil do usuário
   useEffect(() => {
@@ -3537,23 +3526,33 @@ export default function AdminPage() {
     return (wpSite || fallback || directAdminSites[0])?.domain?.toLowerCase() || '';
   }, [directAdminSites]);
 
-  const menuItems = useMemo(() => {
-    const items = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'domains', label: 'O Meu Site', icon: Globe },
-      { id: 'webmail', label: 'Webmail', icon: Mail },
-      { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
-      { id: 'tickets', label: 'Suporte', icon: Users },
-      { id: 'faturas', label: 'Faturas', icon: FileText },
-      { id: 'conta', label: 'Conta', icon: Settings },
-    ];
-    if (clientPermissions.update_wp_plugins) {
-      items.splice(2, 0, { id: 'wp-update', label: 'Actualização WP', icon: Plug });
-    }
-    return items;
-  }, [clientPermissions.update_wp_plugins]);
-
-  const currentSidebarWidth = isCollapsed ? 80 : 250
+  const renderWordPressHub = (sectionId: string) => (
+    <WordPressHubSection
+      key={sectionId}
+      sites={directAdminSites}
+      apiBase="/api/client/wp-update"
+      initialDomain={clientWpDomain}
+      initialTab={
+        sectionId === 'wp-sites' || sectionId === 'cp-wp-list' || sectionId === 'domains'
+          ? 'sites'
+          : sectionId === 'wordpress-install'
+            ? 'install'
+            : sectionId === 'wp-backup'
+              ? 'backup'
+              : 'plugins'
+      }
+      autoSelectFirstWp={
+        sectionId === 'wp-plugins' ||
+        sectionId === 'wp-sites' ||
+        sectionId === 'cp-wp-plugins' ||
+        sectionId === 'cp-wp-list'
+      }
+      hideDomainSelector={directAdminSites.length <= 1 && sectionId === 'wp-plugins'}
+      setFileManagerDomain={setFileManagerDomain}
+      setActiveSection={setActiveSection}
+      onRefresh={() => void loadDirectAdminData()}
+    />
+  );
 
   const renderSection = () => {
     switch (activeSection) {
@@ -3708,30 +3707,58 @@ export default function AdminPage() {
         // return <APIConfigSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Configurações</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-list':
-        // return <WPListSection sites={directAdminSites} setFileManagerDomain={setFileManagerDomain} setActiveSection={setActiveSection} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-plugins':
-        // return <WPPluginsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Plugins WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'wp-update':
+      case 'wp-sites':
+      case 'wp-plugins':
+      case 'wp-backup':
+      case 'wordpress-install':
+        return renderWordPressHub(activeSection)
+      case 'cp-dns-nameserver':
         return (
-          <WPUpdateSection
+          <NameserverManagementSection
             sites={directAdminSites}
-            apiBase="/api/client/wp-update"
-            initialDomain={clientWpDomain}
-            autoSelectFirstWp
-            hideDomainSelector={directAdminSites.length <= 1}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
+      case 'dns-central':
+        return (
+          <DNSCentralSection
+            sites={directAdminSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
+      case 'transferir-dominio':
+        return <DomainTransferSection />
+      case 'porkbun-domains':
+        return <PorkbunResellerSection />
+      case 'porkbun-my-domains':
+        return (
+          <DomainManagerSection
+            sites={directAdminSites}
+            packages={directAdminPackages}
+            onCreateEmail={() => setActiveSection('emails-new')}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              setActiveSection(section)
+            }}
+          />
+        )
+      case 'domain-manager':
+        return (
+          <DomainManagerSection
+            sites={directAdminSites}
+            packages={directAdminPackages}
+            onCreateEmail={() => setActiveSection('emails-new')}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              setActiveSection(section)
+            }}
           />
         )
       case 'cp-wp-restore-backup':
-        // return <WPRestoreBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Restaurar Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-remote-backup':
-        // return <WPRemoteBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Backup Remoto WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'cp-dns-nameserver':
-        // return <DNSNameserverSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Nameservers DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-dns-default-ns':
         // return <DNSDefaultNSSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Default Nameservers</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3759,17 +3786,7 @@ export default function AdminPage() {
         return <div className="p-5"><h1 className="text-2xl font-bold">Deploy GitHub</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'backup-manager':
       case 'cp-backup':
-        // return <BackupManagerSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Backups</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'wordpress-install':
-        // return <WordPressInstallSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Instalar WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'cp-wp-backup':
-        // return <WPBackupSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Backup WordPress</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'domain-manager':
-        // return <DomainManagerSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Gestor de Domínios</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'deploy':
         // return <DeploySection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Deploy</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3782,121 +3799,25 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <div
-        className="relative bg-white border-r border-gray-200 text-gray-800 flex flex-col shadow-sm transition-all duration-300 ease-in-out"
-        style={{ width: `${currentSidebarWidth}px` }}
-      >
-        {/* Sidebar Header */}
-        <div className="px-2 pb-4 border-b border-gray-100 pt-4">
-          {isCollapsed ? (
-            <div className="flex flex-col items-center gap-3">
-              <img
-                src="/assets/simbolo.png"
-                alt="Logo"
-                className="w-12 h-12 object-contain cursor-pointer"
-                onClick={() => window.location.href = '/'}
-              />
-              <button
-                onClick={() => setIsCollapsed(false)}
-                className="rounded-lg hover:bg-gray-100 transition-colors p-1"
-              >
-                <ChevronRight size={22} className="text-gray-500" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <img
-                src="/assets/simbolo.png"
-                alt="Logo"
-                className="w-14 h-14 object-contain cursor-pointer"
-                onClick={() => window.location.href = '/'}
-              />
-              <div className="flex-1">
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight">VisualDESIGN</h1>
-                <p className="text-xs text-gray-500">Gestão de Serviços</p>
-              </div>
-              <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="rounded-lg hover:bg-gray-100 transition-colors p-1"
-                title={isCollapsed ? "Expandir" : "Recolher"}
-              >
-                {isCollapsed ? (
-                  <ChevronRight size={22} className="text-gray-500" />
-                ) : (
-                  <ChevronLeft size={22} className="text-gray-500" />
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Menu Items */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2.5">
-          <div className="space-y-0.5">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeSection === item.id ||
-                (item.id === 'domains' && ['domains', 'domains-new', 'domains-list'].includes(activeSection)) ||
-                (item.id === 'wp-update' && activeSection === 'wp-update') ||
-                (item.id === 'emails-new' && activeSection.startsWith('cp-email')) ||
-                (item.id === 'webmail' && activeSection === 'webmail') ||
-                (item.id === 'cp-security' && activeSection === 'cp-security')
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'} rounded-lg transition-all duration-200 ease-out hover:translate-x-1 ${
-                    isActive
-                      ? 'bg-red-50 text-red-600 font-bold'
-                      : 'hover:bg-gray-100 text-gray-600'
-                    }`}
-                >
-                  <Icon size={22} className={
-                    isActive ? 'text-red-600' : 'text-gray-500'
-                  } />
-                  {!isCollapsed && (
-                    <span className="ml-3 text-[15px]">{item.label}</span>
-                  )}
-                  {!isCollapsed && isActive && (
-                    <ChevronRight size={14} className="ml-auto text-red-400" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className="p-3 border-t border-gray-100">
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-2'}`}>
-            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">
-                {cliente?.nome?.substring(0, 2).toUpperCase() || '??'}
-              </span>
-            </div>
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-900 truncate">{cliente?.nome || 'Carregando...'}</p>
-                <p className="text-[10px] text-gray-400 truncate">{cliente?.email || '...'}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
+      <ClientSidebar
+        activeSection={activeSection}
+        onNavigate={setActiveSection}
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
+        cliente={cliente}
+      />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white">
+      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
         {/* Top Header - Escondido quando compose está ativo na seção de emails */}
-        <header className={`bg-white border-b border-gray-200 px-6 py-4 mb-0 ${isComposeActive && activeSection === 'emails-new' ? 'hidden' : ''}`}>
+        <header className={`mb-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 ${isComposeActive && activeSection === 'emails-new' ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                {menuItems.find(i => i.id === activeSection)?.label || 'Painel de Gestão'}
+              <h1 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-zinc-100">
+                {clientSectionLabel(activeSection)}
               </h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                 VisualDesign Admin Cloud
               </p>
             </div>
@@ -3954,7 +3875,7 @@ export default function AdminPage() {
         </header>
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'emails-new', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50`}>
+        <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'emails-new', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50 dark:bg-zinc-950`}>
           <div className={`${isComposeActive && activeSection === 'emails-new' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>

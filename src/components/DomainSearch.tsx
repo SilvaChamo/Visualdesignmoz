@@ -228,7 +228,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all pr-12 shadow-sm font-medium"
+            className="w-full px-4 py-2 rounded-lg bg-white dark:bg-zinc-950 text-black dark:text-zinc-100 border border-slate-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all pr-12 shadow-sm dark:shadow-none font-medium"
           />
           {loading ? (
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -244,7 +244,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
         <select
           value={selectedTLD}
           onChange={(e) => setSelectedTLD(e.target.value)}
-          className="px-4 py-2 rounded-lg bg-white text-black border border-slate-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 w-full sm:w-56 shadow-sm font-medium cursor-pointer"
+          className="px-4 py-2 rounded-lg bg-white dark:bg-zinc-950 text-black dark:text-zinc-100 border border-slate-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 w-full sm:w-56 shadow-sm dark:shadow-none font-medium cursor-pointer"
         >
           {tlds.map(tld => (
             <option key={tld.value} value={tld.value}>
@@ -264,13 +264,13 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
 
       {/* Lista de Resultados - Fica fora do container com fundo para herdar o branco no admin */}
       {!hideResultsInternal && showResults && results.length > 0 && (
-        <div className="w-full mt-6 transition-all duration-300">
-          <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 pb-2 border-b ${isAdmin ? 'border-slate-200' : 'border-slate-700/60'} gap-4`}>
+        <div className="w-full mt-6 transition-all duration-300 text-left">
+          <div className={`flex flex-col items-start sm:flex-row sm:justify-between sm:items-center mb-4 pb-2 border-b ${isAdmin ? 'border-slate-200' : 'border-slate-700/60'} gap-4`}>
             <h3 className={`font-bold ${isAdmin ? 'text-slate-800' : 'text-white'} text-lg flex items-center gap-2`}>
               <Globe className="w-5 h-5 text-red-600" />
               {internalTab === 'domains' ? 'Domínios Disponíveis' : internalTab === 'pricing' ? 'Tabela de Preços' : 'Planos e Serviços'}
             </h3>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-start gap-2 w-full sm:w-auto">
               <div className={`flex gap-4 p-1`}>
                 <button 
                   onClick={() => setInternalTab('domains')}
@@ -302,10 +302,10 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
               {results.map((result, index) => (
                 <div
                   key={index}
-                  className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg py-2 px-3 sm:px-4 hover:border-slate-300 transition-colors grid grid-cols-1 sm:grid-cols-3 items-center gap-3`}
+                  className={`bg-white border ${index === 0 && result.available ? 'border-red-200 shadow-md ring-1 ring-red-50' : 'border-slate-200 shadow-sm'} rounded-lg py-3 px-3 sm:px-4 hover:border-slate-300 transition-colors flex flex-col items-start gap-3 sm:grid sm:grid-cols-3 sm:items-center w-full`}
                 >
-                  {/* Coluna 1: Nome do Domínio (Ajustado à esquerda) */}
-                  <div className="flex items-center gap-3 justify-start">
+                  {/* Coluna 1: Nome do Domínio */}
+                  <div className="flex items-center gap-3 justify-start w-full">
                     {result.available && (
                       <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-green-100 text-green-600">
                         <Check className="w-3.5 h-3.5" />
@@ -318,12 +318,12 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                     </div>
                   </div>
 
-                  {/* Coluna 2: Preço ou Erro (Ajustado à direita) */}
-                  <div className="flex items-center justify-end sm:pr-4">
+                  {/* Coluna 2: Preço ou Erro */}
+                  <div className="flex flex-col items-start gap-1 w-full sm:items-end sm:pr-4">
                     {result.error && !result.available ? (
-                      <span className="text-red-500 text-xs text-right font-medium">{result.error}</span>
+                      <span className="text-red-500 text-xs text-left sm:text-right font-medium">{result.error}</span>
                     ) : result.price !== undefined ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-slate-700 font-bold text-lg">
                           {calculatePrice(result.price)} MT
                         </span>
@@ -336,13 +336,13 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                     ) : null}
                   </div>
 
-                  {/* Coluna 3: Botão (Ajustado à direita) */}
-                  <div className="flex items-center justify-end">
+                  {/* Coluna 3: Botão */}
+                  <div className="flex items-start justify-start w-full sm:items-center sm:justify-end">
                     {result.available ? (
                       <button
                         onClick={() => handleRegisterAction(result.domain)}
                         disabled={actionLoading === result.domain}
-                        className="bg-green-600 hover:bg-green-700 hover:scale-105 hover:shadow-md text-white px-5 py-2 rounded text-sm font-bold transition-all duration-200 shadow-sm flex items-center gap-2 whitespace-nowrap min-w-[130px] justify-center"
+                        className="bg-green-600 hover:bg-green-700 hover:scale-105 hover:shadow-md text-white px-5 py-2 rounded text-sm font-bold transition-all duration-200 shadow-sm flex items-center gap-2 whitespace-nowrap w-auto sm:min-w-[130px] justify-start"
                       >
                         {actionLoading === result.domain ? (
                           <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
@@ -353,7 +353,7 @@ export default function DomainSearch({ onResultsAction, onLoadingAction, hideRes
                     ) : (
                       <button
                         disabled
-                        className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold cursor-not-allowed shadow-sm min-w-[130px]"
+                        className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold cursor-not-allowed shadow-sm w-auto sm:min-w-[130px] text-left"
                       >
                         Indisponível
                       </button>

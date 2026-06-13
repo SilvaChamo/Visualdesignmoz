@@ -94,9 +94,6 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
       { id: 'wordpress-install', label: 'Instalar WordPress' },
       { id: 'cp-wp-list', label: 'Painel WP Admin' },
       { id: 'cp-wp-plugins', label: 'Gerir plugins' },
-      { id: 'cp-wp-backup', label: 'Backup WordPress' },
-      { id: 'cp-wp-restore-backup', label: 'Restaurar backup' },
-      { id: 'cp-wp-remote-backup', label: 'Backup remoto' },
     ],
   },
   {
@@ -122,7 +119,6 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
       { id: 'cp-dns-default-ns', label: 'NS padrão' },
       { id: 'cp-dns-create-zone', label: 'Criar zona DNS' },
       { id: 'cp-dns-delete-zone', label: 'Apagar zona DNS' },
-      { id: 'cp-dns-cloudflare', label: 'CloudFlare' },
       { id: 'cp-dns-reset', label: 'Reset DNS' },
     ],
   },
@@ -132,7 +128,6 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
     icon: 'shield',
     subItems: [
       { id: 'cp-ssl', label: 'SSL / TLS' },
-      { id: 'cp-security', label: 'Firewall & ModSecurity' },
       { id: 'cp-api', label: 'Configurações API' },
     ],
   },

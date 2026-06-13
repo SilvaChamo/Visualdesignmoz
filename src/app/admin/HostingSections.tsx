@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui'
+import { PanelIconTip } from '@/components/panel/PanelIconTip'
 import { directAdminAPI } from '@/lib/directadmin-api'
 import type {
   DirectAdminWebsite, DirectAdminSubdomain, DirectAdminUser, DirectAdminDatabase,
@@ -31,7 +32,7 @@ import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
-  Upload, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2
+  Upload, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search
 } from 'lucide-react'
 
 function isDaCommandOk(result: unknown): boolean {
@@ -829,14 +830,6 @@ export function DNSZoneEditorSection({
 
   return (
     <div className="w-full space-y-4">
-      {isCentral && (
-        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-gray-600 dark:text-zinc-400">
-          <span className="uppercase font-semibold tracking-wide">Nameservers:</span>
-          <span className="font-mono">{VISUALDESIGN_DEFAULT_NS.ns1}</span>
-          <span className="font-mono">{VISUALDESIGN_DEFAULT_NS.ns2}</span>
-        </div>
-      )}
-
       {!isCentral && (
         <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-4">
           <div className="w-full md:w-64">
@@ -965,18 +958,26 @@ export function DNSZoneEditorSection({
             )}
           </div>
           {isCentral && (
-            <select
-              value={selectedDomain}
-              onChange={e => handleDomainChange(e.target.value)}
-              className={`${panelField} min-w-[12rem] text-xs`}
-            >
-              <option value="">Seleccione um domínio...</option>
-              {sites.map(s => (
-                <option key={s.domain} value={s.domain}>
-                  {s.domain}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedDomain}
+                onChange={e => handleDomainChange(e.target.value)}
+                className={`${panelField} min-w-[12rem] text-xs`}
+              >
+                <option value="">Seleccione um domínio...</option>
+                {sites.map(s => (
+                  <option key={s.domain} value={s.domain}>
+                    {s.domain}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-600 dark:text-zinc-400">
+                <span className="font-semibold uppercase tracking-wide">Nameservers:</span>{' '}
+                <span className="font-mono">
+                  {VISUALDESIGN_DEFAULT_NS.ns1}; {VISUALDESIGN_DEFAULT_NS.ns2}
+                </span>
+              </span>
+            </>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -2553,7 +2554,8 @@ export function CPUsersSection({
   const refreshPanelAccounts = async () => {
     setRefreshing(true)
     try {
-      await fetch('/api/admin/panel-users', { method: 'POST' })
+      await supabase.auth.getSession()
+      await fetch('/api/admin/panel-users', { method: 'POST', credentials: 'include' })
       await loadPanelAccounts({ fresh: true })
     } catch (e: unknown) {
       console.error('[CPUsersSection] refresh:', e)
@@ -2651,8 +2653,10 @@ export function CPUsersSection({
     setCreating(true)
     setMsg('')
     try {
+      await supabase.auth.getSession()
       const res = await fetch('/api/admin/panel-users', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: data.userId,
@@ -2662,9 +2666,9 @@ export function CPUsersSection({
           password: data.password || undefined,
         }),
       })
-      const payload = await res.json()
-      if (!res.ok || !payload.success) {
-        throw new Error(payload.error || 'Falha ao actualizar')
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || payload.success === false) {
+        throw new Error(payload.error || payload.message || 'Falha ao actualizar')
       }
       setMsg('✅ Conta actualizada.')
       setUserModal({ ...userModal, show: false })
@@ -2731,8 +2735,10 @@ export function CPUsersSection({
     setCreating(true); setMsg('')
     try {
       if (isPanelsMode && data.acl === 'panel' && data.panelRole) {
+        await supabase.auth.getSession()
         const res = await fetch('/api/admin/panel-users', {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: data.email,
@@ -2741,9 +2747,9 @@ export function CPUsersSection({
             role: data.panelRole,
           }),
         })
-        const payload = await res.json()
-        if (!res.ok || !payload.success) {
-          throw new Error(payload.error || 'Falha ao criar conta')
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok || payload.success === false) {
+          throw new Error(payload.error || payload.message || 'Falha ao criar conta')
         }
         setMsg(`✅ ${payload.message}`)
         setUserModal({ ...userModal, show: false })
@@ -2993,7 +2999,7 @@ export function CPUsersSection({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Pesquisar por email ou nome..."
-                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[20rem]' : 'sm:w-72'}`}
+                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[10rem]' : 'sm:w-36'}`}
               />
             </div>
           )}
@@ -4983,15 +4989,27 @@ export function DNSNameserverSection({ sites }: { sites: DirectAdminWebsite[] })
   )
 }
 
-export function NameserverManagementSection({ sites }: { sites: DirectAdminWebsite[] }) {
+export function NameserverManagementSection({
+  sites,
+  initialDomain,
+}: {
+  sites: DirectAdminWebsite[]
+  initialDomain?: string
+}) {
   const [mode, setMode] = useState<'default' | 'custom'>('default')
-  const [selectedDomain, setSelectedDomain] = useState('')
+  const [selectedDomain, setSelectedDomain] = useState(initialDomain || '')
   const [ns1, setNs1] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns1)
   const [ns2, setNs2] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns2)
   const [ns1IP, setNs1IP] = useState('')
   const [ns2IP, setNs2IP] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    if (initialDomain) {
+      setSelectedDomain(initialDomain)
+    }
+  }, [initialDomain])
 
   useEffect(() => {
     if (mode === 'default') {
@@ -5024,14 +5042,20 @@ export function NameserverManagementSection({ sites }: { sites: DirectAdminWebsi
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
         <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
-          Escolha os nameservers que os novos domínios devem usar por defeito ou configure nameservers personalizados por domínio.
+          Escolha os nameservers predefinidos ou configure nameservers personalizados por domínio.
         </p>
 
-        <div className="space-y-3 mb-6">
-          <label className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-4 dark:border-zinc-700">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${
+              mode === 'default'
+                ? 'border-red-300 dark:border-red-800'
+                : 'border-gray-200 dark:border-zinc-700'
+            }`}
+          >
             <input
               type="radio"
               name="ns-mode"
@@ -5049,7 +5073,13 @@ export function NameserverManagementSection({ sites }: { sites: DirectAdminWebsi
             </div>
           </label>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-4 dark:border-zinc-700">
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${
+              mode === 'custom'
+                ? 'border-red-300 dark:border-red-800'
+                : 'border-gray-200 dark:border-zinc-700'
+            }`}
+          >
             <input
               type="radio"
               name="ns-mode"
@@ -6262,6 +6292,8 @@ export function GitDeploySection() {
 }
 
 export function PackagesSection({ packages, onRefresh }: { packages: any[], onRefresh: () => void }) {
+  const [livePackages, setLivePackages] = useState<any[]>(packages)
+  const [loadingLive, setLoadingLive] = useState(false)
   const [form, setForm] = useState({ 
     packageName: '', 
     diskSpace: '1000', 
@@ -6287,6 +6319,38 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
   const [msg, setMsg] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const { setChrome } = useAdminSectionChrome()
+
+  const loadLivePackages = async () => {
+    setLoadingLive(true)
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'listPackages' }),
+      })
+      const data = await res.json()
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        setLivePackages(data.data)
+      }
+    } catch {
+      /* mantém lista actual */
+    } finally {
+      setLoadingLive(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadLivePackages()
+  }, [])
+
+  useEffect(() => {
+    if (packages.length > 0 && livePackages.length === 0) {
+      setLivePackages(packages)
+    }
+  }, [packages, livePackages.length])
+
+  const displayPackages = livePackages.length > 0 ? livePackages : packages
 
   useEffect(() => {
     setChrome({
@@ -6319,6 +6383,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         setForm({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5', ftpAccounts: '5', allowedDomains: '1' })
         setShowCreateForm(false)
         onRefresh()
+        void loadLivePackages()
       } else {
         setMsg('Erro: ' + (data.error || 'Falha ao criar pacote'))
       }
@@ -6341,6 +6406,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
       if (data.success) {
         setMsg('Pacote apagado com sucesso!')
         onRefresh()
+        void loadLivePackages()
       } else {
         setMsg('Erro: ' + (data.error || 'Falha ao apagar pacote'))
       }
@@ -6375,6 +6441,7 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
         if (data.success) {
           setMsg('Pacote atualizado com sucesso!')
           onRefresh()
+          void loadLivePackages()
         } else {
           setMsg('Erro: ' + (data.error || 'Falha ao atualizar pacote'))
         }
@@ -6415,13 +6482,24 @@ export function PackagesSection({ packages, onRefresh }: { packages: any[], onRe
           </div>
         )}
 
-      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        {packages && packages.length > 0 ? (
+      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="mb-4 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => void loadLivePackages()}
+            disabled={loadingLive}
+            className="inline-flex items-center gap-2 rounded border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-red-600 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-red-400"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
+            Actualizar do servidor
+          </button>
+        </div>
+        {displayPackages && displayPackages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-200"><th className="text-left py-3 px-2 font-semibold text-gray-700">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700">Ações</th></tr></thead>
+              <thead><tr className="border-b border-gray-200 dark:border-zinc-700"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Ações</th></tr></thead>
               <tbody>
-                {packages.map((pkg: any, i: number) => (
+                {displayPackages.map((pkg: any, i: number) => (
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-2 font-medium">{pkg.packageName || pkg.name || '-'}</td>
                     <td className="py-3 px-2">
@@ -7864,6 +7942,63 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
 }
 
 // Domain Manager Section
+function domainHostingStateLabel(row: CachedDomainRow): 'Activo' | 'Desactivo' {
+  const raw = row.state ?? row.status ?? 'Active'
+  if (raw === '0' || raw === 'Active' || raw === 'active') return 'Activo'
+  if (raw === '1' || raw === 'Suspended' || raw === 'suspended') return 'Desactivo'
+  const lower = String(raw).toLowerCase()
+  if (lower.includes('suspend') || lower.includes('inactiv') || lower.includes('desactiv')) return 'Desactivo'
+  return 'Activo'
+}
+
+function domainRowsSignature(rows: CachedDomainRow[]): string {
+  return rows
+    .map((r) =>
+      [r.domain, r.state ?? '', r.status ?? '', r.package ?? '', r.owner ?? '', r.adminEmail ?? ''].join('|'),
+    )
+    .sort()
+    .join(';')
+}
+
+function domainExpirationPlaceholder(domain: string): string {
+  const hash = domain.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const days = (hash % 180) + 30
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date.toISOString().split('T')[0]
+}
+
+function siteHasSsl(site?: DirectAdminWebsite): boolean {
+  if (!site) return false
+  return (
+    site.sslStatus === 'Secure' ||
+    site.ssl === true ||
+    (site as { ssl?: string | boolean }).ssl === 'Enabled'
+  )
+}
+
+const domainCardBtn =
+  'rounded border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400'
+
+function sitesToDomainRows(list: DirectAdminWebsite[]): CachedDomainRow[] {
+  return list
+    .filter(
+      (s) =>
+        s.domain &&
+        !s.domain.includes('contaboserver') &&
+        !s.domain.includes('localhost') &&
+        !s.domain.toLowerCase().startsWith('mail'),
+    )
+    .map((s) => ({
+      domain: s.domain,
+      adminEmail: s.adminEmail,
+      package: s.package,
+      state: s.state || s.status,
+      status: s.status,
+      owner: s.owner,
+    }))
+}
+
 export function DomainManagerSection({
   sites,
   packages = [],
@@ -7876,13 +8011,62 @@ export function DomainManagerSection({
   onNavigate?: (section: string, opts?: { domain?: string }) => void
 }) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
-  const [domains, setDomains] = useState<CachedDomainRow[]>([])
+  const [extraRows, setExtraRows] = useState<CachedDomainRow[] | null>(null)
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [listSearch, setListSearch] = useState('')
+  const [openMenuDomain, setOpenMenuDomain] = useState<string | null>(null)
+  const domainMenuRef = useRef<HTMLDivElement>(null)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
-  const [openMenuDomain, setOpenMenuDomain] = useState<string | null>(null)
-  const [openGerirDomain, setOpenGerirDomain] = useState<string | null>(null)
+  const sitesRef = useRef(sites)
+  sitesRef.current = sites
+
+  const sitesSignature = useMemo(
+    () =>
+      sites
+        .map((s) =>
+          `${s.domain?.toLowerCase() ?? ''}:${s.state ?? s.status ?? ''}:${s.package ?? ''}:${s.sslStatus ?? ''}:${s.ssl ?? ''}`,
+        )
+        .filter((line) => line.length > 1)
+        .sort()
+        .join('|'),
+    [sites],
+  )
+
+  const siteByDomain = useMemo(() => {
+    const map = new Map<string, DirectAdminWebsite>()
+    for (const s of sites) map.set(s.domain.toLowerCase(), s)
+    return map
+  }, [sitesSignature, sites])
+
+  const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
+
+  const domainList = useMemo(() => {
+    if (rowsFromSites.length > 0) return rowsFromSites
+    if (extraRows && extraRows.length > 0) return extraRows
+    return readDomainListCache()
+  }, [rowsFromSites, extraRows])
+
+  const filteredDomains = useMemo(() => {
+    const q = listSearch.trim().toLowerCase()
+    if (!q) return domainList
+    return domainList.filter((d) => d.domain.toLowerCase().includes(q))
+  }, [domainList, listSearch])
+
+  const setExtraRowsIfChanged = (rows: CachedDomainRow[]) => {
+    setExtraRows((prev) => {
+      const nextSig = domainRowsSignature(rows)
+      const prevSig = prev ? domainRowsSignature(prev) : ''
+      return nextSig === prevSig ? prev : rows
+    })
+  }
+  const [registrarLoading, setRegistrarLoading] = useState(false)
+  const [transferLocked, setTransferLocked] = useState<boolean | null>(null)
+  const [authCode, setAuthCode] = useState('')
+  const [authCodeExpires, setAuthCodeExpires] = useState('')
+  const [autoRenew, setAutoRenew] = useState<boolean | null>(null)
+  const [registrarExpire, setRegistrarExpire] = useState('')
 
   // Formulário criar domínio - atualizado para igual ao DirectAdmin
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
@@ -7905,34 +8089,44 @@ export function DomainManagerSection({
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
   }
-  const sitesToDomainRows = (list: DirectAdminWebsite[]): CachedDomainRow[] =>
-    list
-      .filter(
-        (s) =>
-          s.domain &&
-          !s.domain.includes('contaboserver') &&
-          !s.domain.includes('localhost') &&
-          !s.domain.toLowerCase().startsWith('mail'),
-      )
-      .map((s) => ({
-        domain: s.domain,
-        adminEmail: s.adminEmail,
-        package: s.package,
-        state: s.state || s.status,
-        status: s.status,
-        owner: s.owner,
-      }))
 
-  const loadDomains = async (opts?: { background?: boolean }) => {
-    const fromSites = sitesToDomainRows(sites)
-    if (fromSites.length > 0) {
-      setDomains(fromSites)
-      writeDomainListCache(fromSites)
-    } else {
-      const cached = readDomainListCache()
-      if (cached.length > 0) setDomains(cached)
+  const panelBtnRow = domainCardBtn
+
+  useEffect(() => {
+    if (!openMenuDomain) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (domainMenuRef.current && !domainMenuRef.current.contains(e.target as Node)) {
+        setOpenMenuDomain(null)
+      }
     }
-    if (!opts?.background) setLoading(true)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openMenuDomain])
+
+  const handleRenewDomain = async (domain: string) => {
+    setOpenMenuDomain(null)
+    try {
+      const res = await fetch('/api/renewals?type=domain', { credentials: 'include' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        const renewal = (data.domains || []).find(
+          (r: { domain_name?: string }) => r.domain_name?.toLowerCase() === domain.toLowerCase(),
+        )
+        if (renewal?.id) {
+          window.location.href = `/pagamento/renovacao/${renewal.id}`
+          return
+        }
+      }
+    } catch {
+      /* fallback abaixo */
+    }
+    onNavigate?.('faturas')
+    showMsg('Renovação não encontrada para este domínio. Verifique em Faturas.', 'error')
+  }
+
+  const loadDomains = async () => {
+    const currentSites = sitesRef.current
+    setLoading(true)
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
@@ -7942,13 +8136,13 @@ export function DomainManagerSection({
       const json = await res.json()
       if (json.success && json.data) {
         const sitesArray = Array.isArray(json.data) ? json.data : json.data.sites || []
-        const siteDomains = new Set(sites.map((s) => s.domain.toLowerCase()))
+        const siteDomains = new Set(currentSites.map((s) => s.domain.toLowerCase()))
         const filtered = sitesArray.filter(
           (s: { domain?: string }) => s.domain && siteDomains.has(s.domain.toLowerCase()),
         )
         const rows = sitesToDomainRows(filtered as DirectAdminWebsite[])
         if (rows.length > 0) {
-          setDomains(rows)
+          setExtraRowsIfChanged(rows)
           writeDomainListCache(rows)
         }
         void (async () => {
@@ -7967,7 +8161,7 @@ export function DomainManagerSection({
         })()
       }
     } catch (e: unknown) {
-      if (domains.length === 0) {
+      if (domainList.length === 0) {
         setMsg('Erro ao carregar domínios: ' + (e instanceof Error ? e.message : 'desconhecido'))
         setMsgType('error')
       }
@@ -7977,20 +8171,123 @@ export function DomainManagerSection({
   }
 
   useEffect(() => {
-    const cached = readDomainListCache()
-    const fromSites = sitesToDomainRows(sites)
-    if (fromSites.length > 0) {
-      setDomains(fromSites)
-      writeDomainListCache(fromSites)
-    } else if (cached.length > 0) {
-      setDomains(cached)
+    if (rowsFromSites.length > 0) {
+      writeDomainListCache(rowsFromSites)
+      return
     }
-    void loadDomains({ background: true })
-  }, [sites])
+    const cached = readDomainListCache()
+    if (cached.length > 0) setExtraRowsIfChanged(cached)
+  }, [rowsFromSites])
 
   useEffect(() => {
     if (newDomain) setDocRoot(newDomain)
   }, [newDomain])
+
+  const loadRegistrarInfo = async (domain: string) => {
+    setRegistrarLoading(true)
+    setAuthCode('')
+    setAuthCodeExpires('')
+    try {
+      const res = await fetch(`/api/registrar/domain/manage?domain=${encodeURIComponent(domain)}`, {
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTransferLocked(typeof data.isLocked === 'boolean' ? data.isLocked : null)
+        setAutoRenew(typeof data.autoRenew === 'boolean' ? data.autoRenew : null)
+        setRegistrarExpire(data.expireDate || '')
+      }
+    } catch {
+      /* registo pode ser só hospedagem */
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (view === 'manage' && selectedDomain?.domain) {
+      void loadRegistrarInfo(selectedDomain.domain)
+    }
+  }, [view, selectedDomain?.domain])
+
+  const handleUnlockTransfer = async () => {
+    if (!selectedDomain?.domain) return
+    setRegistrarLoading(true)
+    try {
+      const res = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain: selectedDomain.domain, action: 'unlock' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTransferLocked(false)
+        showMsg(data.message || 'Domínio desbloqueado para transferência.')
+      } else {
+        showMsg(data.error || 'Erro ao desbloquear', 'error')
+      }
+    } catch (e: unknown) {
+      showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  const handleFetchAuthCode = async () => {
+    if (!selectedDomain?.domain) return
+    setRegistrarLoading(true)
+    try {
+      const res = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain: selectedDomain.domain, action: 'auth-code' }),
+      })
+      const data = await res.json()
+      if (data.success && data.authCode) {
+        setAuthCode(data.authCode)
+        setAuthCodeExpires(data.expires || '')
+        showMsg(data.message || 'Código obtido.')
+      } else {
+        showMsg(data.error || 'Erro ao obter código', 'error')
+      }
+    } catch (e: unknown) {
+      showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  const handleToggleAutoRenew = async () => {
+    if (!selectedDomain?.domain || autoRenew === null) return
+    const next = !autoRenew
+    setRegistrarLoading(true)
+    try {
+      const res = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain: selectedDomain.domain, action: 'autorenew', isEnabled: next }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAutoRenew(next)
+        showMsg(data.message || (next ? 'Renovação automática activada.' : 'Renovação automática desactivada.'))
+      } else {
+        showMsg(data.error || 'Erro ao actualizar renovação automática', 'error')
+      }
+    } catch (e: unknown) {
+      showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
+    } finally {
+      setRegistrarLoading(false)
+    }
+  }
+
+  const openManage = (d: CachedDomainRow) => {
+    setSelectedDomain(d)
+    setView('manage')
+  }
 
   const handleCreate = async () => {
     if (!newDomain || !adminEmail) return
@@ -8081,53 +8378,84 @@ export function DomainManagerSection({
   }
 
   // VISTA: LISTA DE DOMÍNIOS
-  const domainManageActions = (d: CachedDomainRow) => (
-    <>
-      <button
-        type="button"
-        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        onClick={() => {
-          setOpenMenuDomain(null)
-          setOpenGerirDomain(null)
-          onNavigate?.('porkbun-my-domains')
-        }}
-      >
-        Alterar bloqueio de registo
+  const domainCardMenuItem =
+    'block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400'
+
+  const renderDomainCardActions = (d: CachedDomainRow) => (
+    <div className="relative flex shrink-0 items-center gap-2">
+      <button type="button" className={`${domainCardBtn} font-bold`} onClick={() => openManage(d)}>
+        Gerir website
       </button>
-      <button
-        type="button"
-        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        onClick={() => {
-          setOpenMenuDomain(null)
-          setOpenGerirDomain(null)
-          onNavigate?.('cadastrar-renovacao', { domain: d.domain })
-        }}
+      <div
+        ref={openMenuDomain === d.domain ? domainMenuRef : undefined}
+        className="relative"
       >
-        Renovar domínio
-      </button>
-      <button
-        type="button"
-        className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        onClick={() => {
-          setOpenMenuDomain(null)
-          setOpenGerirDomain(null)
-          onNavigate?.('dns-central', { domain: d.domain })
-        }}
-      >
-        Editar Zona de DNS
-      </button>
-    </>
+        <button
+          type="button"
+          className={domainCardBtn}
+          onClick={() => setOpenMenuDomain((prev) => (prev === d.domain ? null : d.domain))}
+          aria-expanded={openMenuDomain === d.domain}
+          aria-haspopup="menu"
+          aria-label="Mais opções"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+        {openMenuDomain === d.domain && (
+          <div className="absolute right-0 top-1/2 z-50 min-w-[11rem] -translate-y-1/2 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+            <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); onNavigate?.('cp-dns-nameserver', { domain: d.domain }) }}>
+              Nameservers
+            </button>
+            <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); setEmailModal({ show: true, domain: d.domain }) }}>
+              Criar e-mail
+            </button>
+            <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); onNavigate?.('dns-central', { domain: d.domain }) }}>
+              Editar Zona de DNS
+            </button>
+            <button type="button" className={domainCardMenuItem} onClick={() => void handleRenewDomain(d.domain)}>
+              Renovar domínio
+            </button>
+            <button type="button" className={domainCardMenuItem} onClick={() => openManage(d)}>
+              Redireccionamento
+            </button>
+            <button
+              type="button"
+              className={domainCardMenuItem}
+              onClick={() => {
+                setOpenMenuDomain(null)
+                window.open(`https://${d.domain}`, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              Visitar site
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 
   if (view === 'list') return (
-    <div className="w-full space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <button type="button" onClick={() => void loadDomains()} disabled={loading} className={panelBtnSecondary}>
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Sincronizar
-        </button>
-        <button type="button" onClick={() => setDomainModal(true)} className={panelBtnPrimary}>
-          <Plus className="h-4 w-4" /> Adicionar domínio
-        </button>
+    <div className="w-full space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-[140px] flex-wrap items-center gap-3">
+          <div className="relative w-full max-w-[10rem]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
+            <input
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+              placeholder="Pesquisar domínios..."
+              className="w-full rounded border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 dark:border-zinc-700 dark:bg-white dark:text-zinc-900"
+            />
+          </div>
+          <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
+            <Plus className="h-4 w-4" /> Adicionar domínio
+          </button>
+          <button type="button" onClick={() => void loadDomains()} disabled={loading} className={panelBtnSecondary}>
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Sincronizar
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -8138,101 +8466,71 @@ export function DomainManagerSection({
         }`}>{msg}</div>
       )}
 
-      <div className="overflow-hidden rounded border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
-              <th className="px-4 py-2">Domínio</th>
-              <th className="px-4 py-2">Document Root</th>
-              <th className="px-4 py-2">Redirect</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2 text-right">Acções</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && domains.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center">
-                <RefreshCw className="mx-auto h-5 w-5 animate-spin text-gray-400" />
-              </td></tr>
-            ) : domains.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-zinc-500">
-                Nenhum domínio encontrado
-              </td></tr>
-            ) : domains.map((d) => (
-              <tr key={d.domain} className="border-b border-gray-50 hover:bg-gray-50/80 dark:border-zinc-800 dark:hover:bg-zinc-800/40">
-                <td className="px-4 py-2">
-                  <span className="text-[15px] font-semibold text-gray-900 dark:text-zinc-100">{d.domain}</span>
-                </td>
-                <td className="px-4 py-2 text-xs text-gray-600 dark:text-zinc-400">/public_html/{d.domain}</td>
-                <td className="px-4 py-2 text-xs text-gray-500 dark:text-zinc-500">Not Redirected</td>
-                <td className="px-4 py-2">
-                  <span className="rounded border border-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400">
-                    Domínio
-                  </span>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center justify-end gap-1">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setOpenGerirDomain(openGerirDomain === d.domain ? null : d.domain)}
-                        className={panelBtnSecondary}
-                        title="Gerir domínio"
-                      >
-                        Gerir
-                      </button>
-                      {openGerirDomain === d.domain && (
-                        <div className="absolute right-0 top-full z-20 mt-1 min-w-[12rem] rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-                          {domainManageActions(d)}
-                        </div>
+      {loading && filteredDomains.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <RefreshCw className="h-6 w-6 animate-spin text-gray-400 dark:text-zinc-500" />
+        </div>
+      ) : filteredDomains.length === 0 ? (
+        <div className="rounded-lg border border-gray-200 bg-white py-16 text-center text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
+          Nenhum domínio encontrado
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredDomains.map((d) => {
+            const site = siteByDomain.get(d.domain.toLowerCase())
+            const isActive = domainHostingStateLabel(d) === 'Activo'
+            const domainParts = d.domain.split('.')
+            const tld = domainParts.length > 1 ? `.${domainParts.slice(1).join('.')}` : ''
+            const baseName = domainParts[0]
+            const hasSsl = siteHasSsl(site)
+
+            return (
+              <article
+                key={d.domain}
+                className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
+                    <Globe className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-base font-bold text-gray-900 dark:text-zinc-100">{baseName}</span>
+                      {tld && <span className="text-sm font-medium text-gray-400 dark:text-zinc-500">{tld}</span>}
+                      {hasSsl ? (
+                        <span className="flex items-center gap-1 rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-400">
+                          <Lock className="h-3 w-3" /> SSL
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500">
+                          Sem SSL
+                        </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      title="Criar e-mail"
-                      onClick={() => setEmailModal({ show: true, domain: d.domain })}
-                      className={`${panelBtnSecondary} !px-2.5`}
-                    >
-                      <Mail className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Redireccionamento"
-                      onClick={() => { setSelectedDomain(d); setView('manage') }}
-                      className={`${panelBtnSecondary} !px-2.5`}
-                    >
-                      <ArrowRightLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Abrir site"
-                      onClick={() => window.open(`https://${d.domain}`, '_blank', 'noopener,noreferrer')}
-                      className={`${panelBtnSecondary} !px-2.5`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        title="Mais opções"
-                        onClick={() => setOpenMenuDomain(openMenuDomain === d.domain ? null : d.domain)}
-                        className={`${panelBtnSecondary} !px-2.5`}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                      {openMenuDomain === d.domain && (
-                        <div className="absolute right-0 top-full z-20 mt-1 min-w-[12rem] rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-                          {domainManageActions(d)}
-                        </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className={`font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                        ● {isActive ? 'Activo' : 'Desactivo'}
+                      </span>
+                      <span className="text-gray-300 dark:text-zinc-600">·</span>
+                      <span className="text-gray-400 dark:text-zinc-500">
+                        Exp: {domainExpirationPlaceholder(d.domain)}
+                      </span>
+                      {d.package && (
+                        <>
+                          <span className="text-gray-300 dark:text-zinc-600">·</span>
+                          <span className="text-gray-400 dark:text-zinc-500">{d.package}</span>
+                        </>
                       )}
                     </div>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+
+                {renderDomainCardActions(d)}
+              </article>
+            )
+          })}
+        </div>
+      )}
 
       {/* Modal de Criação de Email */}
       <EmailCreateModal
@@ -8405,123 +8703,208 @@ export function DomainManagerSection({
   // VISTA: GERIR DOMÍNIO
   if (view === 'manage' && selectedDomain) return (
     <div className="w-full space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => setView('list')}
-          className="text-blue-600 hover:underline text-sm font-medium">
-          ← List Domains
-        </button>
-        <span className="text-gray-400">/</span>
-        <span className="text-sm text-gray-600">Manage the Domain</span>
-      </div>
-
-      <h1 className="text-xl font-bold text-gray-900">
-        Manage the "{selectedDomain.domain}" Domain
-      </h1>
+      <button
+        type="button"
+        onClick={() => setView('list')}
+        className="text-sm text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400"
+      >
+        ← Voltar à lista
+      </button>
 
       {msg && (
-        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
-          }`}>{msg}</div>
+        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${
+          msgType === 'success'
+            ? 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+            : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
+        }`}>{msg}</div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
-        {/* Update Domain */}
-        <div className="col-span-2 space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <h2 className="font-bold text-gray-700 uppercase text-xs tracking-wide">Update The Domain</h2>
-            </div>
-            <div className="px-6 py-4 space-y-4">
-              <div>
-                <label className="block font-bold text-gray-800 mb-1 text-sm">
-                  New Document Root <span className="text-blue-500">?</span>
-                </label>
-                <p className="text-xs text-gray-500 mb-2">Update the directory where you want the files for this domain to exist.</p>
-                <div className="flex items-center border border-gray-300 rounded overflow-hidden">
-                  <span className="bg-gray-100 px-3 py-2.5 text-sm text-gray-600 border-r border-gray-300">🏠 /public_html/</span>
-                  <input defaultValue={selectedDomain.name}
-                    className="flex-1 px-3 py-2.5 text-sm focus:outline-none" />
+      <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <div className="rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 className="mb-1 text-sm font-semibold text-gray-900 dark:text-zinc-100">
+              {selectedDomain.domain}
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-zinc-500">
+              Gestão de registo e transferência
+              {registrarExpire ? ` · Expira ${registrarExpire}` : ''}
+            </p>
+
+            <div className="space-y-4">
+              <div className="rounded border border-gray-100 p-4 dark:border-zinc-800">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">Bloqueio de transferência</p>
+                    <p className="text-xs text-gray-500 dark:text-zinc-500">
+                      {transferLocked === null
+                        ? 'Estado indisponível (domínio pode ser só de hospedagem)'
+                        : transferLocked
+                          ? 'Bloqueado — desbloqueie antes de transferir'
+                          : 'Desbloqueado — pronto para transferência'}
+                    </p>
+                  </div>
+                  {transferLocked !== false && (
+                    <button
+                      type="button"
+                      onClick={() => void handleUnlockTransfer()}
+                      disabled={registrarLoading}
+                      className={panelBtnPrimary}
+                    >
+                      {registrarLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+                      Desbloquear
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded text-sm font-bold transition-colors">
-                  Update
-                </button>
-                <button onClick={() => setView('list')}
-                  className="text-blue-600 hover:underline text-sm">
-                  ← Return To Domains
-                </button>
+
+              <div className="rounded border border-gray-100 p-4 dark:border-zinc-800">
+                <p className="mb-2 text-sm font-medium text-gray-900 dark:text-zinc-100">Código de transferência (EPP)</p>
+                <p className="mb-3 text-xs text-gray-500 dark:text-zinc-500">
+                  Obtenha o código sem sair desta página e use-o no novo registador.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleFetchAuthCode()}
+                    disabled={registrarLoading}
+                    className={panelBtnPrimary}
+                  >
+                    {registrarLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                    Obter código
+                  </button>
+                  {authCode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(authCode)
+                        showMsg('Código copiado.')
+                      }}
+                      className={panelBtnSecondary}
+                    >
+                      <Copy className="h-4 w-4" /> Copiar
+                    </button>
+                  )}
+                </div>
+                {authCode && (
+                  <div className="mt-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                    {authCode}
+                    {authCodeExpires && (
+                      <p className="mt-1 font-sans text-xs text-gray-500 dark:text-zinc-500">
+                        Expira: {new Date(authCodeExpires).toLocaleString('pt-PT')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div id="domain-redirect" className="rounded border border-gray-100 p-4 dark:border-zinc-800">
+                <p className="mb-2 text-sm font-medium text-gray-900 dark:text-zinc-100">Redireccionamento</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-500">
+                  Actualmente sem redireccionamento. Para configurar, use o painel de ficheiros ou contacte o suporte.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Remove Domain */}
-          <div className="bg-white rounded-lg border border-red-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-red-100 bg-red-50">
-              <h2 className="font-bold text-red-700 uppercase text-xs tracking-wide">Remove The Domain</h2>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-700 mb-4">
-                <strong>Warning:</strong> If you remove the <strong>"{selectedDomain.domain}"</strong> domain, it will permanently delete the domain from your account. You cannot undo this action.
-              </p>
-              <button onClick={() => handleRemove(selectedDomain.domain)}
-                className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors">
-                <Trash2 className="w-4 h-4" /> Remove Domain
-              </button>
-            </div>
+          <div className="rounded border border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="mb-3 text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Zona perigosa</p>
+            <button
+              type="button"
+              onClick={() => handleRemove(selectedDomain.domain)}
+              className={`${panelBtnSecondary} border-red-300 text-red-600 hover:text-red-600 dark:border-red-800 dark:text-red-400`}
+            >
+              <Trash2 className="h-4 w-4" /> Eliminar domínio de hospedagem
+            </button>
           </div>
         </div>
 
-        {/* Domain Information */}
         <div className="space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <h2 className="font-bold text-gray-700 uppercase text-xs tracking-wide">Domain Information</h2>
+          <div className="rounded border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+              <h3 className="text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Acções</h3>
             </div>
-            <div className="px-4 py-4 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Domain:</span>
-                <span className="font-medium text-gray-800">{selectedDomain.domain}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Redirects To:</span>
-                <span className="text-gray-600">Not Redirected</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Document Root:</span>
-                <p className="text-blue-600 text-xs mt-1">🏠 /public_html/{selectedDomain.domain}</p>
-              </div>
+            <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+              <button
+                type="button"
+                onClick={() => onNavigate?.('dns-central', { domain: selectedDomain.domain })}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                Editar Zona de DNS
+                <Globe className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate?.('cp-dns-nameserver', { domain: selectedDomain.domain })}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                Alterar nameservers
+                <Server className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate?.('cadastrar-renovacao', { domain: selectedDomain.domain })}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                Renovar manualmente
+                <Calendar className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleToggleAutoRenew()}
+                disabled={registrarLoading || autoRenew === null}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 disabled:opacity-50 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                <span>
+                  Renovação automática
+                  {autoRenew !== null && (
+                    <span className="mt-0.5 block text-xs text-gray-500 dark:text-zinc-500">
+                      {autoRenew ? 'Activa' : 'Inactiva'}
+                    </span>
+                  )}
+                </span>
+                <RefreshCw className={`h-4 w-4 shrink-0 ${registrarLoading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailModal({ show: true, domain: selectedDomain.domain })}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                Criar e-mail
+                <Mail className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                type="button"
+                onClick={() => window.open(`https://${selectedDomain.domain}`, '_blank', 'noopener,noreferrer')}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+              >
+                Abrir site
+                <ExternalLink className="h-4 w-4 shrink-0" />
+              </button>
             </div>
           </div>
 
-          {/* Additional Resources */}
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <h2 className="font-medium text-gray-700 text-sm">Additional Resources</h2>
+          <div className="rounded border border-gray-200 bg-white p-4 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-500 dark:text-zinc-500">Document root</span>
+              <span className="font-mono text-xs text-gray-700 dark:text-zinc-300">/public_html/{selectedDomain.domain}</span>
             </div>
-            <div className="divide-y divide-gray-50">
-              <button onClick={() => {
-                if (selectedDomain) setEmailModal({ show: true, domain: selectedDomain.domain })
-              }}
-                className="w-full text-left px-4 py-3 text-blue-600 hover:bg-gray-50 text-sm transition-colors flex items-center justify-between">
-                Criar Conta de Email ↗
-              </button>
-              <button className="w-full text-left px-4 py-3 text-blue-600 hover:bg-gray-50 text-sm transition-colors">
-                Modificar Redirects ↗
-              </button>
+            <div className="mt-2 flex justify-between gap-2">
+              <span className="text-gray-500 dark:text-zinc-500">Pacote</span>
+              <span className="text-gray-700 dark:text-zinc-300">{selectedDomain.package || '—'}</span>
+            </div>
+            <div className="mt-2 flex justify-between gap-2">
+              <span className="text-gray-500 dark:text-zinc-500">Estado</span>
+              <span className="text-gray-700 dark:text-zinc-300">{selectedDomain.state || selectedDomain.status || 'Active'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal de Criação de Email */}
       <EmailCreateModal
         show={emailModal.show}
         domain={emailModal.domain}
         onClose={() => setEmailModal({ show: false, domain: '' })}
-        onSuccess={() => {
-          setEmailModal({ show: false, domain: '' })
-          // Permanece na página atual - não redireciona
-        }}
+        onSuccess={() => setEmailModal({ show: false, domain: '' })}
       />
     </div>
   )

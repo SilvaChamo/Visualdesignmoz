@@ -13,7 +13,7 @@ export type PanelUsersCachePayload = {
 };
 
 const CACHE_KEY = 'vd_panel_users_v1';
-const CACHE_MS = 120_000;
+const CACHE_MS = 300_000;
 
 export function readPanelUsersCache(): PanelUsersCachePayload | null {
   if (typeof window === 'undefined') return null;
@@ -47,7 +47,7 @@ export function clearPanelUsersCache() {
 }
 
 async function fetchPanelUsersNetwork(): Promise<PanelUsersCachePayload> {
-  const res = await fetch('/api/admin/panel-users');
+  const res = await fetch('/api/admin/panel-users', { credentials: 'include' });
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.error || 'Falha ao carregar utilizadores');

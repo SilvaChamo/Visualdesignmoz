@@ -38,6 +38,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Exo 2", sans-serif !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 *:not(.font-mono):not(code):not(pre):not(kbd):not(samp) {
@@ -301,5 +302,139 @@ samp {
 ) {
   background-color: #27272a !important; /* zinc-800 - match Vercel style dark mode skeletons */
   border-color: #3f3f46 !important; /* zinc-700 */
+}
+
+/* ===== Site público — dark mode global (todas as páginas) ===== */
+.dark .site-content :is(
+  .bg-gray-100, .bg-gray-50, .bg-slate-50, .bg-slate-100,
+  .min-h-screen.bg-white
+) {
+  background-color: #000000 !important;
+}
+
+.dark .site-content :is(.bg-white.py-12, .bg-white.py-16, .bg-white.py-8) {
+  background-color: #000000 !important;
+}
+
+.dark .site-content :is([class*="404040"]) {
+  background-color: #000000 !important;
+}
+
+.dark .site-content :is(.bg-cover.bg-center, .bg-cover.bg-no-repeat) {
+  opacity: 0.25 !important;
+}
+
+.dark .site-content :is(.bg-black\/50, .bg-black\/40) {
+  background-color: rgb(0 0 0 / 0.45) !important;
+}
+
+.dark .site-content :is(.bg-white, .bg-white\/95) {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .site-content :is(
+  .border-slate-100, .border-slate-200, .border-gray-100,
+  .border-gray-200, .border-gray-300
+) {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .site-content :is(
+  .text-black, .text-slate-900, .text-slate-800, .text-gray-900, .text-gray-800
+) {
+  color: #f4f4f5 !important;
+}
+
+.dark .site-content :is(
+  .text-black\/70, .text-slate-700, .text-slate-600, .text-gray-700,
+  .text-gray-600, .text-slate-500, .text-gray-500, .text-slate-400
+) {
+  color: #d4d4d8 !important;
+}
+
+.dark .site-content :is(.hover\:bg-slate-50, .hover\:bg-gray-50):hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .site-content :is(.divide-slate-100 > :not([hidden]) ~ :not([hidden]), .divide-gray-100 > :not([hidden]) ~ :not([hidden])) {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .site-content :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+
+.dark .site-content :is(input, select, textarea)::placeholder {
+  color: #71717a !important;
+}
+
+.dark .site-content label {
+  color: #d4d4d8 !important;
+}
+
+.dark .site-content :is(
+  .bg-red-50, .bg-green-50, .bg-blue-50, .bg-amber-50, .bg-orange-50,
+  .bg-purple-50, .bg-teal-50, .bg-cyan-50, .bg-emerald-50
+) {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .site-content :is(a, button).bg-black:not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-blue"]) {
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.dark .site-content :is(a, button).bg-black:hover:not([class*="bg-red"]):not(:disabled) {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.dark .site-content :is(.shadow-sm, .shadow-md, .shadow-lg) {
+  box-shadow: none !important;
+}
+
+/* Painéis admin/cliente — manter estilo próprio */
+.dark .site-content .panel-shell :is(.bg-white),
+.dark .site-content .panel-content :is(.bg-white) {
+  background-color: var(--panel-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark .site-content .font-panel :is(.bg-white) {
+  background-color: #18181b !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Overlays globais (carrinho, PWA) */
+.dark .site-overlay-panel {
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+
+.dark .site-overlay-panel :is(.bg-white, .bg-slate-50) {
+  background-color: #18181b !important;
+}
+
+.dark .site-overlay-panel :is(.text-slate-800, .text-slate-700, .text-slate-600, .text-slate-500) {
+  color: #d4d4d8 !important;
+}
+
+.dark .site-overlay-panel :is(.border-slate-100, .border-slate-200) {
+  border-color: #3f3f46 !important;
+}
+
+.dark .site-overlay-panel :is(input, select, textarea) {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
 }
 

@@ -39,6 +39,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'emails-new', label: 'Contas de e-mail' },
       { id: 'webmail', label: 'Webmail' },
+      { id: 'newsletter', label: 'Mailmarketing' },
     ],
   },
   {
@@ -64,13 +65,12 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'templates-renovacao', label: 'Templates' },
     ],
   },
-  { id: 'newsletter', label: 'Mailmarketing', isNewMenu: true },
   {
     id: 'nov-wordpress',
     label: 'WordPress',
     isNewMenu: true,
     subItems: [
-      { id: 'domains', label: 'Sites' },
+      { id: 'wp-sites', label: 'Sites' },
       { id: 'wordpress-install', label: 'Criar Website' },
       { id: 'wp-plugins', label: 'Plugins' },
       { id: 'wp-backup', label: 'Backups' },
@@ -87,7 +87,168 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
   },
 ];
 
-/** Secções do menu legado */
+/** Itens do menu legado revendedor (referência do painel cliente original) */
+export const RESELLER_LEGACY_MENU_SUBITEMS: PanelMenuSubItem[] = [
+  { id: 'gestao-sites-header', label: '— Gestão de Sites —' },
+  { id: 'domains-legacy', label: 'Listar Websites' },
+  { id: 'packages-list-legacy', label: 'Pacotes' },
+  { id: 'cp-users-legacy', label: 'Contas' },
+  { id: 'gestao-dominios-header', label: '— Gestão de Domínios —' },
+  { id: 'domains-list-legacy', label: 'Listar Domínios' },
+  { id: 'domains-new-legacy', label: 'Criar Domínio' },
+  { id: 'cp-subdomains', label: 'Criar Subdomínio' },
+  { id: 'cp-suspend-website', label: 'Suspender' },
+  { id: 'domains-dns', label: 'Configurar DNS' },
+  { id: 'dns-central-legacy', label: 'DNS Central' },
+  { id: 'gestao-wp-header', label: '— WordPress —' },
+  { id: 'cp-wp-list', label: 'Listar sites WordPress' },
+  { id: 'wordpress-install-legacy', label: 'Instalar WordPress' },
+  { id: 'cp-wp-plugins', label: 'Gerir plugins' },
+  { id: 'gestao-builders-header', label: '— Construtores —' },
+  { id: 'page-builders', label: 'Abrir Construtores' },
+  { id: 'templates-saved', label: 'Templates Guardados' },
+  { id: 'gestao-emails-header', label: '— Gestão de E-mails —' },
+  { id: 'emails-new-legacy', label: 'Listar E-mails' },
+  { id: 'criar-email-legacy', label: 'Criar E-mail' },
+  { id: 'webmail-legacy', label: 'Webmail' },
+  { id: 'cp-email-dkim', label: 'DKIM Manager' },
+  { id: 'gestao-outros-header', label: '— Outros —' },
+  { id: 'cp-databases', label: 'Bases de Dados' },
+  { id: 'cp-ftp', label: 'Contas FTP' },
+  { id: 'cp-ssl', label: 'SSL / TLS' },
+  { id: 'cp-php', label: 'Configuração PHP' },
+  { id: 'backup-manager-legacy', label: 'Backups' },
+];
+
+/** Menu principal revendedor (bloco superior) */
+export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
+  {
+    id: 'nov-hospedagem',
+    label: 'Hospedagem',
+    subItems: [{ id: 'packages-list', label: 'Pacotes' }],
+  },
+  {
+    id: 'nov-email',
+    label: 'E-mail',
+    subItems: [
+      { id: 'emails-new', label: 'Contas de e-mail' },
+      { id: 'webmail', label: 'Webmail' },
+      { id: 'newsletter', label: 'Mailmarketing' },
+    ],
+  },
+  {
+    id: 'nov-dominios',
+    label: 'Domínios & DNS',
+    subItems: [
+      { id: 'dns-central', label: 'DNS Central' },
+      { id: 'domain-manager', label: 'Gestor de domínios' },
+      { id: 'cp-dns-nameserver', label: 'Nameservers' },
+      { id: 'porkbun-domains', label: 'Registar domínio' },
+      { id: 'transferir-dominio', label: 'Transferir domínio' },
+      { id: 'porkbun-my-domains', label: 'Os meus domínios' },
+    ],
+  },
+  {
+    id: 'nov-wordpress',
+    label: 'WordPress',
+    subItems: [
+      { id: 'wp-sites', label: 'Sites' },
+      { id: 'wordpress-install', label: 'Criar Website' },
+      { id: 'wp-plugins', label: 'Plugins' },
+      { id: 'wp-backup', label: 'Backups' },
+    ],
+  },
+  {
+    id: 'nov-notificacoes',
+    label: 'Notificações',
+    subItems: [
+      { id: 'notificacoes-recebidas', label: 'Recebidas' },
+      { id: 'renewals', label: 'Visão geral' },
+      { id: 'cadastrar-renovacao', label: 'Cadastrar' },
+      { id: 'templates-renovacao', label: 'Templates' },
+    ],
+  },
+  {
+    id: 'nov-definicoes',
+    label: 'Definições',
+    subItems: [
+      { id: 'infrastructure', label: 'Estado do servidor' },
+      { id: 'settings-branding', label: 'Branding & Logo' },
+      { id: 'settings-profile', label: 'Meu Perfil' },
+    ],
+  },
+];
+
+/** Menu legado revendedor — secções pai/filho (bloco inferior) */
+export const RESELLER_LEGACY_MENU_DEFS: PanelMenuItemDef[] = [
+  {
+    id: 'leg-gestao-sites',
+    label: 'Gestão de Sites',
+    subItems: [
+      { id: 'domains-legacy', label: 'Listar Websites' },
+      { id: 'packages-list-legacy', label: 'Pacotes' },
+      { id: 'cp-users-legacy', label: 'Contas' },
+    ],
+  },
+  {
+    id: 'leg-gestao-dominios',
+    label: 'Gestão de Domínios',
+    subItems: [
+      { id: 'domains-list-legacy', label: 'Listar Domínios' },
+      { id: 'domains-new-legacy', label: 'Criar Domínio' },
+      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
+      { id: 'cp-suspend-website', label: 'Suspender' },
+      { id: 'domains-dns', label: 'Configurar DNS' },
+      { id: 'dns-central-legacy', label: 'DNS Central' },
+    ],
+  },
+  {
+    id: 'leg-wordpress',
+    label: 'WordPress',
+    subItems: [
+      { id: 'cp-wp-list', label: 'Listar sites WordPress' },
+      { id: 'wordpress-install-legacy', label: 'Instalar WordPress' },
+      { id: 'cp-wp-plugins', label: 'Gerir plugins' },
+    ],
+  },
+  {
+    id: 'leg-construtores',
+    label: 'Construtores',
+    subItems: [
+      { id: 'page-builders', label: 'Abrir Construtores' },
+      { id: 'templates-saved', label: 'Templates Guardados' },
+    ],
+  },
+  {
+    id: 'leg-gestao-emails',
+    label: 'Gestão de E-mails',
+    subItems: [
+      { id: 'emails-new-legacy', label: 'Listar E-mails' },
+      { id: 'criar-email-legacy', label: 'Criar E-mail' },
+      { id: 'webmail-legacy', label: 'Webmail' },
+      { id: 'cp-email-dkim', label: 'DKIM Manager' },
+    ],
+  },
+  {
+    id: 'leg-outros',
+    label: 'Outros',
+    subItems: [
+      { id: 'cp-databases', label: 'Bases de Dados' },
+      { id: 'cp-ftp', label: 'Contas FTP' },
+      { id: 'cp-ssl', label: 'SSL / TLS' },
+      { id: 'cp-php', label: 'Configuração PHP' },
+      { id: 'backup-manager-legacy', label: 'Backups' },
+    ],
+  },
+];
+
+/** Menu revendedor completo (privilégios + referência) */
+export const RESELLER_MENU_DEFS: PanelMenuItemDef[] = [
+  ...RESELLER_MAIN_MENU_DEFS,
+  ...RESELLER_LEGACY_MENU_DEFS,
+];
+
+/** Secções do menu legado admin */
 export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'gestao-paineis-header', label: '— Gestão de Painéis —' },
   { id: 'cp-client-permissions', label: 'Painel do Cliente' },
@@ -98,7 +259,6 @@ export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'cp-databases', label: 'Bases de Dados' },
   { id: 'cp-ftp', label: 'Contas FTP' },
   { id: 'cp-ssl', label: 'SSL / TLS' },
-  { id: 'cp-security', label: 'Segurança' },
   { id: 'cp-php', label: 'Configuração PHP' },
   { id: 'backup-manager-legacy', label: 'Backups' },
   { id: 'infrastructure-legacy', label: 'Estado do Servidor' },
@@ -127,15 +287,20 @@ export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
 
 export const LEGACY_ALIAS: Record<string, string> = {
   'domains-legacy': 'domains',
+  'domains-list-legacy': 'domains-list',
+  'domains-new-legacy': 'domains-new',
   'packages-list-legacy': 'packages-list',
   'backup-manager-legacy': 'backup-manager',
   'infrastructure-legacy': 'infrastructure',
   'cp-reseller-legacy': 'cp-reseller',
+  'cp-users-legacy': 'cp-users',
   'porkbun-domains-legacy': 'porkbun-domains',
   'porkbun-my-domains-legacy': 'porkbun-my-domains',
   'dns-central-legacy': 'dns-central',
   'emails-new-legacy': 'emails-new',
   'webmail-legacy': 'webmail',
+  'criar-email-legacy': 'criar-email',
+  'wordpress-install-legacy': 'wordpress-install',
   'newsletter-legacy': 'newsletter',
   'renewals-legacy': 'renewals',
   'cadastrar-renovacao-legacy': 'cadastrar-renovacao',
@@ -145,13 +310,20 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'cp-wp-list': 'wp-sites',
   'cp-wp-plugins': 'wp-plugins',
   'cp-wp-backup': 'backup-manager',
-  'cp-wp-restore-backup': 'wp-backup',
-  'cp-wp-remote-backup': 'wp-backup',
+  'cp-wp-restore-backup': 'backup-manager',
+  'cp-wp-remote-backup': 'backup-manager',
   'wp-backup': 'backup-manager',
 };
 
 export const LEGACY_ONLY_IDS = new Set(
   LEGACY_SUB_ITEM_DEFS
+    .filter((s) => !s.id.endsWith('-header'))
+    .map((s) => (LEGACY_ALIAS[s.id] ? null : s.id))
+    .filter(Boolean) as string[],
+);
+
+export const RESELLER_LEGACY_ONLY_IDS = new Set(
+  RESELLER_LEGACY_MENU_SUBITEMS
     .filter((s) => !s.id.endsWith('-header'))
     .map((s) => (LEGACY_ALIAS[s.id] ? null : s.id))
     .filter(Boolean) as string[],
@@ -165,26 +337,42 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'provision-client': 'nov-hospedagem',
   'packages-list': 'nov-hospedagem',
   domains: 'nov-wordpress',
+  'domains-list': 'menu-anterior',
+  'domains-new': 'menu-anterior',
   'emails-new': 'nov-email',
   webmail: 'nov-email',
+  'criar-email': 'menu-anterior',
   'dns-central': 'nov-dominios',
   'domain-manager': 'nov-dominios',
   'cp-dns-nameserver': 'nov-dominios',
   'porkbun-domains': 'nov-dominios',
   'transferir-dominio': 'nov-dominios',
   'porkbun-my-domains': 'nov-dominios',
+  'notificacoes-recebidas': 'nov-notificacoes',
   renewals: 'nov-notificacoes',
   'cadastrar-renovacao': 'nov-notificacoes',
   'templates-renovacao': 'nov-notificacoes',
-  newsletter: 'newsletter',
+  newsletter: 'nov-email',
   'wp-sites': 'nov-wordpress',
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
   'wp-backup': 'nov-wordpress',
-  'backup-manager': 'nov-wordpress',
-  infrastructure: 'nov-sistema',
+  'backup-manager': 'menu-anterior',
+  infrastructure: 'nov-definicoes',
+  'settings-branding': 'nov-definicoes',
+  'settings-profile': 'nov-definicoes',
   'git-deploy': 'nov-sistema',
 };
+
+/** Parent menu no painel revendedor */
+export function resellerMenuParentForSection(sectionId: string): string | null {
+  const legacyParent = resellerLegacySectionParent(sectionId);
+  if (legacyParent) return legacyParent;
+  const resolved = resolveSectionId(sectionId);
+  const mainParent = NEW_SECTION_TO_PARENT[resolved];
+  if (mainParent && mainParent !== 'menu-anterior') return mainParent;
+  return null;
+}
 
 export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
   ...NEW_MENU_ITEM_DEFS,
@@ -195,13 +383,30 @@ export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
   },
 ];
 
-/** Menu admin/revendedor sem o dashboard (revendedor mantém dashboard próprio) */
-export const RESELLER_ADMIN_MENU_DEFS: PanelMenuItemDef[] = ADMIN_MENU_ITEM_DEFS.filter(
-  (item) => item.id !== 'dashboard',
-);
+/** Menu revendedor (sem dashboard — sidebar trata dashboard à parte) */
+export const RESELLER_ADMIN_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MENU_DEFS;
 
 export function resolveSectionId(sectionId: string): string {
   return LEGACY_ALIAS[sectionId] || sectionId;
+}
+
+function resellerLegacySectionParent(sectionId: string): string | null {
+  for (const parent of RESELLER_LEGACY_MENU_DEFS) {
+    for (const sub of parent.subItems || []) {
+      if (sub.id.endsWith('-header')) continue;
+      if (sub.id === sectionId || resolveSectionId(sub.id) === sectionId) {
+        return parent.id;
+      }
+    }
+  }
+  const resolved = resolveSectionId(sectionId);
+  for (const parent of RESELLER_LEGACY_MENU_DEFS) {
+    for (const sub of parent.subItems || []) {
+      if (sub.id.endsWith('-header')) continue;
+      if (resolveSectionId(sub.id) === resolved) return parent.id;
+    }
+  }
+  return null;
 }
 
 export function isMenuHeaderSubItem(subId: string): boolean {
@@ -225,10 +430,13 @@ export function adminMenuParentForSection(sectionId: string): string | null {
       'cp-databases',
       'cp-ftp',
       'cp-ssl',
-      'cp-security',
       'cp-php',
-      'cp-client-permissions',
-      'cp-reseller-permissions',
+      'cp-wp-list',
+      'cp-wp-plugins',
+      'page-builders',
+      'templates-saved',
+      'settings-branding',
+      'settings-profile',
     ].includes(sectionId)
   ) {
     return 'menu-anterior';
@@ -246,7 +454,12 @@ export function isPanelMenuItemActive(
     return true;
   }
   if (item.id === 'menu-anterior') {
-    return activeSection.endsWith('-legacy') || LEGACY_ONLY_IDS.has(activeSection);
+    return (
+      activeSection.endsWith('-legacy') ||
+      LEGACY_ONLY_IDS.has(activeSection) ||
+      RESELLER_LEGACY_ONLY_IDS.has(activeSection) ||
+      RESELLER_LEGACY_ONLY_IDS.has(resolveSectionId(activeSection))
+    );
   }
   return false;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/admin-api-auth';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { handleWpUpdateGet, handleWpUpdatePost } from '@/lib/wp-update-handlers';
 
 export const maxDuration = 120;
@@ -26,7 +26,7 @@ async function parsePostBody(req: NextRequest): Promise<Record<string, unknown>>
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
   const domain = req.nextUrl.searchParams.get('domain')?.trim().toLowerCase() || '';
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
   let body: Record<string, unknown>;

@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { User } from '@supabase/supabase-js'
 import {
   resolveUserRole,
   getRedirectPathForRole,
@@ -182,9 +183,13 @@ export const auth = {
     return user
   },
 
-  // Verificar role do utilizador
-  async getUserRole(): Promise<UserRole> {
-    const user = await this.getCurrentUser()
+  // Verificar role do utilizador (usa sessão local; evita getUser() extra após login)
+  async getUserRole(userHint?: User | null): Promise<UserRole> {
+    let user = userHint ?? null
+    if (!user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user ?? null
+    }
     if (!user) return 'guest'
 
     const { profileAuthOrFilter } = await import('@/lib/profile-db')
@@ -210,24 +215,10 @@ export const auth = {
     return role === 'admin'
   },
 
-  // Função de redirecionamento baseado no role
-  async getRedirectPath(): Promise<string> {
-    try {
-      const res = await fetch('/api/my-products', { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        const path = getRedirectPathForRole(data.role)
-        console.log('getRedirectPath:', data.role, '→', path)
-        return path
-      }
-    } catch {
-      /* fallback abaixo */
-    }
-
-    const role = await this.getUserRole()
-    const path = getRedirectPathForRole(role)
-    console.log('getRedirectPath:', role, '→', path)
-    return path
+  // Redirecionamento por role — sem API pesada de produtos no momento do login
+  async getRedirectPath(userHint?: User | null, cachedRole?: UserRole | null): Promise<string> {
+    const role = cachedRole ?? (await this.getUserRole(userHint))
+    return getRedirectPathForRole(role)
   },
 
   // Obter sessão atual

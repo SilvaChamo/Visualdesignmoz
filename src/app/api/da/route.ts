@@ -26,6 +26,7 @@ const MUTATION_ACTIONS = new Set([
   'createDatabase', 'deleteDatabase',
   'createFTPAccount', 'deleteFTPAccount',
   'issueSSL', 'enableDKIM',
+  'replaceSSL', 'deleteSSL', 'cancelSslRenewal', 'setForceSsl',
   'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
   'configDefaultNameservers', 'createNameserver', 'configCloudFlare',
   'changePHPVersion', 'savePHPConfig',
@@ -237,7 +238,26 @@ export async function POST(req: NextRequest) {
         break;
 
       case 'issueSSL':
-        data = await daApi.issueSSL(params.domain);
+        data = await daApi.issueSSL(String(params.domain || ''), {
+          force: params.force === true || params.force === 'yes',
+          renew: params.renew === true || params.renew === 'yes',
+          autoRenewDays: params.autoRenewDays ? String(params.autoRenewDays) : undefined,
+        });
+        break;
+      case 'replaceSSL':
+        data = await daApi.replaceSSL(String(params.domain || ''));
+        break;
+      case 'deleteSSL':
+        data = await daApi.deleteSSL(String(params.domain || ''));
+        break;
+      case 'cancelSslRenewal':
+        data = await daApi.cancelSslRenewal(String(params.domain || ''));
+        break;
+      case 'setForceSsl':
+        data = await daApi.setForceSsl(String(params.domain || ''), params.enabled !== false);
+        break;
+      case 'getSslCertificate':
+        data = await daApi.getSslCertificate(String(params.hostname || params.domain || ''));
         break;
 
       case 'listDNS': {

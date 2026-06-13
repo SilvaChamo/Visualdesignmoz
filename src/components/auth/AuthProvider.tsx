@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase, auth } from '@/lib/supabase-client'
 import { User } from '@supabase/supabase-js'
+import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 import { getInactivityConfig } from '@/lib/session-inactivity'
 
 interface AuthContextType {
@@ -11,7 +12,7 @@ interface AuthContextType {
   loading: boolean
   isAdmin: boolean
   userRole: 'admin' | 'reseller' | 'client' | 'guest' | null
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<UserRole>
   signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string, nome: string, telefone?: string) => Promise<void>
   signOut: () => Promise<void>
@@ -29,13 +30,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<'admin' | 'reseller' | 'client' | 'guest' | null>(null)
 
   useEffect(() => {
-    // Verificar sessão inicial
     const initializeAuth = async () => {
-      // Safety timeout - never let loading hang more than 3 seconds
-      const timeout = setTimeout(() => {
-        console.log('AuthProvider: Init timeout reached, forcing loading=false')
-        setLoading(false)
-      }, 3000)
+      const timeout = setTimeout(() => setLoading(false), 800)
 
       try {
         const session = await auth.getSession()
@@ -44,12 +40,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (currentUser) {
           try {
-            const role = await auth.getUserRole()
+            const role = await auth.getUserRole(currentUser)
             setUserRole(role)
             setIsAdmin(role === 'admin')
           } catch (roleError) {
             console.error('AuthProvider: Error getting role:', roleError)
-            // Default to client if role check fails
             setUserRole('guest')
             setIsAdmin(false)
           }
@@ -63,9 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     initializeAuth()
-
-    // Rerunning onAuthStateChange is not recommended with SSR cookies, 
-    // as it can conflict with the server requests. We only rely on initializeAuth.
   }, [])
 
   // Inatividade: 10 min no painel DirectAdmin; 20 min no resto da aplicação
@@ -117,22 +109,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, pathname])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<UserRole> => {
     try {
-      // Do NOT set loading=true here — it hides the login form
       const data = await auth.signIn(email, password)
+      let role: UserRole = 'guest'
 
       if (data.user) {
         try {
-          const role = await auth.getUserRole()
+          role = await auth.getUserRole(data.user)
           setUserRole(role)
           setIsAdmin(role === 'admin')
         } catch {
-          setUserRole('client')
+          role = 'guest'
+          setUserRole(role)
           setIsAdmin(false)
         }
         setUser(data.user)
       }
+
+      return role
     } catch (error) {
       console.error('AuthProvider signIn: Error:', error)
       throw error
@@ -229,7 +224,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const getRedirectPath = async () => {
-    return await auth.getRedirectPath()
+    if (userRole) return getRedirectPathForRole(userRole)
+    return await auth.getRedirectPath(user)
   }
 
   const value = {

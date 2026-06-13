@@ -10,7 +10,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 
 export const metadata: Metadata = {
   title: {
-    default: "VisualDesign - Email Marketing",
+    default: "VisualDesign",
     template: "%s | VisualDesign",
   },
   description: "Painel de gestão de clientes e campanhas de email marketing",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "VisualDesign",
   },
   openGraph: {
-    title: "VisualDesign - Email Marketing",
+    title: "VisualDesign",
     description: "Painel de gestão de clientes e campanhas de email marketing",
     type: "website",
     locale: "pt MZ",
@@ -70,7 +70,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-        <meta property="og:title" content="VisualDesign - Email Marketing" />
+        <meta property="og:title" content="VisualDesign" />
         <meta property="og:description" content="Painel de gestão de clientes e campanhas de email marketing" />
         <meta property="og:image" content="https://visualdesignmoz.com/icons/icon-512x512.png" />
         <meta property="og:image:width" content="512" />
@@ -106,7 +106,9 @@ export default function RootLayout({
             <CartProvider>
               <I18nProvider>
                 <ConditionalNavbar />
-                {children}
+                <main className="site-content min-h-screen bg-background text-foreground">
+                  {children}
+                </main>
                 <CartDrawer />
                 <PWAInstallPrompt />
               </I18nProvider>

@@ -115,7 +115,7 @@ export function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 right-4 z-[100] animate-in slide-in-from-bottom-2 duration-300">
-      <div className="bg-white rounded-lg shadow-lg border border-slate-200 p-3 max-w-[280px]">
+      <div className="site-overlay-panel bg-white dark:bg-zinc-950 rounded-lg shadow-lg border border-slate-200 dark:border-zinc-800 p-3 max-w-[280px]">
         {/* Header minimalista */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">

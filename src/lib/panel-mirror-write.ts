@@ -293,6 +293,56 @@ function str(params: Record<string, unknown>, ...keys: string[]): string {
   return '';
 }
 
+/** Re-sincroniza zona DNS de um domínio para o espelho (após mutação ou reset). */
+export async function resyncMirrorDnsForDomain(domain: string): Promise<void> {
+  const sb = getDaSyncAdmin();
+  if (!sb || !domain) return;
+
+  const { data: site } = await sb
+    .from('panel_sites')
+    .select('owner')
+    .eq('domain', domain)
+    .maybeSingle();
+  const owner = String(site?.owner || 'admin');
+
+  const { loadResellerCredentialsByDaUsername } = await import('@/lib/da-credential-store');
+  const { resolveDirectAdminCredentials } = await import('@/lib/directadmin-credentials');
+  const { createDirectAdminAPI } = await import('@/lib/directadmin-adapter');
+
+  let creds: import('@/lib/directadmin-credentials').DirectAdminCredentials;
+  if (!owner || owner === 'admin') {
+    creds = await resolveDirectAdminCredentials('admin');
+  } else {
+    const stored = await loadResellerCredentialsByDaUsername(owner);
+    creds = stored
+      ? { role: 'reseller', user: stored.user, password: stored.password }
+      : await resolveDirectAdminCredentials('admin');
+  }
+
+  const da = createDirectAdminAPI(creds);
+  const records = await da.listDNS(domain);
+  const syncedAt = now();
+  await sb.from('panel_dns').delete().eq('domain', domain);
+
+  for (const rec of records) {
+    const name = String(rec.name || domain);
+    const type = String(rec.type || 'A').toUpperCase();
+    const value = String(rec.content || rec.value || '');
+    if (!value) continue;
+    await sb.from('panel_dns').upsert(
+      {
+        domain,
+        name,
+        type,
+        value,
+        ttl: String(rec.ttl ?? '3600'),
+        synced_at: syncedAt,
+      },
+      { onConflict: 'domain,name,type' },
+    );
+  }
+}
+
 /** Espelho imediato Supabase após mutação bem-sucedida no servidor. */
 export async function mirrorAfterDaMutation(
   action: string,
@@ -456,6 +506,12 @@ export async function mirrorAfterDaMutation(
     case 'issueSSL':
       if (domain) await patchMirrorSite(domain, { ssl_status: 'Secure' });
       break;
+    case 'replaceSSL':
+      if (domain) await patchMirrorSite(domain, { ssl_status: 'Secure' });
+      break;
+    case 'deleteSSL':
+      if (domain) await patchMirrorSite(domain, { ssl_status: 'No SSL' });
+      break;
     case 'changePHPVersion':
       if (str(params, 'domain')) {
         await patchMirrorSite(str(params, 'domain'), {
@@ -469,10 +525,23 @@ export async function mirrorAfterDaMutation(
     case 'setEmailLimits':
     case 'addEmailForwarding':
     case 'setCatchAllEmail':
-    case 'createDNSZone':
-    case 'deleteDNSZone':
-    case 'resetDNSConfigurations':
       scheduleDaSync(800);
+      break;
+    case 'createDNSZone':
+    case 'resetDNSConfigurations':
+      if (domain) await resyncMirrorDnsForDomain(domain);
+      else scheduleDaSync(800);
+      break;
+    case 'deleteDNSZone':
+      if (domain) {
+        const sb = getDaSyncAdmin();
+        if (sb) await sb.from('panel_dns').delete().eq('domain', domain);
+      }
+      break;
+    case 'installWordPress':
+      if (domain) {
+        await patchMirrorSite(domain, { site_type: 'wordpress', status: 'Active' });
+      }
       break;
     default:
       break;

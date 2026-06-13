@@ -7,9 +7,43 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 export type ResellerPanelContext = {
   daUsername: string;
   email: string;
+  displayName: string;
   primaryDomain: string | null;
   impersonating: boolean;
 };
+
+function formatResellerUsername(username: string): string {
+  const withSpaces = username
+    .replace(/([a-z])(collective|group|corp|ltd)$/i, '$1 $2')
+    .replace(/([a-z])([A-Z])/g, '$1 $2');
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+}
+
+async function loadResellerDisplayName(daUsername: string): Promise<string> {
+  const admin = getDaSyncAdmin();
+  if (admin) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('name')
+      .ilike('da_username', daUsername)
+      .maybeSingle();
+    if (profile?.name && String(profile.name).trim()) {
+      return String(profile.name).trim();
+    }
+
+    const { data: panelUser } = await admin
+      .from('panel_users')
+      .select('first_name, last_name')
+      .eq('username', daUsername)
+      .maybeSingle();
+    const full = [panelUser?.first_name, panelUser?.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (full) return full;
+  }
+  return formatResellerUsername(daUsername);
+}
 
 async function loadResellerEmail(daUsername: string, fallback?: string): Promise<string> {
   const admin = getDaSyncAdmin();
@@ -59,9 +93,12 @@ export async function resolveResellerPanelContext(
     ? await loadResellerEmail(daUsername)
     : (auth.user.email || (await loadResellerEmail(daUsername)));
 
+  const displayName = await loadResellerDisplayName(daUsername);
+
   return {
     daUsername,
     email,
+    displayName,
     primaryDomain: creds?.domain || null,
     impersonating: Boolean(ctx.impersonating),
   };

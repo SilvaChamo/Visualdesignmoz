@@ -18,7 +18,7 @@ const MUTATION_ACTIONS = new Set([
   'createFTPAccount', 'deleteFTPAccount',
   'changeEmailPassword', 'setEmailLimits',
   'addEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing',
-  'enableDKIM', 'issueSSL',
+  'enableDKIM', 'issueSSL', 'replaceSSL', 'deleteSSL', 'cancelSslRenewal', 'setForceSsl',
   'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
   'changePHPVersion', 'savePHPConfig',
   'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
@@ -221,7 +221,13 @@ export const panelHostingAPI = {
   enableDKIM: (domain: string) => run('enableDKIM', { domain }),
   getDKIMStatus: (domain: string) => run<HostingCommandResult>('getDKIMStatus', { domain }),
 
-  issueSSL: (domain: string) => run('issueSSL', { domain }, LONG_TIMEOUT),
+  issueSSL: (domain: string, options?: { force?: boolean; renew?: boolean; autoRenewDays?: string }) =>
+    run('issueSSL', { domain, ...options }, LONG_TIMEOUT),
+  replaceSSL: (domain: string) => run('replaceSSL', { domain }, LONG_TIMEOUT),
+  deleteSSL: (domain: string) => run('deleteSSL', { domain }, LONG_TIMEOUT),
+  cancelSslRenewal: (domain: string) => run('cancelSslRenewal', { domain }, LONG_TIMEOUT),
+  setForceSsl: (domain: string, enabled = true) => run('setForceSsl', { domain, enabled }, LONG_TIMEOUT),
+  getSslCertificate: (hostname: string) => run('getSslCertificate', { hostname }, LONG_TIMEOUT),
   getPHPConfig: (domain: string) => run<PanelPHPConfig>('getPHPConfig', { domain }),
   savePHPConfig: (params: unknown) => run('savePHPConfig', params as Record<string, unknown>),
   changePHPVersion: (params: unknown) => run('changePHPVersion', params as Record<string, unknown>, LONG_TIMEOUT),

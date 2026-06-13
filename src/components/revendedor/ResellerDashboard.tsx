@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  Globe, FileText, MessageSquare, Server, RefreshCw, ExternalLink, 
-  Settings, Trash2, AlertCircle, Calendar, CheckCircle
+  Globe, FileText, Server, RefreshCw, Settings, Calendar, CheckCircle
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 
@@ -16,6 +15,7 @@ interface Props {
   onSetFileManagerDomain?: (domain: string) => void
   onSetDNSDomain?: (domain: string) => void
   sessionUser?: string | null
+  displayName?: string | null
 }
 
 // Helper para parse de state
@@ -66,7 +66,8 @@ export function ResellerDashboard({
   onRefresh,
   onSetFileManagerDomain,
   onSetDNSDomain,
-  sessionUser 
+  sessionUser,
+  displayName,
 }: Props) {
   const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
   const [tickets, setTickets] = useState<any[]>([])
@@ -111,6 +112,9 @@ export function ResellerDashboard({
     onNavigate('manage-website')
   }
 
+  const profileLabel = displayName || (sessionUser ? sessionUser.split('@')[0] : 'Revendedor')
+  const profileInitials = profileLabel.substring(0, 2).toUpperCase()
+
   if (isFetching || loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -124,16 +128,6 @@ export function ResellerDashboard({
       {/* Conteúdo principal */}
       <div className="flex-1 space-y-5">
         
-        {/* Saudação */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Olá, {sessionUser ? sessionUser.split('@')[0] : 'Revendedor'}!
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e domínios.
-          </p>
-        </div>
-
         {/* Cards de Resumo */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4">
@@ -262,7 +256,7 @@ export function ResellerDashboard({
                       {/* Botão Gerenciar */}
                       <button 
                         onClick={() => handleGerenciar(site.domain)}
-                        className="px-5 py-2 bg-white border-2 border-gray-800 hover:bg-gray-800 hover:text-white text-gray-800 text-xs font-bold uppercase tracking-wider rounded transition-colors"
+                        className="px-5 py-2 bg-white border border-gray-800 hover:bg-gray-800 hover:text-white text-gray-800 text-xs font-bold uppercase tracking-wider rounded transition-colors"
                       >
                         GERENCIAR
                       </button>
@@ -282,32 +276,6 @@ export function ResellerDashboard({
             </div>
           )}
         </div>
-
-        {/* Notificações */}
-        <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              Notificações
-            </h2>
-            <button className="text-[10px] text-gray-500 hover:text-red-600 font-bold uppercase tracking-wider transition-colors">
-              Ver Todos
-            </button>
-          </div>
-          <div className="p-4 space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-blue-50/50 rounded border border-blue-100 hover:bg-blue-50 transition-colors cursor-pointer group">
-              <div className="p-2 bg-blue-100 rounded group-hover:bg-blue-200 transition-colors">
-                <FileText className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">Pagamento Confirmado</p>
-                <p className="text-xs text-gray-500 mt-0.5">Recibo disponível para download</p>
-                <p className="text-[10px] text-gray-400 mt-1">Hoje, 14:30</p>
-              </div>
-              <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0"></span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Barra lateral direita */}
@@ -318,7 +286,7 @@ export function ResellerDashboard({
           <div className="flex flex-col items-center mb-4">
             <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-2">
               <span className="text-white text-xl font-bold">
-                {sessionUser ? sessionUser.substring(0, 2).toUpperCase() : 'RV'}
+                {profileInitials}
               </span>
             </div>
             <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700">
@@ -327,7 +295,7 @@ export function ResellerDashboard({
           </div>
           <div className="space-y-1.5 text-sm border-t border-gray-100 pt-4 text-center">
             <p className="font-bold text-gray-900">
-              {sessionUser ? sessionUser.split('@')[0] : 'Revendedor'}
+              {profileLabel}
             </p>
             <p className="text-gray-500 text-xs">{sessionUser || 'revendedor@email.com'}</p>
           </div>

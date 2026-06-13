@@ -77,7 +77,7 @@ function normalizeJsonResponse(jsonData: Record<string, unknown>): DaResponse {
   };
 }
 
-async function requestDirectAdmin(
+async function requestDirectAdminHttp(
   endpoint: string,
   method: 'GET' | 'POST',
   params: Record<string, string>,
@@ -146,6 +146,32 @@ async function requestDirectAdmin(
     if (method === 'POST') req.write(bodyText);
     req.end();
   });
+}
+
+async function requestDirectAdmin(
+  endpoint: string,
+  method: 'GET' | 'POST',
+  params: Record<string, string>,
+  credentials: DirectAdminCredentials,
+): Promise<string> {
+  if (process.env.DA_USE_SSH_PROXY === 'true') {
+    const { requestDirectAdminViaSsh } = await import('@/lib/da-ssh-proxy');
+    return requestDirectAdminViaSsh(endpoint, method, params, credentials);
+  }
+
+  try {
+    return await requestDirectAdminHttp(endpoint, method, params, credentials);
+  } catch (error) {
+    const { requestDirectAdminViaSsh, shouldFallbackToDaSsh } = await import('@/lib/da-ssh-proxy');
+    if (!shouldFallbackToDaSsh(error)) throw error;
+    try {
+      return await requestDirectAdminViaSsh(endpoint, method, params, credentials);
+    } catch (sshError) {
+      const httpMsg = error instanceof Error ? error.message : String(error);
+      const sshMsg = sshError instanceof Error ? sshError.message : String(sshError);
+      throw new Error(`${httpMsg} (SSH fallback: ${sshMsg})`);
+    }
+  }
 }
 
 export async function daRequest(

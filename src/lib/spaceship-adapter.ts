@@ -125,4 +125,130 @@ export const spaceshipAPI = {
       };
     }
   },
+
+  async getDomainDetails(domain: string): Promise<
+    | {
+        success: true;
+        isLocked?: boolean;
+        autoRenew?: boolean;
+        expireDate?: string;
+        status?: string;
+      }
+    | { success: false; error: string }
+  > {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+    }
+    try {
+      const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}`);
+      const body = (await res.json().catch(() => ({}))) as {
+        transferLock?: { isLocked?: boolean };
+        isLocked?: boolean;
+        autoRenew?: { isEnabled?: boolean };
+        hasAutoRenew?: boolean;
+        expirationDate?: string;
+        lifecycleStatus?: string;
+        detail?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+      }
+      const isLocked = body.transferLock?.isLocked ?? body.isLocked;
+      const autoRenew = body.autoRenew?.isEnabled ?? body.hasAutoRenew;
+      const expireDate = body.expirationDate
+        ? new Date(body.expirationDate).toISOString().slice(0, 10)
+        : undefined;
+      return {
+        success: true,
+        isLocked,
+        autoRenew,
+        expireDate,
+        status: body.lifecycleStatus,
+      };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+    }
+  },
+
+  async getTransferAuthCode(domain: string): Promise<
+    | { success: true; authCode: string; expires?: string }
+    | { success: false; error: string }
+  > {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+    }
+    try {
+      const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/transfer/auth-code`);
+      const body = (await res.json().catch(() => ({}))) as {
+        authCode?: string;
+        expires?: string;
+        detail?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+      }
+      if (!body.authCode) {
+        return { success: false, error: 'Código de transferência não disponível' };
+      }
+      return { success: true, authCode: body.authCode, expires: body.expires };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+    }
+  },
+
+  async setTransferLock(
+    domain: string,
+    isLocked: boolean,
+  ): Promise<{ success: true; isLocked: boolean } | { success: false; error: string }> {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+    }
+    try {
+      const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/transfer/lock`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isLocked }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        isLocked?: boolean;
+        detail?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+      }
+      return { success: true, isLocked: body.isLocked ?? isLocked };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+    }
+  },
+
+  async setAutoRenew(
+    domain: string,
+    isEnabled: boolean,
+  ): Promise<{ success: true; isEnabled: boolean } | { success: false; error: string }> {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+    }
+    try {
+      const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/autorenew`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isEnabled }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        isEnabled?: boolean;
+        detail?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+      }
+      return { success: true, isEnabled: body.isEnabled ?? isEnabled };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+    }
+  },
 };

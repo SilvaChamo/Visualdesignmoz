@@ -88,6 +88,17 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
 
   let syncId: string | undefined;
   try {
+    const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await admin
+      .from('panel_sync_log')
+      .update({
+        status: 'failed',
+        finished_at: nowIso(),
+        errors: ['Sync anterior expirou — substituído por nova execução'],
+      })
+      .eq('status', 'running')
+      .lt('started_at', staleBefore);
+
     const { data: logRow } = await admin
       .from('panel_sync_log')
       .insert({ status: 'running', started_at: startedAt })
@@ -488,7 +499,7 @@ async function syncDomainResources(
       if (!msg.includes('não possui') && !msg.includes('You do not own')) errors.push(`ftp ${domain}: ${msg}`);
     }
 
-  // DNS — substituir zona completa
+  // DNS — substituir zona completa (não apagar se a listagem falhar)
   try {
     const records = await da.listDNS(domain);
     await admin.from('panel_dns').delete().eq('domain', domain);
@@ -511,12 +522,10 @@ async function syncDomainResources(
       if (error) errors.push(`dns ${name} ${domain}: ${error.message}`);
       else counts.dns++;
     }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'erro';
-      if (!msg.includes('does not belong') && !msg.includes('You do not own')) {
-        errors.push(`dns ${domain}: ${msg}`);
-      }
-    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'erro';
+    errors.push(`dns ${domain}: ${msg}`);
+  }
 }
 
 async function finishLog(

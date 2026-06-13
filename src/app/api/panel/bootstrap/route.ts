@@ -64,6 +64,14 @@ export async function GET() {
     const resellerContext =
       effectiveRole === 'reseller' ? await resolveResellerPanelContext(auth) : null;
 
+    if (resellerContext?.daUsername) {
+      const owner = resellerContext.daUsername;
+      sites = sites.filter((s) => !s.owner || s.owner === owner);
+      users = users.filter(
+        (u) => u.userName === owner || u.parentUsername === owner,
+      );
+    }
+
     const lastSyncedAt = await getMirrorLastSyncAt();
 
     return NextResponse.json({

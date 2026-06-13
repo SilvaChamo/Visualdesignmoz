@@ -33,7 +33,7 @@ export function PanelHeader({
   if (hidden) return null;
 
   const searchSlot = search ? (
-    <div className="relative w-full max-w-xs sm:w-56">
+    <div className="relative w-full max-w-[10rem] sm:w-28">
       <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
       <input
         value={search.value}

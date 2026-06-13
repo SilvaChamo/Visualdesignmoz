@@ -17,6 +17,7 @@ function bootstrapStorageKey(scope?: PanelBootstrapScope): string {
 export type PanelBootstrapResellerContext = {
   daUsername: string;
   email: string;
+  displayName: string;
   primaryDomain: string | null;
   impersonating: boolean;
 };

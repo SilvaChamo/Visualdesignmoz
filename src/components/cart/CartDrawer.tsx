@@ -78,7 +78,7 @@ export function CartDrawer() {
     <>
       <div className="fixed inset-0 bg-black/50 z-[9998] transition-opacity" onClick={handleClose} />
 
-      <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[9999] flex flex-col">
+      <div className="site-overlay-panel fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-zinc-950 dark:border-l dark:border-zinc-800 shadow-2xl z-[9999] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">

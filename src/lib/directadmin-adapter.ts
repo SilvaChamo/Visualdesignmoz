@@ -465,20 +465,54 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     suspendWebsite: async (domain: string) => {
       cacheService.clear();
-      const sites = await api.listWebsites();
-      const site = sites.find((s) => s.domain === domain);
-      if (!site?.owner) return { success: false };
-      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', { suspend: 'yes', select0: site.owner });
-      return { success: result.ok };
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        const out = await executeServerCommand(`da suspend-domain --domain=${domain} 2>&1`);
+        const lower = out.toLowerCase();
+        const ok = !lower.includes('could not') && !lower.includes('not found') && !lower.includes('failed to');
+        return { success: ok, output: out };
+      } catch {
+        const sites = await api.listWebsites();
+        const site = sites.find((s) => s.domain === domain);
+        if (!site?.owner) return { success: false, output: 'Domínio não encontrado' };
+        const owner = site.owner;
+        const creds =
+          credentials.role === 'admin' && owner !== credentials.user
+            ? { ...credentials, user: `${credentials.user}|${owner}` }
+            : credentials;
+        const result = await daPost(creds, 'CMD_API_DOMAIN', {
+          action: 'select',
+          select0: domain,
+          suspend: 'yes',
+        });
+        return { success: result.ok, output: result.error };
+      }
     },
 
     unsuspendWebsite: async (domain: string) => {
       cacheService.clear();
-      const sites = await api.listWebsites();
-      const site = sites.find((s) => s.domain === domain);
-      if (!site?.owner) return { success: false };
-      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', { suspend: 'no', select0: site.owner });
-      return { success: result.ok };
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        const out = await executeServerCommand(`da unsuspend-domain --domain=${domain} 2>&1`);
+        const lower = out.toLowerCase();
+        const ok = !lower.includes('could not') && !lower.includes('not found') && !lower.includes('failed to');
+        return { success: ok, output: out };
+      } catch {
+        const sites = await api.listWebsites();
+        const site = sites.find((s) => s.domain === domain);
+        if (!site?.owner) return { success: false, output: 'Domínio não encontrado' };
+        const owner = site.owner;
+        const creds =
+          credentials.role === 'admin' && owner !== credentials.user
+            ? { ...credentials, user: `${credentials.user}|${owner}` }
+            : credentials;
+        const result = await daPost(creds, 'CMD_API_DOMAIN', {
+          action: 'select',
+          select0: domain,
+          unsuspend: 'yes',
+        });
+        return { success: result.ok, output: result.error };
+      }
     },
 
     deleteWebsite: async (domain: string) => {
@@ -622,9 +656,139 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       return { enabled: Boolean(record), record, selector: 'default', publicKey: record, output: record };
     },
 
-    issueSSL: async (domain: string) => {
-      const result = await daPost(credentials, 'CMD_API_SSL', { action: 'save', domain, type: 'acme' });
+    issueSSL: async (domain: string, options?: { force?: boolean; renew?: boolean; autoRenewDays?: string }) => {
+      cacheService.clear();
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+
+      if (options?.force || options?.renew) {
+        try {
+          const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+          const script = options.renew ? 'renew' : 'request';
+          const out = await executeServerCommand(
+            `/usr/local/directadmin/scripts/letsencrypt.sh ${script} ${domain} 4096 2>&1`,
+          );
+          const lower = out.toLowerCase();
+          const ok = !lower.includes('error') && !lower.includes('failed');
+          if (ok && options.autoRenewDays) {
+            await daPost(creds, 'CMD_API_SSL', {
+              action: 'save',
+              domain,
+              type: 'acme',
+              renewal_days: options.autoRenewDays,
+            });
+          }
+          return { success: ok, output: out };
+        } catch (e) {
+          return { success: false, output: e instanceof Error ? e.message : 'Erro ao emitir SSL' };
+        }
+      }
+
+      const body: Record<string, string> = { action: 'save', domain, type: 'acme' };
+      if (options?.autoRenewDays) body.renewal_days = options.autoRenewDays;
+      const result = await daPost(creds, 'CMD_API_SSL', body);
       return { success: result.ok, output: result.error || 'SSL solicitado' };
+    },
+
+    replaceSSL: async (domain: string) => api.issueSSL(domain, { force: true }),
+
+    deleteSSL: async (domain: string) => {
+      cacheService.clear();
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_SSL', { action: 'delete', domain });
+      return { success: result.ok, output: result.error || 'Certificado removido' };
+    },
+
+    cancelSslRenewal: async (domain: string) => {
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_SSL', {
+        action: 'save',
+        domain,
+        disable_letsencrypt_autorenew: 'yes',
+      });
+      return { success: result.ok, output: result.error || 'Renovação automática cancelada' };
+    },
+
+    setForceSsl: async (domain: string, enabled = true) => {
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_DOMAIN', {
+        action: 'modify',
+        domain,
+        force_ssl: enabled ? 'yes' : 'no',
+        ssl: 'ON',
+      });
+      return { success: result.ok, output: result.error || (enabled ? 'SSL forçado activado' : 'SSL forçado desactivado') };
+    },
+
+    getSslCertificate: async (hostname: string) => {
+      const owner = (await resolveDomainOwner(hostname)) || credentials.user;
+      const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+      const parts = hostname.split('.');
+      const candidates: string[] = [];
+      for (let i = 0; i < parts.length - 1; i++) {
+        candidates.push(parts.slice(i).join('.'));
+      }
+
+      for (const parent of candidates) {
+        const certPath = `/usr/local/directadmin/data/users/${owner}/domains/${parent}.cert.combined`;
+        const keyPath = `/usr/local/directadmin/data/users/${owner}/domains/${parent}.key`;
+        try {
+          const exists = await executeServerCommand(`test -f ${certPath} && echo ok || echo no`);
+          if (!exists.includes('ok')) continue;
+          const san = await executeServerCommand(
+            `openssl x509 -in ${certPath} -noout -text 2>/dev/null | grep -E 'DNS:|Subject:' || true`,
+          );
+          if (
+            hostname !== parent &&
+            !san.toLowerCase().includes(hostname.toLowerCase()) &&
+            !san.toLowerCase().includes(`cn=${hostname.toLowerCase()}`)
+          ) {
+            continue;
+          }
+          const certificate = await executeServerCommand(`cat ${certPath}`);
+          const privateKey = await executeServerCommand(`cat ${keyPath}`);
+          const subject = await executeServerCommand(`openssl x509 -in ${certPath} -noout -subject 2>/dev/null`);
+          const issuer = await executeServerCommand(`openssl x509 -in ${certPath} -noout -issuer 2>/dev/null`);
+          const dates = await executeServerCommand(`openssl x509 -in ${certPath} -noout -dates -serial 2>/dev/null`);
+          const keyType = await executeServerCommand(
+            `openssl x509 -in ${certPath} -noout -text 2>/dev/null | grep 'Public Key Algorithm' | head -1`,
+          );
+          const dnsNames = await executeServerCommand(
+            `openssl x509 -in ${certPath} -noout -text 2>/dev/null | awk '/DNS:/ { for(i=1;i<=NF;i++) if($i ~ /DNS:/) print $i }' | sed 's/DNS://g' | tr -d ',' | paste -sd, -`,
+          );
+          return {
+            success: true,
+            hostname,
+            parentDomain: parent,
+            certificate,
+            privateKey,
+            subject: subject.replace(/^subject=/, ''),
+            issuer: issuer.replace(/^issuer=/, ''),
+            dates,
+            serial: dates.match(/serial=([^\n]+)/i)?.[1]?.trim() || '',
+            keyType: keyType.replace(/Public Key Algorithm:/i, '').trim(),
+            dnsNames: dnsNames || hostname,
+          };
+        } catch {
+          continue;
+        }
+      }
+      return { success: false, error: 'Certificado não encontrado para este hostname' };
     },
 
     listSubdomains: async (domain: string) => {
@@ -712,54 +876,67 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     listDNS: async (domain: string) => {
       const owner = await resolveDomainOwner(domain);
-      const data = await daGet(
-        credentials,
-        'CMD_API_DNS_CONTROL',
-        withDomainUser({ action: 'list', domain }, domain, owner),
-      );
-      const raw = data.records;
-      if (Array.isArray(raw)) {
-        return raw.map((rec: Record<string, unknown>) => {
-          const name = String(rec.name || '').replace(/\.$/, '');
-          const value = String(rec.value || rec.content || '');
-          return {
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+
+      const parseDnsData = (data: DaData) => {
+        const raw = data.records;
+        if (Array.isArray(raw)) {
+          return raw.map((rec: Record<string, unknown>) => {
+            const name = String(rec.name || '').replace(/\.$/, '');
+            const value = String(rec.value || rec.content || '');
+            return {
+              name,
+              type: String(rec.type || 'A').toUpperCase(),
+              content: value,
+              value,
+              ttl: Number(rec.ttl) || 3600,
+              combined: String(rec.combined || ''),
+            };
+          });
+        }
+        const records: Record<string, unknown>[] = [];
+        const typePrefixes: Record<string, string> = {
+          arecs: 'A',
+          aaaarecs: 'AAAA',
+          mxrecs: 'MX',
+          txtrecs: 'TXT',
+          cnamerecs: 'CNAME',
+          nsrecs: 'NS',
+          ptrrecs: 'PTR',
+          srvrecs: 'SRV',
+        };
+        for (const [k, v] of Object.entries(data)) {
+          const m = k.match(/^(arecs|aaaarecs|mxrecs|txtrecs|cnamerecs|nsrecs|ptrrecs|srvrecs)\d*$/i);
+          if (!m) continue;
+          const combined = String(v);
+          const params = new URLSearchParams(combined.replace(/&/g, '&'));
+          const name = (params.get('name') || domain).replace(/\.$/, '');
+          const value = params.get('value') || combined;
+          records.push({
             name,
-            type: String(rec.type || 'A').toUpperCase(),
+            type: typePrefixes[m[1].toLowerCase()] || 'A',
             content: value,
             value,
-            ttl: Number(rec.ttl) || 3600,
-            combined: String(rec.combined || ''),
-          };
-        });
-      }
-      const records: Record<string, unknown>[] = [];
-      const typePrefixes: Record<string, string> = {
-        arecs: 'A',
-        aaaarecs: 'AAAA',
-        mxrecs: 'MX',
-        txtrecs: 'TXT',
-        cnamerecs: 'CNAME',
-        nsrecs: 'NS',
-        ptrrecs: 'PTR',
-        srvrecs: 'SRV',
+            ttl: Number(params.get('ttl')) || 3600,
+            combined,
+          });
+        }
+        return records;
       };
-      for (const [k, v] of Object.entries(data)) {
-        const m = k.match(/^(arecs|aaaarecs|mxrecs|txtrecs|cnamerecs|nsrecs|ptrrecs|srvrecs)\d*$/i);
-        if (!m) continue;
-        const combined = String(v);
-        const params = new URLSearchParams(combined.replace(/&/g, '&'));
-        const name = (params.get('name') || domain).replace(/\.$/, '');
-        const value = params.get('value') || combined;
-        records.push({
-          name,
-          type: typePrefixes[m[1].toLowerCase()] || 'A',
-          content: value,
-          value,
-          ttl: Number(params.get('ttl')) || 3600,
-          combined,
-        });
+
+      const qs = withDomainUser({ action: 'list', domain }, domain, owner);
+      try {
+        const data = await daGet(creds, 'CMD_API_DNS_CONTROL', qs);
+        const parsed = parseDnsData(data);
+        if (parsed.length > 0) return parsed;
+      } catch {
+        /* fallback plain */
       }
-      return records;
+      const plain = await daGetPlain(creds, 'CMD_API_DNS_CONTROL', qs);
+      return parseDnsData(plain);
     },
 
     createDNSZone: async (p: Record<string, unknown>) => {

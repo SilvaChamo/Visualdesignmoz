@@ -16,11 +16,19 @@ type AdminAuthFailure = {
 export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailure> {
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user: verifiedUser },
     error,
   } = await supabase.auth.getUser();
 
+  let user = verifiedUser;
   if (error || !user?.email) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    user = session?.user ?? null;
+  }
+
+  if (!user?.email) {
     return {
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };

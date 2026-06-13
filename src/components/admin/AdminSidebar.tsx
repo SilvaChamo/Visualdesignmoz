@@ -168,7 +168,7 @@ export function AdminSidebar({
                 <div>
                   <button
                     onClick={() => handleParentClick(item)}
-                    className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-colors duration-200 ${
+                    className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
                       isCollapsed ? 'justify-center px-2' : 'px-2.5'
                     } rounded-lg ${
                       isActive
@@ -218,9 +218,9 @@ export function AdminSidebar({
                           <button
                             key={sub.id}
                             onClick={() => handleSubClick(sub.id)}
-                            className={`relative flex items-center overflow-hidden px-3 text-left text-[15px] transition-colors focus:outline-none ${SUB_ROW_CLASS} ${
+                            className={`relative flex items-center overflow-visible px-3 text-left text-[15px] transition-colors duration-200 focus:outline-none ${SUB_ROW_CLASS} ${
                               isSubActive
-                                ? 'font-bold text-red-600 before:absolute before:left-0 before:top-1/2 before:z-10 before:h-3 before:w-[4px] before:-translate-x-[2.5px] before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
+                                ? 'font-bold text-red-600 before:absolute before:-left-px before:top-1/2 before:z-20 before:h-2 before:w-[2.5px] before:-translate-x-px before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
                                 : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
                             }`}
                           >
