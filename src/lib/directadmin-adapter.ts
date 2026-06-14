@@ -447,7 +447,30 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       cacheService.clear();
       const domain = String(p.domainName || p.domain || '');
       const derivedUser = domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase() || 'site';
-      const username = String(p.owner || p.username || p.userName || derivedUser);
+      const explicitOwner = String(p.owner || p.username || p.userName || '').trim();
+      const createNewUser = p.createUserAccount === true || p.createUserAccount === 'yes';
+
+      // Domínio na conta existente (admin/revenda) — CMD_API_DOMAIN (como no UI do DA)
+      if (!createNewUser && (credentials.role === 'admin' || credentials.role === 'reseller')) {
+        const owner = explicitOwner || credentials.user;
+        const creds =
+          credentials.role === 'admin' && owner !== credentials.user
+            ? { ...credentials, user: `${credentials.user}|${owner}` }
+            : credentials;
+        const result = await daPost(creds, 'CMD_API_DOMAIN', {
+          action: 'create',
+          domain,
+          bandwidth: String(p.bandwidth || 'unlimited'),
+          quota: String(p.quota || 'unlimited'),
+          ssl: 'ON',
+          php: 'ON',
+          cgi: 'ON',
+          notify: 'no',
+        });
+        return { success: result.ok, output: result.error || 'Domínio criado', error: result.error };
+      }
+
+      const username = explicitOwner || derivedUser;
       const password = String(p.password || 'ChangeMe123!');
       const result = await daPost(credentials, 'CMD_API_ACCOUNT_USER', {
         action: 'create',
@@ -802,13 +825,31 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     createSubdomain: async (domain: string, subdomain: string) => {
-      const result = await daPost(credentials, 'CMD_API_SUBDOMAINS', { action: 'create', domain, subdomain });
-      return { success: result.ok };
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(
+        creds,
+        'CMD_API_SUBDOMAINS',
+        withDomainUser({ action: 'create', subdomain }, domain, owner),
+      );
+      return { success: result.ok, error: result.error, output: result.error };
     },
 
     deleteSubdomain: async (domain: string, subdomain: string) => {
-      const result = await daPost(credentials, 'CMD_API_SUBDOMAINS', { action: 'delete', domain, subdomain });
-      return { success: result.ok };
+      const owner = await resolveDomainOwner(domain);
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(
+        creds,
+        'CMD_API_SUBDOMAINS',
+        withDomainUser({ action: 'delete', subdomain, select0: subdomain }, domain, owner),
+      );
+      return { success: result.ok, error: result.error };
     },
 
     listDatabases: async (domain: string): Promise<PanelDatabase[]> => {
@@ -822,23 +863,39 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     createDatabase: async (p: Record<string, unknown>) => {
       cacheService.clear();
-      const result = await daPost(credentials, 'CMD_API_DATABASES', {
+      const domain = String(p.domain || '');
+      const owner = domain
+        ? await resolveDomainOwner(domain)
+        : credentials.user;
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_DATABASES', {
         action: 'create',
         name: String(p.dbName || ''),
         user: String(p.dbUser || p.dbName || ''),
         passwd: String(p.dbPassword || ''),
         passwd2: String(p.dbPassword || ''),
       });
-      return { success: result.ok, output: result.error || 'Database criada' };
+      return { success: result.ok, output: result.error || 'Database criada', error: result.error };
     },
 
     deleteDatabase: async (p: Record<string, unknown>) => {
       cacheService.clear();
-      const result = await daPost(credentials, 'CMD_API_DATABASES', {
+      const domain = String(p.domain || '');
+      const owner = domain
+        ? await resolveDomainOwner(domain)
+        : credentials.user;
+      const creds =
+        credentials.role === 'admin' && owner && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_DATABASES', {
         action: 'delete',
         name: String(p.dbName || ''),
       });
-      return { success: result.ok };
+      return { success: result.ok, error: result.error };
     },
 
     listFTPAccounts: async (domain: string): Promise<PanelFTPAccount[]> => {

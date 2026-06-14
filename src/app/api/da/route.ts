@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
       if (mutationSucceeded(data)) {
         await mirrorAfterDaMutation(action, params as Record<string, unknown>);
       }
-      scheduleDaSync(1500);
+      scheduleDaSync(400);
     }
 
     return NextResponse.json({ success: true, data });

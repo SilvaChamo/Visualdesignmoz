@@ -205,11 +205,20 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
   const handleCreate = async () => {
     if (!selectedDomain || !newSub.trim()) return
     setCreating(true); setMsg('')
-    const ok = await directAdminAPI.createSubdomain(selectedDomain, newSub.trim())
-    cpSaveSubdomain(selectedDomain, newSub.trim())
-    setMsg(ok ? 'Subdomínio criado com sucesso!' : 'Guardado localmente. Verifica no DirectAdmin.')
-    setNewSub('')
-    loadSubs(selectedDomain)
+    try {
+      const res = await directAdminAPI.createSubdomain(selectedDomain, newSub.trim()) as { success?: boolean; error?: string }
+      const ok = res?.success === true
+      if (ok) {
+        cpSaveSubdomain(selectedDomain, newSub.trim())
+        setMsg('Subdomínio criado com sucesso!')
+      } else {
+        setMsg('Erro: ' + (res?.error || 'Não foi criado no DirectAdmin'))
+      }
+      setNewSub('')
+      loadSubs(selectedDomain)
+    } catch (e: unknown) {
+      setMsg('Erro: ' + (e instanceof Error ? e.message : 'Falha ao criar subdomínio'))
+    }
     setCreating(false)
   }
 

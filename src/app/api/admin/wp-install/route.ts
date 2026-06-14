@@ -4,6 +4,7 @@ import { createDirectAdminAPI, getAdminDirectAdminAPI } from '@/lib/directadmin-
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
+import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { installWordPressSite } from '@/lib/wp-cli-server';
 
 async function daApiForDomain(domain: string) {
@@ -44,12 +45,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const da = await daApiForDomain(domain);
-    await da.createDatabase({
+    const dbResult = await da.createDatabase({
       domain,
       dbName,
       dbUser,
       dbPassword,
     });
+    if (dbResult.success === false) {
+      return NextResponse.json(
+        { success: false, error: dbResult.error || dbResult.output || 'Falha ao criar base de dados' },
+        { status: 502 },
+      );
+    }
     await mirrorAfterDaMutation('createDatabase', { domain, dbName, dbUser, dbPassword });
 
     const result = await installWordPressSite({
@@ -70,6 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     await mirrorAfterDaMutation('installWordPress', { domain });
+    scheduleDaSync(400);
 
     return NextResponse.json({ success: true, message: 'WordPress instalado com sucesso.', output: result.output });
   } catch (e: unknown) {

@@ -12,6 +12,7 @@ import {
   resolveSshKeyPath,
   resolveSshPrivateKey,
 } from '@/lib/ssh-connect-options';
+import { withSshSlot } from '@/lib/ssh-connection-queue';
 
 const execFileAsync = promisify(execFile);
 
@@ -74,7 +75,8 @@ export function executeServerCommand(command: string): Promise<string> {
   }
 
   // Preferir ssh nativo — mais fiável com chaves OpenSSH multilinha
-  return executeViaNativeSsh(command).catch((nativeErr: Error) => {
+  return withSshSlot(() =>
+    executeViaNativeSsh(command).catch((nativeErr: Error) => {
     return new Promise((resolve, reject) => {
       let connectOptions: ReturnType<typeof getSshConnectOptions>;
       try {
@@ -133,5 +135,6 @@ export function executeServerCommand(command: string): Promise<string> {
       });
       conn.connect(connectOptions);
     });
-  });
+    }),
+  );
 }

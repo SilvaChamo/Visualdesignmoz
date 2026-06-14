@@ -61,7 +61,7 @@ export async function GET() {
       scheduleDaSync(0);
     } else {
       void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
-        isMirrorStale(5).then((stale) => {
+        isMirrorStale(1).then((stale) => {
           if (stale) scheduleDaSync(0);
         }),
       );
