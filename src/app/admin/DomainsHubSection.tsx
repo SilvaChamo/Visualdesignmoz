@@ -89,7 +89,7 @@ export function DomainsHubSection({
   return (
     <div className="w-full space-y-5">
       {activeTab !== 'adicionar' ? (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-h-[42px] items-center justify-between gap-4">
           <nav className="flex shrink-0 flex-wrap gap-x-5" aria-label="Secções de domínios">
             {tabs.map(({ id, label, icon: Icon }) => {
               const isTabActive = activeTab === id;
@@ -119,8 +119,8 @@ export function DomainsHubSection({
 
           <div
             className={cn(
-              'ml-auto flex min-w-0 items-center justify-end gap-3 pl-4',
-              !showListToolbar && 'hidden',
+              'ml-auto flex min-w-0 flex-1 items-center justify-end gap-3 pl-4',
+              !showListToolbar && 'pointer-events-none invisible',
             )}
           >
             <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
@@ -141,21 +141,21 @@ export function DomainsHubSection({
               />
             </div>
 
-            {activeTab === 'meus' ? (
+            <div className={cn('shrink-0', activeTab !== 'meus' && 'invisible pointer-events-none')}>
               <button
                 type="button"
                 onClick={() => setActiveTab('adicionar')}
-                className={cn(panelBtnSecondary, 'shrink-0')}
+                className={panelBtnSecondary}
               >
                 <Plus className="h-4 w-4" />
                 Adicionar domínio
               </button>
-            ) : null}
+            </div>
           </div>
         </div>
       ) : null}
 
-      {activeTab === 'meus' ? (
+      <div className={cn(activeTab !== 'meus' && 'hidden')}>
         <DomainManagerSection
           sites={sites}
           packages={packages}
@@ -170,7 +170,7 @@ export function DomainsHubSection({
           onListSearchChange={setListSearch}
           onFilteredCountChange={setFilteredCount}
         />
-      ) : null}
+      </div>
 
       {activeTab === 'adicionar' ? (
         <DomainManagerSection
@@ -186,24 +186,28 @@ export function DomainsHubSection({
         />
       ) : null}
 
-      {activeTab === 'registados' && variant === 'admin' ? (
-        <DomainManagerSection
-          sites={sites}
-          packages={packages}
-          onRefresh={onRefresh}
-          onCreateEmail={onCreateEmail}
-          onNavigate={onNavigate}
-          hubMode
-          hubPanel="list"
-          domainListMode="registrar"
-          isActive={isActive}
-          listSearch={listSearch}
-          onListSearchChange={setListSearch}
-          onFilteredCountChange={setFilteredCount}
-        />
+      {variant === 'admin' ? (
+        <div className={cn(activeTab !== 'registados' && 'hidden')}>
+          <DomainManagerSection
+            sites={sites}
+            packages={packages}
+            onRefresh={onRefresh}
+            onCreateEmail={onCreateEmail}
+            onNavigate={onNavigate}
+            hubMode
+            hubPanel="list"
+            domainListMode="registrar"
+            isActive={isActive}
+            listSearch={listSearch}
+            onListSearchChange={setListSearch}
+            onFilteredCountChange={setFilteredCount}
+          />
+        </div>
       ) : null}
 
-      {activeTab === 'registar' ? <RegistrarDomainsSection /> : null}
+      <div className={cn(activeTab !== 'registar' && 'hidden')}>
+        <RegistrarDomainsSection />
+      </div>
     </div>
   );
 }

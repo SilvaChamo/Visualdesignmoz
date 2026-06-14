@@ -23,6 +23,7 @@ import {
   writeRegistrarDomainListCache,
   type CachedDomainRow,
 } from '@/lib/panel-domain-list-cache'
+import { readDnsCache, writeDnsCache } from '@/lib/panel-dns-cache'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -521,10 +522,26 @@ export function DNSZoneEditorSection({
     NS: 'bg-gray-100 text-gray-800',
   }
 
-  const fetchRecords = async (domain: string, opts?: { initial?: boolean }) => {
+  const mapApiRecords = (
+    list: { id?: string; name?: string; type?: string; content?: string; ttl?: number }[],
+  ): DNSRecordRow[] =>
+    list.map((r) => ({
+      id: String(r.id || `${r.name}-${r.type}-${r.content}`),
+      name: String(r.name || ''),
+      type: String(r.type || '').toUpperCase(),
+      content: String(r.content || ''),
+      ttl: Number(r.ttl) || 0,
+    }))
+
+  const fetchRecords = async (domain: string, opts?: { background?: boolean }) => {
     if (!domain) return
-    if (opts?.initial && records.length === 0) setLoading(true)
-    else setRefreshing(true)
+    const cached = isCentral ? readDnsCache(domain) : []
+    if (cached.length > 0) {
+      setRecords(cached)
+      setPage(1)
+    }
+    if (!opts?.background && cached.length === 0) setLoading(true)
+    else if (opts?.background || cached.length > 0) setRefreshing(true)
     setMsg('')
     setEditingRecordId(null)
     setEditForm(null)
@@ -536,15 +553,9 @@ export function DNSZoneEditorSection({
       const data = await res.json()
       if (data.success) {
         const list = Array.isArray(data.records) ? data.records : []
-        setRecords(
-          list.map((r: { id?: string; name?: string; type?: string; content?: string; ttl?: number }) => ({
-            id: String(r.id || `${r.name}-${r.type}-${r.content}`),
-            name: String(r.name || ''),
-            type: String(r.type || '').toUpperCase(),
-            content: String(r.content || ''),
-            ttl: Number(r.ttl) || 0,
-          })),
-        )
+        const mapped = mapApiRecords(list)
+        setRecords(mapped)
+        if (isCentral) writeDnsCache(domain, mapped)
         setPage(1)
       } else {
         setMsg('Erro ao carregar registos: ' + (data.error || data.message || ''))
@@ -557,22 +568,20 @@ export function DNSZoneEditorSection({
   }
 
   useEffect(() => {
-    if (sites.length > 0 && !selectedDomain && !initialDomain) {
+    if (selectedDomain) return
+    if (initialDomain) {
+      setSelectedDomain(initialDomain)
+      return
+    }
+    if (sites.length > 0) {
       setSelectedDomain(sites[0].domain)
     }
   }, [sites, selectedDomain, initialDomain])
 
   useEffect(() => {
-    if (initialDomain && !selectedDomain) {
-      setSelectedDomain(initialDomain)
-      fetchRecords(initialDomain)
-    }
-  }, [initialDomain, selectedDomain])
-
-  useEffect(() => {
-    if (selectedDomain) {
-      void fetchRecords(selectedDomain)
-    }
+    if (!selectedDomain) return
+    const cached = isCentral ? readDnsCache(selectedDomain) : []
+    void fetchRecords(selectedDomain, { background: cached.length > 0 })
   }, [selectedDomain])
 
   const handleDomainChange = (domain: string) => {
@@ -8094,14 +8103,14 @@ export function DomainManagerSection({
   const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
 
   const [registrarListRows, setRegistrarListRows] = useState<CachedDomainRow[]>(() =>
-    domainListMode === 'registrar' ? readRegistrarDomainListCache() : [],
+    domainListMode === 'registrar' ? readRegistrarDomainListCache(true) : [],
   )
   const [registrarListLoading, setRegistrarListLoading] = useState(false)
 
   useEffect(() => {
     if (domainListMode !== 'registrar' || !isActive || hubPanel !== 'list') return
     let cancelled = false
-    const cached = readRegistrarDomainListCache()
+    const cached = readRegistrarDomainListCache(true)
     if (cached.length > 0) {
       setRegistrarListRows(cached)
     } else {

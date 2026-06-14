@@ -105,7 +105,7 @@ export function DomainPricingCarousel({ items }: DomainPricingCarouselProps) {
           {loopItems.map((domain, index) => (
             <article
               key={`${domain.value}-${index}`}
-              className="box-border shrink-0 rounded-lg border border-zinc-200 bg-white px-4 py-5 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="box-border flex shrink-0 flex-col items-center rounded-lg border border-zinc-200 bg-white px-4 py-5 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
               style={{ width: CARD_WIDTH_CSS, maxWidth: CARD_WIDTH_CSS }}
             >
               <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -118,7 +118,7 @@ export function DomainPricingCarousel({ items }: DomainPricingCarouselProps) {
               </p>
               <button
                 type="button"
-                className="mt-4 w-full rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                className="mt-4 flex w-full items-center justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
               >
                 Registar agora
               </button>

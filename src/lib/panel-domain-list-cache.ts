@@ -42,13 +42,13 @@ export function writeDomainListCache(domains: CachedDomainRow[]) {
   }
 }
 
-function readCacheByKey(key: string): CachedDomainRow[] {
+function readCacheByKey(key: string, allowStale = false): CachedDomainRow[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as DomainListCachePayload;
-    if (Date.now() - parsed.at > DOMAIN_LIST_CACHE_TTL_MS) return [];
+    if (!allowStale && Date.now() - parsed.at > DOMAIN_LIST_CACHE_TTL_MS) return [];
     return Array.isArray(parsed.domains) ? parsed.domains : [];
   } catch {
     return [];
@@ -64,8 +64,8 @@ function writeCacheByKey(key: string, domains: CachedDomainRow[]) {
   }
 }
 
-export function readRegistrarDomainListCache(): CachedDomainRow[] {
-  return readCacheByKey(REGISTRAR_DOMAIN_LIST_CACHE_KEY);
+export function readRegistrarDomainListCache(allowStale = true): CachedDomainRow[] {
+  return readCacheByKey(REGISTRAR_DOMAIN_LIST_CACHE_KEY, allowStale);
 }
 
 export function writeRegistrarDomainListCache(domains: CachedDomainRow[]) {
