@@ -57,6 +57,7 @@ import {
   clearPanelBootstrapCache,
   type PanelBootstrapData,
 } from '@/lib/panel-data-from-server'
+import { prefetchPanelContent, prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { WordPressHubSection } from '../admin/WordPressHubSection'
 
 const directAdminAPI = panelAPI
@@ -2060,6 +2061,8 @@ export default function ResellerPage() {
         setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
       }
     }
+
+    prefetchPanelContentFromBootstrap(boot, 'reseller')
   }
 
   const loadDirectAdminData = async (fresh = false) => {
@@ -2117,6 +2120,7 @@ export default function ResellerPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   useEffect(() => {
+    prefetchPanelContent({ scope: 'reseller' })
     void loadDirectAdminData(false)
   }, [])
 

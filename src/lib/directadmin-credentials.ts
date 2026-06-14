@@ -36,8 +36,14 @@ function pickAdminPassword(): string {
   return candidates.find(Boolean) || '';
 }
 
+/** Login web DirectAdmin aceita email; API Basic auth exige o nome da conta (`admin`). */
+function resolveAdminApiUsername(configured: string): string {
+  const user = configured || 'admin';
+  return user.includes('@') ? 'admin' : user;
+}
+
 function resolveAdminCredentials(): DirectAdminCredentials {
-  const user = readEnv('DIRECTADMIN_USER') || 'admin';
+  const user = resolveAdminApiUsername(readEnv('DIRECTADMIN_USER'));
   const password = pickAdminPassword();
   if (!password) {
     throw new Error(

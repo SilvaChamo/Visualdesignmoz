@@ -25,6 +25,16 @@ export function getDirectAdminAccessUrl(): string {
   return '/api/directadmin-access';
 }
 
+/** Página de login DirectAdmin (sem auto-submit). */
+export function getDirectAdminLoginPageUrl(): string {
+  const host =
+    process.env.NEXT_PUBLIC_DIRECTADMIN_HOST?.replace(/^https?:\/\//, '').replace(/:\d+$/, '') ||
+    'host.visualdesignmoz.com';
+  const port = process.env.NEXT_PUBLIC_DIRECTADMIN_PORT || '2026';
+  const protocol = process.env.NEXT_PUBLIC_DIRECTADMIN_PROTOCOL || 'https';
+  return `${protocol}://${host}:${port}`;
+}
+
 /** Gestor web para uploads grandes (FileGator, chunked até 2 GB). Login = user + password DirectAdmin. */
 export function getWebFileManagerUrl(): string {
   const base =

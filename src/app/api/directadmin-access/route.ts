@@ -132,6 +132,7 @@ export async function GET() {
       creds = await resolveDirectAdminCredentials('admin');
     }
 
+    // Login keys e auto-login web exigem o nome da conta (`admin`), não o email.
     const html = buildAutoLoginHtml(loginUrl, creds.user, creds.password);
     return new NextResponse(html, {
       headers: {

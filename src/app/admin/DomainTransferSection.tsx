@@ -43,43 +43,49 @@ export function DomainTransferSection() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-6 flex items-start gap-3">
+    <div className="w-full space-y-6">
+      <div className="w-full rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="mb-4 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-gray-200 dark:border-zinc-700">
             <ArrowRightLeft className="h-5 w-5 text-gray-600 dark:text-zinc-400" />
           </div>
-          <div>
-            <p className="text-sm text-gray-600 dark:text-zinc-400">
-              Introduza o domínio e o código de autorização (EPP) do registador actual. O domínio permanece activo durante a transferência.
-            </p>
+          <div className="space-y-1 text-sm text-gray-600 dark:text-zinc-400">
+            <p>Introduza o domínio e o código de autorização (EPP) do registador actual.</p>
+            <p>O domínio permanece activo durante a transferência.</p>
           </div>
         </div>
 
+        <div
+          className="-mx-6 mb-[30px] border-b border-gray-200 dark:border-zinc-700"
+          aria-hidden="true"
+        />
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">
-              Domínio
-            </label>
-            <input
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="exemplo.com"
-              className={`${panelField} w-full font-mono`}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">
-              Código de autorização (EPP)
-            </label>
-            <input
-              value={authCode}
-              onChange={(e) => setAuthCode(e.target.value)}
-              placeholder="Código do registador actual"
-              className={`${panelField} w-full font-mono`}
-              required
-            />
+          <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="min-w-0">
+              <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">
+                Domínio
+              </label>
+              <input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="exemplo.com"
+                className={`${panelField} w-full font-mono`}
+                required
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">
+                Código de autorização (EPP)
+              </label>
+              <input
+                value={authCode}
+                onChange={(e) => setAuthCode(e.target.value)}
+                placeholder="Código do registador actual"
+                className={`${panelField} w-full font-mono`}
+                required
+              />
+            </div>
           </div>
 
           {msg && (

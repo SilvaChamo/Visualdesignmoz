@@ -52,6 +52,7 @@ import {
   clearPanelBootstrapCache,
   type PanelBootstrapData,
 } from '@/lib/panel-data-from-server'
+import { prefetchPanelContent, prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import ClientDashboardSkeleton from '@/components/dashboard/ClientDashboardSkeleton'
 import { NovoTicketModal } from '@/components/dashboard/NovoTicketModal'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -3459,6 +3460,7 @@ export default function AdminPage() {
             nome: profile?.name || profile?.nome || user.user_metadata?.nome || 'Utilizador',
             email: user.email
           })
+          prefetchPanelContent({ scope: 'client' })
         }
       } catch (error) {
         console.error('Erro ao obter dados:', error)
@@ -3475,6 +3477,7 @@ export default function AdminPage() {
     setDirectAdminSites(boot.sites)
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
+    prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
   const handleSync = async () => {

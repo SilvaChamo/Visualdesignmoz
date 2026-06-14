@@ -160,7 +160,13 @@ export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
     throw new Error('WordPress não encontrado neste domínio');
   }
 
-  const raw = await runAsWpUser(install.user, install.path, 'plugin list --format=json');
+  // Só plugins normais (activos/inactivos) — alinha com o ecrã «Plugins» do WordPress.
+  // Must-use e drop-ins são infra da hospedagem, visíveis no WP em separado.
+  const raw = await runAsWpUser(
+    install.user,
+    install.path,
+    'plugin list --format=json --status=active,inactive',
+  );
   const rows = parseWpJson<WpPluginRow[]>(raw);
   if (!Array.isArray(rows)) {
     throw new Error('Lista de plugins inválida');

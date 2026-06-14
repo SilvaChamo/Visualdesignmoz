@@ -24,6 +24,14 @@ import {
   type CachedDomainRow,
 } from '@/lib/panel-domain-list-cache'
 import { readDnsCache, writeDnsCache } from '@/lib/panel-dns-cache'
+import {
+  readSslCertCache,
+  readSslHostsCache,
+  writeSslCertCache,
+  writeSslHostsCache,
+  type CachedSslCert,
+} from '@/lib/panel-ssl-cert-cache'
+import { writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -3361,6 +3369,7 @@ export function CPUsersSection({
                         <>
                           <option value="client">Cliente</option>
                           <option value="admin">Administrador</option>
+                          <option value="reseller">Revendedor</option>
                           {userModal.mode === 'edit' && userModal.data.panelRole === 'guest' ? (
                             <option value="guest">Visitante</option>
                           ) : null}
@@ -3913,6 +3922,17 @@ function sslHostEntries(domain: string, subdomains: string[]): SslHostRow[] {
   return rows
 }
 
+function parseSslRenewalDate(dates?: string): string {
+  if (!dates) return '—'
+  const match = String(dates).match(/notAfter=([^\n]+)/i)
+  if (!match) return '—'
+  try {
+    return new Date(match[1].trim()).toLocaleString('pt-PT')
+  } catch {
+    return match[1].trim()
+  }
+}
+
 export function SSLSection({
   sites,
   initialDomain,
@@ -3936,6 +3956,8 @@ export function SSLSection({
   const [forceIssue, setForceIssue] = useState(false)
   const [renewMode, setRenewMode] = useState(false)
   const [autoRenewDays, setAutoRenewDays] = useState('60')
+  const [sslRenewalDate, setSslRenewalDate] = useState('—')
+  const [reloadTick, setReloadTick] = useState(0)
 
   useEffect(() => {
     if (initialDomain) setFilterDomain(initialDomain)
@@ -3960,9 +3982,24 @@ export function SSLSection({
         setHosts([])
         setHostSsl({})
         setSelectedHosts(new Set())
+        setSslRenewalDate('—')
         return
       }
-      setLoadingHosts(true)
+
+      const cached = readSslHostsCache(filterDomain)
+      if (cached?.hostSsl && Object.keys(cached.hostSsl).length > 0) {
+        setHostSsl(cached.hostSsl)
+        if (cached.renewalDate) setSslRenewalDate(cached.renewalDate)
+        setLoadingHosts(false)
+      } else {
+        setLoadingHosts(true)
+      }
+
+      const cachedCert = readSslCertCache(filterDomain)
+      if (cachedCert?.dates) {
+        setSslRenewalDate(parseSslRenewalDate(cachedCert.dates))
+      }
+
       const allRows: SslHostRow[] = []
 
       await Promise.all(
@@ -3990,31 +4027,56 @@ export function SSLSection({
       setSelectedHosts(new Set())
 
       const hostnames = allRows.map((h) => h.hostname)
-      if (!hostnames.length) {
-        setHostSsl({})
-        setLoadingHosts(false)
-        return
-      }
+      let renewalDate = cached?.renewalDate || parseSslRenewalDate(cachedCert?.dates)
+      let nextHostSsl = cached?.hostSsl || {}
 
       try {
-        const res = await fetch('/api/server-exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
-        })
-        const data = await res.json()
-        if (!cancelled && data.success && data.data?.ssl) {
-          setHostSsl(data.data.ssl as Record<string, boolean>)
+        const [certRes, sslRes] = await Promise.all([
+          fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getSslCertificate', params: { hostname: filterDomain } }),
+          }),
+          hostnames.length
+            ? fetch('/api/server-exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
+              })
+            : Promise.resolve(null),
+        ])
+
+        if (!cancelled) {
+          const certJson = await certRes.json()
+          if (certJson.success && certJson.data?.success !== false && certJson.data?.certificate) {
+            writeSslCertCache(filterDomain, certJson.data as CachedSslCert)
+            renewalDate = parseSslRenewalDate(certJson.data.dates)
+            setSslRenewalDate(renewalDate)
+          }
+
+          if (sslRes) {
+            const sslData = await sslRes.json()
+            if (sslData.success && sslData.data?.ssl) {
+              nextHostSsl = sslData.data.ssl as Record<string, boolean>
+              setHostSsl(nextHostSsl)
+              writeSiteSslCache(nextHostSsl)
+            }
+          }
+
+          if (Object.keys(nextHostSsl).length > 0) {
+            writeSslHostsCache(filterDomain, { hostSsl: nextHostSsl, renewalDate })
+          }
         }
       } catch {
-        /* mantém estado anterior */
+        /* mantém cache */
       }
+
       if (!cancelled) setLoadingHosts(false)
     }
 
     void loadHosts()
     return () => { cancelled = true }
-  }, [siteDomainsKey])
+  }, [siteDomainsKey, reloadTick])
 
   const sslOptions = () => ({
     force: forceIssue,
@@ -4130,41 +4192,69 @@ export function SSLSection({
     <div className="space-y-4">
       <div className="bg-white dark:bg-zinc-900 rounded shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
         <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-          <div className="w-full max-w-xs">
-            <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1.5">Website</label>
-            <select
-              value={filterDomain}
-              onChange={(e) => setFilterDomain(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+          <div className="flex items-end gap-2">
+            <div className="w-full max-w-xs">
+              <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1.5">Website</label>
+              <select
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+              >
+                {sites.map((s) => (
+                  <option key={s.domain} value={s.domain}>{s.domain}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReloadTick((t) => t + 1)}
+              disabled={loadingHosts || !filterDomain}
+              className="px-3 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 inline-flex items-center justify-center"
+              aria-label="Sincronizar"
             >
-              {sites.map((s) => (
-                <option key={s.domain} value={s.domain}>{s.domain}</option>
-              ))}
-            </select>
+              <RefreshCw className={`w-4 h-4 ${loadingHosts ? 'animate-spin' : ''}`} />
+            </button>
           </div>
-          <div className="flex flex-wrap gap-2 ml-auto">
+          <div className="flex flex-wrap items-center justify-end gap-3 ml-auto">
+            <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
+              <span className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Renovação</span>
+              <span>{sslRenewalDate}</span>
+            </div>
             <button
               type="button"
               onClick={() => filterDomain && openViewSsl(filterDomain)}
               disabled={!filterDomain}
               className="px-4 py-2.5 border border-gray-300 dark:border-zinc-600 rounded text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50"
             >
-              Ver SSL
+              Ver certificado
             </button>
+            {filterDomain && !isHostSecure(filterDomain) ? (
+              <button
+                type="button"
+                onClick={() => void handleIssueSSL(filterDomain)}
+                disabled={issuing === `issueSSL-${filterDomain}`}
+                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {issuing === `issueSSL-${filterDomain}` ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                Emitir SSL
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 items-end mb-4 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
-            <input type="checkbox" checked={forceIssue} onChange={(e) => setForceIssue(e.target.checked)} className="rounded" />
-            Forçar SSL
-          </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
-            <input type="checkbox" checked={renewMode} onChange={(e) => setRenewMode(e.target.checked)} className="rounded" />
-            Renovar
-          </label>
-          <div>
-            <label className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase block mb-1">Renovação automática</label>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
+          <div className="flex flex-wrap gap-4 items-center">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
+              <input type="checkbox" checked={forceIssue} onChange={(e) => setForceIssue(e.target.checked)} className="rounded" />
+              Forçar SSL
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
+              <input type="checkbox" checked={renewMode} onChange={(e) => setRenewMode(e.target.checked)} className="rounded" />
+              Renovar
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-4 ml-auto">
+            <span className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Renovação automática</span>
             <select
               value={autoRenewDays}
               onChange={(e) => setAutoRenewDays(e.target.value)}
@@ -4174,16 +4264,16 @@ export function SSLSection({
               <option value="60">60 dias antes</option>
               <option value="90">90 dias antes</option>
             </select>
+            <button
+              type="button"
+              onClick={() => void handleBulkIssue()}
+              disabled={bulkIssuing || !hosts.length}
+              className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {bulkIssuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+              Emitir em massa
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleBulkIssue()}
-            disabled={bulkIssuing || !hosts.length}
-            className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {bulkIssuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-            Emitir em massa
-          </button>
         </div>
 
         {msg && (
@@ -4319,7 +4409,7 @@ export function SSLViewSection({
   setActiveSection?: (section: string) => void
 }) {
   const [hostname, setHostname] = useState(initialHostname || sites[0]?.domain || '')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(() => !readSslCertCache(initialHostname || sites[0]?.domain || ''))
   const [cert, setCert] = useState<{
     subject?: string
     issuer?: string
@@ -4329,7 +4419,7 @@ export function SSLViewSection({
     dnsNames?: string
     certificate?: string
     privateKey?: string
-  } | null>(null)
+  } | null>(() => readSslCertCache(initialHostname || sites[0]?.domain || ''))
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<'cert' | 'key' | null>(null)
 
@@ -4337,9 +4427,9 @@ export function SSLViewSection({
     if (initialHostname) setHostname(initialHostname)
   }, [initialHostname])
 
-  const loadCert = async (host: string) => {
+  const loadCert = async (host: string, background = false) => {
     if (!host) return
-    setLoading(true)
+    if (!background) setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/da', {
@@ -4350,19 +4440,30 @@ export function SSLViewSection({
       const json = await res.json()
       if (json.success && json.data?.success !== false && json.data?.certificate) {
         setCert(json.data)
-      } else {
+        writeSslCertCache(host, json.data as CachedSslCert)
+      } else if (!background) {
         setCert(null)
         setError(json.data?.error || json.error || 'Certificado não encontrado')
       }
     } catch (e) {
-      setCert(null)
-      setError(e instanceof Error ? e.message : 'Erro ao carregar certificado')
+      if (!background) {
+        setCert(null)
+        setError(e instanceof Error ? e.message : 'Erro ao carregar certificado')
+      }
     }
-    setLoading(false)
+    if (!background) setLoading(false)
   }
 
   useEffect(() => {
-    if (hostname) void loadCert(hostname)
+    if (!hostname) return
+    const cached = readSslCertCache(hostname)
+    if (cached) {
+      setCert(cached)
+      setLoading(false)
+      void loadCert(hostname, true)
+      return
+    }
+    void loadCert(hostname, false)
   }, [hostname])
 
   const parseDate = (dates?: string, which: 'notBefore' | 'notAfter' = 'notAfter') => {
