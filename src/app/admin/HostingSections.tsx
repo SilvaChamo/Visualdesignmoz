@@ -15,6 +15,7 @@ import {
   clearPanelUsersCache,
   readPanelUsersCache,
 } from '@/lib/panel-users-cache'
+import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import {
   readDomainListCache,
@@ -2298,7 +2299,7 @@ export function EmailManagementSection({
 // ============================================================
 type PanelRoleFilter = 'all' | 'admin' | 'reseller' | 'client' | 'guest'
 type PanelUsersScope = 'users' | 'reseller' | 'client'
-type UsersScopeFilter = 'all' | 'admin' | 'guest' | 'client'
+type UsersScopeFilter = 'all' | 'admin' | 'guest' | 'client' | 'reseller'
 
 type PanelAccount = {
   id: string
@@ -2584,7 +2585,7 @@ export function CPUsersSection({
   useEffect(() => { loadUsers() }, [variant])
 
   const activePanelFilter = fixedPanelFilter ?? panelFilter
-  const usersScopeRoles: UsersScopeFilter[] = ['admin', 'guest', 'client']
+  const usersScopeRoles: UsersScopeFilter[] = ['admin', 'reseller', 'guest', 'client']
 
   const scopedPanelAccounts = panelScope === 'users'
     ? panelAccounts.filter((account) => usersScopeRoles.includes(account.panelRole as UsersScopeFilter))
@@ -3116,6 +3117,7 @@ export function CPUsersSection({
                 >
                   <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
                   <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
+                  <option value="reseller">Revendedores ({usersScopeCounts.reseller ?? 0})</option>
                   <option value="guest">Visitantes ({usersScopeCounts.guest ?? 0})</option>
                   <option value="client">Clientes ({usersScopeCounts.client ?? 0})</option>
                 </select>
@@ -3340,7 +3342,7 @@ export function CPUsersSection({
       {userModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setUserModal({ ...userModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-[80%] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-[80%] shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Users className="w-5 h-5 " /></div>
@@ -3348,18 +3350,18 @@ export function CPUsersSection({
               </div>
               <button onClick={() => setUserModal({ ...userModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-6">
+            <div className="p-6 max-h-[min(80vh,720px)] overflow-y-auto overflow-x-visible">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
                 {isPanelAuthForm && (
-                  <div className="space-y-1.5 col-span-1">
+                  <div className="space-y-1.5 col-span-1 relative z-[1]">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Papel</label>
                     <select
                       value={userModal.data.panelRole || 'client'}
                       onChange={(e) => setUserModal({ ...userModal, data: { ...userModal.data, panelRole: e.target.value } })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                      className="relative z-[2] w-full bg-white border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                     >
                       {panelScope === 'reseller' ? (
                         <option value="reseller">Revendedor</option>
@@ -6431,7 +6433,7 @@ export function PackagesSection({
   onRefresh: () => void
   isActive?: boolean
 }) {
-  const [livePackages, setLivePackages] = useState<any[]>(packages)
+  const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache() || packages)
   const [loadingLive, setLoadingLive] = useState(false)
   const [form, setForm] = useState({ 
     packageName: '', 
@@ -6471,6 +6473,7 @@ export function PackagesSection({
       const data = await res.json()
       if (data.success && Array.isArray(data.data) && data.data.length > 0) {
         setLivePackages(data.data)
+        writePackagesCache(data.data)
       }
     } catch {
       /* mantém lista actual */
@@ -6480,14 +6483,14 @@ export function PackagesSection({
   }
 
   useEffect(() => {
-    void loadLivePackages()
-  }, [])
-
-  useEffect(() => {
-    if (packages.length > 0 && livePackages.length === 0) {
+    if (packages.length > 0) {
       setLivePackages(packages)
+      writePackagesCache(packages)
+    } else {
+      const cached = readPackagesCache()
+      if (cached?.length) setLivePackages(cached)
     }
-  }, [packages, livePackages.length])
+  }, [packages])
 
   const displayPackages = livePackages.length > 0 ? livePackages : packages
 
@@ -6623,7 +6626,11 @@ export function PackagesSection({
         )}
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-4 flex items-center justify-end">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
+            {displayPackages.length} pacote(s) do espelho Supabase
+            {loadingLive ? ' · a actualizar…' : ''}
+          </p>
           <button
             type="button"
             onClick={() => void loadLivePackages()}

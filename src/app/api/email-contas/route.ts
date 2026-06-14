@@ -17,6 +17,7 @@ import {
   generateOutlookConfigFile,
   getWarmupTermsAndConditions
 } from '@/lib/email-welcome-service'
+import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns'
 
 const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesignmoz.com'];
 
@@ -290,12 +291,7 @@ export async function POST(req: NextRequest) {
       // Configurações do servidor para o email
       const serverConfig = {
         ip: process.env.SERVER_IP || getServerHost(),
-        nameservers: [
-          'ns1.mozserver.com',
-          'ns2.mozserver.com',
-          'ns3.mozserver.com',
-          'ns4.mozserver.com'
-        ],
+        nameservers: [...VISUALDESIGN_NAMESERVERS],
         package: `vd_${domain}`
       }
 

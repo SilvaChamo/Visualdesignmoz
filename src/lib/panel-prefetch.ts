@@ -1,6 +1,8 @@
 import type { DirectAdminWebsite } from '@/lib/directadmin-api';
+import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import type { PanelBootstrapScope } from '@/lib/panel-data-from-server';
 import { writeDnsCache, type CachedDnsRow } from '@/lib/panel-dns-cache';
+import { writePackagesCache } from '@/lib/panel-packages-cache';
 import { writeRegistrarDomainListCache } from '@/lib/panel-domain-list-cache';
 import { writeSslCertCache, type CachedSslCert } from '@/lib/panel-ssl-cert-cache';
 import { writePanelUsersCache } from '@/lib/panel-users-cache';
@@ -160,14 +162,21 @@ export function prefetchPanelContent(options?: PrefetchPanelOptions) {
   }
 }
 
+export function prefetchPackages(packages: DirectAdminPackage[]) {
+  if (!packages.length) return;
+  writePackagesCache(packages);
+}
+
 /** Após bootstrap: pré-carrega com base nos sites do espelho. */
 export function prefetchPanelContentFromBootstrap(
   boot: {
     sites: DirectAdminWebsite[];
+    packages?: DirectAdminPackage[];
     resellerContext?: { primaryDomain?: string | null; daUsername?: string } | null;
   },
   scope: PanelBootstrapScope,
 ) {
+  if (boot.packages?.length) prefetchPackages(boot.packages);
   const daUsername = boot.resellerContext?.daUsername ?? null;
   const primary =
     boot.resellerContext?.primaryDomain?.toLowerCase() ||

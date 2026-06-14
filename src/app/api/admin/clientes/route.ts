@@ -81,7 +81,16 @@ export async function GET(req: NextRequest) {
 
     const osherCreds = await loadResellerCredentialsByDaUsername(OSHER_RESELLER);
 
-    // Pacotes do servidor: espelho + revendas (ex. Osher) para o wizard mostrar todos os disponíveis
+    // Pacotes admin — leitura live evita «Default» obsoleto no espelho
+    try {
+      const adminApi = await getAdminDirectAdminAPI();
+      const liveAdminPkgs = await adminApi.listPackages();
+      if (liveAdminPkgs.length) packages = liveAdminPkgs;
+    } catch {
+      packages = packages.filter((p) => p.packageName !== 'Default');
+    }
+
+    // Pacotes do servidor: admin live + revendas (ex. Osher) para o wizard
     const packageMap = new Map(packages.map((p) => [p.packageName, p]));
     if (osherCreds) {
       try {

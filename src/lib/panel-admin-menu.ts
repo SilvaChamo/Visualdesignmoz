@@ -28,7 +28,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Hospedagem',
     isNewMenu: true,
     subItems: [
-      { id: 'provision-client', label: 'Criar conta completa' },
+      { id: 'provision-client', label: 'Criar conta' },
       { id: 'packages-list', label: 'Pacotes' },
     ],
   },

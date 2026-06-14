@@ -1,4 +1,5 @@
 import { DEFAULT_SERVER_IP } from '@/lib/server-config';
+import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns';
 import {
   generateOutlookConfigFile,
   generateWelcomeEmailText,
@@ -9,12 +10,7 @@ import {
 export function buildEmailServerConfig(domain: string): ServerConfig {
   return {
     ip: DEFAULT_SERVER_IP,
-    nameservers: [
-      'ns1.mozserver.com',
-      'ns2.mozserver.com',
-      'ns3.mozserver.com',
-      'ns4.mozserver.com',
-    ],
+    nameservers: [...VISUALDESIGN_NAMESERVERS],
     package: `vd_${domain}`,
   };
 }

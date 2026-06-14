@@ -297,7 +297,7 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const { data: existingPkgs } = await admin.from('panel_packages').select('package_name');
   const stalePkgs = (existingPkgs || [])
     .map((r) => r.package_name as string)
-    .filter((p) => p && p !== 'Default' && !livePackages.has(p));
+    .filter((p) => p && !livePackages.has(p));
   if (stalePkgs.length) {
     await admin.from('panel_packages').delete().in('package_name', stalePkgs);
   }
