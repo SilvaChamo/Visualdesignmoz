@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth()
   }, [])
 
-  // Inatividade: 10 min no painel DirectAdmin; 20 min no resto da aplicação
+  // Inatividade: 30 min (painel e resto da aplicação)
   useEffect(() => {
     if (!user) return
 
