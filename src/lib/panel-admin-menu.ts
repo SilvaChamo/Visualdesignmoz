@@ -336,8 +336,6 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'provision-client': 'nov-hospedagem',
   'packages-list': 'nov-hospedagem',
   domains: 'nov-wordpress',
-  'domains-list': 'menu-anterior',
-  'domains-new': 'menu-anterior',
   'emails-new': 'nov-email',
   webmail: 'nov-email',
   'criar-email': 'menu-anterior',
