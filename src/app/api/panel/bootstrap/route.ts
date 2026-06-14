@@ -5,12 +5,12 @@ import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
 import {
   getMirrorLastSyncAt,
+  listBootstrapPanelAccounts,
   listMirrorPackages,
   listMirrorUsers,
   listMirrorWebsites,
   listMirrorWebsitesForClientEmail,
 } from '@/lib/panel-mirror-read';
-import { listBootstrapPanelAccounts } from '@/lib/panel-bootstrap-accounts';
 
 export async function GET() {
   try {

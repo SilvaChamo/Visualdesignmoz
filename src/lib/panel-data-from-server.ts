@@ -4,7 +4,7 @@
  */
 
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api';
-import type { PanelBootstrapAccount } from '@/lib/panel-bootstrap-accounts';
+import type { PanelBootstrapAccount } from '@/lib/panel-mirror-read';
 
 const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v1';
 const BOOTSTRAP_CACHE_MS = 180_000;

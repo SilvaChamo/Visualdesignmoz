@@ -23,7 +23,7 @@ import {
   filterPanelAccountsForCaller,
   listAllBootstrapPanelAccounts,
   buildPanelAccountCounts,
-} from '@/lib/panel-bootstrap-accounts';
+} from '@/lib/panel-mirror-read';
 import {
   belongsToCurrentPanel,
   resolveAccountPanelSite,
