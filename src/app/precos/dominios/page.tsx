@@ -36,7 +36,7 @@ export default function PrecosDominios() {
             </p>
             
             <div className="flex justify-center">
-              <DomainSearch activeTab="pricing" />
+              <DomainSearch />
             </div>
           </div>
         </div>

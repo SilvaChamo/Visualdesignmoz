@@ -6,6 +6,7 @@ export type SectionChromeSearch = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  countLabel?: string;
 };
 
 export type SectionChromeBack = {

@@ -18,7 +18,9 @@ import {
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import {
   readDomainListCache,
+  readRegistrarDomainListCache,
   writeDomainListCache,
+  writeRegistrarDomainListCache,
   type CachedDomainRow,
 } from '@/lib/panel-domain-list-cache'
 import { supabase } from '@/lib/supabase'
@@ -8037,17 +8039,35 @@ export function DomainManagerSection({
   onCreateEmail,
   onNavigate,
   onRefresh,
+  hubMode = false,
+  hubPanel = 'list',
+  domainListMode = 'hosting',
+  isActive = true,
+  onHubAddClose,
+  listSearch: listSearchProp,
+  onListSearchChange,
+  onFilteredCountChange,
 }: {
   sites: DirectAdminWebsite[]
   packages?: DirectAdminPackage[]
   onCreateEmail?: (domain: string) => void
   onNavigate?: (section: string, opts?: { domain?: string }) => void
   onRefresh?: () => void | Promise<void>
+  hubMode?: boolean
+  hubPanel?: 'list' | 'add'
+  domainListMode?: 'hosting' | 'registrar'
+  isActive?: boolean
+  onHubAddClose?: () => void
+  listSearch?: string
+  onListSearchChange?: (value: string) => void
+  onFilteredCountChange?: (count: number) => void
 }) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
   const [loading, setLoading] = useState(false)
-  const [listSearch, setListSearch] = useState('')
+  const [listSearchInternal, setListSearchInternal] = useState('')
+  const listSearch = hubMode && listSearchProp !== undefined ? listSearchProp : listSearchInternal
+  const setListSearch = hubMode && onListSearchChange ? onListSearchChange : setListSearchInternal
   const [openMenuDomain, setOpenMenuDomain] = useState<string | null>(null)
   const domainMenuRef = useRef<HTMLDivElement>(null)
   const [msg, setMsg] = useState('')
@@ -8073,10 +8093,70 @@ export function DomainManagerSection({
 
   const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
 
+  const [registrarListRows, setRegistrarListRows] = useState<CachedDomainRow[]>(() =>
+    domainListMode === 'registrar' ? readRegistrarDomainListCache() : [],
+  )
+  const [registrarListLoading, setRegistrarListLoading] = useState(false)
+
+  useEffect(() => {
+    if (domainListMode !== 'registrar' || !isActive || hubPanel !== 'list') return
+    let cancelled = false
+    const cached = readRegistrarDomainListCache()
+    if (cached.length > 0) {
+      setRegistrarListRows(cached)
+    } else {
+      setRegistrarListLoading(true)
+    }
+    void fetch('/api/registrar/account/domains', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data: { success?: boolean; domains?: { domain: string; status?: string; expireDate?: string }[] }) => {
+        if (cancelled) return
+        if (data.success && Array.isArray(data.domains)) {
+          const rows = data.domains.map((d) => ({
+            domain: d.domain,
+            state: d.status || 'Active',
+            status: d.status,
+            expireDate: d.expireDate,
+          }))
+          setRegistrarListRows(rows)
+          writeRegistrarDomainListCache(rows)
+        } else if (cached.length === 0) {
+          setRegistrarListRows([])
+        }
+      })
+      .catch(() => {
+        if (!cancelled && cached.length === 0) setRegistrarListRows([])
+      })
+      .finally(() => {
+        if (!cancelled) setRegistrarListLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [domainListMode, isActive, hubPanel])
+
+  const mergedRegistrarRows = useMemo(
+    () =>
+      registrarListRows.map((row) => {
+        const site = siteByDomain.get(row.domain.toLowerCase())
+        if (!site) return row
+        return {
+          ...row,
+          package: site.package || row.package,
+          owner: site.owner || row.owner,
+          adminEmail: site.adminEmail || row.adminEmail,
+          state: site.state || site.status || row.state,
+          status: site.status || row.status,
+        }
+      }),
+    [registrarListRows, siteByDomain],
+  )
+
   const domainList = useMemo(() => {
+    if (domainListMode === 'registrar') return mergedRegistrarRows
     if (rowsFromSites.length > 0) return rowsFromSites
     return readDomainListCache()
-  }, [rowsFromSites])
+  }, [domainListMode, mergedRegistrarRows, rowsFromSites])
 
   const filteredDomains = useMemo(() => {
     const q = listSearch.trim().toLowerCase()
@@ -8085,8 +8165,9 @@ export function DomainManagerSection({
   }, [domainList, listSearch])
 
   useEffect(() => {
+    if (domainListMode === 'registrar') return
     if (rowsFromSites.length > 0) writeDomainListCache(rowsFromSites)
-  }, [rowsFromSites])
+  }, [domainListMode, rowsFromSites])
 
   const [registrarLoading, setRegistrarLoading] = useState(false)
   const [transferLocked, setTransferLocked] = useState<boolean | null>(null)
@@ -8100,7 +8181,6 @@ export function DomainManagerSection({
   const [newDomain, setNewDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [docRoot, setDocRoot] = useState('')
-  const [openLiteSpeed, setOpenLiteSpeed] = useState(true)
   const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
 
   // Modal de criação de email
@@ -8118,6 +8198,11 @@ export function DomainManagerSection({
   }
 
   const panelBtnRow = domainCardBtn
+
+  useEffect(() => {
+    if (!hubMode || !isActive || view !== 'list' || hubPanel !== 'list') return
+    onFilteredCountChange?.(filteredDomains.length)
+  }, [hubMode, hubPanel, isActive, view, filteredDomains.length, onFilteredCountChange])
 
   useEffect(() => {
     if (!openMenuDomain) return
@@ -8297,7 +8382,6 @@ export function DomainManagerSection({
             domain: newDomain,
             email: adminEmail,
             php: selectedPHP,
-            openLiteSpeed: openLiteSpeed
           }
         })
       })
@@ -8305,7 +8389,7 @@ export function DomainManagerSection({
       const output = data.data?.output || ''
       if (data.success || output.includes('success') || output.includes('created') || output.toLowerCase().includes('ok')) {
         showMsg(`Domínio "${newDomain}" criado com sucesso!`)
-        setNewDomain(''); setAdminEmail(''); setDocRoot(''); setOpenLiteSpeed(true)
+        setNewDomain(''); setAdminEmail(''); setDocRoot('')
         setView('list')
         await onRefresh?.()
       } else {
@@ -8432,30 +8516,48 @@ export function DomainManagerSection({
     </div>
   )
 
+  if (hubMode && hubPanel === 'add') {
+    return (
+      <div className="w-full">
+        <DomainCreateModal
+          show
+          onClose={() => onHubAddClose?.()}
+          onSuccess={() => {
+            onHubAddClose?.()
+            void onRefresh?.()
+          }}
+          packages={packages}
+        />
+      </div>
+    )
+  }
+
   if (view === 'list') return (
     <div className="w-full space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-[140px] flex-wrap items-center gap-3">
-          <div className="relative w-full max-w-[14rem]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
-            <input
-              value={listSearch}
-              onChange={(e) => setListSearch(e.target.value)}
-              placeholder="Pesquisar domínios..."
-              className="w-full rounded border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 dark:border-zinc-700 dark:bg-white dark:text-zinc-900"
-            />
+      {!hubMode ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-[140px] flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-[14rem]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
+              <input
+                value={listSearch}
+                onChange={(e) => setListSearch(e.target.value)}
+                placeholder="Pesquisar domínios..."
+                className="w-full rounded border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 dark:border-zinc-700 dark:bg-white dark:text-zinc-900"
+              />
+            </div>
+            <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
           </div>
-          <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
+              <Plus className="h-4 w-4" /> Adicionar domínio
+            </button>
+            <button type="button" onClick={() => void onRefresh?.()} disabled={loading} className={panelBtnSecondary}>
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Actualizar
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
-            <Plus className="h-4 w-4" /> Adicionar domínio
-          </button>
-          <button type="button" onClick={() => void onRefresh?.()} disabled={loading} className={panelBtnSecondary}>
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Actualizar
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       {msg && (
         <div className={`rounded border px-4 py-2.5 text-sm font-medium ${
@@ -8465,13 +8567,13 @@ export function DomainManagerSection({
         }`}>{msg}</div>
       )}
 
-      {loading && filteredDomains.length === 0 ? (
+      {((domainListMode === 'registrar' ? registrarListLoading : loading) && filteredDomains.length === 0) ? (
         <div className="flex justify-center py-16">
           <RefreshCw className="h-6 w-6 animate-spin text-gray-400 dark:text-zinc-500" />
         </div>
       ) : filteredDomains.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white py-16 text-center text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
-          Nenhum domínio encontrado
+          {domainListMode === 'registrar' ? 'Nenhum domínio registado encontrado' : 'Nenhum domínio encontrado'}
         </div>
       ) : (
         <div className="space-y-4">
@@ -8512,7 +8614,7 @@ export function DomainManagerSection({
                       </span>
                       <span className="text-gray-300 dark:text-zinc-600">·</span>
                       <span className="text-gray-400 dark:text-zinc-500">
-                        Exp: {domainExpirationPlaceholder(d.domain)}
+                        Exp: {d.expireDate || domainExpirationPlaceholder(d.domain)}
                       </span>
                       {d.package && (
                         <>
@@ -8589,7 +8691,7 @@ export function DomainManagerSection({
             <select
               value={domainType}
               onChange={e => setDomainType(e.target.value as any)}
-              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             >
               <option value="addon">Addon Domain</option>
               <option value="subdomain">Subdomain</option>
@@ -8599,37 +8701,37 @@ export function DomainManagerSection({
 
           {/* Domain Name */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Domain Name
             </label>
             <input
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
               placeholder="subdomain.example.com or newdomain.com"
-              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-indigo-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             />
           </div>
 
           {/* Admin Email */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Admin Email
             </label>
             <input
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="admin@exemplo.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             />
           </div>
 
           {/* Document Root Path */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Document Root Path
             </label>
-            <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white">
-              <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
+            <div className="flex items-center border border-zinc-300 rounded overflow-hidden bg-white">
+              <span className="bg-zinc-100 px-4 py-3 text-sm text-zinc-600 border-r border-zinc-300 font-mono whitespace-nowrap">
                 /home/{newDomain || 'domain'}/
               </span>
               <input
@@ -8649,7 +8751,7 @@ export function DomainManagerSection({
             <select
               value={selectedPHP}
               onChange={e => setSelectedPHP(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             >
               <option>PHP 7.4</option>
               <option>PHP 8.0</option>
@@ -8659,38 +8761,15 @@ export function DomainManagerSection({
             </select>
           </div>
 
-          {/* Additional Features - OpenLiteSpeed */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Additional Features
-            </label>
-            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded">
-              <input
-                type="checkbox"
-                checked={openLiteSpeed}
-                onChange={e => setOpenLiteSpeed(e.target.checked)}
-                className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">
-                  OpenLiteSpeed + Apache (Backend)
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Para Ubuntu 22, AlmaLinux 8 e AlmaLinux 9
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Botões */}
           <div className="flex items-center justify-between pt-4">
             <button onClick={handleCreate} disabled={!newDomain || !adminEmail || loading}
-              className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md">
+              className="border border-red-300 bg-red-600/10 text-red-600 hover:bg-red-600/15 px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm">
               {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Create Domain
+              Criar domínio
             </button>
             <button onClick={() => setView('list')}
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+              className="text-zinc-500 hover:text-zinc-700 text-sm font-medium">
               ← Voltar para Lista
             </button>
           </div>
@@ -9079,7 +9158,6 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
   const [newDomain, setNewDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [docRoot, setDocRoot] = useState('')
-  const [openLiteSpeed, setOpenLiteSpeed] = useState(true)
   const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -9113,7 +9191,6 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             domain: newDomain,
             email: adminEmail,
             php: selectedPHP,
-            openLiteSpeed: openLiteSpeed
           }
         }),
         signal: controller.signal
@@ -9197,7 +9274,6 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
     setNewDomain('')
     setAdminEmail('')
     setDocRoot('')
-    setOpenLiteSpeed(true)
     setSelectedPHP('PHP 8.2')
     setError('')
   }
@@ -9212,18 +9288,18 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
-      <div className="relative bg-indigo-50/95 border border-indigo-200 rounded-lg w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-8 py-6 border-b border-indigo-100 bg-white/50">
+      <div className="relative bg-zinc-50/95 border border-zinc-200 rounded-lg w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-8 py-6 border-b border-zinc-200 bg-white/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 border border-indigo-300 text-indigo-600 rounded flex items-center justify-center ">
+            <div className="w-10 h-10 bg-red-50 border border-red-200 text-red-600 rounded flex items-center justify-center ">
               <Globe className="w-5 h-5 " />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 block">Domain Details</h2>
-              <span className="text-xs text-gray-500">Criar novo domínio no servidor</span>
+              <h2 className="text-lg font-bold text-zinc-900 block">Detalhes do domínio</h2>
+              <span className="text-xs text-zinc-500">Criar novo domínio no servidor</span>
             </div>
           </div>
-          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400">
+          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors text-zinc-400">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -9233,9 +9309,9 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
           {loading && (
             <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-3">
-                <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
-                <span className="text-sm text-gray-600 font-medium">Criando domínio...</span>
-                <span className="text-xs text-gray-400">Isso pode levar alguns segundos</span>
+                <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
+                <span className="text-sm text-zinc-600 font-medium">Criando domínio...</span>
+                <span className="text-xs text-zinc-400">Isso pode levar alguns segundos</span>
               </div>
             </div>
           )}
@@ -9260,7 +9336,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <select
               value={domainType}
               onChange={e => setDomainType(e.target.value as any)}
-              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             >
               <option value="addon">Addon Domain</option>
               <option value="subdomain">Subdomain</option>
@@ -9277,30 +9353,30 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
               placeholder="subdomain.example.com or newdomain.com"
-              className="w-full px-4 py-3 border border-indigo-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             />
           </div>
 
           {/* Admin Email */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Admin Email
             </label>
             <input
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="admin@exemplo.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             />
           </div>
 
           {/* Document Root Path */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Document Root Path
             </label>
-            <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white">
-              <span className="bg-gray-100 px-4 py-3 text-sm text-gray-600 border-r border-gray-300 font-mono whitespace-nowrap">
+            <div className="flex items-center border border-zinc-300 rounded overflow-hidden bg-white">
+              <span className="bg-zinc-100 px-4 py-3 text-sm text-zinc-600 border-r border-zinc-300 font-mono whitespace-nowrap">
                 /home/{newDomain || 'domain'}/
               </span>
               <input
@@ -9314,13 +9390,13 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
 
           {/* Select PHP Version */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Select PHP Version
             </label>
             <select
               value={selectedPHP}
               onChange={e => setSelectedPHP(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             >
               <option>PHP 7.4</option>
               <option>PHP 8.0</option>
@@ -9329,41 +9405,18 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
               <option>PHP 8.3</option>
             </select>
           </div>
-
-          {/* Additional Features - OpenLiteSpeed */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Additional Features
-            </label>
-            <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded">
-              <input
-                type="checkbox"
-                checked={openLiteSpeed}
-                onChange={e => setOpenLiteSpeed(e.target.checked)}
-                className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">
-                  OpenLiteSpeed + Apache (Backend)
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Para Ubuntu 22, AlmaLinux 8 e AlmaLinux 9
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <div className="px-8 py-6 bg-white/50 border-t border-indigo-100 flex items-center justify-between">
+        <div className="px-8 py-6 bg-white/80 border-t border-zinc-200 flex items-center justify-between">
           <button
             onClick={handleSubmit}
             disabled={loading || !newDomain || !adminEmail}
-            className="bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md"
+            className="border border-red-300 bg-red-600/10 text-red-600 hover:bg-red-600/15 px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Create Domain
+            Criar domínio
           </button>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
+          <button onClick={handleClose} className="text-zinc-500 hover:text-zinc-700 text-sm font-medium">
             Cancelar
           </button>
         </div>

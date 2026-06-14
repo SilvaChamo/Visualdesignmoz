@@ -33,14 +33,21 @@ export function PanelHeader({
   if (hidden) return null;
 
   const searchSlot = search ? (
-    <div className="relative w-full max-w-[10rem] sm:w-28">
-      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-      <input
-        value={search.value}
-        onChange={(e) => search.onChange(e.target.value)}
-        placeholder={search.placeholder ?? 'Pesquisar…'}
-        className={`${panelField} w-full pl-8 pr-3 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100`}
-      />
+    <div className="flex items-center gap-2">
+      <div className="relative w-full min-w-[10rem] max-w-[18rem] sm:w-44">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+        <input
+          value={search.value}
+          onChange={(e) => search.onChange(e.target.value)}
+          placeholder={search.placeholder ?? 'Pesquisar…'}
+          className={`${panelField} w-full pl-8 pr-3 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100`}
+        />
+      </div>
+      {search.countLabel ? (
+        <span className="hidden whitespace-nowrap text-sm text-zinc-500 sm:inline dark:text-zinc-400">
+          {search.countLabel}
+        </span>
+      ) : null}
     </div>
   ) : null;
 

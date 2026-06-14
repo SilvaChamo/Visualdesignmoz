@@ -34,8 +34,12 @@ import { NotificationsSection } from '../admin/NotificationsSection'
 import { RenewalsSection } from '../admin/RenewalsSection'
 import { TemplatesSection } from '../admin/TemplatesSection'
 import { DNSCentralSection } from '../admin/DNSCentralSection'
-import { PorkbunResellerSection } from '../admin/PorkbunResellerSection'
-import { PorkbunMyDomainsSection } from '../admin/PorkbunMyDomainsSection'
+import {
+  DomainsHubSection,
+  isDomainHubSection,
+  sectionToDomainTab,
+  type DomainHubTab,
+} from '../admin/DomainsHubSection'
 import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
 import { ProvisionClienteSection } from '../admin/ProvisionClienteSection'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
@@ -1977,6 +1981,7 @@ export default function ResellerPage() {
   const [isResellerSession, setIsResellerSession] = useState(false)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
+  const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
   const [logoUrl, setLogoUrl] = useState<string>('/assets/simbolo.png');
 
   useEffect(() => {
@@ -2147,8 +2152,8 @@ export default function ResellerPage() {
       'dashboard': { title: 'Dashboard', description: '' },
       'notificacoes-recebidas': { title: 'Notificações', description: 'Mensagens recebidas na sua conta' },
       'acesso-directo': { title: 'Acesso Directo', description: 'DirectAdmin nativo, Roundcube e webmail' },
-      'porkbun-domains': { title: 'Comprar domínio', description: 'Registo de domínios via Porkbun' },
-      'porkbun-my-domains': { title: 'Os meus domínios', description: 'Domínios registados na sua conta' },
+      'porkbun-domains': { title: 'Registar domínio', description: 'Pesquisar disponibilidade e registar novos domínios' },
+      'porkbun-my-domains': { title: 'Domínios registados', description: 'Domínios associados à sua conta de registo' },
       'domains': { title: 'Dashboard', description: 'Gestão de websites e domínios' },
       'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
       'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
@@ -2188,7 +2193,7 @@ export default function ResellerPage() {
       'cp-modify-website': { title: 'Dashboard', description: 'Modificar website' },
       'cp-suspend-website': { title: 'Dashboard', description: 'Suspender website' },
       'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
-      'domain-manager': { title: 'Dashboard', description: 'Gestor de domínios' },
+      'domain-manager': { title: 'Meus domínios', description: 'Gerir domínios de hospedagem e registo' },
       'website-preview': { title: 'Dashboard', description: 'Preview de website' },
       'manage-website': { title: 'Gestão de Website', description: 'Gerir website e serviços' },
       'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
@@ -2348,9 +2353,22 @@ export default function ResellerPage() {
       case 'infrastructure':
         return <APIConfigSection />
       case 'porkbun-domains':
-        return <PorkbunResellerSection />
       case 'porkbun-my-domains':
-        return <PorkbunMyDomainsSection />
+      case 'domain-manager':
+        return (
+          <DomainsHubSection
+            variant="reseller"
+            isActive
+            initialTab={domainHubTab}
+            sites={filteredSites}
+            packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
+            onCreateEmail={(domain) => {
+              setPreSelectedEmailDomain(domain)
+              setActiveSection('cp-email-mgmt')
+            }}
+          />
+        )
       case 'git-deploy':
         return <GitDeploySection />
       case 'deploy':
@@ -2447,17 +2465,6 @@ export default function ResellerPage() {
         return <WordPressInstallSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
-      case 'domain-manager':
-        return <DomainManagerSection
-          sites={filteredSites}
-          packages={directAdminPackages}
-          onRefresh={() => void loadDirectAdminData(true)}
-          onCreateEmail={(domain) => {
-            setPreSelectedEmailDomain(domain)
-            setActiveSection('cp-email-mgmt')
-          }}
-        />
-
       case 'packages-list':
         return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'manage-website':
@@ -2637,6 +2644,11 @@ export default function ResellerPage() {
     }
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
       setPreSelectedEmailDomain(primaryDomain !== 'your-domain.com' ? primaryDomain : '')
+    }
+    if (isDomainHubSection(section)) {
+      setDomainHubTab(sectionToDomainTab(section))
+      setActiveSection('domain-manager')
+      return
     }
     setActiveSection(section)
   }

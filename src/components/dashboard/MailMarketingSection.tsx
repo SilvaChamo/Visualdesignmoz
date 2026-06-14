@@ -9,7 +9,7 @@ import {
   Shield, Database, Settings, ChevronRight, MessageSquare, ExternalLink,
   ChevronLeft, FileText, Image as ImageIcon, Users
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase-client';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -165,6 +165,7 @@ export function MailMarketingSection({
 }
 
 function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
+  const { user } = useAuth();
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
   const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
@@ -177,7 +178,6 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showValidationError, setShowValidationError] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [user, setUser] = useState<any>(null);
   const [showReputationInfo, setShowReputationInfo] = useState(false);
   
   const [lastSendData, setLastSendData] = useState<any>(null);
@@ -186,18 +186,6 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [domainEmails, setDomainEmails] = useState<string[]>([]);
   const [loadingDomainEmails, setLoadingDomainEmails] = useState(false);
 
-  useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-      } catch (error) {
-        console.error("Erro ao obter usuário:", error);
-      }
-    };
-    getUserData();
-  }, []);
-  
   const fetchReputation = async () => {
     if (!selectedSite) return;
     setLoadingReputation(true);

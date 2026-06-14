@@ -97,6 +97,10 @@ export function AdminSidebar({
     }
 
     setExpandedMenu(item.id);
+    if (item.id === 'nov-dominios') {
+      onNavigate('domain-manager');
+      return;
+    }
     const firstNavigable = item.subItems.find((s) => !s.id.endsWith('-header'));
     if (firstNavigable) onNavigate(resolveSectionId(firstNavigable.id));
   };

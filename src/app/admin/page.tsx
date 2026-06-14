@@ -45,8 +45,13 @@ import { NewsManagerSection } from './NewsManagerSection'
 import { RenewalsSection } from './RenewalsSection'
 import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
-import { PorkbunResellerSection } from './PorkbunResellerSection'
 import { DomainTransferSection } from './DomainTransferSection'
+import {
+  DomainsHubSection,
+  isDomainHubSection,
+  sectionToDomainTab,
+  type DomainHubTab,
+} from './DomainsHubSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
@@ -2367,6 +2372,7 @@ function AdminPageContent() {
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
+  const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
@@ -2673,7 +2679,28 @@ function AdminPageContent() {
       case 'revendedores':
         return <CPUsersSection variant="panels" panelScope="reseller" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'domains-new':
-        return <DomainManagerSection sites={filteredSites} packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} onCreateEmail={(domain) => { setPreSelectedEmailDomain(domain); setActiveSection('cp-email-mgmt') }} />
+      case 'porkbun-domains':
+      case 'porkbun-my-domains':
+        return null
+      case 'domain-manager':
+        return (
+          <DomainsHubSection
+            variant="admin"
+            isActive={isActive}
+            initialTab={domainHubTab}
+            sites={filteredSites}
+            packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
+            onCreateEmail={(domain) => {
+              setPreSelectedEmailDomain(domain)
+              setActiveSection('cp-email-mgmt')
+            }}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              setActiveSection(section)
+            }}
+          />
+        )
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
@@ -2854,24 +2881,6 @@ function AdminPageContent() {
         return <DNSResetSection sites={filteredSites} />
       case 'transferir-dominio':
         return <DomainTransferSection />
-      case 'porkbun-domains':
-        return <PorkbunResellerSection />
-      case 'porkbun-my-domains':
-        return (
-          <DomainManagerSection
-            sites={filteredSites}
-            packages={directAdminPackages}
-            onRefresh={() => void loadDirectAdminData(true)}
-            onCreateEmail={(domain) => {
-              setPreSelectedEmailDomain(domain)
-              setActiveSection('cp-email-mgmt')
-            }}
-            onNavigate={(section, opts) => {
-              if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              setActiveSection(section)
-            }}
-          />
-        )
       case 'newsletter':
         return (
           <MailMarketingSection
@@ -2883,22 +2892,6 @@ function AdminPageContent() {
         )
       case 'git-deploy':
         return <GitDeploySection />
-      case 'domain-manager':
-        return (
-          <DomainManagerSection
-            sites={filteredSites}
-            packages={directAdminPackages}
-            onRefresh={() => void loadDirectAdminData(true)}
-            onCreateEmail={(domain) => {
-              setPreSelectedEmailDomain(domain)
-              setActiveSection('cp-email-mgmt')
-            }}
-            onNavigate={(section, opts) => {
-              if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              setActiveSection(section)
-            }}
-          />
-        )
       case 'deploy':
         return <DeploySection sites={directAdminSites} />
       case 'packages-list':
@@ -3055,6 +3048,11 @@ function AdminPageContent() {
     // Se navegar para gestão de emails, definir domínio padrão visualdesignmoz.com
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
       setPreSelectedEmailDomain('visualdesignmoz.com')
+    }
+    if (isDomainHubSection(section)) {
+      setDomainHubTab(sectionToDomainTab(section))
+      setActiveSection('domain-manager')
+      return
     }
     setActiveSection(section)
   }

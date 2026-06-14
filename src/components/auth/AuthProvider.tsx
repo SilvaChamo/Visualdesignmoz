@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { supabase, auth } from '@/lib/supabase-client'
 import { User } from '@supabase/supabase-js'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
-import { getInactivityConfig } from '@/lib/session-inactivity'
+import { getInactivityConfig, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
 
 interface AuthContextType {
   user: User | null
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser)
 
         if (currentUser) {
+          touchPanelActivity()
           try {
             const role = await auth.getUserRole(currentUser)
             setUserRole(role)
@@ -58,18 +59,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     initializeAuth()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        clearPanelActivity()
+        setUser(null)
+        setIsAdmin(false)
+        setUserRole(null)
+        return
+      }
+      if (session?.user) {
+        setUser(session.user)
+        if (event === 'SIGNED_IN') {
+          touchPanelActivity()
+        }
+      }
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
   }, [])
 
-  // Inatividade: 30 min (painel e resto da aplicação)
+  // Inatividade: 25 min no painel; refresh de sessão Supabase para não expirar token à toa
   useEffect(() => {
     if (!user) return
 
-    let timeoutId: NodeJS.Timeout
     const { limitMs, minutes, reason } = getInactivityConfig(pathname)
+    let signingOut = false
 
     const handleAutomaticSignOut = async () => {
+      if (signingOut || !isIdleBeyond(limitMs)) return
+      signingOut = true
       try {
         console.log(`Inatividade detectada por ${minutes} minutos. Deslogando utilizador...`)
+        clearPanelActivity()
         await auth.signOut()
         setUser(null)
         setIsAdmin(false)
@@ -81,30 +105,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const resetTimer = () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(handleAutomaticSignOut, limitMs)
+    const onActivity = () => {
+      touchPanelActivity()
     }
 
-    const activityEvents = [
-      'mousedown',
-      'mousemove',
-      'keypress',
-      'scroll',
-      'touchstart',
-      'click',
-    ]
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const
 
     activityEvents.forEach((event) => {
-      window.addEventListener(event, resetTimer)
+      window.addEventListener(event, onActivity, { passive: true })
     })
 
-    resetTimer()
+    const checkInterval = window.setInterval(() => {
+      if (isIdleBeyond(limitMs)) {
+        void handleAutomaticSignOut()
+      }
+    }, 30_000)
+
+    const refreshInterval = window.setInterval(() => {
+      if (!isIdleBeyond(limitMs)) {
+        void supabase.auth.getSession()
+      }
+    }, 10 * 60 * 1000)
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId)
+      window.clearInterval(checkInterval)
+      window.clearInterval(refreshInterval)
       activityEvents.forEach((event) => {
-        window.removeEventListener(event, resetTimer)
+        window.removeEventListener(event, onActivity)
       })
     }
   }, [user, pathname])
@@ -125,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false)
         }
         setUser(data.user)
+        touchPanelActivity()
       }
 
       return role
@@ -172,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       await auth.signOut()
+      clearPanelActivity()
       setUser(null)
       setIsAdmin(false)
       setUserRole(null)

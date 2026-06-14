@@ -124,6 +124,9 @@ export function ResellerSidebar({
     }
 
     setExpandedMenu(item.id);
+    if (item.id === 'nov-dominios') {
+      onNavigate('domain-manager');
+    }
   };
 
   const handleSubClick = (subId: string) => {

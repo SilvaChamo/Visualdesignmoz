@@ -9,6 +9,13 @@ export type PanelSectionMeta = {
   description: string;
 };
 
+/** Títulos quando o item não está no menu lateral. */
+const SECTION_TITLES: Record<string, string> = {
+  'domain-manager': 'Meus domínios',
+  'porkbun-domains': 'Registar domínio',
+  'porkbun-my-domains': 'Domínios registados',
+};
+
 /** Descrições por secção (título vem do menu quando existir). */
 const SECTION_DESCRIPTIONS: Record<string, string> = {
   dashboard: 'Painel de controlo principal',
@@ -30,7 +37,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'cp-security': 'Gira firewall, ModSecurity e IPs bloqueados',
   'cp-ssl': 'Emita certificados SSL Let\'s Encrypt',
   'cp-ssl-view': 'Ver certificado SSL activo',
-  'domain-manager': 'Criar e gerir domínios no servidor',
+  'domain-manager': 'Gerir domínios de hospedagem e registo',
   'cp-dns-nameserver': 'Gestão de nameservers personalizados e predefinidos',
   'cp-api': 'Tokens de acesso à API e estado do servidor',
   'git-deploy': 'Deploy automático via GitHub',
@@ -111,7 +118,12 @@ function menuLabelForSection(sectionId: string): string | null {
 
 export function getPanelSectionMeta(section: string): PanelSectionMeta {
   const id = resolveSectionId(section);
-  const title = menuLabelForSection(id) || menuLabelForSection(section) || 'Painel';
+  const title =
+    SECTION_TITLES[id] ||
+    SECTION_TITLES[section] ||
+    menuLabelForSection(id) ||
+    menuLabelForSection(section) ||
+    'Painel';
   const description = SECTION_DESCRIPTIONS[id] || SECTION_DESCRIPTIONS[section] || '';
   return { title, description };
 }

@@ -59,7 +59,7 @@ export type SpaceshipDomainRow = {
 
 async function spaceshipFetch(path: string, init?: RequestInit): Promise<Response> {
   const keys = getKeys();
-  if (!keys) throw new Error('Chaves de API do Spaceship não configuradas');
+  if (!keys) throw new Error('Chaves de API do registador não configuradas');
 
   return fetch(`${SPACESHIP_API_URL}${path}`, {
     ...init,
@@ -91,7 +91,7 @@ function mapSpaceshipDomain(item: SpaceshipDomainItem): SpaceshipDomainRow {
 export const spaceshipAPI = {
   async listAllDomains(): Promise<{ success: true; domains: SpaceshipDomainRow[] } | { success: false; error: string }> {
     if (!getKeys()) {
-      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
     }
 
     const domains: SpaceshipDomainRow[] = [];
@@ -105,7 +105,7 @@ export const spaceshipAPI = {
         const body = (await res.json().catch(() => ({}))) as SpaceshipDomainsResponse & { detail?: string; message?: string };
 
         if (!res.ok) {
-          const msg = body.detail || body.message || `Spaceship API ${res.status}`;
+          const msg = body.detail || body.message || `Erro do registador (${res.status})`;
           return { success: false, error: msg };
         }
 
@@ -121,7 +121,7 @@ export const spaceshipAPI = {
     } catch (e: unknown) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship',
+        error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo',
       };
     }
   },
@@ -137,7 +137,7 @@ export const spaceshipAPI = {
     | { success: false; error: string }
   > {
     if (!getKeys()) {
-      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
     }
     try {
       const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}`);
@@ -152,7 +152,7 @@ export const spaceshipAPI = {
         message?: string;
       };
       if (!res.ok) {
-        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+        return { success: false, error: body.detail || body.message || `Erro do registador (${res.status})` };
       }
       const isLocked = body.transferLock?.isLocked ?? body.isLocked;
       const autoRenew = body.autoRenew?.isEnabled ?? body.hasAutoRenew;
@@ -167,7 +167,7 @@ export const spaceshipAPI = {
         status: body.lifecycleStatus,
       };
     } catch (e: unknown) {
-      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
     }
   },
 
@@ -176,7 +176,7 @@ export const spaceshipAPI = {
     | { success: false; error: string }
   > {
     if (!getKeys()) {
-      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
     }
     try {
       const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/transfer/auth-code`);
@@ -187,14 +187,14 @@ export const spaceshipAPI = {
         message?: string;
       };
       if (!res.ok) {
-        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+        return { success: false, error: body.detail || body.message || `Erro do registador (${res.status})` };
       }
       if (!body.authCode) {
         return { success: false, error: 'Código de transferência não disponível' };
       }
       return { success: true, authCode: body.authCode, expires: body.expires };
     } catch (e: unknown) {
-      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
     }
   },
 
@@ -203,7 +203,7 @@ export const spaceshipAPI = {
     isLocked: boolean,
   ): Promise<{ success: true; isLocked: boolean } | { success: false; error: string }> {
     if (!getKeys()) {
-      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
     }
     try {
       const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/transfer/lock`, {
@@ -217,11 +217,11 @@ export const spaceshipAPI = {
         message?: string;
       };
       if (!res.ok) {
-        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+        return { success: false, error: body.detail || body.message || `Erro do registador (${res.status})` };
       }
       return { success: true, isLocked: body.isLocked ?? isLocked };
     } catch (e: unknown) {
-      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
     }
   },
 
@@ -230,7 +230,7 @@ export const spaceshipAPI = {
     isEnabled: boolean,
   ): Promise<{ success: true; isEnabled: boolean } | { success: false; error: string }> {
     if (!getKeys()) {
-      return { success: false, error: 'Chaves de API do Spaceship não configuradas' };
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
     }
     try {
       const res = await spaceshipFetch(`/domains/${encodeURIComponent(domain.toLowerCase())}/autorenew`, {
@@ -244,11 +244,11 @@ export const spaceshipAPI = {
         message?: string;
       };
       if (!res.ok) {
-        return { success: false, error: body.detail || body.message || `Spaceship API ${res.status}` };
+        return { success: false, error: body.detail || body.message || `Erro do registador (${res.status})` };
       }
       return { success: true, isEnabled: body.isEnabled ?? isEnabled };
     } catch (e: unknown) {
-      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar Spaceship' };
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
     }
   },
 };

@@ -39,7 +39,10 @@ function HomePage() {
 
             {/* Domain Search Box */}
             <div className="flex justify-center mb-[40px] w-full max-w-[830px] mx-auto">
-              <DomainSearch onResultsAction={(results) => setHideServices(results.length > 0)} />
+              <DomainSearch
+                panelFieldRounding
+                onResultsAction={(results) => setHideServices(results.length > 0)}
+              />
             </div>
 
             {/* Tabs */}

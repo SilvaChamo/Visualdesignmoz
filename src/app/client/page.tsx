@@ -19,7 +19,7 @@ import { ClientSidebar } from '@/components/client/ClientSidebar'
 import { clientSectionLabel } from '@/lib/panel-client-menu'
 import { WordPressHubSection } from '@/app/admin/WordPressHubSection'
 import { DNSCentralSection } from '@/app/admin/DNSCentralSection'
-import { PorkbunResellerSection } from '@/app/admin/PorkbunResellerSection'
+import { RegistrarDomainsSection } from '@/app/admin/RegistrarDomainsSection'
 import { DomainTransferSection } from '@/app/admin/DomainTransferSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
@@ -3738,7 +3738,7 @@ export default function AdminPage() {
       case 'transferir-dominio':
         return <DomainTransferSection />
       case 'porkbun-domains':
-        return <PorkbunResellerSection />
+        return <RegistrarDomainsSection />
       case 'porkbun-my-domains':
         return (
           <DomainManagerSection

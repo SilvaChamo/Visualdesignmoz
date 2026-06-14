@@ -47,13 +47,10 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Domínios & DNS',
     isNewMenu: true,
     subItems: [
-      { id: 'domain-manager', label: 'Meus domínios' },
-      { id: 'domains-new', label: 'Criar domínio' },
       { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
       { id: 'cp-php', label: 'Configurar PHP' },
       { id: 'cp-dns-nameserver', label: 'Nameservers' },
-      { id: 'porkbun-domains', label: 'Registar domínio' },
       { id: 'transferir-dominio', label: 'Transferir domínio' },
     ],
   },
@@ -142,11 +139,8 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     label: 'Domínios & DNS',
     subItems: [
       { id: 'dns-central', label: 'DNS Central' },
-      { id: 'domain-manager', label: 'Gestor de domínios' },
       { id: 'cp-dns-nameserver', label: 'Nameservers' },
-      { id: 'porkbun-domains', label: 'Registar domínio' },
       { id: 'transferir-dominio', label: 'Transferir domínio' },
-      { id: 'porkbun-my-domains', label: 'Os meus domínios' },
     ],
   },
   {
@@ -263,7 +257,7 @@ export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'infrastructure-legacy', label: 'Estado do Servidor' },
   { id: 'cp-reseller-legacy', label: 'Centro de Revenda' },
   { id: 'porkbun-domains-legacy', label: 'Registar domínio' },
-  { id: 'porkbun-my-domains-legacy', label: 'Domínios Spaceship' },
+  { id: 'porkbun-my-domains-legacy', label: 'Domínios registados' },
   { id: 'cp-subdomains', label: 'Criar Subdomínio' },
   { id: 'cp-list-subdomains', label: 'Listar Sub/Addon' },
   { id: 'cp-modify-website', label: 'Modificar Website' },
@@ -348,6 +342,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'cp-ssl': 'nov-dominios',
   'cp-php': 'nov-dominios',
   'porkbun-domains': 'nov-dominios',
+  'porkbun-my-domains': 'nov-dominios',
   'transferir-dominio': 'nov-dominios',
   'notificacoes-recebidas': 'nov-notificacoes',
   renewals: 'nov-notificacoes',
@@ -460,6 +455,7 @@ export function isPanelMenuItemActive(
   if (item.subItems?.some((s) => resolveSectionId(s.id) === resolved || s.id === activeSection)) {
     return true;
   }
+  if (NEW_SECTION_TO_PARENT[resolved] === item.id) return true;
   if (item.id === 'menu-anterior') {
     return (
       activeSection.endsWith('-legacy') ||
