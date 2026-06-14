@@ -16,7 +16,7 @@ import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
-  APIConfigSection, GitDeploySection, WPListSection, WPPluginsSection,
+  APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
   DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
   DNSCreateZoneSection, DNSDeleteZoneSection, CloudFlareSection,
@@ -475,7 +475,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       <button
                         onClick={() => {
                           if (setSelectedDNSDomain) setSelectedDNSDomain(s.domain);
-                          setActiveSection('domains-dns');
+                          setActiveSection('dns-central');
                         }}
                         className="flex items-center gap-1.5 bg-fuchsia-50 border border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-100 px-4 py-2 rounded text-xs font-bold transition-colors">
                         <Globe2 className="w-3.5 h-3.5" /> Editar DNS
@@ -928,7 +928,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <button
                     onClick={() => {
                       setSelectedDNSDomain(s.domain)
-                      setActiveSection('domains-dns')
+                      setActiveSection('dns-central')
                     }}
                     className="flex items-center gap-1.5 bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 hover:text-purple-700 px-4 py-2 rounded text-xs font-bold transition-colors">
                     <Server className="w-3.5 h-3.5" /> Editar DNS
@@ -1663,7 +1663,7 @@ function ManageWebsiteSection({
         color="text-yellow-700"
         bgColor="bg-yellow-50"
       >
-        <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
+        <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('dns-central'); }} />
         <MenuItem icon="dns-zone" label="Create Zone" onClick={() => setActiveSection('cp-dns-create-zone')} />
         <MenuItem icon="dns-zone" label="Delete Zone" onClick={() => setActiveSection('cp-dns-delete-zone')} />
         <MenuItem icon="dns-zone" label="CloudFlare" onClick={() => setActiveSection('cp-dns-cloudflare')} />
@@ -2335,7 +2335,7 @@ export default function ResellerPage() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection key={resellerDaUsername || 'reseller'} />
+        return <CPUsersSection key={resellerDaUsername || 'reseller'} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':
@@ -2381,13 +2381,16 @@ export default function ResellerPage() {
       case 'cp-wp-list':
       case 'wp-sites':
         return (
-          <WordPressHubSection
+          <ListWebsitesSection
             sites={filteredSites}
-            initialTab="sites"
-            autoSelectFirstWp
-            setFileManagerDomain={setFileManagerDomain}
-            setActiveSection={setActiveSection}
             onRefresh={() => void loadDirectAdminData(true)}
+            packages={directAdminPackages}
+            setActiveSection={setActiveSection}
+            setFileManagerDomain={setFileManagerDomain}
+            setSelectedDNSDomain={setSelectedDNSDomain}
+            loadDirectAdminData={loadDirectAdminData}
+            syncing={syncing}
+            handleSync={handleSync}
           />
         )
       case 'cp-wp-plugins':
@@ -2413,25 +2416,20 @@ export default function ResellerPage() {
       case 'cp-dns-create-zone':
         return <DNSCreateZoneSection sites={filteredSites} />
       case 'domains-dns':
-        return <DNSZoneEditorSection
-          sites={filteredSites}
-          initialDomain={selectedDNSDomain || primaryDomain}
-        />
-      case 'cp-dns-delete-zone':
-        return <DNSDeleteZoneSection sites={filteredSites} />
-      case 'cp-dns-cloudflare':
-        return <CloudFlareSection sites={filteredSites} />
-      case 'cp-dns-reset':
-        return <DNSResetSection sites={filteredSites} />
       case 'dns-central':
+      case 'cp-dns-zone-editor':
         return (
           <DNSCentralSection
             sites={filteredSites}
             initialDomain={selectedDNSDomain || primaryDomain}
           />
         )
-      case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
+      case 'cp-dns-delete-zone':
+        return <DNSDeleteZoneSection sites={filteredSites} />
+      case 'cp-dns-cloudflare':
+        return <CloudFlareSection sites={filteredSites} />
+      case 'cp-dns-reset':
+        return <DNSResetSection sites={filteredSites} />
       case 'newsletter':
         return (
           <MailMarketingSection
@@ -2453,6 +2451,7 @@ export default function ResellerPage() {
         return <DomainManagerSection
           sites={filteredSites}
           packages={directAdminPackages}
+          onRefresh={() => void loadDirectAdminData(true)}
           onCreateEmail={(domain) => {
             setPreSelectedEmailDomain(domain)
             setActiveSection('cp-email-mgmt')

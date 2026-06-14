@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { handleWpUpdateGet, handleWpUpdatePost } from '@/lib/wp-update-handlers';
+import {
+  assertPanelOwnsWpDomain,
+  filterWpInstallsForPanel,
+  getAllowedPanelWpDomains,
+  resolvePanelWpScope,
+} from '@/lib/wp-update-panel-access';
 
 export const maxDuration = 120;
 
@@ -32,6 +38,11 @@ export async function GET(req: NextRequest) {
   const domain = req.nextUrl.searchParams.get('domain')?.trim().toLowerCase() || '';
 
   try {
+    const scope = await resolvePanelWpScope(auth.user.id, auth.user.role);
+    if (domain) {
+      await assertPanelOwnsWpDomain(scope, domain);
+    }
+
     const result = await handleWpUpdateGet(domain);
     if (!result.success) {
       return NextResponse.json(
@@ -39,10 +50,20 @@ export async function GET(req: NextRequest) {
         { status: result.status ?? 404 },
       );
     }
+
+    if (!domain && 'installs' in result && Array.isArray(result.installs)) {
+      const allowed = await getAllowedPanelWpDomains(scope);
+      return NextResponse.json({
+        ...result,
+        installs: filterWpInstallsForPanel(result.installs, scope, allowed),
+      });
+    }
+
     return NextResponse.json(result);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao listar WordPress';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const status = message.includes('permissão') || message.includes('DirectAdmin') ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
@@ -67,6 +88,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const scope = await resolvePanelWpScope(auth.user.id, auth.user.role);
+    await assertPanelOwnsWpDomain(scope, domain);
+
     const result = await handleWpUpdatePost(domain, body as Parameters<typeof handleWpUpdatePost>[1]);
     if ('status' in result && result.status === 400) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
@@ -74,6 +98,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro na operação WordPress';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const status = message.includes('permissão') || message.includes('DirectAdmin') ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -341,7 +341,7 @@ export default function ManageWebsitePage() {
         { id: 'email-forwarding', label: 'Forwarding', icon: 'email-forwarding', onClick: () => router.push('/admin?page=cp-email-forwarding') },
         { id: 'email-deliverability', label: 'Deliverability', icon: 'email-deliverability', onClick: () => router.push('/admin?page=cp-email-dkim') },
         { id: 'mailing-lists', label: 'Mailing Lists', icon: 'mailing-lists', onClick: () => router.push('/admin/mensagens?tab=subscritores') },
-        { id: 'mx-entry', label: 'MX Entry', icon: 'mx-entry', onClick: () => router.push(`/admin?page=domains-dns&domain=${domain}`) },
+        { id: 'mx-entry', label: 'MX Entry', icon: 'mx-entry', onClick: () => router.push(`/admin?page=dns-central&domain=${domain}`) },
       ]
     },
     {
@@ -380,7 +380,7 @@ export default function ManageWebsitePage() {
       borderColor: 'border-blue-200',
       items: [
         { id: 'addon-domains', label: 'Addon Domains', icon: 'addon-domains', onClick: () => router.push('/admin?page=domains-new') },
-        { id: 'dns-zone', label: 'DNS Zone Editor', icon: 'dns-zone', onClick: () => router.push(`/admin?page=domains-dns&domain=${domain}`) },
+        { id: 'dns-zone', label: 'DNS Zone Editor', icon: 'dns-zone', onClick: () => router.push(`/admin?page=dns-central&domain=${domain}`) },
         { id: 'domain-alias', label: 'Domain Aliases', icon: 'domain-alias', onClick: () => router.push('/admin?page=cp-list-subdomains') },
         { id: 'domain-redirects', label: 'Redirects', icon: 'domain-redirects', onClick: () => router.push('/admin?page=cp-list-subdomains') },
       ]

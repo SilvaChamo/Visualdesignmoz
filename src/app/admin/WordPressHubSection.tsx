@@ -6,9 +6,6 @@ import {
   AlertCircle,
   Archive,
   CheckCircle,
-  ExternalLink,
-  FolderOpen,
-  Globe,
   Plug,
   Plus,
   RefreshCw,
@@ -18,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { DirectAdminWebsite } from '@/lib/directadmin-api';
 import type { WpPluginAction } from '@/lib/wp-update-handlers';
+import { supabase } from '@/lib/supabase-client';
 import {
   invalidateWpPluginsCache,
   readWpInstallsCache,
@@ -26,53 +24,7 @@ import {
   writeWpPluginsCache,
 } from '@/lib/wp-panel-cache';
 
-import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache';
-
 const SELECTED_DOMAIN_KEY = 'vd_wp_selected_domain';
-
-function WpSiteScreenshot({ domain }: { domain: string }) {
-  const [src, setSrc] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? null : null,
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    setSrc(null);
-
-    const load = async () => {
-      for (let attempt = 0; attempt < 2 && !cancelled; attempt++) {
-        const url = await loadScreenshot(domain, 400);
-        if (cancelled) return;
-        if (url) {
-          setSrc(url);
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 1200));
-      }
-    };
-
-    void load();
-    return () => { cancelled = true; };
-  }, [domain]);
-
-  return (
-    <div className="relative h-32 w-full overflow-hidden rounded border border-gray-200 bg-gray-100 dark:border-zinc-800 dark:bg-zinc-900">
-      {src ? (
-        <img
-          src={src}
-          alt={`Pré-visualização de ${domain}`}
-          className="h-full w-full object-cover object-top"
-          loading="eager"
-          decoding="async"
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center">
-          <RefreshCw className="h-5 w-5 animate-spin text-gray-400 dark:text-zinc-500" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 const WordPressInstallSection = dynamic(
   () => import('./HostingSections').then((m) => ({ default: m.WordPressInstallSection })),
@@ -98,13 +50,13 @@ interface WpInstall {
   path?: string;
 }
 
-export type WordPressHubTab = 'sites' | 'plugins' | 'install' | 'backup';
+export type WordPressHubTab = 'plugins' | 'install' | 'backup';
 
 export type WordPressHubSectionProps = {
   sites: DirectAdminWebsite[];
   apiBase?: string;
   initialDomain?: string;
-  initialTab?: WordPressHubTab;
+  initialTab?: WordPressHubTab | 'sites';
   autoSelectFirstWp?: boolean;
   hideDomainSelector?: boolean;
   setFileManagerDomain?: (domain: string) => void;
@@ -168,7 +120,9 @@ export function WordPressHubSection({
   setActiveSection,
   onRefresh,
 }: WordPressHubSectionProps) {
-  const [tab, setTab] = useState<WordPressHubTab>(initialTab);
+  const [tab, setTab] = useState<WordPressHubTab>(
+    initialTab === 'sites' ? 'plugins' : initialTab,
+  );
   const [wpDomains, setWpDomains] = useState<WpInstall[]>(() => readWpInstallsCache() || []);
   const [selectedDomain, setSelectedDomain] = useState(
     () => initialDomain.toLowerCase() || readPersistedDomain(),
@@ -186,12 +140,21 @@ export function WordPressHubSection({
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [autoSelected, setAutoSelected] = useState(false);
-  const [highlightedSite, setHighlightedSite] = useState('');
   const [installSlug, setInstallSlug] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const accountDomainSet = useMemo(
+    () => new Set(sites.map((s) => s.domain?.toLowerCase()).filter(Boolean)),
+    [sites],
+  );
+
+  const scopedWpDomains = useMemo(() => {
+    if (accountDomainSet.size === 0) return wpDomains;
+    return wpDomains.filter((d) => accountDomainSet.has(d.domain.toLowerCase()));
+  }, [wpDomains, accountDomainSet]);
+
   const domainOptions = useMemo(() => {
-    const fromServer = new Map(wpDomains.map((d) => [d.domain, d]));
+    const fromServer = new Map(scopedWpDomains.map((d) => [d.domain, d]));
     const merged: { domain: string; wpVersion?: string; hasWp?: boolean }[] = [];
 
     for (const s of sites) {
@@ -205,14 +168,14 @@ export function WordPressHubSection({
       });
     }
 
-    for (const d of wpDomains) {
+    for (const d of scopedWpDomains) {
       if (!merged.some((m) => m.domain === d.domain)) {
         merged.push({ domain: d.domain, wpVersion: d.wpVersion, hasWp: true });
       }
     }
 
     return merged.sort((a, b) => a.domain.localeCompare(b.domain));
-  }, [sites, wpDomains]);
+  }, [sites, scopedWpDomains]);
 
   const loadWpDomains = useCallback(async (options?: { fresh?: boolean }) => {
     if (!options?.fresh) {
@@ -228,7 +191,14 @@ export function WordPressHubSection({
     }
 
     try {
-      const res = await fetch(apiBase, { credentials: 'include' });
+      await supabase.auth.getSession();
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 90_000);
+      const res = await fetch(apiBase, {
+        credentials: 'include',
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeout);
       const data = await res.json();
       if (data.success && Array.isArray(data.installs)) {
         setWpDomains(data.installs);
@@ -386,7 +356,7 @@ export function WordPressHubSection({
   };
 
   useEffect(() => {
-    setTab(initialTab);
+    setTab(initialTab === 'sites' ? 'plugins' : initialTab);
   }, [initialTab]);
 
   useEffect(() => {
@@ -409,7 +379,7 @@ export function WordPressHubSection({
     if (!autoSelectFirstWp && !initialDomain) return;
     const picked =
       initialDomain.toLowerCase() ||
-      pickFirstWpDomain(domainOptions, wpDomains, sites);
+      pickFirstWpDomain(domainOptions, scopedWpDomains, sites);
     if (picked) {
       setSelectedDomain(picked);
       setAutoSelected(true);
@@ -422,7 +392,7 @@ export function WordPressHubSection({
     loadingList,
     selectedDomain,
     sites,
-    wpDomains,
+    scopedWpDomains,
   ]);
 
   useEffect(() => {
@@ -432,147 +402,9 @@ export function WordPressHubSection({
   }, [selectedDomain, tab, loadPlugins]);
 
   const pendingCount = plugins.filter((p) => p.update === 'available').length;
-  const siteCards =
-    wpDomains.length > 0
-      ? wpDomains.map((w) => ({
-          domain: w.domain,
-          version: w.wpVersion,
-          owner: sites.find((s) => s.domain?.toLowerCase() === w.domain)?.owner || '',
-        }))
-      : domainOptions
-          .filter((d) => d.hasWp)
-          .map((d) => ({
-            domain: d.domain,
-            version: d.wpVersion,
-            owner: sites.find((s) => s.domain?.toLowerCase() === d.domain)?.owner || '',
-          }));
-
-  useEffect(() => {
-    siteCards.forEach((s) => void prefetchScreenshot(s.domain, 400));
-  }, [siteCards]);
-
-  useEffect(() => {
-    if (tab !== 'sites' || siteCards.length === 0) return;
-    const firstActive =
-      siteCards.find((s) => {
-        const site = sites.find((x) => x.domain?.toLowerCase() === s.domain);
-        if (!site) return true;
-        const state = String(site.state || site.status || '').toLowerCase();
-        return state !== 'suspended' && state !== 'disabled' && state !== 'inactive';
-      })?.domain || siteCards[0].domain;
-    if (!highlightedSite && firstActive) {
-      setHighlightedSite(firstActive);
-      persistDomain(firstActive);
-      setSelectedDomain(firstActive);
-    }
-  }, [tab, siteCards, sites, highlightedSite]);
 
   return (
     <div className="space-y-4">
-      {tab === 'sites' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => void loadWpDomains({ fresh: true })}
-              disabled={loadingList}
-              className="inline-flex items-center gap-2 rounded border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingList ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
-          </div>
-          {loadingList && siteCards.length === 0 ? (
-            <div className="py-16 text-center">
-              <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-400" />
-            </div>
-          ) : siteCards.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {siteCards.map((s) => (
-                <div
-                  key={s.domain}
-                  className={`space-y-4 rounded border bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-950 ${
-                    highlightedSite === s.domain
-                      ? 'border-red-400 ring-2 ring-red-500/40 dark:border-red-500'
-                      : 'border-gray-200 dark:border-zinc-800'
-                  }`}
-                  onClick={() => {
-                    setHighlightedSite(s.domain);
-                    persistDomain(s.domain);
-                    setSelectedDomain(s.domain);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      setHighlightedSite(s.domain);
-                      persistDomain(s.domain);
-                      setSelectedDomain(s.domain);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <WpSiteScreenshot domain={s.domain} />
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-gray-900 dark:text-zinc-100">
-                        {s.domain}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-zinc-500">
-                        {s.owner || 'admin'}
-                        {s.version ? ` · WP ${s.version}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <a
-                      href={`https://${s.domain}/wp-admin`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" /> Abrir WP Admin
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (setFileManagerDomain) setFileManagerDomain(s.domain);
-                        setTimeout(() => setActiveSection?.('file-manager'), 50);
-                      }}
-                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" /> Ficheiros
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        persistDomain(s.domain);
-                        setSelectedDomain(s.domain);
-                        setActiveSection?.('wp-plugins');
-                      }}
-                      className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    >
-                      <Plug className="h-3.5 w-3.5" /> Gerir plugins
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-16 text-center text-gray-400">
-              <Globe className="mx-auto mb-3 h-12 w-12 opacity-30" />
-              <p className="font-medium">Nenhum WordPress detectado no servidor.</p>
-              <button
-                type="button"
-                onClick={() => setActiveSection?.('wordpress-install')}
-                className="mt-3 text-sm font-bold text-indigo-600 hover:underline"
-              >
-                Instalar WordPress
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {tab === 'plugins' && (
         <div className="space-y-4">
           {!hideDomainSelector ? (

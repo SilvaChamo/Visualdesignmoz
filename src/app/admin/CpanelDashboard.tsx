@@ -81,7 +81,7 @@ export function CpanelDashboard({
     : 'your-domain.com'
 
   const handleDNSNavigate = (section: string) => {
-    if (section === 'domains-dns' && onSetDNSDomain) {
+    if (section === 'dns-central' && onSetDNSDomain) {
       onSetDNSDomain(primaryDomain)
     }
     onNavigate(section)
@@ -169,13 +169,11 @@ export function CpanelDashboard({
       headerIcon: <Server className="w-5 h-5" />,
       color: 'text-amber-800', bgColor: 'bg-yellow-50',
       tools: [
-        { id: 'domains-dns', name: 'Editar DNS', icon: <Edit className="w-9 h-9 text-amber-600" /> },
         { id: 'dns-central', name: 'DNS Central', icon: <Globe className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-nameserver', name: 'Criar Nameserver', icon: <Server className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-default-ns', name: 'Nameservers Padrão', icon: <Settings className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-create-zone', name: 'Criar Zona DNS', icon: <PlusCircle className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-delete-zone', name: 'Apagar Zona DNS', icon: <Trash2 className="w-9 h-9 text-red-500" /> },
-        { id: 'domains-dns', name: 'Adicionar Registos', icon: <FileText className="w-9 h-9 text-amber-600" /> },
         { id: 'cp-dns-reset', name: 'Reset DNS', icon: <RotateCcw className="w-9 h-9 text-amber-600" /> },
       ]
     },

@@ -13,9 +13,9 @@ import type {
 import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncWebsiteToSupabase, removeWebsiteFromSupabase, markWPInstalledInSupabase, syncPackageToSupabase, removePackageFromSupabase } from '@/lib/supabase-sync'
 import {
   clearPanelUsersCache,
-  fetchPanelUsersStaleWhileRevalidate,
   readPanelUsersCache,
 } from '@/lib/panel-users-cache'
+import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import {
   readDomainListCache,
   writeDomainListCache,
@@ -24,8 +24,11 @@ import {
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl } from '@/lib/server-config'
+import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getWebmailUrlForDomain } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
+import { EmailConfigResultModal, fetchEmailConfigBundle, type EmailConfigBundle } from '@/components/admin/EmailConfigResultModal'
+import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
+import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
@@ -1570,7 +1573,7 @@ export function EmailManagementSection({
   const [selectedDomain, setSelectedDomain] = useState(preSelectedDomain || '__ALL__')
   const [emails, setEmails] = useState<DirectAdminEmail[]>([])
   const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState('Leitura automática do DirectAdmin está desligada. Escolha um domínio ou clique em sincronizar para carregar emails.')
+  const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
@@ -1590,6 +1593,8 @@ export function EmailManagementSection({
   const [changingPass, setChangingPass] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
+  const [emailConfigModal, setEmailConfigModal] = useState<EmailConfigBundle | null>(null)
+  const [emailRowMenu, setEmailRowMenu] = useState<{ email: string; rect: DOMRect } | null>(null)
   const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
     show: false, title: '', message: '', onConfirm: () => {} 
   })
@@ -1606,6 +1611,25 @@ export function EmailManagementSection({
     }
     fetchClientes()
   }, [])
+
+  const openEmailConfigModal = async (emailAddress: string, passwordHint?: string) => {
+    try {
+      if (passwordHint) {
+        const bundle = buildEmailConfigBundle(emailAddress, passwordHint)
+        setEmailConfigModal({
+          email: emailAddress,
+          password: passwordHint,
+          ...bundle,
+        })
+        return
+      }
+      const bundle = await fetchEmailConfigBundle(emailAddress)
+      setEmailConfigModal(bundle)
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Erro ao obter configurações.')
+      setMsgType('error')
+    }
+  }
 
   const generatePassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
@@ -1733,11 +1757,8 @@ export function EmailManagementSection({
         quota: data.quota_mb || 500
       })
       if (resData?.success !== false) {
-        setMsg('E-mail criado com sucesso!'); setMsgType('success')
-        cpSaveEmail(selectedDomain, data.user, { quota_mb: data.quota_mb || 500 })
-        // Guardar metadados e credenciais SMTP no Supabase
         const emailCompleto = `${data.user}@${selectedDomain}`
-        // Usar API para bypass de RLS (admin pode criar para qualquer cliente)
+        cpSaveEmail(selectedDomain, data.user, { quota_mb: data.quota_mb || 500 })
         await fetch('/api/email-contas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1749,17 +1770,17 @@ export function EmailManagementSection({
             cliente_id: data.cliente_id || null
           })
         })
-        
-        // Também adicionar ao mapa local de credenciais para uso imediato
-        console.log('Credenciais configuradas automaticamente para:', emailCompleto)
-        
+
         setEmailModal({ ...emailModal, show: false })
         loadEmails(selectedDomain)
-        
-        // Forçar refresh conforme solicitado pelo utilizador
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
+        const bundle = buildEmailConfigBundle(emailCompleto, data.password, data.quota_mb || 500)
+        setEmailConfigModal({
+          email: emailCompleto,
+          password: data.password,
+          ...bundle,
+        })
+        setMsg('E-mail criado com sucesso!')
+        setMsgType('success')
       } else {
         setMsg('Erro: ' + (resData.error || 'Falha no servidor.')); setMsgType('error')
       }
@@ -1797,11 +1818,10 @@ export function EmailManagementSection({
       setMsg('Configurações guardadas.'); setMsgType('success')
       setEmailModal({ ...emailModal, show: false })
       loadEmails(selectedDomain)
-
-      // Forçar refresh conforme solicitado pelo utilizador
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
+      if (data.password) {
+        const bundle = buildEmailConfigBundle(data.email, data.password)
+        setEmailConfigModal({ email: data.email, password: data.password, ...bundle })
+      }
     } catch (e: any) {
       setMsg('Erro: ' + e.message); setMsgType('error')
     }
@@ -1986,7 +2006,7 @@ export function EmailManagementSection({
         <select
           value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
-          className="bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-red-500"
+          className="min-w-[18rem] shrink-0 rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[22rem]"
         >
           <option value="__ALL__">Todos os domínios</option>
           {sites.length > 0
@@ -2003,24 +2023,6 @@ export function EmailManagementSection({
           />
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleSyncGlobal}
-            disabled={isSyncingGlobal}
-            className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-300 text-green-600 rounded text-sm hover:bg-green-100 transition-all font-bold disabled:opacity-50"
-            title="Sincroniza todos os emails do servidor para o sistema de Login"
-          >
-            <RefreshCw className={cn("w-4 h-4", isSyncingGlobal && "animate-spin")} /> 
-            {isSyncingGlobal ? 'Sincronizando...' : 'Sincronizar Auth'}
-          </button>
-          <button
-            onClick={() => {
-              if (selectedDomain === '__ALL__') loadAllEmails()
-              else loadEmails(selectedDomain)
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-200 transition-all font-bold"
-          >
-            <RefreshCw className="w-4 h-4" /> Atualizar
-          </button>
           <button
             onClick={() => setEmailModal({
               show: true,
@@ -2065,7 +2067,7 @@ export function EmailManagementSection({
 
       {/* Tabela */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-3 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">
+        <div className="grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 border-b border-gray-200 bg-gray-50/50 px-4 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-500">
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -2097,7 +2099,7 @@ export function EmailManagementSection({
           const emailStr = email.email || ''
 
           return (
-            <div key={emailStr} className={`grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 transition-all ${selected.includes(emailStr) ? 'bg-red-50/30' : ''}`}>
+            <div key={emailStr} className={`grid grid-cols-[40px_1fr_120px_180px_auto] gap-4 border-b border-gray-50 px-4 py-1.5 transition-all hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900/40 ${selected.includes(emailStr) ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -2135,39 +2137,49 @@ export function EmailManagementSection({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-1">
-                <a
-                  href={`https://example.com/webmail/?user=${encodeURIComponent(emailStr)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-all"
-                  title="Webmail"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+              <div className="relative flex items-center justify-end">
                 <button
-                  onClick={() => setEmailModal({
-                    show: true,
-                    mode: 'edit',
-                    data: { ...email, password: '' }
-                  })}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
-                  title="Gerir"
+                  type="button"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    if (emailRowMenu?.email === emailStr) setEmailRowMenu(null)
+                    else setEmailRowMenu({ email: emailStr, rect })
+                  }}
+                  className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-transparent dark:hover:text-red-400"
+                  aria-label="Mais opções"
                 >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(emailStr)}
-                  disabled={deleting === emailStr}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-all"
-                >
-                  {deleting === emailStr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <MoreVertical className="h-4 w-4" />
                 </button>
               </div>
             </div>
           )
         })}
       </div>
+
+      {emailRowMenu && (
+        <EmailRowActionsMenu
+          anchorRect={emailRowMenu.rect}
+          onClose={() => setEmailRowMenu(null)}
+          onAction={(action) => {
+            const row = filtered.find((e) => (e.email || '') === emailRowMenu.email)
+            if (action === 'webmail') {
+              window.open(getWebmailUrlForDomain(row?.domain || selectedDomain), '_blank', 'noopener,noreferrer')
+            } else if (action === 'edit' && row) {
+              setEmailModal({ show: true, mode: 'edit', data: { ...row, password: '' } })
+            } else if (action === 'download') {
+              void openEmailConfigModal(emailRowMenu.email)
+            } else if (action === 'delete') {
+              void handleDelete(emailRowMenu.email)
+            }
+          }}
+        />
+      )}
+
+      <EmailConfigResultModal
+        open={Boolean(emailConfigModal)}
+        config={emailConfigModal}
+        onClose={() => setEmailConfigModal(null)}
+      />
 
       {/* Modal de E-mail (Unified) */}
       {emailModal.show && (
@@ -2215,8 +2227,8 @@ export function EmailManagementSection({
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter atual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Senha</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar Senha" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
               {emailModal.mode === 'edit' && (
                 <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
@@ -2285,6 +2297,17 @@ const PANEL_ROLE_BADGE: Record<string, string> = {
   guest: 'bg-amber-100 text-amber-800',
 }
 
+function floatingMenuPosition(anchorRect: DOMRect, menuW: number, itemCount: number) {
+  const rowH = 32
+  const estimatedH = itemCount * rowH + 4
+  let top = anchorRect.top + anchorRect.height / 2 - estimatedH / 2
+  let left = Math.max(8, anchorRect.right - menuW)
+  if (typeof window !== 'undefined') {
+    top = Math.max(8, Math.min(top, window.innerHeight - estimatedH - 8))
+  }
+  return { top, left, estimatedH }
+}
+
 function PanelAccountActionsMenu({
   anchorRect,
   account,
@@ -2302,17 +2325,15 @@ function PanelAccountActionsMenu({
     ...(account.panelRole === 'reseller'
       ? [{ id: 'loginAs', label: 'Entrar como revendedor' }]
       : []),
+    ...(account.email.includes('@')
+      ? [{ id: 'downloadEmailConfig', label: 'Baixar credenciais de acesso' }]
+      : []),
     { id: 'edit', label: 'Editar conta' },
     { id: 'delete', label: 'Eliminar', danger: true },
   ]
 
-  const menuW = 168
-  const estimatedH = items.length * 30 + 4
-  let top = anchorRect.bottom + 4
-  let left = Math.max(8, anchorRect.right - menuW)
-  if (typeof window !== 'undefined' && top + estimatedH > window.innerHeight - 8) {
-    top = anchorRect.top - estimatedH - 4
-  }
+  const menuW = 200
+  const { top, left } = floatingMenuPosition(anchorRect, menuW, items.length)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2333,14 +2354,69 @@ function PanelAccountActionsMenu({
     <div
       ref={ref}
       style={{ position: 'fixed', top, left, zIndex: 9999 }}
-      className="w-max rounded border border-zinc-200 bg-white py-0.5 text-xs shadow-2xl"
+      className="w-max rounded border border-zinc-200 bg-white py-0.5 text-xs shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
     >
       {items.map((item) => (
         <button
           key={item.id}
           type="button"
           onClick={() => { onAction(item.id); onClose() }}
-          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 hover:bg-zinc-50 ${item.danger ? 'text-red-600' : 'text-zinc-700'}`}
+          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:hover:text-red-400 ${item.danger ? 'text-red-600' : 'text-zinc-700 dark:text-zinc-300'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
+}
+
+function EmailRowActionsMenu({
+  anchorRect,
+  onAction,
+  onClose,
+}: {
+  anchorRect: DOMRect
+  onAction: (action: string) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const items = [
+    { id: 'webmail', label: 'Abrir webmail' },
+    { id: 'edit', label: 'Editar conta' },
+    { id: 'download', label: 'Baixar configurações de e-mail' },
+    { id: 'delete', label: 'Eliminar', danger: true },
+  ]
+  const menuW = 220
+  const { top, left } = floatingMenuPosition(anchorRect, menuW, items.length)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onScroll = () => onClose()
+    document.addEventListener('mousedown', handler)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onScroll)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top, left, zIndex: 9999 }}
+      className="w-max rounded border border-zinc-200 bg-white py-0.5 text-xs shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => { onAction(item.id); onClose() }}
+          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:hover:text-red-400 ${item.danger ? 'text-red-600' : 'text-zinc-700 dark:text-zinc-300'}`}
         >
           {item.label}
         </button>
@@ -2377,24 +2453,39 @@ export function CPUsersSection({
   variant = 'directadmin',
   fixedPanelFilter,
   panelScope,
+  onBootstrapRefresh,
 }: {
   variant?: 'directadmin' | 'panels';
   fixedPanelFilter?: PanelRoleFilter;
   /** Secção Utilizadores: admin + visitante + cliente, com filtro local. */
   panelScope?: PanelUsersScope;
+  /** Actualiza bootstrap global (sites + contas) após mutações. */
+  onBootstrapRefresh?: () => void | Promise<void>;
 }) {
   const isPanelsMode = variant === 'panels'
   const [users, setUsers] = useState<DirectAdminUser[]>([])
-  const [panelAccounts, setPanelAccounts] = useState<PanelAccount[]>([])
+  const [panelAccounts, setPanelAccounts] = useState<PanelAccount[]>(() => {
+    if (typeof window === 'undefined') return []
+    return readBootstrapCache()?.accounts ?? readPanelUsersCache()?.users ?? []
+  })
   const [panelFilter, setPanelFilter] = useState<PanelRoleFilter>(fixedPanelFilter ?? 'all')
   const [usersScopeFilter, setUsersScopeFilter] = useState<UsersScopeFilter>('all')
-  const [panelCounts, setPanelCounts] = useState<Record<string, number>>({})
+  const [panelCounts, setPanelCounts] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {}
+    return readBootstrapCache()?.accountCounts ?? readPanelUsersCache()?.counts ?? {}
+  })
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (!isPanelsMode) return false
+    const boot = readBootstrapCache()
+    return !(boot?.accounts?.length || readPanelUsersCache()?.users?.length)
+  })
   const [acls, setAcls] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [panelOpenMenu, setPanelOpenMenu] = useState<{ accountId: string; rect: DOMRect } | null>(null)
+  const [panelEmailConfig, setPanelEmailConfig] = useState<EmailConfigBundle | null>(null)
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
@@ -2415,22 +2506,30 @@ export function CPUsersSection({
   const loadPanelAccounts = async (options?: { fresh?: boolean }) => {
     if (options?.fresh) clearPanelUsersCache()
 
+    const bootCached = !options?.fresh ? readBootstrapCache() : null
+    if (bootCached?.accounts?.length) {
+      applyPanelAccounts({ users: bootCached.accounts, counts: bootCached.accountCounts || {} })
+      setLoading(false)
+      return
+    }
+
     const cached = !options?.fresh ? readPanelUsersCache() : null
     if (cached) {
       applyPanelAccounts(cached)
       setLoading(false)
-      void fetchPanelUsersStaleWhileRevalidate(applyPanelAccounts)
       return
     }
 
     setLoading(true)
     try {
-      await fetchPanelUsersStaleWhileRevalidate((data) => {
-        applyPanelAccounts(data)
-        setLoading(false)
-      })
+      const res = await fetch('/api/admin/panel-users', { credentials: 'include' })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        applyPanelAccounts({ users: json.users || [], counts: json.counts || {} })
+      }
     } catch (e: unknown) {
       console.error('[CPUsersSection] panel-users:', e)
+    } finally {
       setLoading(false)
     }
   }
@@ -2441,67 +2540,17 @@ export function CPUsersSection({
       return
     }
 
+    const bootCached = readBootstrapCache()
+    if (bootCached?.users?.length) {
+      setUsers(bootCached.users as DirectAdminUser[])
+      setAcls(['user', 'reseller'])
+      setLoading(false)
+      return
+    }
+
     const lsUsers = cpGetUsers()
     if (lsUsers.length > 0) setUsers(lsUsers)
-    else setLoading(true)
-
-    try {
-      console.log('[loadUsers] Starting fetch...')
-      const [u, a, sbUsers] = await Promise.all([
-        directAdminAPI.listUsers().catch((e: any) => { console.error('[loadUsers] listUsers FAILED:', e.message); return [] as DirectAdminUser[] }),
-        directAdminAPI.listACLs().catch((e: any) => { console.error('[loadUsers] listACLs FAILED:', e.message); return ['user', 'reseller'] }),
-        getUsersFromSupabase().catch((e: any) => { console.error('[loadUsers] getUsersFromSupabase FAILED:', e.message); return [] })
-      ])
-      
-      console.log('[loadUsers] DirectAdmin users:', u.length, 'Supabase users:', sbUsers.length)
-      console.log('[loadUsers] DirectAdmin raw:', JSON.stringify(u).substring(0, 500))
-      
-      setAcls(Array.isArray(a) ? a.map((x: any) => typeof x === 'string' ? x : x.name || x.ACLName || x.id) : ['user', 'reseller'])
-      
-      if (u.length > 0 || sbUsers.length > 0) {
-        const merged: any[] = u.map((user: any) => {
-          const sb = sbUsers.find((s: any) => s.username === user.userName)
-          const userType = (user.type !== undefined && user.type !== null) ? String(user.type) : null
-          return {
-            ...user,
-            existsOnServer: true,
-            firstName: user.firstName || sb?.first_name || '',
-            lastName: user.lastName || sb?.last_name || '',
-            email: user.email || sb?.email || '',
-            acl: userType || sb?.acl || 'user',
-            websitesLimit: sb?.websites_limit || 0,
-            emailsLimit: sb?.emails_limit || 0,
-            securityLevel: sb?.security_level || 'HIGH',
-            state: user.state || sb?.status || 'Active'
-          }
-        })
-
-        // Add accounts missing from DirectAdmin but present in Supabase
-        sbUsers.forEach((sb: any) => {
-          if (!merged.find(m => m.userName === sb.username)) {
-            merged.push({
-              userName: sb.username,
-              existsOnServer: false,
-              firstName: sb.first_name || '',
-              lastName: sb.last_name || '',
-              email: sb.email || '',
-              acl: sb.acl || 'user',
-              websitesLimit: sb.websites_limit || 0,
-              emailsLimit: sb.emails_limit || 0,
-              securityLevel: sb.security_level || 'HIGH',
-              state: sb.status || 'Active'
-            })
-          }
-        })
-        
-        console.log('[loadUsers] Final merged users:', merged.length, merged.map(m => m.userName))
-        setUsers(merged)
-        merged.forEach((user: any) => cpSaveUser(user.userName, user))
-      } else {
-        console.warn('[loadUsers] No users from DirectAdmin or Supabase! Showing cached data.')
-      }
-    } catch (e: any) { console.error('[loadUsers] EXCEPTION:', e.message) }
-    setLoading(false)
+    else setLoading(false)
   }
 
   useEffect(() => { loadUsers() }, [variant])
@@ -2565,8 +2614,9 @@ export function CPUsersSection({
   const refreshPanelAccounts = async () => {
     setRefreshing(true)
     try {
-      await supabase.auth.getSession()
-      await fetch('/api/admin/panel-users', { method: 'POST', credentials: 'include' })
+      clearPanelUsersCache()
+      clearPanelBootstrapCache()
+      if (onBootstrapRefresh) await onBootstrapRefresh()
       await loadPanelAccounts({ fresh: true })
     } catch (e: unknown) {
       console.error('[CPUsersSection] refresh:', e)
@@ -2616,6 +2666,17 @@ export function CPUsersSection({
   const handlePanelRowAction = (account: PanelAccount, action: string) => {
     if (action === 'loginAs') {
       void handlePanelLoginAs(account)
+      return
+    }
+    if (action === 'downloadEmailConfig') {
+      void (async () => {
+        try {
+          const bundle = await fetchEmailConfigBundle(account.email)
+          setPanelEmailConfig(bundle)
+        } catch (e: unknown) {
+          setMsg(`❌ ${e instanceof Error ? e.message : 'Erro ao obter configurações'}`)
+        }
+      })()
       return
     }
     if (action === 'edit') {
@@ -2690,13 +2751,19 @@ export function CPUsersSection({
     setCreating(false)
   }
 
+  const generatePanelPassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#!$%&*'
+    return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  }
+
   const openPanelCreateModal = () => {
+    const generated = generatePanelPassword()
     const base = {
       firstName: '',
       lastName: '',
       email: '',
-      password: '',
-      confirmPassword: '',
+      password: generated,
+      confirmPassword: generated,
     }
     if (panelScope === 'reseller') {
       setUserModal({
@@ -2743,6 +2810,10 @@ export function CPUsersSection({
     if (data.password !== data.confirmPassword) {
       setMsg('As senhas não coincidem!'); return
     }
+    if (isPanelsMode && data.acl === 'panel' && data.password && data.password.length < 6) {
+      setMsg('A palavra-passe deve ter pelo menos 6 caracteres.')
+      return
+    }
     setCreating(true); setMsg('')
     try {
       if (isPanelsMode && data.acl === 'panel' && data.panelRole) {
@@ -2765,6 +2836,18 @@ export function CPUsersSection({
         setMsg(`✅ ${payload.message}`)
         setUserModal({ ...userModal, show: false })
         await loadPanelAccounts({ fresh: true })
+        const role = data.panelRole || 'client'
+        const accessBundle = buildPanelAccessConfigText({
+          email: data.email,
+          password: data.password,
+          panelRole: role,
+          name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+        })
+        setPanelEmailConfig({
+          email: data.email,
+          password: data.password,
+          ...accessBundle,
+        })
         setCreating(false)
         return
       }
@@ -2798,7 +2881,10 @@ export function CPUsersSection({
         setMsg(`✅ Revendedor automático: DA "${daUser}" → /revendedor.${autoNote}`)
         setUserModal({ ...userModal, show: false })
         loadUsers()
-        if (isPanelsMode) await loadPanelAccounts({ fresh: true })
+        if (isPanelsMode) {
+          await onBootstrapRefresh?.()
+          await loadPanelAccounts({ fresh: true })
+        }
         setCreating(false)
         return
       }
@@ -2998,7 +3084,7 @@ export function CPUsersSection({
                 <select
                   value={usersScopeFilter}
                   onChange={(e) => setUsersScopeFilter(e.target.value as UsersScopeFilter)}
-                  className={`${panelField} w-full shrink-0 sm:w-[8.25rem]`}
+                  className={`${panelField} w-full shrink-0 sm:min-w-[18rem] sm:w-[20rem]`}
                 >
                   <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
                   <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
@@ -3010,7 +3096,7 @@ export function CPUsersSection({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Pesquisar por email ou nome..."
-                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[10rem]' : 'sm:w-36'}`}
+                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[20rem]' : 'sm:w-48'}`}
               />
             </div>
           )}
@@ -3057,35 +3143,35 @@ export function CPUsersSection({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900/50">
-                <th className="px-4 py-2.5">Email</th>
-                <th className="px-4 py-2.5">Nome</th>
-                <th className="px-4 py-2.5">Painel</th>
-                <th className="px-4 py-2.5">Papel</th>
-                <th className="px-4 py-2.5">Último acesso</th>
-                <th className="px-4 py-2.5 text-right">Acções</th>
+                <th className="px-4 py-1.5">Email</th>
+                <th className="px-4 py-1.5">Nome</th>
+                <th className="px-4 py-1.5">Painel</th>
+                <th className="px-4 py-1.5">Papel</th>
+                <th className="px-4 py-1.5">Último acesso</th>
+                <th className="px-4 py-1.5 text-right">Acções</th>
               </tr>
             </thead>
             <tbody>
               {filteredPanelAccounts.map((account) => (
                 <tr key={account.id} className="border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400">
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{account.email}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{account.nome || account.userName || '—'}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-1.5 font-medium text-gray-900 dark:text-zinc-100">{account.email}</td>
+                  <td className="px-4 py-1.5 text-gray-600 dark:text-zinc-400">{account.nome || account.userName || '—'}</td>
+                  <td className="px-4 py-1.5">
                     <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight bg-slate-100 text-slate-700">
                       {account.panelPath}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-1.5">
                     <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${PANEL_ROLE_BADGE[account.panelRole] || 'bg-gray-100 text-gray-700'}`}>
                       {PANEL_ROLE_LABELS[account.panelRole] || account.panelRole}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">
+                  <td className="px-4 py-1.5 text-gray-500 text-xs dark:text-zinc-500">
                     {account.lastSignIn
                       ? new Date(account.lastSignIn).toLocaleString('pt-PT')
                       : 'Nunca'}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {account.panelRole === 'reseller' && (
                         <button
@@ -3215,6 +3301,12 @@ export function CPUsersSection({
           />
         )
       })()}
+
+      <EmailConfigResultModal
+        open={Boolean(panelEmailConfig)}
+        config={panelEmailConfig}
+        onClose={() => setPanelEmailConfig(null)}
+      />
 
       {/* Modal de Utilizador (Unified) */}
       {userModal.show && (
@@ -4707,99 +4799,6 @@ export function DeleteWebsiteSection({ sites, onRefresh }: { sites: DirectAdminW
           ))}</tbody>
         </table>
       </div>
-    </div>
-  )
-}
-
-// ============================================================
-// WORDPRESS LIST SECTION
-// ============================================================
-export function WPListSection({ sites, setFileManagerDomain, setActiveSection }: {
-  sites: DirectAdminWebsite[],
-  setFileManagerDomain?: (domain: string) => void,
-  setActiveSection?: (section: string) => void
-}) {
-  const [wpSites, setWpSites] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [installingLS, setInstallingLS] = useState<string | null>(null)
-  const [lsMsg, setLsMsg] = useState<{ domain: string; ok: boolean; text: string } | null>(null)
-
-  useEffect(() => { (async () => { setLoading(true); const data = await directAdminAPI.listWordPress(''); setWpSites(data); setLoading(false) })() }, [])
-
-  const handleInstallLiteSpeed = async (domain: string) => {
-    setInstallingLS(domain); setLsMsg(null)
-    try {
-      const res = await directAdminAPI.installWPPlugin({ domain, plugin: 'litespeed-cache' })
-      const ok = res?.success === true
-      setLsMsg({ domain, ok, text: ok ? 'LiteSpeed Cache instalado!' : 'Erro ao instalar LiteSpeed Cache.' })
-    } catch {
-      setLsMsg({ domain, ok: false, text: 'Erro ao instalar LiteSpeed Cache.' })
-    }
-    setInstallingLS(null)
-  }
-
-  const allSites = wpSites.length > 0
-    ? wpSites.map((wp: any) => ({ domain: wp.domain || wp.domainName, version: wp.version || null, owner: wp.owner || '' }))
-    : sites.map(s => ({ domain: s.domain, version: null, owner: s.owner }))
-
-  return (
-    <div className="space-y-6">
-
-
-      {loading ? (
-        <div className="py-16 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allSites.map((s, i) => (
-            <div key={i} className="bg-white rounded border border-gray-200 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                  <Globe className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-gray-900 truncate text-sm">{s.domain}</p>
-                  <p className="text-xs text-gray-400">{s.owner || 'admin'}{s.version ? ` · WP ${s.version}` : ''}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <a
-                  href={`https://${s.domain}/wp-admin`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="w-full bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700  text-xs font-bold py-2.5 px-4 rounded transition-all flex items-center justify-center gap-2">
-                  <ExternalLink className="w-3.5 h-3.5" /> Abrir WP Admin
-                </a>
-                <button
-                  onClick={() => {
-                    if (setFileManagerDomain) setFileManagerDomain(s.domain)
-                    setTimeout(() => { if (setActiveSection) setActiveSection('file-manager') }, 50)
-                  }}
-                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-4 rounded border border-amber-200 transition-all flex items-center justify-center gap-2">
-                  <FolderOpen className="w-3.5 h-3.5" /> Ficheiros WordPress
-                </button>
-                <button
-                  onClick={() => handleInstallLiteSpeed(s.domain)}
-                  disabled={installingLS === s.domain}
-                  className="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold py-2 px-4 rounded border border-green-200 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                  {installingLS === s.domain
-                    ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> A instalar...</>
-                    : <><Layers className="w-3.5 h-3.5" /> Instalar LiteSpeed Cache</>}
-                </button>
-                {lsMsg && lsMsg.domain === s.domain && (
-                  <p className={`text-[10px] font-bold text-center py-1 rounded ${lsMsg.ok ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>{lsMsg.text}</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && allSites.length === 0 && (
-        <div className="py-16 text-center text-gray-400">
-          <Globe className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Nenhum site encontrado.</p>
-          <p className="text-sm mt-1">Instala um WordPress primeiro na secção "Instalar WordPress".</p>
-        </div>
-      )}
     </div>
   )
 }
@@ -6655,23 +6654,10 @@ export function FileManagerSection({ domain, sites }: {
   const getOwner = (targetDomain: string) =>
     sites.find(s => s.domain === targetDomain)?.owner || 'admin'
 
-  const resolveRoot = async (targetDomain: string) => {
+  const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
-    try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resolveSitePath', params: { domain: targetDomain } }),
-      })
-      const data = await res.json()
-      if (data.success && data.data?.path) {
-        return String(data.data.path)
-      }
-    } catch {
-      /* fallback abaixo */
-    }
-    return `/home/${getOwner(targetDomain)}/domains/${targetDomain}/public_html`
+    const owner = getOwner(targetDomain)
+    return `/home/${owner}/domains/${targetDomain}/public_html`
   }
 
   useEffect(() => {
@@ -6680,11 +6666,11 @@ export function FileManagerSection({ domain, sites }: {
 
     let cancelled = false
     setSelectedDomain(d)
-    void resolveRoot(d).then((root) => {
-      if (cancelled || !root) return
+    const root = resolveRoot(d)
+    if (!cancelled && root) {
       setSiteRoot(root)
       setPath(root)
-    })
+    }
 
     return () => { cancelled = true }
   }, [domain, sites])
@@ -6753,10 +6739,9 @@ export function FileManagerSection({ domain, sites }: {
             onChange={e => {
               const next = e.target.value
               setSelectedDomain(next)
-              void resolveRoot(next).then((root) => {
-                setSiteRoot(root)
-                setPath(root)
-              })
+              const root = resolveRoot(next)
+              setSiteRoot(root)
+              setPath(root)
             }}
             className="px-3 py-2 border border-gray-300 rounded text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
@@ -7998,15 +7983,6 @@ function domainHostingStateLabel(row: CachedDomainRow): 'Activo' | 'Desactivo' {
   return 'Activo'
 }
 
-function domainRowsSignature(rows: CachedDomainRow[]): string {
-  return rows
-    .map((r) =>
-      [r.domain, r.state ?? '', r.status ?? '', r.package ?? '', r.owner ?? '', r.adminEmail ?? ''].join('|'),
-    )
-    .sort()
-    .join(';')
-}
-
 function domainExpirationPlaceholder(domain: string): string {
   const hash = domain.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   const days = (hash % 180) + 30
@@ -8051,14 +8027,15 @@ export function DomainManagerSection({
   packages = [],
   onCreateEmail,
   onNavigate,
+  onRefresh,
 }: {
   sites: DirectAdminWebsite[]
   packages?: DirectAdminPackage[]
   onCreateEmail?: (domain: string) => void
   onNavigate?: (section: string, opts?: { domain?: string }) => void
+  onRefresh?: () => void | Promise<void>
 }) {
   const [view, setView] = useState<'list' | 'create' | 'manage'>('list')
-  const [extraRows, setExtraRows] = useState<CachedDomainRow[] | null>(null)
   const [selectedDomain, setSelectedDomain] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [listSearch, setListSearch] = useState('')
@@ -8066,8 +8043,6 @@ export function DomainManagerSection({
   const domainMenuRef = useRef<HTMLDivElement>(null)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
-  const sitesRef = useRef(sites)
-  sitesRef.current = sites
 
   const sitesSignature = useMemo(
     () =>
@@ -8091,9 +8066,8 @@ export function DomainManagerSection({
 
   const domainList = useMemo(() => {
     if (rowsFromSites.length > 0) return rowsFromSites
-    if (extraRows && extraRows.length > 0) return extraRows
     return readDomainListCache()
-  }, [rowsFromSites, extraRows])
+  }, [rowsFromSites])
 
   const filteredDomains = useMemo(() => {
     const q = listSearch.trim().toLowerCase()
@@ -8101,13 +8075,10 @@ export function DomainManagerSection({
     return domainList.filter((d) => d.domain.toLowerCase().includes(q))
   }, [domainList, listSearch])
 
-  const setExtraRowsIfChanged = (rows: CachedDomainRow[]) => {
-    setExtraRows((prev) => {
-      const nextSig = domainRowsSignature(rows)
-      const prevSig = prev ? domainRowsSignature(prev) : ''
-      return nextSig === prevSig ? prev : rows
-    })
-  }
+  useEffect(() => {
+    if (rowsFromSites.length > 0) writeDomainListCache(rowsFromSites)
+  }, [rowsFromSites])
+
   const [registrarLoading, setRegistrarLoading] = useState(false)
   const [transferLocked, setTransferLocked] = useState<boolean | null>(null)
   const [authCode, setAuthCode] = useState('')
@@ -8170,61 +8141,6 @@ export function DomainManagerSection({
     onNavigate?.('faturas')
     showMsg('Renovação não encontrada para este domínio. Verifique em Faturas.', 'error')
   }
-
-  const loadDomains = async () => {
-    const currentSites = sitesRef.current
-    setLoading(true)
-    try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listWebsites', params: {} }),
-      })
-      const json = await res.json()
-      if (json.success && json.data) {
-        const sitesArray = Array.isArray(json.data) ? json.data : json.data.sites || []
-        const siteDomains = new Set(currentSites.map((s) => s.domain.toLowerCase()))
-        const filtered = sitesArray.filter(
-          (s: { domain?: string }) => s.domain && siteDomains.has(s.domain.toLowerCase()),
-        )
-        const rows = sitesToDomainRows(filtered as DirectAdminWebsite[])
-        if (rows.length > 0) {
-          setExtraRowsIfChanged(rows)
-          writeDomainListCache(rows)
-        }
-        void (async () => {
-          for (const site of filtered) {
-            try {
-              await syncWebsiteToSupabase({
-                domain: site.domain,
-                adminEmail: site.adminEmail,
-                package: site.package,
-                status: site.state || 'Active',
-              })
-            } catch {
-              /* sync best-effort */
-            }
-          }
-        })()
-      }
-    } catch (e: unknown) {
-      if (domainList.length === 0) {
-        setMsg('Erro ao carregar domínios: ' + (e instanceof Error ? e.message : 'desconhecido'))
-        setMsgType('error')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (rowsFromSites.length > 0) {
-      writeDomainListCache(rowsFromSites)
-      return
-    }
-    const cached = readDomainListCache()
-    if (cached.length > 0) setExtraRowsIfChanged(cached)
-  }, [rowsFromSites])
 
   useEffect(() => {
     if (newDomain) setDocRoot(newDomain)
@@ -8336,6 +8252,30 @@ export function DomainManagerSection({
     setView('manage')
   }
 
+  const handleSuspendDomain = async (d: CachedDomainRow) => {
+    setOpenMenuDomain(null)
+    const isActive = domainHostingStateLabel(d) === 'Activo'
+    const verb = isActive ? 'suspender' : 'activar'
+    if (!confirm(`Deseja ${verb} o domínio "${d.domain}"?`)) return
+    setLoading(true)
+    try {
+      const ok = isActive
+        ? await directAdminAPI.suspendWebsite(d.domain)
+        : await directAdminAPI.unsuspendWebsite(d.domain)
+      if (ok) {
+        await syncWebsiteToSupabase({ domain: d.domain, status: isActive ? 'Suspended' : 'Active' })
+        showMsg(`Domínio ${isActive ? 'suspenso' : 'activado'} com sucesso.`)
+        await onRefresh?.()
+      } else {
+        showMsg(`Erro ao ${verb} o domínio.`, 'error')
+      }
+    } catch (e: unknown) {
+      showMsg(e instanceof Error ? e.message : `Erro ao ${verb} o domínio.`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCreate = async () => {
     if (!newDomain || !adminEmail) return
     setLoading(true)
@@ -8358,7 +8298,7 @@ export function DomainManagerSection({
         showMsg(`Domínio "${newDomain}" criado com sucesso!`)
         setNewDomain(''); setAdminEmail(''); setDocRoot(''); setOpenLiteSpeed(true)
         setView('list')
-        await loadDomains()
+        await onRefresh?.()
       } else {
         showMsg('Erro: ' + (data.error || output || 'Falha ao criar domínio'), 'error')
       }
@@ -8419,7 +8359,7 @@ export function DomainManagerSection({
     } else {
       showMsg('Erro: ' + (data.error || data.data?.error || 'Falha ao eliminar'), 'error')
     }
-    await loadDomains()
+    await onRefresh?.()
     setView('list')
     setLoading(false)
   }
@@ -8464,6 +8404,9 @@ export function DomainManagerSection({
             <button type="button" className={domainCardMenuItem} onClick={() => openManage(d)}>
               Redireccionamento
             </button>
+            <button type="button" className={domainCardMenuItem} onClick={() => void handleSuspendDomain(d)}>
+              {domainHostingStateLabel(d) === 'Activo' ? 'Suspender domínio' : 'Activar domínio'}
+            </button>
             <button
               type="button"
               className={domainCardMenuItem}
@@ -8484,7 +8427,7 @@ export function DomainManagerSection({
     <div className="w-full space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-[140px] flex-wrap items-center gap-3">
-          <div className="relative w-full max-w-[10rem]">
+          <div className="relative w-full max-w-[14rem]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
             <input
               value={listSearch}
@@ -8499,8 +8442,8 @@ export function DomainManagerSection({
           <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
             <Plus className="h-4 w-4" /> Adicionar domínio
           </button>
-          <button type="button" onClick={() => void loadDomains()} disabled={loading} className={panelBtnSecondary}>
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Sincronizar
+          <button type="button" onClick={() => void onRefresh?.()} disabled={loading} className={panelBtnSecondary}>
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Actualizar
           </button>
         </div>
       </div>
@@ -8596,7 +8539,7 @@ export function DomainManagerSection({
         onClose={() => setDomainModal(false)}
         onSuccess={() => {
           setDomainModal(false)
-          loadDomains()
+          void onRefresh?.()
         }}
         packages={packages}
       />

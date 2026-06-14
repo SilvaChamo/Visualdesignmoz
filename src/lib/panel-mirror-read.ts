@@ -188,6 +188,30 @@ export async function listMirrorUsers(scope: MirrorScope): Promise<PanelUser[]> 
   return (data || []).map(mapUser);
 }
 
+export async function listMirrorWebsitesForClientEmail(email: string): Promise<PanelWebsite[]> {
+  const admin = getDaSyncAdmin();
+  if (!admin || !email) return [];
+
+  const normalized = email.toLowerCase().trim();
+  const localPart = normalized.split('@')[0] || '';
+
+  const { data, error } = await admin.from('panel_sites').select('*').order('domain');
+  if (error) return [];
+
+  return (data || [])
+    .filter((row) => {
+      const adminEmail = String(row.admin_email || '').toLowerCase();
+      const owner = String(row.owner || '').toLowerCase();
+      const domain = String(row.domain || '').toLowerCase();
+      return (
+        adminEmail === normalized ||
+        owner === normalized ||
+        (localPart.length > 2 && domain.includes(localPart))
+      );
+    })
+    .map((row) => mapSite(row as Record<string, unknown>));
+}
+
 export async function listMirrorPackages(
   scope: MirrorScope,
   prefetchedSites?: PanelWebsite[],

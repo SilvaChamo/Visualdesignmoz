@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { assertClientOwnsDomain } from '@/lib/wp-update-client-access';
+import { assertClientOwnsDomain, listClientHostingSites } from '@/lib/wp-update-client-access';
 import { handleWpUpdateGet, handleWpUpdatePost } from '@/lib/wp-update-handlers';
 
 export const maxDuration = 120;
@@ -52,6 +52,18 @@ export async function GET(req: NextRequest) {
         { status: result.status ?? 404 },
       );
     }
+
+    if (!domain && 'installs' in result && Array.isArray(result.installs)) {
+      const clientSites = await listClientHostingSites(auth.user.id, auth.user.email);
+      const allowed = new Set(
+        clientSites.map((s) => (s.domain || '').toLowerCase()).filter(Boolean),
+      );
+      return NextResponse.json({
+        ...result,
+        installs: result.installs.filter((i) => allowed.has(i.domain.toLowerCase())),
+      });
+    }
+
     return NextResponse.json(result);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao listar plugins';

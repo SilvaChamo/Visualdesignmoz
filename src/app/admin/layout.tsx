@@ -1,7 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { userBelongsToCurrentPanel } from "@/lib/panel-tenant";
+import { resolveRoleForAuthUser } from "@/lib/server-auth-role";
 
 export const metadata: Metadata = {
     title: "Painel Admin",
@@ -32,24 +34,17 @@ export default async function AdminLayout({
         notFound();
     }
 
-    const userRole = user.user_metadata?.role || user.app_metadata?.role;
+    const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const roleDb =
+      serviceUrl && serviceKey
+        ? createServiceClient(serviceUrl, serviceKey)
+        : supabase;
+    const effectiveRole = await resolveRoleForAuthUser(roleDb, user);
     const isExplicitAdmin = adminEmails.includes((user.email || '').toLowerCase());
 
-    console.log('AdminLayout Debug:', {
-        email: user.email,
-        userRole,
-        isExplicitAdmin,
-        adminEmails
-    });
-
-    if (userRole !== 'admin' && !isExplicitAdmin) {
-        const userEmail = (user.email || '').toLowerCase();
-        if (userEmail.includes('silva.chamo') || userEmail.includes('chamo.silva')) {
-            console.log('AdminLayout: FORCE BYPASS for silva.chamo');
-        } else {
-            console.log('AdminLayout: Denied access. Not admin nor in explicit list.');
-            notFound();
-        }
+    if (effectiveRole !== 'admin' && !isExplicitAdmin) {
+        notFound();
     }
 
     return <>{children}</>;

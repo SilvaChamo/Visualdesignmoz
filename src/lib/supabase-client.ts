@@ -125,15 +125,40 @@ export interface TicketSuporte {
 
 // Funções de autenticação
 export const auth = {
-  // Login
+  // Login — Auth primeiro; fallback com password guardada (ProvisualCorporate)
   async signIn(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+      email: normalizedEmail,
+      password,
+    });
 
-    if (error) throw error
-    return data
+    if (!error) return data;
+
+    const invalid =
+      error.message?.toLowerCase().includes('invalid login credentials') ||
+      error.message?.toLowerCase().includes('invalid credentials');
+
+    if (invalid) {
+      try {
+        const syncRes = await fetch('/api/auth/panel-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail, password }),
+        });
+        if (syncRes.ok) {
+          const retry = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+          if (!retry.error) return retry.data;
+        }
+      } catch {
+        /* manter erro original */
+      }
+    }
+
+    throw error;
   },
 
   // Registrar novo usuário

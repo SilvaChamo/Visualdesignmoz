@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { ADMIN_EMAILS } from '@/lib/user-roles';
+import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 
 type AdminAuthSuccess = {
   user: {
@@ -35,9 +37,15 @@ export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailur
   }
 
   const email = user.email.toLowerCase();
-  const metaRole = user.user_metadata?.role || user.app_metadata?.role;
+  const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const roleDb =
+    serviceUrl && serviceKey
+      ? createServiceClient(serviceUrl, serviceKey)
+      : supabase;
+  const effectiveRole = await resolveRoleForAuthUser(roleDb, user);
 
-  if (!ADMIN_EMAILS.has(email) && metaRole !== 'admin') {
+  if (!ADMIN_EMAILS.has(email) && effectiveRole !== 'admin') {
     return {
       error: NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 }),
     };

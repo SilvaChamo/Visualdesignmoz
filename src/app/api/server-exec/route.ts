@@ -235,6 +235,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'domain é obrigatório' }, { status: 400 });
       }
 
+      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+      const mirrorOwner = await getMirrorSiteOwner(targetDomain);
+      if (mirrorOwner) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            path: `/home/${mirrorOwner}/domains/${targetDomain}/public_html`,
+            owner: mirrorOwner,
+          },
+        });
+      }
+
       const { resolveDomainSitePath } = await import('@/lib/wp-cli-server');
       const site = await resolveDomainSitePath(targetDomain);
       if (!site) {
@@ -282,7 +294,11 @@ export async function POST(req: NextRequest) {
         '    print(json.dumps(rows))',
       ].join('\n');
 
-      const output = await executeServerCommand(`python3 -c ${JSON.stringify(script)}`);
+      // JSON.stringify em -c quebra no shell remoto (\n vira continuação de linha inválida).
+      const b64 = Buffer.from(script, 'utf8').toString('base64');
+      const output = await executeServerCommand(
+        `python3 -c "import base64; exec(base64.b64decode('${b64}').decode())"`,
+      );
       try {
         const parsed = JSON.parse(output.trim());
         if (parsed && typeof parsed === 'object' && 'error' in parsed) {

@@ -17,10 +17,17 @@ import {
   saveProfileForAuthUser,
   type ProfileRow,
 } from '@/lib/profile-db';
+import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
+import { STANDARD_PANEL_PASSWORD } from '@/lib/stored-panel-password';
 import {
-  PANEL_SLUG,
+  filterPanelAccountsForCaller,
+  listAllBootstrapPanelAccounts,
+  buildPanelAccountCounts,
+} from '@/lib/panel-bootstrap-accounts';
+import {
   belongsToCurrentPanel,
   resolveAccountPanelSite,
+  PANEL_SLUG,
 } from '@/lib/panel-tenant';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -36,6 +43,41 @@ function clearPanelUsersServerCache() {
   panelUsersServerCache = null;
 }
 
+async function backfillDownloadableCredentials(
+  admin: SupabaseClient,
+  authUsers: User[],
+) {
+  for (const authUser of authUsers) {
+    if (!authUser.email) continue;
+    const email = authUser.email.toLowerCase();
+    const panelSite = resolveAccountPanelSite({
+      userMetadata: authUser.user_metadata as Record<string, unknown>,
+      email,
+    });
+    if (!belongsToCurrentPanel(panelSite)) continue;
+
+    const { data: row } = await admin
+      .from('email_contas')
+      .select('senha_servidor')
+      .eq('email', email)
+      .maybeSingle();
+    if (row?.senha_servidor) continue;
+
+    const profile = await getProfileForAuthUser(admin, authUser.id);
+    const role =
+      profile?.role ||
+      authUser.user_metadata?.role ||
+      'client';
+
+    await upsertDownloadableCredentials(admin, {
+      email,
+      password: STANDARD_PANEL_PASSWORD,
+      userId: authUser.id,
+      role: String(role),
+    });
+  }
+}
+
 async function assertAccountBelongsToPanel(
   admin: SupabaseClient,
   userId: string,
@@ -46,6 +88,7 @@ async function assertAccountBelongsToPanel(
   }
   const panelSite = resolveAccountPanelSite({
     userMetadata: data.user.user_metadata as Record<string, unknown>,
+    email: data.user.email,
   });
   if (!belongsToCurrentPanel(panelSite)) {
     throw new Error('Esta conta pertence a outro painel e não pode ser alterada aqui.');
@@ -135,6 +178,7 @@ async function syncAutomaticPanelRoles(admin: SupabaseClient) {
     if (!authUser.email) continue;
     const panelSite = resolveAccountPanelSite({
       userMetadata: authUser.user_metadata as Record<string, unknown>,
+      email: authUser.email,
     });
     if (!belongsToCurrentPanel(panelSite)) continue;
 
@@ -234,6 +278,7 @@ async function buildPanelAccounts(options?: {
     .filter((authUser) => {
       const panelSite = resolveAccountPanelSite({
         userMetadata: authUser.user_metadata as Record<string, unknown>,
+        email: authUser.email,
       });
       return belongsToCurrentPanel(panelSite);
     })
@@ -274,8 +319,7 @@ function filterUsersForCaller(
   users: PanelAccountRow[],
   callerRole: 'admin' | 'reseller',
 ): PanelAccountRow[] {
-  if (callerRole === 'admin') return users;
-  return users.filter((u) => u.panelRole === 'client');
+  return filterPanelAccountsForCaller(users, callerRole) as PanelAccountRow[];
 }
 
 function buildPanelUserCounts(users: PanelAccountRow[]) {
@@ -306,11 +350,15 @@ export async function GET() {
       });
     }
 
-    const allUsers = await buildPanelAccounts({ sync: false, includePaidCheck: false });
+    const allUsers = (await listAllBootstrapPanelAccounts()) as PanelAccountRow[];
     panelUsersServerCache = { at: Date.now(), users: allUsers };
     const users = filterUsersForCaller(allUsers, auth.user.role);
 
-    return NextResponse.json({ success: true, users, counts: buildPanelUserCounts(users) });
+    return NextResponse.json({
+      success: true,
+      users,
+      counts: buildPanelAccountCounts(users),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao listar contas';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -385,7 +433,8 @@ export async function POST() {
 
     clearPanelUsersServerCache();
     const provision = await provisionAllPendingResellers();
-    const users = await buildPanelAccounts({ sync: true, includePaidCheck: true });
+    await backfillDownloadableCredentials(admin, authUsers);
+    const users = await buildPanelAccounts({ sync: false, includePaidCheck: false });
 
     return NextResponse.json({
       success: true,
@@ -487,6 +536,13 @@ export async function PUT(req: NextRequest) {
       name: displayName,
     });
 
+    await upsertDownloadableCredentials(admin, {
+      email: normalizedEmail,
+      password,
+      userId: created.user.id,
+      role,
+    });
+
     let provisionResult = null;
     if (role === 'reseller') {
       provisionResult = await ensureResellerProvisioned({
@@ -579,6 +635,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     await admin.auth.admin.updateUserById(userId, updatePayload);
+
+    if (password && password.length >= 6) {
+      await upsertDownloadableCredentials(admin, {
+        email: resolvedEmail,
+        password,
+        userId,
+        role,
+      });
+    }
 
     let provisionResult = null;
     if (role === 'reseller') {

@@ -1,14 +1,15 @@
 /**
  * Carrega sites / utilizadores / pacotes do espelho Supabase via `/api/panel/bootstrap`
- * (uma única chamada). Fallback legado: `/api/server-exec` por acção.
+ * (uma única chamada).
  */
 
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api';
+import type { PanelBootstrapAccount } from '@/lib/panel-bootstrap-accounts';
 
 const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v1';
 const BOOTSTRAP_CACHE_MS = 180_000;
 
-export type PanelBootstrapScope = 'admin' | 'reseller';
+export type PanelBootstrapScope = 'admin' | 'reseller' | 'client';
 
 function bootstrapStorageKey(scope?: PanelBootstrapScope): string {
   return scope ? `${BOOTSTRAP_CACHE_KEY}_${scope}` : BOOTSTRAP_CACHE_KEY;
@@ -26,6 +27,8 @@ export type PanelBootstrapData = {
   sites: DirectAdminWebsite[];
   users: DirectAdminUser[];
   packages: DirectAdminPackage[];
+  accounts: PanelBootstrapAccount[];
+  accountCounts: Record<string, number>;
   resellerContext: PanelBootstrapResellerContext | null;
   meta?: { source?: string; lastSyncedAt?: string | null };
 };
@@ -61,6 +64,7 @@ export function clearPanelBootstrapCache(scope?: PanelBootstrapScope) {
     }
     sessionStorage.removeItem(bootstrapStorageKey('admin'));
     sessionStorage.removeItem(bootstrapStorageKey('reseller'));
+    sessionStorage.removeItem(bootstrapStorageKey('client'));
     sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
   } catch {
     /* ignore */
@@ -87,11 +91,24 @@ export async function fetchPanelBootstrap(options?: {
     sites: Array.isArray(json.sites) ? json.sites : [],
     users: Array.isArray(json.users) ? json.users : [],
     packages: Array.isArray(json.packages) ? json.packages : [],
+    accounts: Array.isArray(json.accounts) ? json.accounts : [],
+    accountCounts:
+      json.accountCounts && typeof json.accountCounts === 'object'
+        ? json.accountCounts
+        : {},
     resellerContext: json.resellerContext || null,
     meta: json.meta,
   };
 
   writeBootstrapCache(data, scope);
+  try {
+    if (data.accounts.length) {
+      const { writePanelUsersCache } = await import('@/lib/panel-users-cache');
+      writePanelUsersCache({ users: data.accounts, counts: data.accountCounts });
+    }
+  } catch {
+    /* ignore */
+  }
   return data;
 }
 
@@ -211,45 +228,29 @@ export async function fetchPanelSitesFromServerWithError(): Promise<{
   error?: string;
 }> {
   try {
-    const json = await postServerExec('listWebsites', {});
-    if (!json.success) {
-      return {
-        sites: [],
-        error: json.error || 'Falha ao listar websites no DirectAdmin',
-      };
-    }
-    const sites = unwrapArray(json.data)
-      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
-      .filter((r) => typeof r.domain === 'string' && r.domain.length > 0)
-      .map(mapServerSite);
+    const { sites } = await fetchPanelBootstrap({ fresh: true });
     return { sites };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Erro de ligação ao DirectAdmin';
+    const message = e instanceof Error ? e.message : 'Erro ao carregar sites do painel';
     return { sites: [], error: message };
   }
 }
 
+/** @deprecated Preferir fetchPanelBootstrap */
 export async function fetchPanelUsersFromServer(): Promise<DirectAdminUser[]> {
   try {
-    const json = await postServerExec('listUsers', {});
-    if (!json.success) return [];
-    return unwrapArray(json.data)
-      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
-      .filter((r) => typeof r.userName === 'string')
-      .map(mapServerUser);
+    const { users } = await fetchPanelBootstrap({ fresh: true });
+    return users;
   } catch {
     return [];
   }
 }
 
+/** @deprecated Preferir fetchPanelBootstrap */
 export async function fetchPanelPackagesFromServer(): Promise<DirectAdminPackage[]> {
   try {
-    const json = await postServerExec('listPackages', {});
-    if (!json.success) return [];
-    return unwrapArray(json.data)
-      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
-      .filter((r) => typeof r.packageName === 'string')
-      .map(mapServerPackage);
+    const { packages } = await fetchPanelBootstrap({ fresh: true });
+    return packages;
   } catch {
     return [];
   }

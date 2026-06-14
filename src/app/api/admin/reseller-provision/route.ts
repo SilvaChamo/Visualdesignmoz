@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { ensureResellerProvisioned } from '@/lib/reseller-auto-provision';
 import { provisionResellerAccount } from '@/lib/reseller-provision';
+import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
 
 /**
  * Cria ou liga revendedor — usa auto-provisionamento quando possível.
@@ -9,6 +11,9 @@ import { provisionResellerAccount } from '@/lib/reseller-provision';
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   try {
     const body = await req.json();
@@ -42,6 +47,15 @@ export async function POST(req: NextRequest) {
         nome: nome || `${firstName || ''} ${lastName || ''}`.trim(),
         domain,
       });
+      if (supabaseUrl && serviceKey && password) {
+        const admin = createAdminClient(supabaseUrl, serviceKey);
+        await upsertDownloadableCredentials(admin, {
+          email: email.toLowerCase().trim(),
+          password,
+          userId: authUserId,
+          role: 'reseller',
+        });
+      }
       return NextResponse.json({
         success: true,
         message: 'Revendedor provisionado automaticamente.',
@@ -70,6 +84,16 @@ export async function POST(req: NextRequest) {
       linkExisting: Boolean(linkExisting),
       authUserId,
     });
+
+    if (supabaseUrl && serviceKey && result.authUserId && password) {
+      const admin = createAdminClient(supabaseUrl, serviceKey);
+      await upsertDownloadableCredentials(admin, {
+        email: email.toLowerCase().trim(),
+        password,
+        userId: result.authUserId,
+        role: 'reseller',
+      });
+    }
 
     return NextResponse.json({
       success: true,

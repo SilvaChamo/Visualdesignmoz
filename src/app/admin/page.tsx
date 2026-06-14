@@ -25,7 +25,7 @@ import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SSLViewSection, PHPConfigSection,
-  APIConfigSection, GitDeploySection, WPListSection, WPPluginsSection,
+  APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
   DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
   DNSCreateZoneSection, DNSDeleteZoneSection,
@@ -636,7 +636,7 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                       <button
                         onClick={() => {
                           if (setSelectedDNSDomain) setSelectedDNSDomain(s.domain);
-                          setActiveSection('domains-dns');
+                          setActiveSection('dns-central');
                         }}
                         className="flex items-center gap-1.5 bg-fuchsia-50 border border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-100 px-4 py-2 rounded text-xs font-bold transition-colors">
                         <Globe2 className="w-3.5 h-3.5" /> Editar DNS
@@ -751,13 +751,49 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
   const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>(() => readSiteSslCache())
   const [wpDomainSet, setWpDomainSet] = useState<Set<string>>(new Set())
+  const [wpListLoading, setWpListLoading] = useState(false)
 
   const sitesArray = Array.isArray(sites) ? sites : []
+
+  /** WordPress: espelho + detecção no servidor (só domínios da conta — API filtrada). */
+  const mergedSitesArray = useMemo(() => {
+    if (!wordpressOnly) return sitesArray
+    const map = new Map<string, DirectAdminWebsite>()
+    for (const s of sitesArray) {
+      if (!s.domain) continue
+      map.set(s.domain.toLowerCase(), s)
+    }
+    for (const domain of wpDomainSet) {
+      const existing = map.get(domain)
+      if (existing) {
+        map.set(domain, {
+          ...existing,
+          siteType: 'wordpress',
+          hasWordPress: true,
+        })
+      } else {
+        map.set(domain, {
+          id: domain,
+          domain,
+          owner: 'admin',
+          state: 'Active',
+          siteType: 'wordpress',
+          hasWordPress: true,
+        })
+      }
+    }
+    return Array.from(map.values())
+  }, [sitesArray, wpDomainSet, wordpressOnly])
+
   const filtered = sortSitesPrimaryFirst(
-    sitesArray.filter(s => {
+    mergedSitesArray.filter(s => {
       if (!s.domain.toLowerCase().includes(search.toLowerCase())) return false
       if (s.domain.includes('contaboserver')) return false
       if (s.domain.toLowerCase().startsWith('mail')) return false
+      if (wordpressOnly) {
+        const owner = (s.owner || 'admin').trim().toLowerCase()
+        if (owner !== 'admin') return false
+      }
       if (wordpressOnly && !isWordPressSite(s) && !wpDomainSet.has(s.domain.toLowerCase())) return false
       return true
     }),
@@ -777,13 +813,21 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   useEffect(() => {
     if (!wordpressOnly) return
     let cancelled = false
-    void fetch('/api/admin/wp-update', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => {
+    setWpListLoading(true)
+    void (async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase-client')
+        await supabase.auth.getSession()
+        const res = await fetch('/api/admin/wp-update', { credentials: 'include' })
+        const data = await res.json()
         if (cancelled || !data.success || !Array.isArray(data.installs)) return
         setWpDomainSet(new Set(data.installs.map((i: { domain: string }) => i.domain.toLowerCase())))
-      })
-      .catch(() => {})
+      } catch {
+        /* mantém espelho */
+      } finally {
+        if (!cancelled) setWpListLoading(false)
+      }
+    })()
     return () => { cancelled = true }
   }, [wordpressOnly])
 
@@ -863,7 +907,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
   const openDnsEditor = (domain: string) => {
     setSelectedDNSDomain(domain)
-    setTimeout(() => setActiveSection('domains-dns'), 50)
+    setTimeout(() => setActiveSection('dns-central'), 50)
   }
 
   const openDatabases = (domain: string) => {
@@ -1041,7 +1085,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <span className="text-base font-bold text-gray-900 shrink-0 dark:text-zinc-100">
-          {wordpressOnly ? `Sites WordPress (${filtered.length})` : `Websites (${filtered.length})`}
+          Websites ({filtered.length})
         </span>
 
         <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
@@ -1075,7 +1119,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       )}
 
       {filtered.length === 0 && !daLoadError && (
-        <p className="text-center text-gray-500 py-8">Nenhum website encontrado no DirectAdmin.</p>
+        <p className="text-center text-gray-500 py-8">
+          {wordpressOnly && wpListLoading
+            ? 'A detectar sites WordPress…'
+            : wordpressOnly
+              ? 'Nenhum site WordPress nesta conta.'
+              : 'Nenhum website encontrado no DirectAdmin.'}
+        </p>
       )}
 
       {/* Lista de sites como cards expansíveis */}
@@ -2013,7 +2063,7 @@ function ManageWebsiteSection({
         color="text-yellow-700"
         bgColor="bg-yellow-50"
       >
-        <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('domains-dns'); }} />
+        <MenuItem icon="dns-zone" label="Edit DNS Zone" onClick={() => { setSelectedDNSDomain(domain); setActiveSection('dns-central'); }} />
         <MenuItem icon="dns-zone" label="Create Zone" onClick={() => setActiveSection('cp-dns-create-zone')} />
         <MenuItem icon="dns-zone" label="Delete Zone" onClick={() => setActiveSection('cp-dns-delete-zone')} />
       </SectionCard>
@@ -2619,11 +2669,11 @@ function AdminPageContent() {
       case 'news-manager':
         return <NewsManagerSection />
       case 'clientes':
-        return <CPUsersSection variant="panels" panelScope="client" />
+        return <CPUsersSection variant="panels" panelScope="client" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'revendedores':
-        return <CPUsersSection variant="panels" panelScope="reseller" />
+        return <CPUsersSection variant="panels" panelScope="reseller" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'domains-new':
-        return <DomainManagerSection sites={filteredSites} packages={directAdminPackages} onCreateEmail={(domain) => { setPreSelectedEmailDomain(domain); setActiveSection('cp-email-mgmt') }} />
+        return <DomainManagerSection sites={filteredSites} packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} onCreateEmail={(domain) => { setPreSelectedEmailDomain(domain); setActiveSection('cp-email-mgmt') }} />
       case 'cp-subdomains':
         return <SubdomainsSection sites={filteredSites} />
       case 'website-preview':
@@ -2687,7 +2737,7 @@ function AdminPageContent() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection variant="panels" panelScope="users" />
+        return <CPUsersSection variant="panels" panelScope="users" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':
@@ -2711,11 +2761,9 @@ function AdminPageContent() {
         return <SSLSection sites={filteredSites} setActiveSection={setActiveSection} />
       case 'cp-dns-cloudflare':
         return (
-          <DNSZoneEditorSection
+          <DNSCentralSection
             sites={filteredSites}
             initialDomain={selectedDNSDomain || primaryDomain}
-            variant="central"
-            isActive={isActive}
           />
         )
       case 'cp-php':
@@ -2792,10 +2840,14 @@ function AdminPageContent() {
       case 'cp-dns-create-zone':
         return <DNSCreateZoneSection sites={filteredSites} />
       case 'domains-dns':
-        return <DNSZoneEditorSection
-          sites={filteredSites}
-          initialDomain={selectedDNSDomain || primaryDomain}
-        />
+      case 'dns-central':
+      case 'cp-dns-zone-editor':
+        return (
+          <DNSCentralSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-delete-zone':
         return <DNSDeleteZoneSection sites={filteredSites} />
       case 'cp-dns-reset':
@@ -2809,6 +2861,7 @@ function AdminPageContent() {
           <DomainManagerSection
             sites={filteredSites}
             packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
               setActiveSection('cp-email-mgmt')
@@ -2819,15 +2872,6 @@ function AdminPageContent() {
             }}
           />
         )
-      case 'dns-central':
-        return (
-          <DNSCentralSection
-            sites={filteredSites}
-            initialDomain={selectedDNSDomain || primaryDomain}
-          />
-        )
-      case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={filteredSites} initialDomain={primaryDomain} />
       case 'newsletter':
         return (
           <MailMarketingSection
@@ -2844,6 +2888,7 @@ function AdminPageContent() {
           <DomainManagerSection
             sites={filteredSites}
             packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
               setActiveSection('cp-email-mgmt')

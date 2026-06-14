@@ -50,9 +50,11 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'dns-central', label: 'DNS Central' },
       { id: 'domain-manager', label: 'Gestor de domínios' },
       { id: 'cp-dns-nameserver', label: 'Nameservers' },
+      { id: 'cp-subdomains', label: 'Criar subdomínio' },
+      { id: 'cp-ssl', label: 'SSL / TLS' },
+      { id: 'cp-php', label: 'Configuração PHP' },
       { id: 'porkbun-domains', label: 'Registar domínio' },
       { id: 'transferir-dominio', label: 'Transferir domínio' },
-      { id: 'porkbun-my-domains', label: 'Os meus domínios' },
     ],
   },
   {
@@ -74,6 +76,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
       { id: 'wordpress-install', label: 'Criar Website' },
       { id: 'wp-plugins', label: 'Plugins' },
       { id: 'wp-backup', label: 'Backups' },
+      { id: 'cp-databases', label: 'Bases de Dados' },
     ],
   },
   {
@@ -98,8 +101,6 @@ export const RESELLER_LEGACY_MENU_SUBITEMS: PanelMenuSubItem[] = [
   { id: 'domains-new-legacy', label: 'Criar Domínio' },
   { id: 'cp-subdomains', label: 'Criar Subdomínio' },
   { id: 'cp-suspend-website', label: 'Suspender' },
-  { id: 'domains-dns', label: 'Configurar DNS' },
-  { id: 'dns-central-legacy', label: 'DNS Central' },
   { id: 'gestao-wp-header', label: '— WordPress —' },
   { id: 'cp-wp-list', label: 'Listar sites WordPress' },
   { id: 'wordpress-install-legacy', label: 'Instalar WordPress' },
@@ -198,8 +199,6 @@ export const RESELLER_LEGACY_MENU_DEFS: PanelMenuItemDef[] = [
       { id: 'domains-new-legacy', label: 'Criar Domínio' },
       { id: 'cp-subdomains', label: 'Criar Subdomínio' },
       { id: 'cp-suspend-website', label: 'Suspender' },
-      { id: 'domains-dns', label: 'Configurar DNS' },
-      { id: 'dns-central-legacy', label: 'DNS Central' },
     ],
   },
   {
@@ -265,13 +264,11 @@ export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'cp-reseller-legacy', label: 'Centro de Revenda' },
   { id: 'porkbun-domains-legacy', label: 'Registar domínio' },
   { id: 'porkbun-my-domains-legacy', label: 'Domínios Spaceship' },
-  { id: 'dns-central-legacy', label: 'DNS Central' },
   { id: 'cp-subdomains', label: 'Criar Subdomínio' },
   { id: 'cp-list-subdomains', label: 'Listar Sub/Addon' },
   { id: 'cp-modify-website', label: 'Modificar Website' },
   { id: 'cp-suspend-website', label: 'Suspender' },
   { id: 'cp-delete-website', label: 'Apagar Website' },
-  { id: 'domains-dns', label: 'Configurar DNS (servidor)' },
   { id: 'gestao-emails-header', label: '— Gestão de E-mails —' },
   { id: 'emails-new-legacy', label: 'E-mails' },
   { id: 'setup-smtp', label: 'Envio e Recepção' },
@@ -297,6 +294,8 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'porkbun-domains-legacy': 'porkbun-domains',
   'porkbun-my-domains-legacy': 'porkbun-my-domains',
   'dns-central-legacy': 'dns-central',
+  'domains-dns': 'dns-central',
+  'cp-dns-zone-editor': 'dns-central',
   'emails-new-legacy': 'emails-new',
   'webmail-legacy': 'webmail',
   'criar-email-legacy': 'criar-email',
@@ -345,9 +344,11 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'dns-central': 'nov-dominios',
   'domain-manager': 'nov-dominios',
   'cp-dns-nameserver': 'nov-dominios',
+  'cp-subdomains': 'nov-dominios',
+  'cp-ssl': 'nov-dominios',
+  'cp-php': 'nov-dominios',
   'porkbun-domains': 'nov-dominios',
   'transferir-dominio': 'nov-dominios',
-  'porkbun-my-domains': 'nov-dominios',
   'notificacoes-recebidas': 'nov-notificacoes',
   renewals: 'nov-notificacoes',
   'cadastrar-renovacao': 'nov-notificacoes',
@@ -357,6 +358,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
   'wp-backup': 'nov-wordpress',
+  'cp-databases': 'nov-wordpress',
   'backup-manager': 'menu-anterior',
   infrastructure: 'nov-definicoes',
   'settings-branding': 'nov-definicoes',
@@ -415,6 +417,11 @@ export function isMenuHeaderSubItem(subId: string): boolean {
 
 export function adminMenuParentForSection(sectionId: string): string | null {
   const resolved = resolveSectionId(sectionId);
+  if (resolved === 'infrastructure' || resolved === 'git-deploy') return 'nov-sistema';
+  if (['cp-ssl', 'cp-php', 'cp-subdomains', 'cp-list-subdomains'].includes(resolved)) {
+    return 'nov-dominios';
+  }
+  if (resolved === 'cp-databases') return 'nov-wordpress';
   if (NEW_SECTION_TO_PARENT[resolved]) return NEW_SECTION_TO_PARENT[resolved];
   if (sectionId.endsWith('-legacy') || LEGACY_ONLY_IDS.has(sectionId)) return 'menu-anterior';
   if (sectionId.startsWith('cp-email')) return 'menu-anterior';
@@ -426,7 +433,7 @@ export function adminMenuParentForSection(sectionId: string): string | null {
       'cp-modify-website',
       'cp-suspend-website',
       'cp-delete-website',
-      'domains-dns',
+      'dns-central',
       'cp-databases',
       'cp-ftp',
       'cp-ssl',

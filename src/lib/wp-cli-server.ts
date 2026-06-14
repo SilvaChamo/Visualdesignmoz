@@ -125,11 +125,16 @@ export async function listWpInstalls(): Promise<WpInstallInfo[]> {
 
   const installs: WpInstallInfo[] = [];
   for (const configPath of raw.split('\n').filter(Boolean)) {
-    const match = configPath.match(/\/domains\/([^/]+)\/public_html\/wp-config\.php$/);
+    const match = configPath.match(
+      /^\/home\/([^/]+)\/domains\/([^/]+)\/public_html\/wp-config\.php$/,
+    );
     if (!match) continue;
-    const domain = match[1];
-    const info = await resolveWpInstall(domain);
-    if (info) installs.push(info);
+    const [, user, domain] = match;
+    installs.push({
+      domain,
+      path: configPath.replace(/\/wp-config\.php$/, ''),
+      user,
+    });
   }
   return installs;
 }

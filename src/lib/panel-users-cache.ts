@@ -46,18 +46,45 @@ export function clearPanelUsersCache() {
   }
 }
 
-async function fetchPanelUsersNetwork(): Promise<PanelUsersCachePayload> {
-  const res = await fetch('/api/admin/panel-users', { credentials: 'include' });
-  const json = await res.json();
-  if (!res.ok || !json.success) {
-    throw new Error(json.error || 'Falha ao carregar utilizadores');
+async function waitForAuthSession(maxMs = 4000): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    try {
+      const { supabase } = await import('@/lib/supabase-client');
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return;
+    } catch {
+      /* retry */
+    }
+    await new Promise((r) => setTimeout(r, 120));
   }
-  const data: PanelUsersCachePayload = {
-    users: json.users || [],
-    counts: json.counts || {},
-  };
-  writePanelUsersCache(data);
-  return data;
+}
+
+async function fetchPanelUsersNetwork(): Promise<PanelUsersCachePayload> {
+  await waitForAuthSession();
+
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 45_000);
+
+  try {
+    const res = await fetch('/api/admin/panel-users', {
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Falha ao carregar utilizadores');
+    }
+    const data: PanelUsersCachePayload = {
+      users: json.users || [],
+      counts: json.counts || {},
+    };
+    writePanelUsersCache(data);
+    return data;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 /** Cache primeiro; `fresh` ignora cache e força rede. */
@@ -86,6 +113,6 @@ export async function fetchPanelUsersStaleWhileRevalidate(
     onUpdate(fresh);
     return fresh;
   } catch {
-    return null;
+    return cached ?? null;
   }
 }

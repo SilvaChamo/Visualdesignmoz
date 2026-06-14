@@ -24,7 +24,7 @@ import { DomainTransferSection } from '@/app/admin/DomainTransferSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
-  APIConfigSection, GitDeploySection, WPListSection, WPPluginsSection,
+  APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
   DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
   DNSCreateZoneSection, DNSDeleteZoneSection, CloudFlareSection,
@@ -45,6 +45,13 @@ import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector"
 import { EmailTemplates } from "@/components/admin/EmailTemplates"
 import { toast } from "sonner"
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
+import {
+  fetchPanelBootstrap,
+  fetchPanelBootstrapStaleWhileRevalidate,
+  readBootstrapCache,
+  clearPanelBootstrapCache,
+  type PanelBootstrapData,
+} from '@/lib/panel-data-from-server'
 import ClientDashboardSkeleton from '@/components/dashboard/ClientDashboardSkeleton'
 import { NovoTicketModal } from '@/components/dashboard/NovoTicketModal'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -3461,53 +3468,45 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    // Delay para garantir que getData execute primeiro
-    const timer = setTimeout(() => {
-      loadDirectAdminData()
-    }, 300)
-    return () => clearTimeout(timer)
+    void loadDirectAdminData(false)
   }, [])
+
+  const applyClientBootstrap = (boot: PanelBootstrapData) => {
+    setDirectAdminSites(boot.sites)
+    setDirectAdminUsers(boot.users)
+    setDirectAdminPackages(boot.packages)
+  }
 
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const res = await fetch('/api/da', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listWebsites', params: {} })
-      })
-      const data = await res.json()
-      // CORRIGIR — garantir que usa data.data.sites e não data.data
-      const sites = Array.isArray(data.data?.sites) ? data.data.sites :
-        Array.isArray(data.data) ? data.data : []
-      if (data.success) setDirectAdminSites(sites)
-    } catch (e) { console.error(e) }
+      clearPanelBootstrapCache('client')
+      await loadDirectAdminData(true)
+    } catch (e) {
+      console.error(e)
+    }
     setSyncing(false)
   }
 
-  const loadDirectAdminData = async () => {
-    setIsFetchingDirectAdmin(true)
+  const loadDirectAdminData = async (fresh = false) => {
+    if (fresh) clearPanelBootstrapCache('client')
+
+    const cached = !fresh ? readBootstrapCache('client') : null
+    if (cached) {
+      applyClientBootstrap(cached)
+    } else {
+      setIsFetchingDirectAdmin(true)
+    }
+
     try {
-      // Delay para evitar conflito com outras chamadas ao auth
-      await new Promise(resolve => setTimeout(resolve, 50))
-      const { data: { user } } = await createClientInstance.auth.getUser()
-      const email = user?.email
-
-      const [sites, users, packages] = await Promise.all([
-        directAdminAPI.listWebsites().catch(() => []),
-        directAdminAPI.listUsers().catch(() => []),
-        directAdminAPI.listPackages().catch(() => []),
-      ])
-
-      // Filtrar sites pelo email do administrador/cliente
-      const allSites = Array.isArray(sites) ? sites : []
-      const filteredSites = email ? allSites.filter(s => s.adminEmail === email || s.owner === email || s.domain.includes(email.split('@')[0])) : []
-
-      setDirectAdminSites(filteredSites)
-      setDirectAdminUsers(Array.isArray(users) ? users : [])
-      setDirectAdminPackages(Array.isArray(packages) ? packages : [])
+      if (cached && !fresh) {
+        await fetchPanelBootstrapStaleWhileRevalidate(applyClientBootstrap, 'client')
+      } else {
+        const boot = await fetchPanelBootstrap({ fresh: true, scope: 'client' })
+        applyClientBootstrap(boot)
+      }
     } catch (error) {
-      console.error('Erro ao carregar dados DirectAdmin:', error)
+      console.error('Erro ao carregar dados do painel:', error)
     } finally {
       setIsFetchingDirectAdmin(false)
     }
@@ -3533,19 +3532,15 @@ export default function AdminPage() {
       apiBase="/api/client/wp-update"
       initialDomain={clientWpDomain}
       initialTab={
-        sectionId === 'wp-sites' || sectionId === 'cp-wp-list' || sectionId === 'domains'
-          ? 'sites'
-          : sectionId === 'wordpress-install'
-            ? 'install'
-            : sectionId === 'wp-backup'
-              ? 'backup'
-              : 'plugins'
+        sectionId === 'wordpress-install'
+          ? 'install'
+          : sectionId === 'wp-backup'
+            ? 'backup'
+            : 'plugins'
       }
       autoSelectFirstWp={
         sectionId === 'wp-plugins' ||
-        sectionId === 'wp-sites' ||
-        sectionId === 'cp-wp-plugins' ||
-        sectionId === 'cp-wp-list'
+        sectionId === 'cp-wp-plugins'
       }
       hideDomainSelector={directAdminSites.length <= 1 && sectionId === 'wp-plugins'}
       setFileManagerDomain={setFileManagerDomain}
@@ -3707,8 +3702,21 @@ export default function AdminPage() {
         // return <APIConfigSection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Configurações</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-wp-list':
-      case 'cp-wp-plugins':
       case 'wp-sites':
+        return (
+          <ListWebsitesSection
+            sites={directAdminSites}
+            onRefresh={loadDirectAdminData}
+            packages={directAdminPackages}
+            setActiveSection={setActiveSection}
+            setFileManagerDomain={setFileManagerDomain}
+            setSelectedDNSDomain={setSelectedDNSDomain}
+            loadDirectAdminData={loadDirectAdminData}
+            syncing={syncing}
+            handleSync={handleSync}
+          />
+        )
+      case 'cp-wp-plugins':
       case 'wp-plugins':
       case 'wp-backup':
       case 'wordpress-install':
@@ -3766,10 +3774,14 @@ export default function AdminPage() {
         // return <DNSCreateZoneSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Criar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'domains-dns':
-        return <DNSZoneEditorSection
-          sites={directAdminSites}
-          initialDomain={selectedDNSDomain || primaryDomain}
-        />
+      case 'dns-central':
+      case 'cp-dns-zone-editor':
+        return (
+          <DNSCentralSection
+            sites={directAdminSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-delete-zone':
         // return <DNSDeleteZoneSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Apagar Zona DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3779,8 +3791,6 @@ export default function AdminPage() {
       case 'cp-dns-reset':
         // return <DNSResetSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Reset DNS</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
-      case 'cp-dns-zone-editor':
-        return <DNSZoneEditorSection sites={directAdminSites} />
       case 'git-deploy':
         // return <GitDeploySection /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Deploy GitHub</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>

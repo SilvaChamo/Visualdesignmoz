@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
-import { VD_EMAIL } from '@/lib/email-accounts';
+import { PANEL_SLUG, inferPanelSiteFromEmail } from '@/lib/panel-tenant'
+import { decryptStoredPassword, buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
+import { STANDARD_PANEL_PASSWORD } from '@/lib/stored-panel-password'
+import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
 import { getDefaultFrom, getServerEmail, sendSmtpMail } from '@/lib/smtp-mail';
 import { 
   getServerHost, 
@@ -36,6 +39,70 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
+  const configEmail = searchParams.get('config_email')?.trim().toLowerCase()
+
+  if (configEmail) {
+    const roleDb = supabaseAdmin;
+    const effectiveRole = session.user
+      ? await resolveRoleForAuthUser(roleDb, session.user)
+      : 'guest';
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+    const isAdmin = isExplicitAdmin || effectiveRole === 'admin';
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 });
+    }
+
+    const { data: row } = await supabaseAdmin
+      .from('email_contas')
+      .select('email, senha_servidor, quota_mb, tipo_conta')
+      .eq('email', configEmail)
+      .maybeSingle();
+
+    let password = row?.senha_servidor ? decryptStoredPassword(row.senha_servidor as string) : '';
+
+    if (!password) {
+      const std = STANDARD_PANEL_PASSWORD;
+      if (std) password = std;
+    }
+
+    if (!password) {
+      return NextResponse.json(
+        { success: false, error: 'Credenciais não encontradas para esta conta.' },
+        { status: 404 },
+      );
+    }
+
+    if (row?.tipo_conta === 'panel') {
+      const { getProfileForAuthUser } = await import('@/lib/profile-db');
+      const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      let authUser = authList.users.find((u) => u.email?.toLowerCase() === configEmail);
+      if (!authUser) {
+        for (let page = 2; page <= 20 && !authUser; page++) {
+          const { data: nextPage } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+          authUser = nextPage.users.find((u) => u.email?.toLowerCase() === configEmail);
+          if (!nextPage.users?.length || nextPage.users.length < 1000) break;
+        }
+      }
+      const profile = authUser ? await getProfileForAuthUser(supabaseAdmin, authUser.id) : null;
+      const panelBundle = buildPanelAccessConfigText({
+        email: configEmail,
+        password,
+        panelRole: String(profile?.role || authUser?.user_metadata?.role || 'client'),
+        name: profile?.name,
+      });
+      return NextResponse.json({
+        success: true,
+        email: configEmail,
+        password,
+        ...panelBundle,
+      });
+    }
+
+    const { buildEmailConfigBundle } = await import('@/lib/email-client-config-export');
+    const bundle = buildEmailConfigBundle(configEmail, password, row?.quota_mb as number | undefined);
+    return NextResponse.json({ success: true, email: configEmail, password, ...bundle });
+  }
+
   const clienteId = searchParams.get('cliente_id') || session.user.id
 
   // Proteção: utilizador só vê o seu próprio ID, a menos que seja admin
@@ -179,8 +246,9 @@ export async function POST(req: NextRequest) {
           email_confirm: true, // Auto-confirma email
           user_metadata: {
             nome: nome || user,
-            role: 'client', // Padrão: cliente
-            domain: domain
+            role: 'client',
+            domain: domain,
+            site: inferPanelSiteFromEmail(email) || PANEL_SLUG,
           }
         })
         

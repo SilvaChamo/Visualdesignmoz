@@ -113,7 +113,7 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
     label: 'DNS',
     icon: 'server',
     subItems: [
-      { id: 'domains-dns', label: 'Editar DNS' },
+      { id: 'dns-central', label: 'DNS Central' },
       { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'cp-dns-default-ns', label: 'NS padrão' },
