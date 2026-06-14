@@ -69,8 +69,39 @@ async function resolveDirectAdminLoginUrl(): Promise<string> {
   return fallback;
 }
 
+function loginActionUrl(loginUrl: string): string {
+  return `${loginUrl.replace(/\/$/, '')}/CMD_LOGIN`;
+}
+
+function resolveRedirectUrl(loginUrl: string, location: string): string {
+  if (location.startsWith('http://') || location.startsWith('https://')) return location;
+  const base = loginUrl.replace(/\/$/, '');
+  return `${base}${location.startsWith('/') ? location : `/${location}`}`;
+}
+
+/** DirectAdmin Evolution devolve URL one-time (`/api/login/redirect?key=…`) após login válido. */
+async function createOneTimeLoginUrl(
+  loginUrl: string,
+  username: string,
+  password: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(loginActionUrl(loginUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password, redirect: '/' }),
+      redirect: 'manual',
+    });
+    const location = res.headers.get('location');
+    if (!location || !location.includes('/api/login/redirect')) return null;
+    return resolveRedirectUrl(loginUrl, location);
+  } catch {
+    return null;
+  }
+}
+
 function buildAutoLoginHtml(loginUrl: string, username: string, password: string): string {
-  const action = `${loginUrl.replace(/\/$/, '')}/CMD_LOGIN`;
+  const action = loginActionUrl(loginUrl);
   const safeUser = escapeHtml(username);
   const safePass = escapeHtml(password);
 
@@ -132,7 +163,15 @@ export async function GET() {
       creds = await resolveDirectAdminCredentials('admin');
     }
 
-    // Login keys e auto-login web exigem o nome da conta (`admin`), não o email.
+    // Login keys exigem o nome da conta (`admin`), não o email.
+    const oneTimeUrl = await createOneTimeLoginUrl(loginUrl, creds.user, creds.password);
+    if (oneTimeUrl) {
+      return NextResponse.redirect(oneTimeUrl, {
+        status: 307,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+
     const html = buildAutoLoginHtml(loginUrl, creds.user, creds.password);
     return new NextResponse(html, {
       headers: {
@@ -140,7 +179,8 @@ export async function GET() {
         'Cache-Control': 'no-store',
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[directadmin-access]', err instanceof Error ? err.message : err);
     return NextResponse.redirect(loginUrl, {
       status: 307,
       headers: { 'Cache-Control': 'no-store' },
