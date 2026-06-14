@@ -47,12 +47,12 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Domínios & DNS',
     isNewMenu: true,
     subItems: [
+      { id: 'domain-manager', label: 'Meus domínios' },
+      { id: 'domains-new', label: 'Criar domínio' },
       { id: 'dns-central', label: 'DNS Central' },
-      { id: 'domain-manager', label: 'Gestor de domínios' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
-      { id: 'cp-subdomains', label: 'Criar subdomínio' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
-      { id: 'cp-php', label: 'Configuração PHP' },
+      { id: 'cp-php', label: 'Configurar PHP' },
+      { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'porkbun-domains', label: 'Registar domínio' },
       { id: 'transferir-dominio', label: 'Transferir domínio' },
     ],
@@ -343,6 +343,8 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'criar-email': 'menu-anterior',
   'dns-central': 'nov-dominios',
   'domain-manager': 'nov-dominios',
+  'domains-new': 'nov-dominios',
+  'domains-list': 'nov-dominios',
   'cp-dns-nameserver': 'nov-dominios',
   'cp-subdomains': 'nov-dominios',
   'cp-ssl': 'nov-dominios',
@@ -418,7 +420,7 @@ export function isMenuHeaderSubItem(subId: string): boolean {
 export function adminMenuParentForSection(sectionId: string): string | null {
   const resolved = resolveSectionId(sectionId);
   if (resolved === 'infrastructure' || resolved === 'git-deploy') return 'nov-sistema';
-  if (['cp-ssl', 'cp-php', 'cp-subdomains', 'cp-list-subdomains'].includes(resolved)) {
+  if (['cp-ssl', 'cp-php', 'cp-subdomains', 'cp-list-subdomains', 'domains-new', 'domains-list'].includes(resolved)) {
     return 'nov-dominios';
   }
   if (resolved === 'cp-databases') return 'nov-wordpress';

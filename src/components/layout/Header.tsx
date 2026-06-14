@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Menu, X, ChevronDown, User, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -100,8 +101,8 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
 
   return (
     <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm dark:bg-white/10 dark:backdrop-blur-md dark:shadow-none dark:border-b dark:border-white/15 ${scrolled ? 'shadow-md dark:shadow-none' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
-      {/* Red line top bar */}
-      <div className={`h-[2.5px] bg-red-600 transition-all duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
+      {/* Linha superior — mais suave no layout escuro */}
+      <div className={`h-[2.5px] bg-red-600 transition-all duration-300 dark:h-[1px] dark:bg-red-950/45 dark:opacity-80 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
       
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex lg:grid lg:grid-cols-[1fr_2fr_1fr] items-center lg:items-stretch h-[70px] w-full gap-2">
@@ -109,15 +110,21 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
           <div className="flex items-center justify-start min-w-0 shrink">
             <Link href="/" className="flex-shrink-0">
               <div className="h-[36px] w-[130px] sm:h-[48px] sm:w-[192px] relative">
-                <img
+                <Image
                   src="/assets/Logo - horizontal.jpg"
                   alt="VisualDesign Logo"
-                  className="h-full w-full object-contain dark:hidden"
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 130px, 192px"
+                  className="object-contain dark:hidden"
                 />
-                <img
+                <Image
                   src="/assets/Logo - Branco.png"
                   alt="VisualDesign Logo"
-                  className="hidden h-full w-full object-contain dark:block"
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 130px, 192px"
+                  className="hidden object-contain dark:block"
                 />
               </div>
             </Link>

@@ -1,8 +1,10 @@
 'use client'
+// Force re-render to fix hydration mismatch after logo size change
 
-import { useI18n } from '@/lib/i18n'
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 
 function HomePage() {
@@ -16,9 +18,14 @@ function HomePage() {
     <div className="min-h-screen bg-black/10 dark:bg-black">
       {/* Header Section - Gray 25% */}
       <div className="bg-[#404040] dark:bg-black relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 dark:opacity-25"
-          style={{ backgroundImage: "url('/assets/BG.jpg')" }}
+        <Image
+          src="/assets/BG.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center opacity-20 dark:opacity-25"
+          aria-hidden
         />
         <div className="absolute inset-0 bg-black/40 dark:bg-black/45" />
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[120px] sm:pt-[100px] md:pt-[120px] lg:pt-[150px] pb-[20px] sm:pb-[30px] flex flex-col justify-between items-center min-h-[300px] sm:min-h-[350px] md:min-h-[400px] relative z-10">
