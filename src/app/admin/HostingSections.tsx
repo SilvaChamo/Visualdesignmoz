@@ -8103,7 +8103,7 @@ export function DomainManagerSection({
   const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
 
   const [registrarListRows, setRegistrarListRows] = useState<CachedDomainRow[]>(() =>
-    domainListMode === 'registrar' ? readRegistrarDomainListCache(true) : [],
+    domainListMode === 'registrar' ? readRegistrarDomainListCache() : [],
   )
   const [registrarListLoading, setRegistrarListLoading] = useState(false)
 

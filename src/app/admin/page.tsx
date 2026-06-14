@@ -59,7 +59,6 @@ import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache'
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
-import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -76,7 +75,7 @@ import {
   type PanelBootstrapData,
   type PanelBootstrapScope,
 } from '@/lib/panel-data-from-server'
-import { prefetchPanelContent } from '@/lib/panel-prefetch'
+import { prefetchDnsForDomain, prefetchRegistrarDomains } from '@/lib/panel-prefetch'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
 const directAdminAPI = panelAPI
@@ -757,9 +756,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [createMsg, setCreateMsg] = useState('')
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
   const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>(() => readSiteSslCache())
-  const [wpDomainSet, setWpDomainSet] = useState<Set<string>>(() =>
-    wordpressOnly ? new Set(readWpInstallsCache().map((d) => d.toLowerCase())) : new Set(),
-  )
+  const [wpDomainSet, setWpDomainSet] = useState<Set<string>>(new Set())
   const [wpListLoading, setWpListLoading] = useState(false)
 
   const sitesArray = Array.isArray(sites) ? sites : []
@@ -822,12 +819,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   useEffect(() => {
     if (!wordpressOnly) return
     let cancelled = false
-    const cached = readWpInstallsCache()
-    if (cached.length > 0) {
-      setWpDomainSet(new Set(cached.map((d) => d.toLowerCase())))
-    } else {
-      setWpListLoading(true)
-    }
+    setWpListLoading(true)
     void (async () => {
       try {
         const { supabase } = await import('@/lib/supabase-client')
@@ -835,11 +827,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         const res = await fetch('/api/admin/wp-update', { credentials: 'include' })
         const data = await res.json()
         if (cancelled || !data.success || !Array.isArray(data.installs)) return
-        const domains = data.installs.map((i: { domain: string }) => i.domain.toLowerCase())
-        writeWpInstallsCache(domains)
-        setWpDomainSet(new Set(domains))
+        setWpDomainSet(new Set(data.installs.map((i: { domain: string }) => i.domain.toLowerCase())))
       } catch {
-        /* mantém espelho/cache */
+        /* mantém espelho */
       } finally {
         if (!cancelled) setWpListLoading(false)
       }
@@ -2458,7 +2448,7 @@ function AdminPageContent() {
         const { data: { session } } = await createClientInstance.auth.getSession()
         if (session?.user?.email) {
           setSessionUser(session.user.email)
-          prefetchPanelContent()
+          prefetchRegistrarDomains()
         }
       } catch (error) {
         console.error('Erro ao obter sessão:', error)
@@ -2536,7 +2526,8 @@ function AdminPageContent() {
     } else {
       setDaLoadError('')
     }
-    prefetchPanelContent(primary)
+    prefetchRegistrarDomains()
+    if (primary) prefetchDnsForDomain(primary)
   }
 
   const loadDirectAdminData = async (fresh = false) => {

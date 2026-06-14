@@ -1,6 +1,5 @@
 import { writeDnsCache, type CachedDnsRow } from '@/lib/panel-dns-cache';
 import { writeRegistrarDomainListCache } from '@/lib/panel-domain-list-cache';
-import { writeWpInstallsCache } from '@/lib/panel-wp-cache';
 
 export function prefetchRegistrarDomains() {
   if (typeof window === 'undefined') return;
@@ -36,22 +35,4 @@ export function prefetchDnsForDomain(domain: string) {
       writeDnsCache(domain.trim(), rows);
     })
     .catch(() => undefined);
-}
-
-export function prefetchWordPressInstalls() {
-  if (typeof window === 'undefined') return;
-  void fetch('/api/admin/wp-update', { credentials: 'include' })
-    .then((res) => res.json())
-    .then((data: { success?: boolean; installs?: { domain: string }[] }) => {
-      if (!data.success || !Array.isArray(data.installs)) return;
-      writeWpInstallsCache(data.installs.map((i) => i.domain.toLowerCase()));
-    })
-    .catch(() => undefined);
-}
-
-/** Pré-carregar listas ao iniciar sessão no painel (mostrar cache ao abrir secções). */
-export function prefetchPanelContent(primaryDomain?: string | null) {
-  prefetchRegistrarDomains();
-  prefetchWordPressInstalls();
-  if (primaryDomain) prefetchDnsForDomain(primaryDomain);
 }
