@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Eye, EyeOff, Globe, Loader2, Package, RefreshCw, Shield, UserPlus, Users } from 'lucide-react';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache';
+import { panelBtnSecondary } from '@/lib/panel-ui';
 
 type AccountType = 'client' | 'reseller' | 'admin';
 
@@ -30,6 +31,12 @@ interface Props {
 
 const inputCls =
   'w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400/30';
+
+const formCardCls =
+  'rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900';
+
+const optionRowCls =
+  'flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/40 p-3 dark:border-zinc-800 dark:bg-zinc-800/20';
 
 function generatePassword(length = 16): string {
   const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&';
@@ -253,7 +260,7 @@ export function ProvisionClienteSection({
   };
 
   const summarySidebar = (
-    <aside className="sticky top-0 h-fit w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:w-72">
+    <aside className="sticky top-0 h-fit w-full shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm lg:w-72 dark:border-zinc-700 dark:bg-zinc-900">
       <div className="border-b border-gray-200 px-5 py-4">
         <h3 className="text-sm font-bold text-gray-900">Resumo da conta</h3>
       </div>
@@ -338,7 +345,7 @@ export function ProvisionClienteSection({
     <div className="space-y-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-6">
-          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+          <section className={`${formCardCls} space-y-4`}>
             <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Tipo de conta'}</h2>
             {!isEdit && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -377,7 +384,7 @@ export function ProvisionClienteSection({
             )}
           </section>
 
-          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+          <section className={`${formCardCls} space-y-4`}>
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
               <UserPlus className="w-5 h-5" /> Identidade
             </h2>
@@ -423,7 +430,7 @@ export function ProvisionClienteSection({
           </section>
 
           {accountType !== 'admin' && !isEdit && (
-            <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+            <section className={`${formCardCls} space-y-4`}>
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-5 h-5" /> {accountType === 'reseller' ? 'Pacote de revenda' : 'Pacote'}
               </h2>
@@ -464,7 +471,7 @@ export function ProvisionClienteSection({
           )}
 
           {accountType === 'client' && (
-            <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+            <section className={`${formCardCls} space-y-4`}>
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Globe className="w-5 h-5" /> Hospedagem
               </h2>
@@ -481,15 +488,15 @@ export function ProvisionClienteSection({
               </div>
               {!isEdit && (
               <>
-              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer">
+              <label className={optionRowCls}>
                 <input type="checkbox" checked={options.createEmail} onChange={(e) => setOptions({ ...options, createEmail: e.target.checked })} />
                 <span className="text-sm">
                   Criar email{' '}
-                  <input className="mx-1 px-2 py-0.5 border rounded w-24" value={options.emailUser} onChange={(e) => setOptions({ ...options, emailUser: e.target.value })} />
+                  <input className="mx-1 w-24 rounded border border-gray-200 bg-white px-2 py-0.5 dark:border-zinc-700 dark:bg-transparent" value={options.emailUser} onChange={(e) => setOptions({ ...options, emailUser: e.target.value })} />
                   @{hosting.domain || 'domínio'}
                 </span>
               </label>
-              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer">
+              <label className={optionRowCls}>
                 <input type="checkbox" checked={options.issueSsl} onChange={(e) => setOptions({ ...options, issueSsl: e.target.checked })} />
                 <span className="text-sm">Emitir SSL Let&apos;s Encrypt para {hosting.domain || 'domínio'}</span>
               </label>
@@ -499,7 +506,7 @@ export function ProvisionClienteSection({
           )}
 
           {accountType === 'reseller' && (
-            <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-3">
+            <section className={`${formCardCls} space-y-3`}>
               <h2 className="font-bold text-gray-900">Revenda</h2>
               <input
                 placeholder="Domínio principal (opcional)"
@@ -517,7 +524,7 @@ export function ProvisionClienteSection({
           )}
 
           {isEdit && activePackageName && (
-            <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-2">
+            <section className={`${formCardCls} space-y-2`}>
               <h2 className="font-bold text-gray-900">Pacote actual</h2>
               <p className="text-sm text-gray-700">{activePackageName}</p>
             </section>
@@ -528,8 +535,8 @@ export function ProvisionClienteSection({
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            {isEdit && onCancel && (
-              <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50">
+            {onCancel && (
+              <button type="button" onClick={onCancel} className={panelBtnSecondary}>
                 Cancelar
               </button>
             )}
@@ -537,7 +544,7 @@ export function ProvisionClienteSection({
               type="button"
               onClick={handleProvision}
               disabled={busy || !canSubmit}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40"
+              className="flex items-center gap-2 rounded px-5 py-2.5 bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               {isEdit ? 'Guardar alterações' : 'Criar conta'}

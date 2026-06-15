@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, MoreVertical, PlusCircle, RefreshCw, X } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X } from 'lucide-react';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/admin/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
@@ -73,11 +73,6 @@ function daLoginHref(userName: string): string {
 const actionBtnCls =
   'inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
 
-function generatePassword(length = 16): string {
-  const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&';
-  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
-
 const inputCls = 'w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400/30';
 
 function isDaReseller(user: DaUserRow): boolean {
@@ -142,7 +137,7 @@ function RowActionsMenu({
           key={item.id}
           type="button"
           onClick={() => { onAction(item.id); onClose(); }}
-          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 ${item.danger ? 'text-red-600' : 'text-zinc-700 dark:text-zinc-200'}`}
+          className={`block w-full whitespace-nowrap text-left px-3 py-1.5 text-zinc-700 transition-colors hover:text-red-600 dark:text-zinc-200 dark:hover:bg-transparent dark:hover:text-red-400 ${item.danger ? 'text-red-600 dark:text-red-400' : ''}`}
         >
           {item.label}
         </button>
@@ -182,7 +177,8 @@ export function ClientesDaSection({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [openMenu, setOpenMenu] = useState<{ userName: string; rect: DOMRect } | null>(null);
-  const [passwordModal, setPasswordModal] = useState<{ userName: string; password: string } | null>(null);
+  const [passwordModal, setPasswordModal] = useState<{ userName: string; password: string; confirmPassword: string } | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [messageModal, setMessageModal] = useState<{ userName: string; email: string; subject: string; body: string } | null>(null);
   const [syncMeta, setSyncMeta] = useState<{ lastSyncedAt: string | null; stale: boolean; source?: string } | null>(
     initialCache?.meta ?? null,
@@ -279,7 +275,8 @@ export function ClientesDaSection({
       return;
     }
     if (action === 'changePassword') {
-      setPasswordModal({ userName, password: generatePassword() });
+      setPasswordModal({ userName, password: '', confirmPassword: '' });
+      setShowPasswordModal(false);
       return;
     }
     if (action === 'delete' && !confirm(`Remover conta "${userName}"? Irreversível.`)) return;
@@ -332,6 +329,14 @@ export function ClientesDaSection({
 
   const savePassword = async () => {
     if (!passwordModal) return;
+    if (passwordModal.password.length < 8) {
+      alert('A password deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (passwordModal.password !== passwordModal.confirmPassword) {
+      alert('As passwords não coincidem.');
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch('/api/admin/clientes', {
@@ -356,11 +361,6 @@ export function ClientesDaSection({
   if (view === 'create' || view === 'edit') {
     return (
       <div className="font-panel space-y-6">
-        <div className="flex shrink-0 items-center justify-end gap-2">
-          <button type="button" onClick={goToList} className={panelBtnSecondary}>
-            Cancelar
-          </button>
-        </div>
         <ProvisionClienteSection
           packages={packages}
           initialAccountType={initialAccountType}
@@ -496,7 +496,6 @@ export function ClientesDaSection({
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
               <th className={`${accountsCellBorder} py-3`}>Domínio</th>
-              <th className={`${accountsCellBorder} py-3`}>Link</th>
               <th className={`${accountsCellBorder} py-3`}>Utilizador</th>
               <th className={`${accountsCellBorder} py-3`}>E-mail</th>
               <th className={`${accountsCellBorder} py-3`}>Quota</th>
@@ -509,9 +508,9 @@ export function ClientesDaSection({
           </thead>
           <tbody>
             {loading && users.length === 0 ? (
-              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Nenhuma conta</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Nenhuma conta</td></tr>
             ) : filtered.map((u) => (
               <tr
                 key={u.userName}
@@ -526,16 +525,6 @@ export function ClientesDaSection({
                     {u.primaryDomain || `${u.userName}.com`}
                   </button>
                   {u.suspended ? <span className="ml-2 text-xs text-red-600">Suspenso</span> : null}
-                </td>
-                <td className={accountsCellBorder}>
-                  <a
-                    href={daLoginHref(u.userName)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${panelBtnSecondary} !h-7 !min-h-0 !py-0 text-xs inline-flex`}
-                  >
-                    Login
-                  </a>
                 </td>
                 <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
                 <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.email || '—'}</td>
@@ -554,7 +543,7 @@ export function ClientesDaSection({
                       if (openMenu?.userName === u.userName) setOpenMenu(null);
                       else setOpenMenu({ userName: u.userName, rect });
                     }}
-                    className="inline-flex rounded border border-gray-200 p-1.5 hover:bg-gray-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    className="inline-flex rounded border border-gray-200 p-1.5 text-zinc-600 transition-colors hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-red-800 dark:hover:bg-transparent dark:hover:text-red-400"
                     aria-label="Mais opções"
                   >
                     <MoreVertical size={18} />
@@ -621,17 +610,61 @@ export function ClientesDaSection({
       )}
 
       {passwordModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded p-5 w-full max-w-md shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold">Alterar senha — {passwordModal.userName}</h3>
-              <button onClick={() => setPasswordModal(null)}><X size={20} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
+          <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <h3 className="mb-4 text-sm font-bold text-gray-900 dark:text-zinc-100">
+              Alterar password — {passwordModal.userName}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Nova password</label>
+                <div className="relative">
+                  <input
+                    type={showPasswordModal ? 'text' : 'password'}
+                    value={passwordModal.password}
+                    onChange={(e) => setPasswordModal({ ...passwordModal, password: e.target.value })}
+                    placeholder="Mínimo 8 caracteres"
+                    className={`${panelField} w-full pr-10`}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+                    aria-label={showPasswordModal ? 'Ocultar password' : 'Mostrar password'}
+                  >
+                    {showPasswordModal ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Confirmar password</label>
+                <input
+                  type={showPasswordModal ? 'text' : 'password'}
+                  value={passwordModal.confirmPassword}
+                  onChange={(e) => setPasswordModal({ ...passwordModal, confirmPassword: e.target.value })}
+                  placeholder="Repetir password"
+                  className={`${panelField} w-full`}
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input value={passwordModal.password} onChange={(e) => setPasswordModal({ ...passwordModal, password: e.target.value })} className={inputCls} />
-              <button onClick={() => setPasswordModal({ ...passwordModal, password: generatePassword() })} className="p-2 border rounded shrink-0" title="Gerar"><RefreshCw size={18} /></button>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setPasswordModal(null); setShowPasswordModal(false); }}
+                className={panelBtnSecondary}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={savePassword}
+                disabled={busy || passwordModal.password.length < 8 || passwordModal.password !== passwordModal.confirmPassword}
+                className={panelBtnPrimary}
+              >
+                {busy ? 'A guardar…' : 'Guardar'}
+              </button>
             </div>
-            <button onClick={savePassword} disabled={busy} className={`mt-4 w-full justify-center ${actionBtnCls}`}>Guardar</button>
           </div>
         </div>
       )}
