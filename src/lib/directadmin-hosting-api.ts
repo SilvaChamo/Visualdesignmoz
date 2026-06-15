@@ -54,6 +54,8 @@ export interface PanelPackage {
   bandwidth?: number;
   emailAccounts?: number;
   dataBases?: number;
+  ftpAccounts?: number;
+  allowedDomains?: number;
 }
 
 export interface PanelUser {

@@ -6489,9 +6489,9 @@ export function PackagesSection({
         body: JSON.stringify({ action: 'listPackages' }),
       })
       const data = await res.json()
-      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+      if (data.success && Array.isArray(data.data)) {
         setLivePackages(data.data)
-        writePackagesCache(data.data)
+        if (data.data.length) writePackagesCache(data.data)
       }
     } catch {
       /* mantém lista actual */
@@ -6551,33 +6551,29 @@ export function PackagesSection({
     setCreating(false)
   }
 
-  const openEditPackage = async (pkg: any) => {
+  const openEditPackage = (pkg: any) => {
     const name = String(pkg.packageName || pkg.name || '').trim()
     if (!name) return
-    setCreating(true)
+    setPackageForm(packageListRowToForm(pkg, name))
+    setEditingPackageName(name)
+    setShowPackageForm(true)
     setMsg('')
-    try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getPackageDetails', params: { packageName: name } }),
-      })
-      const data = await res.json()
-      const form =
-        data.success && data.data && typeof data.data === 'object'
-          ? daPackageFieldsToHostingForm(data.data as Record<string, string>, name)
-          : packageListRowToForm(pkg, name)
-      setPackageForm(form)
-      setEditingPackageName(name)
-      setShowPackageForm(true)
-    } catch {
-      setPackageForm(packageListRowToForm(pkg, name))
-      setEditingPackageName(name)
-      setShowPackageForm(true)
-    } finally {
-      setCreating(false)
-    }
+    void (async () => {
+      try {
+        const res = await fetch('/api/server-exec', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getPackageDetails', params: { packageName: name } }),
+        })
+        const data = await res.json()
+        if (data.success && data.data && typeof data.data === 'object') {
+          setPackageForm(daPackageFieldsToHostingForm(data.data as Record<string, string>, name))
+        }
+      } catch {
+        /* mantém formulário da listagem */
+      }
+    })()
   }
 
   const handleDelete = async (name: string) => {
@@ -6676,25 +6672,25 @@ export function PackagesSection({
         {displayPackages && displayPackages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900/50"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Ações</th></tr></thead>
+              <thead><tr className="border-b border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900/50"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Acções</th></tr></thead>
               <tbody>
                 {displayPackages.map((pkg: any, i: number) => (
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-2 font-medium">{pkg.packageName || pkg.name || '-'}</td>
-                    <td className="py-3 px-2">{(pkg.diskSpace || pkg.disk || '-') + ' MB'}</td>
-                    <td className="py-3 px-2">{(pkg.bandwidth || '-') + ' MB'}</td>
-                    <td className="py-3 px-2">{(pkg.emailAccounts || pkg.emails || '-')}</td>
-                    <td className="py-3 px-2">{(pkg.dataBases || pkg.databases || '-')}</td>
-                    <td className="py-3 px-2">{(pkg.ftpAccounts || '-')}</td>
-                    <td className="py-3 px-2">{(pkg.allowedDomains || '-')}</td>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-2 font-medium whitespace-nowrap">{pkg.packageName || pkg.name || '-'}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{(pkg.diskSpace ?? pkg.disk ?? '-')}{String(pkg.diskSpace ?? pkg.disk ?? '') !== '' && String(pkg.diskSpace ?? pkg.disk) !== '-' ? ' MB' : ''}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{(pkg.bandwidth ?? '-')}{String(pkg.bandwidth ?? '') !== '' && String(pkg.bandwidth) !== '-' ? ' MB' : ''}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{pkg.emailAccounts ?? pkg.emails ?? '-'}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{pkg.dataBases ?? pkg.databases ?? '-'}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{pkg.ftpAccounts ?? pkg.ftp ?? '-'}</td>
+                    <td className="py-3 px-2 whitespace-nowrap">{pkg.allowedDomains ?? pkg.vdomains ?? '-'}</td>
+                    <td className="py-3 px-2 text-left">
+                      <div className="flex items-center justify-start gap-1">
                         <button
                           type="button"
-                          onClick={() => void openEditPackage(pkg)}
+                          onClick={() => openEditPackage(pkg)}
                           title="Editar"
                           aria-label="Editar"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                          className={`${panelBtnSecondary} !h-8 !w-8 !min-w-8 !p-0`}
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
@@ -6704,7 +6700,7 @@ export function PackagesSection({
                           disabled={deleting === pkg.packageName}
                           title={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
                           aria-label={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-800 disabled:opacity-50"
+                          className={`${panelBtnSecondary} !h-8 !w-8 !min-w-8 !p-0 text-red-600 hover:text-red-800 disabled:opacity-50`}
                         >
                           {deleting === pkg.packageName ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
