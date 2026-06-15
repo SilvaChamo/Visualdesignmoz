@@ -518,29 +518,35 @@ export function ClientesDaSection({
                 className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent ${u.suspended ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
               >
                 <td className={accountsCellBorder}>
-                  <div className="font-medium text-blue-700 dark:text-blue-400">{u.primaryDomain || `${u.userName}.com`}</div>
-                  {u.suspended && <span className="text-xs text-red-600">Suspenso</span>}
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedUser(u); setView('detail'); }}
+                    className="font-medium text-blue-700 hover:underline dark:text-blue-400"
+                  >
+                    {u.primaryDomain || `${u.userName}.com`}
+                  </button>
+                  {u.suspended ? <span className="ml-2 text-xs text-red-600">Suspenso</span> : null}
                 </td>
                 <td className={accountsCellBorder}>
                   <a
                     href={daLoginHref(u.userName)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`${panelBtnSecondary} !h-7 !min-h-0 !py-0 text-xs`}
+                    className={`${panelBtnSecondary} !h-7 !min-h-0 !py-0 text-xs inline-flex`}
                   >
                     Login
                   </a>
                 </td>
                 <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
-                <td className={`${accountsCellBorder} text-gray-600 truncate max-w-[180px] dark:text-zinc-400`}>{u.email || '—'}</td>
+                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.email || '—'}</td>
                 <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.quotaLabel || '—'}</td>
                 <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.diskUsedLabel || '0 MB'}</td>
                 <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>{u.packageName || '—'}</td>
                 <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
-                <td className={`${accountsCellBorder} text-gray-600 whitespace-nowrap dark:text-zinc-400`}>
+                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>
                   {formatRegisteredAt(u.registeredAt)}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-4 py-1.5 text-left">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -548,7 +554,7 @@ export function ClientesDaSection({
                       if (openMenu?.userName === u.userName) setOpenMenu(null);
                       else setOpenMenu({ userName: u.userName, rect });
                     }}
-                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-transparent inline-flex"
+                    className="inline-flex rounded border border-gray-200 p-1.5 hover:bg-gray-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                     aria-label="Mais opções"
                   >
                     <MoreVertical size={18} />
@@ -609,63 +615,6 @@ export function ClientesDaSection({
               className={`mt-4 w-full justify-center ${actionBtnCls}`}
             >
               {busy ? 'A enviar...' : 'Enviar'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {editModal && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setEditModal(null)} />
-          <div className="font-panel relative w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-100">Editar conta — {editModal.userName}</h3>
-              <button type="button" onClick={() => setEditModal(null)}><X size={20} /></button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <input
-                placeholder="Nome"
-                value={editModal.firstName}
-                onChange={(e) => setEditModal({ ...editModal, firstName: e.target.value })}
-                className={inputCls}
-              />
-              <input
-                placeholder="Apelido"
-                value={editModal.lastName}
-                onChange={(e) => setEditModal({ ...editModal, lastName: e.target.value })}
-                className={inputCls}
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={editModal.email}
-                onChange={(e) => setEditModal({ ...editModal, email: e.target.value })}
-                className={`${inputCls} sm:col-span-2`}
-              />
-              <input
-                type="number"
-                min={0}
-                placeholder="Limite de sites"
-                value={editModal.websitesLimit}
-                onChange={(e) => setEditModal({ ...editModal, websitesLimit: Number(e.target.value) || 0 })}
-                className={inputCls}
-              />
-              <input
-                type="number"
-                min={0}
-                placeholder="Limite de emails"
-                value={editModal.emailsLimit}
-                onChange={(e) => setEditModal({ ...editModal, emailsLimit: Number(e.target.value) || 0 })}
-                className={inputCls}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={saveEditAccount}
-              disabled={busy || !editModal.email.includes('@')}
-              className={`mt-4 w-full justify-center ${actionBtnCls}`}
-            >
-              {busy ? 'A guardar…' : 'Guardar'}
             </button>
           </div>
         </div>
