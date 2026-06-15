@@ -34,19 +34,19 @@ export async function GET() {
 
     const staffAuth = { user: auth.user as { id: string; email?: string; role: 'admin' | 'reseller' } };
     const { mirrorScope, effectiveRole } = await resolvePanelDaContext({ user: staffAuth.user });
+    const isReseller = effectiveRole === 'reseller';
 
-    const [sites, users, accountsResult] = await Promise.all([
+    const [sites, users, accountsResult, resellerContext] = await Promise.all([
       listMirrorWebsites(mirrorScope),
       listMirrorUsers(mirrorScope),
-      listBootstrapPanelAccounts(staffAuth.user.role),
+      isReseller
+        ? Promise.resolve({ accounts: [], counts: {} as Record<string, number> })
+        : listBootstrapPanelAccounts(staffAuth.user.role),
+      isReseller ? resolveResellerPanelContext({ user: staffAuth.user }) : Promise.resolve(null),
     ]);
 
     let sitesOut = sites;
     let usersOut = users;
-    let packages = await listMirrorPackages(mirrorScope, sitesOut);
-
-    const resellerContext =
-      effectiveRole === 'reseller' ? await resolveResellerPanelContext({ user: staffAuth.user }) : null;
 
     if (resellerContext?.daUsername) {
       const owner = resellerContext.daUsername;
@@ -54,8 +54,9 @@ export async function GET() {
       usersOut = usersOut.filter(
         (u) => u.userName === owner || u.parentUsername === owner,
       );
-      packages = await listMirrorPackages(mirrorScope, sitesOut);
     }
+
+    const packages = await listMirrorPackages(mirrorScope, sitesOut);
 
     if (!sitesOut.length && !usersOut.length) {
       scheduleDaSync(0);

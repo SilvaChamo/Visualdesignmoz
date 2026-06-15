@@ -18,3 +18,7 @@ export const panelBtnSecondary =
 
 export const panelField =
   `${panelControlHeight} px-3 rounded border border-gray-300 text-sm bg-white text-gray-900 focus:outline-none focus:border-red-500 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-100`;
+
+/** Cartões do painel — mesmo arredondamento do dashboard (`rounded-xl`). */
+export const panelCard =
+  'rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900';

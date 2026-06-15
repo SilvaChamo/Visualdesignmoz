@@ -89,11 +89,14 @@ export async function resolveResellerPanelContext(
     (await loadResellerCredentialsByDaUsername(daUsername)) ||
     (auth.user.id ? await loadResellerCredentialsByUserId(auth.user.id) : null);
 
-  const email = ctx.impersonating
-    ? await loadResellerEmail(daUsername)
-    : (auth.user.email || (await loadResellerEmail(daUsername)));
+  const emailPromise = ctx.impersonating
+    ? loadResellerEmail(daUsername)
+    : (async () => {
+        const fromAuth = auth.user.email?.toLowerCase();
+        return fromAuth || (await loadResellerEmail(daUsername));
+      })();
 
-  const displayName = await loadResellerDisplayName(daUsername);
+  const [email, displayName] = await Promise.all([emailPromise, loadResellerDisplayName(daUsername)]);
 
   return {
     daUsername,

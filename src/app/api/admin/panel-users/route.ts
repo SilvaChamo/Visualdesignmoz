@@ -100,6 +100,7 @@ export type PanelAccountRow = {
   id: string;
   email: string;
   userName: string;
+  daUsername?: string | null;
   panelRole: UserRole;
   panelPath: string;
   state: string;
@@ -303,6 +304,7 @@ async function buildPanelAccounts(options?: {
         id: authUser.id,
         email,
         userName: displayName,
+        daUsername,
         panelRole,
         panelPath: getRedirectPathForRole(panelRole),
         state: 'Active',

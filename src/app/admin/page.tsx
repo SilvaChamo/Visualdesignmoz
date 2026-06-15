@@ -161,7 +161,7 @@ function SiteThumbnail({
 function DirectAdminManualNotice({
   title = 'DirectAdmin externo',
   description = 'A integração automática com o DirectAdmin foi desligada. Use o painel DirectAdmin nativo para gerir esta função.',
-  href = getDirectAdminAccessUrl(),
+  href = getDirectAdminAccessUrl('admin'),
 }: {
   title?: string
   description?: string
@@ -2050,8 +2050,8 @@ function ManageWebsiteSection({
         color="text-cyan-700"
         bgColor="bg-cyan-50"
       >
-        <MenuItem icon={Server} label="Web Server" color="text-cyan-600" external href={getDirectAdminAccessUrl()} />
-        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={getDirectAdminAccessUrl()} />
+        <MenuItem icon={Server} label="Web Server" color="text-cyan-600" external href={getDirectAdminAccessUrl('admin')} />
+        <MenuItem icon="file-manager" label="vHost Conf" color="text-cyan-600" external href={getDirectAdminAccessUrl('admin')} />
         <MenuItem icon={Edit} label="Rewrite Rules" color="text-cyan-600" external href={getDirectAdminFileManagerUrl(domain, siteOwner)} />
         <MenuItem icon="ssl-tls" label="Add SSL" color="text-cyan-600" onClick={() => setActiveSection('cp-ssl')} />
         <MenuItem icon={Code} label="Change PHP" color="text-cyan-600" onClick={() => setActiveSection('cp-php')} />
@@ -2384,6 +2384,7 @@ function AdminPageContent() {
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
   const [provisionAccountType, setProvisionAccountType] = useState<'client' | 'reseller' | 'admin'>('client')
+  const [contasListResetToken, setContasListResetToken] = useState(0)
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
@@ -2392,11 +2393,16 @@ function AdminPageContent() {
   useEffect(() => {
     // Sempre definir dashboard como padrão na carga inicial/recarga da página
     if (!initialLoadDone.current) {
-      setActiveSection('dashboard');
       initialLoadDone.current = true;
-      // Limpar qualquer parâmetro section da URL ao recarregar
-      if (window.location.search.includes('section=')) {
-        window.history.replaceState({}, '', '/admin');
+      const section = searchParams.get('section');
+      setActiveSection(section || 'dashboard');
+      if (section || searchParams.get('impersonate_error')) {
+        const err = searchParams.get('impersonate_error');
+        window.history.replaceState(
+          {},
+          '',
+          err ? `/admin?impersonate_error=${encodeURIComponent(err)}` : '/admin',
+        );
       }
       return;
     }
@@ -2647,6 +2653,7 @@ function AdminPageContent() {
             initialView="create"
             initialAccountType={provisionAccountType}
             isActive={isActive}
+            listResetToken={contasListResetToken}
             onRefresh={() => void loadDirectAdminData(true)}
           />
         )
@@ -2657,6 +2664,7 @@ function AdminPageContent() {
             packages={directAdminPackages}
             initialView="list"
             isActive={isActive}
+            listResetToken={contasListResetToken}
             onRefresh={() => void loadDirectAdminData(true)}
           />
         )
@@ -3063,6 +3071,9 @@ function AdminPageContent() {
     if (section === 'provision-client') {
       setProvisionAccountType(opts?.accountType || 'client')
     }
+    if (section === 'hospedagem-contas') {
+      setContasListResetToken((t) => t + 1)
+    }
     // Intercetar ação de criar email
     if (section === 'criar-email') {
       setEmailForm({ user: '', password: '', quota: '500' })
@@ -3128,7 +3139,7 @@ function AdminPageContent() {
             <>
               {activeSection === 'dashboard' ? (
                 <a
-                  href={getDirectAdminAccessUrl()}
+                  href={getDirectAdminAccessUrl('admin')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={panelBtnSecondary}

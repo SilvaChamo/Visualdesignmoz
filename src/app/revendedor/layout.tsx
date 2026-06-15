@@ -58,14 +58,20 @@ export default async function AdminLayout({
     }
 
     if (isReseller && user.email) {
-        try {
-            await ensureResellerProvisioned({
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('da_username')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (!profile?.da_username?.trim()) {
+            void ensureResellerProvisioned({
                 userId: user.id,
                 email: user.email,
                 nome: (user.user_metadata?.nome as string) || undefined,
+            }).catch((e) => {
+                console.error('[revendedor/layout] auto-provision:', e);
             });
-        } catch (e) {
-            console.error('[revendedor/layout] auto-provision:', e);
         }
     }
 

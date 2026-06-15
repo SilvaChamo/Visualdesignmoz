@@ -22,6 +22,8 @@ import {
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
 
+import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
+
 const OSHER_RESELLER = 'oshercollective';
 const LICENSE_MAX_ACCOUNTS = 2;
 
@@ -34,6 +36,52 @@ function deriveUsername(domain: string, email: string): string {
 
 function parseLicenseLimit(message: string): boolean {
   return /licen[cç]a.*limitad|limited to \d+ account/i.test(message);
+}
+
+const VISUALDESIGN_PRIMARY_DOMAINS = [
+  'visualdesignmoz.com',
+  'visualdesigne.com',
+  'visualdesigne.pt',
+];
+
+function pickPrimaryDomain(userName: string, owned: PanelWebsite[], acl: string): string {
+  if (!owned.length) return `${userName}.com`;
+
+  if (acl === 'admin') {
+    for (const preferred of VISUALDESIGN_PRIMARY_DOMAINS) {
+      const match = owned.find((s) => s.domain === preferred);
+      if (match) return match.domain;
+    }
+    const visual = owned.find((s) => /visualdesign/i.test(s.domain));
+    if (visual) return visual.domain;
+  }
+
+  const exact = owned.find((s) => s.domain === `${userName}.com`);
+  if (exact) return exact.domain;
+  const partial = owned.find((s) => s.domain.startsWith(userName));
+  if (partial) return partial.domain;
+  return [...owned].sort((a, b) => a.domain.localeCompare(b.domain))[0].domain;
+}
+
+function pickAccountPackage(
+  userName: string,
+  owned: PanelWebsite[],
+  acl: string,
+): string {
+  if (acl === 'admin') return 'VisualDESIGN';
+  if (userName === OSHER_RESELLER) return 'Osher';
+
+  const counts = new Map<string, number>();
+  for (const site of owned) {
+    const name = site.package || '';
+    if (!name || name === 'admin') continue;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  let packageName = '';
+  counts.forEach((count, name) => {
+    if (!packageName || count > (counts.get(packageName) || 0)) packageName = name;
+  });
+  return packageName;
 }
 
 export async function GET(req: NextRequest) {
@@ -123,9 +171,33 @@ export async function GET(req: NextRequest) {
 
     const enriched = users.map((u) => {
       const owned = sites.filter((s) => s.owner === u.userName);
+      const acl = String(u.acl || u.type || '').toLowerCase();
+      const primaryDomain = pickPrimaryDomain(u.userName, owned, acl);
+      const packageName = pickAccountPackage(u.userName, owned, acl);
+      const pkgMeta = packageName ? packageMap.get(packageName) : undefined;
+      const diskUsedMb = owned.reduce(
+        (sum, s) => sum + (parseInt(String(s.diskUsage || '0'), 10) || 0),
+        0,
+      );
+      const quotaLabel = pkgMeta?.diskSpace ? `${pkgMeta.diskSpace} MB` : '—';
+      const resellerOwner =
+        u.parentUsername ||
+        (acl === 'admin' || (acl === 'reseller' && !u.parentUsername) ? 'admin' : '—');
+
       return {
         ...u,
+        primaryDomain,
+        packageName: packageName || '—',
+        quotaLabel,
+        diskUsedLabel: `${diskUsedMb} MB`,
+        resellerOwner,
         domainCount: owned.length,
+        ownedDomains: owned.map((s) => ({
+          domain: s.domain,
+          package: s.package || '—',
+          diskUsage: String(s.diskUsage ?? '0'),
+          status: s.state || s.status || 'Active',
+        })),
         registeredAt: u.registeredAt || null,
       };
     });

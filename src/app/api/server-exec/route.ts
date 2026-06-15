@@ -59,6 +59,13 @@ const DA_MUTATION_PROXY: Record<
   changePHPVersion: (api, p) => api.changePHPVersion(p),
 };
 
+const DA_READ_PROXY: Record<
+  string,
+  (api: DirectAdminServerAPI, params: Record<string, unknown>) => Promise<unknown>
+> = {
+  getPackageDetails: (api, p) => api.getPackageDetails(String(p.packageName || '')),
+};
+
 async function readFromMirror(
   action: string,
   mirrorScope: Parameters<typeof listMirrorWebsites>[0],
@@ -95,6 +102,19 @@ export async function POST(req: NextRequest) {
       const { daApi: api, mirrorScope } = await resolvePanelDaContext(auth);
       const fallback = LIVE_LIST_FALLBACK[action];
 
+      if (action === 'listPackages' && auth.user.role === 'admin') {
+        const { cacheService } = await import('@/lib/cache-service');
+        cacheService.clearPattern('listPackages');
+        const rows = await fallback(api, params);
+        if (Array.isArray(rows) && rows.length > 0) scheduleDaSync(500);
+        const lastSyncedAt = await getMirrorLastSyncAt();
+        return NextResponse.json({
+          success: true,
+          data: Array.isArray(rows) ? rows : [],
+          meta: { source: 'live', lastSyncedAt },
+        });
+      }
+
       const data = await resolveMirrorOrLive({
         onStale: () => scheduleDaSync(0),
         mirror: async () => {
@@ -114,6 +134,15 @@ export async function POST(req: NextRequest) {
         data,
         meta: { source: 'mirror', lastSyncedAt },
       });
+    }
+
+    if (DA_READ_PROXY[action]) {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const { daApi: api } = await resolvePanelDaContext(auth);
+      const data = await DA_READ_PROXY[action](api, params as Record<string, unknown>);
+      return NextResponse.json({ success: true, data });
     }
 
     if (DA_MUTATION_PROXY[action]) {

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, MoreVertical, Plus, RefreshCw, User, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Loader2, MoreVertical, PlusCircle, RefreshCw, X } from 'lucide-react';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
-import { ProvisionAccountFormInline } from '@/app/admin/ProvisionAccountFormInline';
+import { ProvisionClienteSection } from '@/app/admin/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
+import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 
 const CLIENTES_CACHE_KEY = 'vd-admin-clientes-v1';
 
@@ -20,7 +22,23 @@ interface DaUserRow {
   lastName?: string;
   websitesLimit?: number;
   emailsLimit?: number;
+  primaryDomain?: string;
+  packageName?: string;
+  quotaLabel?: string;
+  diskUsedLabel?: string;
+  resellerOwner?: string;
+  ownedDomains?: Array<{
+    domain: string;
+    package: string;
+    diskUsage: string;
+    status: string;
+  }>;
 }
+
+type AccountsView = 'list' | 'create' | 'edit' | 'detail';
+
+const accountsCellBorder =
+  'border-r border-gray-100 px-4 py-1.5 text-left whitespace-nowrap dark:border-zinc-800 last:border-r-0';
 
 function readClientesCache(): { users: DaUserRow[]; meta: { lastSyncedAt: string | null; stale: boolean } | null } | null {
   if (typeof window === 'undefined') return null;
@@ -45,11 +63,12 @@ function formatRegisteredAt(raw?: string | null): string {
   }
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString('pt-PT');
-  return trimmed;
+  return trimmed.split(/[ T]/)[0] || trimmed;
 }
 
-const headerBtnCls =
-  'inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
+function daLoginHref(userName: string): string {
+  return `/api/directadmin-access?user=${encodeURIComponent(userName)}`;
+}
 
 const actionBtnCls =
   'inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
@@ -140,6 +159,7 @@ export function ClientesDaSection({
   initialView = 'list',
   initialAccountType = 'client',
   isActive = true,
+  listResetToken = 0,
 }: {
   onRefresh?: () => void;
   listFilter?: 'all' | 'client' | 'reseller';
@@ -147,25 +167,22 @@ export function ClientesDaSection({
   initialView?: 'list' | 'create';
   initialAccountType?: 'client' | 'reseller' | 'admin';
   isActive?: boolean;
+  /** Incrementado ao reabrir «Contas» no menu — repõe a listagem. */
+  listResetToken?: number;
 }) {
   const { setChrome } = useAdminSectionChrome();
+  const searchParams = useSearchParams();
   const initialCache = useMemo(() => readClientesCache(), []);
   const [users, setUsers] = useState<DaUserRow[]>(initialCache?.users ?? []);
   const [loading, setLoading] = useState(!initialCache);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'list' | 'create'>(initialView);
+  const [view, setView] = useState<AccountsView>(initialView === 'create' ? 'create' : 'list');
+  const [selectedUser, setSelectedUser] = useState<DaUserRow | null>(null);
+  const [editUser, setEditUser] = useState<DaUserRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [openMenu, setOpenMenu] = useState<{ userName: string; rect: DOMRect } | null>(null);
   const [passwordModal, setPasswordModal] = useState<{ userName: string; password: string } | null>(null);
-  const [editModal, setEditModal] = useState<{
-    userName: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    websitesLimit: number;
-    emailsLimit: number;
-  } | null>(null);
   const [messageModal, setMessageModal] = useState<{ userName: string; email: string; subject: string; body: string } | null>(null);
   const [syncMeta, setSyncMeta] = useState<{ lastSyncedAt: string | null; stale: boolean; source?: string } | null>(
     initialCache?.meta ?? null,
@@ -196,69 +213,49 @@ export function ClientesDaSection({
     setSyncing(false);
   }, []);
 
+  useEffect(() => {
+    const err = searchParams.get('impersonate_error');
+    if (err) {
+      setMsg(`❌ ${err}`);
+      window.history.replaceState({}, '', '/admin');
+    }
+  }, [searchParams]);
+
   useEffect(() => { load(); }, [load]);
 
   const goToList = useCallback(() => {
     setView('list');
+    setSelectedUser(null);
+    setEditUser(null);
     setMsg('');
   }, []);
 
   useEffect(() => {
-    setView(initialView);
-  }, [initialView]);
+    if (isActive) {
+      setView(initialView === 'create' ? 'create' : 'list');
+      if (initialView !== 'create') {
+        setSelectedUser(null);
+        setEditUser(null);
+      }
+    }
+  }, [isActive, initialView, listResetToken]);
 
   useEffect(() => {
     if (!isActive) return;
-    if (view === 'list') {
-      setChrome({
-        search: {
-          value: search,
-          onChange: setSearch,
-          placeholder: 'Pesquisar utilizador ou email…',
-        },
-        toolbar: (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { setView('create'); setMsg(''); }}
-              className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
-            >
-              <Plus className="h-4 w-4" />
-              Criar conta
-            </button>
-            <button
-              type="button"
-              onClick={() => void load({ sync: true })}
-              disabled={loading || syncing}
-              className={headerBtnCls}
-            >
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'A actualizar…' : 'Actualizar'}
-            </button>
-          </div>
-        ),
-      });
-    } else {
-      setChrome({
-        toolbar: (
-          <button
-            type="button"
-            onClick={goToList}
-            className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
-          >
-            Cancelar
-          </button>
-        ),
-      });
-    }
+    setChrome(null);
     return () => setChrome(null);
-  }, [view, search, syncing, loading, setChrome, load, goToList, isActive]);
+  }, [isActive, setChrome]);
 
   const filtered = users.filter((u) => {
     if (listFilter === 'client' && isDaReseller(u)) return false;
     if (listFilter === 'reseller' && !isDaReseller(u)) return false;
     const q = search.toLowerCase();
-    return !q || u.userName.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+    return (
+      !q ||
+      u.userName.toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.primaryDomain || '').toLowerCase().includes(q)
+    );
   });
 
   const handleRowAction = async (user: DaUserRow, action: string) => {
@@ -273,31 +270,12 @@ export function ClientesDaSection({
       return;
     }
     if (action === 'editAccount') {
-      setEditModal({
-        userName: user.userName,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        websitesLimit: user.websitesLimit ?? 0,
-        emailsLimit: user.emailsLimit ?? 0,
-      });
+      setEditUser(user);
+      setView('edit');
       return;
     }
     if (action === 'loginAs') {
-      setBusy(true);
-      try {
-        const res = await fetch('/api/admin/impersonate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userName }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível entrar como revendedor');
-        window.location.href = data.redirect || '/revendedor';
-      } catch (e: unknown) {
-        setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`);
-        setBusy(false);
-      }
+      window.location.href = `/api/admin/impersonate?user=${encodeURIComponent(userName)}`;
       return;
     }
     if (action === 'changePassword') {
@@ -405,15 +383,18 @@ export function ClientesDaSection({
 
   if (view === 'create') {
     return (
-      <div className="font-panel space-y-4">
-        <ProvisionAccountFormInline
+      <div className="font-panel space-y-6">
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          <button type="button" onClick={goToList} className={panelBtnSecondary}>
+            Cancelar
+          </button>
+        </div>
+        <ProvisionClienteSection
           packages={packages}
           initialAccountType={initialAccountType}
-          onCancel={goToList}
           onComplete={() => {
             void load({ sync: true });
             onRefresh?.();
-            setMsg('✅ Conta criada com sucesso.');
           }}
         />
       </div>
@@ -421,80 +402,103 @@ export function ClientesDaSection({
   }
 
   return (
-    <div className="font-panel space-y-4">
+    <div className="font-panel space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Pesquisar domínio, utilizador ou email…"
+          className={`${panelField} w-full sm:max-w-[20rem]`}
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { setView('create'); setMsg(''); }}
+            className={`${panelBtnPrimary} whitespace-nowrap`}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Criar conta
+          </button>
+          <button
+            type="button"
+            onClick={() => void load({ sync: true })}
+            disabled={loading || syncing}
+            title="Actualizar"
+            className={panelBtnSecondary}
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
       {msg ? (
         <p className={`text-sm p-2 rounded ${msg.includes('✅') || msg.includes('criada') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
           {msg}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto overflow-y-visible rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <table className="w-full text-sm text-zinc-900 dark:text-zinc-100">
-          <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-            <tr>
-              <th className="px-4 py-3">Usuário</th>
-              <th className="px-4 py-3 hidden md:table-cell">Tipo</th>
-              <th className="px-4 py-3 text-center">Domínios</th>
-              <th className="px-4 py-3 hidden sm:table-cell">Data de registo</th>
-              <th className="px-4 py-3 hidden lg:table-cell">Email</th>
-              <th className="px-4 py-3 w-12" />
+      <div className="overflow-x-auto overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <table className="w-full min-w-[960px] text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <th className={`${accountsCellBorder} py-3`}>Domínio</th>
+              <th className={`${accountsCellBorder} py-3`}>Link</th>
+              <th className={`${accountsCellBorder} py-3`}>Utilizador</th>
+              <th className={`${accountsCellBorder} py-3`}>E-mail</th>
+              <th className={`${accountsCellBorder} py-3`}>Quota</th>
+              <th className={`${accountsCellBorder} py-3`}>Disco</th>
+              <th className={`${accountsCellBorder} py-3`}>Pacote</th>
+              <th className={`${accountsCellBorder} py-3`}>Revendedor</th>
+              <th className={`${accountsCellBorder} py-3`}>Data</th>
+              <th className="px-4 py-3 text-left w-12">Acções</th>
             </tr>
           </thead>
           <tbody>
             {loading && users.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Nenhum utilizador</td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Nenhuma conta</td></tr>
             ) : filtered.map((u) => (
-              <tr key={u.userName} className="border-t hover:bg-gray-50/80">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center"><User size={16} className="text-gray-500" /></div>
-                    <div>
-                      <div className="font-bold text-gray-900">{u.userName}</div>
-                      {u.suspended && <span className="text-xs text-red-600">Suspenso</span>}
-                    </div>
-                  </div>
+              <tr
+                key={u.userName}
+                className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent ${u.suspended ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
+              >
+                <td className={accountsCellBorder}>
+                  <div className="font-medium text-blue-700 dark:text-blue-400">{u.primaryDomain || `${u.userName}.com`}</div>
+                  {u.suspended && <span className="text-xs text-red-600">Suspenso</span>}
                 </td>
-                <td className="px-4 py-3 hidden md:table-cell text-gray-600">
-                  {isDaReseller(u) ? (
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-blue-100 text-blue-700">Revendedor</span>
-                  ) : (
-                    <span className="capitalize">{u.type || 'user'}</span>
-                  )}
+                <td className={accountsCellBorder}>
+                  <a
+                    href={daLoginHref(u.userName)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${panelBtnSecondary} !h-7 !min-h-0 !py-0 text-xs`}
+                  >
+                    Login
+                  </a>
                 </td>
-                <td className="px-4 py-3 text-center font-medium text-gray-900 tabular-nums">
-                  {u.domainCount ?? 0}
-                </td>
-                <td className="px-4 py-3 hidden sm:table-cell text-gray-600 whitespace-nowrap">
+                <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
+                <td className={`${accountsCellBorder} text-gray-600 truncate max-w-[180px] dark:text-zinc-400`}>{u.email || '—'}</td>
+                <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.quotaLabel || '—'}</td>
+                <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.diskUsedLabel || '0 MB'}</td>
+                <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>{u.packageName || '—'}</td>
+                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
+                <td className={`${accountsCellBorder} text-gray-600 whitespace-nowrap dark:text-zinc-400`}>
                   {formatRegisteredAt(u.registeredAt)}
                 </td>
-                <td className="px-4 py-3 hidden lg:table-cell text-gray-600 truncate max-w-[180px]">{u.email || '—'}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {isDaReseller(u) && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleRowAction(u, 'loginAs')}
-                        className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                      >
-                        Entrar
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        if (openMenu?.userName === u.userName) setOpenMenu(null);
-                        else setOpenMenu({ userName: u.userName, rect });
-                      }}
-                      className="p-2 rounded hover:bg-gray-100 inline-flex"
-                      aria-label="Mais opções"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                  </div>
+                <td className="px-4 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (openMenu?.userName === u.userName) setOpenMenu(null);
+                      else setOpenMenu({ userName: u.userName, rect });
+                    }}
+                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-transparent inline-flex"
+                    aria-label="Mais opções"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
                 </td>
               </tr>
             ))}

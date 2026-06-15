@@ -1,10 +1,16 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Eye, EyeOff, Loader2, RefreshCw, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Globe, Loader2, RefreshCw, Shield, UserPlus, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache';
+import {
+  createDefaultResellerPackageForm,
+  type ResellerPackageFormState,
+} from '@/lib/reseller-package-form';
+import { ResellerProvisionForm } from '@/app/admin/ResellerProvisionForm';
+import { DaFormRow } from '@/lib/panel-da-form-rows';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 
 type AccountType = 'client' | 'reseller' | 'admin';
@@ -16,12 +22,11 @@ type Props = {
   onComplete?: () => void;
 };
 
-function DaRow({ label, children }: { label: string; children: ReactNode }) {
+function IdentityRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
-      <span className="w-52 shrink-0 whitespace-nowrap text-sm text-gray-800 dark:text-zinc-200">{label}</span>
-      <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
-    </div>
+    <DaFormRow label={label} showUnlimited={false}>
+      {children}
+    </DaFormRow>
   );
 }
 
@@ -39,6 +44,9 @@ export function ProvisionAccountFormInline({
   const [accountType, setAccountType] = useState<AccountType>(initialAccountType);
   const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache() || packagesProp);
   const [resellerPackages, setResellerPackages] = useState<string[]>([]);
+  const [resellerForm, setResellerForm] = useState<ResellerPackageFormState>(() =>
+    createDefaultResellerPackageForm(),
+  );
   const [packageName, setPackageName] = useState('');
   const [identity, setIdentity] = useState({
     firstName: '',
@@ -75,14 +83,11 @@ export function ProvisionAccountFormInline({
         }
         if (Array.isArray(data.resellerPackages)) {
           setResellerPackages(data.resellerPackages);
-          if (initialAccountType === 'reseller' || accountType === 'reseller') {
-            setPackageName((prev) => prev || data.resellerPackages![0] || '');
-          }
         }
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [initialAccountType, accountType]);
+  }, [initialAccountType]);
 
   useEffect(() => {
     if (packagesProp.length) {
@@ -101,24 +106,52 @@ export function ProvisionAccountFormInline({
     return fromEmail || 'cliente';
   };
 
-  const activePackageName =
-    packageName || (accountType === 'reseller' ? resellerPackages[0] || '' : packages[0]?.packageName || '');
+  const activeClientPackageName = packageName || packages[0]?.packageName || '';
 
-  const packageOptions = useMemo(
-    () =>
-      accountType === 'reseller'
-        ? resellerPackages.map((name) => ({ packageName: name }))
-        : packages,
-    [accountType, resellerPackages, packages],
-  );
+  const activeResellerPackageName = useMemo(() => {
+    if (resellerForm.packageMode === 'existing' && resellerPackages.length) {
+      return resellerForm.packageName || resellerPackages[0] || '';
+    }
+    return resellerForm.packageName.trim();
+  }, [resellerForm, resellerPackages]);
 
   const canSubmit =
     identity.email.includes('@') &&
     identity.password.length >= 8 &&
     identity.password === identity.confirmPassword &&
     (accountType === 'admin' ||
-      (accountType === 'reseller' && Boolean(activePackageName)) ||
-      (accountType === 'client' && hosting.domain.includes('.') && Boolean(activePackageName)));
+      (accountType === 'reseller' && Boolean(activeResellerPackageName)) ||
+      (accountType === 'client' && hosting.domain.includes('.') && Boolean(activeClientPackageName)));
+
+  const createResellerPackageIfNeeded = async (): Promise<string> => {
+    if (
+      resellerForm.packageMode === 'existing' &&
+      resellerForm.packageName &&
+      resellerPackages.includes(resellerForm.packageName)
+    ) {
+      return resellerForm.packageName;
+    }
+    const name = resellerForm.packageName.trim();
+    if (!name) throw new Error('Nome do pacote de revenda obrigatório.');
+
+    const res = await fetch('/api/server-exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'createPackage',
+        params: {
+          packageName: name,
+          packageScope: 'reseller',
+          hostingPackageForm: { ...resellerForm, packageName: name },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(String(data.error || data.data?.error || 'Falha ao criar pacote de revenda'));
+    }
+    return name;
+  };
 
   const handleProvision = async () => {
     if (!canSubmit) return;
@@ -149,6 +182,11 @@ export function ProvisionAccountFormInline({
         return;
       }
 
+      let effectivePackageName = activeClientPackageName;
+      if (accountType === 'reseller') {
+        effectivePackageName = await createResellerPackageIfNeeded();
+      }
+
       const res = await fetch('/api/admin/clientes', {
         method: 'POST',
         credentials: 'include',
@@ -159,7 +197,7 @@ export function ProvisionAccountFormInline({
           password: identity.password,
           userName: username,
           domain: accountType === 'reseller' ? domain || `${username}.com` : domain,
-          packageName: activePackageName,
+          packageName: effectivePackageName,
           adminEmail,
           createEmail: options.createEmail,
           emailUser: options.emailUser,
@@ -182,59 +220,62 @@ export function ProvisionAccountFormInline({
     <div className="rounded border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <h2 className="mb-4 text-sm font-bold text-gray-900 dark:text-zinc-100">Criar conta de hospedagem</h2>
 
-      <section>
-        <DaRow label="Tipo de conta">
-          <div className="flex flex-wrap gap-4 text-sm">
-            {(
-              [
-                ['client', 'Cliente'],
-                ['reseller', 'Revendedor'],
-                ['admin', 'Administrador'],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="account-type-inline"
-                  checked={accountType === value}
-                  onChange={() => {
-                    setAccountType(value);
-                    if (value === 'reseller') setPackageName(resellerPackages[0] || '');
-                    else if (value === 'client') setPackageName(packages[0]?.packageName || '');
-                  }}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </DaRow>
+      <section className="mb-6 space-y-4">
+        <h3 className="font-bold text-gray-900 dark:text-zinc-100">Tipo de conta</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {([
+            { id: 'client' as const, title: 'Cliente', desc: 'Hospedagem para um cliente final', icon: Users },
+            { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
+            { id: 'admin' as const, title: 'Administrador', desc: 'Acesso ao painel admin', icon: Shield },
+          ]).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                setAccountType(opt.id);
+                if (opt.id === 'client') setPackageName(packages[0]?.packageName || '');
+              }}
+              className={`rounded-lg border-2 p-4 text-left transition-all ${
+                accountType === opt.id ? 'border-red-600 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <opt.icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
+                <div className="min-w-0 font-bold text-gray-900 dark:text-zinc-100">{opt.title}</div>
+              </div>
+              <p className="mt-2 pl-8 text-sm text-gray-500">{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+      </section>
 
-        <DaRow label="Nome">
+      <section>
+        <IdentityRow label="Nome">
           <input
             value={identity.firstName}
             onChange={(e) => setIdentity({ ...identity, firstName: e.target.value })}
             className={`${panelField} min-w-0 flex-1`}
           />
-        </DaRow>
+        </IdentityRow>
 
-        <DaRow label="Apelido">
+        <IdentityRow label="Apelido">
           <input
             value={identity.lastName}
             onChange={(e) => setIdentity({ ...identity, lastName: e.target.value })}
             className={`${panelField} min-w-0 flex-1`}
           />
-        </DaRow>
+        </IdentityRow>
 
-        <DaRow label="E-mail">
+        <IdentityRow label="E-mail">
           <input
             type="email"
             value={identity.email}
             onChange={(e) => setIdentity({ ...identity, email: e.target.value })}
             className={`${panelField} min-w-0 flex-1`}
           />
-        </DaRow>
+        </IdentityRow>
 
-        <DaRow label="Palavra-passe">
+        <IdentityRow label="Palavra-passe">
           <div className="relative min-w-0 flex-1">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -259,57 +300,47 @@ export function ProvisionAccountFormInline({
               </button>
             </div>
           </div>
-        </DaRow>
+        </IdentityRow>
 
-        <DaRow label="Confirmar palavra-passe">
+        <IdentityRow label="Confirmar palavra-passe">
           <input
             type={showPassword ? 'text' : 'password'}
             value={identity.confirmPassword}
             onChange={(e) => setIdentity({ ...identity, confirmPassword: e.target.value })}
             className={`${panelField} min-w-0 flex-1`}
           />
-        </DaRow>
-
-        {accountType !== 'admin' && (
-          <DaRow label="Utilizador">
-            <input value={deriveUsername()} readOnly className={`${panelField} min-w-0 flex-1 bg-gray-50 dark:bg-zinc-800`} />
-          </DaRow>
-        )}
-
-        {accountType !== 'admin' && (
-          <DaRow label={accountType === 'reseller' ? 'Pacote de revenda' : 'Pacote'}>
-            <select
-              value={activePackageName}
-              onChange={(e) => setPackageName(e.target.value)}
-              className={`${panelField} min-w-0 flex-1`}
-            >
-              {packageOptions.length === 0 ? (
-                <option value="">Sem pacotes disponíveis</option>
-              ) : (
-                packageOptions.map((p) => (
-                  <option key={p.packageName} value={p.packageName}>
-                    {p.packageName}
-                  </option>
-                ))
-              )}
-            </select>
-          </DaRow>
-        )}
-
-        {(accountType === 'client' || accountType === 'reseller') && (
-          <DaRow label="Domínio">
-            <input
-              placeholder={accountType === 'client' ? 'exemplo.com' : 'opcional'}
-              value={hosting.domain}
-              onChange={(e) => setHosting({ ...hosting, domain: e.target.value })}
-              className={`${panelField} min-w-0 flex-1`}
-            />
-          </DaRow>
-        )}
+        </IdentityRow>
 
         {accountType === 'client' && (
           <>
-            <DaRow label="E-mail admin">
+            <IdentityRow label="Pacote">
+              <select
+                value={activeClientPackageName}
+                onChange={(e) => setPackageName(e.target.value)}
+                className={`${panelField} min-w-0 flex-1`}
+              >
+                {packages.length === 0 ? (
+                  <option value="">Sem pacotes disponíveis</option>
+                ) : (
+                  packages.map((p) => (
+                    <option key={p.packageName} value={p.packageName}>
+                      {p.packageName}
+                    </option>
+                  ))
+                )}
+              </select>
+            </IdentityRow>
+
+            <IdentityRow label="Domínio">
+              <input
+                placeholder="exemplo.com"
+                value={hosting.domain}
+                onChange={(e) => setHosting({ ...hosting, domain: e.target.value })}
+                className={`${panelField} min-w-0 flex-1`}
+              />
+            </IdentityRow>
+
+            <IdentityRow label="E-mail admin">
               <input
                 type="email"
                 value={hosting.adminEmail}
@@ -317,9 +348,9 @@ export function ProvisionAccountFormInline({
                 placeholder={identity.email || 'opcional'}
                 className={`${panelField} min-w-0 flex-1`}
               />
-            </DaRow>
+            </IdentityRow>
 
-            <DaRow label="PHP">
+            <IdentityRow label="PHP">
               <select
                 value={hosting.php}
                 onChange={(e) => setHosting({ ...hosting, php: e.target.value })}
@@ -329,10 +360,9 @@ export function ProvisionAccountFormInline({
                 <option value="8.3">PHP 8.3</option>
                 <option value="8.1">PHP 8.1</option>
               </select>
-            </DaRow>
+            </IdentityRow>
 
-            <div className="flex items-center gap-3 border-b border-gray-100 py-3 dark:border-zinc-800">
-              <span className="w-52 shrink-0 whitespace-nowrap text-sm text-gray-800 dark:text-zinc-200">Opções</span>
+            <DaFormRow label="Opções" showUnlimited={false}>
               <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
                 <label className="flex items-center gap-2">
                   <input
@@ -357,8 +387,18 @@ export function ProvisionAccountFormInline({
                   Emitir SSL Let&apos;s Encrypt
                 </label>
               </div>
-            </div>
+            </DaFormRow>
           </>
+        )}
+
+        {accountType === 'reseller' && (
+          <ResellerProvisionForm
+            form={resellerForm}
+            onChange={setResellerForm}
+            existingPackages={resellerPackages}
+            domain={hosting.domain}
+            onDomainChange={(value) => setHosting({ ...hosting, domain: value })}
+          />
         )}
       </section>
 

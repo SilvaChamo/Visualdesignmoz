@@ -294,6 +294,28 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     else counts.packages++;
   }
 
+  const { fetchBrandHostingPackages } = await import('@/lib/panel-brand-packages');
+  const brandPackages = await fetchBrandHostingPackages().catch(() => []);
+  for (const pkg of brandPackages) {
+    const name = pkg.packageName;
+    if (!name) continue;
+    livePackages.add(name);
+    const { error } = await admin.from('panel_packages').upsert(
+      {
+        package_name: name,
+        disk_space: pkg.diskSpace ?? 1000,
+        bandwidth: pkg.bandwidth ?? 10000,
+        email_accounts: pkg.emailAccounts ?? 0,
+        databases: pkg.dataBases ?? 0,
+        synced_at: syncedAt,
+        updated_at: syncedAt,
+      },
+      { onConflict: 'package_name' },
+    );
+    if (error) errors.push(`brand package ${name}: ${error.message}`);
+    else counts.packages++;
+  }
+
   const { data: existingPkgs } = await admin.from('panel_packages').select('package_name');
   const stalePkgs = (existingPkgs || [])
     .map((r) => r.package_name as string)

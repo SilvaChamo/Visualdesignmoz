@@ -62,6 +62,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL('/404-obfuscated', request.url))
   }
 
+  // APIs do painel — refrescar sessão; não bloquear sem user
+  if (pathname.startsWith('/api/')) {
+    return response
+  }
+
   // Public routes
   const publicRoutes = ['/', '/servicos', '/portfolio', '/sobre-nos', '/contacto', '/precos', '/auth', '/cursos']
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
@@ -101,6 +106,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/api/:path*',
     '/dashboard/:path*',
     '/client/:path*',
     '/guest/:path*',

@@ -43,6 +43,18 @@ export type PanelRoleSource = {
   daUsername?: string | null;
 };
 
+/** DA username do revendedor registado neste painel (por email). */
+export function resolveRegistryDaUsername(source: PanelRoleSource): string | null {
+  const email = (source.email || '').toLowerCase().trim();
+  if (!email) return null;
+  const registry = currentRegistry();
+  if (!registry.resellers.has(email)) return null;
+  if (email === 'osher@oshercollective.com') return 'oshercollective';
+  const daUser = (source.daUsername || '').toLowerCase().trim();
+  if (daUser && registry.resellerDaUsernames.has(daUser)) return daUser;
+  return [...registry.resellerDaUsernames][0] ?? null;
+}
+
 /** Papéis atribuídos automaticamente neste painel (nunca inclui admin). */
 export function resolveRegistryPanelRole(source: PanelRoleSource): UserRole | null {
   const email = (source.email || '').toLowerCase().trim();

@@ -20,9 +20,11 @@ export function getDirectAdminFallbackUrl(): string {
   return getWebmailUrl();
 }
 
-/** Redireciona para o login do DirectAdmin (com fallback automático). */
-export function getDirectAdminAccessUrl(): string {
-  return '/api/directadmin-access';
+export type DirectAdminAccessTarget = 'admin' | 'reseller';
+
+/** Redireciona para o login do DirectAdmin — `admin` = conta admin; `reseller` = conta revenda activa. */
+export function getDirectAdminAccessUrl(target: DirectAdminAccessTarget = 'admin'): string {
+  return `/api/directadmin-access?as=${target}`;
 }
 
 /** Página de login DirectAdmin (sem auto-submit). */

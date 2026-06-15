@@ -44,7 +44,7 @@ import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
 import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { HostingPackageFormInline } from '@/app/admin/HostingPackageFormInline'
-import { createDefaultResellerPackageForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
+import { createDefaultResellerPackageForm, daPackageFieldsToHostingForm, packageListRowToForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -2325,6 +2325,7 @@ type PanelAccount = {
   id: string
   email: string
   userName: string
+  daUsername?: string | null
   panelRole: PanelRoleFilter extends 'all' ? string : PanelRoleFilter | string
   panelPath: string
   state?: string
@@ -2694,24 +2695,32 @@ export function CPUsersSection({
     })
   }
 
-  const handlePanelLoginAs = async (account: PanelAccount) => {
+  const handlePanelLoginAs = (account: PanelAccount) => {
+    const daUser = account.daUsername?.trim()
+    if (daUser) {
+      window.location.href = `/api/admin/impersonate?user=${encodeURIComponent(daUser)}`
+      return
+    }
     setCreating(true)
     setMsg('')
-    try {
-      const res = await fetch('/api/admin/impersonate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: account.id }),
+    void fetch('/api/admin/impersonate', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: account.id,
+        email: account.email,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível entrar como revendedor')
+        window.location.href = data.redirect || '/revendedor?impersonate=1'
       })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Não foi possível entrar como revendedor')
-      }
-      window.location.href = data.redirect || '/revendedor'
-    } catch (e: unknown) {
-      setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
-      setCreating(false)
-    }
+      .catch((e: unknown) => {
+        setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+        setCreating(false)
+      })
   }
 
   const handlePanelRowAction = (account: PanelAccount, action: string) => {
@@ -3183,12 +3192,12 @@ export function CPUsersSection({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900/50">
-                <th className="px-4 py-1.5">Email</th>
-                <th className="px-4 py-1.5">Nome</th>
-                <th className="px-4 py-1.5">Painel</th>
-                <th className="px-4 py-1.5">Papel</th>
-                <th className="px-4 py-1.5">Último acesso</th>
-                <th className="px-4 py-1.5 text-right">Acções</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Painel</th>
+                <th className="px-4 py-3">Papel</th>
+                <th className="px-4 py-3">Último acesso</th>
+                <th className="px-4 py-3 text-right">Acções</th>
               </tr>
             </thead>
             <tbody>
@@ -3214,14 +3223,23 @@ export function CPUsersSection({
                   <td className="px-4 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {account.panelRole === 'reseller' && (
-                        <button
-                          type="button"
-                          disabled={creating}
-                          onClick={() => void handlePanelLoginAs(account)}
-                          className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                        >
-                          Entrar
-                        </button>
+                        account.daUsername ? (
+                          <a
+                            href={`/api/admin/impersonate?user=${encodeURIComponent(account.daUsername)}`}
+                            className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            Entrar
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={creating}
+                            onClick={() => handlePanelLoginAs(account)}
+                            className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                          >
+                            Entrar
+                          </button>
+                        )
                       )}
                       <button
                         type="button"
@@ -6450,18 +6468,16 @@ export function PackagesSection({
   const [deleting, setDeleting] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
-  const [editing, setEditing] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({
-    diskSpace: '',
-    bandwidth: '',
-    emailAccounts: '',
-    dataBases: '',
-    ftpAccounts: '',
-    allowedDomains: '',
-  })
+  const [editingPackageName, setEditingPackageName] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   const [showPackageForm, setShowPackageForm] = useState(false)
   const { setChrome } = useAdminSectionChrome()
+
+  const closePackageForm = () => {
+    setShowPackageForm(false)
+    setEditingPackageName(null)
+    setPackageForm(createDefaultResellerPackageForm())
+  }
 
   const loadLivePackages = async () => {
     setLoadingLive(true)
@@ -6498,57 +6514,70 @@ export function PackagesSection({
 
   useEffect(() => {
     if (!isActive) return
-    setChrome({
-      toolbar: (
-        <button
-          type="button"
-          onClick={() => {
-            if (showPackageForm) {
-              setShowPackageForm(false)
-            } else {
-              setPackageForm(createDefaultResellerPackageForm())
-              setShowPackageForm(true)
-            }
-          }}
-          className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
-        >
-          <Plus className="h-4 w-4" />
-          {showPackageForm ? 'Cancelar' : 'Criar pacote'}
-        </button>
-      ),
-    })
+    setChrome(null)
+    void loadLivePackages()
     return () => setChrome(null)
-  }, [isActive, showPackageForm, setChrome])
+  }, [isActive, setChrome])
 
-  const handleCreate = async () => {
+  const handleSavePackage = async () => {
     if (!packageForm.packageName.trim()) return
+    const isEdit = Boolean(editingPackageName)
+    const name = (editingPackageName || packageForm.packageName).trim()
     setCreating(true); setMsg('')
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'createPackage',
+          action: isEdit ? 'editPackage' : 'createPackage',
           params: {
-            packageName: packageForm.packageName.trim(),
-            hostingPackageForm: packageForm,
+            packageName: name,
+            hostingPackageForm: { ...packageForm, packageName: name },
           },
         }),
       })
       const data = await res.json()
       if (data.success) {
-        setMsg('Pacote criado com sucesso!')
-        setPackageForm(createDefaultResellerPackageForm())
-        setShowPackageForm(false)
+        setMsg(isEdit ? 'Pacote actualizado com sucesso!' : 'Pacote criado com sucesso!')
+        closePackageForm()
         onRefresh()
         void loadLivePackages()
       } else {
-        setMsg('Erro: ' + (data.error || data.data?.error || 'Falha ao criar pacote'))
+        setMsg('Erro: ' + (data.error || data.data?.error || (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')))
       }
     } catch (e: any) {
       setMsg('Erro: ' + e.message)
     }
     setCreating(false)
+  }
+
+  const openEditPackage = async (pkg: any) => {
+    const name = String(pkg.packageName || pkg.name || '').trim()
+    if (!name) return
+    setCreating(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getPackageDetails', params: { packageName: name } }),
+      })
+      const data = await res.json()
+      const form =
+        data.success && data.data && typeof data.data === 'object'
+          ? daPackageFieldsToHostingForm(data.data as Record<string, string>, name)
+          : packageListRowToForm(pkg, name)
+      setPackageForm(form)
+      setEditingPackageName(name)
+      setShowPackageForm(true)
+    } catch {
+      setPackageForm(packageListRowToForm(pkg, name))
+      setEditingPackageName(name)
+      setShowPackageForm(true)
+    } finally {
+      setCreating(false)
+    }
   }
 
   const handleDelete = async (name: string) => {
@@ -6574,54 +6603,59 @@ export function PackagesSection({
     setDeleting(null)
   }
 
-  const handleEdit = async (pkg: any) => {
-    if (editing === pkg.packageName) {
-      // Save edit
-      setEditing(null); setMsg('')
-      try {
-        const res = await fetch('/api/server-exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'editPackage',
-            params: {
-              packageName: pkg.packageName,
-              diskSpace: editForm.diskSpace || pkg.diskSpace,
-              bandwidth: editForm.bandwidth || pkg.bandwidth,
-              emailAccounts: editForm.emailAccounts || pkg.emailAccounts,
-              dataBases: editForm.dataBases || pkg.dataBases,
-              ftpAccounts: editForm.ftpAccounts || pkg.ftpAccounts,
-              allowedDomains: editForm.allowedDomains || pkg.allowedDomains
-            }
-          })
-        })
-        const data = await res.json()
-        if (data.success) {
-          setMsg('Pacote atualizado com sucesso!')
-          onRefresh()
-          void loadLivePackages()
-        } else {
-          setMsg('Erro: ' + (data.error || 'Falha ao atualizar pacote'))
-        }
-      } catch (e: any) {
-        setMsg('Erro: ' + e.message)
-      }
-    } else {
-      // Start edit
-      setEditing(pkg.packageName)
-      setEditForm({
-        diskSpace: pkg.diskSpace?.toString() || '',
-        bandwidth: pkg.bandwidth?.toString() || '',
-        emailAccounts: pkg.emailAccounts?.toString() || '',
-        dataBases: pkg.dataBases?.toString() || '',
-        ftpAccounts: pkg.ftpAccounts?.toString() || '',
-        allowedDomains: pkg.allowedDomains?.toString() || ''
-      })
-    }
-  }
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {!showPackageForm ? (
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
+            ({displayPackages.length}){' '}
+            {displayPackages.length === 1 ? 'pacote registado' : 'pacotes registados'}
+            {loadingLive ? ' · a actualizar…' : ''}
+          </p>
+        ) : (
+          <span className="hidden sm:block" aria-hidden />
+        )}
+        <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
+        {showPackageForm ? (
+          <button
+            type="button"
+            onClick={closePackageForm}
+            className={
+              editingPackageName
+                ? 'inline-flex h-[38px] items-center gap-2 rounded border border-red-200 bg-red-50/80 px-4 text-sm font-medium text-red-700 transition-colors hover:bg-red-100/90 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50'
+                : panelBtnSecondary
+            }
+          >
+            {editingPackageName ? 'Cancelar edição da conta' : 'Cancelar'}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPackageName(null)
+                setPackageForm(createDefaultResellerPackageForm())
+                setShowPackageForm(true)
+              }}
+              className={`${panelBtnPrimary} whitespace-nowrap`}
+            >
+              <PlusCircle className="h-4 w-4" />
+              Criar pacote
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadLivePackages()}
+              disabled={loadingLive}
+              title="Actualizar"
+              className={panelBtnSecondary}
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingLive ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        )}
+        </div>
+      </div>
+
       {msg && (
         <p className={`rounded px-4 py-2 text-sm ${msg.startsWith('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
           {msg}
@@ -6632,129 +6666,53 @@ export function PackagesSection({
         <HostingPackageFormInline
           form={packageForm}
           onChange={setPackageForm}
-          onCancel={() => setShowPackageForm(false)}
-          onSubmit={() => void handleCreate()}
+          onCancel={closePackageForm}
+          onSubmit={() => void handleSavePackage()}
           busy={creating}
+          mode={editingPackageName ? 'edit' : 'create'}
         />
       ) : (
-      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-500 dark:text-zinc-400">
-            {displayPackages.length} pacote(s) do espelho Supabase
-            {loadingLive ? ' · a actualizar…' : ''}
-          </p>
-          <button
-            type="button"
-            onClick={() => void loadLivePackages()}
-            disabled={loadingLive}
-            className="inline-flex items-center gap-2 rounded border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-red-600 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-red-400"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loadingLive ? 'animate-spin' : ''}`} />
-            Actualizar do servidor
-          </button>
-        </div>
+      <div className="overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         {displayPackages && displayPackages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-200 dark:border-zinc-700"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Ações</th></tr></thead>
+              <thead><tr className="border-b border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900/50"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Ações</th></tr></thead>
               <tbody>
                 {displayPackages.map((pkg: any, i: number) => (
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-2 font-medium">{pkg.packageName || pkg.name || '-'}</td>
+                    <td className="py-3 px-2">{(pkg.diskSpace || pkg.disk || '-') + ' MB'}</td>
+                    <td className="py-3 px-2">{(pkg.bandwidth || '-') + ' MB'}</td>
+                    <td className="py-3 px-2">{(pkg.emailAccounts || pkg.emails || '-')}</td>
+                    <td className="py-3 px-2">{(pkg.dataBases || pkg.databases || '-')}</td>
+                    <td className="py-3 px-2">{(pkg.ftpAccounts || '-')}</td>
+                    <td className="py-3 px-2">{(pkg.allowedDomains || '-')}</td>
                     <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.diskSpace}
-                          onChange={e => setEditForm({ ...editForm, diskSpace: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.diskSpace || pkg.disk || '-') + ' MB'
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.bandwidth}
-                          onChange={e => setEditForm({ ...editForm, bandwidth: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.bandwidth || '-') + ' MB'
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.emailAccounts}
-                          onChange={e => setEditForm({ ...editForm, emailAccounts: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.emailAccounts || pkg.emails || '-')
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.dataBases}
-                          onChange={e => setEditForm({ ...editForm, dataBases: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.dataBases || pkg.databases || '-')
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.ftpAccounts}
-                          onChange={e => setEditForm({ ...editForm, ftpAccounts: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.ftpAccounts || '-')
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {editing === pkg.packageName ? (
-                        <input
-                          type="number"
-                          value={editForm.allowedDomains}
-                          onChange={e => setEditForm({ ...editForm, allowedDomains: e.target.value })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        (pkg.allowedDomains || '-')
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      <button
-                        onClick={() => handleEdit(pkg)}
-                        className="text-blue-600 hover:text-blue-800 text-xs font-bold mr-2"
-                      >
-                        {editing === pkg.packageName ? 'Salvar' : 'Editar'}
-                      </button>
-                      {editing === pkg.packageName && (
+                      <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setEditing(null)}
-                          className="text-gray-600 hover:text-gray-800 text-xs font-bold mr-2"
+                          type="button"
+                          onClick={() => void openEditPackage(pkg)}
+                          title="Editar"
+                          aria-label="Editar"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded text-blue-600 hover:bg-blue-50 hover:text-blue-800"
                         >
-                          Cancelar
+                          <Edit2 className="h-4 w-4" />
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(pkg.packageName || pkg.name)}
-                        disabled={deleting === pkg.packageName}
-                        className="text-red-600 hover:text-red-800 text-xs font-bold disabled:opacity-50"
-                      >
-                        {deleting === pkg.packageName ? 'A apagar...' : 'Apagar'}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(pkg.packageName || pkg.name)}
+                          disabled={deleting === pkg.packageName}
+                          title={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
+                          aria-label={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-800 disabled:opacity-50"
+                        >
+                          {deleting === pkg.packageName ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

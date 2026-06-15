@@ -1,0 +1,14 @@
+[Unit]
+Description=VisualDesign DirectAdmin SSO (localhost)
+After=network.target directadmin.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/vd-da-sso-local.py
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

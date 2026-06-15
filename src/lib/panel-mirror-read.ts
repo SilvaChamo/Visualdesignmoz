@@ -230,7 +230,10 @@ export async function listMirrorPackages(
   if (error) return [];
   const all = (data || []).map(mapPackage);
 
-  if (isAdmin) return all;
+  if (isAdmin) {
+    const { mergeBrandHostingPackages } = await import('@/lib/panel-brand-packages');
+    return mergeBrandHostingPackages(all);
+  }
 
   const sites = prefetchedSites ?? (await listMirrorWebsites(scope));
   const usedNames = new Set(
@@ -340,6 +343,7 @@ export type PanelBootstrapAccount = {
   id: string;
   email: string;
   userName: string;
+  daUsername?: string | null;
   panelRole: UserRole;
   panelPath: string;
   state: string;
@@ -387,6 +391,7 @@ function mapProfileToAccount(profile: ProfileRow): PanelBootstrapAccount | null 
     id: authId,
     email,
     userName: displayName,
+    daUsername: profile.da_username ?? null,
     panelRole,
     panelPath: getRedirectPathForRole(panelRole),
     state: 'Active',

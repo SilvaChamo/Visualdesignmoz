@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ExternalLink, Globe, Mail, Server, Upload } from 'lucide-react';
-import { getWebFileManagerUrl } from '@/lib/server-config';
+import { getWebFileManagerUrl, getDirectAdminAccessUrl } from '@/lib/server-config';
 
 type Props = {
   sessionEmail?: string | null;
@@ -18,7 +18,7 @@ export function ResellerDirectAccessSection({
       id: 'da',
       title: 'DirectAdmin',
       description: 'Painel nativo DirectAdmin — abre automaticamente com a mesma conta do portal.',
-      href: '/api/directadmin-access',
+      href: getDirectAdminAccessUrl('reseller'),
       icon: Server,
       color: 'bg-red-50 border-red-200 text-red-700',
       button: 'Abrir DirectAdmin',

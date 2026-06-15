@@ -77,3 +77,36 @@ export async function daPostViaSsh(
   const result = await daRequestViaSsh('POST', cmd, fields, creds);
   return { ok: result.ok, error: result.error };
 }
+
+/** Login one-time: HTTP interno (rápido) → SSH (fallback). */
+export async function daOneTimeLoginUrl(
+  username: string,
+  publicHost = 'host.visualdesignmoz.com',
+): Promise<string | null> {
+  const { daOneTimeLoginUrlViaHttp } = await import('@/lib/da-login-url-http');
+  return (
+    (await daOneTimeLoginUrlViaHttp(username, publicHost)) ??
+    (await daOneTimeLoginUrlViaSsh(username, publicHost))
+  );
+}
+
+/** @deprecated Use `daOneTimeLoginUrl` */
+export async function daOneTimeLoginUrlViaSsh(
+  username: string,
+  publicHost = 'host.visualdesignmoz.com',
+): Promise<string | null> {
+  const daBin = '/usr/local/directadmin/directadmin';
+  const userQ = shellQuote(username);
+  const cmd = `${daBin} login-url --user=${userQ} 2>/dev/null | tail -1`;
+
+  try {
+    const raw = (await executeServerCommand(cmd, { fast: true })).trim();
+    if (!raw.startsWith('http')) return null;
+    const url = new URL(raw);
+    if (!url.pathname.includes('/api/login/')) return null;
+    url.hostname = publicHost;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}

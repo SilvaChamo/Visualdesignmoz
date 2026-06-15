@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
@@ -57,7 +57,7 @@ import {
   clearPanelBootstrapCache,
   type PanelBootstrapData,
 } from '@/lib/panel-data-from-server'
-import { prefetchPanelContent, prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
+import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { WordPressHubSection } from '../admin/WordPressHubSection'
 
 const directAdminAPI = panelAPI
@@ -1980,6 +1980,7 @@ export default function ResellerPage() {
   const [resellerDaUsername, setResellerDaUsername] = useState<string | null>(null)
   const [resellerPrimaryDomain, setResellerPrimaryDomain] = useState<string | null>(null)
   const [isResellerSession, setIsResellerSession] = useState(false)
+  const [isAdminImpersonating, setIsAdminImpersonating] = useState(false)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
@@ -1997,12 +1998,12 @@ export default function ResellerPage() {
   useEffect(() => {
     // Sempre definir dashboard como padrão na carga inicial/recarga da página
     if (!initialLoadDone.current) {
-      setActiveSection('dashboard');
       initialLoadDone.current = true;
-      // Limpar qualquer parâmetro section da URL ao recarregar
-      if (window.location.search.includes('section=')) {
+      if (searchParams.get('impersonate') === '1') {
+        clearPanelBootstrapCache('reseller');
         window.history.replaceState({}, '', '/revendedor');
       }
+      setActiveSection('dashboard');
       return;
     }
 
@@ -2057,6 +2058,7 @@ export default function ResellerPage() {
       setSessionUser(boot.resellerContext.email)
       setResellerDisplayName(boot.resellerContext.displayName || null)
       setIsResellerSession(!boot.resellerContext.impersonating)
+      setIsAdminImpersonating(Boolean(boot.resellerContext.impersonating))
       if (boot.resellerContext.primaryDomain) {
         setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
       }
@@ -2064,6 +2066,14 @@ export default function ResellerPage() {
 
     prefetchPanelContentFromBootstrap(boot, 'reseller')
   }
+
+  const bootstrapCacheApplied = useRef(false)
+  useLayoutEffect(() => {
+    if (bootstrapCacheApplied.current) return
+    bootstrapCacheApplied.current = true
+    const cached = readBootstrapCache('reseller')
+    if (cached) applyBootstrap(cached)
+  }, [])
 
   const loadDirectAdminData = async (fresh = false) => {
     if (fresh) clearPanelBootstrapCache('reseller')
@@ -2120,7 +2130,6 @@ export default function ResellerPage() {
   const [emailMsg, setEmailMsg] = useState('')
 
   useEffect(() => {
-    prefetchPanelContent({ scope: 'reseller' })
     void loadDirectAdminData(false)
   }, [])
 
@@ -2390,7 +2399,7 @@ export default function ResellerPage() {
               Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.
             </p>
             <a
-              href={getDirectAdminAccessUrl()}
+              href={getDirectAdminAccessUrl('reseller')}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex mt-4 text-sm font-bold text-red-600 hover:underline"
@@ -2695,7 +2704,7 @@ export default function ResellerPage() {
               )}
               <div className="flex items-center gap-2">
                 <a
-                  href={getDirectAdminAccessUrl()}
+                  href={getDirectAdminAccessUrl('reseller')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
@@ -2710,6 +2719,15 @@ export default function ResellerPage() {
                   <LogOut size={14} />
                   <span>Sair da Conta</span>
                 </button>
+                {isAdminImpersonating ? (
+                  <a
+                    href="/api/admin/impersonate?exit=1"
+                    className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Voltar ao painel</span>
+                  </a>
+                ) : null}
               </div>
             </div>
           </div>

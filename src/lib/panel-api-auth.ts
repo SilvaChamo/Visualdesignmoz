@@ -19,16 +19,16 @@ type PanelAuthFailure = {
 export async function requireAdminOrReseller(): Promise<PanelAuthSuccess | PanelAuthFailure> {
   const supabase = await createClient();
   const {
-    data: { user: verifiedUser },
-    error,
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let user = verifiedUser;
-  if (error || !user) {
+  let user = session?.user ?? null;
+  if (!user) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    user = session?.user ?? null;
+      data: { user: verifiedUser },
+      error,
+    } = await supabase.auth.getUser();
+    if (!error && verifiedUser) user = verifiedUser;
   }
 
   if (!user) {

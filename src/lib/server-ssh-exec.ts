@@ -16,7 +16,7 @@ import { withSshSlot } from '@/lib/ssh-connection-queue';
 
 const execFileAsync = promisify(execFile);
 
-async function executeViaNativeSsh(command: string): Promise<string> {
+async function executeViaNativeSsh(command: string, fast = false): Promise<string> {
   const opts = getSshConnectOptions();
   const keyPath = resolveSshKeyPath();
 
@@ -33,23 +33,34 @@ async function executeViaNativeSsh(command: string): Promise<string> {
     identityArg = ['-i', tempKeyPath];
   }
 
+  const sshOpts = [
+    ...identityArg,
+    '-p',
+    String(opts.port),
+    '-o',
+    'StrictHostKeyChecking=no',
+    '-o',
+    'UserKnownHostsFile=/dev/null',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    `ConnectTimeout=${fast ? 6 : 15}`,
+    '-o',
+    'ConnectionAttempts=1',
+  ];
+  if (fast) {
+    sshOpts.push('-o', 'Compression=no');
+  }
+
   try {
     const { stdout, stderr } = await execFileAsync(
       'ssh',
       [
-        ...identityArg,
-        '-p',
-        String(opts.port),
-        '-o',
-        'StrictHostKeyChecking=no',
-        '-o',
-        'UserKnownHostsFile=/dev/null',
-        '-o',
-        'BatchMode=yes',
+        ...sshOpts,
         `${opts.username}@${opts.host}`,
         command,
       ],
-      { maxBuffer: 10 * 1024 * 1024, timeout: 120000 },
+      { maxBuffer: 10 * 1024 * 1024, timeout: fast ? 20000 : 120000 },
     );
     return (stdout || stderr || '').trim();
   } finally {
@@ -63,7 +74,8 @@ async function executeViaNativeSsh(command: string): Promise<string> {
   }
 }
 
-export function executeServerCommand(command: string): Promise<string> {
+export function executeServerCommand(command: string, options?: { fast?: boolean }): Promise<string> {
+  const fast = options?.fast === true;
   if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
     return new Promise((resolve) => {
       const { exec } = require('child_process') as typeof import('child_process');
@@ -76,7 +88,7 @@ export function executeServerCommand(command: string): Promise<string> {
 
   // Preferir ssh nativo — mais fiável com chaves OpenSSH multilinha
   return withSshSlot(() =>
-    executeViaNativeSsh(command).catch((nativeErr: Error) => {
+    executeViaNativeSsh(command, fast).catch((nativeErr: Error) => {
     return new Promise((resolve, reject) => {
       let connectOptions: ReturnType<typeof getSshConnectOptions>;
       try {

@@ -142,7 +142,7 @@ export function DirectAdminEmailsSection() {
 
         <div className="flex items-center gap-2">
           <a
-            href={getDirectAdminAccessUrl()}
+            href={getDirectAdminAccessUrl('admin')}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-600 rounded-[10px] text-xs font-bold hover:bg-blue-100 transition-all"

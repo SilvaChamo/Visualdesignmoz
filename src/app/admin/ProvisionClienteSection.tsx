@@ -7,10 +7,25 @@ import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cach
 
 type AccountType = 'client' | 'reseller' | 'admin';
 
+export type ProvisionEditUser = {
+  userName: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  primaryDomain?: string;
+  packageName?: string;
+  type?: string;
+  websitesLimit?: number;
+  emailsLimit?: number;
+};
+
 interface Props {
   packages: DirectAdminPackage[];
   onComplete?: () => void;
+  onCancel?: () => void;
   initialAccountType?: AccountType;
+  mode?: 'create' | 'edit';
+  editUser?: ProvisionEditUser;
 }
 
 const inputCls =
@@ -21,21 +36,37 @@ function generatePassword(length = 16): string {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-export function ProvisionClienteSection({ packages: packagesProp, onComplete, initialAccountType = 'client' }: Props) {
-  const [accountType, setAccountType] = useState<AccountType>(initialAccountType);
+export function ProvisionClienteSection({
+  packages: packagesProp,
+  onComplete,
+  onCancel,
+  initialAccountType = 'client',
+  mode = 'create',
+  editUser,
+}: Props) {
+  const isEdit = mode === 'edit' && Boolean(editUser?.userName);
+  const [accountType, setAccountType] = useState<AccountType>(() => {
+    if (isEdit && editUser?.type) {
+      const t = editUser.type.toLowerCase();
+      if (t === 'reseller') return 'reseller';
+      if (t === 'admin') return 'admin';
+    }
+    return initialAccountType;
+  });
+  const [fixedUsername] = useState(() => editUser?.userName || '');
   const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache() || packagesProp);
   const [resellerPackages, setResellerPackages] = useState<string[]>([]);
   const [packageName, setPackageName] = useState('');
   const [identity, setIdentity] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+    firstName: editUser?.firstName || '',
+    lastName: editUser?.lastName || '',
+    email: editUser?.email || '',
     password: '',
     confirmPassword: '',
   });
   const [hosting, setHosting] = useState({
-    domain: '',
-    adminEmail: '',
+    domain: editUser?.primaryDomain || '',
+    adminEmail: editUser?.email || '',
     php: '8.2',
   });
   const [options, setOptions] = useState({ createEmail: false, emailUser: 'info', issueSsl: false });
@@ -45,8 +76,14 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    setAccountType(initialAccountType);
-  }, [initialAccountType]);
+    if (!isEdit) setAccountType(initialAccountType);
+  }, [initialAccountType, isEdit]);
+
+  useEffect(() => {
+    if (isEdit && editUser?.packageName && editUser.packageName !== '—') {
+      setPackageName(editUser.packageName);
+    }
+  }, [isEdit, editUser?.packageName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,11 +123,17 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
   }, [packagesProp, accountType]);
 
   const deriveUsername = () => {
+    if (isEdit && fixedUsername) return fixedUsername;
     const fromDomain = hosting.domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
     if (fromDomain) return fromDomain;
     const fromEmail = identity.email.split('@')[0]?.replace(/[^a-z0-9]/gi, '').slice(0, 10);
     return fromEmail || 'cliente';
   };
+
+  const passwordOk =
+    isEdit
+      ? !identity.password || (identity.password.length >= 8 && identity.password === identity.confirmPassword)
+      : identity.password.length >= 8 && identity.password === identity.confirmPassword;
 
   const displayName = useMemo(() => {
     const n = `${identity.firstName} ${identity.lastName}`.trim();
@@ -101,9 +144,9 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
 
   const canSubmit =
     identity.email.includes('@') &&
-    identity.password.length >= 8 &&
-    identity.password === identity.confirmPassword &&
-    (accountType === 'admin' ||
+    passwordOk &&
+    (isEdit ||
+      accountType === 'admin' ||
       (accountType === 'reseller' && Boolean(activePackageName)) ||
       (accountType === 'client' && hosting.domain.includes('.') && Boolean(activePackageName)));
 
@@ -117,6 +160,47 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
     const fullName = displayName !== '—' ? displayName : identity.email.split('@')[0];
 
     try {
+      if (isEdit && editUser) {
+        const res = await fetch('/api/admin/clientes', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'editAccount',
+            userName: editUser.userName,
+            firstName: identity.firstName,
+            lastName: identity.lastName,
+            email: identity.email,
+            websitesLimit: editUser.websitesLimit ?? 0,
+            emailsLimit: editUser.emailsLimit ?? 0,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(String(json.error || 'Falha ao actualizar conta'));
+
+        if (identity.password.length >= 8) {
+          const passRes = await fetch('/api/admin/clientes', {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'changePassword',
+              userName: editUser.userName,
+              password: identity.password,
+            }),
+          });
+          const passJson = await passRes.json();
+          if (!passRes.ok || !passJson.success) {
+            throw new Error(String(passJson.error || 'Conta actualizada, mas falha ao alterar password'));
+          }
+        }
+
+        setDone(true);
+        setMsg(`Conta ${editUser.userName} actualizada.`);
+        onComplete?.();
+        return;
+      }
+
       if (accountType === 'admin') {
         const res = await fetch('/api/admin/panel-users', {
           method: 'PUT',
@@ -220,8 +304,9 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
         <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Conta criada</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">{isEdit ? 'Conta actualizada' : 'Conta criada'}</h2>
         <p className="text-gray-600 mb-6">{msg}</p>
+        {!isEdit && (
         <button
           onClick={() => {
             setDone(false);
@@ -239,6 +324,7 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
         >
           Criar outra conta
         </button>
+        )}
       </div>
     );
   }
@@ -253,7 +339,8 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-6">
           <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="font-bold text-gray-900">Tipo de conta</h2>
+            <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Tipo de conta'}</h2>
+            {!isEdit && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
                 { id: 'client' as const, title: 'Cliente', desc: 'Hospedagem para um cliente final', icon: Users },
@@ -280,6 +367,14 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
                 </button>
               ))}
             </div>
+            )}
+            {isEdit && (
+              <p className="text-sm text-gray-600">
+                Utilizador: <strong className="font-mono">{fixedUsername}</strong>
+                {' · '}
+                {accountType === 'reseller' ? 'Revendedor' : accountType === 'admin' ? 'Administrador' : 'Cliente'}
+              </p>
+            )}
           </section>
 
           <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
@@ -293,7 +388,7 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
               <div className="relative sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="relative">
                   <input
-                    placeholder="Password (mín. 8)"
+                    placeholder={isEdit ? 'Nova password (opcional)' : 'Password (mín. 8)'}
                     type={showPassword ? 'text' : 'password'}
                     value={identity.password}
                     onChange={(e) => setIdentity({ ...identity, password: e.target.value })}
@@ -317,7 +412,7 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
                   </div>
                 </div>
                 <input
-                  placeholder="Confirmar password"
+                  placeholder={isEdit ? 'Confirmar nova password' : 'Confirmar password'}
                   type={showPassword ? 'text' : 'password'}
                   value={identity.confirmPassword}
                   onChange={(e) => setIdentity({ ...identity, confirmPassword: e.target.value })}
@@ -327,7 +422,7 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
             </div>
           </section>
 
-          {accountType !== 'admin' && (
+          {accountType !== 'admin' && !isEdit && (
             <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-5 h-5" /> {accountType === 'reseller' ? 'Pacote de revenda' : 'Pacote'}
@@ -374,14 +469,18 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
                 <Globe className="w-5 h-5" /> Hospedagem
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input placeholder="Domínio (exemplo.com)" value={hosting.domain} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={`${inputCls} sm:col-span-2`} />
+                <input placeholder="Domínio (exemplo.com)" value={hosting.domain} readOnly={isEdit} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={`${inputCls} sm:col-span-2 ${isEdit ? 'opacity-70' : ''}`} />
                 <input placeholder="E-mail admin do domínio" type="email" value={hosting.adminEmail} onChange={(e) => setHosting({ ...hosting, adminEmail: e.target.value })} className={`${inputCls} sm:col-span-2`} />
+                {!isEdit && (
                 <select value={hosting.php} onChange={(e) => setHosting({ ...hosting, php: e.target.value })} className={inputCls}>
                   <option value="8.2">PHP 8.2</option>
                   <option value="8.3">PHP 8.3</option>
                   <option value="8.1">PHP 8.1</option>
                 </select>
+                )}
               </div>
+              {!isEdit && (
+              <>
               <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer">
                 <input type="checkbox" checked={options.createEmail} onChange={(e) => setOptions({ ...options, createEmail: e.target.checked })} />
                 <span className="text-sm">
@@ -394,6 +493,8 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
                 <input type="checkbox" checked={options.issueSsl} onChange={(e) => setOptions({ ...options, issueSsl: e.target.checked })} />
                 <span className="text-sm">Emitir SSL Let&apos;s Encrypt para {hosting.domain || 'domínio'}</span>
               </label>
+              </>
+              )}
             </section>
           )}
 
@@ -403,12 +504,22 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
               <input
                 placeholder="Domínio principal (opcional)"
                 value={hosting.domain}
+                readOnly={isEdit}
                 onChange={(e) => setHosting({ ...hosting, domain: e.target.value })}
-                className={inputCls}
+                className={`${inputCls} ${isEdit ? 'opacity-70' : ''}`}
               />
+              {!isEdit && (
               <p className="text-sm text-gray-600">
                 Utilizador: <strong>{deriveUsername()}</strong>
               </p>
+              )}
+            </section>
+          )}
+
+          {isEdit && activePackageName && (
+            <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-2">
+              <h2 className="font-bold text-gray-900">Pacote actual</h2>
+              <p className="text-sm text-gray-700">{activePackageName}</p>
             </section>
           )}
 
@@ -416,7 +527,12 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
             <p className={`text-sm p-3 rounded-lg ${msg.startsWith('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{msg}</p>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-2 pt-2">
+            {isEdit && onCancel && (
+              <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50">
+                Cancelar
+              </button>
+            )}
             <button
               type="button"
               onClick={handleProvision}
@@ -424,7 +540,7 @@ export function ProvisionClienteSection({ packages: packagesProp, onComplete, in
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-40"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              Criar conta
+              {isEdit ? 'Guardar alterações' : 'Criar conta'}
             </button>
           </div>
         </div>

@@ -18,16 +18,25 @@ type AdminAuthFailure = {
 export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailure> {
   const supabase = await createClient();
   const {
-    data: { user: verifiedUser },
-    error,
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let user = verifiedUser;
-  if (error || !user?.email) {
+  const sessionUser = session?.user ?? null;
+  if (sessionUser?.email) {
+    const email = sessionUser.email.toLowerCase();
+    const metaRole = sessionUser.user_metadata?.role || sessionUser.app_metadata?.role;
+    if (ADMIN_EMAILS.has(email) || metaRole === 'admin') {
+      return { user: { id: sessionUser.id, email } };
+    }
+  }
+
+  let user = sessionUser;
+  if (!user?.email) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    user = session?.user ?? null;
+      data: { user: verifiedUser },
+      error,
+    } = await supabase.auth.getUser();
+    if (!error && verifiedUser?.email) user = verifiedUser;
   }
 
   if (!user?.email) {

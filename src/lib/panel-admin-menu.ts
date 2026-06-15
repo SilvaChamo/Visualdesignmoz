@@ -19,7 +19,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
     subItems: [
       { id: 'cp-users', label: 'Usuários' },
-      { id: 'revendedores', label: 'Revendedores' },
       { id: 'clientes', label: 'Clientes' },
     ],
   },
@@ -29,7 +28,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
     subItems: [
       { id: 'hospedagem-contas', label: 'Contas' },
-      { id: 'provision-client', label: 'Criar conta' },
       { id: 'packages-list', label: 'Pacotes' },
     ],
   },
@@ -328,7 +326,6 @@ export const RESELLER_LEGACY_ONLY_IDS = new Set(
 export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   dashboard: 'dashboard',
   'cp-users': 'utilizadores',
-  revendedores: 'utilizadores',
   clientes: 'utilizadores',
   'provision-client': 'nov-hospedagem',
   'hospedagem-contas': 'nov-hospedagem',

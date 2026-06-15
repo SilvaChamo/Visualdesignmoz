@@ -37,6 +37,10 @@ function pickAdminPassword(): string {
 }
 
 /** Login web DirectAdmin aceita email; API Basic auth exige o nome da conta (`admin`). */
+export function getAdminDaUsername(): string {
+  return resolveAdminApiUsername(readEnv('DIRECTADMIN_USER'));
+}
+
 function resolveAdminApiUsername(configured: string): string {
   const user = configured || 'admin';
   return user.includes('@') ? 'admin' : user;
