@@ -330,34 +330,6 @@ export function ClientesDaSection({
     setBusy(false);
   };
 
-  const saveEditAccount = async () => {
-    if (!editModal) return;
-    setBusy(true);
-    try {
-      const res = await fetch('/api/admin/clientes', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'editAccount',
-          userName: editModal.userName,
-          firstName: editModal.firstName,
-          lastName: editModal.lastName,
-          email: editModal.email,
-          websitesLimit: editModal.websitesLimit,
-          emailsLimit: editModal.emailsLimit,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao guardar');
-      setEditModal(null);
-      setMsg(`✅ Conta ${editModal.userName} actualizada.`);
-      await load();
-    } catch (e: unknown) {
-      setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`);
-    }
-    setBusy(false);
-  };
-
   const savePassword = async () => {
     if (!passwordModal) return;
     setBusy(true);
@@ -381,7 +353,7 @@ export function ClientesDaSection({
     setBusy(false);
   };
 
-  if (view === 'create') {
+  if (view === 'create' || view === 'edit') {
     return (
       <div className="font-panel space-y-6">
         <div className="flex shrink-0 items-center justify-end gap-2">
@@ -392,11 +364,93 @@ export function ClientesDaSection({
         <ProvisionClienteSection
           packages={packages}
           initialAccountType={initialAccountType}
+          mode={view === 'edit' ? 'edit' : 'create'}
+          editUser={view === 'edit' ? editUser ?? undefined : undefined}
+          onCancel={goToList}
           onComplete={() => {
             void load({ sync: true });
             onRefresh?.();
+            goToList();
           }}
         />
+      </div>
+    );
+  }
+
+  if (view === 'detail' && selectedUser) {
+    const domains = selectedUser.ownedDomains || [];
+    return (
+      <div className="font-panel space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={goToList} className={panelBtnSecondary}>
+            Voltar à lista
+          </button>
+          <div className="flex gap-2">
+            <a
+              href={daLoginHref(selectedUser.userName)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={panelBtnSecondary}
+            >
+              Login
+            </a>
+            <button
+              type="button"
+              onClick={() => { setEditUser(selectedUser); setView('edit'); }}
+              className={panelBtnPrimary}
+            >
+              Editar conta
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-zinc-100">{selectedUser.primaryDomain || selectedUser.userName}</h2>
+          <p className="text-sm text-gray-500 dark:text-zinc-400">Utilizador: {selectedUser.userName}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Quota', value: selectedUser.quotaLabel || '—' },
+            { label: 'Disco usado', value: selectedUser.diskUsedLabel || '0 MB' },
+            { label: 'Pacote', value: selectedUser.packageName || '—' },
+            { label: 'Domínios', value: String(selectedUser.domainCount ?? domains.length) },
+            { label: 'E-mail', value: selectedUser.email || '—' },
+            { label: 'Revendedor', value: selectedUser.resellerOwner || '—' },
+            { label: 'Data', value: formatRegisteredAt(selectedUser.registeredAt) },
+            { label: 'Estado', value: selectedUser.suspended ? 'Suspenso' : 'Activo' },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-xs font-bold uppercase text-gray-400">{item.label}</p>
+              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50">
+                <th className={`${accountsCellBorder} py-3`}>Domínio</th>
+                <th className={`${accountsCellBorder} py-3`}>Pacote</th>
+                <th className={`${accountsCellBorder} py-3`}>Disco</th>
+                <th className={`${accountsCellBorder} py-3`}>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {domains.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">Sem domínios registados</td></tr>
+              ) : domains.map((d) => (
+                <tr key={d.domain} className="border-b border-gray-100 dark:border-zinc-800">
+                  <td className={accountsCellBorder}>{d.domain}</td>
+                  <td className={accountsCellBorder}>{d.package}</td>
+                  <td className={accountsCellBorder}>{d.diskUsage} MB</td>
+                  <td className={accountsCellBorder}>{d.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
@@ -437,8 +491,8 @@ export function ClientesDaSection({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <table className="w-full min-w-[960px] text-sm">
+      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <table className="w-full min-w-[1100px] text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
               <th className={`${accountsCellBorder} py-3`}>Domínio</th>
