@@ -43,7 +43,7 @@ export default async function AdminLayout({
     const effectiveRole = await resolveRoleForAuthUser(roleDb, user);
     const isExplicitAdmin = adminEmails.includes((user.email || '').toLowerCase());
 
-    if (effectiveRole !== 'admin' && !isExplicitAdmin) {
+    if (effectiveRole !== 'admin' && effectiveRole !== 'manager' && !isExplicitAdmin) {
         notFound();
     }
 

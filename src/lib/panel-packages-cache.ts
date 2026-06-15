@@ -26,3 +26,12 @@ export function writePackagesCache(packages: DirectAdminPackage[]) {
     /* quota */
   }
 }
+
+export function clearPackagesCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* quota */
+  }
+}

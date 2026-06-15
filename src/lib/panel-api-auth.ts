@@ -41,7 +41,7 @@ export async function requireAdminOrReseller(): Promise<PanelAuthSuccess | Panel
   const metadataRole = user.user_metadata?.role || user.app_metadata?.role;
 
   let effectiveRole = metadataRole;
-  if (!effectiveRole || (effectiveRole !== 'admin' && effectiveRole !== 'reseller')) {
+  if (!effectiveRole || (effectiveRole !== 'admin' && effectiveRole !== 'manager' && effectiveRole !== 'reseller')) {
     try {
       effectiveRole = await resolveRoleForAuthUser(supabase, user);
     } catch {
@@ -49,7 +49,7 @@ export async function requireAdminOrReseller(): Promise<PanelAuthSuccess | Panel
     }
   }
 
-  if (effectiveRole === 'admin' || ADMIN_EMAILS.has(email)) {
+  if (effectiveRole === 'admin' || effectiveRole === 'manager' || ADMIN_EMAILS.has(email)) {
     return { user: { id: user.id, email, role: 'admin' } };
   }
 

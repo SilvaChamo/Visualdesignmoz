@@ -34,7 +34,7 @@ export function PanelHeader({
 
   const searchSlot = search ? (
     <div className="flex items-center gap-2">
-      <div className="relative w-full min-w-[10rem] max-w-[18rem] sm:w-44">
+      <div className="relative w-full min-w-[12rem] max-w-[20rem] sm:min-w-[18rem] sm:w-[20rem]">
         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
         <input
           value={search.value}

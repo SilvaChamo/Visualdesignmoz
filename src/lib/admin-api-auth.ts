@@ -25,7 +25,7 @@ export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailur
   if (sessionUser?.email) {
     const email = sessionUser.email.toLowerCase();
     const metaRole = sessionUser.user_metadata?.role || sessionUser.app_metadata?.role;
-    if (ADMIN_EMAILS.has(email) || metaRole === 'admin') {
+    if (ADMIN_EMAILS.has(email) || metaRole === 'admin' || metaRole === 'manager') {
       return { user: { id: sessionUser.id, email } };
     }
   }
@@ -54,7 +54,7 @@ export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailur
       : supabase;
   const effectiveRole = await resolveRoleForAuthUser(roleDb, user);
 
-  if (!ADMIN_EMAILS.has(email) && effectiveRole !== 'admin') {
+  if (!ADMIN_EMAILS.has(email) && effectiveRole !== 'admin' && effectiveRole !== 'manager') {
     return {
       error: NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 }),
     };

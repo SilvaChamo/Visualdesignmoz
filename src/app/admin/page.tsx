@@ -2710,12 +2710,13 @@ function AdminPageContent() {
       case 'news-manager':
         return <NewsManagerSection />
       case 'clientes':
-        return <CPUsersSection variant="panels" panelScope="client" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+        return <CPUsersSection variant="panels" panelScope="client" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'revendedores':
         return (
           <CPUsersSection
             variant="panels"
             panelScope="reseller"
+            isActive={isActive}
             onBootstrapRefresh={() => void loadDirectAdminData(true)}
             onNavigate={(section, opts) => {
               if (opts?.accountType) setProvisionAccountType(opts.accountType)
@@ -2809,7 +2810,7 @@ function AdminPageContent() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection variant="panels" panelScope="users" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+        return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-reseller':
         return <ResellerSection />
       case 'cp-ssl':

@@ -7,6 +7,8 @@ import { loadResellerCredentialsByUserId } from '@/lib/da-credential-store';
 import { profileName, type ProfileRow } from '@/lib/profile-db';
 import { belongsToCurrentPanel, resolveAccountPanelSite } from '@/lib/panel-tenant';
 import { getRedirectPathForRole, resolveUserRole, type UserRole } from '@/lib/user-roles';
+import { listPanelAuthAccounts, type PanelAuthAccountRow } from '@/lib/panel-auth-accounts';
+import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   PanelWebsite,
@@ -106,6 +108,8 @@ function mapPackage(row: Record<string, unknown>): PanelPackage {
     bandwidth: Number(row.bandwidth) || 0,
     emailAccounts: Number(row.email_accounts) || 0,
     dataBases: Number(row.databases) || 0,
+    ftpAccounts: Number(row.ftp_accounts) || 0,
+    allowedDomains: Number(row.allowed_domains) || 0,
   };
 }
 
@@ -355,6 +359,7 @@ export function buildPanelAccountCounts(users: PanelBootstrapAccount[]) {
   return {
     all: users.length,
     admin: users.filter((u) => u.panelRole === 'admin').length,
+    manager: users.filter((u) => u.panelRole === 'manager').length,
     reseller: users.filter((u) => u.panelRole === 'reseller').length,
     client: users.filter((u) => u.panelRole === 'client').length,
     guest: users.filter((u) => u.panelRole === 'guest').length,
@@ -400,11 +405,30 @@ function mapProfileToAccount(profile: ProfileRow): PanelBootstrapAccount | null 
   };
 }
 
+function mapAuthAccountToBootstrap(row: PanelAuthAccountRow): PanelBootstrapAccount {
+  const email = row.email.toLowerCase().trim();
+  const displayName = row.name || email.split('@')[0];
+  return {
+    id: row.user_id,
+    email,
+    userName: displayName,
+    daUsername: row.da_username,
+    panelRole: row.role,
+    panelPath: getRedirectPathForRole(row.role),
+    state: 'Active',
+    lastSignIn: null,
+    nome: displayName,
+  };
+}
+
 export async function listAllBootstrapPanelAccounts(
   adminClient?: SupabaseClient | null,
 ): Promise<PanelBootstrapAccount[]> {
   const admin = adminClient ?? getDaSyncAdmin();
   if (!admin) return [];
+
+  const authAccounts = await listPanelAuthAccounts(admin, PANEL_SLUG);
+  const authByUserId = new Map(authAccounts.map((row) => [row.user_id, row]));
 
   const { data, error } = await admin
     .from('profiles')
@@ -412,13 +436,38 @@ export async function listAllBootstrapPanelAccounts(
 
   if (error) {
     console.error('[panel-mirror] bootstrap accounts:', error.message);
+    if (authAccounts.length) {
+      return authAccounts.map(mapAuthAccountToBootstrap).sort((a, b) => a.email.localeCompare(b.email));
+    }
     return [];
   }
 
   const rows: PanelBootstrapAccount[] = [];
+  const seen = new Set<string>();
+
   for (const row of data || []) {
-    const mapped = mapProfileToAccount(row as ProfileRow);
-    if (mapped) rows.push(mapped);
+    const profile = row as ProfileRow;
+    const userId = String(profile.user_id || profile.id || '').trim();
+    const authRow = userId ? authByUserId.get(userId) : undefined;
+
+    if (authRow) {
+      rows.push(mapAuthAccountToBootstrap(authRow));
+      if (userId) seen.add(userId);
+      authByUserId.delete(userId);
+      continue;
+    }
+
+    const mapped = mapProfileToAccount(profile);
+    if (mapped) {
+      rows.push(mapped);
+      seen.add(mapped.id);
+    }
+  }
+
+  for (const authRow of authByUserId.values()) {
+    if (!seen.has(authRow.user_id)) {
+      rows.push(mapAuthAccountToBootstrap(authRow));
+    }
   }
 
   return rows.sort((a, b) => a.email.localeCompare(b.email));

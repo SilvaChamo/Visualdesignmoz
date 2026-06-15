@@ -15,7 +15,7 @@ import {
   clearPanelUsersCache,
   readPanelUsersCache,
 } from '@/lib/panel-users-cache'
-import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache'
+import { readPackagesCache, writePackagesCache, clearPackagesCache } from '@/lib/panel-packages-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import {
   readDomainListCache,
@@ -2319,7 +2319,7 @@ export function EmailManagementSection({
 // ============================================================
 type PanelRoleFilter = 'all' | 'admin' | 'reseller' | 'client' | 'guest'
 type PanelUsersScope = 'users' | 'reseller' | 'client'
-type UsersScopeFilter = 'all' | 'admin' | 'guest' | 'client' | 'reseller'
+type UsersScopeFilter = 'all' | 'admin' | 'manager' | 'guest' | 'client' | 'reseller'
 
 type PanelAccount = {
   id: string
@@ -2335,6 +2335,7 @@ type PanelAccount = {
 
 const PANEL_ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
+  manager: 'Gestão',
   reseller: 'Revendedor',
   client: 'Cliente',
   guest: 'Visitante',
@@ -2342,6 +2343,7 @@ const PANEL_ROLE_LABELS: Record<string, string> = {
 
 const PANEL_ROLE_BADGE: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
+  manager: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
   reseller: 'bg-blue-100 text-blue-700',
   client: 'bg-gray-100 text-gray-700',
   guest: 'bg-amber-100 text-amber-800',
@@ -2505,6 +2507,7 @@ export function CPUsersSection({
   panelScope,
   onBootstrapRefresh,
   onNavigate,
+  isActive = true,
 }: {
   variant?: 'directadmin' | 'panels';
   fixedPanelFilter?: PanelRoleFilter;
@@ -2513,15 +2516,22 @@ export function CPUsersSection({
   /** Actualiza bootstrap global (sites + contas) após mutações. */
   onBootstrapRefresh?: () => void | Promise<void>;
   onNavigate?: (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => void;
+  isActive?: boolean;
 }) {
   const isPanelsMode = variant === 'panels'
+  const { setChrome } = useAdminSectionChrome()
   const [users, setUsers] = useState<DirectAdminUser[]>([])
   const [panelAccounts, setPanelAccounts] = useState<PanelAccount[]>(() => {
     if (typeof window === 'undefined') return []
     return readBootstrapCache()?.accounts ?? readPanelUsersCache()?.users ?? []
   })
   const [panelFilter, setPanelFilter] = useState<PanelRoleFilter>(fixedPanelFilter ?? 'all')
-  const [usersScopeFilter, setUsersScopeFilter] = useState<UsersScopeFilter>('all')
+  const [usersScopeFilter, setUsersScopeFilter] = useState<UsersScopeFilter>(() => {
+    if (panelScope === 'users') return 'all'
+    if (panelScope === 'client') return 'client'
+    if (panelScope === 'reseller') return 'reseller'
+    return 'all'
+  })
   const [panelCounts, setPanelCounts] = useState<Record<string, number>>(() => {
     if (typeof window === 'undefined') return {}
     return readBootstrapCache()?.accountCounts ?? readPanelUsersCache()?.counts ?? {}
@@ -2540,6 +2550,8 @@ export function CPUsersSection({
   const [panelEmailConfig, setPanelEmailConfig] = useState<EmailConfigBundle | null>(null)
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
+  const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([])
+  const [bulkPanelRole, setBulkPanelRole] = useState<string>('manager')
   const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
     show: false,
     mode: 'create',
@@ -2607,21 +2619,47 @@ export function CPUsersSection({
 
   useEffect(() => { loadUsers() }, [variant])
 
+  useEffect(() => {
+    if (!msg) return
+    const timer = window.setTimeout(() => setMsg(''), 5000)
+    return () => window.clearTimeout(timer)
+  }, [msg])
+
+  useEffect(() => {
+    if (!isActive || !isPanelsMode || !panelScope) return
+    if (panelScope === 'users') setUsersScopeFilter('all')
+    else if (panelScope === 'client') setUsersScopeFilter('client')
+    else if (panelScope === 'reseller') setUsersScopeFilter('reseller')
+    setSelectedPanelIds([])
+  }, [isActive, panelScope, isPanelsMode])
+
+  useEffect(() => {
+    if (!isActive || !isPanelsMode || !panelScope) {
+      return
+    }
+    setChrome({
+      search: {
+        value: searchQuery,
+        onChange: setSearchQuery,
+        placeholder: 'Pesquisar por email ou nome…',
+      },
+    })
+    return () => setChrome(null)
+  }, [isActive, isPanelsMode, panelScope, searchQuery, setChrome])
+
   const activePanelFilter = fixedPanelFilter ?? panelFilter
-  const usersScopeRoles: UsersScopeFilter[] = ['admin', 'reseller', 'guest', 'client']
+  const usersScopeRoles: UsersScopeFilter[] = ['admin', 'manager', 'reseller', 'guest', 'client']
 
   const scopedPanelAccounts = panelScope === 'users'
     ? panelAccounts.filter((account) => usersScopeRoles.includes(account.panelRole as UsersScopeFilter))
-    : panelScope === 'reseller'
-      ? panelAccounts.filter((account) => account.panelRole === 'reseller')
-      : panelScope === 'client'
-        ? panelAccounts.filter((account) => account.panelRole === 'client')
-        : panelAccounts
+    : panelScope === 'reseller' || panelScope === 'client'
+      ? panelAccounts.filter((account) => account.panelRole === usersScopeFilter)
+      : panelAccounts
 
   const usersScopeCounts = usersScopeRoles.reduce<Record<string, number>>((acc, role) => {
-    acc[role] = scopedPanelAccounts.filter((a) => a.panelRole === role).length
+    acc[role] = panelAccounts.filter((a) => a.panelRole === role).length
     return acc
-  }, { all: scopedPanelAccounts.length })
+  }, { all: panelAccounts.length })
 
   const filteredPanelAccounts = scopedPanelAccounts.filter((account) => {
     const matchesRole = panelScope === 'users'
@@ -2779,7 +2817,7 @@ export function CPUsersSection({
 
   const handlePanelUpdate = async (data: Record<string, unknown>) => {
     if (data.password && data.password !== data.confirmPassword) {
-      setMsg('As senhas não coincidem!')
+      setMsg('As passwords não coincidem!')
       return
     }
     setCreating(true)
@@ -2796,14 +2834,66 @@ export function CPUsersSection({
           email: data.email,
           nome: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
           password: data.password || undefined,
+          provisionDa: false,
         }),
       })
       const payload = await res.json().catch(() => ({}))
       if (!res.ok || payload.success === false) {
-        throw new Error(payload.error || payload.message || 'Falha ao actualizar')
+        const raw = payload.error || payload.message || 'Falha ao actualizar'
+        throw new Error(String(raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
       }
-      setMsg('✅ Conta actualizada.')
+      const note = payload.provisionWarning ? ` (${payload.provisionWarning})` : ''
+      setMsg(`✅ ${payload.message || 'Conta actualizada.'}${note}`)
       setUserModal({ ...userModal, show: false })
+      clearPanelUsersCache()
+      clearPanelBootstrapCache()
+      await loadPanelAccounts({ fresh: true })
+    } catch (e: unknown) {
+      setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+    }
+    setCreating(false)
+  }
+
+  const applyBulkPanelRole = async () => {
+    if (!selectedPanelIds.length || !bulkPanelRole) return
+    setCreating(true)
+    setMsg('')
+    let ok = 0
+    let fail = 0
+    try {
+      await supabase.auth.getSession()
+      for (const id of selectedPanelIds) {
+        const account = panelAccounts.find((a) => a.id === id)
+        if (!account) {
+          fail += 1
+          continue
+        }
+        const fullName = account.nome || account.userName || ''
+        const spaceIdx = fullName.indexOf(' ')
+        const res = await fetch('/api/admin/panel-users', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: account.id,
+            role: bulkPanelRole,
+            email: account.email,
+            nome: fullName,
+            provisionDa: false,
+          }),
+        })
+        const payload = await res.json().catch(() => ({}))
+        if (res.ok && payload.success !== false) ok += 1
+        else fail += 1
+      }
+      if (fail > 0) {
+        setMsg(`✅ ${ok} actualizada(s). ${fail} falharam.`)
+      } else {
+        setMsg(`✅ ${ok} conta(s) actualizada(s).`)
+      }
+      setSelectedPanelIds([])
+      clearPanelUsersCache()
+      clearPanelBootstrapCache()
       await loadPanelAccounts({ fresh: true })
     } catch (e: unknown) {
       setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
@@ -2826,7 +2916,15 @@ export function CPUsersSection({
       confirmPassword: generated,
     }
     if (panelScope === 'reseller') {
-      onNavigate?.('provision-client', { accountType: 'reseller' });
+      setUserModal({
+        show: true,
+        mode: 'create',
+        data: {
+          ...base,
+          acl: 'panel',
+          panelRole: 'reseller',
+        },
+      })
       return;
     }
     setUserModal({
@@ -2875,11 +2973,17 @@ export function CPUsersSection({
             password: data.password,
             name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
             role: data.panelRole,
+            provisionDa: false,
           }),
         })
         const payload = await res.json().catch(() => ({}))
         if (!res.ok || payload.success === false) {
-          throw new Error(payload.error || payload.message || 'Falha ao criar conta')
+          throw new Error(
+            String(payload.error || payload.message || 'Falha ao criar conta')
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim(),
+          )
         }
         setMsg(`✅ ${payload.message}`)
         setUserModal({ ...userModal, show: false })
@@ -3127,26 +3231,52 @@ export function CPUsersSection({
       <div className={`flex flex-col gap-3 ${isPanelsMode ? 'sm:flex-row sm:items-center sm:justify-between' : 'lg:flex-row lg:items-end lg:justify-end'}`}>
         <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${isPanelsMode ? 'w-full sm:justify-between' : 'w-full lg:w-auto lg:shrink-0'}`}>
           {isPanelsMode && (
-            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-              {panelScope === 'users' && (
-                <select
-                  value={usersScopeFilter}
-                  onChange={(e) => setUsersScopeFilter(e.target.value as UsersScopeFilter)}
-                  className={`${panelField} w-full shrink-0 sm:min-w-[18rem] sm:w-[20rem]`}
-                >
-                  <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
-                  <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
-                  <option value="reseller">Revendedores ({usersScopeCounts.reseller ?? 0})</option>
-                  <option value="guest">Visitantes ({usersScopeCounts.guest ?? 0})</option>
-                  <option value="client">Clientes ({usersScopeCounts.client ?? 0})</option>
-                </select>
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              {(panelScope === 'users' || panelScope === 'client') && (
+                <>
+                  <select
+                    value={usersScopeFilter}
+                    onChange={(e) => setUsersScopeFilter(e.target.value as UsersScopeFilter)}
+                    className={`${panelField} w-full shrink-0 sm:min-w-[18rem] sm:w-[20rem]`}
+                  >
+                    {panelScope === 'users' && (
+                      <option value="all">Todos ({usersScopeCounts.all ?? 0})</option>
+                    )}
+                    <option value="admin">Administradores ({usersScopeCounts.admin ?? 0})</option>
+                    <option value="manager">Gestão ({usersScopeCounts.manager ?? 0})</option>
+                    <option value="reseller">Revendedores ({usersScopeCounts.reseller ?? 0})</option>
+                    <option value="guest">Visitantes ({usersScopeCounts.guest ?? 0})</option>
+                    <option value="client">Clientes ({usersScopeCounts.client ?? 0})</option>
+                  </select>
+                  {panelScope === 'users' && selectedPanelIds.length > 0 && (
+                    <>
+                      <select
+                        value={bulkPanelRole}
+                        onChange={(e) => setBulkPanelRole(e.target.value)}
+                        className={`${panelField} w-full shrink-0 sm:min-w-[11rem] sm:w-auto`}
+                        disabled={creating}
+                      >
+                        <option value="manager">Promover para Gestão</option>
+                        <option value="admin">Promover para Administrador</option>
+                        <option value="reseller">Promover para Revendedor</option>
+                        <option value="client">Promover para Cliente</option>
+                        <option value="guest">Promover para Visitante</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void applyBulkPanelRole()}
+                        disabled={creating}
+                        className={`${panelBtnPrimary} shrink-0`}
+                      >
+                        Aplicar
+                      </button>
+                      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                        {selectedPanelIds.length} seleccionada(s)
+                      </span>
+                    </>
+                  )}
+                </>
               )}
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Pesquisar por email ou nome..."
-                className={`${panelField} w-full ${panelScope === 'users' ? 'sm:min-w-0 sm:flex-1 sm:max-w-[20rem]' : 'sm:w-48'}`}
-              />
             </div>
           )}
           {!isPanelsMode && (
@@ -3182,9 +3312,19 @@ export function CPUsersSection({
         </div>
       </div>
 
-      {msg && <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('✅') || msg.includes('sucesso') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
+      {msg && (
+        <div
+          className={`rounded border px-4 py-2.5 text-sm font-medium transition-opacity duration-500 ${
+            msg.includes('✅') || msg.includes('sucesso') || msg.includes('actualizada')
+              ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/20 dark:text-green-400'
+              : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400'
+          }`}
+        >
+          {msg}
+        </div>
+      )}
 
-      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden relative">
+      <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden relative dark:border-zinc-800 dark:bg-zinc-950">
         {loading && <TableSkeleton columns={5} rows={8} />}
         {!loading && displayCount === 0 ? (
           <div className="py-12 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum utilizador encontrado.</p></div>
@@ -3192,6 +3332,7 @@ export function CPUsersSection({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900/50">
+                {panelScope === 'users' && <th className="w-10 px-4 py-3" aria-hidden="true" />}
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Painel</th>
@@ -3202,7 +3343,29 @@ export function CPUsersSection({
             </thead>
             <tbody>
               {filteredPanelAccounts.map((account) => (
-                <tr key={account.id} className="border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400">
+                <tr
+                  key={account.id}
+                  className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400 ${
+                    selectedPanelIds.includes(account.id) ? 'bg-red-50/40 dark:bg-red-950/10' : ''
+                  }`}
+                >
+                  {panelScope === 'users' && (
+                    <td className="px-4 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedPanelIds.includes(account.id)}
+                        onChange={() => {
+                          setSelectedPanelIds((prev) =>
+                            prev.includes(account.id)
+                              ? prev.filter((x) => x !== account.id)
+                              : [...prev, account.id],
+                          )
+                        }}
+                        className="h-4 w-4 cursor-pointer accent-red-600"
+                        aria-label={`Seleccionar ${account.email}`}
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-1.5 font-medium text-gray-900 dark:text-zinc-100">{account.email}</td>
                   <td className="px-4 py-1.5 text-gray-600 dark:text-zinc-400">{account.nome || account.userName || '—'}</td>
                   <td className="px-4 py-1.5">
@@ -3397,6 +3560,7 @@ export function CPUsersSection({
                         <option value="client">Cliente</option>
                       ) : (
                         <>
+                          <option value="manager">Gestão</option>
                           <option value="client">Cliente</option>
                           <option value="admin">Administrador</option>
                           <option value="reseller">Revendedor</option>
@@ -3468,7 +3632,13 @@ export function CPUsersSection({
                       {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {userModal.mode === 'edit' && <p className="text-[9px] text-gray-400 mt-1 italic">Vazio = Manter a password atual (o DirectAdmin não permite ler a password antiga).</p>}
+                  {userModal.mode === 'edit' && (
+                    <p className="text-[9px] text-gray-400 mt-1 italic">
+                      {isPanelAuthForm
+                        ? 'Vazio = manter a password actual.'
+                        : 'Vazio = manter a password actual (o servidor não permite ler a password antiga).'}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label>
@@ -6501,23 +6671,20 @@ export function PackagesSection({
   }
 
   useEffect(() => {
-    if (packages.length > 0) {
-      setLivePackages(packages)
-      writePackagesCache(packages)
-    } else {
-      const cached = readPackagesCache()
-      if (cached?.length) setLivePackages(cached)
-    }
-  }, [packages])
-
-  const displayPackages = livePackages.length > 0 ? livePackages : packages
+    if (!msg) return
+    const timer = window.setTimeout(() => setMsg(''), 5000)
+    return () => window.clearTimeout(timer)
+  }, [msg])
 
   useEffect(() => {
     if (!isActive) return
     setChrome(null)
+    clearPackagesCache()
     void loadLivePackages()
     return () => setChrome(null)
   }, [isActive, setChrome])
+
+  const displayPackages = livePackages.length > 0 ? livePackages : packages
 
   const handleSavePackage = async () => {
     if (!packageForm.packageName.trim()) return
@@ -6540,6 +6707,7 @@ export function PackagesSection({
       if (data.success) {
         setMsg(isEdit ? 'Pacote actualizado com sucesso!' : 'Pacote criado com sucesso!')
         closePackageForm()
+        clearPackagesCache()
         onRefresh()
         void loadLivePackages()
       } else {
@@ -6588,6 +6756,7 @@ export function PackagesSection({
       const data = await res.json()
       if (data.success) {
         setMsg('Pacote apagado com sucesso!')
+        clearPackagesCache()
         onRefresh()
         void loadLivePackages()
       } else {

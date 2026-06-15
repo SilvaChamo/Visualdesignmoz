@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   isAdmin: boolean
-  userRole: 'admin' | 'reseller' | 'client' | 'guest' | null
+  userRole: UserRole | null
   signIn: (email: string, password: string) => Promise<UserRole>
   signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string, nome: string, telefone?: string) => Promise<void>
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [userRole, setUserRole] = useState<'admin' | 'reseller' | 'client' | 'guest' | null>(null)
+  const [userRole, setUserRole] = useState<UserRole | null>(null)
 
   useEffect(() => {
     const initializeAuth = async () => {

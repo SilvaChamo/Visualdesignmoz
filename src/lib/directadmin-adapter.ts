@@ -160,6 +160,51 @@ async function daPost(
   return { ok: !res.error, error: res.error ? formatDaError(res) : undefined };
 }
 
+async function fetchPackageDetailFields(
+  credentials: DirectAdminCredentials,
+  packageName: string,
+): Promise<Record<string, string>> {
+  const name = packageName.trim();
+  const readFields = (pkgSp: DaData): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(pkgSp)) {
+      if (v != null && String(v).trim()) out[k] = String(v);
+    }
+    return out;
+  };
+
+  const listCmd =
+    credentials.role === 'reseller' ? 'CMD_API_PACKAGES_RESELLER' : 'CMD_API_PACKAGES_USER';
+
+  for (const cmd of [listCmd, 'CMD_API_PACKAGES_USER', 'CMD_API_PACKAGES_RESELLER'] as const) {
+    try {
+      const pkgSp = await daGet(credentials, cmd, { package: name });
+      const out = readFields(pkgSp);
+      if (
+        out.quota ||
+        out.bandwidth ||
+        out.packagename ||
+        out.vdomains ||
+        out.ftp ||
+        out.nemails ||
+        Object.keys(out).length > 2
+      ) {
+        return out;
+      }
+    } catch {
+      /* tentar comando seguinte */
+    }
+  }
+
+  if (credentials.role === 'admin') {
+    const { fetchBrandPackageDetailsByName } = await import('@/lib/panel-brand-packages');
+    const brand = await fetchBrandPackageDetailsByName(name);
+    if (brand) return brand;
+  }
+
+  return {};
+}
+
 export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
   const cachePrefix = `da_${credentials.role}_${credentials.user}_`;
   let ownerByDomain: Map<string, string> | null = null;
@@ -245,35 +290,11 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const pkgData = await daGet(credentials, cmd);
       const names = extractList(pkgData);
       const packages: PanelPackage[] = [];
+      const { packageRowFromFields } = await import('@/lib/panel-brand-packages');
 
       for (const name of names) {
-        let quota = '0';
-        let bandwidth = '0';
-        let nemails = '0';
-        let mysql = '0';
-        let ftp = '0';
-        let vdomains = '0';
-        try {
-          const pkgSp = await daGet(credentials, 'CMD_API_MANAGE_USER_PACKAGES', { package: name });
-          quota = field(pkgSp, 'quota') || quota;
-          bandwidth = field(pkgSp, 'bandwidth') || bandwidth;
-          nemails = field(pkgSp, 'nemails') || nemails;
-          mysql = field(pkgSp, 'mysql') || mysql;
-          ftp = field(pkgSp, 'ftp') || ftp;
-          vdomains = field(pkgSp, 'vdomains') || vdomains;
-        } catch {
-          /* quotas opcionais neste servidor */
-        }
-        packages.push({
-          id: name,
-          packageName: name,
-          diskSpace: parseInt(quota, 10) || 1000,
-          bandwidth: parseInt(bandwidth, 10) || 10000,
-          emailAccounts: parseInt(nemails, 10) || 10,
-          dataBases: parseInt(mysql, 10) || 1,
-          ftpAccounts: parseInt(ftp, 10) || 0,
-          allowedDomains: parseInt(vdomains, 10) || 0,
-        });
+        const fields = await fetchPackageDetailFields(credentials, name);
+        packages.push(packageRowFromFields(name, fields));
       }
 
       let result = packages;
@@ -372,34 +393,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     },
 
     getPackageDetails: async (packageName: string): Promise<Record<string, string>> => {
-      const name = packageName.trim();
-      const readFields = (pkgSp: DaData): Record<string, string> => {
-        const out: Record<string, string> = {};
-        for (const [k, v] of Object.entries(pkgSp)) {
-          if (v != null && String(v).trim()) out[k] = String(v);
-        }
-        return out;
-      };
-
-      for (const cmd of ['CMD_API_MANAGE_USER_PACKAGES', 'CMD_API_MANAGE_RESELLER_PACKAGES'] as const) {
-        try {
-          const pkgSp = await daGet(credentials, cmd, { package: name });
-          const out = readFields(pkgSp);
-          if (out.quota || out.bandwidth || out.packagename || Object.keys(out).length > 2) {
-            return out;
-          }
-        } catch {
-          /* tentar comando seguinte */
-        }
-      }
-
-      if (credentials.role === 'admin') {
-        const { fetchBrandPackageDetailsByName } = await import('@/lib/panel-brand-packages');
-        const brand = await fetchBrandPackageDetailsByName(name);
-        if (brand) return brand;
-      }
-
-      return {};
+      return fetchPackageDetailFields(credentials, packageName);
     },
 
     listUsers: async (): Promise<PanelUser[]> => {

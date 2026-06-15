@@ -3,7 +3,7 @@ import {
   resolveRegistryPanelRole,
 } from '@/lib/panel-user-registry';
 
-export type UserRole = 'admin' | 'reseller' | 'client' | 'guest';
+export type UserRole = 'admin' | 'manager' | 'reseller' | 'client' | 'guest';
 
 /** Emails com acesso bootstrap ao painel admin (não promovem papel na listagem). */
 export const ADMIN_EMAILS = ADMIN_BOOTSTRAP_EMAILS;
@@ -18,7 +18,13 @@ type RoleSource = {
 };
 
 function readRole(value: unknown): UserRole | null {
-  if (value === 'admin' || value === 'reseller' || value === 'client' || value === 'guest') {
+  if (
+    value === 'admin' ||
+    value === 'manager' ||
+    value === 'reseller' ||
+    value === 'client' ||
+    value === 'guest'
+  ) {
     return value;
   }
   return null;
@@ -31,8 +37,9 @@ export function resolveUserRole(source: RoleSource): UserRole {
   const metaRole = readRole(source.userMetadata?.role) ?? readRole(source.appMetadata?.role);
   const profileRole = readRole(source.profileRole);
 
-  // Admin só por promoção manual (perfil ou metadata), nunca por email fixo.
+  // Admin e gestão só por promoção manual (perfil ou metadata), nunca por email fixo.
   if (profileRole === 'admin' || metaRole === 'admin') return 'admin';
+  if (profileRole === 'manager' || metaRole === 'manager') return 'manager';
 
   const registryRole = resolveRegistryPanelRole({
     email,
@@ -54,6 +61,7 @@ export function resolveUserRole(source: RoleSource): UserRole {
 export function getRedirectPathForRole(role: UserRole): string {
   switch (role) {
     case 'admin':
+    case 'manager':
       return '/admin';
     case 'reseller':
       return '/revendedor';
@@ -66,5 +74,5 @@ export function getRedirectPathForRole(role: UserRole): string {
 }
 
 export function isPanelRole(role: UserRole): boolean {
-  return role === 'admin' || role === 'reseller' || role === 'client';
+  return role === 'admin' || role === 'manager' || role === 'reseller' || role === 'client';
 }

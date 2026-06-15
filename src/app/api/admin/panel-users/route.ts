@@ -29,6 +29,11 @@ import {
   resolveAccountPanelSite,
   PANEL_SLUG,
 } from '@/lib/panel-tenant';
+import {
+  backfillPanelAuthAccountsFromProfiles,
+  deletePanelAuthAccount,
+  upsertPanelAuthAccount,
+} from '@/lib/panel-auth-accounts';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -167,7 +172,7 @@ async function loadPaidUserIds(admin: SupabaseClient, userIds: string[]): Promis
   return paid;
 }
 
-/** Sincroniza papéis automáticos (revenda/cliente/visitante). Admin nunca é automático. */
+/** Sincroniza papéis automáticos (revenda/cliente/visitante). Admin/gestão nunca são automáticos. */
 async function syncAutomaticPanelRoles(admin: SupabaseClient) {
   const authUsers = await listAllAuthUsers(admin);
   const paidIds = await loadPaidUserIds(
@@ -193,10 +198,10 @@ async function syncAutomaticPanelRoles(admin: SupabaseClient) {
     const currentMetaRole = readRoleFromMeta(authUser.user_metadata?.role);
     const currentProfileRole = readRoleFromMeta(profile?.role);
 
-    // Admin é sempre manual — não sobrescrever.
-    if (currentProfileRole === 'admin' || currentMetaRole === 'admin') continue;
+    // Admin e gestão são manuais — não sobrescrever.
+    if (isManualPanelRole(currentProfileRole) || isManualPanelRole(currentMetaRole)) continue;
 
-    const role = resolveUserRole({
+    let role = resolveUserRole({
       email,
       userMetadata: authUser.user_metadata as Record<string, unknown>,
       appMetadata: authUser.app_metadata as Record<string, unknown>,
@@ -205,7 +210,7 @@ async function syncAutomaticPanelRoles(admin: SupabaseClient) {
       hasPaidProducts: paidIds.has(authUser.id),
     });
 
-    if (role === 'admin') continue;
+    if (role === 'admin' || role === 'manager') continue;
 
     const needsProfile = !profile || profile.role !== role;
     const needsMeta = currentMetaRole !== role;
@@ -228,10 +233,24 @@ async function syncAutomaticPanelRoles(admin: SupabaseClient) {
 }
 
 function readRoleFromMeta(value: unknown): UserRole | null {
-  if (value === 'admin' || value === 'reseller' || value === 'client' || value === 'guest') {
+  if (
+    value === 'admin' ||
+    value === 'manager' ||
+    value === 'reseller' ||
+    value === 'client' ||
+    value === 'guest'
+  ) {
     return value;
   }
   return null;
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isManualPanelRole(role: UserRole | null): boolean {
+  return role === 'admin' || role === 'manager';
 }
 
 async function buildPanelAccounts(options?: {
@@ -328,6 +347,7 @@ function buildPanelUserCounts(users: PanelAccountRow[]) {
   return {
     all: users.length,
     admin: users.filter((u) => u.panelRole === 'admin').length,
+    manager: users.filter((u) => u.panelRole === 'manager').length,
     reseller: users.filter((u) => u.panelRole === 'reseller').length,
     client: users.filter((u) => u.panelRole === 'client').length,
     guest: users.filter((u) => u.panelRole === 'guest').length,
@@ -398,7 +418,7 @@ export async function POST() {
 
       const currentMetaRole = readRoleFromMeta(authUser.user_metadata?.role);
       const currentProfileRole = readRoleFromMeta(profile?.role);
-      if (currentProfileRole === 'admin' || currentMetaRole === 'admin') {
+      if (isManualPanelRole(currentProfileRole) || isManualPanelRole(currentMetaRole)) {
         profilesSynced += 1;
         continue;
       }
@@ -412,7 +432,7 @@ export async function POST() {
         hasPaidProducts: paidIds.has(authUser.id),
       });
 
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'manager') {
         profilesSynced += 1;
         continue;
       }
@@ -434,6 +454,7 @@ export async function POST() {
     }
 
     clearPanelUsersServerCache();
+    const backfilled = await backfillPanelAuthAccountsFromProfiles(admin);
     const provision = await provisionAllPendingResellers();
     await backfillDownloadableCredentials(admin, authUsers);
     const users = await buildPanelAccounts({ sync: false, includePaidCheck: false });
@@ -443,6 +464,7 @@ export async function POST() {
       results: {
         authAccounts: authUsers.length,
         profilesSynced,
+        panelAuthBackfilled: backfilled,
         resellerProvisioned: provision.provisioned,
         resellerProvisionErrors: provision.errors,
       },
@@ -455,22 +477,24 @@ export async function POST() {
 }
 
 function allowedCreateRoles(callerRole: 'admin' | 'reseller'): UserRole[] {
-  if (callerRole === 'admin') return ['admin', 'client', 'reseller'];
+  if (callerRole === 'admin') return ['admin', 'manager', 'client', 'reseller'];
   return ['client'];
 }
 
-/** Criar conta de painel — Auth + profiles; revenda também provisiona no DirectAdmin. */
+/** Criar conta de painel — Auth + profiles; servidor opcional para revenda. */
 export async function PUT(req: NextRequest) {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
 
   try {
     const body = await req.json();
-    const { email, password, name, role } = body as {
+    const { email, password, name, role, provisionDa } = body as {
       email?: string;
       password?: string;
       name?: string;
       role?: UserRole;
+      /** Só quando true tenta criar revenda no servidor (limites DA aplicam-se). */
+      provisionDa?: boolean;
     };
 
     const normalizedEmail = (email || '').toLowerCase().trim();
@@ -545,12 +569,37 @@ export async function PUT(req: NextRequest) {
       role,
     });
 
+    await upsertPanelAuthAccount(admin, {
+      userId: created.user.id,
+      email: normalizedEmail,
+      role,
+      name: displayName,
+      serverLinked: false,
+      daUsername: null,
+    });
+
     let provisionResult = null;
-    if (role === 'reseller') {
-      provisionResult = await ensureResellerProvisioned({
+    let provisionWarning: string | null = null;
+    if (role === 'reseller' && provisionDa === true) {
+      try {
+        provisionResult = await ensureResellerProvisioned({
+          userId: created.user.id,
+          email: normalizedEmail,
+          nome: displayName,
+        });
+      } catch (e: unknown) {
+        provisionWarning = stripHtml(e instanceof Error ? e.message : 'Erro ao provisionar no servidor');
+      }
+    }
+
+    if (role === 'reseller' && provisionResult?.daUsername) {
+      await upsertPanelAuthAccount(admin, {
         userId: created.user.id,
         email: normalizedEmail,
-        nome: displayName,
+        role,
+        name: displayName,
+        serverLinked: true,
+        daUsername: provisionResult.daUsername,
       });
     }
 
@@ -560,8 +609,14 @@ export async function PUT(req: NextRequest) {
     const message =
       role === 'admin'
         ? 'Administrador criado com sucesso.'
+        : role === 'manager'
+          ? 'Conta de gestão criada com sucesso.'
         : role === 'reseller'
-          ? `Revendedor criado — DirectAdmin: ${provisionResult?.daUsername || 'pendente'}`
+          ? provisionResult
+            ? `Revendedor criado — servidor: ${provisionResult.daUsername || 'pendente'}`
+            : provisionWarning
+              ? `Revendedor criado no painel. Servidor: ${provisionWarning}`
+              : 'Revendedor criado no painel (sem conta no servidor).'
           : 'Cliente criado com sucesso.';
 
     return NextResponse.json({
@@ -577,19 +632,20 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-/** Alterar papel e auto-provisionar revendedor no DirectAdmin. */
+/** Alterar papel — conta de painel; servidor opcional para revenda. */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
 
   try {
     const body = await req.json();
-    const { userId, role, email, nome, password } = body as {
+    const { userId, role, email, nome, password, provisionDa } = body as {
       userId?: string;
       role?: UserRole;
       email?: string;
       nome?: string;
       password?: string;
+      provisionDa?: boolean;
     };
 
     if (!userId || !role) {
@@ -647,24 +703,59 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
+    const profile = await getProfileForAuthUser(admin, userId);
+    await upsertPanelAuthAccount(admin, {
+      userId,
+      email: resolvedEmail,
+      role,
+      name: displayName,
+      serverLinked: Boolean(profile?.da_username),
+      daUsername: profile?.da_username ?? null,
+    });
+
     let provisionResult = null;
-    if (role === 'reseller') {
-      provisionResult = await ensureResellerProvisioned({
+    let provisionWarning: string | null = null;
+    if (role === 'reseller' && provisionDa === true) {
+      try {
+        provisionResult = await ensureResellerProvisioned({
+          userId,
+          email: resolvedEmail,
+          nome: nome || (authUser.user_metadata?.nome as string),
+        });
+      } catch (e: unknown) {
+        provisionWarning = stripHtml(e instanceof Error ? e.message : 'Erro ao provisionar no servidor');
+      }
+    }
+
+    if (role === 'reseller' && provisionResult?.daUsername) {
+      await upsertPanelAuthAccount(admin, {
         userId,
         email: resolvedEmail,
-        nome: nome || (authUser.user_metadata?.nome as string),
+        role,
+        name: displayName,
+        serverLinked: true,
+        daUsername: provisionResult.daUsername,
       });
     }
 
     clearPanelUsersServerCache();
     const users = await buildPanelAccounts({ sync: false, includePaidCheck: false });
 
+    let message = 'Conta actualizada.';
+    if (role === 'admin') message = 'Administrador actualizado.';
+    else if (role === 'manager') message = 'Conta de gestão actualizada.';
+    else if (role === 'reseller') {
+      message = provisionResult
+        ? `Revendedor activo — servidor: ${provisionResult.daUsername}`
+        : provisionWarning
+          ? `Conta actualizada no painel. Servidor: ${provisionWarning}`
+          : 'Conta actualizada no painel (revenda sem servidor).';
+    }
+
     return NextResponse.json({
       success: true,
-      message:
-        role === 'reseller'
-          ? `Revendedor activo — DirectAdmin: ${provisionResult?.daUsername}`
-          : `Conta actualizada.`,
+      message,
+      provisionWarning,
       provision: provisionResult,
       users,
     });
@@ -699,6 +790,8 @@ export async function DELETE(req: NextRequest) {
     if (profile?.id) {
       await admin.from('profiles').delete().eq('id', profile.id);
     }
+
+    await deletePanelAuthAccount(admin, userId).catch(() => undefined);
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {

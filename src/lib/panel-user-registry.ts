@@ -10,6 +10,7 @@ export const ADMIN_BOOTSTRAP_EMAILS = new Set([
 ]);
 
 type PanelRegistry = {
+  managers: Set<string>;
   resellers: Set<string>;
   resellerDaUsernames: Set<string>;
   clients: Set<string>;
@@ -18,16 +19,23 @@ type PanelRegistry = {
 /** Registo automático por painel — separação total entre marcas. */
 const REGISTRY_BY_PANEL: Record<string, PanelRegistry> = {
   visualdesign: {
+    managers: new Set([
+      'servidor@visualdesignmoz.com',
+      'geral@visualdesignmoz.com',
+      'admin@visualdesignmoz.com',
+    ]),
     resellers: new Set(['osher@oshercollective.com']),
     resellerDaUsernames: new Set(['oshercollective']),
     clients: new Set(),
   },
   aamihe: {
+    managers: new Set(),
     resellers: new Set(),
     resellerDaUsernames: new Set(),
     clients: new Set(['jtaimo55@gmail.com']),
   },
   entrecampos: {
+    managers: new Set(),
     resellers: new Set(),
     resellerDaUsernames: new Set(),
     clients: new Set(),
@@ -61,6 +69,10 @@ export function resolveRegistryPanelRole(source: PanelRoleSource): UserRole | nu
   const daUser = (source.daUsername || '').toLowerCase().trim();
   const registry = currentRegistry();
 
+  if (email && registry.managers.has(email)) return 'manager';
+  if (email && email.endsWith('@visualdesignmoz.com') && PANEL_SLUG === 'visualdesign') {
+    return 'manager';
+  }
   if (email && registry.resellers.has(email)) return 'reseller';
   if (daUser && registry.resellerDaUsernames.has(daUser)) return 'reseller';
   if (email && registry.clients.has(email)) return 'client';

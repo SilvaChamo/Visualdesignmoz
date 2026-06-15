@@ -259,6 +259,8 @@ export async function upsertMirrorPackage(row: {
   bandwidth?: number;
   email_accounts?: number;
   databases?: number;
+  ftp_accounts?: number;
+  allowed_domains?: number;
 }): Promise<{ ok: boolean; error?: string }> {
   const sb = getDaSyncAdmin();
   if (!sb) return { ok: false, error: 'Base de dados indisponível' };
@@ -270,6 +272,8 @@ export async function upsertMirrorPackage(row: {
       bandwidth: row.bandwidth ?? 10000,
       email_accounts: row.email_accounts ?? 10,
       databases: row.databases ?? 1,
+      ftp_accounts: row.ftp_accounts ?? 0,
+      allowed_domains: row.allowed_domains ?? 0,
       synced_at: ts,
       updated_at: ts,
     },
@@ -487,13 +491,35 @@ export async function mirrorAfterDaMutation(
     case 'modifyPackage':
     case 'editPackage': {
       const pkg = str(params, 'packageName', 'package');
-      if (pkg) {
+      if (!pkg) break;
+      try {
+        const { getAdminDirectAdminAPI } = await import('@/lib/directadmin-adapter');
+        const { packageRowFromFields } = await import('@/lib/panel-brand-packages');
+        const api = await getAdminDirectAdminAPI();
+        const fields = await api.getPackageDetails(pkg);
+        const row = packageRowFromFields(pkg, fields);
+        await upsertMirrorPackage({
+          package_name: row.packageName,
+          disk_space: row.diskSpace,
+          bandwidth: row.bandwidth,
+          email_accounts: row.emailAccounts,
+          databases: row.dataBases,
+          ftp_accounts: row.ftpAccounts,
+          allowed_domains: row.allowedDomains,
+        });
+      } catch {
+        const form = params.hostingPackageForm as
+          | { limits?: Record<string, { value: string; unlimited: boolean }> }
+          | undefined;
+        const limits = form?.limits;
         await upsertMirrorPackage({
           package_name: pkg,
-          disk_space: Number(params.diskSpace) || undefined,
-          bandwidth: Number(params.bandwidth) || undefined,
-          email_accounts: Number(params.emailAccounts) || undefined,
-          databases: Number(params.dataBases) || undefined,
+          disk_space: limits?.quota?.unlimited ? undefined : Number(limits?.quota?.value) || undefined,
+          bandwidth: limits?.bandwidth?.unlimited ? undefined : Number(limits?.bandwidth?.value) || undefined,
+          email_accounts: limits?.nemails?.unlimited ? undefined : Number(limits?.nemails?.value) || undefined,
+          databases: limits?.mysql?.unlimited ? undefined : Number(limits?.mysql?.value) || undefined,
+          ftp_accounts: limits?.ftp?.unlimited ? undefined : Number(limits?.ftp?.value) || undefined,
+          allowed_domains: limits?.vdomains?.unlimited ? undefined : Number(limits?.vdomains?.value) || undefined,
         });
       }
       break;

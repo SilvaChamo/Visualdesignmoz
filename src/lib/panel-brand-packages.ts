@@ -27,14 +27,14 @@ function normalizeDaFields(data: Record<string, unknown>): Record<string, string
   return out;
 }
 
-function parseLimitNumber(value: string): number {
+export function parseLimitNumber(value: string): number {
   const raw = String(value || '').trim().toLowerCase();
   if (!raw || raw === 'unlimited' || raw === '-1') return 0;
   const n = parseInt(raw, 10);
   return Number.isFinite(n) ? n : 0;
 }
 
-function packageRowFromFields(name: string, raw: Record<string, string>): PanelPackage {
+export function packageRowFromFields(name: string, raw: Record<string, string>): PanelPackage {
   return {
     id: name,
     packageName: name,
@@ -52,7 +52,11 @@ async function readManagePackageFields(
   packageName: string,
   creds: 'admin' | { role: 'reseller'; user: string; password: string },
 ): Promise<Record<string, string> | null> {
-  const res = await daRequest(cmd, 'GET', { package: packageName, json: 'yes' }, creds);
+  const listCmd =
+    cmd === 'CMD_API_MANAGE_RESELLER_PACKAGES'
+      ? 'CMD_API_PACKAGES_RESELLER'
+      : 'CMD_API_PACKAGES_USER';
+  const res = await daRequest(listCmd, 'GET', { package: packageName, json: 'yes' }, creds);
   if (res.error || !res.data || typeof res.data !== 'object') return null;
   const data = normalizeDaFields(res.data as Record<string, unknown>);
   return hasPackageFields(data) ? data : null;
