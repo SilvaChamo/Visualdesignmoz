@@ -25,6 +25,10 @@ export type ResellerResourceField =
   | 'MemoryMax'
   | 'TasksMax';
 
+export type ResourceSetId = 'core_functions' | 'dns_only' | 'email_only';
+export type ResourcePolicy = 'all' | 'selected';
+export type PluginPolicy = 'allow_all' | 'block_selected' | 'allow_selected';
+
 export type ResellerPackageFormState = {
   packageMode: 'existing' | 'new';
   packageName: string;
@@ -48,6 +52,9 @@ export type ResellerPackageFormState = {
     dnscontrol: boolean;
     serverip: boolean;
     dns: 'OFF' | 'TWO' | 'THREE';
+    resourcePolicy: ResourcePolicy;
+    resourceSets: Record<ResourceSetId, boolean>;
+    pluginPolicy: PluginPolicy;
   };
   resources: Record<ResellerResourceField, { value: string; unlimited: boolean }>;
 };
@@ -117,6 +124,13 @@ export function createDefaultResellerPackageForm(packageName = ''): ResellerPack
       dnscontrol: true,
       serverip: true,
       dns: 'OFF',
+      resourcePolicy: 'selected',
+      resourceSets: {
+        core_functions: true,
+        dns_only: false,
+        email_only: false,
+      },
+      pluginPolicy: 'allow_all',
     },
     resources: {
       CPUQuota: { value: '400', unlimited: true },
@@ -180,6 +194,26 @@ export function hostingPackageFormToDaFields(form: ResellerPackageFormState): Re
   Object.assign(fields, boolToDa('login_keys', form.features.login_keys));
   Object.assign(fields, boolToDa('dnscontrol', form.features.dnscontrol));
   Object.assign(fields, boolToDa('serverip', form.features.serverip));
+
+  if (form.features.resourcePolicy === 'selected') {
+    const sets = (Object.entries(form.features.resourceSets) as [ResourceSetId, boolean][])
+      .filter(([, on]) => on)
+      .map(([id]) => id);
+    fields.feature_sets = sets.join(':');
+  } else {
+    fields.feature_sets = '';
+  }
+
+  if (form.features.pluginPolicy === 'allow_all') {
+    fields.plugins_allow = '[clear]';
+    fields.plugins_deny = '[clear]';
+  } else if (form.features.pluginPolicy === 'allow_selected') {
+    fields.plugins_allow = '';
+    fields.plugins_deny = '[clear]';
+  } else {
+    fields.plugins_allow = '[clear]';
+    fields.plugins_deny = '';
+  }
 
   for (const [key, row] of Object.entries(form.resources) as [
     ResellerResourceField,

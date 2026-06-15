@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { Loader2, Package } from 'lucide-react';
 import {
-  RESELLER_LIMIT_LABELS,
   RESELLER_RESOURCE_LABELS,
   type ResellerLimitField,
   type ResellerPackageFormState,
@@ -50,7 +49,7 @@ function DaRow({
 }) {
   return (
     <div className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
-      <span className="w-52 shrink-0 text-sm text-gray-800 dark:text-zinc-200">{label}</span>
+      <span className="w-56 shrink-0 whitespace-nowrap text-sm text-gray-800 dark:text-zinc-200">{label}</span>
       <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
       {showUnlimited ? (
         <label className="flex w-28 shrink-0 items-center justify-end gap-2 whitespace-nowrap text-xs text-gray-600 dark:text-zinc-400">
@@ -89,7 +88,7 @@ function LimitValueInput({
         value={row.value}
         disabled={row.unlimited}
         onChange={(e) => onChange({ ...row, value: e.target.value })}
-        className={`${panelField} w-32 shrink-0 disabled:opacity-50`}
+        className={`${panelField} min-w-0 flex-1 disabled:opacity-50`}
       />
     </>
   );
@@ -151,7 +150,7 @@ export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, b
             key={key}
             className="flex items-center gap-3 border-b border-gray-100 py-3 dark:border-zinc-800"
           >
-            <span className="w-52 shrink-0 text-sm text-gray-800 dark:text-zinc-200">{label}</span>
+            <span className="w-56 shrink-0 whitespace-nowrap text-sm text-gray-800 dark:text-zinc-200">{label}</span>
             <span className="flex-1" />
             <div className="flex w-28 shrink-0 justify-end">
               <input
@@ -190,7 +189,7 @@ export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, b
           <input
             value={form.features.ips}
             onChange={(e) => onChange({ ...form, features: { ...form.features, ips: e.target.value } })}
-            className={`${panelField} w-32`}
+            className={`${panelField} min-w-0 flex-1`}
           />
         </DaRow>
       </section>
@@ -209,7 +208,7 @@ export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, b
               value={form.resources[key].value}
               disabled={form.resources[key].unlimited}
               onChange={(e) => setResource(key, { ...form.resources[key], value: e.target.value })}
-              className={`${panelField} w-32 disabled:opacity-50`}
+              className={`${panelField} min-w-0 flex-1 disabled:opacity-50`}
             />
           </DaRow>
         ))}
@@ -220,7 +219,7 @@ export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, b
           value={form.packageName}
           onChange={(e) => onChange({ ...form, packageName: e.target.value })}
           placeholder="VisualDESIGN"
-          className={`${panelField} max-w-md flex-1`}
+          className={`${panelField} min-w-0 flex-1`}
         />
       </DaRow>
 

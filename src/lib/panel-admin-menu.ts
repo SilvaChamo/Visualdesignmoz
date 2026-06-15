@@ -28,6 +28,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Hospedagem',
     isNewMenu: true,
     subItems: [
+      { id: 'hospedagem-contas', label: 'Contas' },
       { id: 'provision-client', label: 'Criar conta' },
       { id: 'packages-list', label: 'Pacotes' },
     ],
@@ -330,6 +331,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   revendedores: 'utilizadores',
   clientes: 'utilizadores',
   'provision-client': 'nov-hospedagem',
+  'hospedagem-contas': 'nov-hospedagem',
   'packages-list': 'nov-hospedagem',
   domains: 'nov-wordpress',
   'emails-new': 'nov-email',

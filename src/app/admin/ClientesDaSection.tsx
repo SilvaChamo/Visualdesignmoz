@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  ChevronRight, Eye, EyeOff, Loader2, MoreVertical,
-  Plus, RefreshCw, User, X,
-} from 'lucide-react';
+import { Loader2, MoreVertical, Plus, RefreshCw, User, X } from 'lucide-react';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { ProvisionAccountFormInline } from '@/app/admin/ProvisionAccountFormInline';
+import type { DirectAdminPackage } from '@/lib/directadmin-api';
 
 const CLIENTES_CACHE_KEY = 'vd-admin-clientes-v1';
-
-type AccountType = 'client' | 'reseller';
-type Step = 1 | 2 | 3 | 4;
 
 interface DaUserRow {
   userName: string;
@@ -52,21 +48,6 @@ function formatRegisteredAt(raw?: string | null): string {
   return trimmed;
 }
 
-interface PanelPackageOption {
-  packageName: string;
-  diskSpace?: number;
-  bandwidth?: number;
-  emailAccounts?: number;
-  dataBases?: number;
-}
-
-const WIZARD_STEPS = [
-  { n: 1, label: 'Tipo' },
-  { n: 2, label: 'Identidade' },
-  { n: 3, label: 'Pacote' },
-  { n: 4, label: 'Hospedagem' },
-] as const;
-
 const headerBtnCls =
   'inline-flex h-[30px] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
 
@@ -79,54 +60,6 @@ function generatePassword(length = 16): string {
 }
 
 const inputCls = 'w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400/30';
-
-function PasswordFields({
-  password,
-  confirmPassword,
-  onChange,
-}: {
-  password: string;
-  confirmPassword: string;
-  onChange: (p: { password: string; confirmPassword: string }) => void;
-}) {
-  const [show, setShow] = useState(false);
-
-  const handleGenerate = () => {
-    const p = generatePassword();
-    onChange({ password: p, confirmPassword: p });
-  };
-
-  return (
-    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div className="relative">
-        <input
-          type={show ? 'text' : 'password'}
-          placeholder="Password (mín. 8)"
-          value={password}
-          onChange={(e) => onChange({ password: e.target.value, confirmPassword })}
-          className={`${inputCls} pr-20`}
-        />
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-          <button type="button" onClick={() => setShow(!show)} className="p-1.5 text-gray-400 hover:text-gray-700" title={show ? 'Ocultar' : 'Mostrar'}>
-            {show ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <button type="button" onClick={handleGenerate} className="p-1.5 text-gray-400 hover:text-zinc-700" title="Gerar password">
-            <RefreshCw size={16} />
-          </button>
-        </div>
-      </div>
-      <div className="relative">
-        <input
-          type={show ? 'text' : 'password'}
-          placeholder="Confirmar password"
-          value={confirmPassword}
-          onChange={(e) => onChange({ password, confirmPassword: e.target.value })}
-          className={inputCls}
-        />
-      </div>
-    </div>
-  );
-}
 
 function isDaReseller(user: DaUserRow): boolean {
   return String(user.type || '').toLowerCase() === 'reseller';
@@ -203,19 +136,24 @@ function RowActionsMenu({
 export function ClientesDaSection({
   onRefresh,
   listFilter = 'all',
+  packages = [],
+  initialView = 'list',
+  initialAccountType = 'client',
+  isActive = true,
 }: {
   onRefresh?: () => void;
   listFilter?: 'all' | 'client' | 'reseller';
+  packages?: DirectAdminPackage[];
+  initialView?: 'list' | 'create';
+  initialAccountType?: 'client' | 'reseller' | 'admin';
+  isActive?: boolean;
 }) {
   const { setChrome } = useAdminSectionChrome();
   const initialCache = useMemo(() => readClientesCache(), []);
   const [users, setUsers] = useState<DaUserRow[]>(initialCache?.users ?? []);
-  const [packages, setPackages] = useState<PanelPackageOption[]>([]);
-  const [license, setLicense] = useState<{ used: number; max: number; canCreateReseller: boolean; message?: string | null } | null>(null);
   const [loading, setLoading] = useState(!initialCache);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'list' | 'create'>('list');
-  const [step, setStep] = useState<Step>(1);
+  const [view, setView] = useState<'list' | 'create'>(initialView);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [openMenu, setOpenMenu] = useState<{ userName: string; rect: DOMRect } | null>(null);
@@ -234,12 +172,6 @@ export function ClientesDaSection({
   );
   const [syncing, setSyncing] = useState(false);
 
-  const [accountType, setAccountType] = useState<AccountType>('client');
-  const [identity, setIdentity] = useState({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '' });
-  const [packageName, setPackageName] = useState('');
-  const [hosting, setHosting] = useState({ domain: '', adminEmail: '', php: '8.2' });
-  const [options, setOptions] = useState({ createEmail: false, emailUser: 'info', issueSsl: false });
-
   const load = useCallback(async (options?: { sync?: boolean }) => {
     const withSync = options?.sync === true;
     if (withSync) setSyncing(true);
@@ -250,8 +182,6 @@ export function ClientesDaSection({
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao carregar');
       setUsers(data.users || []);
-      setPackages(data.packages || data.osherPackages || []);
-      setLicense(data.license);
       setSyncMeta(data.meta || null);
       try {
         sessionStorage.setItem(
@@ -274,33 +204,55 @@ export function ClientesDaSection({
   }, []);
 
   useEffect(() => {
-    if (view === 'create') {
-      setAccountType(listFilter === 'reseller' ? 'reseller' : 'client');
-    }
-  }, [view, listFilter]);
-
-  useEffect(() => () => setChrome(null), [setChrome]);
+    setView(initialView);
+  }, [initialView]);
 
   useEffect(() => {
+    if (!isActive) return;
     if (view === 'list') {
       setChrome({
-        title: listFilter === 'reseller' ? 'Revendedores' : 'Clientes',
         search: {
           value: search,
           onChange: setSearch,
           placeholder: 'Pesquisar utilizador ou email…',
         },
+        toolbar: (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { setView('create'); setMsg(''); }}
+              className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+            >
+              <Plus className="h-4 w-4" />
+              Criar conta
+            </button>
+            <button
+              type="button"
+              onClick={() => void load({ sync: true })}
+              disabled={loading || syncing}
+              className={headerBtnCls}
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'A actualizar…' : 'Actualizar'}
+            </button>
+          </div>
+        ),
       });
-      return;
+    } else {
+      setChrome({
+        toolbar: (
+          <button
+            type="button"
+            onClick={goToList}
+            className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+          >
+            Cancelar
+          </button>
+        ),
+      });
     }
-
-    const stepLabel = WIZARD_STEPS.find((s) => s.n === step)?.label ?? '';
-    setChrome({
-      title: 'Criar nova conta',
-      description: `Passo ${step} de 4 — ${stepLabel}`,
-      back: { label: 'Voltar à lista', onClick: goToList },
-    });
-  }, [view, search, step, syncing, loading, setChrome, load, goToList, listFilter]);
+    return () => setChrome(null);
+  }, [view, search, syncing, loading, setChrome, load, goToList, isActive]);
 
   const filtered = users.filter((u) => {
     if (listFilter === 'client' && isDaReseller(u)) return false;
@@ -308,47 +260,6 @@ export function ClientesDaSection({
     const q = search.toLowerCase();
     return !q || u.userName.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
   });
-
-  const derivedUser = () => {
-    const d = hosting.domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
-    if (d) return d;
-    return identity.email.split('@')[0]?.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase() || 'cliente';
-  };
-
-  const handleCreate = async () => {
-    setBusy(true);
-    setMsg('');
-    try {
-      const res = await fetch('/api/admin/clientes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountType,
-          email: identity.email,
-          password: identity.password,
-          userName: derivedUser(),
-          domain: hosting.domain,
-          adminEmail: hosting.adminEmail || identity.email,
-          packageName,
-          createEmail: options.createEmail,
-          emailUser: options.emailUser,
-          issueSsl: options.issueSsl,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Falha ao criar conta');
-      }
-      setMsg(`Conta criada: ${data.userName}${data.domain ? ` (${data.domain})` : ''}.`);
-      setView('list');
-      setStep(1);
-      await load();
-      onRefresh?.();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Erro');
-    }
-    setBusy(false);
-  };
 
   const handleRowAction = async (user: DaUserRow, action: string) => {
     const { userName } = user;
@@ -492,186 +403,19 @@ export function ClientesDaSection({
     setBusy(false);
   };
 
-  const summarySidebar = (
-    <aside className="sticky top-4 h-fit w-full shrink-0 rounded border border-gray-200 bg-gray-50 p-4 lg:w-72">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Resumo da conta</h3>
-      <dl className="space-y-2 text-sm">
-        <div>
-          <dt className="text-xs text-zinc-400">Tipo</dt>
-          <dd className="font-medium text-zinc-900">{accountType === 'client' ? 'Cliente' : 'Revendedor'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-zinc-400">Nome</dt>
-          <dd className="text-zinc-800">
-            {identity.firstName || identity.lastName
-              ? `${identity.firstName} ${identity.lastName}`.trim()
-              : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-zinc-400">Email</dt>
-          <dd className="break-all text-zinc-800">{identity.email || '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-zinc-400">Utilizador</dt>
-          <dd className="font-mono text-zinc-900">{derivedUser()}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-zinc-400">Pacote</dt>
-          <dd className="text-zinc-900">{packageName || '—'}</dd>
-        </div>
-        {accountType === 'client' && (
-          <div>
-            <dt className="text-xs text-zinc-400">Domínio</dt>
-            <dd className="break-all text-zinc-900">{hosting.domain || '—'}</dd>
-          </div>
-        )}
-      </dl>
-    </aside>
-  );
-
   if (view === 'create') {
     return (
       <div className="font-panel space-y-4">
-        <div className="flex gap-1 overflow-x-auto">
-          {WIZARD_STEPS.map((s) => (
-            <button
-              key={s.n}
-              onClick={() => setStep(s.n as Step)}
-              className={`shrink-0 rounded border px-3 py-1 text-xs font-medium ${
-                step === s.n
-                  ? 'border-zinc-300 bg-white text-zinc-900 shadow-sm'
-                  : 'border-transparent bg-transparent text-zinc-500 hover:text-zinc-700'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 bg-white border border-gray-200 rounded p-5">
-            {step === 1 && (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {([
-                  { id: 'client' as const, title: 'Cliente', desc: 'Hospedagem para um cliente final' },
-                  { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor' },
-                ]).map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setAccountType(opt.id)}
-                    disabled={opt.id === 'reseller' && Boolean(license && !license.canCreateReseller)}
-                    className={`rounded border p-4 text-left disabled:opacity-40 ${
-                      accountType === opt.id ? 'border-zinc-400 bg-zinc-50' : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="font-bold">{opt.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input placeholder="Nome" value={identity.firstName} onChange={(e) => setIdentity({ ...identity, firstName: e.target.value })} className={inputCls} />
-                <input placeholder="Apelido" value={identity.lastName} onChange={(e) => setIdentity({ ...identity, lastName: e.target.value })} className={inputCls} />
-                <input placeholder="Email" type="email" value={identity.email} onChange={(e) => setIdentity({ ...identity, email: e.target.value })} className={`${inputCls} sm:col-span-2`} />
-                <PasswordFields
-                  password={identity.password}
-                  confirmPassword={identity.confirmPassword}
-                  onChange={({ password, confirmPassword }) => setIdentity({ ...identity, password, confirmPassword })}
-                />
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-3">
-                <p className="text-sm text-zinc-600">Seleccione um pacote:</p>
-                {packages.length === 0 ? (
-                  <p className="rounded border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-500">A carregar pacotes…</p>
-                ) : (
-                  <div className="space-y-2">
-                    {packages.map((pkg) => (
-                      <label
-                        key={pkg.packageName}
-                        className={`flex cursor-pointer items-center gap-3 rounded border p-3 ${
-                          packageName === pkg.packageName ? 'border-zinc-400 bg-zinc-50' : 'border-gray-200 bg-white'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="pkg"
-                          checked={packageName === pkg.packageName}
-                          onChange={() => setPackageName(pkg.packageName)}
-                        />
-                        <div className="flex-1 text-sm">
-                          <div className="font-bold">{pkg.packageName}</div>
-                          <div className="text-gray-500 text-xs">
-                            Disco {pkg.diskSpace ?? '—'} MB · BW {pkg.bandwidth ?? '—'} · Emails {pkg.emailAccounts ?? '—'} · BD {pkg.dataBases ?? '—'}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {step === 4 && accountType === 'client' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input placeholder="Domínio (exemplo.com)" value={hosting.domain} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={`${inputCls} sm:col-span-2`} />
-                <input placeholder="Email admin" type="email" value={hosting.adminEmail} onChange={(e) => setHosting({ ...hosting, adminEmail: e.target.value })} className={`${inputCls} sm:col-span-2`} />
-                <label className="sm:col-span-2 flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={options.createEmail} onChange={(e) => setOptions({ ...options, createEmail: e.target.checked })} />
-                  Criar email {options.emailUser}@domínio
-                  <input value={options.emailUser} onChange={(e) => setOptions({ ...options, emailUser: e.target.value })} className="w-20 border rounded px-2 py-0.5 text-xs" />
-                </label>
-                <label className="sm:col-span-2 flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={options.issueSsl} onChange={(e) => setOptions({ ...options, issueSsl: e.target.checked })} />
-                  Emitir SSL Let&apos;s Encrypt
-                </label>
-              </div>
-            )}
-
-            {step === 4 && accountType === 'reseller' && (
-              <div className="space-y-3 text-sm text-gray-600">
-                <input placeholder="Domínio principal (opcional)" value={hosting.domain} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={inputCls} />
-                <p>Utilizador: <strong>{derivedUser()}</strong></p>
-              </div>
-            )}
-
-            {msg ? (
-              <p className={`mt-4 text-sm p-2 rounded ${msg.includes('criada') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{msg}</p>
-            ) : null}
-
-            <div className="flex justify-between mt-6 pt-4 border-t">
-              <button onClick={() => setStep((s) => Math.max(1, s - 1) as Step)} disabled={step === 1} className="text-sm text-gray-500 disabled:opacity-40">Anterior</button>
-              {step < 4 ? (
-                <button
-                  onClick={() => setStep((s) => Math.min(4, s + 1) as Step)}
-                  disabled={
-                    (step === 2 && (identity.password.length < 8 || identity.password !== identity.confirmPassword || !identity.email.includes('@')))
-                    || (step === 3 && !packageName)
-                  }
-                  className={actionBtnCls}
-                >
-                  Seguinte <ChevronRight size={16} />
-                </button>
-              ) : (
-                <button
-                  onClick={handleCreate}
-                  disabled={busy || !packageName || (accountType === 'client' && !hosting.domain.includes('.')) || (accountType === 'reseller' && Boolean(license && !license.canCreateReseller))}
-                  className={actionBtnCls}
-                >
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Criar conta
-                </button>
-              )}
-            </div>
-          </div>
-          {summarySidebar}
-        </div>
+        <ProvisionAccountFormInline
+          packages={packages}
+          initialAccountType={initialAccountType}
+          onCancel={goToList}
+          onComplete={() => {
+            void load({ sync: true });
+            onRefresh?.();
+            setMsg('✅ Conta criada com sucesso.');
+          }}
+        />
       </div>
     );
   }
@@ -683,25 +427,6 @@ export function ClientesDaSection({
           {msg}
         </p>
       ) : null}
-
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => { setView('create'); setMsg(''); setStep(1); setPackageName(''); }}
-          className={headerBtnCls}
-        >
-          <Plus size={14} /> Criar conta
-        </button>
-        <button
-          type="button"
-          onClick={() => load({ sync: true })}
-          disabled={loading || syncing}
-          className={headerBtnCls}
-        >
-          <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'A actualizar…' : 'Actualizar'}
-        </button>
-      </div>
 
       <div className="overflow-x-auto overflow-y-visible rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <table className="w-full text-sm text-zinc-900 dark:text-zinc-100">

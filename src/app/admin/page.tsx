@@ -53,7 +53,6 @@ import {
   type DomainHubTab,
 } from './DomainsHubSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
-import { ProvisionClienteSection } from './ProvisionClienteSection'
 import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
@@ -2642,10 +2641,23 @@ function AdminPageContent() {
         return <PanelPermissionsConfig role="reseller" />
       case 'provision-client':
         return (
-          <ProvisionClienteSection
+          <ClientesDaSection
+            listFilter="all"
             packages={directAdminPackages}
-            onComplete={loadDirectAdminData}
+            initialView="create"
             initialAccountType={provisionAccountType}
+            isActive={isActive}
+            onRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
+      case 'hospedagem-contas':
+        return (
+          <ClientesDaSection
+            listFilter="all"
+            packages={directAdminPackages}
+            initialView="list"
+            isActive={isActive}
+            onRefresh={() => void loadDirectAdminData(true)}
           />
         )
       case 'dashboard':

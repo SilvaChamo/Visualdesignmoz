@@ -101,6 +101,10 @@ export function AdminSidebar({
       onNavigate('domain-manager');
       return;
     }
+    if (item.id === 'nov-hospedagem') {
+      onNavigate('hospedagem-contas');
+      return;
+    }
     const firstNavigable = item.subItems.find((s) => !s.id.endsWith('-header'));
     if (firstNavigable) onNavigate(resolveSectionId(firstNavigable.id));
   };

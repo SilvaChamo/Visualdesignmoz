@@ -63,6 +63,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'cp-suspend-website': 'Suspender ou reactivar websites',
   'cp-delete-website': 'Remover website permanentemente',
   'provision-client': 'Utilizador + pacote + domínio num só formulário',
+  'hospedagem-contas': 'Contas de hospedagem no servidor',
   'website-preview': 'Pré-visualização do website',
   'manage-website': 'Gerir website e serviços associados',
   'email-import': 'Importar contas de e-mail',

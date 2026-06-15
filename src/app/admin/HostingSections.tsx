@@ -6451,13 +6451,13 @@ export function PackagesSection({
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [editing, setEditing] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ 
-    diskSpace: '', 
-    bandwidth: '', 
-    emailAccounts: '', 
+  const [editForm, setEditForm] = useState({
+    diskSpace: '',
+    bandwidth: '',
+    emailAccounts: '',
     dataBases: '',
     ftpAccounts: '',
-    allowedDomains: ''
+    allowedDomains: '',
   })
   const [msg, setMsg] = useState('')
   const [showPackageForm, setShowPackageForm] = useState(false)
