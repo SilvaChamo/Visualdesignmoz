@@ -2,11 +2,15 @@
 
 import React from 'react';
 import { X, Download, Mail, Copy, Check } from 'lucide-react';
-import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
+import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import {
   downloadTextFile,
   shareEmailConfigByMail,
 } from '@/lib/email-client-config-export';
+import {
+  readEmailConfigCache,
+  writeEmailConfigCache,
+} from '@/lib/panel-email-config-cache';
 
 export type EmailConfigBundle = {
   email: string;
@@ -106,6 +110,9 @@ export function EmailConfigResultModal({ open, config, onClose }: Props) {
 }
 
 export async function fetchEmailConfigBundle(email: string): Promise<EmailConfigBundle> {
+  const cached = readEmailConfigCache(email);
+  if (cached?.plainText) return cached;
+
   const res = await fetch(`/api/email-contas?config_email=${encodeURIComponent(email)}`, {
     credentials: 'include',
   });
@@ -113,11 +120,13 @@ export async function fetchEmailConfigBundle(email: string): Promise<EmailConfig
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Não foi possível obter as configurações.');
   }
-  return {
+  const bundle = {
     email: data.email,
     password: data.password,
     plainText: data.plainText,
     outlookFile: data.outlookFile,
     shareText: data.shareText,
   };
+  writeEmailConfigCache(email, bundle);
+  return bundle;
 }

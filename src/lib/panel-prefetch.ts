@@ -8,6 +8,7 @@ import { writeSslCertCache, type CachedSslCert } from '@/lib/panel-ssl-cert-cach
 import { writePanelUsersCache } from '@/lib/panel-users-cache';
 import { writeWpInstallsCache } from '@/lib/panel-wp-cache';
 import { writeWpPluginsCache } from '@/lib/wp-panel-cache';
+import { prefetchEmailConfigs } from '@/lib/panel-email-config-cache';
 
 function wpUpdateApi(scope: PanelBootstrapScope): string {
   return scope === 'client' ? '/api/client/wp-update' : '/api/admin/wp-update';
@@ -149,6 +150,7 @@ export function prefetchPanelContent(options?: PrefetchPanelOptions) {
   if (scope === 'admin') {
     prefetchPanelUsers();
     prefetchRegistrarDomains();
+    prefetchEmailConfigsAdmin();
   } else if (scope === 'reseller') {
     prefetchRegistrarDomains();
   }
@@ -165,6 +167,17 @@ export function prefetchPanelContent(options?: PrefetchPanelOptions) {
 export function prefetchPackages(packages: DirectAdminPackage[]) {
   if (!packages.length) return;
   writePackagesCache(packages);
+}
+
+export function prefetchEmailConfigsAdmin() {
+  if (typeof window === 'undefined') return;
+  void fetch('/api/email-contas', { credentials: 'include' })
+    .then((res) => res.json())
+    .then((data: { success?: boolean; contas?: { email?: string }[] }) => {
+      if (!data.success || !Array.isArray(data.contas)) return;
+      prefetchEmailConfigs(data.contas.map((c) => c.email || '').filter(Boolean));
+    })
+    .catch(() => undefined);
 }
 
 /** Após bootstrap: pré-carrega com base nos sites do espelho. */

@@ -123,12 +123,16 @@ export async function POST(req: NextRequest) {
       const { daApi: api } = await resolvePanelDaContext(auth);
       const data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
       const ok = mutationSucceeded(data);
+      const errMsg =
+        ok || typeof data !== 'object' || data === null
+          ? undefined
+          : String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '');
       if (ok) {
         await mirrorAfterDaMutation(action, params as Record<string, unknown>);
       }
       scheduleDaSync(400);
 
-      return NextResponse.json({ success: ok, data });
+      return NextResponse.json({ success: ok, data, error: errMsg || undefined });
     }
 
     if (action === 'fullSync') {

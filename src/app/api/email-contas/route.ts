@@ -6,18 +6,6 @@ import { PANEL_SLUG, inferPanelSiteFromEmail } from '@/lib/panel-tenant'
 import { decryptStoredPassword, buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { STANDARD_PANEL_PASSWORD } from '@/lib/stored-panel-password'
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
-import { getDefaultFrom, getServerEmail, sendSmtpMail } from '@/lib/smtp-mail';
-import { 
-  getServerHost, 
-  getHestiaUrl 
-} from '@/lib/server-config'
-import { 
-  generateWelcomeEmailHTML, 
-  generateWelcomeEmailText, 
-  generateOutlookConfigFile,
-  getWarmupTermsAndConditions
-} from '@/lib/email-welcome-service'
-import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns'
 
 const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesignmoz.com'];
 
@@ -286,91 +274,20 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
-    // 🚀 ENVIO DE EMAIL DE BOAS-VINDAS COMPLETO COM CONFIGURAÇÕES
+    // Envio automático das configurações IMAP/SMTP em texto simples
     try {
-      // Configurações do servidor para o email
-      const serverConfig = {
-        ip: process.env.SERVER_IP || getServerHost(),
-        nameservers: [...VISUALDESIGN_NAMESERVERS],
-        package: `vd_${domain}`
-      }
-
-      const accountInfo = {
-        email,
-        password,
-        domain,
-        username: user,
-        quota_mb: 1024,
-        quota: '1 GB',
-        contactEmail: getServerEmail(),
-      }
-
-      // Gerar conteúdos do email
-      const welcomeHtml = generateWelcomeEmailHTML(accountInfo, serverConfig)
-      const welcomeText = generateWelcomeEmailText(accountInfo, serverConfig)
-      const outlookConfig = generateOutlookConfigFile(accountInfo, serverConfig)
-      const termsAndConditions = getWarmupTermsAndConditions()
-
-      await sendSmtpMail({
-        from: getDefaultFrom(),
-        to: email,
-        subject: `🎉 Nova Conta de Email Configurada - ${email}`,
-        text: welcomeText,
-        html: welcomeHtml,
-        attachments: [
-          {
-            filename: `configuracao-outlook-${domain}.txt`,
-            content: outlookConfig,
-            contentType: 'text/plain'
-          },
-          {
-            filename: 'termos-condicoes-warmup.txt',
-            content: termsAndConditions,
-            contentType: 'text/plain'
-          },
-          {
-            filename: `dados-conta-${user}.txt`,
-            content: `
-+===================================+
-| New Account Info                  |
-+===================================+
-| Domain: ${domain}
-| IP: ${serverConfig.ip}
-| UserName: ${user}
-| PassWord: ${password}
-| Quota: ${accountInfo.quota}
-| NameServer1: ${serverConfig.nameservers[0]}
-| NameServer2: ${serverConfig.nameservers[1]}
-| NameServer3: ${serverConfig.nameservers[2]}
-| NameServer4: ${serverConfig.nameservers[3]}
-| Contact Email: ${accountInfo.contactEmail}
-| Package: ${serverConfig.package}
-+===================================+
-
-CONFIGURAÇÕES OUTLOOK:
-- IMAP Server: ${domainConfig.imap}
-- IMAP Port: ${domainConfig.ports.imap}
-- SMTP Server: ${domainConfig.smtp}
-- SMTP Port: ${domainConfig.ports.smtp}
-- SSL/TLS: Ativado
-- Username: ${email}
-- Password: ${password}
-
-⚠️ SISTEMA WARM-UP ATIVO:
-Consulte o documento anexo "termos-condicoes-warmup.txt"
-
-VisualDesign - ${new Date().getFullYear()}
-            `,
-            contentType: 'text/plain'
-          }
-        ]
-      })
-
-      console.log(`✅ Email de boas-vindas enviado para ${email} com configurações completas`)
+      const { sendPlainEmailConfigToMailbox } = await import('@/lib/email-config-send-server');
+      await sendPlainEmailConfigToMailbox(email, password, 1024);
+      console.log(`Configurações enviadas para ${email}`);
     } catch (mailErr) {
-      console.error('Erro ao enviar email de boas-vindas:', mailErr)
-      // Não falha a criação se o email falhar
+      console.error('Erro ao enviar configurações por e-mail:', mailErr);
     }
+
+    const configBundle = (await import('@/lib/email-client-config-export')).buildEmailConfigBundle(
+      email,
+      password,
+      1024,
+    );
 
     return NextResponse.json({
       success: true,
@@ -382,7 +299,7 @@ VisualDesign - ${new Date().getFullYear()}
       },
       credenciais: {
         email,
-        password, // Incluir senha para mostrar no modal de confirmação
+        password,
         servidor_entrada: domainConfig.imap,
         porta_imap: domainConfig.ports.imap,
         servidor_saida: domainConfig.smtp,
@@ -390,7 +307,10 @@ VisualDesign - ${new Date().getFullYear()}
         ssl: domainConfig.ssl,
         utilizador: email,
         webmail: domainConfig.webmail
-      }
+      },
+      plainText: configBundle.plainText,
+      outlookFile: configBundle.outlookFile,
+      shareText: configBundle.shareText,
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

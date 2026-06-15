@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDirectAdminAPI, getDirectAdminAPIForDaUsername } from '@/lib/directadmin-adapter';
-import { daPostViaSsh } from '@/lib/da-api-ssh';
+import { daGetViaSsh, daPostViaSsh } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { sendEmail } from '@/lib/email-service';
+import { sendPlainEmailConfigToMailbox } from '@/lib/email-config-send-server';
 import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import {
@@ -107,6 +108,19 @@ export async function GET(req: NextRequest) {
       a.packageName.localeCompare(b.packageName),
     );
 
+    let resellerPackages: string[] = [];
+    try {
+      const pkgRes = await daGetViaSsh('CMD_API_PACKAGES_RESELLER', { json: 'yes' });
+      if (pkgRes.ok && pkgRes.raw) {
+        const parsed = JSON.parse(pkgRes.raw) as unknown;
+        if (Array.isArray(parsed)) {
+          resellerPackages = parsed.filter((n): n is string => typeof n === 'string' && Boolean(n));
+        }
+      }
+    } catch {
+      /* opcional */
+    }
+
     const enriched = users.map((u) => {
       const owned = sites.filter((s) => s.owner === u.userName);
       return {
@@ -128,6 +142,7 @@ export async function GET(req: NextRequest) {
       success: true,
       users: enriched,
       packages: allPackages,
+      resellerPackages,
       osherReseller: OSHER_RESELLER,
       osherCredsOk: Boolean(osherCreds),
       meta: {
@@ -195,6 +210,15 @@ export async function POST(req: NextRequest) {
       }
 
       const createdDomain = domain || `${userName}.com`;
+      const effectivePackageName = String(packageName || '').trim();
+
+      if (!effectivePackageName) {
+        return NextResponse.json(
+          { success: false, error: 'Seleccione um pacote de revenda existente.' },
+          { status: 400 },
+        );
+      }
+
       const result = await daPostViaSsh('CMD_API_ACCOUNT_RESELLER', {
         action: 'create',
         username: userName,
@@ -202,7 +226,7 @@ export async function POST(req: NextRequest) {
         passwd: password,
         passwd2: password,
         domain: createdDomain,
-        package: packageName,
+        package: effectivePackageName,
         ip: 'shared',
         notify: 'no',
       });
@@ -216,7 +240,7 @@ export async function POST(req: NextRequest) {
         email,
         acl: 'reseller',
         domain: createdDomain,
-        packageName,
+        packageName: effectivePackageName,
       });
       scheduleDaSync(1500);
       return NextResponse.json({ success: true, userName, accountType: 'reseller' });
@@ -287,6 +311,15 @@ export async function POST(req: NextRequest) {
         },
         resellerCreds,
       );
+      try {
+        await sendPlainEmailConfigToMailbox(
+          `${String(body.emailUser)}@${domain}`,
+          password,
+          500,
+        );
+      } catch (mailErr: unknown) {
+        console.error('Envio config email:', mailErr);
+      }
     }
 
     if (body.issueSsl) {

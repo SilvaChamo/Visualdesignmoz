@@ -276,37 +276,60 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     createPackage: async (p: Record<string, unknown>) => {
       cacheService.clear();
-      const name = String(p.packageName || '');
+      const name = String(p.packageName || '').trim();
       const cmd =
         credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
-      const result = await daPost(credentials, cmd, {
-        action: 'create',
-        package: name,
-        quota: String(p.diskSpace || '1000'),
-        bandwidth: String(p.bandwidth || '10000'),
-        nemails: String(p.emailAccounts || '10'),
-        mysql: String(p.dataBases || '5'),
-        ftp: String(p.ftpAccounts || '5'),
-        vdomains: String(p.allowedDomains || '1'),
-      });
+
+      let fields: Record<string, string>;
+      const fullForm = p.hostingPackageForm as import('@/lib/reseller-package-form').ResellerPackageFormState | undefined;
+      if (fullForm?.packageName || fullForm?.limits) {
+        const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
+        fields = hostingPackageFormToDaFields({
+          ...fullForm,
+          packageName: name || fullForm.packageName,
+        });
+      } else {
+        fields = {
+          add: 'Save',
+          packagename: name,
+          quota: String(p.diskSpace || '1000'),
+          bandwidth: String(p.bandwidth || '10000'),
+          nemails: String(p.emailAccounts || '10'),
+          mysql: String(p.dataBases || '5'),
+          ftp: String(p.ftpAccounts || '5'),
+          vdomains: String(p.allowedDomains || '1'),
+        };
+      }
+
+      const result = await daPost(credentials, cmd, fields);
       return { success: result.ok, output: result.error || 'Pacote criado', error: result.error };
     },
 
     modifyPackage: async (p: Record<string, unknown>) => {
       cacheService.clear();
-      const name = String(p.packageName || '');
+      const name = String(p.packageName || '').trim();
       const cmd =
         credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
-      const result = await daPost(credentials, cmd, {
-        action: 'modify',
-        package: name,
-        quota: String(p.diskSpace || '1000'),
-        bandwidth: String(p.bandwidth || '10000'),
-        nemails: String(p.emailAccounts || '10'),
-        mysql: String(p.dataBases || '5'),
-        ftp: String(p.ftpAccounts || '5'),
-        vdomains: String(p.allowedDomains || '1'),
-      });
+
+      let fields: Record<string, string>;
+      const fullForm = p.hostingPackageForm as import('@/lib/reseller-package-form').ResellerPackageFormState | undefined;
+      if (fullForm?.limits) {
+        const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
+        fields = hostingPackageFormToDaFields({ ...fullForm, packageName: name || fullForm.packageName });
+      } else {
+        fields = {
+          add: 'Save',
+          packagename: name,
+          quota: String(p.diskSpace || '1000'),
+          bandwidth: String(p.bandwidth || '10000'),
+          nemails: String(p.emailAccounts || '10'),
+          mysql: String(p.dataBases || '5'),
+          ftp: String(p.ftpAccounts || '5'),
+          vdomains: String(p.allowedDomains || '1'),
+        };
+      }
+
+      const result = await daPost(credentials, cmd, fields);
       return { success: result.ok, output: result.error || 'Pacote actualizado', error: result.error };
     },
 
@@ -314,7 +337,10 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       cacheService.clear();
       const cmd =
         credentials.role === 'reseller' ? 'CMD_API_MANAGE_RESELLER_PACKAGES' : 'CMD_API_MANAGE_USER_PACKAGES';
-      const result = await daPost(credentials, cmd, { action: 'delete', package: packageName });
+      const result = await daPost(credentials, cmd, {
+        delete: 'Delete',
+        delete0: packageName,
+      });
       return { success: result.ok, output: result.error || 'Pacote apagado', error: result.error };
     },
 

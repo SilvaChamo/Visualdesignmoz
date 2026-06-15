@@ -39,9 +39,12 @@ import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getWebmailUrlForDomain } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import { EmailConfigResultModal, fetchEmailConfigBundle, type EmailConfigBundle } from '@/components/admin/EmailConfigResultModal'
+import { prefetchEmailConfigs, writeEmailConfigCache } from '@/lib/panel-email-config-cache'
 import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
 import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { HostingPackageFormInline } from '@/app/admin/HostingPackageFormInline'
+import { createDefaultResellerPackageForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -1645,11 +1648,21 @@ export function EmailManagementSection({
     try {
       if (passwordHint) {
         const bundle = buildEmailConfigBundle(emailAddress, passwordHint)
+        writeEmailConfigCache(emailAddress, {
+          email: emailAddress,
+          password: passwordHint,
+          ...bundle,
+        })
         setEmailConfigModal({
           email: emailAddress,
           password: passwordHint,
           ...bundle,
         })
+        return
+      }
+      const cached = (await import('@/lib/panel-email-config-cache')).readEmailConfigCache(emailAddress)
+      if (cached?.plainText) {
+        setEmailConfigModal(cached)
         return
       }
       const bundle = await fetchEmailConfigBundle(emailAddress)
@@ -1696,6 +1709,7 @@ export function EmailManagementSection({
 
       setEmails(merged)
       merged.forEach((e: any) => cpSaveEmail(domain, e.user, { quota_mb: e.quota_mb }))
+      prefetchEmailConfigs(merged.map((e) => e.email).filter(Boolean))
       
     } catch (err) {
       console.error('Erro na sincronização:', err)
@@ -1732,6 +1746,7 @@ export function EmailManagementSection({
       }
       
       setEmails(allEmails)
+      prefetchEmailConfigs(allEmails.map((e) => e.email).filter(Boolean))
     } catch (err) {
       console.error('Erro ao carregar todos os emails:', err)
     }
@@ -1803,12 +1818,17 @@ export function EmailManagementSection({
         setEmailModal({ ...emailModal, show: false })
         loadEmails(selectedDomain)
         const bundle = buildEmailConfigBundle(emailCompleto, data.password, data.quota_mb || 500)
+        writeEmailConfigCache(emailCompleto, {
+          email: emailCompleto,
+          password: data.password,
+          ...bundle,
+        })
         setEmailConfigModal({
           email: emailCompleto,
           password: data.password,
           ...bundle,
         })
-        setMsg('E-mail criado com sucesso!')
+        setMsg('E-mail criado com sucesso! Configurações enviadas para a caixa de correio.')
         setMsgType('success')
       } else {
         setMsg('Erro: ' + (resData.error || 'Falha no servidor.')); setMsgType('error')
@@ -2483,6 +2503,7 @@ export function CPUsersSection({
   fixedPanelFilter,
   panelScope,
   onBootstrapRefresh,
+  onNavigate,
 }: {
   variant?: 'directadmin' | 'panels';
   fixedPanelFilter?: PanelRoleFilter;
@@ -2490,6 +2511,7 @@ export function CPUsersSection({
   panelScope?: PanelUsersScope;
   /** Actualiza bootstrap global (sites + contas) após mutações. */
   onBootstrapRefresh?: () => void | Promise<void>;
+  onNavigate?: (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => void;
 }) {
   const isPanelsMode = variant === 'panels'
   const [users, setUsers] = useState<DirectAdminUser[]>([])
@@ -2795,20 +2817,8 @@ export function CPUsersSection({
       confirmPassword: generated,
     }
     if (panelScope === 'reseller') {
-      setUserModal({
-        show: true,
-        mode: 'create',
-        data: {
-          ...base,
-          userName: '',
-          domain: '',
-          websitesLimit: 10,
-          emailsLimit: 100,
-          acl: 'reseller',
-          linkExisting: false,
-        },
-      })
-      return
+      onNavigate?.('provision-client', { accountType: 'reseller' });
+      return;
     }
     setUserModal({
       show: true,
@@ -6435,15 +6445,7 @@ export function PackagesSection({
 }) {
   const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache() || packages)
   const [loadingLive, setLoadingLive] = useState(false)
-  const [form, setForm] = useState({ 
-    packageName: '', 
-    diskSpace: '1000', 
-    bandwidth: '1000', 
-    emailAccounts: '10', 
-    dataBases: '5',
-    ftpAccounts: '5',
-    allowedDomains: '1'
-  })
+  const [packageForm, setPackageForm] = useState<ResellerPackageFormState>(() => createDefaultResellerPackageForm())
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
@@ -6458,7 +6460,7 @@ export function PackagesSection({
     allowedDomains: ''
   })
   const [msg, setMsg] = useState('')
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showPackageForm, setShowPackageForm] = useState(false)
   const { setChrome } = useAdminSectionChrome()
 
   const loadLivePackages = async () => {
@@ -6500,35 +6502,48 @@ export function PackagesSection({
       toolbar: (
         <button
           type="button"
-          onClick={() => setShowCreateForm((v) => !v)}
+          onClick={() => {
+            if (showPackageForm) {
+              setShowPackageForm(false)
+            } else {
+              setPackageForm(createDefaultResellerPackageForm())
+              setShowPackageForm(true)
+            }
+          }}
           className="flex items-center gap-2 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
         >
           <Plus className="h-4 w-4" />
-          {showCreateForm ? 'Cancelar' : 'Criar Novo Pacote'}
+          {showPackageForm ? 'Cancelar' : 'Criar pacote'}
         </button>
       ),
     })
     return () => setChrome(null)
-  }, [isActive, showCreateForm, setChrome])
+  }, [isActive, showPackageForm, setChrome])
 
   const handleCreate = async () => {
-    if (!form.packageName) return
+    if (!packageForm.packageName.trim()) return
     setCreating(true); setMsg('')
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createPackage', params: form })
+        body: JSON.stringify({
+          action: 'createPackage',
+          params: {
+            packageName: packageForm.packageName.trim(),
+            hostingPackageForm: packageForm,
+          },
+        }),
       })
       const data = await res.json()
       if (data.success) {
         setMsg('Pacote criado com sucesso!')
-        setForm({ packageName: '', diskSpace: '1000', bandwidth: '1000', emailAccounts: '10', dataBases: '5', ftpAccounts: '5', allowedDomains: '1' })
-        setShowCreateForm(false)
+        setPackageForm(createDefaultResellerPackageForm())
+        setShowPackageForm(false)
         onRefresh()
         void loadLivePackages()
       } else {
-        setMsg('Erro: ' + (data.error || 'Falha ao criar pacote'))
+        setMsg('Erro: ' + (data.error || data.data?.error || 'Falha ao criar pacote'))
       }
     } catch (e: any) {
       setMsg('Erro: ' + e.message)
@@ -6607,24 +6622,21 @@ export function PackagesSection({
 
   return (
     <div className="space-y-4">
-      {showCreateForm && (
-          <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Detalhes do Pacote</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome do Pacote</label><input value={form.packageName} onChange={e => setForm({ ...form, packageName: e.target.value })} placeholder="Basic" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Espaço em Disco (MB)</label><input type="number" value={form.diskSpace} onChange={e => setForm({ ...form, diskSpace: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Banda Largura (MB)</label><input type="number" value={form.bandwidth} onChange={e => setForm({ ...form, bandwidth: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas de Email</label><input type="number" value={form.emailAccounts} onChange={e => setForm({ ...form, emailAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Bases de Dados</label><input type="number" value={form.dataBases} onChange={e => setForm({ ...form, dataBases: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Contas FTP</label><input type="number" value={form.ftpAccounts} onChange={e => setForm({ ...form, ftpAccounts: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-              <div><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Máximo de Domínios</label><input type="number" value={form.allowedDomains} onChange={e => setForm({ ...form, allowedDomains: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" /></div>
-            </div>
-            <button onClick={handleCreate} disabled={creating || !form.packageName.trim()} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 py-2.5 px-6 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />} Criar Pacote
-            </button>
-          </div>
-        )}
+      {msg && (
+        <p className={`rounded px-4 py-2 text-sm ${msg.startsWith('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+          {msg}
+        </p>
+      )}
 
+      {showPackageForm ? (
+        <HostingPackageFormInline
+          form={packageForm}
+          onChange={setPackageForm}
+          onCancel={() => setShowPackageForm(false)}
+          onSubmit={() => void handleCreate()}
+          busy={creating}
+        />
+      ) : (
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-xs text-gray-500 dark:text-zinc-400">
@@ -6762,8 +6774,8 @@ export function PackagesSection({
           </div>
         )}
       </div>
+      )}
 
-      {msg && <div className={`p-4 rounded border ${msg.includes('sucesso') ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{msg}</div>}
     </div>
   )
 }

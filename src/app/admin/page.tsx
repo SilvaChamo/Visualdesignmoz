@@ -2384,6 +2384,7 @@ function AdminPageContent() {
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
+  const [provisionAccountType, setProvisionAccountType] = useState<'client' | 'reseller' | 'admin'>('client')
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
@@ -2644,6 +2645,7 @@ function AdminPageContent() {
           <ProvisionClienteSection
             packages={directAdminPackages}
             onComplete={loadDirectAdminData}
+            initialAccountType={provisionAccountType}
           />
         )
       case 'dashboard':
@@ -2690,7 +2692,17 @@ function AdminPageContent() {
       case 'clientes':
         return <CPUsersSection variant="panels" panelScope="client" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'revendedores':
-        return <CPUsersSection variant="panels" panelScope="reseller" onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+        return (
+          <CPUsersSection
+            variant="panels"
+            panelScope="reseller"
+            onBootstrapRefresh={() => void loadDirectAdminData(true)}
+            onNavigate={(section, opts) => {
+              if (opts?.accountType) setProvisionAccountType(opts.accountType)
+              handleNavigate(section)
+            }}
+          />
+        )
       case 'domains-new':
       case 'porkbun-domains':
       case 'porkbun-my-domains':
@@ -3035,7 +3047,10 @@ function AdminPageContent() {
   }
 
   // Função para navegar com domínio padrão para emails
-  const handleNavigate = (section: string) => {
+  const handleNavigate = (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => {
+    if (section === 'provision-client') {
+      setProvisionAccountType(opts?.accountType || 'client')
+    }
     // Intercetar ação de criar email
     if (section === 'criar-email') {
       setEmailForm({ user: '', password: '', quota: '500' })
