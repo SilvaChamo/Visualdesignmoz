@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import { cn } from '@/lib/utils'
 import { PANEL_LOGIN_HREF } from '@/lib/panel-origin'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 export function Navbar() {
   const { t } = useI18n()
