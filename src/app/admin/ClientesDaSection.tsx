@@ -160,7 +160,7 @@ export function ClientesDaSection({
   listFilter?: 'all' | 'client' | 'reseller';
   packages?: DirectAdminPackage[];
   initialView?: 'list' | 'create';
-  initialAccountType?: 'client' | 'reseller' | 'admin';
+  initialAccountType?: 'client' | 'reseller' | 'professional' | 'admin';
   isActive?: boolean;
   /** Incrementado ao reabrir «Contas» no menu — repõe a listagem. */
   listResetToken?: number;
@@ -363,7 +363,7 @@ export function ClientesDaSection({
       <div className="font-panel space-y-6">
         <ProvisionClienteSection
           packages={packages}
-          initialAccountType={initialAccountType}
+          initialAccountType={initialAccountType === 'admin' ? 'professional' : initialAccountType}
           mode={view === 'edit' ? 'edit' : 'create'}
           editUser={view === 'edit' ? editUser ?? undefined : undefined}
           onCancel={goToList}

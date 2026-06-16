@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDirectAdminAPI, getDirectAdminAPIForDaUsername } from '@/lib/directadmin-adapter';
-import { daPostViaSsh } from '@/lib/da-api-ssh';
+import { adminImpersonateResellerCreds, daPostViaSsh, daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
@@ -31,6 +31,60 @@ function deriveUsername(domain: string, email: string): string {
   if (fromDomain) return fromDomain;
   const fromEmail = email.split('@')[0]?.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
   return fromEmail || 'cliente';
+}
+
+function isLicenseLimitError(message?: string): boolean {
+  const text = String(message || '').toLowerCase();
+  return (
+    text.includes('license') ||
+    text.includes('licença') ||
+    text.includes('limited to') ||
+    text.includes('limitada a')
+  );
+}
+
+function accountUserCreateFields(input: {
+  userName: string;
+  email: string;
+  password: string;
+  domain: string;
+  packageName: string;
+}): Record<string, string> {
+  return {
+    action: 'create',
+    username: input.userName,
+    email: input.email,
+    passwd: input.password,
+    passwd2: input.password,
+    domain: input.domain,
+    package: input.packageName,
+    ip: 'shared',
+    notify: 'no',
+  };
+}
+
+function domainCreateFields(domain: string, issueSsl: boolean): Record<string, string> {
+  return {
+    action: 'create',
+    domain,
+    bandwidth: 'unlimited',
+    quota: 'unlimited',
+    ssl: issueSsl ? 'ON' : 'OFF',
+    php: 'ON',
+    cgi: 'ON',
+    notify: 'no',
+  };
+}
+
+function formatProvisionError(error?: string): string {
+  const raw = String(error || 'Falha ao criar conta de hospedagem');
+  if (isLicenseLimitError(raw)) {
+    return 'A licença do servidor permite apenas 2 contas de utilizador (admin + revenda). O domínio não pôde ser criado na conta de revenda.';
+  }
+  if (raw.toLowerCase().includes('unauthorized')) {
+    return 'Não autorizado no servidor. Verifique as credenciais de administração.';
+  }
+  return raw;
 }
 
 const VISUALDESIGN_PRIMARY_DOMAINS = [
@@ -276,27 +330,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await daPostViaSsh('CMD_API_ACCOUNT_USER', {
-      action: 'create',
-      username: userName,
+    const createFields = accountUserCreateFields({
+      userName,
       email: adminEmail,
-      passwd: password,
-      passwd2: password,
+      password,
       domain,
-      package: packageName,
-      ip: 'shared',
-      notify: 'no',
+      packageName,
     });
+
+    let result = await daPostViaSsh('CMD_API_ACCOUNT_USER', createFields);
+    let provisionMode: 'user' | 'domain' = 'user';
+
+    // Licença Personal PLUS: máx. 2 utilizadores (admin + revenda). Novos clientes = domínio na revenda.
+    if (!result.ok && isLicenseLimitError(result.error)) {
+      result = await daPostViaSshAsDaUser(
+        OSHER_RESELLER,
+        'CMD_API_DOMAIN',
+        domainCreateFields(domain, Boolean(body.issueSsl)),
+      );
+      provisionMode = 'domain';
+    }
 
     if (!result.ok) {
       return NextResponse.json(
-        { success: false, error: String(result.error || 'Falha ao criar conta de hospedagem') },
+        { success: false, error: formatProvisionError(result.error) },
         { status: 400 },
       );
     }
 
+    const daPostForDomain = async (cmd: string, fields: Record<string, string>) => {
+      if (provisionMode === 'domain') {
+        return daPostViaSshAsDaUser(OSHER_RESELLER, cmd, fields);
+      }
+      return daPostViaSsh(cmd, fields);
+    };
+
     if (body.createEmail && body.emailUser) {
-      await daPostViaSsh('CMD_API_POP', {
+      await daPostForDomain('CMD_API_POP', {
         action: 'create',
         domain,
         user: String(body.emailUser),
@@ -315,17 +385,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (body.issueSsl) {
+    if (body.issueSsl && provisionMode === 'user') {
       await daPostViaSsh('CMD_API_SSL', { action: 'save', domain, type: 'acme' });
     }
 
-    await mirrorAfterDaMutation('createUser', {
-      userName,
-      email: adminEmail,
-      acl: 'user',
-      domain,
-      packageName,
-    });
+    if (provisionMode === 'domain') {
+      await mirrorAfterDaMutation('createWebsite', {
+        domain,
+        owner: OSHER_RESELLER,
+        adminEmail,
+        packageName,
+      });
+    } else {
+      await mirrorAfterDaMutation('createUser', {
+        userName,
+        email: adminEmail,
+        acl: 'user',
+        domain,
+        packageName,
+      });
+    }
     if (body.createEmail && body.emailUser) {
       await mirrorAfterDaMutation('createEmail', {
         domain,
@@ -340,9 +419,10 @@ export async function POST(req: NextRequest) {
     scheduleDaSync(1500);
     return NextResponse.json({
       success: true,
-      userName,
+      userName: provisionMode === 'domain' ? OSHER_RESELLER : userName,
       domain,
       accountType: 'client',
+      provisionMode,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro interno';
@@ -371,8 +451,17 @@ export async function PATCH(req: NextRequest) {
       }
 
       const email = body.email !== undefined ? String(body.email).trim() : undefined;
+      const packageName =
+        body.packageName !== undefined ? String(body.packageName || '').trim() : undefined;
+      const primaryDomain =
+        body.primaryDomain !== undefined ? String(body.primaryDomain || '').trim().toLowerCase() : undefined;
+      const adminEmail =
+        body.adminEmail !== undefined ? String(body.adminEmail || '').trim() : undefined;
       if (email !== undefined && !email.includes('@')) {
         return NextResponse.json({ success: false, error: 'Email inválido' }, { status: 400 });
+      }
+      if (adminEmail !== undefined && adminEmail && !adminEmail.includes('@')) {
+        return NextResponse.json({ success: false, error: 'Email admin inválido' }, { status: 400 });
       }
 
       const updates: Record<string, unknown> = {
@@ -415,6 +504,7 @@ export async function PATCH(req: NextRequest) {
           body.emailsLimit !== undefined
             ? Math.max(0, Number(body.emailsLimit) || 0)
             : Number(data.emails_limit) || 0,
+        packageName,
       });
 
       if (!pushed.ok) {
@@ -422,6 +512,14 @@ export async function PATCH(req: NextRequest) {
           { success: false, error: pushed.error || 'Não foi possível aplicar no servidor' },
           { status: 502 },
         );
+      }
+
+      if (primaryDomain && (packageName !== undefined || adminEmail !== undefined)) {
+        await mirrorAfterDaMutation('modifyWebsite', {
+          domain: primaryDomain,
+          packageName,
+          adminEmail,
+        });
       }
 
       scheduleDaSync(1500);

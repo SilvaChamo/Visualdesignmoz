@@ -2383,7 +2383,7 @@ function AdminPageContent() {
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
-  const [provisionAccountType, setProvisionAccountType] = useState<'client' | 'reseller' | 'admin'>('client')
+  const [provisionAccountType, setProvisionAccountType] = useState<'client' | 'reseller' | 'professional' | 'admin'>('client')
   const [contasListResetToken, setContasListResetToken] = useState(0)
 
   const searchParams = useSearchParams();
@@ -2651,7 +2651,7 @@ function AdminPageContent() {
             listFilter="all"
             packages={directAdminPackages}
             initialView="create"
-            initialAccountType={provisionAccountType}
+            initialAccountType={provisionAccountType === 'admin' ? 'professional' : provisionAccountType}
             isActive={isActive}
             listResetToken={contasListResetToken}
             onRefresh={() => void loadDirectAdminData(true)}
