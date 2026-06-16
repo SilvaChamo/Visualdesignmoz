@@ -302,9 +302,10 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         const { fetchBrandHostingPackages } = await import('@/lib/panel-brand-packages');
         try {
           const brandPkgs = await fetchBrandHostingPackages();
-          const byName = new Map(result.map((p) => [p.packageName.toLowerCase(), p]));
-          for (const brand of brandPkgs) {
-            byName.set(brand.packageName.toLowerCase(), brand);
+          const byName = new Map(brandPkgs.map((p) => [p.packageName.toLowerCase(), p]));
+          // O estado real do servidor prevalece sempre sobre presets de marca.
+          for (const live of result) {
+            byName.set(live.packageName.toLowerCase(), live);
           }
           result = [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
         } catch {

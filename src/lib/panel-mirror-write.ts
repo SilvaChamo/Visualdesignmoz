@@ -289,6 +289,43 @@ export async function deleteMirrorPackage(packageName: string): Promise<{ ok: bo
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+type PackageLimitKey = 'quota' | 'bandwidth' | 'nemails' | 'mysql' | 'ftp' | 'vdomains';
+
+function limitNumberFromForm(
+  limits: Record<string, { value: string; unlimited: boolean }> | undefined,
+  key: PackageLimitKey,
+  fallback: number,
+): number {
+  const row = limits?.[key];
+  if (!row) return fallback;
+  if (row.unlimited) return 0;
+  const n = Number(row.value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** Espelho Supabase a partir do formulário do painel (fonte de verdade do painel). */
+export function packageMirrorRowFromParams(
+  params: Record<string, unknown>,
+): Parameters<typeof upsertMirrorPackage>[0] | null {
+  const package_name = str(params, 'packageName', 'package');
+  if (!package_name) return null;
+
+  const form = params.hostingPackageForm as
+    | { limits?: Record<string, { value: string; unlimited: boolean }> }
+    | undefined;
+  const limits = form?.limits;
+
+  return {
+    package_name,
+    disk_space: limitNumberFromForm(limits, 'quota', 1000),
+    bandwidth: limitNumberFromForm(limits, 'bandwidth', 10000),
+    email_accounts: limitNumberFromForm(limits, 'nemails', 10),
+    databases: limitNumberFromForm(limits, 'mysql', 1),
+    ftp_accounts: limitNumberFromForm(limits, 'ftp', 0),
+    allowed_domains: limitNumberFromForm(limits, 'vdomains', 1),
+  };
+}
+
 function str(params: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
     const v = params[k];

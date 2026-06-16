@@ -40,21 +40,16 @@ export function DaLimitRow({
       <span className={`${DA_LABEL_COL} shrink-0 whitespace-nowrap text-sm text-gray-800 dark:text-zinc-200`}>{label}</span>
       <div className="flex min-w-0 flex-1 items-stretch">
         {withUnit && (
-          <select
-            className={`${panelField} w-20 shrink-0 rounded-r-none border-r-0`}
-            defaultValue="MB"
-            aria-label="Unidade"
-          >
-            <option value="MB">MB</option>
-            <option value="GB">GB</option>
-          </select>
+          <span className="inline-flex w-14 shrink-0 items-center justify-center rounded-l border border-r-0 border-gray-300 bg-gray-50 text-xs font-medium text-gray-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            MG
+          </span>
         )}
         <input
           type="text"
           value={row.value}
           disabled={row.unlimited}
           onChange={(e) => onChange({ ...row, value: e.target.value })}
-          className={`${panelField} min-w-0 flex-1 rounded-none disabled:opacity-50 ${withUnit ? '' : 'rounded-l'}`}
+          className={`${panelField} min-w-0 flex-1 disabled:opacity-50 ${withUnit ? 'rounded-none' : 'rounded-l'}`}
         />
         <label className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-r border border-gray-300 bg-white px-3 text-xs text-gray-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
           <input

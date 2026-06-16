@@ -6685,15 +6685,65 @@ export function PackagesSection({
   }, [isActive, setChrome])
 
   const displayPackages = livePackages.length > 0 ? livePackages : packages
+  const formatPackageMetric = (value: unknown, defaultUnit?: string) => {
+    const raw = String(value ?? '').trim()
+    if (!raw || raw === '-' || raw.toLowerCase() === 'unlimited') return raw || '-'
+    // Se já vem com unidade do servidor (ex: 1G, 500M), não acrescentar MB.
+    if (/[a-z]/i.test(raw)) return raw
+    const asNumber = Number(raw)
+    if (Number.isFinite(asNumber) && defaultUnit === 'MB' && asNumber >= 1024 && asNumber % 1024 === 0) {
+      return `${asNumber / 1024}G`
+    }
+    return defaultUnit ? `${raw} ${defaultUnit}` : raw
+  }
+
+  const packageRowFromForm = (form: ResellerPackageFormState, packageName: string) => ({
+    packageName,
+    diskSpace: form.limits.quota.unlimited ? '-' : (form.limits.quota.value || '0'),
+    bandwidth: form.limits.bandwidth.unlimited ? '-' : (form.limits.bandwidth.value || '0'),
+    emailAccounts: form.limits.nemails.unlimited ? '-' : (form.limits.nemails.value || '0'),
+    dataBases: form.limits.mysql.unlimited ? '-' : (form.limits.mysql.value || '0'),
+    ftpAccounts: form.limits.ftp.unlimited ? '-' : (form.limits.ftp.value || '0'),
+    allowedDomains: form.limits.vdomains.unlimited ? '-' : (form.limits.vdomains.value || '0'),
+  })
+
+  const upsertLivePackage = (nextPkg: any) => {
+    setLivePackages((prev) => {
+      const current = prev.length > 0 ? prev : packages
+      const byName = new Map(current.map((p: any) => [String(p.packageName || p.name || '').toLowerCase(), p]))
+      byName.set(String(nextPkg.packageName || '').toLowerCase(), nextPkg)
+      const next = Array.from(byName.values()).sort((a: any, b: any) =>
+        String(a.packageName || a.name || '').localeCompare(String(b.packageName || b.name || '')),
+      )
+      writePackagesCache(next as any[])
+      return next
+    })
+  }
+
+  const removeLivePackage = (name: string) => {
+    setLivePackages((prev) => {
+      const current = prev.length > 0 ? prev : packages
+      const next = current.filter(
+        (p: any) => String(p.packageName || p.name || '').toLowerCase() !== name.toLowerCase(),
+      )
+      writePackagesCache(next as any[])
+      return next
+    })
+  }
 
   const handleSavePackage = async () => {
     if (!packageForm.packageName.trim()) return
     const isEdit = Boolean(editingPackageName)
     const name = (editingPackageName || packageForm.packageName).trim()
+    const previousPackages = [...displayPackages]
+    const optimisticRow = packageRowFromForm(packageForm, name)
     setCreating(true); setMsg('')
+    upsertLivePackage(optimisticRow)
+    closePackageForm()
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: isEdit ? 'editPackage' : 'createPackage',
@@ -6706,14 +6756,16 @@ export function PackagesSection({
       const data = await res.json()
       if (data.success) {
         setMsg(isEdit ? 'Pacote actualizado com sucesso!' : 'Pacote criado com sucesso!')
-        closePackageForm()
-        clearPackagesCache()
-        onRefresh()
+        void onRefresh()
         void loadLivePackages()
       } else {
+        setLivePackages(previousPackages as any[])
+        writePackagesCache(previousPackages as any[])
         setMsg('Erro: ' + (data.error || data.data?.error || (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')))
       }
     } catch (e: any) {
+      setLivePackages(previousPackages as any[])
+      writePackagesCache(previousPackages as any[])
       setMsg('Erro: ' + e.message)
     }
     setCreating(false)
@@ -6722,7 +6774,8 @@ export function PackagesSection({
   const openEditPackage = (pkg: any) => {
     const name = String(pkg.packageName || pkg.name || '').trim()
     if (!name) return
-    setPackageForm(packageListRowToForm(pkg, name))
+    const initialForm = packageListRowToForm(pkg, name)
+    setPackageForm(initialForm)
     setEditingPackageName(name)
     setShowPackageForm(true)
     setMsg('')
@@ -6736,7 +6789,9 @@ export function PackagesSection({
         })
         const data = await res.json()
         if (data.success && data.data && typeof data.data === 'object') {
-          setPackageForm(daPackageFieldsToHostingForm(data.data as Record<string, string>, name))
+          setPackageForm((prev) =>
+            daPackageFieldsToHostingForm(data.data as Record<string, string>, name, prev?.packageName ? prev : initialForm),
+          )
         }
       } catch {
         /* mantém formulário da listagem */
@@ -6750,14 +6805,15 @@ export function PackagesSection({
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deletePackage', params: { packageName: name } })
       })
       const data = await res.json()
       if (data.success) {
+        removeLivePackage(name)
         setMsg('Pacote apagado com sucesso!')
-        clearPackagesCache()
-        onRefresh()
+        void onRefresh()
         void loadLivePackages()
       } else {
         setMsg('Erro: ' + (data.error || 'Falha ao apagar pacote'))
@@ -6839,50 +6895,45 @@ export function PackagesSection({
       ) : (
       <div className="overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         {displayPackages && displayPackages.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900/50"><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Nome</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Disco</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Banda</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Emails</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">BDs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">FTPs</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Domínios</th><th className="text-left py-3 px-2 font-semibold text-gray-700 dark:text-zinc-300">Acções</th></tr></thead>
-              <tbody>
-                {displayPackages.map((pkg: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-2 font-medium whitespace-nowrap">{pkg.packageName || pkg.name || '-'}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{(pkg.diskSpace ?? pkg.disk ?? '-')}{String(pkg.diskSpace ?? pkg.disk ?? '') !== '' && String(pkg.diskSpace ?? pkg.disk) !== '-' ? ' MB' : ''}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{(pkg.bandwidth ?? '-')}{String(pkg.bandwidth ?? '') !== '' && String(pkg.bandwidth) !== '-' ? ' MB' : ''}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{pkg.emailAccounts ?? pkg.emails ?? '-'}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{pkg.dataBases ?? pkg.databases ?? '-'}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{pkg.ftpAccounts ?? pkg.ftp ?? '-'}</td>
-                    <td className="py-3 px-2 whitespace-nowrap">{pkg.allowedDomains ?? pkg.vdomains ?? '-'}</td>
-                    <td className="py-3 px-2 text-left">
-                      <div className="flex items-center justify-start gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditPackage(pkg)}
-                          title="Editar"
-                          aria-label="Editar"
-                          className={`${panelBtnSecondary} !h-8 !w-8 !min-w-8 !p-0`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(pkg.packageName || pkg.name)}
-                          disabled={deleting === pkg.packageName}
-                          title={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
-                          aria-label={deleting === pkg.packageName ? 'A apagar…' : 'Eliminar'}
-                          className={`${panelBtnSecondary} !h-8 !w-8 !min-w-8 !p-0 text-red-600 hover:text-red-800 disabled:opacity-50`}
-                        >
-                          {deleting === pkg.packageName ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div>
+            <div className="grid grid-cols-12 border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <div className="col-span-3">Pacote</div>
+              <div className="col-span-7">Configurações</div>
+              <div className="col-span-2 text-right">Acções</div>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {displayPackages.map((pkg: any, i: number) => (
+              <div key={i} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
+                <div className="col-span-12 min-w-0 self-center sm:col-span-3">
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                    {pkg.packageName || pkg.name || '-'}
+                  </p>
+                </div>
+                <div className="col-span-12 self-center sm:col-span-7">
+                  <p className="text-xs text-gray-600 dark:text-zinc-400">
+                    Disco {formatPackageMetric(pkg.diskSpace ?? pkg.disk ?? '-', 'MB')} · Banda {formatPackageMetric(pkg.bandwidth ?? '-', 'MB')} · Emails {pkg.emailAccounts ?? pkg.emails ?? '-'} · BDs {pkg.dataBases ?? pkg.databases ?? '-'} · FTPs {pkg.ftpAccounts ?? pkg.ftp ?? '-'} · Domínios {pkg.allowedDomains ?? pkg.vdomains ?? '-'}
+                  </p>
+                </div>
+                <div className="col-span-12 flex shrink-0 items-center justify-end gap-2 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditPackage(pkg)}
+                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5`}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(pkg.packageName || pkg.name)}
+                    disabled={deleting === (pkg.packageName || pkg.name)}
+                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5 text-red-600 hover:text-red-800 disabled:opacity-50`}
+                  >
+                    {deleting === (pkg.packageName || pkg.name) ? 'A eliminar…' : 'Eliminar pacote'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-8">

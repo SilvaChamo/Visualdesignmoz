@@ -3,11 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
-import { getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
+import { getAdminDirectAdminAPI, getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
-import { mirrorAfterDaMutation, mutationSucceeded } from '@/lib/panel-mirror-write';
+import { daPostViaSsh } from '@/lib/da-api-ssh';
+import {
+  deleteMirrorPackage,
+  mirrorAfterDaMutation,
+  mutationSucceeded,
+  packageMirrorRowFromParams,
+  upsertMirrorPackage,
+} from '@/lib/panel-mirror-write';
 import {
   listMirrorDns,
   listMirrorEmails,
@@ -105,13 +112,28 @@ export async function POST(req: NextRequest) {
       if (action === 'listPackages' && auth.user.role === 'admin') {
         const { cacheService } = await import('@/lib/cache-service');
         cacheService.clearPattern('listPackages');
-        const rows = await fallback(api, params);
-        if (Array.isArray(rows) && rows.length > 0) scheduleDaSync(500);
+        const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
+        const [liveRows, mirrorRows] = await Promise.all([
+          fallback(api, params).catch(() => [] as Awaited<ReturnType<typeof listMirrorPackages>>),
+          listMirrorPackages(mirrorScope),
+        ]);
+        const byName = new Map<string, (typeof mirrorRows)[number]>();
+        for (const pkg of mirrorRows) {
+          if (pkg.packageName) byName.set(pkg.packageName.toLowerCase(), pkg);
+        }
+        for (const pkg of Array.isArray(liveRows) ? liveRows : []) {
+          if (!pkg.packageName) continue;
+          const key = pkg.packageName.toLowerCase();
+          const prev = byName.get(key);
+          byName.set(key, prev ? { ...prev, ...pkg } : pkg);
+        }
+        const merged = [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
+        if (merged.length > 0) scheduleDaSync(500);
         const lastSyncedAt = await getMirrorLastSyncAt();
         return NextResponse.json({
           success: true,
-          data: Array.isArray(rows) ? rows : [],
-          meta: { source: 'live', lastSyncedAt },
+          data: merged,
+          meta: { source: 'merged', lastSyncedAt },
         });
       }
 
@@ -150,12 +172,106 @@ export async function POST(req: NextRequest) {
       if ('error' in auth) return auth.error;
 
       const { daApi: api } = await resolvePanelDaContext(auth);
-      const data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
+      const isPackageMutation =
+        action === 'createPackage' ||
+        action === 'editPackage' ||
+        action === 'modifyPackage' ||
+        action === 'deletePackage';
+
+      if (isPackageMutation) {
+        const pkgName = String(params.packageName || params.package || '').trim();
+
+        if (action === 'deletePackage') {
+          if (pkgName) {
+            const mirrorDel = await deleteMirrorPackage(pkgName);
+            if (!mirrorDel.ok) {
+              return NextResponse.json(
+                { success: false, error: mirrorDel.error || 'Falha ao remover pacote do painel' },
+                { status: 500 },
+              );
+            }
+          }
+        } else {
+          const mirrorRow = packageMirrorRowFromParams(params as Record<string, unknown>);
+          if (!mirrorRow) {
+            return NextResponse.json(
+              { success: false, error: 'Nome do pacote obrigatório.' },
+              { status: 400 },
+            );
+          }
+          const mirrorSave = await upsertMirrorPackage(mirrorRow);
+          if (!mirrorSave.ok) {
+            return NextResponse.json(
+              { success: false, error: mirrorSave.error || 'Falha ao guardar pacote no painel' },
+              { status: 500 },
+            );
+          }
+        }
+
+        let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
+        const unauthorizedMsg =
+          typeof data === 'object' && data !== null
+            ? String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '')
+            : '';
+        const isUnauthorized =
+          unauthorizedMsg.toLowerCase().includes('unauthorized') ||
+          unauthorizedMsg.toLowerCase().includes('não autorizado');
+
+        if (isUnauthorized && auth.user.role === 'admin') {
+          const adminApi = await getAdminDirectAdminAPI();
+          data = await DA_MUTATION_PROXY[action](adminApi, params as Record<string, unknown>);
+        }
+
+        let serverSynced = mutationSucceeded(data);
+        let serverError =
+          serverSynced || typeof data !== 'object' || data === null
+            ? undefined
+            : String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '');
+
+        if (!serverSynced && auth.user.role === 'admin' && pkgName) {
+          try {
+            const fullForm = (params as Record<string, unknown>).hostingPackageForm as
+              | import('@/lib/reseller-package-form').ResellerPackageFormState
+              | undefined;
+            if (action === 'deletePackage') {
+              const ssh = await daPostViaSsh('CMD_API_MANAGE_USER_PACKAGES', {
+                delete: 'Delete',
+                delete0: pkgName,
+              });
+              serverSynced = ssh.ok;
+              if (!ssh.ok) serverError = ssh.error;
+            } else if (fullForm?.limits || fullForm?.packageName) {
+              const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
+              const fields = hostingPackageFormToDaFields({
+                ...fullForm,
+                packageName: pkgName || fullForm.packageName,
+              });
+              const ssh = await daPostViaSsh('CMD_API_MANAGE_USER_PACKAGES', fields);
+              serverSynced = ssh.ok;
+              if (!ssh.ok) serverError = ssh.error;
+            }
+          } catch (e: unknown) {
+            serverError = e instanceof Error ? e.message : 'Falha ao sincronizar com servidor';
+          }
+        }
+
+        scheduleDaSync(0);
+
+        return NextResponse.json({
+          success: true,
+          data,
+          serverSynced,
+          error: serverSynced ? undefined : serverError,
+        });
+      }
+
+      let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
       const ok = mutationSucceeded(data);
       const errMsg =
         ok || typeof data !== 'object' || data === null
           ? undefined
           : String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '');
+
       if (ok) {
         await mirrorAfterDaMutation(action, params as Record<string, unknown>);
       }

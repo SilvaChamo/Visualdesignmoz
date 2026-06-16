@@ -7,7 +7,6 @@ import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cach
 import { panelBtnSecondary } from '@/lib/panel-ui';
 
 type AccountType = 'client' | 'reseller' | 'professional';
-type ProfessionalRole = 'admin' | 'manager' | 'reseller' | 'client' | 'guest';
 
 export type ProvisionEditUser = {
   userName: string;
@@ -52,6 +51,17 @@ function normalizeErrorMessage(input: string): string {
     .trim();
 }
 
+function formatPackageLimit(value: unknown, defaultUnit?: string): string {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '—' || raw.toLowerCase() === 'unlimited') return raw || '—';
+  if (/[a-z]/i.test(raw)) return raw;
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber) && defaultUnit === 'MB' && asNumber >= 1024 && asNumber % 1024 === 0) {
+    return `${asNumber / 1024}G`;
+  }
+  return defaultUnit ? `${raw} ${defaultUnit}` : raw;
+}
+
 export function ProvisionClienteSection({
   packages: packagesProp,
   onComplete,
@@ -72,7 +82,6 @@ export function ProvisionClienteSection({
   const [fixedUsername] = useState(() => editUser?.userName || '');
   const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache() || packagesProp);
   const [packageName, setPackageName] = useState('');
-  const [professionalRole, setProfessionalRole] = useState<ProfessionalRole>('client');
   const [identity, setIdentity] = useState({
     firstName: editUser?.firstName || '',
     lastName: editUser?.lastName || '',
@@ -157,8 +166,7 @@ export function ProvisionClienteSection({
     identity.email.includes('@') &&
     passwordOk &&
     (isEdit ||
-      accountType === 'professional' ||
-      (accountType === 'reseller' && Boolean(activePackageName)) ||
+      ((accountType === 'reseller' || accountType === 'professional') && Boolean(activePackageName)) ||
       (accountType === 'client' && hosting.domain.includes('.') && Boolean(activePackageName)));
 
   const handleProvision = async () => {
@@ -168,7 +176,6 @@ export function ProvisionClienteSection({
     const username = deriveUsername();
     const domain = hosting.domain.trim().toLowerCase();
     const adminEmail = hosting.adminEmail.trim() || identity.email;
-    const fullName = displayName !== '—' ? displayName : identity.email.split('@')[0];
 
     try {
       if (isEdit && editUser) {
@@ -215,27 +222,6 @@ export function ProvisionClienteSection({
         return;
       }
 
-      if (accountType === 'professional') {
-        const res = await fetch('/api/admin/panel-users', {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: identity.email,
-            password: identity.password,
-            name: fullName,
-            role: professionalRole,
-            provisionDa: false,
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(String(json.error || 'Falha ao criar utilizador'));
-        setDone(true);
-        setMsg(`Utilizador ${identity.email} criado.`);
-        onComplete?.();
-        return;
-      }
-
       const res = await fetch('/api/admin/clientes', {
         method: 'POST',
         credentials: 'include',
@@ -245,7 +231,7 @@ export function ProvisionClienteSection({
           email: identity.email,
           password: identity.password,
           userName: username,
-          domain: accountType === 'reseller' ? domain || `${username}.com` : domain,
+          domain: accountType === 'reseller' || accountType === 'professional' ? domain || `${username}.com` : domain,
           packageName: activePackageName,
           adminEmail,
           createEmail: options.createEmail,
@@ -262,7 +248,7 @@ export function ProvisionClienteSection({
       setMsg(
         json.provisionMode === 'domain'
           ? `Domínio ${domain} criado na conta de revenda (licença do servidor: máx. 2 utilizadores).`
-          : `Conta ${accountType === 'reseller' ? username : domain} criada.`,
+          : `Conta ${accountType === 'reseller' || accountType === 'professional' ? username : domain} criada.`,
       );
       onComplete?.();
     } catch (e: unknown) {
@@ -304,25 +290,11 @@ export function ProvisionClienteSection({
             <dd className="text-zinc-900">{activePackageName || '—'}</dd>
           </div>
         )}
-        {(accountType === 'client' || accountType === 'reseller') && (
+        {(accountType === 'client' || accountType === 'reseller' || accountType === 'professional') && (
           <div>
             <dt className="text-xs text-zinc-400">Domínio</dt>
-            <dd className="break-all text-zinc-900">{hosting.domain || (accountType === 'reseller' ? `${deriveUsername()}.com` : '—')}</dd>
-          </div>
-        )}
-        {accountType === 'professional' && (
-          <div>
-            <dt className="text-xs text-zinc-400">Nível</dt>
-            <dd className="text-zinc-800">
-              {professionalRole === 'admin'
-                ? 'Administrador'
-                : professionalRole === 'manager'
-                  ? 'Gestão'
-                  : professionalRole === 'reseller'
-                    ? 'Revendedor'
-                    : professionalRole === 'guest'
-                      ? 'Visitante'
-                      : 'Cliente'}
+            <dd className="break-all text-zinc-900">
+              {hosting.domain || (accountType === 'reseller' || accountType === 'professional' ? `${deriveUsername()}.com` : '—')}
             </dd>
           </div>
         )}
@@ -369,8 +341,8 @@ export function ProvisionClienteSection({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
                 { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
+                { id: 'professional' as const, title: 'Profissional', desc: 'Conta profissional com direitos de revenda', icon: Shield },
                 { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
-                { id: 'professional' as const, title: 'Profissional', desc: 'Conta de utilizador com nível de acesso', icon: Shield },
               ]).map((opt) => (
                 <button
                   key={opt.id}
@@ -446,7 +418,7 @@ export function ProvisionClienteSection({
             </div>
           </section>
 
-          {accountType !== 'professional' && (
+          {!isEdit && (
             <section className={`${formCardCls} space-y-4`}>
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-5 h-5" /> Pacote
@@ -472,30 +444,11 @@ export function ProvisionClienteSection({
                     {(() => {
                       const selected = packageOptions.find((p) => p.packageName === activePackageName);
                       if (!selected) return 'Sem detalhes do pacote.';
-                      return `Disco ${selected.diskSpace ?? '—'} MB · BW ${selected.bandwidth ?? '—'} · Emails ${selected.emailAccounts ?? '—'}`;
+                      return `Disco ${formatPackageLimit(selected.diskSpace, 'MB')} · BW ${formatPackageLimit(selected.bandwidth, 'MB')} · Emails ${formatPackageLimit(selected.emailAccounts)}`;
                     })()}
                   </p>
                 </div>
               )}
-            </section>
-          )}
-
-          {accountType === 'professional' && (
-            <section className={`${formCardCls} space-y-4`}>
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Shield className="w-5 h-5" /> Nível de utilizador
-              </h2>
-              <select
-                value={professionalRole}
-                onChange={(e) => setProfessionalRole(e.target.value as ProfessionalRole)}
-                className={inputCls}
-              >
-                <option value="admin">Administrador</option>
-                <option value="manager">Gestão</option>
-                <option value="reseller">Revendedor</option>
-                <option value="client">Cliente</option>
-                <option value="guest">Visitante</option>
-              </select>
             </section>
           )}
 
@@ -534,7 +487,7 @@ export function ProvisionClienteSection({
             </section>
           )}
 
-          {accountType === 'reseller' && (
+          {(accountType === 'reseller' || accountType === 'professional') && (
             <section className={`${formCardCls} space-y-3`}>
               <h2 className="font-bold text-gray-900">Revenda</h2>
               <input

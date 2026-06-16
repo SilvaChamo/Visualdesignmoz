@@ -171,12 +171,33 @@ export function createDefaultResellerPackageForm(packageName = ''): ResellerPack
 }
 
 function limitToDa(key: ResellerLimitField, row: { value: string; unlimited: boolean }): Record<string, string> {
+  const normalizeLimitValue = (value: string): string => {
+    const raw = String(value || '').trim();
+    if (!raw) return '0';
+    const m = raw.match(/^(\d+(?:[.,]\d+)?)/);
+    if (!m) return raw;
+    const num = Number(m[1].replace(',', '.'));
+    if (!Number.isFinite(num)) return raw;
+    return String(Math.round(num));
+  };
+
+  const normalizeStorageMb = (value: string): string => {
+    const normalized = normalizeLimitValue(value);
+    const numeric = String(normalized).replace(/[^\d]/g, '');
+    return numeric || '0';
+  };
+
   if (row.unlimited) {
     if (key === 'bandwidth') return { bandwidth: 'unlimited', ubandwidth: 'ON' };
     if (key === 'quota') return { quota: 'unlimited', uquota: 'ON' };
     return { [key]: 'unlimited' };
   }
-  const out: Record<string, string> = { [key]: row.value || '0' };
+  const out: Record<string, string> = {
+    [key]:
+      key === 'quota' || key === 'bandwidth'
+        ? normalizeStorageMb(row.value)
+        : normalizeLimitValue(row.value),
+  };
   if (key === 'bandwidth') out.ubandwidth = 'OFF';
   if (key === 'quota') out.uquota = 'OFF';
   return out;
@@ -287,7 +308,7 @@ function parseDaResource(
   fallback: { value: string; unlimited: boolean },
 ): { value: string; unlimited: boolean } {
   const val = String(raw[key] ?? '').trim();
-  if (!val) return { ...fallback, unlimited: true };
+  if (!val) return fallback;
   return { value: val, unlimited: false };
 }
 
@@ -295,8 +316,9 @@ function parseDaResource(
 export function daPackageFieldsToHostingForm(
   raw: Record<string, string>,
   packageName: string,
+  seed?: ResellerPackageFormState,
 ): ResellerPackageFormState {
-  const base = createDefaultResellerPackageForm(packageName);
+  const base = seed ? { ...seed, packageName } : createDefaultResellerPackageForm(packageName);
   const limits = { ...base.limits };
   for (const key of Object.keys(limits) as ResellerLimitField[]) {
     limits[key] = parseDaLimit(raw, key, base.limits[key]);
@@ -339,26 +361,26 @@ export function daPackageFieldsToHostingForm(
       ...base.features,
       ips: String(raw.ips ?? base.features.ips),
       dns,
-      aftp: parseDaBool(raw.aftp),
-      cgi: parseDaBool(raw.cgi),
-      git: parseDaBool(raw.git),
-      wordpress: parseDaBool(raw.wordpress),
-      clamav: parseDaBool(raw.clamav),
+      aftp: raw.aftp != null ? parseDaBool(raw.aftp) : base.features.aftp,
+      cgi: raw.cgi != null ? parseDaBool(raw.cgi) : base.features.cgi,
+      git: raw.git != null ? parseDaBool(raw.git) : base.features.git,
+      wordpress: raw.wordpress != null ? parseDaBool(raw.wordpress) : base.features.wordpress,
+      clamav: raw.clamav != null ? parseDaBool(raw.clamav) : base.features.clamav,
       php: raw.php != null ? parseDaBool(raw.php) : base.features.php,
       spam: raw.spam != null ? parseDaBool(raw.spam) : base.features.spam,
-      catchall: parseDaBool(raw.catchall),
+      catchall: raw.catchall != null ? parseDaBool(raw.catchall) : base.features.catchall,
       ssl: raw.ssl != null ? parseDaBool(raw.ssl) : base.features.ssl,
-      ssh: parseDaBool(raw.ssh),
+      ssh: raw.ssh != null ? parseDaBool(raw.ssh) : base.features.ssh,
       cron: raw.cron != null ? parseDaBool(raw.cron) : base.features.cron,
-      redis: parseDaBool(raw.redis),
+      redis: raw.redis != null ? parseDaBool(raw.redis) : base.features.redis,
       sysinfo: raw.sysinfo != null ? parseDaBool(raw.sysinfo) : base.features.sysinfo,
       login_keys: raw.login_keys != null ? parseDaBool(raw.login_keys) : base.features.login_keys,
       dnscontrol: raw.dnscontrol != null ? parseDaBool(raw.dnscontrol) : base.features.dnscontrol,
       suspend_at_limit: raw.suspend_at_limit != null ? parseDaBool(raw.suspend_at_limit) : base.features.suspend_at_limit,
-      auto_security_txt: parseDaBool(raw.auto_security_txt),
+      auto_security_txt: raw.auto_security_txt != null ? parseDaBool(raw.auto_security_txt) : base.features.auto_security_txt,
       jail: raw.jail != null ? parseDaBool(raw.jail) : base.features.jail,
       oversell: raw.oversell != null ? parseDaBool(raw.oversell) : base.features.oversell,
-      userssh: parseDaBool(raw.userssh),
+      userssh: raw.userssh != null ? parseDaBool(raw.userssh) : base.features.userssh,
       serverip: raw.serverip != null ? parseDaBool(raw.serverip) : base.features.serverip,
     },
   };
@@ -367,18 +389,27 @@ export function daPackageFieldsToHostingForm(
 /** Preenche o formulário a partir de uma linha da listagem (fallback). */
 export function packageListRowToForm(pkg: Record<string, unknown>, packageName: string): ResellerPackageFormState {
   const form = createDefaultResellerPackageForm(packageName);
-  const num = (v: unknown) => (v != null && v !== '' ? String(v) : '');
-  const disk = num(pkg.diskSpace ?? pkg.disk);
-  const band = num(pkg.bandwidth);
-  const emails = num(pkg.emailAccounts ?? pkg.emails);
-  const dbs = num(pkg.dataBases ?? pkg.databases);
-  const ftps = num(pkg.ftpAccounts ?? pkg.ftp);
-  const domains = num(pkg.allowedDomains ?? pkg.vdomains);
-  if (disk) form.limits.quota = { value: disk, unlimited: false };
-  if (band) form.limits.bandwidth = { value: band, unlimited: false };
-  if (emails) form.limits.nemails = { value: emails, unlimited: false };
-  if (dbs) form.limits.mysql = { value: dbs, unlimited: false };
-  if (ftps) form.limits.ftp = { value: ftps, unlimited: false };
-  if (domains) form.limits.vdomains = { value: domains, unlimited: false };
+  const parseListLimit = (v: unknown): { value: string; unlimited: boolean } | null => {
+    const raw = String(v ?? '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+    if (raw === '-' || lower === 'unlimited' || lower === 'ilimitado') {
+      return { value: '', unlimited: true };
+    }
+    return { value: raw, unlimited: false };
+  };
+
+  const disk = parseListLimit(pkg.diskSpace ?? pkg.disk);
+  const band = parseListLimit(pkg.bandwidth);
+  const emails = parseListLimit(pkg.emailAccounts ?? pkg.emails);
+  const dbs = parseListLimit(pkg.dataBases ?? pkg.databases);
+  const ftps = parseListLimit(pkg.ftpAccounts ?? pkg.ftp);
+  const domains = parseListLimit(pkg.allowedDomains ?? pkg.vdomains);
+  if (disk) form.limits.quota = disk;
+  if (band) form.limits.bandwidth = band;
+  if (emails) form.limits.nemails = emails;
+  if (dbs) form.limits.mysql = dbs;
+  if (ftps) form.limits.ftp = ftps;
+  if (domains) form.limits.vdomains = domains;
   return form;
 }

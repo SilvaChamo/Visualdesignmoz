@@ -133,6 +133,16 @@ function pickAccountPackage(
   return packageName;
 }
 
+function formatPackageSize(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '—';
+  if (/[a-z]/i.test(raw)) return raw.toUpperCase();
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return raw;
+  if (n >= 1024 && n % 1024 === 0) return `${n / 1024}G`;
+  return `${n} MB`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAdminOrReseller();
@@ -215,7 +225,7 @@ export async function GET(req: NextRequest) {
         (sum, s) => sum + (parseInt(String(s.diskUsage || '0'), 10) || 0),
         0,
       );
-      const quotaLabel = pkgMeta?.diskSpace ? `${pkgMeta.diskSpace} MB` : '—';
+      const quotaLabel = formatPackageSize(pkgMeta?.diskSpace);
       const resellerOwner =
         u.parentUsername ||
         (acl === 'admin' || (acl === 'reseller' && !u.parentUsername) ? 'admin' : '—');
@@ -269,7 +279,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const accountType = String(body.accountType || 'client') as 'client' | 'reseller';
+    const accountType = String(body.accountType || 'client') as 'client' | 'reseller' | 'professional';
     const email = String(body.email || '').trim();
     const password = String(body.password || '');
     const domain = String(body.domain || '').trim().toLowerCase();
@@ -284,7 +294,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (accountType === 'reseller') {
+    if (accountType === 'reseller' || accountType === 'professional') {
       const createdDomain = domain || `${userName}.com`;
       const effectivePackageName = String(packageName || '').trim();
 
@@ -319,7 +329,7 @@ export async function POST(req: NextRequest) {
         packageName: effectivePackageName,
       });
       scheduleDaSync(1500);
-      return NextResponse.json({ success: true, userName, accountType: 'reseller' });
+      return NextResponse.json({ success: true, userName, accountType });
     }
 
     // Conta de hospedagem — mesmo fluxo que no servidor: pacote + domínio
