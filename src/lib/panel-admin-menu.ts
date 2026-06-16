@@ -132,6 +132,8 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
       { id: 'emails-new', label: 'Contas de e-mail' },
       { id: 'webmail', label: 'Webmail' },
       { id: 'newsletter', label: 'Mailmarketing' },
+      { id: 'setup-smtp', label: 'Envio e Recepção' },
+      { id: 'email-diagnostico', label: 'Diagnóstico' },
     ],
   },
   {
@@ -220,6 +222,7 @@ export const RESELLER_LEGACY_MENU_DEFS: PanelMenuItemDef[] = [
       { id: 'emails-new-legacy', label: 'Listar E-mails' },
       { id: 'criar-email-legacy', label: 'Criar E-mail' },
       { id: 'webmail-legacy', label: 'Webmail' },
+      { id: 'setup-smtp', label: 'Envio e Recepção' },
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
     ],
   },
@@ -333,6 +336,8 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   domains: 'nov-wordpress',
   'emails-new': 'nov-email',
   webmail: 'nov-email',
+  'setup-smtp': 'nov-email',
+  'email-diagnostico': 'nov-email',
   'criar-email': 'menu-anterior',
   'dns-central': 'nov-dominios',
   'domain-manager': 'nov-dominios',
@@ -367,6 +372,10 @@ export function resellerMenuParentForSection(sectionId: string): string | null {
   const legacyParent = resellerLegacySectionParent(sectionId);
   if (legacyParent) return legacyParent;
   const resolved = resolveSectionId(sectionId);
+  if (['setup-smtp', 'email-diagnostico', 'cp-email-dkim'].includes(resolved)) {
+    const mainParent = NEW_SECTION_TO_PARENT[resolved];
+    if (mainParent) return mainParent;
+  }
   const mainParent = NEW_SECTION_TO_PARENT[resolved];
   if (mainParent && mainParent !== 'menu-anterior') return mainParent;
   return null;

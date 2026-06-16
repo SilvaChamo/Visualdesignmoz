@@ -10197,108 +10197,113 @@ export function SMTPConfigSection() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
-            <Mail className="w-5 h-5 text-blue-600" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <Mail className="h-5 w-5 text-red-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Envio e Recepção (Brevo)</h1>
-            <p className="text-xs text-gray-600">
-              Envio via Brevo · Caixas no DirectAdmin · Recepção via MX Brevo → webhook
+            <h1 className="text-xl font-bold text-gray-900 dark:text-zinc-100">Envio e Recepção</h1>
+            <p className="text-xs text-gray-600 dark:text-zinc-400">
+              Envio transaccional · Caixas no servidor · Recepção via MX e webhook
             </p>
           </div>
         </div>
         <button
+          type="button"
           onClick={loadStatus}
           disabled={statusLoading}
-          className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+          className={`${panelBtnSecondary} text-xs`}
         >
-          <RefreshCw className={cn('w-4 h-4', statusLoading && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', statusLoading && 'animate-spin')} />
           Actualizar
         </button>
       </div>
 
       {statusLoading && !status ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-500">A carregar estado...</div>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          A carregar estado...
+        </div>
       ) : (
         <>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                {sendOk ? <CheckCircle className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
-                <h2 className="text-lg font-semibold text-gray-900">Envio</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-3 flex items-center gap-2">
+                {sendOk ? <CheckCircle className="h-5 w-5 text-green-600" /> : <AlertCircle className="h-5 w-5 text-amber-600" />}
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-zinc-100">Envio</h2>
               </div>
-              <p className="text-sm text-gray-600 mb-4">{status?.message}</p>
-              <dl className="text-sm space-y-2 text-gray-700">
-                <div><dt className="font-medium inline">SMTP relay: </dt><dd className="inline">{status?.config?.host}:{status?.config?.port}</dd></div>
-                <div><dt className="font-medium inline">API Brevo: </dt><dd className="inline">{status?.brevoApi ? 'activa' : 'em falta'}</dd></div>
-                <div><dt className="font-medium inline">Transacções: </dt><dd className="inline">{status?.config?.fromAutomatic?.email || '—'}</dd></div>
-                <div><dt className="font-medium inline">Mailmarketing: </dt><dd className="inline">{status?.marketing?.from || status?.config?.fromMarketing || '—'}</dd></div>
+              <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">{status?.message}</p>
+              <dl className="space-y-2 text-sm text-gray-700 dark:text-zinc-300">
+                <div><dt className="inline font-medium">Relay SMTP: </dt><dd className="inline">{status?.config?.host}:{status?.config?.port}</dd></div>
+                <div><dt className="inline font-medium">API de envio: </dt><dd className="inline">{status?.brevoApi ? 'activa' : 'em falta'}</dd></div>
+                <div><dt className="inline font-medium">Transacções: </dt><dd className="inline">{status?.config?.fromAutomatic?.email || '—'}</dd></div>
+                <div><dt className="inline font-medium">Mailmarketing: </dt><dd className="inline">{status?.marketing?.from || status?.config?.fromMarketing || '—'}</dd></div>
               </dl>
-              <p className="text-xs text-gray-500 mt-4">
+              <p className="mt-4 text-xs text-gray-500 dark:text-zinc-500">
                 Campanhas: secção <strong>Mailmarketing</strong> no menu lateral.
               </p>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Recepção</h2>
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-3 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-zinc-100">Recepção</h2>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Gmail e outros enviam para MX Brevo → webhook injecta na caixa DirectAdmin ({status?.receive?.mailboxes}).
+              <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
+                E-mail externo chega via MX do serviço de envio → webhook injecta na caixa no servidor ({status?.receive?.mailboxes}).
               </p>
-              <dl className="text-sm space-y-2 text-gray-700">
+              <dl className="space-y-2 text-sm text-gray-700 dark:text-zinc-300">
                 {receiveMx.map((mx) => (
                   <div key={mx.host}>
-                    <dt className="font-medium inline">MX {mx.priority}: </dt>
+                    <dt className="inline font-medium">MX {mx.priority}: </dt>
                     <dd className="inline font-mono text-xs">{mx.host}</dd>
                   </div>
                 ))}
-                <div><dt className="font-medium inline">SPF: </dt><dd className="inline font-mono text-xs break-all">{status?.receive?.spf}</dd></div>
-                <div><dt className="font-medium inline">Webhook: </dt><dd className="inline font-mono text-xs break-all">{status?.receive?.webhookUrl}</dd></div>
+                <div><dt className="inline font-medium">SPF: </dt><dd className="inline break-all font-mono text-xs">{status?.receive?.spf}</dd></div>
+                <div><dt className="inline font-medium">Webhook: </dt><dd className="inline break-all font-mono text-xs">{status?.receive?.webhookUrl}</dd></div>
               </dl>
-              <p className="text-xs text-gray-500 mt-4">
-                Leitura: secção <strong>Webmail</strong> ou Outlook/IMAP.
+              <p className="mt-4 text-xs text-gray-500 dark:text-zinc-500">
+                Leitura: secção <strong>Webmail</strong> ou cliente IMAP.
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Aplicar DNS de recepção (MX Brevo)</h2>
-            <p className="text-gray-600 text-sm mb-4">
-              Actualiza as zonas BIND no servidor ({getServerHost()}) para receber email externo via Brevo.
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-zinc-100">Aplicar DNS de recepção (MX)</h2>
+            <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
+              Actualiza as zonas DNS no servidor ({getServerHost()}) para receber e-mail externo.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="dominio.com"
-                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                className={`${panelField} flex-1`}
               />
               <button
+                type="button"
                 onClick={() => applyBrevoMx(false)}
                 disabled={applyLoading !== null || !domain.trim()}
-                className="bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 py-2 px-4 rounded font-medium text-sm"
+                className={panelBtnPrimary}
               >
                 {applyLoading === 'one' ? 'A aplicar...' : 'Aplicar neste domínio'}
               </button>
               <button
+                type="button"
                 onClick={() => applyBrevoMx(true)}
                 disabled={applyLoading !== null}
-                className="bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50 py-2 px-4 rounded font-medium text-sm"
+                className={panelBtnSecondary}
               >
                 {applyLoading === 'all' ? 'A aplicar...' : 'Aplicar em todos'}
               </button>
             </div>
 
             {applyResult && (
-              <pre className="bg-green-50 border border-green-200 text-green-800 p-3 rounded text-xs overflow-auto max-h-40 font-mono whitespace-pre-wrap">
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-green-200 bg-green-50 p-3 font-mono text-xs text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300">
                 {applyResult}
               </pre>
             )}
             {applyError && (
-              <p className="text-red-700 text-sm bg-red-50 border border-red-200 rounded p-3">{applyError}</p>
+              <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">{applyError}</p>
             )}
           </div>
         </>

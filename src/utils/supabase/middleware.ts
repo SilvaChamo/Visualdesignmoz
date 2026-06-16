@@ -1,14 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { applySharedAuthCookieOptions } from "@/lib/panel-origin";
 
 export const updateSession = async (request: NextRequest) => {
-    // This `updateSession` function will be used by our `proxy.ts`.
-
     let response = NextResponse.next({
         request: {
             headers: request.headers,
         },
     });
+
+    const hostname = request.headers.get("host") ?? undefined;
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,11 @@ export const updateSession = async (request: NextRequest) => {
                         request,
                     });
                     cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
+                        response.cookies.set(
+                            name,
+                            value,
+                            applySharedAuthCookieOptions(options, hostname),
+                        )
                     );
                 },
             },

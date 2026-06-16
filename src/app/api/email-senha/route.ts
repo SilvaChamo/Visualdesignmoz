@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
+import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
 
 const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com'];
 
@@ -33,23 +34,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email é obrigatório' }, { status: 400 });
     }
 
-    // Verificar permissões
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    const isAdmin = isExplicitAdmin || session.user?.user_metadata?.role === 'admin';
-    
-    // Buscar a conta no Supabase
     const { data: conta, error } = await supabaseAdmin
       .from('email_contas')
       .select('email, senha_servidor, cliente_id, tipo_conta')
       .eq('email', email)
       .single();
-    
+
     if (error || !conta) {
       return NextResponse.json({ error: 'Conta não encontrada' }, { status: 404 });
     }
-    
-    // Verificar se o usuário tem permissão (é dono da conta ou é admin)
-    if (conta.cliente_id !== session.user.id && !isAdmin) {
+
+    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
+    const effectiveRole = await resolveRoleForAuthUser(supabaseAdmin, session.user);
+    const isAdmin = isExplicitAdmin || effectiveRole === 'admin' || effectiveRole === 'manager';
+    const isReseller = effectiveRole === 'reseller';
+
+    const sessionEmail = (session.user.email || '').toLowerCase();
+    const accountEmail = (conta.email || '').toLowerCase();
+    const sameDomain =
+      sessionEmail.split('@')[1] &&
+      accountEmail.endsWith(`@${sessionEmail.split('@')[1]}`);
+
+    const canAccess =
+      isAdmin ||
+      isReseller ||
+      conta.cliente_id === session.user.id ||
+      accountEmail === sessionEmail ||
+      Boolean(sameDomain);
+
+    if (!canAccess) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
     

@@ -1,6 +1,7 @@
-import { createServerClient } from '@supabase/ssr'
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { isPanelRoute, resolvePostLoginUrl } from '@/lib/panel-origin'
+import { createAppServerClient } from '@/lib/supabase-cookies'
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
@@ -13,29 +14,28 @@ export async function GET(request: NextRequest) {
     redirectTo.search = ''
 
     const cookieJar = NextResponse.next()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return request.cookies.getAll()
-                },
-                setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => {
-                        cookieJar.cookies.set(name, value, options)
-                    })
-                },
-            },
-        }
-    )
+    const supabase = createAppServerClient(request, cookieJar)
+
+    const finish = (path: string) => {
+        const target =
+            isPanelRoute(path)
+                ? resolvePostLoginUrl({
+                      origin: request.nextUrl.origin,
+                      role: 'guest',
+                      from: path,
+                  })
+                : path.startsWith('http')
+                  ? path
+                  : new URL(path, request.nextUrl.origin).toString()
+        const response = NextResponse.redirect(target)
+        cookieJar.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value))
+        return response
+    }
 
     if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (!error) {
-            const response = NextResponse.redirect(redirectTo)
-            cookieJar.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value))
-            return response
+            return finish(next)
         }
         console.error('Auth Confirm (code) Error:', error)
     }
@@ -47,9 +47,7 @@ export async function GET(request: NextRequest) {
         })
 
         if (!error) {
-            const response = NextResponse.redirect(redirectTo)
-            cookieJar.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value))
-            return response
+            return finish(next)
         }
 
         console.error('Auth Confirm (token_hash) Error:', error)

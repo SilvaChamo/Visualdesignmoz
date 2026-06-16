@@ -1,7 +1,15 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
+import {
+  isPanelRoute,
+  panelRouteFromPublicEntry,
+  PUBLIC_PANEL_ENTRY,
+  resolveInnerPanelPath,
+  resolvePanelInnerRedirect,
+  shouldUsePanelOriginForHost,
+} from '@/lib/panel-origin'
+import { createAppServerClient } from '@/lib/supabase-cookies'
 
 // Simulação de Rate Limiting
 const RATE_LIMIT_MS = 2000
@@ -9,9 +17,27 @@ const loginAttempts = new Map<string, number>()
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host = request.headers.get('host') ?? ''
 
-  // FIRST: let auth callback pass immediately — no session exists yet at this point
+  // FIRST: OAuth ?code= fora de /auth/callback → corrigir rota
+  const oauthCode = request.nextUrl.searchParams.get('code')
+  if (
+    oauthCode &&
+    pathname !== '/auth/callback' &&
+    pathname !== '/auth/confirm'
+  ) {
+    const callback = request.nextUrl.clone()
+    callback.pathname = '/auth/callback'
+    return NextResponse.redirect(callback)
+  }
+
+  // let auth callback pass immediately
   if (pathname === '/auth/callback') {
+    return NextResponse.next()
+  }
+
+  // Home sem ?code= — não correr auth no proxy (performance)
+  if (pathname === '/' && !oauthCode) {
     return NextResponse.next()
   }
 
@@ -21,29 +47,59 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+  const supabase = createAppServerClient(request, response)
 
   const { data: { user } } = await supabase.auth.getUser()
   const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+
+  // Entrada universal /painel (todas as contas, sem config por domínio)
+  if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
+    if (!user) {
+      const login = new URL('/auth/login', request.url)
+      const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
+        ? `${pathname}${request.nextUrl.search}`
+        : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
+      login.searchParams.set('from', fromPath)
+      return NextResponse.redirect(login)
+    }
+    const role = resolveUserRole({
+      email: user.email,
+      userMetadata: user.user_metadata,
+      appMetadata: user.app_metadata,
+    })
+    const inner = panelRouteFromPublicEntry(pathname) ?? resolveInnerPanelPath(null, role)
+    const target = resolvePanelInnerRedirect(
+      request.url,
+      inner,
+      request.nextUrl.search,
+    )
+    return NextResponse.redirect(target)
+  }
+
+  // Site público (Vercel): rotas legadas /admin → login com /painel
+  if (shouldUsePanelOriginForHost(host) && isPanelRoute(pathname)) {
+    if (!user) {
+      const login = new URL('/auth/login', request.url)
+      const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
+        ? `${pathname}${request.nextUrl.search}`
+        : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
+      login.searchParams.set('from', fromPath)
+      return NextResponse.redirect(login)
+    }
+    return NextResponse.redirect(
+      resolvePanelInnerRedirect(request.url, pathname, request.nextUrl.search),
+    )
+  }
+
+  // Local / mesmo host: /admin, /client… — API e UI no mesmo `npm run dev`
+  if (!shouldUsePanelOriginForHost(host) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
+    if (!user) {
+      const login = new URL('/auth/login', request.url)
+      login.searchParams.set('from', `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`)
+      return NextResponse.redirect(login)
+    }
+    return response
+  }
 
   // Honeypot/Rate Limit logic
   if (pathname === '/auth/login' && request.method === 'POST') {
@@ -72,8 +128,6 @@ export async function proxy(request: NextRequest) {
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     return response
   }
-
-  // Protected routes
   if (!user) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
@@ -105,6 +159,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
+    '/painel',
+    '/painel/:path*',
     '/admin/:path*',
     '/api/:path*',
     '/dashboard/:path*',

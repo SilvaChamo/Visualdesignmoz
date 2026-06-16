@@ -19,6 +19,24 @@ const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
 const encrypt = (text: string) => Buffer.from(text).toString('base64')
 const decrypt = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
+function userCanAccessMailboxPassword(
+  sessionUser: { id: string; email?: string | null },
+  account: { email?: string | null; cliente_id?: string | null },
+  isAdmin: boolean,
+  effectiveRole: string,
+): boolean {
+  if (isAdmin || effectiveRole === 'manager') return true
+  if (effectiveRole === 'reseller') return true
+  if (account.cliente_id && account.cliente_id === sessionUser.id) return true
+  const sessionEmail = (sessionUser.email || '').toLowerCase()
+  const accountEmail = (account.email || '').toLowerCase()
+  if (sessionEmail && accountEmail === sessionEmail) return true
+  const sessionDomain = sessionEmail.split('@')[1]
+  const accountDomain = accountEmail.split('@')[1]
+  if (sessionDomain && accountDomain && sessionDomain === accountDomain) return true
+  return false
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
@@ -101,9 +119,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Detectar se é admin
+    // Detectar perfil (admin, revendedor, cliente)
     const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    const isAdmin = isExplicitAdmin || session.user?.user_metadata?.role === 'admin';
+    const roleDb = supabaseAdmin;
+    const effectiveRole = session.user
+      ? await resolveRoleForAuthUser(roleDb, session.user)
+      : 'guest';
+    const isAdmin = isExplicitAdmin || effectiveRole === 'admin' || effectiveRole === 'manager';
     
     console.log(`� [API] Usuário: ${session.user?.email}, isAdmin: ${isAdmin}`);
     
@@ -170,7 +192,10 @@ export async function GET(req: NextRequest) {
 
     const contas = allEmails.map(c => ({
       ...c,
-      password_smtp: '' // nunca devolver password
+      password_smtp:
+        c.senha_servidor && userCanAccessMailboxPassword(session.user, c, isAdmin, effectiveRole)
+          ? decrypt(c.senha_servidor)
+          : '',
     }))
 
     return NextResponse.json({ success: true, contas, debug: { totalReturned: allEmails.length } })

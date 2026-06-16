@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { resolvePanelImapHost } from '@/lib/imap-host'
 
 // Resolve o servidor SMTP correto com base no domínio do email remetente
 const resolveSmtpConfig = (fromEmail: string) => {
@@ -117,7 +118,7 @@ async function saveToSentFolder(
         const senderDomain = from.split('@')[1] || 'visualdesignmoz.com'
         const HOSTED_MAIL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
         const isHostedMail = HOSTED_MAIL_DOMAINS.includes(senderDomain) || HOSTED_MAIL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
-        const imapHost = process.env.IMAP_HOST || (isHostedMail ? getServerHost() : `mail.${senderDomain}`)
+        const imapHost = isHostedMail ? resolvePanelImapHost() : `mail.${senderDomain}`
         
         const imapClient = new ImapFlow({
             host: imapHost,

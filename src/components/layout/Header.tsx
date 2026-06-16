@@ -250,7 +250,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                 {otherLangLabel}
               </button>
               <Link
-                href="/auth/login?from=/admin"
+                href="/painel"
                 className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
               >
                 <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />

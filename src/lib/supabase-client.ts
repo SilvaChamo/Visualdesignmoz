@@ -18,6 +18,9 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     flowType: 'pkce',
   },
+  // Sem cookieOptions.domain no browser — o PKCE code-verifier fica no host
+  // exacto (localhost ou visualdesignmoz.com). A sessão partilhada com o
+  // subdomínio painel.* é definida no servidor em /auth/callback.
 })
 
 // Tipos para o nosso sistema

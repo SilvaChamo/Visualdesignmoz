@@ -9,6 +9,14 @@ import { writePanelUsersCache } from '@/lib/panel-users-cache';
 import { writeWpInstallsCache } from '@/lib/panel-wp-cache';
 import { writeWpPluginsCache } from '@/lib/wp-panel-cache';
 import { prefetchEmailConfigs } from '@/lib/panel-email-config-cache';
+import {
+  mapEmailContasToWebmailAccounts,
+  writeWebmailAccountsCache,
+  readWebmailAccountsCache,
+  readWebmailListCache,
+  writeWebmailListCache,
+  pickDefaultWebmailAccount,
+} from '@/lib/panel-webmail-cache';
 
 function wpUpdateApi(scope: PanelBootstrapScope): string {
   return scope === 'client' ? '/api/client/wp-update' : '/api/admin/wp-update';
@@ -175,7 +183,32 @@ export function prefetchEmailConfigsAdmin() {
     .then((res) => res.json())
     .then((data: { success?: boolean; contas?: { email?: string }[] }) => {
       if (!data.success || !Array.isArray(data.contas)) return;
+      const accounts = mapEmailContasToWebmailAccounts(data.contas);
+      writeWebmailAccountsCache(accounts);
       prefetchEmailConfigs(data.contas.map((c) => c.email || '').filter(Boolean));
+      prefetchWebmailInbox(accounts);
+    })
+    .catch(() => undefined);
+}
+
+/** Pré-carrega INBOX da conta por defeito (IMAP em background). */
+export function prefetchWebmailInbox(accounts?: { email: string }[]) {
+  if (typeof window === 'undefined') return;
+  const list = accounts?.length ? accounts : readWebmailAccountsCache() || [];
+  const target = pickDefaultWebmailAccount(list as any);
+  if (!target) return;
+  if (readWebmailListCache(target, 'INBOX')?.emails?.length) return;
+
+  void fetch('/api/read-emails', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: target, folders: ['INBOX'], limit: 20 }),
+  })
+    .then((res) => res.json())
+    .then((data: { success?: boolean; emails?: unknown[]; folderTotals?: Record<string, number> }) => {
+      if (!data.success || !Array.isArray(data.emails)) return;
+      writeWebmailListCache(target, 'INBOX', data.emails, data.folderTotals);
     })
     .catch(() => undefined);
 }

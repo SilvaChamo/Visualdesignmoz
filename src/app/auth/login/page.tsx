@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../../components/auth/AuthProvider'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
+import { resolvePostLoginUrl } from '@/lib/panel-origin'
 import { getRedirectPathForRole } from '@/lib/user-roles'
 import { AuthPageShell, AuthLoadingShell } from '@/components/auth/AuthPageShell'
 import {
@@ -47,14 +48,29 @@ function LoginPageContent() {
       const isFromOAuth = window.location.search.includes('code=') ||
         document.referrer.includes('/auth/callback')
       if (user && !isFromOAuth) {
+        const from = searchParams.get('from')
         if (userRole) {
-          window.location.assign(getRedirectPathForRole(userRole))
-        } else {
-          getRedirectPath().then((path) => window.location.assign(path))
+          window.location.assign(
+            resolvePostLoginUrl({
+              origin: window.location.origin,
+              role: userRole,
+              from,
+            }),
+          )
+          return
         }
+        void getRedirectPath().then((path) => {
+          window.location.assign(
+            resolvePostLoginUrl({
+              origin: window.location.origin,
+              role: 'guest',
+              from: from ?? path,
+            }),
+          )
+        })
       }
     }
-  }, [user, userRole, sessionLoading, getRedirectPath])
+  }, [user, userRole, sessionLoading, getRedirectPath, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,7 +81,14 @@ function LoginPageContent() {
     setError('')
     try {
       const role = await signIn(email, password)
-      window.location.assign(getRedirectPathForRole(role))
+      const from = searchParams.get('from')
+      window.location.assign(
+        resolvePostLoginUrl({
+          origin: window.location.origin,
+          role,
+          from,
+        }),
+      )
     } catch (err: unknown) {
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
@@ -85,7 +108,7 @@ function LoginPageContent() {
     setLoadingGoogle(true)
     setError('')
     try {
-      await signInWithGoogle()
+      await signInWithGoogle(searchParams.get('from') || '/painel')
     } catch (err: unknown) {
       setLoadingGoogle(false)
       setOauthError({

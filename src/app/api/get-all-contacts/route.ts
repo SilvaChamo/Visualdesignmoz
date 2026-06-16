@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       .from('email_contas')
       .select('email, nome, cliente_id')
       .ilike('email', `%@${domain}`)
-      .eq('status', 'active');
+      .or('status.eq.active,status.eq.activo');
 
     if (error) {
       console.error('[Contacts API] Erro Supabase:', error);

@@ -60,7 +60,7 @@ export function Navbar() {
     { href: '/precos/ssl', icon: Shield, title: 'Preços de SSL', desc: 'Planos de certificados SSL', bg: 'bg-emerald-50', text: 'text-emerald-600', tags: 'preço ssl certificado', requiresLogin: false },
 
     // Conta
-    { href: '/auth/login', icon: User, title: 'Login', desc: 'Aceder à sua conta', bg: 'bg-slate-50', text: 'text-slate-600', tags: 'entrar aceder conta', requiresLogin: false },
+    { href: '/painel', icon: User, title: 'Login', desc: 'Aceder à sua conta', bg: 'bg-slate-50', text: 'text-slate-600', tags: 'entrar aceder conta', requiresLogin: false },
 
     // Área do Cliente (requer login)
     { href: '/client', icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
@@ -292,7 +292,7 @@ export function Navbar() {
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>
             </button>
 
-            <Link href="/auth/login" className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
+            <Link href="/painel" className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
               <User className="w-4 h-4" />
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>
             </Link>

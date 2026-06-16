@@ -1,21 +1,22 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
+import { profileAuthOrFilter } from '@/lib/profile-db'
+import { resolveUserRole } from '@/lib/user-roles'
 import { fetchUserProductsSummary } from '@/lib/user-products'
+import { PUBLIC_PANEL_ENTRY, resolvePostLoginUrl } from '@/lib/panel-origin'
+import {
+  clearPanelFromCookieHeader,
+  readPanelFromCookie,
+} from '@/lib/panel-oauth-from'
+import { copyAuthCookies, createAppServerClient } from '@/lib/supabase-cookies'
 
 export const dynamic = 'force-dynamic'
-
-function copyCookies(from: NextResponse, to: NextResponse) {
-  from.cookies.getAll().forEach((cookie) => {
-    to.cookies.set(cookie.name, cookie.value)
-  })
-}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
+  const hostname = request.headers.get('host') ?? undefined
 
   if (error) {
     const loginUrl = new URL('/auth/login', requestUrl.origin)
@@ -28,25 +29,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', requestUrl.origin))
   }
 
-  // Cookie jar: session tokens must be written onto the final redirect response
   const cookieJar = NextResponse.next()
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieJar.cookies.set(name, value, options)
-          })
-        },
-      },
-    },
-  )
+  const supabase = createAppServerClient(request, cookieJar)
 
   const verifier = request.cookies.getAll().find((c) => c.name.includes('code-verifier'))
   console.log('CALLBACK: code-verifier cookie:', verifier ? 'present' : 'missing')
@@ -81,7 +65,7 @@ export async function GET(request: NextRequest) {
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
-    .eq('id', data.user.id)
+    .or(profileAuthOrFilter(data.user.id))
     .maybeSingle()
 
   const role = resolveUserRole({
@@ -94,8 +78,21 @@ export async function GET(request: NextRequest) {
     hasPaidProducts: products.hasPaidProducts,
   })
 
-  const redirectPath = getRedirectPathForRole(role)
-  const finalResponse = NextResponse.redirect(new URL(redirectPath, requestUrl.origin))
-  copyCookies(cookieJar, finalResponse)
+  const from =
+    requestUrl.searchParams.get('from') ||
+    readPanelFromCookie(request.headers.get('cookie')) ||
+    PUBLIC_PANEL_ENTRY
+
+  const target = resolvePostLoginUrl({
+    origin: requestUrl.origin,
+    role,
+    from,
+  })
+  const finalResponse = NextResponse.redirect(
+    target.startsWith('http') ? target : new URL(target, requestUrl.origin),
+  )
+  copyAuthCookies(cookieJar, finalResponse, hostname)
+  const cleared = clearPanelFromCookieHeader()
+  finalResponse.cookies.set(cleared.name, cleared.value, cleared.options)
   return finalResponse
 }

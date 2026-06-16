@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { OAuthCodeRedirect } from "@/components/auth/OAuthCodeRedirect";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CartProvider } from "@/contexts/CartContext";
@@ -103,6 +104,7 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <AuthProvider>
+            <OAuthCodeRedirect />
             <CartProvider>
               <I18nProvider>
                 <ConditionalNavbar />

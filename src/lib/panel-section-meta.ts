@@ -52,7 +52,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'cp-email-change-pass': 'Alterar password de contas de e-mail',
   'cp-email-dkim': 'Gestão de DKIM por domínio',
   'cp-email-limits': 'Limites de envio por conta',
-  'setup-smtp': 'Brevo + DirectAdmin — envio e recepção',
+  'setup-smtp': 'Configuração de envio e recepção de e-mail',
   'cp-wp-list': 'Sites WordPress, plugins, instalação e backups',
   'cp-wp-plugins': 'Sites WordPress, plugins, instalação e backups',
   'cp-wp-backup': 'Cópias de segurança WordPress',

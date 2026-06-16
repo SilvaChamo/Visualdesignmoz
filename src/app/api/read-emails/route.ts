@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
+import type { Session } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { resolvePanelImapHost } from '@/lib/imap-host'
+import { decryptStoredPassword } from '@/lib/panel-access-credentials'
+import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey)
+
+const ADMIN_EMAILS = [
+  'admin@visualdesignmoz.com',
+  'silva.chamo@visualdesignmoz.com',
+  'silva.chamo@gmail.com',
+  'geral@visualdesignmoz.com',
+  'suporte@visualdesignmoz.com',
+]
+
+const folderListCache = new Map<string, { list: { path: string }[]; ts: number }>()
+const FOLDER_LIST_CACHE_MS = 10 * 60 * 1000
 
 // --- HELPERS ---
 const determinarTipo = (path: string) => {
@@ -26,7 +44,7 @@ const HOSTED_MAIL_DOMAINS = [
 ]
 
 const resolveImapConfig = (email: string): { host: string; port: number; secure: boolean } => {
-  if (process.env.IMAP_HOST) return { host: process.env.IMAP_HOST, port: 993, secure: true }
+  const host = resolvePanelImapHost()
   const domain = email.split('@')[1]?.toLowerCase() || ''
 
   if (domain === 'gmail.com' || domain === 'googlemail.com') return { host: 'imap.gmail.com', port: 993, secure: true }
@@ -41,7 +59,7 @@ const resolveImapConfig = (email: string): { host: string; port: number; secure:
                       domain.endsWith('.mz') || domain.endsWith('.co.mz')
 
   if (isHostedMail) {
-    return { host: getServerHost(), port: 993, secure: true }
+    return { host, port: 993, secure: true }
   }
 
   return { host: `mail.${domain}`, port: 993, secure: true }
@@ -103,6 +121,122 @@ const resolveFolder = (folderPath: string, folderList: { path: string }[]): stri
 
 const STANDARD_FOLDERS = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']
 
+async function getCachedFolderList(client: ImapFlow, email: string) {
+  const cached = folderListCache.get(email.toLowerCase())
+  if (cached && Date.now() - cached.ts < FOLDER_LIST_CACHE_MS) return cached.list
+  const list = await client.list()
+  folderListCache.set(email.toLowerCase(), { list, ts: Date.now() })
+  return list
+}
+
+async function resolveMailboxPassword(
+  email: string,
+  passwordFromClient: string | undefined,
+  session: Session | null,
+): Promise<string | null> {
+  if (passwordFromClient) return passwordFromClient
+  if (!session?.user?.email) return null
+
+  const { data: conta } = await supabaseAdmin
+    .from('email_contas')
+    .select('email, senha_servidor, cliente_id')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (!conta?.senha_servidor) return null
+
+  const effectiveRole = await resolveRoleForAuthUser(supabaseAdmin, session.user)
+  const isAdmin =
+    ADMIN_EMAILS.includes(session.user.email || '') ||
+    effectiveRole === 'admin' ||
+    effectiveRole === 'manager'
+  const sessionEmail = session.user.email.toLowerCase()
+  const accountEmail = (conta.email || '').toLowerCase()
+  const sameDomain =
+    sessionEmail.split('@')[1] &&
+    accountEmail.endsWith(`@${sessionEmail.split('@')[1]}`)
+
+  const canAccess =
+    isAdmin ||
+    effectiveRole === 'reseller' ||
+    conta.cliente_id === session.user.id ||
+    accountEmail === sessionEmail ||
+    Boolean(sameDomain)
+
+  if (!canAccess) return null
+  return decryptStoredPassword(conta.senha_servidor)
+}
+
+type EmailRow = {
+  id: number
+  seq: number
+  tipo: string
+  conta: string
+  assunto: string
+  data: string
+  de: string
+  lido: boolean
+  messageId?: string
+}
+
+function mapFetchedMessage(msg: any, realPath: string, email: string): EmailRow {
+  return {
+    id: msg.uid,
+    seq: msg.seq,
+    tipo: determinarTipo(realPath),
+    conta: email,
+    assunto: msg.envelope?.subject || '(sem assunto)',
+    data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
+    de: msg.envelope?.from?.[0]?.address || '',
+    lido: msg.flags?.has('\\Seen') || false,
+    messageId: msg.envelope?.messageId || '',
+  }
+}
+
+async function readMessagesInOpenMailbox(
+  client: ImapFlow,
+  realPath: string,
+  email: string,
+  limit: number,
+  search: string,
+  page: number,
+): Promise<EmailRow[]> {
+  const emails: EmailRow[] = []
+  const mailboxInfo = client.mailbox as { exists?: number } | false
+  const total = mailboxInfo && typeof mailboxInfo === 'object' ? mailboxInfo.exists || 0 : 0
+
+  if (!search && total > 0) {
+    const start = Math.max(1, total - limit + 1)
+    for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
+      emails.push(mapFetchedMessage(msg, realPath, email))
+    }
+    return emails
+  }
+
+  const searchSpec = search
+    ? { or: [{ subject: search }, { from: search }, { body: search }] }
+    : { all: true }
+  let uids: number[] = []
+  try {
+    const searchRes = await client.search(searchSpec, { uid: true })
+    uids = (Array.isArray(searchRes) ? searchRes : []).reverse().slice(0, limit)
+  } catch {
+    uids = []
+  }
+
+  if (uids.length > 0) {
+    for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
+      emails.push(mapFetchedMessage(msg, realPath, email))
+    }
+  } else if (total > 0 && page === 1 && !search) {
+    const start = Math.max(1, total - limit + 1)
+    for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
+      emails.push(mapFetchedMessage(msg, realPath, email))
+    }
+  }
+  return emails
+}
+
 export async function POST(req: NextRequest) {
   let client: ImapFlow | null = null
 
@@ -110,7 +244,7 @@ export async function POST(req: NextRequest) {
     const {
       email, password, emails: multiEmails, passwords: multiPasswords,
       allAccounts = false, folder: singleFolder, folders: foldersParam,
-      page = 1, limit = 20, search = '', includeTotals = false
+      page = 1, limit = 20, search = '', includeTotals = false, countsOnly = false
     } = await req.json()
 
     const supabase = await createClient()
@@ -213,10 +347,16 @@ export async function POST(req: NextRequest) {
     }
 
     // --- CAMINHO 3: SINGLE ACCOUNT ---
-    if (!email || !password) return NextResponse.json({ success: true, emails: [] })
+    const resolvedPassword = await resolveMailboxPassword(email, password, session)
+    if (!email || !resolvedPassword) {
+      return NextResponse.json({
+        success: false,
+        error: email ? 'Credenciais não disponíveis para esta conta.' : 'Email em falta.',
+        emails: [],
+      })
+    }
 
-    // Conexão fresca — elimina contaminação de estado entre pedidos
-    client = await createFreshClient(email, password, resolveImapConfig(email))
+    client = await createFreshClient(email, resolvedPassword, resolveImapConfig(email))
     if (!client) {
       return NextResponse.json({
         success: false,
@@ -225,89 +365,64 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Obter lista de pastas UMA VEZ e reutilizar (evita múltiplos LIST calls)
-    const folderList = await client.list()
-    console.log('📁 [API] Pastas no servidor:', folderList.map(m => m.path))
+    if (countsOnly && includeTotals) {
+      const folderList = await getCachedFolderList(client, email)
+      for (const spf of STANDARD_FOLDERS) {
+        const realPath = resolveFolder(spf.toLowerCase(), folderList)
+        if (realPath) {
+          try {
+            const status = await client.status(realPath, { unseen: true })
+            folderTotals[spf] = status.unseen || 0
+          } catch {
+            folderTotals[spf] = 0
+          }
+        } else {
+          folderTotals[spf] = 0
+        }
+      }
+      return NextResponse.json({ success: true, emails: [], folderTotals })
+    }
 
-    const emails: any[] = []
+    const folderList = await getCachedFolderList(client, email)
+    const emails: EmailRow[] = []
 
     for (const fPath of pastasParaProcessar) {
       const realPath = resolveFolder(fPath, folderList)
       if (!realPath) {
-        console.log(`📊 [API] Pasta não encontrada no servidor: ${fPath}`)
         const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
         folderTotals[standardKey] = 0
         continue
       }
 
+      const itemsToFetch = pastasParaProcessar.length > 1 ? 10 : limit
       const lock = await client.getMailboxLock(realPath)
       try {
-        const mailboxInfo = (client.mailbox as any)
-        const total = mailboxInfo?.exists || 0
-        const itemsToFetch = pastasParaProcessar.length > 1 ? 10 : limit
-
-        console.log(`📊 [API] ${fPath} → ${realPath}: ${total} mensagens no servidor`)
-
-        // Contagem de não lidos para o badge da pasta activa
-        try {
-          const unreadRes = await client.search({ not: { seen: true } }, { uid: true })
-          const unreadUids = Array.isArray(unreadRes) ? unreadRes : []
+        if (includeTotals) {
           const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
-          folderTotals[standardKey] = unreadUids.length
-          console.log(`📊 [API] ${standardKey}: ${unreadUids.length} não lidos`)
-        } catch (err: any) {
-          const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
-          folderTotals[standardKey] = 0
-        }
-
-        // Buscar emails
-        const searchSpec = search ? { or: [{ subject: search }, { from: search }, { body: search }] } : { all: true }
-        let uids: number[] = []
-        try {
-          const searchRes = await client.search(searchSpec, { uid: true })
-          uids = (Array.isArray(searchRes) ? searchRes : []).reverse().slice(0, itemsToFetch)
-        } catch (err) {}
-
-        if (uids.length > 0) {
-          for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
-            emails.push({
-              id: msg.uid, seq: msg.seq, tipo: determinarTipo(realPath), conta: email,
-              assunto: msg.envelope?.subject || '(sem assunto)',
-              data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
-              de: msg.envelope?.from?.[0]?.address || '', lido: msg.flags?.has('\\Seen') || false,
-              messageId: msg.envelope?.messageId || ''
-            })
-          }
-        } else if (total > 0 && page === 1 && !search) {
-          // Fallback por sequence number quando search retorna vazio
-          const start = Math.max(1, total - itemsToFetch + 1)
-          for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
-            emails.push({
-              id: msg.uid, seq: msg.seq, tipo: determinarTipo(realPath), conta: email,
-              assunto: msg.envelope?.subject || '(sem assunto)',
-              data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
-              de: msg.envelope?.from?.[0]?.address || '', lido: msg.flags?.has('\\Seen') || false,
-              messageId: msg.envelope?.messageId || ''
-            })
+          try {
+            const status = await client.status(realPath, { unseen: true })
+            folderTotals[standardKey] = status.unseen || 0
+          } catch {
+            folderTotals[standardKey] = 0
           }
         }
-      } finally { lock.release() }
+
+        const fetched = await readMessagesInOpenMailbox(client, realPath, email, itemsToFetch, search, page)
+        emails.push(...fetched)
+      } finally {
+        lock.release()
+      }
     }
 
-    // Contagens das outras pastas (quando includeTotals=true)
     if (includeTotals) {
       for (const spf of STANDARD_FOLDERS) {
-        if (folderTotals[spf] !== undefined) continue // já calculado
-
+        if (folderTotals[spf] !== undefined) continue
         const realPath = resolveFolder(spf.toLowerCase(), folderList)
-        console.log(`📊 [API] Buscando contagem ${spf} → ${realPath}`)
         if (realPath) {
           try {
             const status = await client.status(realPath, { unseen: true })
             folderTotals[spf] = status.unseen || 0
-            console.log(`📊 [API] ${spf}: ${status.unseen} não lidos`)
-          } catch (e) {
-            console.log(`📊 [API] ${spf}: erro ao buscar status`)
+          } catch {
             folderTotals[spf] = 0
           }
         } else {
@@ -315,8 +430,6 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-
-    console.log('📊 [API] folderTotals final:', folderTotals)
 
     return NextResponse.json({
       success: true,
@@ -326,9 +439,10 @@ export async function POST(req: NextRequest) {
       folders: folderList.map(m => m.path)
     })
 
-  } catch (error: any) {
-    console.error('❌ [read-emails] Erro:', error)
-    return NextResponse.json({ success: true, emails: [], error: 'Erro no processamento IMAP' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro no processamento IMAP'
+    console.error('❌ [read-emails] Erro:', message)
+    return NextResponse.json({ success: false, emails: [], error: message })
   } finally {
     // Garantir que a conexão é sempre fechada - não mantemos conexões persistentes
     if (client) {

@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import { supabase, auth } from '@/lib/supabase-client'
 import { User } from '@supabase/supabase-js'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
+import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
+import { setPanelFromCookie } from '@/lib/panel-oauth-from'
 import { getInactivityConfig, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
 
 interface AuthContextType {
@@ -13,7 +15,7 @@ interface AuthContextType {
   isAdmin: boolean
   userRole: UserRole | null
   signIn: (email: string, password: string) => Promise<UserRole>
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: (fromPath?: string | null) => Promise<void>
   signUp: (email: string, password: string, nome: string, telefone?: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
@@ -223,17 +225,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (fromPath?: string | null) => {
     try {
-      // Remover setLoading(true) para evitar que a página bloqueie no loading
-      const redirectUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`
+      const from = fromPath?.trim() || PUBLIC_PANEL_ENTRY
+      setPanelFromCookie(from)
+
+      // redirectTo SEM query — obrigatório para PKCE + allow-list Supabase
+      const redirectTo = `${window.location.origin}/auth/callback`
       console.log('Google OAuth: Iniciando login...')
-      console.log('Redirect URL:', redirectUrl)
+      console.log('Redirect URL:', redirectTo)
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       })

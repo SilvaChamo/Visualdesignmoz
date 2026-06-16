@@ -59,6 +59,9 @@ import {
 } from '@/lib/panel-data-from-server'
 import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { WordPressHubSection } from '../admin/WordPressHubSection'
+import { getPanelSectionMeta } from '@/lib/panel-section-meta'
+import { resolveSectionId } from '@/lib/panel-admin-menu'
+import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 
 const directAdminAPI = panelAPI
 
@@ -2160,78 +2163,18 @@ export default function ResellerPage() {
     (filteredSites.length > 0 ? filteredSites[0].domain : null) ||
     'your-domain.com'
 
-  const getSectionInfo = (section: string): { title: string; description: string } => {
-    const info: Record<string, { title: string; description: string }> = {
-      'dashboard': { title: 'Dashboard', description: '' },
-      'notificacoes-recebidas': { title: 'Notificações', description: 'Mensagens recebidas na sua conta' },
-      'acesso-directo': { title: 'Acesso Directo', description: 'DirectAdmin nativo, Roundcube e webmail' },
-      'porkbun-domains': { title: 'Registar domínio', description: 'Pesquisar disponibilidade e registar novos domínios' },
-      'porkbun-my-domains': { title: 'Domínios registados', description: 'Domínios associados à sua conta de registo' },
-      'domains': { title: 'Dashboard', description: 'Gestão de websites e domínios' },
-      'domains-list': { title: 'Dashboard', description: 'Listar todos os websites' },
-      'domains-new': { title: 'Dashboard', description: 'Criar novo website' },
-      'file-manager': { title: 'Dashboard', description: 'Gestão de ficheiros' },
-      'cp-file-manager': { title: 'Dashboard', description: 'Gestor de ficheiros DirectAdmin' },
-      'clientes': { title: 'Dashboard', description: 'Gestão de clientes' },
-      'cp-subdomains': { title: 'Dashboard', description: 'Gestão de subdomínios' },
-      'cp-list-subdomains': { title: 'Dashboard', description: 'Listar subdomínios' },
-      'cp-databases': { title: 'Dashboard', description: 'Gestão de bases de dados' },
-      'cp-ftp': { title: 'Dashboard', description: 'Gestão de contas FTP' },
-      'cp-users': { title: 'Dashboard', description: 'Utilizadores DirectAdmin' },
-      'cp-php': { title: 'Dashboard', description: 'Configuração PHP' },
-      'cp-security': { title: 'Dashboard', description: 'Segurança e Firewall' },
-      'cp-ssl': { title: 'Dashboard', description: 'Certificados SSL' },
-      'cp-api': { title: 'Dashboard', description: 'Configurações da API' },
-      'git-deploy': { title: 'Dashboard', description: 'Deploy e GitHub' },
-      'emails-new': { title: 'Dashboard', description: 'Gestão de e-mails' },
-      'emails-webmail': { title: 'Dashboard', description: 'Acesso ao webmail' },
-      'webmail': { title: 'Dashboard', description: 'Webmail' },
-      'cp-email-mgmt': { title: 'Dashboard', description: 'Listar contas de e-mail' },
-      'cp-email-delete': { title: 'Dashboard', description: 'Apagar e-mails' },
-      'cp-email-forwarding': { title: 'Dashboard', description: 'Encaminhamento de e-mails' },
-      'cp-email-catchall': { title: 'Dashboard', description: 'Catch-All' },
-      'cp-email-pattern-fwd': { title: 'Dashboard', description: 'Pattern Forwarding' },
-      'cp-email-plus-addr': { title: 'Dashboard', description: 'Plus Addressing' },
-      'cp-email-change-pass': { title: 'Dashboard', description: 'Alterar password de e-mail' },
-      'cp-email-dkim': { title: 'Dashboard', description: 'Gestão de DKIM' },
-      'cp-email-limits': { title: 'Dashboard', description: 'Limites de e-mail' },
-      'setup-smtp': { title: 'Dashboard', description: 'Configurar SMTP' },
-      'cp-wp-list': { title: 'Dashboard', description: 'Painel WordPress' },
-      'cp-wp-plugins': { title: 'Dashboard', description: 'Plugins WordPress' },
-      'cp-wp-backup': { title: 'Dashboard', description: 'Backup WordPress' },
-      'cp-wp-restore-backup': { title: 'Dashboard', description: 'Restaurar backup WordPress' },
-      'cp-wp-remote-backup': { title: 'Dashboard', description: 'Backup remoto WordPress' },
-      'wordpress-install': { title: 'Dashboard', description: 'Instalar WordPress' },
-      'wordpress-deploy': { title: 'Dashboard', description: 'Deploy WordPress' },
-      'cp-modify-website': { title: 'Dashboard', description: 'Modificar website' },
-      'cp-suspend-website': { title: 'Dashboard', description: 'Suspender website' },
-      'cp-delete-website': { title: 'Dashboard', description: 'Apagar website' },
-      'domain-manager': { title: 'Meus domínios', description: 'Gerir domínios de hospedagem e registo' },
-      'website-preview': { title: 'Dashboard', description: 'Preview de website' },
-      'manage-website': { title: 'Gestão de Website', description: 'Gerir website e serviços' },
-      'email-import': { title: 'Dashboard', description: 'Importar e-mails' },
-      'packages-list': { title: 'Dashboard', description: 'Listar pacotes' },
-      'packages-new': { title: 'Dashboard', description: 'Criar novo pacote' },
-      'cp-reseller': { title: 'Dashboard', description: 'Centro de revenda' },
-      'cp-dns-nameserver': { title: 'Dashboard', description: 'Nameservers' },
-      'cp-dns-default-ns': { title: 'Dashboard', description: 'NS padrão' },
-      'cp-dns-create-zone': { title: 'Dashboard', description: 'Criar zona DNS' },
-      'cp-dns-delete-zone': { title: 'Dashboard', description: 'Apagar zona DNS' },
-      'domains-dns': { title: 'Dashboard', description: 'Gestão de zona DNS' },
-      'cp-dns-cloudflare': { title: 'Dashboard', description: 'CloudFlare' },
-      'cp-dns-reset': { title: 'Dashboard', description: 'Reset DNS' },
-      'dns-central': { title: 'DNS Central', description: 'Gestão de zonas DNS' },
-      'newsletter': { title: 'Dashboard', description: 'Email marketing' },
-      'backup-manager': { title: 'Dashboard', description: 'Gestão de backups' },
-      'infrastructure': { title: 'Dashboard', description: 'Infraestrutura' },
-      'reports': { title: 'Dashboard', description: 'Relatórios' },
-      'analyses': { title: 'Dashboard', description: 'Análises' },
-    }
-    return info[section] || { title: 'Dashboard', description: 'Painel de controlo' }
+  const RESELLER_SECTION_META: Record<string, { title: string; description: string }> = {
+    'notificacoes-recebidas': { title: 'Notificações', description: 'Mensagens recebidas na sua conta' },
+    'acesso-directo': { title: 'Acesso directo', description: 'Entrada no servidor, webmail e ferramentas' },
+    'settings-branding': { title: 'Branding e logo', description: 'Personalização da marca no painel' },
+    'settings-profile': { title: 'Meu perfil', description: 'Dados da sua conta de revenda' },
   }
 
-  const renderSection = () => {
-    switch (activeSection) {
+  const getSectionInfo = (section: string): { title: string; description: string } =>
+    RESELLER_SECTION_META[section] ?? getPanelSectionMeta(section)
+
+  const renderSectionFor = (sectionId: string, isActive: boolean) => {
+    switch (sectionId) {
       case 'dashboard':
         return (
           <ResellerDashboard
@@ -2321,7 +2264,7 @@ export default function ResellerPage() {
         />
       case 'emails-new':
       case 'cp-email-mgmt':
-        return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} />
+        return <EmailManagementSection sites={filteredSites} preSelectedDomain={preSelectedEmailDomain} isActive={isActive} />
       case 'cp-email-delete':
         return <EmailDeleteSection sites={filteredSites} />
       case 'cp-email-limits':
@@ -2371,7 +2314,7 @@ export default function ResellerPage() {
         return (
           <DomainsHubSection
             variant="reseller"
-            isActive
+            isActive={isActive}
             initialTab={domainHubTab}
             sites={filteredSites}
             packages={directAdminPackages}
@@ -2663,7 +2606,7 @@ export default function ResellerPage() {
       setActiveSection('domain-manager')
       return
     }
-    setActiveSection(section)
+    setActiveSection(resolveSectionId(section))
   }
 
   return (
@@ -2733,9 +2676,9 @@ export default function ResellerPage() {
           </div>
         </header>
 
-        <main className={`flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-5'}`}>
-          <div className={`${['webmail', 'dashboard'].includes(activeSection) ? 'h-full min-h-0 overflow-y-auto' : 'min-h-full'}`}>
-            {renderSection()}
+        <main className={`flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
+          <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
+            <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>
         </main>
 
