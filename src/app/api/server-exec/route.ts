@@ -148,18 +148,6 @@ export async function POST(req: NextRequest) {
       const { daApi: api, mirrorScope } = await resolvePanelDaContext(auth);
       const fallback = LIVE_LIST_FALLBACK[action];
 
-      if (action === 'listPackages' && auth.user.role === 'admin') {
-        const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
-        const mirrorRows = await listMirrorPackages(mirrorScope);
-        scheduleDaSync(500);
-        const lastSyncedAt = await getMirrorLastSyncAt();
-        return NextResponse.json({
-          success: true,
-          data: mirrorRows,
-          meta: { source: 'mirror', lastSyncedAt },
-        });
-      }
-
       const data = await resolveMirrorOrLive({
         onStale: () => scheduleDaSync(0),
         mirror: async () => {
@@ -203,30 +191,19 @@ export async function POST(req: NextRequest) {
 
       if (isPackageMutation) {
         const pkgName = String(params.packageName || params.package || '').trim();
+        const isResellerScope =
+          String((params as Record<string, unknown>).packageScope) === 'reseller' ||
+          auth.user.role === 'reseller';
+        const daManageCmd = isResellerScope
+          ? 'CMD_API_MANAGE_RESELLER_PACKAGES'
+          : 'CMD_API_MANAGE_USER_PACKAGES';
 
-        if (action === 'deletePackage') {
-          if (pkgName) {
-            const mirrorDel = await deleteMirrorPackage(pkgName);
-            if (!mirrorDel.ok) {
-              return NextResponse.json(
-                { success: false, error: mirrorDel.error || 'Falha ao remover pacote do painel' },
-                { status: 500 },
-              );
-            }
-          }
-        } else {
+        if (action !== 'deletePackage') {
           const mirrorRow = packageMirrorRowFromParams(params as Record<string, unknown>);
           if (!mirrorRow) {
             return NextResponse.json(
               { success: false, error: 'Nome do pacote obrigatório.' },
               { status: 400 },
-            );
-          }
-          const mirrorSave = await upsertMirrorPackage(mirrorRow);
-          if (!mirrorSave.ok) {
-            return NextResponse.json(
-              { success: false, error: mirrorSave.error || 'Falha ao guardar pacote no painel' },
-              { status: 500 },
             );
           }
         }
@@ -257,7 +234,7 @@ export async function POST(req: NextRequest) {
               | import('@/lib/reseller-package-form').ResellerPackageFormState
               | undefined;
             if (action === 'deletePackage') {
-              const ssh = await daPostViaSsh('CMD_API_MANAGE_USER_PACKAGES', {
+              const ssh = await daPostViaSsh(daManageCmd, {
                 delete: 'Delete',
                 delete0: pkgName,
               });
@@ -269,7 +246,7 @@ export async function POST(req: NextRequest) {
                 ...fullForm,
                 packageName: pkgName || fullForm.packageName,
               });
-              const ssh = await daPostViaSsh('CMD_API_MANAGE_USER_PACKAGES', fields);
+              const ssh = await daPostViaSsh(daManageCmd, fields);
               serverSynced = ssh.ok;
               if (!ssh.ok) serverError = ssh.error;
             }
@@ -278,13 +255,35 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        scheduleDaSync(0);
+        let mirrorWarning: string | undefined;
+        if (serverSynced) {
+          if (action === 'deletePackage') {
+            if (pkgName) {
+              const mirrorDel = await deleteMirrorPackage(pkgName);
+              if (!mirrorDel.ok) {
+                mirrorWarning = mirrorDel.error || 'Pacote apagado no servidor mas falhou no painel';
+              }
+            }
+          } else {
+            const mirrorRow = packageMirrorRowFromParams(params as Record<string, unknown>);
+            if (mirrorRow) {
+              const mirrorSave = await upsertMirrorPackage(mirrorRow);
+              if (!mirrorSave.ok) {
+                mirrorWarning = mirrorSave.error || 'Pacote criado no servidor mas falhou no painel';
+              }
+            }
+          }
+          scheduleDaSync(0);
+        }
 
         return NextResponse.json({
-          success: true,
+          success: serverSynced,
           data,
           serverSynced,
-          error: serverSynced ? undefined : serverError,
+          warning: mirrorWarning,
+          error: serverSynced
+            ? mirrorWarning
+            : serverError || 'Falha ao sincronizar pacote com o servidor',
         });
       }
 

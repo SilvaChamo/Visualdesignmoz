@@ -6756,21 +6756,34 @@ export function PackagesSection({
       })
       const data = await parseJsonResponse<{
         success?: boolean
+        serverSynced?: boolean
         error?: string
         data?: { error?: string }
         warning?: string
       }>(res)
-      if (data.success) {
+      const synced = data.success && data.serverSynced !== false
+      if (synced) {
         setEditingPackageName(name)
         setShowPackageForm(true)
         setPackageForm((prev) => ({ ...prev, packageName: name }))
-        setMsg(isEdit ? 'Pacote actualizado com sucesso!' : 'Pacote criado com sucesso!')
+        setMsg(
+          data.warning
+            ? `Aviso: ${data.warning}`
+            : isEdit
+              ? 'Pacote actualizado com sucesso!'
+              : 'Pacote criado com sucesso!',
+        )
         void onRefresh()
         void loadLivePackages({ background: true })
       } else {
         setLivePackages(previousPackages as any[])
         writePackagesCache(previousPackages as any[])
-        setMsg('Erro: ' + (data.error || data.data?.error || (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')))
+        setMsg(
+          'Erro: ' +
+            (data.error ||
+              data.data?.error ||
+              (isEdit ? 'Falha ao actualizar pacote no servidor' : 'Falha ao criar pacote no servidor')),
+        )
       }
     } catch (e: any) {
       setLivePackages(previousPackages as any[])

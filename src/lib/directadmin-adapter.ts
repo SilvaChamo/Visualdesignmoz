@@ -45,6 +45,56 @@ function field(data: DaData, key: string): string {
   return v != null ? String(v) : '';
 }
 
+/** Converte valores DA (MB, «1G», «9.77G») para megabytes. */
+export function parseMbFromDa(raw: string): number | null {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s || s === 'unlimited' || s === '-') return null;
+  const gMatch = s.match(/^([\d.,]+)\s*g(b)?$/i);
+  if (gMatch) {
+    const n = Number(gMatch[1].replace(',', '.'));
+    return Number.isFinite(n) ? Math.round(n * 1024) : null;
+  }
+  const mMatch = s.match(/^([\d.,]+)\s*m?(b)?$/i);
+  if (mMatch) {
+    const n = Number(mMatch[1].replace(',', '.'));
+    return Number.isFinite(n) ? Math.round(n) : null;
+  }
+  return null;
+}
+
+function parseDaLimitMb(conf: DaData, limitKey: string, unlimitedFlag: string): number | null {
+  if (field(conf, unlimitedFlag).toUpperCase() === 'ON') return null;
+  const raw = field(conf, limitKey);
+  if (!raw || raw.toLowerCase() === 'unlimited') return null;
+  return parseMbFromDa(raw);
+}
+
+export type DaUserUsageStats = {
+  diskUsedMb: number;
+  bandwidthUsedMb: number;
+  diskLimitMb: number | null;
+  bandwidthLimitMb: number | null;
+  packageName: string;
+};
+
+/** Uso actual e limites da conta (CMD_API_SHOW_USER_USAGE + SHOW_USER_CONFIG). */
+export async function fetchDaUserUsageStats(
+  credentials: DirectAdminCredentials,
+  username: string,
+): Promise<DaUserUsageStats> {
+  const [usage, conf] = await Promise.all([
+    daGet(credentials, 'CMD_API_SHOW_USER_USAGE', { user: username }),
+    daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user: username }),
+  ]);
+  return {
+    diskUsedMb: parseMbFromDa(field(usage, 'quota')) ?? 0,
+    bandwidthUsedMb: parseMbFromDa(field(usage, 'bandwidth')) ?? 0,
+    diskLimitMb: parseDaLimitMb(conf, 'quota', 'uquota'),
+    bandwidthLimitMb: parseDaLimitMb(conf, 'bandwidth', 'ubandwidth'),
+    packageName: field(conf, 'package'),
+  };
+}
+
 async function resolveDomainSslStatus(
   credentials: DirectAdminCredentials,
   domain: string,
@@ -254,6 +304,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         const domainsData = await daGetPlain(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user });
         const domains = extractDomainKeys(domainsData);
         const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user });
+        const usageStats = await fetchDaUserUsageStats(credentials, user).catch(() => null);
 
         const domainRows = await Promise.all(
           domains.map(async (domain) => {
@@ -268,8 +319,8 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
               phpVersion: field(userConf, 'php1_release') || 'PHP 8.3',
               sslStatus,
               ssl: sslStatus === 'Secure',
-              diskUsage: field(userConf, 'quota_used') || '0',
-              bandwidth: parseInt(field(userConf, 'bandwidth') || '0', 10),
+              diskUsage: '0',
+              bandwidth: usageStats?.bandwidthUsedMb ?? 0,
             } satisfies PanelWebsite;
           }),
         );

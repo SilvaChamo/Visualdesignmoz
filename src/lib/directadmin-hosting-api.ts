@@ -73,6 +73,11 @@ export interface PanelUser {
   status?: string;
   registeredAt?: string;
   parentUsername?: string;
+  diskUsedMb?: number;
+  bandwidthUsedMb?: number;
+  quotaLimitMb?: number | null;
+  bandwidthLimitMb?: number | null;
+  packageName?: string;
 }
 
 export interface PanelSubdomain {

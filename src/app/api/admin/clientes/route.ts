@@ -134,13 +134,21 @@ function pickAccountPackage(
 }
 
 function formatPackageSize(value: unknown): string {
+  if (value === null) return 'Ilimitado';
   const raw = String(value ?? '').trim();
   if (!raw) return '—';
+  if (raw.toLowerCase() === 'unlimited' || raw === '-1') return 'Ilimitado';
   if (/[a-z]/i.test(raw)) return raw.toUpperCase();
   const n = Number(raw);
-  if (!Number.isFinite(n)) return raw;
+  if (!Number.isFinite(n) || n <= 0) return '—';
   if (n >= 1024 && n % 1024 === 0) return `${n / 1024}G`;
   return `${n} MB`;
+}
+
+function formatDiskUsedMb(mb: number): string {
+  if (!Number.isFinite(mb) || mb <= 0) return '0 MB';
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  return `${mb} MB`;
 }
 
 export async function GET(req: NextRequest) {
@@ -219,13 +227,19 @@ export async function GET(req: NextRequest) {
       const owned = sites.filter((s) => s.owner === u.userName);
       const acl = String(u.acl || u.type || '').toLowerCase();
       const primaryDomain = pickPrimaryDomain(u.userName, owned, acl);
-      const packageName = pickAccountPackage(u.userName, owned, acl);
+      const packageName =
+        u.packageName || pickAccountPackage(u.userName, owned, acl);
       const pkgMeta = packageName ? packageMap.get(packageName) : undefined;
-      const diskUsedMb = owned.reduce(
+      const siteDiskSum = owned.reduce(
         (sum, s) => sum + (parseInt(String(s.diskUsage || '0'), 10) || 0),
         0,
       );
-      const quotaLabel = formatPackageSize(pkgMeta?.diskSpace);
+      const diskUsedMb =
+        typeof u.diskUsedMb === 'number' && u.diskUsedMb > 0 ? u.diskUsedMb : siteDiskSum;
+      const quotaLabel =
+        u.quotaLimitMb !== undefined
+          ? formatPackageSize(u.quotaLimitMb)
+          : formatPackageSize(pkgMeta?.diskSpace);
       const resellerOwner =
         u.parentUsername ||
         (acl === 'admin' || (acl === 'reseller' && !u.parentUsername) ? 'admin' : '—');
@@ -235,7 +249,7 @@ export async function GET(req: NextRequest) {
         primaryDomain,
         packageName: packageName || '—',
         quotaLabel,
-        diskUsedLabel: `${diskUsedMb} MB`,
+        diskUsedLabel: formatDiskUsedMb(diskUsedMb),
         resellerOwner,
         domainCount: owned.length,
         ownedDomains: owned.map((s) => ({

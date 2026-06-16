@@ -3,11 +3,12 @@
  * Fonte de verdade operacional: DirectAdmin. O painel lê o espelho.
  */
 
-import { createDirectAdminAPI, getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
+import { createDirectAdminAPI, fetchDaUserUsageStats, getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { ensureDaLoginKeyForUsername } from '@/lib/da-login-key-ssh';
 import type { DirectAdminCredentials } from '@/lib/directadmin-credentials';
+import { resolveDirectAdminCredentials } from '@/lib/directadmin-credentials';
 import type {
   PanelWebsite,
   PanelUser,
@@ -36,6 +37,69 @@ export type DaSyncResult = {
 };
 
 const DOMAIN_CONCURRENCY = 4;
+
+async function resolveSiteDiskUsageMb(owner: string, domain: string): Promise<string> {
+  try {
+    const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+    const safeOwner = owner.replace(/[^a-zA-Z0-9._-]/g, '');
+    const safeDomain = domain.replace(/[^a-zA-Z0-9._-]/g, '');
+    if (!safeOwner || !safeDomain) return '0';
+    const out = await executeServerCommand(
+      `du -sm "/home/${safeOwner}/domains/${safeDomain}" 2>/dev/null | awk '{print $1}'`,
+    );
+    const mb = parseInt(out.trim(), 10);
+    return Number.isFinite(mb) ? String(mb) : '0';
+  } catch {
+    return '0';
+  }
+}
+
+async function syncUserMirrorRow(
+  admin: NonNullable<ReturnType<typeof getDaSyncAdmin>>,
+  user: PanelUser,
+  syncedAt: string,
+  parentUsername?: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const username = user.userName;
+  if (!username) return { ok: false, error: 'username vazio' };
+
+  let usage = {
+    diskUsedMb: 0,
+    bandwidthUsedMb: 0,
+    diskLimitMb: null as number | null,
+    bandwidthLimitMb: null as number | null,
+    packageName: '',
+  };
+  try {
+    const creds = await resolveDirectAdminCredentials('admin');
+    usage = await fetchDaUserUsageStats(creds, username);
+  } catch {
+    /* limites/uso opcionais */
+  }
+
+  const { error } = await admin.from('panel_users').upsert(
+    {
+      username,
+      first_name: user.firstName || '',
+      last_name: user.lastName || '',
+      email: user.email || '',
+      acl: user.acl || user.type || 'user',
+      websites_limit: user.websitesLimit ?? 0,
+      emails_limit: user.emailsLimit ?? 0,
+      parent_username: parentUsername ?? user.parentUsername ?? null,
+      package_name: usage.packageName || null,
+      disk_used_mb: usage.diskUsedMb,
+      bandwidth_used_mb: usage.bandwidthUsedMb,
+      quota_limit_mb: usage.diskLimitMb,
+      bandwidth_limit_mb: usage.bandwidthLimitMb,
+      status: user.suspended ? 'Suspended' : user.status || 'Active',
+      synced_at: syncedAt,
+      updated_at: syncedAt,
+    },
+    { onConflict: 'username' },
+  );
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
 
 async function mapPool<T, R>(
   items: T[],
@@ -141,14 +205,16 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   for (const site of sites) {
     if (!site.domain) continue;
     liveDomains.add(site.domain);
+    const owner = site.owner || 'admin';
+    const disk_usage = await resolveSiteDiskUsageMb(owner, site.domain);
     const { error } = await admin.from('panel_sites').upsert(
       {
         domain: site.domain,
         admin_email: site.adminEmail || '',
         package: site.package || 'Default',
-        owner: site.owner || 'admin',
+        owner,
         status: site.state || site.status || 'Active',
-        disk_usage: String(site.diskUsage ?? '0'),
+        disk_usage,
         bandwidth_usage: String(site.bandwidth ?? '0'),
         php_version: site.phpVersion || null,
         ssl_status: site.sslStatus || (site.ssl ? 'Secure' : 'No SSL'),
@@ -184,23 +250,8 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     const username = user.userName;
     if (!username) continue;
     liveUsernames.add(username);
-    const { error } = await admin.from('panel_users').upsert(
-      {
-        username,
-        first_name: user.firstName || '',
-        last_name: user.lastName || '',
-        email: user.email || '',
-        acl: user.acl || user.type || 'user',
-        websites_limit: user.websitesLimit ?? 0,
-        emails_limit: user.emailsLimit ?? 0,
-        parent_username: user.parentUsername || null,
-        status: user.suspended ? 'Suspended' : user.status || 'Active',
-        synced_at: syncedAt,
-        updated_at: syncedAt,
-      },
-      { onConflict: 'username' },
-    );
-    if (error) errors.push(`user ${username}: ${error.message}`);
+    const saved = await syncUserMirrorRow(admin, user, syncedAt);
+    if (!saved.ok) errors.push(`user ${username}: ${saved.error}`);
     else counts.users++;
   }
 
@@ -238,23 +289,8 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
         const username = sub.userName;
         if (!username || username === resellerUsername) continue;
         liveUsernames.add(username);
-        const { error } = await admin.from('panel_users').upsert(
-          {
-            username,
-            first_name: sub.firstName || '',
-            last_name: sub.lastName || '',
-            email: sub.email || '',
-            acl: sub.acl || sub.type || 'user',
-            websites_limit: sub.websitesLimit ?? 0,
-            emails_limit: sub.emailsLimit ?? 0,
-            parent_username: resellerUsername,
-            status: sub.suspended ? 'Suspended' : sub.status || 'Active',
-            synced_at: syncedAt,
-            updated_at: syncedAt,
-          },
-          { onConflict: 'username' },
-        );
-        if (error) errors.push(`reseller sub ${username}: ${error.message}`);
+        const saved = await syncUserMirrorRow(admin, sub, syncedAt, resellerUsername);
+        if (!saved.ok) errors.push(`reseller sub ${username}: ${saved.error}`);
         else counts.users++;
       }
     } catch (e: unknown) {
@@ -336,7 +372,7 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const { data: existingPkgs } = await admin.from('panel_packages').select('package_name, package_form_json');
   const stalePkgs = (existingPkgs || [])
     .map((r) => r.package_name as string)
-    .filter((p) => p && !livePackages.has(p) && !panelManaged.has(p.toLowerCase()));
+    .filter((p) => p && !livePackages.has(p));
   if (stalePkgs.length) {
     await admin.from('panel_packages').delete().in('package_name', stalePkgs);
   }

@@ -97,6 +97,21 @@ function mapUser(row: Record<string, unknown>): PanelUser {
     emailsLimit: typeof row.emails_limit === 'number' ? row.emails_limit : undefined,
     registeredAt: row.created_at ? String(row.created_at) : row.synced_at ? String(row.synced_at) : undefined,
     parentUsername: row.parent_username ? String(row.parent_username) : undefined,
+    diskUsedMb: typeof row.disk_used_mb === 'number' ? row.disk_used_mb : undefined,
+    bandwidthUsedMb: typeof row.bandwidth_used_mb === 'number' ? row.bandwidth_used_mb : undefined,
+    quotaLimitMb:
+      'quota_limit_mb' in row && row.quota_limit_mb === null
+        ? null
+        : typeof row.quota_limit_mb === 'number'
+          ? row.quota_limit_mb
+          : undefined,
+    bandwidthLimitMb:
+      'bandwidth_limit_mb' in row && row.bandwidth_limit_mb === null
+        ? null
+        : typeof row.bandwidth_limit_mb === 'number'
+          ? row.bandwidth_limit_mb
+          : undefined,
+    packageName: row.package_name ? String(row.package_name) : undefined,
   };
 }
 
