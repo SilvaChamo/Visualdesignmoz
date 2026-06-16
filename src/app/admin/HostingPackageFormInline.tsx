@@ -148,7 +148,7 @@ export function HostingPackageFormInline({ form, onChange, onSubmit, busy, mode 
             className={panelBtnPrimary}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-            {isEdit ? 'Guardar alterações' : 'Criar pacote'}
+            {busy ? 'A guardar…' : isEdit ? 'Guardar alterações' : 'Criar pacote'}
           </button>
         </div>
       </div>

@@ -100,17 +100,28 @@ function mapUser(row: Record<string, unknown>): PanelUser {
   };
 }
 
+function mapLimitFromDb(value: unknown): number | string {
+  const n = Number(value);
+  if (n === -1) return '-';
+  return Number.isFinite(n) ? n : 0;
+}
+
 function mapPackage(row: Record<string, unknown>): PanelPackage {
   return {
     id: String(row.package_name || row.id || ''),
     packageName: String(row.package_name || ''),
-    diskSpace: Number(row.disk_space) || 0,
-    bandwidth: Number(row.bandwidth) || 0,
-    emailAccounts: Number(row.email_accounts) || 0,
-    dataBases: Number(row.databases) || 0,
-    ftpAccounts: Number(row.ftp_accounts) || 0,
-    allowedDomains: Number(row.allowed_domains) || 0,
+    diskSpace: mapLimitFromDb(row.disk_space),
+    bandwidth: mapLimitFromDb(row.bandwidth),
+    emailAccounts: mapLimitFromDb(row.email_accounts),
+    dataBases: mapLimitFromDb(row.databases),
+    ftpAccounts: mapLimitFromDb(row.ftp_accounts),
+    allowedDomains: mapLimitFromDb(row.allowed_domains),
   };
+}
+
+/** Igual a mapPackage — exportado para carregar formulário a partir do espelho. */
+export function mapPackageForForm(row: Record<string, unknown>): PanelPackage {
+  return mapPackage(row);
 }
 
 export async function getMirrorLastSyncAt(): Promise<string | null> {
@@ -245,6 +256,26 @@ export async function listMirrorPackages(
   );
   if (!usedNames.size) return [];
   return all.filter((pkg) => usedNames.has(pkg.packageName));
+}
+
+/** Formulário completo guardado no painel (limites, recursos, funcionalidades). */
+export async function getMirrorPackageForm(
+  packageName: string,
+): Promise<import('@/lib/reseller-package-form').ResellerPackageFormState | null> {
+  const { ensureDaSyncSchema } = await import('@/lib/da-sync-schema');
+  await ensureDaSyncSchema();
+  const admin = getDaSyncAdmin();
+  if (!admin) return null;
+  const name = packageName.trim();
+  if (!name) return null;
+  const { data, error } = await admin
+    .from('panel_packages')
+    .select('package_form_json')
+    .eq('package_name', name)
+    .maybeSingle();
+  if (error || !data?.package_form_json || typeof data.package_form_json !== 'object') return null;
+  const raw = data.package_form_json as import('@/lib/reseller-package-form').ResellerPackageFormState;
+  return { ...raw, packageName: raw.packageName || name };
 }
 
 export async function listMirrorEmails(domain: string, scope: MirrorScope): Promise<PanelEmailAccount[]> {

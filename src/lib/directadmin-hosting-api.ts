@@ -50,12 +50,12 @@ export interface PanelWebsite {
 export interface PanelPackage {
   id: string | number;
   packageName: string;
-  diskSpace?: number;
-  bandwidth?: number;
-  emailAccounts?: number;
-  dataBases?: number;
-  ftpAccounts?: number;
-  allowedDomains?: number;
+  diskSpace?: number | string;
+  bandwidth?: number | string;
+  emailAccounts?: number | string;
+  dataBases?: number | string;
+  ftpAccounts?: number | string;
+  allowedDomains?: number | string;
 }
 
 export interface PanelUser {

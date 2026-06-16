@@ -22,6 +22,7 @@ import {
   listMirrorUsers,
   listMirrorWebsites,
   getMirrorLastSyncAt,
+  getMirrorPackageForm,
 } from '@/lib/panel-mirror-read';
 import { resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 
@@ -102,6 +103,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'action obrigatório' }, { status: 400 });
     }
 
+    if (action === 'getPackageForm') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const name = String(params.packageName || '').trim();
+      if (!name) {
+        return NextResponse.json({ success: false, error: 'Nome do pacote obrigatório' }, { status: 400 });
+      }
+
+      const stored = await getMirrorPackageForm(name);
+      if (stored) {
+        return NextResponse.json({ success: true, data: stored, meta: { source: 'mirror' } });
+      }
+
+      const { packageListRowToForm } = await import('@/lib/reseller-package-form');
+      const listRow =
+        params.listRow && typeof params.listRow === 'object'
+          ? (params.listRow as Record<string, unknown>)
+          : { packageName: name };
+
+      const { getDaSyncAdmin } = await import('@/lib/da-sync-schema');
+      const admin = getDaSyncAdmin();
+      if (admin) {
+        const { data: row } = await admin.from('panel_packages').select('*').eq('package_name', name).maybeSingle();
+        if (row) {
+          const { mapPackageForForm } = await import('@/lib/panel-mirror-read');
+          const form = packageListRowToForm(
+            mapPackageForForm(row as Record<string, unknown>) as unknown as Record<string, unknown>,
+            name,
+          );
+          return NextResponse.json({ success: true, data: form, meta: { source: 'mirror-limits' } });
+        }
+      }
+
+      const form = packageListRowToForm(listRow, name);
+      return NextResponse.json({ success: true, data: form, meta: { source: 'list' } });
+    }
+
     if (LIVE_LIST_FALLBACK[action]) {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
@@ -125,7 +164,7 @@ export async function POST(req: NextRequest) {
           if (!pkg.packageName) continue;
           const key = pkg.packageName.toLowerCase();
           const prev = byName.get(key);
-          byName.set(key, prev ? { ...prev, ...pkg } : pkg);
+          byName.set(key, prev ? { ...pkg, ...prev } : pkg);
         }
         const merged = [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
         if (merged.length > 0) scheduleDaSync(500);

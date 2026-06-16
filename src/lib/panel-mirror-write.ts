@@ -261,24 +261,28 @@ export async function upsertMirrorPackage(row: {
   databases?: number;
   ftp_accounts?: number;
   allowed_domains?: number;
+  package_form_json?: import('@/lib/reseller-package-form').ResellerPackageFormState | null;
 }): Promise<{ ok: boolean; error?: string }> {
+  const { ensureDaSyncSchema } = await import('@/lib/da-sync-schema');
+  await ensureDaSyncSchema();
   const sb = getDaSyncAdmin();
   if (!sb) return { ok: false, error: 'Base de dados indisponível' };
   const ts = now();
-  const { error } = await sb.from('panel_packages').upsert(
-    {
-      package_name: row.package_name,
-      disk_space: row.disk_space ?? 1000,
-      bandwidth: row.bandwidth ?? 10000,
-      email_accounts: row.email_accounts ?? 10,
-      databases: row.databases ?? 1,
-      ftp_accounts: row.ftp_accounts ?? 0,
-      allowed_domains: row.allowed_domains ?? 0,
-      synced_at: ts,
-      updated_at: ts,
-    },
-    { onConflict: 'package_name' },
-  );
+  const payload: Record<string, unknown> = {
+    package_name: row.package_name,
+    disk_space: row.disk_space ?? 1000,
+    bandwidth: row.bandwidth ?? 10000,
+    email_accounts: row.email_accounts ?? 10,
+    databases: row.databases ?? 1,
+    ftp_accounts: row.ftp_accounts ?? 0,
+    allowed_domains: row.allowed_domains ?? 0,
+    synced_at: ts,
+    updated_at: ts,
+  };
+  if (row.package_form_json) {
+    payload.package_form_json = row.package_form_json;
+  }
+  const { error } = await sb.from('panel_packages').upsert(payload, { onConflict: 'package_name' });
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
@@ -298,7 +302,7 @@ function limitNumberFromForm(
 ): number {
   const row = limits?.[key];
   if (!row) return fallback;
-  if (row.unlimited) return 0;
+  if (row.unlimited) return -1;
   const n = Number(row.value);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -311,7 +315,7 @@ export function packageMirrorRowFromParams(
   if (!package_name) return null;
 
   const form = params.hostingPackageForm as
-    | { limits?: Record<string, { value: string; unlimited: boolean }> }
+    | import('@/lib/reseller-package-form').ResellerPackageFormState
     | undefined;
   const limits = form?.limits;
 
@@ -323,6 +327,7 @@ export function packageMirrorRowFromParams(
     databases: limitNumberFromForm(limits, 'mysql', 1),
     ftp_accounts: limitNumberFromForm(limits, 'ftp', 0),
     allowed_domains: limitNumberFromForm(limits, 'vdomains', 1),
+    package_form_json: form?.packageName || form?.limits ? { ...form, packageName: package_name } : undefined,
   };
 }
 
@@ -529,35 +534,32 @@ export async function mirrorAfterDaMutation(
     case 'editPackage': {
       const pkg = str(params, 'packageName', 'package');
       if (!pkg) break;
+      const rowFromForm = packageMirrorRowFromParams(params as Record<string, unknown>);
+      if (rowFromForm?.package_form_json) {
+        await upsertMirrorPackage(rowFromForm);
+        break;
+      }
       try {
         const { getAdminDirectAdminAPI } = await import('@/lib/directadmin-adapter');
         const { packageRowFromFields } = await import('@/lib/panel-brand-packages');
         const api = await getAdminDirectAdminAPI();
         const fields = await api.getPackageDetails(pkg);
         const row = packageRowFromFields(pkg, fields);
+        const asNum = (v: string | number | undefined) => {
+          const n = typeof v === 'number' ? v : Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
         await upsertMirrorPackage({
           package_name: row.packageName,
-          disk_space: row.diskSpace,
-          bandwidth: row.bandwidth,
-          email_accounts: row.emailAccounts,
-          databases: row.dataBases,
-          ftp_accounts: row.ftpAccounts,
-          allowed_domains: row.allowedDomains,
+          disk_space: asNum(row.diskSpace),
+          bandwidth: asNum(row.bandwidth),
+          email_accounts: asNum(row.emailAccounts),
+          databases: asNum(row.dataBases),
+          ftp_accounts: asNum(row.ftpAccounts),
+          allowed_domains: asNum(row.allowedDomains),
         });
       } catch {
-        const form = params.hostingPackageForm as
-          | { limits?: Record<string, { value: string; unlimited: boolean }> }
-          | undefined;
-        const limits = form?.limits;
-        await upsertMirrorPackage({
-          package_name: pkg,
-          disk_space: limits?.quota?.unlimited ? undefined : Number(limits?.quota?.value) || undefined,
-          bandwidth: limits?.bandwidth?.unlimited ? undefined : Number(limits?.bandwidth?.value) || undefined,
-          email_accounts: limits?.nemails?.unlimited ? undefined : Number(limits?.nemails?.value) || undefined,
-          databases: limits?.mysql?.unlimited ? undefined : Number(limits?.mysql?.value) || undefined,
-          ftp_accounts: limits?.ftp?.unlimited ? undefined : Number(limits?.ftp?.value) || undefined,
-          allowed_domains: limits?.vdomains?.unlimited ? undefined : Number(limits?.vdomains?.value) || undefined,
-        });
+        if (rowFromForm) await upsertMirrorPackage(rowFromForm);
       }
       break;
     }

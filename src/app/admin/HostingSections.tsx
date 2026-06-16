@@ -44,7 +44,7 @@ import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
 import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { HostingPackageFormInline } from '@/app/admin/HostingPackageFormInline'
-import { createDefaultResellerPackageForm, daPackageFieldsToHostingForm, packageListRowToForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
+import { createDefaultResellerPackageForm, packageListRowToForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -6634,7 +6634,7 @@ export function PackagesSection({
   const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache() || packages)
   const [loadingLive, setLoadingLive] = useState(false)
   const [packageForm, setPackageForm] = useState<ResellerPackageFormState>(() => createDefaultResellerPackageForm())
-  const [creating, setCreating] = useState(false)
+  const [savingPackage, setSavingPackage] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
@@ -6649,8 +6649,8 @@ export function PackagesSection({
     setPackageForm(createDefaultResellerPackageForm())
   }
 
-  const loadLivePackages = async () => {
-    setLoadingLive(true)
+  const loadLivePackages = async (opts?: { background?: boolean }) => {
+    if (!opts?.background) setLoadingLive(true)
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
@@ -6666,7 +6666,7 @@ export function PackagesSection({
     } catch {
       /* mantém lista actual */
     } finally {
-      setLoadingLive(false)
+      if (!opts?.background) setLoadingLive(false)
     }
   }
 
@@ -6732,14 +6732,14 @@ export function PackagesSection({
   }
 
   const handleSavePackage = async () => {
-    if (!packageForm.packageName.trim()) return
+    if (!packageForm.packageName.trim() || savingPackage) return
     const isEdit = Boolean(editingPackageName)
     const name = (editingPackageName || packageForm.packageName).trim()
     const previousPackages = [...displayPackages]
     const optimisticRow = packageRowFromForm(packageForm, name)
-    setCreating(true); setMsg('')
+    setSavingPackage(true)
+    setMsg('')
     upsertLivePackage(optimisticRow)
-    closePackageForm()
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
@@ -6755,9 +6755,12 @@ export function PackagesSection({
       })
       const data = await res.json()
       if (data.success) {
+        setEditingPackageName(name)
+        setShowPackageForm(true)
+        setPackageForm((prev) => ({ ...prev, packageName: name }))
         setMsg(isEdit ? 'Pacote actualizado com sucesso!' : 'Pacote criado com sucesso!')
         void onRefresh()
-        void loadLivePackages()
+        void loadLivePackages({ background: true })
       } else {
         setLivePackages(previousPackages as any[])
         writePackagesCache(previousPackages as any[])
@@ -6767,8 +6770,9 @@ export function PackagesSection({
       setLivePackages(previousPackages as any[])
       writePackagesCache(previousPackages as any[])
       setMsg('Erro: ' + e.message)
+    } finally {
+      setSavingPackage(false)
     }
-    setCreating(false)
   }
 
   const openEditPackage = (pkg: any) => {
@@ -6785,13 +6789,14 @@ export function PackagesSection({
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getPackageDetails', params: { packageName: name } }),
+          body: JSON.stringify({
+            action: 'getPackageForm',
+            params: { packageName: name, listRow: pkg },
+          }),
         })
         const data = await res.json()
         if (data.success && data.data && typeof data.data === 'object') {
-          setPackageForm((prev) =>
-            daPackageFieldsToHostingForm(data.data as Record<string, string>, name, prev?.packageName ? prev : initialForm),
-          )
+          setPackageForm(data.data as ResellerPackageFormState)
         }
       } catch {
         /* mantém formulário da listagem */
@@ -6889,7 +6894,7 @@ export function PackagesSection({
           onChange={setPackageForm}
           onCancel={closePackageForm}
           onSubmit={() => void handleSavePackage()}
-          busy={creating}
+          busy={savingPackage}
           mode={editingPackageName ? 'edit' : 'create'}
         />
       ) : (

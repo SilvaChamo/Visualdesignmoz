@@ -28,6 +28,7 @@ ALTER TABLE panel_sites ADD COLUMN IF NOT EXISTS ip TEXT;
 ALTER TABLE panel_sites ADD COLUMN IF NOT EXISTS site_type TEXT DEFAULT 'empty';
 ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS parent_username TEXT;
 ALTER TABLE panel_dns ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE panel_packages ADD COLUMN IF NOT EXISTS package_form_json JSONB;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_dns_domain_name_type ON panel_dns (domain, name, type);
 CREATE INDEX IF NOT EXISTS idx_panel_sites_owner ON panel_sites(owner);
 `;

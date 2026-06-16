@@ -274,10 +274,22 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
 
   // ── Packages ──
   const livePackages = new Set<string>();
+  const { data: panelManagedRows } = await admin
+    .from('panel_packages')
+    .select('package_name, package_form_json')
+    .not('package_form_json', 'is', null);
+  const panelManaged = new Set(
+    (panelManagedRows || [])
+      .filter((r) => r.package_form_json)
+      .map((r) => String(r.package_name || '').toLowerCase())
+      .filter(Boolean),
+  );
+
   for (const pkg of packages) {
     const name = pkg.packageName;
     if (!name) continue;
     livePackages.add(name);
+    if (panelManaged.has(name.toLowerCase())) continue;
     const { error } = await admin.from('panel_packages').upsert(
       {
         package_name: name,
@@ -302,6 +314,7 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     const name = pkg.packageName;
     if (!name) continue;
     livePackages.add(name);
+    if (panelManaged.has(name.toLowerCase())) continue;
     const { error } = await admin.from('panel_packages').upsert(
       {
         package_name: name,
@@ -320,10 +333,10 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     else counts.packages++;
   }
 
-  const { data: existingPkgs } = await admin.from('panel_packages').select('package_name');
+  const { data: existingPkgs } = await admin.from('panel_packages').select('package_name, package_form_json');
   const stalePkgs = (existingPkgs || [])
     .map((r) => r.package_name as string)
-    .filter((p) => p && !livePackages.has(p));
+    .filter((p) => p && !livePackages.has(p) && !panelManaged.has(p.toLowerCase()));
   if (stalePkgs.length) {
     await admin.from('panel_packages').delete().in('package_name', stalePkgs);
   }
