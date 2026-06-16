@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDirectAdminAPI, getDirectAdminAPIForDaUsername } from '@/lib/directadmin-adapter';
-import { daGetViaSsh, daPostViaSsh } from '@/lib/da-api-ssh';
+import { daPostViaSsh } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
@@ -25,17 +25,12 @@ import {
 import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
 
 const OSHER_RESELLER = 'oshercollective';
-const LICENSE_MAX_ACCOUNTS = 2;
 
 function deriveUsername(domain: string, email: string): string {
   const fromDomain = domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
   if (fromDomain) return fromDomain;
   const fromEmail = email.split('@')[0]?.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
   return fromEmail || 'cliente';
-}
-
-function parseLicenseLimit(message: string): boolean {
-  return /licen[cç]a.*limitad|limited to \d+ account/i.test(message);
 }
 
 const VISUALDESIGN_PRIMARY_DOMAINS = [
@@ -156,19 +151,6 @@ export async function GET(req: NextRequest) {
       a.packageName.localeCompare(b.packageName),
     );
 
-    let resellerPackages: string[] = [];
-    try {
-      const pkgRes = await daGetViaSsh('CMD_API_PACKAGES_RESELLER', { json: 'yes' });
-      if (pkgRes.ok && pkgRes.raw) {
-        const parsed = JSON.parse(pkgRes.raw) as unknown;
-        if (Array.isArray(parsed)) {
-          resellerPackages = parsed.filter((n): n is string => typeof n === 'string' && Boolean(n));
-        }
-      }
-    } catch {
-      /* opcional */
-    }
-
     const enriched = users.map((u) => {
       const owned = sites.filter((s) => s.owner === u.userName);
       const acl = String(u.acl || u.type || '').toLowerCase();
@@ -202,11 +184,6 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const licenseUsed = users.filter(
-      (u) =>
-        !u.parentUsername &&
-        ['admin', 'reseller'].includes(String(u.acl || u.type || '').toLowerCase()),
-    ).length;
     const lastSyncedAt = await getMirrorLastSyncAt();
     const stale = await isMirrorStale(5);
 
@@ -214,22 +191,13 @@ export async function GET(req: NextRequest) {
       success: true,
       users: enriched,
       packages: allPackages,
-      resellerPackages,
+      resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
       osherReseller: OSHER_RESELLER,
       osherCredsOk: Boolean(osherCreds),
       meta: {
         source,
         lastSyncedAt,
         stale,
-      },
-      license: {
-        used: licenseUsed,
-        max: LICENSE_MAX_ACCOUNTS,
-        canCreateReseller: licenseUsed < LICENSE_MAX_ACCOUNTS,
-        message:
-          licenseUsed >= LICENSE_MAX_ACCOUNTS
-            ? `Licença DirectAdmin limitada a ${LICENSE_MAX_ACCOUNTS} contas de nível raiz (${licenseUsed}/${LICENSE_MAX_ACCOUNTS}). Novos clientes são criados sob ${OSHER_RESELLER}.`
-            : null,
       },
     });
   } catch (e: unknown) {
@@ -262,31 +230,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const mirrorUsers = await listMirrorUsers({ role: 'admin', userId: auth.user.id });
-    const rootAccounts = mirrorUsers.filter(
-      (u) =>
-        !u.parentUsername &&
-        ['admin', 'reseller'].includes(String(u.acl || u.type || '').toLowerCase()),
-    );
-
     if (accountType === 'reseller') {
-      if (rootAccounts.length >= LICENSE_MAX_ACCOUNTS) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Não é possível criar revendedor: licença limitada a ${LICENSE_MAX_ACCOUNTS} contas e já existem ${rootAccounts.length} (${rootAccounts.map((u) => u.userName).join(', ')}).`,
-            licenseLimited: true,
-          },
-          { status: 403 },
-        );
-      }
-
       const createdDomain = domain || `${userName}.com`;
       const effectivePackageName = String(packageName || '').trim();
 
       if (!effectivePackageName) {
         return NextResponse.json(
-          { success: false, error: 'Seleccione um pacote de revenda existente.' },
+          { success: false, error: 'Seleccione um pacote.' },
           { status: 400 },
         );
       }
@@ -318,7 +268,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, userName, accountType: 'reseller' });
     }
 
-    // Cliente final → criar sob Osher (não consome licença raiz)
+    // Conta de hospedagem — mesmo fluxo que no servidor: pacote + domínio
     if (!domain.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'Domínio obrigatório para cliente (ex.: exemplo.com).' },
@@ -326,63 +276,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const osherCreds = await loadResellerCredentialsByDaUsername(OSHER_RESELLER);
-    if (!osherCreds) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Credenciais de ${OSHER_RESELLER} não encontradas. Ligue a revenda Osher no painel antes de criar clientes.`,
-        },
-        { status: 503 },
-      );
-    }
-
-    const resellerCreds = {
-      role: 'reseller' as const,
-      user: osherCreds.user,
-      password: osherCreds.password,
-    };
-    const result = await daPostViaSsh(
-      'CMD_API_ACCOUNT_USER',
-      {
-        action: 'create',
-        username: userName,
-        email: adminEmail,
-        passwd: password,
-        passwd2: password,
-        domain,
-        package: packageName,
-        ip: 'shared',
-        notify: 'no',
-      },
-      resellerCreds,
-    );
+    const result = await daPostViaSsh('CMD_API_ACCOUNT_USER', {
+      action: 'create',
+      username: userName,
+      email: adminEmail,
+      passwd: password,
+      passwd2: password,
+      domain,
+      package: packageName,
+      ip: 'shared',
+      notify: 'no',
+    });
 
     if (!result.ok) {
-      const errMsg = String(result.error || 'Falha ao criar cliente');
       return NextResponse.json(
-        {
-          success: false,
-          error: errMsg,
-          licenseLimited: parseLicenseLimit(errMsg),
-        },
+        { success: false, error: String(result.error || 'Falha ao criar conta de hospedagem') },
         { status: 400 },
       );
     }
 
     if (body.createEmail && body.emailUser) {
-      await daPostViaSsh(
-        'CMD_API_POP',
-        {
-          action: 'create',
-          domain,
-          user: String(body.emailUser),
-          passwd: password,
-          passwd2: password,
-          quota: '500',
-        },
-        resellerCreds,
-      );
+      await daPostViaSsh('CMD_API_POP', {
+        action: 'create',
+        domain,
+        user: String(body.emailUser),
+        passwd: password,
+        passwd2: password,
+        quota: '500',
+      });
       try {
         await sendPlainEmailConfigToMailbox(
           `${String(body.emailUser)}@${domain}`,
@@ -395,7 +316,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.issueSsl) {
-      await daPostViaSsh('CMD_API_SSL', { action: 'save', domain, type: 'acme' }, resellerCreds);
+      await daPostViaSsh('CMD_API_SSL', { action: 'save', domain, type: 'acme' });
     }
 
     await mirrorAfterDaMutation('createUser', {
@@ -404,7 +325,6 @@ export async function POST(req: NextRequest) {
       acl: 'user',
       domain,
       packageName,
-      parentReseller: OSHER_RESELLER,
     });
     if (body.createEmail && body.emailUser) {
       await mirrorAfterDaMutation('createEmail', {
@@ -423,18 +343,10 @@ export async function POST(req: NextRequest) {
       userName,
       domain,
       accountType: 'client',
-      parentReseller: OSHER_RESELLER,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro interno';
-    return NextResponse.json(
-      {
-        success: false,
-        error: message,
-        licenseLimited: parseLicenseLimit(message),
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 

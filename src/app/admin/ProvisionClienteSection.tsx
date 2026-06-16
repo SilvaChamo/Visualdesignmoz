@@ -62,7 +62,6 @@ export function ProvisionClienteSection({
   });
   const [fixedUsername] = useState(() => editUser?.userName || '');
   const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache() || packagesProp);
-  const [resellerPackages, setResellerPackages] = useState<string[]>([]);
   const [packageName, setPackageName] = useState('');
   const [identity, setIdentity] = useState({
     firstName: editUser?.firstName || '',
@@ -96,38 +95,30 @@ export function ProvisionClienteSection({
     let cancelled = false;
     void fetch('/api/admin/clientes', { credentials: 'include' })
       .then((res) => res.json())
-      .then((data: { success?: boolean; packages?: DirectAdminPackage[]; resellerPackages?: string[] }) => {
+      .then((data: { success?: boolean; packages?: DirectAdminPackage[] }) => {
         if (cancelled || !data.success) return;
         if (Array.isArray(data.packages)) {
           const rows = data.packages.filter((p) => p.packageName);
           if (rows.length) {
             setPackages(rows);
             writePackagesCache(rows);
-            if (initialAccountType !== 'reseller') {
-              setPackageName((prev) => (prev && rows.some((p) => p.packageName === prev) ? prev : rows[0].packageName));
-            }
-          }
-        }
-        if (Array.isArray(data.resellerPackages)) {
-          setResellerPackages(data.resellerPackages);
-          if (initialAccountType === 'reseller' || accountType === 'reseller') {
-            setPackageName((prev) => prev || data.resellerPackages![0] || '');
+            setPackageName((prev) =>
+              prev && rows.some((p) => p.packageName === prev) ? prev : rows[0].packageName,
+            );
           }
         }
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [initialAccountType, accountType]);
+  }, []);
 
   useEffect(() => {
     if (packagesProp.length) {
       setPackages(packagesProp);
       writePackagesCache(packagesProp);
-      if (accountType !== 'reseller') {
-        setPackageName((prev) => prev || packagesProp[0]?.packageName || '');
-      }
+      setPackageName((prev) => prev || packagesProp[0]?.packageName || '');
     }
-  }, [packagesProp, accountType]);
+  }, [packagesProp]);
 
   const deriveUsername = () => {
     if (isEdit && fixedUsername) return fixedUsername;
@@ -147,7 +138,10 @@ export function ProvisionClienteSection({
     return n || '—';
   }, [identity.firstName, identity.lastName]);
 
-  const activePackageName = packageName || (accountType === 'reseller' ? resellerPackages[0] || '' : packages[0]?.packageName || '');
+  const packageOptions = packages;
+
+  const activePackageName =
+    packageName || packages.find((p) => p.packageName)?.packageName || '';
 
   const canSubmit =
     identity.email.includes('@') &&
@@ -287,7 +281,7 @@ export function ProvisionClienteSection({
         )}
         {accountType !== 'admin' && (
           <div>
-            <dt className="text-xs text-zinc-400">{accountType === 'reseller' ? 'Pacote de revenda' : 'Pacote'}</dt>
+            <dt className="text-xs text-zinc-400">Pacote</dt>
             <dd className="text-zinc-900">{activePackageName || '—'}</dd>
           </div>
         )}
@@ -336,11 +330,6 @@ export function ProvisionClienteSection({
     );
   }
 
-  const packageOptions =
-    accountType === 'reseller'
-      ? resellerPackages.map((name) => ({ packageName: name, diskSpace: undefined, bandwidth: undefined, emailAccounts: undefined }))
-      : packages;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -350,7 +339,7 @@ export function ProvisionClienteSection({
             {!isEdit && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
-                { id: 'client' as const, title: 'Cliente', desc: 'Hospedagem para um cliente final', icon: Users },
+                { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
                 { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
                 { id: 'admin' as const, title: 'Administrador', desc: 'Acesso ao painel admin', icon: Shield },
               ]).map((opt) => (
@@ -359,8 +348,7 @@ export function ProvisionClienteSection({
                   type="button"
                   onClick={() => {
                     setAccountType(opt.id);
-                    if (opt.id === 'reseller') setPackageName(resellerPackages[0] || '');
-                    else if (opt.id === 'client') setPackageName(packages[0]?.packageName || '');
+                    setPackageName(packages[0]?.packageName || '');
                   }}
                   className={`rounded-lg border-2 p-4 text-left transition-all ${
                     accountType === opt.id ? 'border-red-600 bg-red-50' : 'border-gray-200 hover:border-gray-300'
@@ -432,13 +420,11 @@ export function ProvisionClienteSection({
           {accountType !== 'admin' && !isEdit && (
             <section className={`${formCardCls} space-y-4`}>
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Package className="w-5 h-5" /> {accountType === 'reseller' ? 'Pacote de revenda' : 'Pacote'}
+                <Package className="w-5 h-5" /> Pacote
               </h2>
               {packageOptions.length === 0 ? (
                 <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                  {accountType === 'reseller'
-                    ? 'Nenhum pacote de revenda no servidor. Crie um pacote em Hospedagem → Pacotes.'
-                    : 'A carregar pacotes do servidor…'}
+                  Nenhum pacote no servidor. Crie um em Hospedagem → Pacotes.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -458,11 +444,9 @@ export function ProvisionClienteSection({
                         />
                         <span className="text-sm font-bold text-gray-900">{p.packageName}</span>
                       </div>
-                      {accountType === 'client' && (
-                        <div className="pl-6 text-xs text-gray-500">
-                          Disco {p.diskSpace ?? '—'} MB · BW {p.bandwidth ?? '—'} · Emails {p.emailAccounts ?? '—'}
-                        </div>
-                      )}
+                      <div className="pl-6 text-xs text-gray-500">
+                        Disco {p.diskSpace ?? '—'} MB · BW {p.bandwidth ?? '—'} · Emails {p.emailAccounts ?? '—'}
+                      </div>
                     </label>
                   ))}
                 </div>
