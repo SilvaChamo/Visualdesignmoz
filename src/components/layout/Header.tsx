@@ -17,7 +17,7 @@ const navigation = [
       { nameKey: 'header.nav.domain.register', descKey: 'header.nav.domain.register.desc', href: '/servicos/dominios', icon: 'globe' },
       { nameKey: 'header.nav.domain.prices', descKey: 'header.nav.domain.prices.desc', href: '/precos/dominios', icon: 'tag' },
       { nameKey: 'header.nav.domain.transfer', descKey: 'header.nav.domain.transfer.desc', href: '/servicos/transferencia', icon: 'refresh' },
-      { nameKey: 'header.nav.domain.renewal', descKey: 'header.nav.domain.renewal.desc', href: '/auth/login?from=/admin/dominios', icon: 'lock' },
+      { nameKey: 'header.nav.domain.renewal', descKey: 'header.nav.domain.renewal.desc', href: '/login?from=/painel/admin/dominios', icon: 'lock' },
       { nameKey: 'header.nav.domain.premium', descKey: 'header.nav.domain.premium.desc', href: '/servicos/premium', icon: 'award' },
       { nameKey: 'header.nav.domain.privacy', descKey: 'header.nav.domain.privacy.desc', href: '/servicos/privacidade', icon: 'shield' }
     ]
@@ -250,7 +250,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                 {otherLangLabel}
               </button>
               <Link
-                href="/painel"
+                href="/login"
                 className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
               >
                 <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />

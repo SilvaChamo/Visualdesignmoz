@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import {
+  PUBLIC_LOGIN_ENTRY,
   PUBLIC_PANEL_ENTRY,
   panelRouteFromPublicEntry,
   resolveInnerPanelPath,
@@ -27,7 +28,7 @@ export default async function PainelEntryPage({ params }: Props) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(`/auth/login?from=${encodeURIComponent(pathname)}`)
+    redirect(`${PUBLIC_LOGIN_ENTRY}?from=${encodeURIComponent(pathname)}`)
   }
 
   const products = await fetchUserProductsSummary(supabase, user.id)

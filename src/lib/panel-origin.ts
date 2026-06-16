@@ -3,22 +3,45 @@ import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 
 const PANEL_PATHS = ['/admin', '/client', '/revendedor', '/guest', '/dashboard'] as const
 
+const DEFAULT_PANEL_ORIGIN = 'https://painel.visualdesignmoz.com'
+const DEFAULT_PUBLIC_SITE_ORIGIN = 'https://visualdesignmoz.com'
+
 /** Entrada pública única do painel — todas as contas usam o mesmo URL. */
 export const PUBLIC_PANEL_ENTRY = '/painel'
 
+/** Login visível no domínio principal. */
+export const PUBLIC_LOGIN_ENTRY = '/login'
+
+function sanitizeOrigin(raw: string | undefined, fallback: string): string {
+  const trimmed = (raw ?? '').trim().replace(/\/$/, '')
+  if (!trimmed) return fallback
+  try {
+    const { hostname, protocol } = new URL(trimmed)
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+        return fallback
+      }
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') return fallback
+    return trimmed
+  } catch {
+    return fallback
+  }
+}
+
 export function getPanelOrigin(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_PANEL_URL?.trim() ||
-    'https://painel.visualdesignmoz.com'
-  return raw.replace(/\/$/, '')
+  return sanitizeOrigin(
+    process.env.NEXT_PUBLIC_PANEL_URL,
+    DEFAULT_PANEL_ORIGIN,
+  )
 }
 
 export function getPublicSiteOrigin(): string {
-  const raw =
+  return sanitizeOrigin(
     process.env.NEXT_PUBLIC_PUBLIC_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    'https://visualdesignmoz.com'
-  return raw.replace(/\/$/, '')
+      process.env.NEXT_PUBLIC_SITE_URL?.trim(),
+    DEFAULT_PUBLIC_SITE_ORIGIN,
+  )
 }
 
 /** Dev no Mac (`npm run dev`) — painel no mesmo host que o site. */
@@ -147,7 +170,7 @@ export function resolvePostLoginUrl(options: {
       return `${getPublicSiteOrigin()}${entryPath}`
     }
     if (isPanelHost(host) && isSplitPanelDeployment()) {
-      return getPanelAbsoluteUrl(innerPath)
+      return `${getPublicSiteOrigin()}${entryPath}`
     }
   } catch {
     /* path relativo */

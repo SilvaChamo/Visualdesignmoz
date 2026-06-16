@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
+  getPublicSiteOrigin,
+  isPanelHost,
   isPanelRoute,
   panelRouteFromPublicEntry,
+  PUBLIC_LOGIN_ENTRY,
   PUBLIC_PANEL_ENTRY,
   resolveInnerPanelPath,
   resolvePanelInnerRedirect,
@@ -15,9 +18,28 @@ import { createAppServerClient } from '@/lib/supabase-cookies'
 const RATE_LIMIT_MS = 2000
 const loginAttempts = new Map<string, number>()
 
+const PUBLIC_MARKETING_PREFIXES = [
+  '/servicos',
+  '/portfolio',
+  '/sobre-nos',
+  '/contacto',
+  '/precos',
+  '/cursos',
+  '/faq',
+] as const
+
+function isPublicMarketingPath(pathname: string): boolean {
+  if (pathname === '/') return true
+  return PUBLIC_MARKETING_PREFIXES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  )
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const host = request.headers.get('host') ?? ''
+  const hostname = host.split(':')[0].toLowerCase()
+  const publicOrigin = getPublicSiteOrigin()
 
   // FIRST: OAuth ?code= fora de /auth/callback → corrigir rota
   const oauthCode = request.nextUrl.searchParams.get('code')
@@ -32,8 +54,38 @@ export async function proxy(request: NextRequest) {
   }
 
   // let auth callback pass immediately
-  if (pathname === '/auth/callback') {
+  if (pathname === '/auth/callback' || pathname === '/auth/confirm') {
     return NextResponse.next()
+  }
+
+  // visualdesignmoz.com/login → formulário (URL amigável)
+  if (pathname === PUBLIC_LOGIN_ENTRY) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/login'
+    return NextResponse.rewrite(url)
+  }
+
+  // Subdomínio painel.* — site público e entrada só no domínio principal
+  if (isPanelHost(hostname)) {
+    if (isPublicMarketingPath(pathname)) {
+      return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin))
+    }
+    if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
+      return NextResponse.redirect(
+        new URL(`${pathname}${request.nextUrl.search}`, publicOrigin),
+      )
+    }
+    if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
+      const login = new URL(PUBLIC_LOGIN_ENTRY, publicOrigin)
+      request.nextUrl.searchParams.forEach((value, key) => {
+        login.searchParams.set(key, value)
+      })
+      return NextResponse.redirect(login)
+    }
+    if (pathname.startsWith('/auth/')) {
+      const dest = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
+      return NextResponse.redirect(dest)
+    }
   }
 
   // Home sem ?code= — não correr auth no proxy (performance)
@@ -55,7 +107,7 @@ export async function proxy(request: NextRequest) {
   // Entrada universal /painel (todas as contas, sem config por domínio)
   if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
     if (!user) {
-      const login = new URL('/auth/login', request.url)
+      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
       const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
         ? `${pathname}${request.nextUrl.search}`
         : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
@@ -79,7 +131,7 @@ export async function proxy(request: NextRequest) {
   // Site público (Vercel): rotas legadas /admin → login com /painel
   if (shouldUsePanelOriginForHost(host) && isPanelRoute(pathname)) {
     if (!user) {
-      const login = new URL('/auth/login', request.url)
+      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
       const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
         ? `${pathname}${request.nextUrl.search}`
         : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
@@ -94,7 +146,7 @@ export async function proxy(request: NextRequest) {
   // Local / mesmo host: /admin, /client… — API e UI no mesmo `npm run dev`
   if (!shouldUsePanelOriginForHost(host) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
-      const login = new URL('/auth/login', request.url)
+      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
       login.searchParams.set('from', `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`)
       return NextResponse.redirect(login)
     }
@@ -102,7 +154,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Honeypot/Rate Limit logic
-  if (pathname === '/auth/login' && request.method === 'POST') {
+  if ((pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) && request.method === 'POST') {
     const lastAttempt = loginAttempts.get(ip) || 0
     const now = Date.now()
     if (now - lastAttempt < RATE_LIMIT_MS) {
@@ -113,7 +165,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Hidden paths
-  const pathsToHide = ['/login', '/autenticacao']
+  const pathsToHide = ['/autenticacao']
   if (pathsToHide.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     return NextResponse.rewrite(new URL('/404-obfuscated', request.url))
   }
@@ -129,7 +181,7 @@ export async function proxy(request: NextRequest) {
     return response
   }
   if (!user) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
+    return NextResponse.redirect(new URL(PUBLIC_LOGIN_ENTRY, request.url))
   }
 
   const role = resolveUserRole({
@@ -162,14 +214,26 @@ export const config = {
     '/',
     '/painel',
     '/painel/:path*',
+    '/servicos',
+    '/servicos/:path*',
+    '/portfolio',
+    '/portfolio/:path*',
+    '/sobre-nos',
+    '/contacto',
+    '/precos',
+    '/precos/:path*',
+    '/cursos',
+    '/cursos/:path*',
+    '/faq',
+    '/faq/:path*',
     '/admin/:path*',
     '/api/:path*',
     '/dashboard/:path*',
     '/client/:path*',
     '/guest/:path*',
     '/revendedor/:path*',
-    '/auth/:path*',
     '/login',
+    '/auth/:path*',
     '/autenticacao',
   ],
 }
