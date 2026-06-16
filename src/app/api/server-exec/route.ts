@@ -149,30 +149,14 @@ export async function POST(req: NextRequest) {
       const fallback = LIVE_LIST_FALLBACK[action];
 
       if (action === 'listPackages' && auth.user.role === 'admin') {
-        const { cacheService } = await import('@/lib/cache-service');
-        cacheService.clearPattern('listPackages');
         const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
-        const [liveRows, mirrorRows] = await Promise.all([
-          fallback(api, params).catch(() => [] as Awaited<ReturnType<typeof listMirrorPackages>>),
-          listMirrorPackages(mirrorScope),
-        ]);
-        const byName = new Map<string, (typeof mirrorRows)[number]>();
-        for (const pkg of mirrorRows) {
-          if (pkg.packageName) byName.set(pkg.packageName.toLowerCase(), pkg);
-        }
-        for (const pkg of Array.isArray(liveRows) ? liveRows : []) {
-          if (!pkg.packageName) continue;
-          const key = pkg.packageName.toLowerCase();
-          const prev = byName.get(key);
-          byName.set(key, prev ? { ...pkg, ...prev } : pkg);
-        }
-        const merged = [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
-        if (merged.length > 0) scheduleDaSync(500);
+        const mirrorRows = await listMirrorPackages(mirrorScope);
+        scheduleDaSync(500);
         const lastSyncedAt = await getMirrorLastSyncAt();
         return NextResponse.json({
           success: true,
-          data: merged,
-          meta: { source: 'merged', lastSyncedAt },
+          data: mirrorRows,
+          meta: { source: 'mirror', lastSyncedAt },
         });
       }
 

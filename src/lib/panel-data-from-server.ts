@@ -5,6 +5,7 @@
 
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api';
 import type { PanelBootstrapAccount } from '@/lib/panel-mirror-read';
+import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
 const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v1';
 const BOOTSTRAP_CACHE_MS = 180_000;
@@ -82,7 +83,17 @@ export async function fetchPanelBootstrap(options?: {
   }
 
   const res = await fetch('/api/panel/bootstrap');
-  const json = await res.json();
+  const json = await parseJsonResponse<{
+    success?: boolean;
+    error?: string;
+    sites?: DirectAdminWebsite[];
+    users?: DirectAdminUser[];
+    packages?: DirectAdminPackage[];
+    accounts?: PanelBootstrapAccount[];
+    accountCounts?: Record<string, number>;
+    resellerContext?: PanelBootstrapResellerContext | null;
+    meta?: { source?: string; lastSyncedAt?: string | null };
+  }>(res);
   if (!res.ok || !json.success) {
     throw new Error(json.error || 'Falha ao carregar dados do painel');
   }

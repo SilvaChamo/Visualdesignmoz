@@ -45,6 +45,7 @@ import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { HostingPackageFormInline } from '@/app/admin/HostingPackageFormInline'
 import { createDefaultResellerPackageForm, packageListRowToForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
+import { parseJsonResponse } from '@/lib/safe-fetch-json'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
@@ -6658,7 +6659,7 @@ export function PackagesSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'listPackages' }),
       })
-      const data = await res.json()
+      const data = await parseJsonResponse<{ success?: boolean; data?: any[] }>(res)
       if (data.success && Array.isArray(data.data)) {
         setLivePackages(data.data)
         if (data.data.length) writePackagesCache(data.data)
@@ -6753,7 +6754,12 @@ export function PackagesSection({
           },
         }),
       })
-      const data = await res.json()
+      const data = await parseJsonResponse<{
+        success?: boolean
+        error?: string
+        data?: { error?: string }
+        warning?: string
+      }>(res)
       if (data.success) {
         setEditingPackageName(name)
         setShowPackageForm(true)
@@ -6794,9 +6800,9 @@ export function PackagesSection({
             params: { packageName: name, listRow: pkg },
           }),
         })
-        const data = await res.json()
+        const data = await parseJsonResponse<{ success?: boolean; data?: ResellerPackageFormState }>(res)
         if (data.success && data.data && typeof data.data === 'object') {
-          setPackageForm(data.data as ResellerPackageFormState)
+          setPackageForm(data.data)
         }
       } catch {
         /* mantém formulário da listagem */
@@ -6814,7 +6820,7 @@ export function PackagesSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deletePackage', params: { packageName: name } })
       })
-      const data = await res.json()
+      const data = await parseJsonResponse<{ success?: boolean; error?: string }>(res)
       if (data.success) {
         removeLivePackage(name)
         setMsg('Pacote apagado com sucesso!')
