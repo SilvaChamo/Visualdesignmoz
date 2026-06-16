@@ -100,10 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setIsAdmin(false)
         setUserRole(null)
-        window.location.href = `/auth/login?reason=${reason}`
+        window.location.href = `/login?reason=${reason}`
       } catch (err) {
         console.error('Erro ao efetuar logout por inatividade:', err)
-        window.location.href = `/auth/login?reason=${reason}`
+        window.location.href = `/login?reason=${reason}`
       }
     }
 
@@ -227,8 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async (fromPath?: string | null) => {
     try {
-      const from = fromPath?.trim() || PUBLIC_PANEL_ENTRY
-      setPanelFromCookie(from)
+      setPanelFromCookie()
 
       // redirectTo SEM query — obrigatório para PKCE + allow-list Supabase
       const redirectTo = `${window.location.origin}/auth/callback`

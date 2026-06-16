@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
+  buildPanelLoginUrl,
   getPublicSiteOrigin,
   isPanelHost,
   isPanelRoute,
@@ -58,11 +59,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // visualdesignmoz.com/login → formulário (URL amigável)
+  // Login — página estática; limpar ?from= legado (evita loops)
   if (pathname === PUBLIC_LOGIN_ENTRY) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.rewrite(url)
+    if (request.nextUrl.searchParams.has('from')) {
+      return NextResponse.redirect(
+        buildPanelLoginUrl(request.url, request.nextUrl.searchParams),
+      )
+    }
+    return NextResponse.next()
+  }
+
+  if (pathname.startsWith('/auth/')) {
+    return NextResponse.next()
   }
 
   // Subdomínio painel.* — site público e entrada só no domínio principal
@@ -76,10 +84,7 @@ export async function proxy(request: NextRequest) {
       )
     }
     if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
-      const login = new URL(PUBLIC_LOGIN_ENTRY, publicOrigin)
-      request.nextUrl.searchParams.forEach((value, key) => {
-        login.searchParams.set(key, value)
-      })
+      const login = buildPanelLoginUrl(publicOrigin, request.nextUrl.searchParams)
       return NextResponse.redirect(login)
     }
     if (pathname.startsWith('/auth/')) {
@@ -107,12 +112,7 @@ export async function proxy(request: NextRequest) {
   // Entrada universal /painel (todas as contas, sem config por domínio)
   if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
     if (!user) {
-      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
-      const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
-        ? `${pathname}${request.nextUrl.search}`
-        : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
-      login.searchParams.set('from', fromPath)
-      return NextResponse.redirect(login)
+      return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
     const role = resolveUserRole({
       email: user.email,
@@ -131,12 +131,7 @@ export async function proxy(request: NextRequest) {
   // Site público (Vercel): rotas legadas /admin → login com /painel
   if (shouldUsePanelOriginForHost(host) && isPanelRoute(pathname)) {
     if (!user) {
-      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
-      const fromPath = pathname.startsWith(PUBLIC_PANEL_ENTRY)
-        ? `${pathname}${request.nextUrl.search}`
-        : `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`
-      login.searchParams.set('from', fromPath)
-      return NextResponse.redirect(login)
+      return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
     return NextResponse.redirect(
       resolvePanelInnerRedirect(request.url, pathname, request.nextUrl.search),
@@ -146,9 +141,7 @@ export async function proxy(request: NextRequest) {
   // Local / mesmo host: /admin, /client… — API e UI no mesmo `npm run dev`
   if (!shouldUsePanelOriginForHost(host) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
-      const login = new URL(PUBLIC_LOGIN_ENTRY, request.url)
-      login.searchParams.set('from', `${PUBLIC_PANEL_ENTRY}${pathname}${request.nextUrl.search}`)
-      return NextResponse.redirect(login)
+      return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
     return response
   }
@@ -181,7 +174,7 @@ export async function proxy(request: NextRequest) {
     return response
   }
   if (!user) {
-    return NextResponse.redirect(new URL(PUBLIC_LOGIN_ENTRY, request.url))
+    return NextResponse.redirect(buildPanelLoginUrl(request.url))
   }
 
   const role = resolveUserRole({

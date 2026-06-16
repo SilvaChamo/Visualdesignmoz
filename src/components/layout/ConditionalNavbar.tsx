@@ -12,7 +12,7 @@ export function ConditionalNavbar() {
   const pathname = usePathname()
 
   // Routes that should NOT show the Header
-  const excludedRoutes = ['/admin', '/client', '/dashboard', '/auth', '/revendedor']
+  const excludedRoutes = ['/admin', '/client', '/dashboard', '/auth', '/login', '/revendedor']
 
   const isExcluded = excludedRoutes.some(route => pathname.startsWith(route))
 

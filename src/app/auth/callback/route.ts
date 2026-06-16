@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { profileAuthOrFilter } from '@/lib/profile-db'
 import { resolveUserRole } from '@/lib/user-roles'
 import { fetchUserProductsSummary } from '@/lib/user-products'
-import { PUBLIC_PANEL_ENTRY, resolvePostLoginUrl } from '@/lib/panel-origin'
-import {
-  clearPanelFromCookieHeader,
-  readPanelFromCookie,
-} from '@/lib/panel-oauth-from'
+import { buildPanelLoginUrl, PUBLIC_PANEL_ENTRY, resolvePostLoginUrl } from '@/lib/panel-origin'
+import { clearPanelFromCookieHeader } from '@/lib/panel-oauth-from'
 import { copyAuthCookies, createAppServerClient } from '@/lib/supabase-cookies'
 
 export const dynamic = 'force-dynamic'
@@ -19,14 +16,14 @@ export async function GET(request: NextRequest) {
   const hostname = request.headers.get('host') ?? undefined
 
   if (error) {
-    const loginUrl = new URL('/auth/login', requestUrl.origin)
+    const loginUrl = buildPanelLoginUrl(requestUrl.origin, requestUrl.searchParams)
     loginUrl.searchParams.set('error', error)
     loginUrl.searchParams.set('error_description', errorDescription || 'Erro ao autenticar com Google')
     return NextResponse.redirect(loginUrl)
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL('/auth/login', requestUrl.origin))
+    return NextResponse.redirect(buildPanelLoginUrl(requestUrl.origin))
   }
 
   const cookieJar = NextResponse.next()
@@ -42,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (exchangeError || !data.user) {
-    const loginUrl = new URL('/auth/login', requestUrl.origin)
+    const loginUrl = buildPanelLoginUrl(requestUrl.origin)
     loginUrl.searchParams.set('error', 'callback_error')
     loginUrl.searchParams.set('error_description', exchangeError?.message || 'Erro desconhecido')
     return NextResponse.redirect(loginUrl)
@@ -78,10 +75,7 @@ export async function GET(request: NextRequest) {
     hasPaidProducts: products.hasPaidProducts,
   })
 
-  const from =
-    requestUrl.searchParams.get('from') ||
-    readPanelFromCookie(request.headers.get('cookie')) ||
-    PUBLIC_PANEL_ENTRY
+  const from = PUBLIC_PANEL_ENTRY
 
   const target = resolvePostLoginUrl({
     origin: requestUrl.origin,

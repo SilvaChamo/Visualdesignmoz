@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import {
-  PUBLIC_LOGIN_ENTRY,
+  buildPanelLoginUrl,
   PUBLIC_PANEL_ENTRY,
   panelRouteFromPublicEntry,
   resolveInnerPanelPath,
@@ -27,8 +27,14 @@ export default async function PainelEntryPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const headerStore = await headers()
+  const host = headerStore.get('x-forwarded-host') || headerStore.get('host') || 'localhost:3002'
+  const proto = headerStore.get('x-forwarded-proto') || 'http'
+  const requestUrl = `${proto}://${host}/`
+
   if (!user) {
-    redirect(`${PUBLIC_LOGIN_ENTRY}?from=${encodeURIComponent(pathname)}`)
+    const login = buildPanelLoginUrl(requestUrl)
+    redirect(`${login.pathname}${login.search}`)
   }
 
   const products = await fetchUserProductsSummary(supabase, user.id)
@@ -48,11 +54,6 @@ export default async function PainelEntryPage({ params }: Props) {
 
   const inner =
     panelRouteFromPublicEntry(pathname) ?? resolveInnerPanelPath(null, role)
-
-  const headerStore = await headers()
-  const host = headerStore.get('x-forwarded-host') || headerStore.get('host') || 'localhost:3002'
-  const proto = headerStore.get('x-forwarded-proto') || 'http'
-  const requestUrl = `${proto}://${host}/`
 
   redirect(resolvePanelInnerRedirect(requestUrl, inner))
 }

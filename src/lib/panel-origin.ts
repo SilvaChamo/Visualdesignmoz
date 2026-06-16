@@ -12,6 +12,24 @@ export const PUBLIC_PANEL_ENTRY = '/painel'
 /** Login visível no domínio principal. */
 export const PUBLIC_LOGIN_ENTRY = '/login'
 
+/** Único link de login (botões do site). */
+export const PANEL_LOGIN_HREF = PUBLIC_LOGIN_ENTRY
+
+/** URL de login; preserva só erros OAuth/mensagens do sistema. */
+export function buildPanelLoginUrl(
+  base: string | URL,
+  preserve?: URLSearchParams,
+): URL {
+  const url = new URL(PUBLIC_LOGIN_ENTRY, base)
+  if (preserve) {
+    for (const key of ['error', 'error_description', 'reason', 'reset'] as const) {
+      const value = preserve.get(key)
+      if (value) url.searchParams.set(key, value)
+    }
+  }
+  return url
+}
+
 function sanitizeOrigin(raw: string | undefined, fallback: string): string {
   const trimmed = (raw ?? '').trim().replace(/\/$/, '')
   if (!trimmed) return fallback
@@ -108,9 +126,14 @@ export function resolveInnerPanelPath(
 }
 
 export function isPanelHost(hostname: string): boolean {
+  if (isLocalDevHost(hostname)) return false
   const host = hostname.toLowerCase().split(':')[0]
   try {
-    return new URL(getPanelOrigin()).hostname.toLowerCase() === host
+    const panelHostname = new URL(getPanelOrigin()).hostname.toLowerCase()
+    const siteHostname = new URL(getPublicSiteOrigin()).hostname.toLowerCase()
+    // Dev: painel e site no mesmo host — não tratar como subdomínio painel.*
+    if (panelHostname === siteHostname) return false
+    return panelHostname === host
   } catch {
     return host === 'painel.visualdesignmoz.com'
   }
