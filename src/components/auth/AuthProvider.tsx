@@ -8,6 +8,7 @@ import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { setPanelFromCookie } from '@/lib/panel-oauth-from'
 import { getInactivityConfig, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
+import { prefetchPanelContentOnLogin } from '@/lib/panel-prefetch'
 
 interface AuthContextType {
   user: User | null
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const role = await auth.getUserRole(currentUser)
             setUserRole(role)
             setIsAdmin(role === 'admin')
+            void prefetchPanelContentOnLogin(role)
           } catch (roleError) {
             console.error('AuthProvider: Error getting role:', roleError)
             setUserRole('guest')
@@ -74,6 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user)
         if (event === 'SIGNED_IN') {
           touchPanelActivity()
+          void auth.getUserRole(session.user).then((role) => {
+            setUserRole(role)
+            setIsAdmin(role === 'admin')
+            void prefetchPanelContentOnLogin(role)
+          }).catch(() => undefined)
         }
       }
     })
@@ -155,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setUser(data.user)
         touchPanelActivity()
+        void prefetchPanelContentOnLogin(role)
       }
 
       return role

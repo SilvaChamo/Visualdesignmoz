@@ -75,7 +75,7 @@ import {
   type PanelBootstrapData,
   type PanelBootstrapScope,
 } from '@/lib/panel-data-from-server'
-import { prefetchPanelContent, prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
+import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
 const directAdminAPI = panelAPI
@@ -2464,7 +2464,6 @@ function AdminPageContent() {
         const { data: { session } } = await createClientInstance.auth.getSession()
         if (session?.user?.email) {
           setSessionUser(session.user.email)
-          prefetchPanelContent({ scope: 'admin' })
         }
       } catch (error) {
         console.error('Erro ao obter sessão:', error)
