@@ -1,14 +1,24 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Package } from 'lucide-react';
 import {
+  applyHostingPlanPreset,
+  createEmptyResellerPackageForm,
+  HOSTING_PLAN_PRESETS,
+  inferHostingPlanPresetId,
   RESELLER_LIMIT_LABELS,
+  type HostingPlanPresetId,
+  type HostingPlanPreset,
   type ResellerLimitField,
   type ResellerPackageFormState,
 } from '@/lib/reseller-package-form';
-import { panelBtnPrimary, panelCard } from '@/lib/panel-ui';
+import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { HostingDaPackageFields } from '@/app/admin/HostingDaPackageFields';
+
+/** Mesmo arredondamento da lista de contas (`rounded`, não `rounded-xl`). */
+const formCardCls =
+  'rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900';
 
 type Props = {
   form: ResellerPackageFormState;
@@ -33,8 +43,15 @@ const STAT_LIMIT_KEYS: ResellerLimitField[] = [
 
 function formatStatValue(row: { value: string; unlimited: boolean }, unit?: string): string {
   if (row.unlimited) return 'Ilimitado';
-  const v = row.value.trim() || '0';
-  return unit ? `${v} ${unit}` : v;
+  const raw = row.value.trim() || '0';
+  if (!unit) return raw;
+  if (unit !== 'MB') return `${raw} ${unit}`;
+  if (/[a-z]/i.test(raw)) return raw;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 1024) return `${raw} MB`;
+  const gb = amount / 1024;
+  const display = Number.isInteger(gb) ? String(gb) : gb.toFixed(1).replace(/\.0$/, '');
+  return `${display} GB`;
 }
 
 function dnsLabel(dns: ResellerPackageFormState['features']['dns']): string {
@@ -60,7 +77,7 @@ function CpanelInfoRow({ label, value }: { label: string; value: React.ReactNode
 
 function CpanelSidebarCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className={`${panelCard} overflow-hidden`}>
+    <div className={`${formCardCls} overflow-hidden`}>
       <div className="border-b border-gray-200 px-4 py-3 dark:border-zinc-700">
         <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-100">{title}</h3>
       </div>
@@ -69,7 +86,7 @@ function CpanelSidebarCard({ title, children }: { title: string; children: React
   );
 }
 
-function PackageSidebar({ form }: { form: ResellerPackageFormState }) {
+function PackageSidebar({ form, selectedPreset }: { form: ResellerPackageFormState; selectedPreset: HostingPlanPreset | null }) {
   const enabledFeatures = useMemo(
     () =>
       [
@@ -89,7 +106,13 @@ function PackageSidebar({ form }: { form: ResellerPackageFormState }) {
     <aside className="sticky top-0 flex w-full shrink-0 flex-col gap-4 lg:w-72">
       <CpanelSidebarCard title="Informação geral">
         <CpanelInfoRow label="Nome do pacote" value={form.packageName.trim() || '—'} />
-        <CpanelInfoRow label="Skin" value={<span className="capitalize">{form.skin || '—'}</span>} />
+        <CpanelInfoRow label="Domínio associado" value={form.ownerDomain.trim() || '—'} />
+        <CpanelInfoRow label="Plano base" value={selectedPreset?.label || 'Não seleccionado'} />
+        <CpanelInfoRow
+          label="Custo mensal"
+          value={selectedPreset?.monthlyPriceMzn ? `${selectedPreset.monthlyPriceMzn} MT` : '—'}
+        />
+        <CpanelInfoRow label="Skin" value={form.appearanceMode === 'dark' ? 'Escuro' : 'Claro'} />
         <CpanelInfoRow label="DNS" value={dnsLabel(form.features.dns)} />
         <CpanelInfoRow label="IPs dedicados" value={form.features.ips || '0'} />
         <CpanelInfoRow
@@ -129,22 +152,93 @@ function PackageSidebar({ form }: { form: ResellerPackageFormState }) {
   );
 }
 
-export function HostingPackageFormInline({ form, onChange, onSubmit, busy, mode = 'create' }: Props) {
+export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, busy, mode = 'create' }: Props) {
   const isEdit = mode === 'edit';
+  const [selectedPreset, setSelectedPreset] = useState<HostingPlanPresetId | ''>('');
+  const hasInitializedCreateMode = useRef(false);
+  const selectedPresetMeta = useMemo(
+    () => HOSTING_PLAN_PRESETS.find((preset) => preset.id === selectedPreset) || null,
+    [selectedPreset],
+  );
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (selectedPreset) return;
+    if (hasInitializedCreateMode.current) return;
+    hasInitializedCreateMode.current = true;
+    onChange(createEmptyResellerPackageForm(form.packageName || ''));
+  }, [form.packageName, isEdit, onChange, selectedPreset]);
+
+  useEffect(() => {
+    if (selectedPreset) return;
+    const inferred = inferHostingPlanPresetId(form);
+    if (inferred) setSelectedPreset(inferred);
+  }, [form, selectedPreset]);
+
+  const canSubmit = isEdit
+    ? Boolean(form.packageName.trim())
+    : Boolean(form.packageName.trim() && form.ownerDomain.trim() && selectedPreset);
+
+  const applyPreset = (presetId: HostingPlanPresetId | '') => {
+    if (!presetId) {
+      if (!isEdit) onChange(createEmptyResellerPackageForm(form.packageName || ''));
+      return;
+    }
+    const preset = HOSTING_PLAN_PRESETS.find((row) => row.id === presetId);
+    const next = applyHostingPlanPreset(presetId, {
+      current: form,
+      keepCurrentPackageName: isEdit,
+    });
+    if (!next) return;
+    onChange({
+      ...next,
+      packageName: isEdit ? form.packageName : preset?.defaultPackageName || next.packageName,
+      ownerDomain: form.ownerDomain,
+      packageMode: isEdit ? form.packageMode : next.packageMode,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className={`min-w-0 flex-1 p-6 ${panelCard}`}>
+      <div className={`min-w-0 flex-1 p-6 ${formCardCls}`}>
         <h2 className="mb-4 text-sm font-bold text-gray-900 dark:text-zinc-100">
           {isEdit ? 'Editar pacote de hospedagem' : 'Criar pacote de hospedagem'}
         </h2>
 
+        <div className="mb-4 rounded border border-gray-200 bg-gray-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-600 dark:text-zinc-300">
+            Modelo de plano
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={selectedPreset}
+              onChange={(e) => {
+                const presetId = e.target.value as HostingPlanPresetId | '';
+                setSelectedPreset(presetId);
+                applyPreset(presetId);
+              }}
+              className={`${panelField} w-full sm:flex-1`}
+            >
+              <option value="">Seleccionar plano base...</option>
+              {HOSTING_PLAN_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <HostingDaPackageFields form={form} onChange={onChange} showPackageName packageNameReadonly={isEdit} />
 
         <div className="mt-6 flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-zinc-800">
+          <button type="button" onClick={onCancel} disabled={busy} className={panelBtnSecondary}>
+            Cancelar
+          </button>
           <button
             type="button"
             onClick={onSubmit}
-            disabled={busy || !form.packageName.trim()}
+            disabled={busy || !canSubmit}
             className={panelBtnPrimary}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
@@ -153,7 +247,7 @@ export function HostingPackageFormInline({ form, onChange, onSubmit, busy, mode 
         </div>
       </div>
 
-      <PackageSidebar form={form} />
+      <PackageSidebar form={form} selectedPreset={selectedPresetMeta} />
     </div>
   );
 }

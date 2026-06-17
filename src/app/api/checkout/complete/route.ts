@@ -12,6 +12,15 @@ type CartItem = {
   period: number;
 };
 
+const CART_PLAN_TO_PACKAGE: Record<string, string> = {
+  'hosting-basico': 'VD-Host-Basico',
+  'hosting-pro': 'VD-Host-Pro',
+  'hosting-business': 'VD-Host-Business',
+  'email-pro': 'VD-Email-Pro',
+  'email-starter': 'VD-Email-Starter',
+  'email-business': 'VD-Email-Business',
+};
+
 function addYears(date: Date, years: number) {
   const d = new Date(date);
   d.setFullYear(d.getFullYear() + years);
@@ -79,10 +88,11 @@ export async function POST(request: NextRequest) {
 
       if (item.type === 'hosting') {
         const domainName = item.name.toLowerCase().trim();
+        const packageName = CART_PLAN_TO_PACKAGE[item.id] || item.id || 'VD-Host-Basico';
         const { error: insErr } = await supabase.from('hosting_renewals').insert({
           user_id: user.id,
           domain_name: domainName,
-          package_name: item.id || 'Standard',
+          package_name: packageName,
           start_date: today,
           expiration_date: expires,
           renewal_price: item.price,
@@ -93,6 +103,25 @@ export async function POST(request: NextRequest) {
         });
         if (insErr) console.warn('[checkout] hosting_renewals:', insErr.message);
         created.push(`hospedagem:${domainName}`);
+      }
+
+      if (item.type === 'email') {
+        const serviceName = item.name.toLowerCase().trim();
+        const packageName = CART_PLAN_TO_PACKAGE[item.id] || item.id || 'VD-Email-Pro';
+        const { error: insErr } = await supabase.from('hosting_renewals').insert({
+          user_id: user.id,
+          domain_name: serviceName,
+          package_name: packageName,
+          start_date: today,
+          expiration_date: expires,
+          renewal_price: item.price,
+          currency: 'MZN',
+          status: 'active',
+          server: 'Mail',
+          notes: `Plano de e-mail (${paymentMethod})`,
+        });
+        if (insErr) console.warn('[checkout] email plano:', insErr.message);
+        created.push(`email:${serviceName}`);
       }
     }
 

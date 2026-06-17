@@ -31,6 +31,8 @@ export type PluginPolicyMode = 'allow_all' | 'deny_selected' | 'allow_selected';
 export type ResellerPackageFormState = {
   packageMode: 'existing' | 'new';
   packageName: string;
+  ownerDomain: string;
+  appearanceMode: 'light' | 'dark';
   limits: Record<ResellerLimitField, { value: string; unlimited: boolean }>;
   features: {
     ips: string;
@@ -103,10 +105,31 @@ export const FEATURE_SET_OPTIONS: Record<string, string> = {
   email_only: 'Apenas e-mail',
 };
 
+export type HostingPlanPresetId =
+  | 'email-starter'
+  | 'email-pro'
+  | 'email-business'
+  | 'hosting-basico'
+  | 'hosting-pro'
+  | 'hosting-business'
+  | 'revenda-starter'
+  | 'revenda-pro';
+
+export type HostingPlanPreset = {
+  id: HostingPlanPresetId;
+  label: string;
+  description: string;
+  defaultPackageName: string;
+  monthlyPriceMzn?: number;
+  form: Omit<ResellerPackageFormState, 'packageMode' | 'packageName'>;
+};
+
 export function createDefaultResellerPackageForm(packageName = ''): ResellerPackageFormState {
   return {
     packageMode: 'new',
     packageName,
+    ownerDomain: '',
+    appearanceMode: 'light',
     limits: {
       bandwidth: { value: '1000', unlimited: false },
       quota: { value: '100', unlimited: false },
@@ -168,6 +191,421 @@ export function createDefaultResellerPackageForm(packageName = ''): ResellerPack
       TasksMax: { value: '512', unlimited: true },
     },
   };
+}
+
+export function createEmptyResellerPackageForm(packageName = ''): ResellerPackageFormState {
+  const base = createDefaultResellerPackageForm(packageName);
+  const limits = Object.fromEntries(
+    Object.entries(base.limits).map(([key]) => [key, { value: '', unlimited: true }]),
+  ) as ResellerPackageFormState['limits'];
+  const resources = Object.fromEntries(
+    Object.entries(base.resources).map(([key]) => [key, { value: '', unlimited: true }]),
+  ) as ResellerPackageFormState['resources'];
+  return {
+    ...base,
+    limits,
+    resources,
+  };
+}
+
+type PresetFormOverrides = Partial<
+  Omit<
+    ResellerPackageFormState,
+    'packageMode' | 'packageName' | 'limits' | 'resources' | 'features' | 'featureSets' | 'pluginPolicy'
+  >
+> & {
+  limits?: Partial<ResellerPackageFormState['limits']>;
+  resources?: Partial<ResellerPackageFormState['resources']>;
+  features?: Partial<ResellerPackageFormState['features']>;
+  featureSets?: Partial<ResellerPackageFormState['featureSets']>;
+  pluginPolicy?: Partial<ResellerPackageFormState['pluginPolicy']>;
+};
+
+function buildPresetForm(overrides: PresetFormOverrides): Omit<ResellerPackageFormState, 'packageMode' | 'packageName'> {
+  const base = createDefaultResellerPackageForm('');
+  return {
+    ownerDomain: overrides.ownerDomain ?? base.ownerDomain,
+    appearanceMode: overrides.appearanceMode ?? base.appearanceMode,
+    limits: {
+      ...base.limits,
+      ...(overrides.limits || {}),
+    } as ResellerPackageFormState['limits'],
+    features: {
+      ...base.features,
+      ...(overrides.features || {}),
+    },
+    skin: overrides.skin || base.skin,
+    featureSets: {
+      ...base.featureSets,
+      ...(overrides.featureSets || {}),
+      selected: overrides.featureSets?.selected || base.featureSets.selected,
+    },
+    pluginPolicy: {
+      ...base.pluginPolicy,
+      ...(overrides.pluginPolicy || {}),
+      allow: overrides.pluginPolicy?.allow || base.pluginPolicy.allow,
+      deny: overrides.pluginPolicy?.deny || base.pluginPolicy.deny,
+    },
+    resources: {
+      ...base.resources,
+      ...(overrides.resources || {}),
+    } as ResellerPackageFormState['resources'],
+  };
+}
+
+export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
+  {
+    id: 'email-starter',
+    label: 'Email Starter',
+    description: 'Plano apenas e-mail para equipas pequenas',
+    defaultPackageName: 'VD-Email-Starter',
+    monthlyPriceMzn: 150,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '1000', unlimited: false },
+        bandwidth: { value: '10000', unlimited: false },
+        vdomains: { value: '1', unlimited: false },
+        nsubdomains: { value: '0', unlimited: false },
+        nemails: { value: '10', unlimited: false },
+        nemailf: { value: '10', unlimited: false },
+        nemailml: { value: '0', unlimited: false },
+        nemailr: { value: '10', unlimited: false },
+        mysql: { value: '0', unlimited: false },
+        ftp: { value: '0', unlimited: false },
+      },
+      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
+      featureSets: { policy: 'selected', selected: ['email_only'] },
+      resources: {
+        CPUQuota: { value: '100%', unlimited: false },
+        MemoryHigh: { value: '256M', unlimited: false },
+        MemoryMax: { value: '512M', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'email-pro',
+    label: 'Email Profissional',
+    description: 'Plano apenas e-mail para equipas em crescimento',
+    defaultPackageName: 'VD-Email-Pro',
+    monthlyPriceMzn: 250,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '5000', unlimited: false },
+        bandwidth: { value: '20000', unlimited: false },
+        vdomains: { value: '1', unlimited: false },
+        nsubdomains: { value: '0', unlimited: false },
+        nemails: { value: '25', unlimited: false },
+        nemailf: { value: '25', unlimited: false },
+        nemailml: { value: '5', unlimited: false },
+        nemailr: { value: '25', unlimited: false },
+        mysql: { value: '0', unlimited: false },
+        ftp: { value: '0', unlimited: false },
+      },
+      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
+      featureSets: { policy: 'selected', selected: ['email_only'] },
+      resources: {
+        CPUQuota: { value: '100%', unlimited: false },
+        MemoryHigh: { value: '384M', unlimited: false },
+        MemoryMax: { value: '768M', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'email-business',
+    label: 'Email Business',
+    description: 'Plano e-mail para volume maior de caixas',
+    defaultPackageName: 'VD-Email-Business',
+    monthlyPriceMzn: 600,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '15000', unlimited: false },
+        bandwidth: { value: '50000', unlimited: false },
+        vdomains: { value: '1', unlimited: false },
+        nsubdomains: { value: '0', unlimited: false },
+        nemails: { value: '50', unlimited: false },
+        nemailf: { value: '50', unlimited: false },
+        nemailml: { value: '10', unlimited: false },
+        nemailr: { value: '50', unlimited: false },
+        mysql: { value: '0', unlimited: false },
+        ftp: { value: '0', unlimited: false },
+      },
+      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
+      featureSets: { policy: 'selected', selected: ['email_only'] },
+      resources: {
+        CPUQuota: { value: '120%', unlimited: false },
+        MemoryHigh: { value: '512M', unlimited: false },
+        MemoryMax: { value: '1G', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'hosting-basico',
+    label: 'Webhost Básico',
+    description: 'Plano inicial para site institucional',
+    defaultPackageName: 'VD-Host-Basico',
+    monthlyPriceMzn: 680,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '10000', unlimited: false },
+        bandwidth: { value: '100000', unlimited: false },
+        vdomains: { value: '1', unlimited: false },
+        nsubdomains: { value: '10', unlimited: false },
+        nemails: { value: '10', unlimited: false },
+        mysql: { value: '1', unlimited: false },
+        ftp: { value: '1', unlimited: false },
+      },
+      features: { wordpress: true, php: true, aftp: false, cron: true, git: false, ssl: true, spam: true },
+      resources: {
+        CPUQuota: { value: '150%', unlimited: false },
+        MemoryHigh: { value: '512M', unlimited: false },
+        MemoryMax: { value: '1G', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'hosting-pro',
+    label: 'Webhost Pro',
+    description: 'Plano para negócios e lojas com tráfego regular',
+    defaultPackageName: 'VD-Host-Pro',
+    monthlyPriceMzn: 1500,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '50000', unlimited: false },
+        bandwidth: { value: '500000', unlimited: false },
+        vdomains: { value: '3', unlimited: false },
+        nsubdomains: { value: '20', unlimited: false },
+        nemails: { value: '25', unlimited: false },
+        mysql: { value: '5', unlimited: false },
+        ftp: { value: '3', unlimited: false },
+      },
+      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true },
+      resources: {
+        CPUQuota: { value: '250%', unlimited: false },
+        MemoryHigh: { value: '1G', unlimited: false },
+        MemoryMax: { value: '1500M', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'hosting-business',
+    label: 'Webhost Business',
+    description: 'Plano para operação com vários sites activos',
+    defaultPackageName: 'VD-Host-Business',
+    monthlyPriceMzn: 2500,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '100000', unlimited: false },
+        bandwidth: { value: '1000000', unlimited: false },
+        vdomains: { value: '5', unlimited: false },
+        nsubdomains: { value: '40', unlimited: false },
+        nemails: { value: '50', unlimited: false },
+        mysql: { value: '10', unlimited: false },
+        ftp: { value: '5', unlimited: false },
+      },
+      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true },
+      resources: {
+        CPUQuota: { value: '300%', unlimited: false },
+        MemoryHigh: { value: '1500M', unlimited: false },
+        MemoryMax: { value: '2G', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'revenda-starter',
+    label: 'Revenda Starter',
+    description: 'Plano revenda para começar com limites definidos',
+    defaultPackageName: 'VD-Revenda-S',
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '20000', unlimited: false },
+        bandwidth: { value: '200000', unlimited: false },
+        vdomains: { value: '15', unlimited: false },
+        nsubdomains: { value: '50', unlimited: false },
+        nemails: { value: '100', unlimited: false },
+        mysql: { value: '20', unlimited: false },
+        ftp: { value: '20', unlimited: false },
+        nusers: { value: '10', unlimited: false },
+      },
+      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true, oversell: true },
+      resources: {
+        CPUQuota: { value: '400%', unlimited: false },
+        MemoryHigh: { value: '2G', unlimited: false },
+        MemoryMax: { value: '3G', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'revenda-pro',
+    label: 'Revenda Pro',
+    description: 'Plano revenda para carteira maior de clientes',
+    defaultPackageName: 'VD-Revenda-M',
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '50000', unlimited: false },
+        bandwidth: { value: '500000', unlimited: false },
+        vdomains: { value: '40', unlimited: false },
+        nsubdomains: { value: '150', unlimited: false },
+        nemails: { value: '250', unlimited: false },
+        mysql: { value: '50', unlimited: false },
+        ftp: { value: '50', unlimited: false },
+        nusers: { value: '25', unlimited: false },
+      },
+      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true, oversell: true },
+      resources: {
+        CPUQuota: { value: '600%', unlimited: false },
+        MemoryHigh: { value: '3G', unlimited: false },
+        MemoryMax: { value: '4G', unlimited: false },
+      },
+    }),
+  },
+];
+
+export function applyHostingPlanPreset(
+  presetId: HostingPlanPresetId,
+  options?: { packageName?: string; keepCurrentPackageName?: boolean; current?: ResellerPackageFormState },
+): ResellerPackageFormState | null {
+  const preset = HOSTING_PLAN_PRESETS.find((row) => row.id === presetId);
+  if (!preset) return null;
+  const preferredPackageName =
+    options?.packageName ||
+    (options?.keepCurrentPackageName ? options?.current?.packageName : '') ||
+    preset.defaultPackageName;
+  return {
+    packageMode: 'new',
+    packageName: preferredPackageName,
+    ownerDomain: options?.current?.ownerDomain || preset.form.ownerDomain || '',
+    appearanceMode: options?.current?.appearanceMode || preset.form.appearanceMode || 'light',
+    limits: Object.fromEntries(
+      Object.entries(preset.form.limits).map(([key, row]) => [key, { ...row }]),
+    ) as ResellerPackageFormState['limits'],
+    features: { ...preset.form.features },
+    skin: preset.form.skin,
+    featureSets: {
+      ...preset.form.featureSets,
+      selected: [...preset.form.featureSets.selected],
+    },
+    pluginPolicy: {
+      ...preset.form.pluginPolicy,
+      allow: [...preset.form.pluginPolicy.allow],
+      deny: [...preset.form.pluginPolicy.deny],
+    },
+    resources: Object.fromEntries(
+      Object.entries(preset.form.resources).map(([key, row]) => [key, { ...row }]),
+    ) as ResellerPackageFormState['resources'],
+  };
+}
+
+export function formatDomainForPackageName(domain: string): string {
+  return domain
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/[^a-z0-9.-]+/g, '-')
+    .replace(/\.+/g, '.')
+    .replace(/^-+|-+$/g, '')
+    .replace(/\./g, '_');
+}
+
+export function composePackageName(packageName: string, ownerDomain: string): string {
+  const base = packageName.trim();
+  const domainToken = formatDomainForPackageName(ownerDomain);
+  if (!base) return '';
+  if (!domainToken) return base;
+  if (base.endsWith(`__${domainToken}`)) return base;
+  return `${base}__${domainToken}`;
+}
+
+export function splitCompositePackageName(name: string): { packageName: string; ownerDomain: string } {
+  const raw = name.trim();
+  if (!raw.includes('__')) return { packageName: raw, ownerDomain: '' };
+  const [base, domainToken] = raw.split('__', 2);
+  return {
+    packageName: base || raw,
+    ownerDomain: domainToken ? domainToken.replace(/_/g, '.') : '',
+  };
+}
+
+/** Pacotes históricos no servidor — nome próprio, não slug de domínio. */
+const LEGACY_SERVER_PACKAGE_NAMES = new Set(['osher', 'visualdesign', 'default']);
+
+function isHostingPresetPackageName(name: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return false;
+  if (LEGACY_SERVER_PACKAGE_NAMES.has(normalized)) return true;
+  if (/^vd-/i.test(name.trim())) return true;
+  return HOSTING_PLAN_PRESETS.some((preset) => preset.defaultPackageName.toLowerCase() === normalized);
+}
+
+function domainFromPackageSlug(slug: string): string {
+  const raw = slug.trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('.')) return raw;
+  return `${raw}.com`;
+}
+
+/** Separa nome técnico do pacote e domínio ao abrir o editor (inclui pacotes legados só com slug). */
+export function normalizePackageFormForEditor(
+  form: ResellerPackageFormState,
+  serverPackageId: string,
+): ResellerPackageFormState {
+  const splitFromId = splitCompositePackageName(serverPackageId);
+  const splitFromForm = splitCompositePackageName(form.packageName || '');
+
+  let packageName =
+    splitFromId.packageName ||
+    splitFromForm.packageName ||
+    form.packageName.trim();
+  let ownerDomain =
+    form.ownerDomain?.trim() ||
+    splitFromId.ownerDomain ||
+    splitFromForm.ownerDomain ||
+    '';
+
+  if (!ownerDomain) {
+    const slug = (splitFromId.ownerDomain ? '' : splitFromId.packageName || packageName).trim();
+    if (slug && !slug.includes('__') && !isHostingPresetPackageName(slug)) {
+      ownerDomain = domainFromPackageSlug(slug);
+      const presetId = inferHostingPlanPresetId({ ...form, packageName, ownerDomain });
+      const preset = presetId ? getHostingPlanPresetById(presetId) : null;
+      if (preset) packageName = preset.defaultPackageName;
+    }
+  }
+
+  return { ...form, packageName, ownerDomain };
+}
+
+export function getHostingPlanPresetById(presetId: HostingPlanPresetId): HostingPlanPreset | null {
+  return HOSTING_PLAN_PRESETS.find((row) => row.id === presetId) || null;
+}
+
+export function inferHostingPlanPresetId(form: ResellerPackageFormState): HostingPlanPresetId | null {
+  const normalizedPackageName = form.packageName.trim().toLowerCase().split('__')[0] || form.packageName.trim().toLowerCase();
+  const byName = HOSTING_PLAN_PRESETS.find(
+    (preset) => preset.defaultPackageName.toLowerCase() === normalizedPackageName,
+  );
+  if (byName) return byName.id;
+
+  const aliases: Record<string, HostingPlanPresetId> = {
+    osher: 'hosting-pro',
+    visualdesign: 'hosting-business',
+  };
+  const alias = aliases[normalizedPackageName];
+  if (alias) return alias;
+
+  const comparableKeys: ResellerLimitField[] = ['quota', 'bandwidth', 'vdomains', 'nsubdomains', 'nemails', 'mysql', 'ftp'];
+  for (const preset of HOSTING_PLAN_PRESETS) {
+    const sameLimits = comparableKeys.every((key) => {
+      const current = form.limits[key];
+      const expected = preset.form.limits[key];
+      return current.unlimited === expected.unlimited && String(current.value || '') === String(expected.value || '');
+    });
+    const sameCpu = form.resources.CPUQuota.value === preset.form.resources.CPUQuota.value;
+    const sameMemory = form.resources.MemoryMax.value === preset.form.resources.MemoryMax.value;
+    if (sameLimits && sameCpu && sameMemory) return preset.id;
+  }
+
+  return null;
 }
 
 function limitToDa(key: ResellerLimitField, row: { value: string; unlimited: boolean }): Record<string, string> {
@@ -388,7 +826,9 @@ export function daPackageFieldsToHostingForm(
 
 /** Preenche o formulário a partir de uma linha da listagem (fallback). */
 export function packageListRowToForm(pkg: Record<string, unknown>, packageName: string): ResellerPackageFormState {
-  const form = createDefaultResellerPackageForm(packageName);
+  const split = splitCompositePackageName(packageName);
+  const form = createDefaultResellerPackageForm(split.packageName);
+  form.ownerDomain = split.ownerDomain;
   const parseListLimit = (v: unknown): { value: string; unlimited: boolean } | null => {
     const raw = String(v ?? '').trim();
     if (!raw) return null;

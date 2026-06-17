@@ -96,7 +96,6 @@ export const RESELLER_LEGACY_MENU_SUBITEMS: PanelMenuSubItem[] = [
   { id: 'gestao-dominios-header', label: '— Gestão de Domínios —' },
   { id: 'domains-list-legacy', label: 'Listar Domínios' },
   { id: 'domains-new-legacy', label: 'Criar Domínio' },
-  { id: 'cp-subdomains', label: 'Criar Subdomínio' },
   { id: 'cp-suspend-website', label: 'Suspender' },
   { id: 'gestao-wp-header', label: '— WordPress —' },
   { id: 'cp-wp-list', label: 'Listar sites WordPress' },
@@ -194,7 +193,6 @@ export const RESELLER_LEGACY_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'domains-list-legacy', label: 'Listar Domínios' },
       { id: 'domains-new-legacy', label: 'Criar Domínio' },
-      { id: 'cp-subdomains', label: 'Criar Subdomínio' },
       { id: 'cp-suspend-website', label: 'Suspender' },
     ],
   },
@@ -262,7 +260,6 @@ export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'cp-reseller-legacy', label: 'Centro de Revenda' },
   { id: 'porkbun-domains-legacy', label: 'Registar domínio' },
   { id: 'porkbun-my-domains-legacy', label: 'Domínios registados' },
-  { id: 'cp-subdomains', label: 'Criar Subdomínio' },
   { id: 'cp-list-subdomains', label: 'Listar Sub/Addon' },
   { id: 'cp-modify-website', label: 'Modificar Website' },
   { id: 'cp-suspend-website', label: 'Suspender' },

@@ -14,7 +14,7 @@ import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
-  SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
+  DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
   APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
@@ -2233,7 +2233,7 @@ export default function ResellerPage() {
       case 'domains-new':
         return <CreateWebsiteSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-subdomains':
-        return <SubdomainsSection sites={filteredSites} />
+        return null
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
       case 'email-import':
@@ -2323,6 +2323,7 @@ export default function ResellerPage() {
               setPreSelectedEmailDomain(domain)
               setActiveSection('cp-email-mgmt')
             }}
+            onHubPanelClose={() => setDomainHubTab('meus')}
           />
         )
       case 'git-deploy':

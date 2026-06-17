@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
-import { getAdminDirectAdminAPI, getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
-import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { getDirectAdminAPIForAuth } from '@/lib/directadmin-adapter';
+import { requireAdminOrReseller, type PanelAuthSuccess } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { daPostViaSsh } from '@/lib/da-api-ssh';
@@ -66,6 +66,52 @@ const DA_MUTATION_PROXY: Record<
   enableDKIM: (api, p) => api.enableDKIM(String(p.domain || '')),
   changePHPVersion: (api, p) => api.changePHPVersion(p),
 };
+
+/** Aplica pacote no DirectAdmin em background (não bloqueia a resposta ao painel). */
+function pushPackageToDaInBackground(
+  action: string,
+  params: Record<string, unknown>,
+  daManageCmd: string,
+  auth: PanelAuthSuccess,
+): void {
+  void (async () => {
+    try {
+      const pkgName = String(params.packageName || params.package || '').trim();
+      if (!pkgName) return;
+      const { daApi: api } = await resolvePanelDaContext(auth);
+      const role = auth.user.role;
+
+      if (action === 'deletePackage') {
+        if (role === 'admin') {
+          await daPostViaSsh(daManageCmd, { delete: 'Delete', delete0: pkgName });
+        } else {
+          await DA_MUTATION_PROXY.deletePackage(api, params);
+        }
+        return;
+      }
+
+      const fullForm = params.hostingPackageForm as
+        | import('@/lib/reseller-package-form').ResellerPackageFormState
+        | undefined;
+      if (!fullForm?.limits && !fullForm?.packageName) return;
+
+      if (role === 'admin') {
+        const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
+        const fields = hostingPackageFormToDaFields({
+          ...fullForm,
+          packageName: pkgName || fullForm.packageName,
+        });
+        await daPostViaSsh(daManageCmd, fields);
+        return;
+      }
+
+      const mutator = DA_MUTATION_PROXY[action];
+      if (mutator) await mutator(api, params);
+    } catch (e) {
+      console.error('[server-exec] pushPackageToDaInBackground:', e);
+    }
+  })();
+}
 
 const DA_READ_PROXY: Record<
   string,
@@ -182,7 +228,6 @@ export async function POST(req: NextRequest) {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
 
-      const { daApi: api } = await resolvePanelDaContext(auth);
       const isPackageMutation =
         action === 'createPackage' ||
         action === 'editPackage' ||
@@ -191,102 +236,57 @@ export async function POST(req: NextRequest) {
 
       if (isPackageMutation) {
         const pkgName = String(params.packageName || params.package || '').trim();
+        const paramsRecord = params as Record<string, unknown>;
         const isResellerScope =
-          String((params as Record<string, unknown>).packageScope) === 'reseller' ||
+          String(paramsRecord.packageScope) === 'reseller' ||
           auth.user.role === 'reseller';
         const daManageCmd = isResellerScope
           ? 'CMD_API_MANAGE_RESELLER_PACKAGES'
           : 'CMD_API_MANAGE_USER_PACKAGES';
 
-        if (action !== 'deletePackage') {
-          const mirrorRow = packageMirrorRowFromParams(params as Record<string, unknown>);
-          if (!mirrorRow) {
+        if (action === 'deletePackage') {
+          if (!pkgName) {
             return NextResponse.json(
               { success: false, error: 'Nome do pacote obrigatório.' },
               { status: 400 },
             );
           }
-        }
-
-        let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
-        const unauthorizedMsg =
-          typeof data === 'object' && data !== null
-            ? String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '')
-            : '';
-        const isUnauthorized =
-          unauthorizedMsg.toLowerCase().includes('unauthorized') ||
-          unauthorizedMsg.toLowerCase().includes('não autorizado');
-
-        if (isUnauthorized && auth.user.role === 'admin') {
-          const adminApi = await getAdminDirectAdminAPI();
-          data = await DA_MUTATION_PROXY[action](adminApi, params as Record<string, unknown>);
-        }
-
-        let serverSynced = mutationSucceeded(data);
-        let serverError =
-          serverSynced || typeof data !== 'object' || data === null
-            ? undefined
-            : String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '');
-
-        if (!serverSynced && auth.user.role === 'admin' && pkgName) {
-          try {
-            const fullForm = (params as Record<string, unknown>).hostingPackageForm as
-              | import('@/lib/reseller-package-form').ResellerPackageFormState
-              | undefined;
-            if (action === 'deletePackage') {
-              const ssh = await daPostViaSsh(daManageCmd, {
-                delete: 'Delete',
-                delete0: pkgName,
-              });
-              serverSynced = ssh.ok;
-              if (!ssh.ok) serverError = ssh.error;
-            } else if (fullForm?.limits || fullForm?.packageName) {
-              const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
-              const fields = hostingPackageFormToDaFields({
-                ...fullForm,
-                packageName: pkgName || fullForm.packageName,
-              });
-              const ssh = await daPostViaSsh(daManageCmd, fields);
-              serverSynced = ssh.ok;
-              if (!ssh.ok) serverError = ssh.error;
-            }
-          } catch (e: unknown) {
-            serverError = e instanceof Error ? e.message : 'Falha ao sincronizar com servidor';
+          const mirrorDel = await deleteMirrorPackage(pkgName);
+          if (!mirrorDel.ok) {
+            return NextResponse.json({ success: false, error: mirrorDel.error || 'Falha ao guardar no painel' });
           }
+          pushPackageToDaInBackground(action, paramsRecord, daManageCmd, auth);
+          scheduleDaSync(2000);
+          return NextResponse.json({ success: true, serverSynced: true, data: { savedToMirror: true } });
         }
 
-        let mirrorWarning: string | undefined;
-        if (serverSynced) {
-          if (action === 'deletePackage') {
-            if (pkgName) {
-              const mirrorDel = await deleteMirrorPackage(pkgName);
-              if (!mirrorDel.ok) {
-                mirrorWarning = mirrorDel.error || 'Pacote apagado no servidor mas falhou no painel';
-              }
-            }
-          } else {
-            const mirrorRow = packageMirrorRowFromParams(params as Record<string, unknown>);
-            if (mirrorRow) {
-              const mirrorSave = await upsertMirrorPackage(mirrorRow);
-              if (!mirrorSave.ok) {
-                mirrorWarning = mirrorSave.error || 'Pacote criado no servidor mas falhou no painel';
-              }
-            }
-          }
-          scheduleDaSync(0);
+        const mirrorRow = packageMirrorRowFromParams(paramsRecord);
+        if (!mirrorRow) {
+          return NextResponse.json(
+            { success: false, error: 'Nome do pacote obrigatório.' },
+            { status: 400 },
+          );
         }
+
+        const mirrorSave = await upsertMirrorPackage(mirrorRow);
+        if (!mirrorSave.ok) {
+          return NextResponse.json({
+            success: false,
+            error: mirrorSave.error || 'Falha ao guardar no painel',
+          });
+        }
+
+        pushPackageToDaInBackground(action, paramsRecord, daManageCmd, auth);
+        scheduleDaSync(2000);
 
         return NextResponse.json({
-          success: serverSynced,
-          data,
-          serverSynced,
-          warning: mirrorWarning,
-          error: serverSynced
-            ? mirrorWarning
-            : serverError || 'Falha ao sincronizar pacote com o servidor',
+          success: true,
+          serverSynced: true,
+          data: { savedToMirror: true },
         });
       }
 
+      const { daApi: api } = await resolvePanelDaContext(auth);
       let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
       const ok = mutationSucceeded(data);
       const errMsg =

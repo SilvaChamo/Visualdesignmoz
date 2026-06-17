@@ -55,6 +55,7 @@ type DomainsHubSectionProps = {
   onRefresh?: () => void | Promise<void>;
   onCreateEmail?: (domain: string) => void;
   onNavigate?: (section: string, opts?: { domain?: string }) => void;
+  onHubPanelClose?: () => void;
 };
 
 export function DomainsHubSection({
@@ -66,12 +67,18 @@ export function DomainsHubSection({
   onRefresh,
   onCreateEmail,
   onNavigate,
+  onHubPanelClose,
 }: DomainsHubSectionProps) {
   const [activeTab, setActiveTab] = useState<DomainHubTab>(initialTab);
   const [listSearch, setListSearch] = useState('');
   const [filteredCount, setFilteredCount] = useState(0);
   const { setChrome } = useAdminSectionChrome();
   const tabs = variant === 'admin' ? ADMIN_TABS : RESELLER_TABS;
+
+  const closeHubPanel = () => {
+    setActiveTab('meus');
+    onHubPanelClose?.();
+  };
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -182,7 +189,7 @@ export function DomainsHubSection({
           hubMode
           hubPanel="add"
           isActive={isActive}
-          onHubAddClose={() => setActiveTab('meus')}
+          onHubAddClose={closeHubPanel}
         />
       ) : null}
 

@@ -289,8 +289,20 @@ export async function upsertMirrorPackage(row: {
 export async function deleteMirrorPackage(packageName: string): Promise<{ ok: boolean; error?: string }> {
   const sb = getDaSyncAdmin();
   if (!sb) return { ok: false, error: 'Base de dados indisponível' };
-  const { error } = await sb.from('panel_packages').delete().eq('package_name', packageName);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  const name = packageName.trim();
+  if (!name) return { ok: false, error: 'Nome do pacote obrigatório' };
+
+  const exact = await sb.from('panel_packages').delete({ count: 'exact' }).eq('package_name', name);
+  if (exact.error) return { ok: false, error: exact.error.message };
+  if ((exact.count ?? 0) > 0) return { ok: true };
+
+  if (!name.includes('__')) {
+    const prefixed = await sb.from('panel_packages').delete({ count: 'exact' }).like('package_name', `${name}__%`);
+    if (prefixed.error) return { ok: false, error: prefixed.error.message };
+    if ((prefixed.count ?? 0) > 0) return { ok: true };
+  }
+
+  return { ok: true };
 }
 
 type PackageLimitKey = 'quota' | 'bandwidth' | 'nemails' | 'mysql' | 'ftp' | 'vdomains';

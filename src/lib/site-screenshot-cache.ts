@@ -1,13 +1,15 @@
 const memory = new Map<string, string>();
 
+function memKey(domain: string, width: number) {
+  return `${domain.toLowerCase()}:${width}`;
+}
+
 export function screenshotApiUrl(domain: string, width = 600) {
   return `/api/server-exec?action=getScreenshot&domain=${encodeURIComponent(domain)}&w=${width}`;
 }
 
-export function getCachedScreenshot(domain: string): string | null {
-  const hit = memory.get(domain);
-  if (!hit) return null;
-  return hit;
+export function getCachedScreenshot(domain: string, width = 600): string | null {
+  return memory.get(memKey(domain, width)) ?? null;
 }
 
 async function fetchScreenshotBlob(domain: string, width = 600): Promise<Blob | null> {
@@ -33,11 +35,11 @@ async function fetchScreenshotBlob(domain: string, width = 600): Promise<Blob | 
 }
 
 export async function prefetchScreenshot(domain: string, width = 600): Promise<string | null> {
-  const key = domain.toLowerCase();
+  const key = memKey(domain, width);
   const cached = memory.get(key);
   if (cached) return cached;
 
-  const blob = await fetchScreenshotBlob(key, width);
+  const blob = await fetchScreenshotBlob(domain, width);
   if (!blob) return null;
 
   const url = URL.createObjectURL(blob);
@@ -46,8 +48,8 @@ export async function prefetchScreenshot(domain: string, width = 600): Promise<s
 }
 
 export async function loadScreenshot(domain: string, width = 600): Promise<string | null> {
-  const key = domain.toLowerCase();
+  const key = memKey(domain, width);
   const cached = memory.get(key);
   if (cached) return cached;
-  return prefetchScreenshot(key, width);
+  return prefetchScreenshot(domain, width);
 }

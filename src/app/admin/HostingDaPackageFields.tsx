@@ -9,13 +9,17 @@ import {
   type ResellerResourceField,
 } from '@/lib/reseller-package-form';
 import {
-  DaCheckboxRow,
   DaFormRow,
   DaLimitRow,
-  DaPolicyRow,
   DaSectionTitle,
 } from '@/lib/panel-da-form-rows';
 import { panelField } from '@/lib/panel-ui';
+
+/** Mesmo arredondamento da lista de contas (`rounded`, não `rounded-xl`). */
+const formCardCls =
+  'rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900';
+
+const sectionRule = 'border-gray-200 dark:border-zinc-700';
 
 type Props = {
   form: ResellerPackageFormState;
@@ -72,56 +76,83 @@ export function HostingDaPackageFields({ form, onChange, showPackageName = true,
         ))}
       </section>
 
-      <section>
-        {FEATURE_ROWS.map(([key, label]) => (
-          <DaCheckboxRow
-            key={key}
-            label={label}
-            checked={form.features[key]}
-            onChange={(v) => setFeature(key, v)}
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-zinc-400">
+            Domínio associado
+          </label>
+          <input
+            value={form.ownerDomain}
+            onChange={(e) => onChange({ ...form, ownerDomain: e.target.value })}
+            placeholder="cliente.com"
+            className={`${panelField} w-full`}
           />
-        ))}
-
-        <DaFormRow label="Skin" showUnlimited={false}>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-zinc-400">Skin</label>
           <select
-            value={form.skin}
-            onChange={(e) => onChange({ ...form, skin: e.target.value })}
-            className={`${panelField} min-w-0 flex-1`}
+            value={form.appearanceMode}
+            onChange={(e) => onChange({ ...form, appearanceMode: e.target.value as 'light' | 'dark' })}
+            className={`${panelField} w-full`}
           >
-            <option value="evolution">Evolution</option>
-            <option value="enhanced">Enhanced</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
           </select>
-        </DaFormRow>
-      </section>
+        </div>
+      </div>
 
-      <DaSectionTitle>Conjunto de recursos</DaSectionTitle>
-      <section>
-        <DaPolicyRow label="Política">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="feature-set-policy"
-              checked={form.featureSets.policy === 'all'}
-              onChange={() => onChange({ ...form, featureSets: { ...form.featureSets, policy: 'all' } })}
-            />
-            Permitir todos os comandos
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="feature-set-policy"
-              checked={form.featureSets.policy === 'selected'}
-              onChange={() => onChange({ ...form, featureSets: { ...form.featureSets, policy: 'selected' } })}
-            />
-            Permitir recursos seleccionados
-          </label>
-        </DaPolicyRow>
+      <div className={`mb-4 p-4 ${formCardCls}`}>
+        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-600 dark:text-zinc-300">
+          Funcionalidades
+        </p>
+        <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURE_ROWS.map(([key, label]) => (
+            <label
+              key={key}
+              className="flex min-h-[34px] items-center gap-2 text-sm text-gray-700 dark:text-zinc-200"
+            >
+              <input
+                type="checkbox"
+                className="shrink-0"
+                checked={form.features[key]}
+                onChange={(e) => setFeature(key, e.target.checked)}
+              />
+              <span className="truncate whitespace-nowrap">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
 
-        {form.featureSets.policy === 'selected' && (
-          <DaFormRow label="Conjunto" showUnlimited={false}>
-            <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+      <section className={`mb-4 border-t border-b ${sectionRule} py-4`}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="min-w-0">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-600 dark:text-zinc-300">
+            Conjunto de recursos
+          </p>
+          <div className="flex flex-col gap-2 text-sm">
+            <label className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
+              <input
+                type="radio"
+                name="feature-set-policy"
+                checked={form.featureSets.policy === 'all'}
+                onChange={() => onChange({ ...form, featureSets: { ...form.featureSets, policy: 'all' } })}
+              />
+              <span className="truncate whitespace-nowrap">Permitir todos os comandos</span>
+            </label>
+            <label className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
+              <input
+                type="radio"
+                name="feature-set-policy"
+                checked={form.featureSets.policy === 'selected'}
+                onChange={() => onChange({ ...form, featureSets: { ...form.featureSets, policy: 'selected' } })}
+              />
+              <span className="truncate whitespace-nowrap">Permitir recursos seleccionados</span>
+            </label>
+          </div>
+          {form.featureSets.policy === 'selected' && (
+            <div className="mt-3 flex flex-col gap-2 border-t border-gray-100 pt-3 text-sm dark:border-zinc-800">
               {Object.entries(FEATURE_SET_OPTIONS).map(([value, label]) => (
-                <label key={value} className="flex items-center gap-2">
+                <label key={value} className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
                   <input
                     type="checkbox"
                     checked={form.featureSets.selected.includes(value)}
@@ -132,45 +163,48 @@ export function HostingDaPackageFields({ form, onChange, showPackageName = true,
                       onChange({ ...form, featureSets: { ...form.featureSets, selected } });
                     }}
                   />
-                  {label}
+                  <span className="truncate whitespace-nowrap">{label}</span>
                 </label>
               ))}
             </div>
-          </DaFormRow>
-        )}
-      </section>
+          )}
+        </div>
 
-      <DaSectionTitle>Permitir/bloquear Plugins</DaSectionTitle>
-      <section>
-        <DaPolicyRow label="Política">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="plugin-policy"
-              checked={form.pluginPolicy.mode === 'allow_all'}
-              onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'allow_all' } })}
-            />
-            Permitir todos
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="plugin-policy"
-              checked={form.pluginPolicy.mode === 'deny_selected'}
-              onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'deny_selected' } })}
-            />
-            Bloquear seleccionados
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="plugin-policy"
-              checked={form.pluginPolicy.mode === 'allow_selected'}
-              onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'allow_selected' } })}
-            />
-            Permitir seleccionados
-          </label>
-        </DaPolicyRow>
+        <div className="min-w-0">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-600 dark:text-zinc-300">
+            Permitir/bloquear Plugins
+          </p>
+          <div className="flex flex-col gap-2 text-sm">
+            <label className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
+              <input
+                type="radio"
+                name="plugin-policy"
+                checked={form.pluginPolicy.mode === 'allow_all'}
+                onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'allow_all' } })}
+              />
+              <span className="truncate whitespace-nowrap">Permitir todos</span>
+            </label>
+            <label className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
+              <input
+                type="radio"
+                name="plugin-policy"
+                checked={form.pluginPolicy.mode === 'deny_selected'}
+                onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'deny_selected' } })}
+              />
+              <span className="truncate whitespace-nowrap">Bloquear seleccionados</span>
+            </label>
+            <label className="flex items-center gap-2 text-gray-700 dark:text-zinc-200">
+              <input
+                type="radio"
+                name="plugin-policy"
+                checked={form.pluginPolicy.mode === 'allow_selected'}
+                onChange={() => onChange({ ...form, pluginPolicy: { ...form.pluginPolicy, mode: 'allow_selected' } })}
+              />
+              <span className="truncate whitespace-nowrap">Permitir seleccionados</span>
+            </label>
+          </div>
+        </div>
+        </div>
       </section>
 
       <DaSectionTitle>Limites de recursos</DaSectionTitle>

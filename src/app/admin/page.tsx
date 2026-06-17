@@ -23,7 +23,7 @@ import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
-  SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
+  DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SSLViewSection, PHPConfigSection,
   APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
@@ -56,7 +56,7 @@ import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
-import { loadScreenshot, prefetchScreenshot } from '@/lib/site-screenshot-cache'
+import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache'
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
@@ -110,39 +110,33 @@ function getSiteIpAddress(site: DirectAdminWebsite): string {
 
 function SiteThumbnail({
   domain,
-  width = 600,
+  width = 320,
   className,
 }: {
   domain: string
   width?: number
   className?: string
 }) {
-  const [src, setSrc] = useState<string | null>(null)
+  const [src, setSrc] = useState<string | null>(() => getCachedScreenshot(domain, width))
 
   useEffect(() => {
-    let cancelled = false
-    setSrc(null)
-
-    const load = async () => {
-      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
-        const url = await loadScreenshot(domain, width)
-        if (cancelled) return
-        if (url) {
-          setSrc(url)
-          return
-        }
-        await new Promise((r) => setTimeout(r, attempt === 0 ? 800 : 1500))
-      }
+    const cached = getCachedScreenshot(domain, width)
+    if (cached) {
+      setSrc(cached)
+      return
     }
 
-    void load()
+    let cancelled = false
+    void loadScreenshot(domain, width).then((url) => {
+      if (!cancelled && url) setSrc(url)
+    })
     return () => { cancelled = true }
   }, [domain, width])
 
   if (!src) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 dark:bg-zinc-800 ${className || ''}`}>
-        <Globe className="h-8 w-8 text-gray-300 dark:text-zinc-600" />
+        <Globe className="h-8 w-8 animate-pulse text-gray-300 dark:text-zinc-600" />
       </div>
     )
   }
@@ -152,7 +146,7 @@ function SiteThumbnail({
       src={src}
       alt={`Pré-visualização de ${domain}`}
       className={`block object-cover object-top ${className || ''}`}
-      loading="eager"
+      loading="lazy"
       decoding="async"
     />
   )
@@ -813,10 +807,17 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const paginatedSites = filtered.slice(startIndex, startIndex + itemsPerPage)
 
   useEffect(() => {
-    sitesArray.forEach((s) => {
-      void prefetchScreenshot(s.domain, 600)
-    })
-  }, [sitesArray.map((s) => s.domain).join('|')])
+    const targets = wordpressOnly ? paginatedSites : sitesArray
+    const thumbWidth = wordpressOnly ? 320 : 600
+    const limit = wordpressOnly ? 8 : 12
+    for (const s of targets.slice(0, limit)) {
+      void prefetchScreenshot(s.domain, thumbWidth)
+    }
+  }, [
+    wordpressOnly,
+    paginatedSites.map((s) => s.domain).join('|'),
+    sitesArray.map((s) => s.domain).join('|'),
+  ])
 
   useEffect(() => {
     if (!wordpressOnly) return
@@ -1259,7 +1260,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <div className="w-[38%] max-w-[300px] shrink-0 h-[10.5rem] overflow-hidden rounded border border-gray-200 dark:border-zinc-600">
                     <SiteThumbnail
                       domain={s.domain}
-                      width={600}
+                      width={wordpressOnly ? 320 : 600}
                       className="h-full w-full"
                     />
                   </div>
@@ -1285,6 +1286,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   </div>
                 </div>
 
+                {!wordpressOnly ? (
                 <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-zinc-800">
                   <button
                     type="button"
@@ -1349,23 +1351,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Apagar
                   </button>
-                  {wordpressOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        try {
-                          sessionStorage.setItem('vd_wp_selected_domain', s.domain.toLowerCase())
-                        } catch {
-                          /* ignore */
-                        }
-                        setActiveSection('wp-plugins')
-                      }}
-                      className="flex items-center gap-1.5 rounded border border-gray-300 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 transition-colors hover:border-red-400 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-red-400"
-                    >
-                      <Plug className="h-3.5 w-3.5" /> Plugins
-                    </button>
-                  )}
                 </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -2576,7 +2563,8 @@ function AdminPageContent() {
     void loadDirectAdminData(false)
     const loadProfileOwner = async () => {
       try {
-        const user = await panelAuth.getCurrentUser()
+        const { data: { session } } = await createClientInstance.auth.getSession()
+        const user = session?.user
         if (!user) return
         const { profileAuthOrFilter } = await import('@/lib/profile-db')
         const { data } = await createClientInstance
@@ -2744,10 +2732,11 @@ function AdminPageContent() {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
               setActiveSection(section)
             }}
+            onHubPanelClose={() => setDomainHubTab('meus')}
           />
         )
       case 'cp-subdomains':
-        return <SubdomainsSection sites={filteredSites} />
+        return null
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
       case 'email-import':

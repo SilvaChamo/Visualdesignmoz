@@ -19,6 +19,7 @@ import {
   writeWebmailListCache,
   readWebmailBodyCache,
   writeWebmailBodyCache,
+  pickDefaultWebmailAccount,
   type WebmailAccountRow,
 } from '@/lib/panel-webmail-cache'
 
@@ -57,17 +58,32 @@ export function WebmailSection({
   onNavigate
 }: WebmailSectionProps) {
   // Estados principais
-  const [accounts, setAccounts] = useState<EmailAccount[]>([])
-  const [allAccounts, setAllAccounts] = useState<EmailAccount[]>([])
-  const accountsRef = useRef<EmailAccount[]>([])
-  const [selectedAccount, setSelectedAccount] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+  const initialAccountsCache = typeof window !== 'undefined' ? readWebmailAccountsCache() : null
+  const initialAccountEmail = initialAccountsCache?.length
+    ? pickDefaultWebmailAccount(initialAccountsCache, userEmail)
+    : ''
+  const initialInboxCache = initialAccountEmail
+    ? readWebmailListCache(initialAccountEmail, 'INBOX', true)
+    : null
+  const [accounts, setAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
+  const [allAccounts, setAllAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
+  const accountsRef = useRef<EmailAccount[]>(initialAccountsCache || [])
+  const [selectedAccount, setSelectedAccount] = useState<string>(() => initialAccountEmail)
+  const [loading, setLoading] = useState(() => !initialAccountsCache?.length)
   const sitesLoadedKeyRef = useRef('')
-  const folderCountsLoadedRef = useRef(false)
+  const folderCountsLoadedRef = useRef(Boolean(initialInboxCache?.folderTotals && Object.keys(initialInboxCache.folderTotals).length > 0))
   const [activeFolder, setActiveFolder] = useState('INBOX')
-  const [emails, setEmails] = useState<any[]>([])
-  const [folderCounts, setFolderCounts] = useState<Record<string, number>>({ INBOX: 0, Sent: 0, Drafts: 0, Trash: 0, Junk: 0, Archive: 0 })
-  const [loadingEmails, setLoadingEmails] = useState(false)
+  const [emails, setEmails] = useState<any[]>(() => initialInboxCache?.emails || [])
+  const [folderCounts, setFolderCounts] = useState<Record<string, number>>(() => ({
+    INBOX: 0,
+    Sent: 0,
+    Drafts: 0,
+    Trash: 0,
+    Junk: 0,
+    Archive: 0,
+    ...(initialInboxCache?.folderTotals || {}),
+  }))
+  const [loadingEmails, setLoadingEmails] = useState(() => !initialInboxCache?.emails?.length)
   const [loadingEmailBody, setLoadingEmailBody] = useState(false)
   const [emailBodyError, setEmailBodyError] = useState('')
   const [syncingEmails, setSyncingEmails] = useState(false)
@@ -163,7 +179,8 @@ export function WebmailSection({
   // Credenciais devem vir do Supabase ou do formulário de importação.
   const CREDENCIAIS_PADRAO: Record<string, string> = {}
 
-  const readListCache = (account: string, folder: string) => readWebmailListCache(account, folder)
+  const readListCache = (account: string, folder: string, allowStale = false) =>
+    readWebmailListCache(account, folder, allowStale)
 
   const writeListCache = (
     account: string,
@@ -265,7 +282,8 @@ export function WebmailSection({
   const setCachedData = (account: string, folder: string, list: any[], counts?: Record<string, number>) => {
     writeListCache(account, folder, list, counts)
   }
-  const getCachedData = (account: string, folder: string) => readListCache(account, folder)
+  const getCachedData = (account: string, folder: string, allowStale = false) =>
+    readListCache(account, folder, allowStale)
 
   // Carregar emails quando mudar conta, pasta ou lista de contas
   useEffect(() => {
@@ -399,9 +417,9 @@ export function WebmailSection({
     return merged
   }
 
-  const loadEmailAccounts = async () => {
+  const loadEmailAccounts = async (options?: { includeDomainContacts?: boolean }) => {
     const cached = readAccountsCache()
-    if (cached?.length && accountsRef.current.length === 0) {
+    if (cached?.length) {
       const fromCache = mergeImportedAccounts(cached)
       applyAccountList(fromCache)
       setLoading(false)
@@ -412,45 +430,45 @@ export function WebmailSection({
     try {
       const consolidated: EmailAccount[] = []
 
-      const fetchSupabase = async (): Promise<EmailAccount[]> => {
-        try {
-          const res = await fetch('/api/email-contas', { credentials: 'include' })
-          const data = await res.json()
-          if (data.success && Array.isArray(data.contas)) {
-            return mapEmailContasToWebmailAccounts(data.contas)
+      try {
+        const res = await fetch('/api/email-contas', { credentials: 'include' })
+        const data = await res.json()
+        if (data.success && Array.isArray(data.contas)) {
+          for (const acc of mapEmailContasToWebmailAccounts(data.contas)) {
+            if (!consolidated.find((a) => a.email === acc.email)) consolidated.push(acc)
           }
-        } catch (e) {
-          console.error('Erro ao buscar do Supabase:', e)
         }
-        return []
+      } catch (e) {
+        console.error('Erro ao buscar contas:', e)
       }
 
-      const fetchContactsPromises = (sites || []).map(async (site: { domain?: string }) => {
-        if (!site?.domain) return [] as EmailAccount[]
-        try {
-          const res = await fetch(
-            `/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`,
-            { credentials: 'include' },
-          )
-          const data = await res.json()
-          if (data.success && Array.isArray(data.emails)) {
-            return data.emails.map((email: string) => ({
-              email,
-              name: email.split('@')[0],
-              domain: site.domain!,
-              password: CREDENCIAIS_PADRAO[email],
-              tipo: 'webmail' as const,
-            }))
+      if (options?.includeDomainContacts && (sites || []).length) {
+        const fetchContactsPromises = (sites || []).map(async (site: { domain?: string }) => {
+          if (!site?.domain) return [] as EmailAccount[]
+          try {
+            const res = await fetch(
+              `/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`,
+              { credentials: 'include' },
+            )
+            const data = await res.json()
+            if (data.success && Array.isArray(data.emails)) {
+              return data.emails.map((email: string) => ({
+                email,
+                name: email.split('@')[0],
+                domain: site.domain!,
+                password: CREDENCIAIS_PADRAO[email],
+                tipo: 'webmail' as const,
+              }))
+            }
+          } catch (e) {
+            console.error(`Erro ao buscar contactos de ${site.domain}:`, e)
           }
-        } catch (e) {
-          console.error(`Erro ao buscar contactos de ${site.domain}:`, e)
+          return []
+        })
+        const contactResults = await Promise.all(fetchContactsPromises)
+        for (const acc of contactResults.flat()) {
+          if (!consolidated.find((a) => a.email === acc.email)) consolidated.push(acc)
         }
-        return []
-      })
-
-      const results = await Promise.all([fetchSupabase(), ...fetchContactsPromises])
-      for (const acc of results.flat()) {
-        if (!consolidated.find((a) => a.email === acc.email)) consolidated.push(acc)
       }
 
       if (userEmail && !consolidated.find((a) => a.email === userEmail)) {
@@ -490,12 +508,13 @@ export function WebmailSection({
       return
     }
 
-    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder) : null
+    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, true) : null
     const hadCachedList = Boolean(cachedList?.emails?.length)
     if (cachedList?.emails?.length) {
       setEmails(cachedList.emails)
       if (cachedList.folderTotals && Object.keys(cachedList.folderTotals).length > 0) {
         setFolderCounts((prev) => ({ ...prev, ...cachedList.folderTotals }))
+        folderCountsLoadedRef.current = true
       }
     }
 
@@ -506,15 +525,12 @@ export function WebmailSection({
     }
 
     try {
-      const password = await getPasswordForAccount(account)
-
       const res = await fetch('/api/read-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           email: account.email,
-          ...(password ? { password } : {}),
           folders: [activeFolder],
           limit: 20,
           search: debouncedSearchQuery,
@@ -533,20 +549,8 @@ export function WebmailSection({
           setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
         }
 
-        if (password) {
-          const cachedCred = validCredentials[account.email]
-          if (!cachedCred || Date.now() >= cachedCred.expiresAt) {
-            setValidCredentials((prev) => ({
-              ...prev,
-              [account.email]: { password, expiresAt: Date.now() + CREDENTIAL_CACHE_DURATION },
-            }))
-          }
-        }
-
         if (!debouncedSearchQuery && !folderCountsLoadedRef.current) {
-          window.setTimeout(() => {
-            if (!folderCountsLoadedRef.current) void refreshAllFolderCounts()
-          }, 20000)
+          void refreshAllFolderCounts()
         }
       } else {
         const errorLower = (data.error || '').toLowerCase()
@@ -557,11 +561,43 @@ export function WebmailSection({
           errorLower.includes('credenciais') ||
           errorLower.includes('imap')
         ) {
-          setValidCredentials((prev) => {
-            const updated = { ...prev }
-            delete updated[account.email]
-            return updated
-          })
+          const password = await getPasswordForAccount(account)
+          if (password) {
+            const retry = await fetch('/api/read-emails', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                email: account.email,
+                password,
+                folders: [activeFolder],
+                limit: 20,
+                search: debouncedSearchQuery,
+                includeTotals: false,
+              }),
+              signal: controller.signal,
+            })
+            const retryData = await retry.json()
+            if (retryData.success) {
+              const newEmails = retryData.emails || []
+              setEmails(newEmails)
+              if (!debouncedSearchQuery) {
+                setCachedData(selectedAccount, activeFolder, newEmails, retryData.folderTotals)
+              }
+            } else {
+              setValidCredentials((prev) => {
+                const updated = { ...prev }
+                delete updated[account.email]
+                return updated
+              })
+            }
+          } else {
+            setValidCredentials((prev) => {
+              const updated = { ...prev }
+              delete updated[account.email]
+              return updated
+            })
+          }
         }
       }
     } catch (error: any) {
@@ -634,7 +670,7 @@ export function WebmailSection({
       const data = await res.json()
       if (data.success) {
         alert(`Sincronização concluída!\nEmails encontrados: ${data.results?.emailsFound}\nNovos usuários: ${data.results?.usersCreated}`)
-        loadEmailAccounts() // Recarregar lista
+        loadEmailAccounts({ includeDomainContacts: true }) // Recarregar lista completa
       } else {
         alert('Erro na sincronização: ' + (data.error || 'Erro desconhecido'))
       }

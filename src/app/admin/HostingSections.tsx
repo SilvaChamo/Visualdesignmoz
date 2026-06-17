@@ -14,6 +14,9 @@ import { syncUserToSupabase, removeUserFromSupabase, getUsersFromSupabase, syncW
 import {
   clearPanelUsersCache,
   readPanelUsersCache,
+  writePanelUsersCache,
+  fetchPanelUsers,
+  fetchPanelUsersStaleWhileRevalidate,
 } from '@/lib/panel-users-cache'
 import { readPackagesCache, writePackagesCache, clearPackagesCache } from '@/lib/panel-packages-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
@@ -44,7 +47,7 @@ import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
 import { buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { HostingPackageFormInline } from '@/app/admin/HostingPackageFormInline'
-import { createDefaultResellerPackageForm, packageListRowToForm, type ResellerPackageFormState } from '@/lib/reseller-package-form'
+import { composePackageName, createDefaultResellerPackageForm, normalizePackageFormForEditor, packageListRowToForm, splitCompositePackageName, type ResellerPackageFormState } from '@/lib/reseller-package-form'
 import { parseJsonResponse } from '@/lib/safe-fetch-json'
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns'
 import {
@@ -2569,32 +2572,46 @@ export function CPUsersSection({
   }
 
   const loadPanelAccounts = async (options?: { fresh?: boolean }) => {
-    if (options?.fresh) clearPanelUsersCache()
-
-    const bootCached = !options?.fresh ? readBootstrapCache() : null
-    if (bootCached?.accounts?.length) {
-      applyPanelAccounts({ users: bootCached.accounts, counts: bootCached.accountCounts || {} })
-      setLoading(false)
+    if (options?.fresh) {
+      clearPanelUsersCache()
+      setLoading(true)
+      try {
+        const data = await fetchPanelUsers({ fresh: true })
+        applyPanelAccounts(data)
+      } catch (e: unknown) {
+        console.error('[CPUsersSection] panel-users:', e)
+      } finally {
+        setLoading(false)
+      }
       return
     }
 
-    const cached = !options?.fresh ? readPanelUsersCache() : null
+    const bootCached = readBootstrapCache()
+    if (bootCached?.accounts?.length) {
+      const payload = { users: bootCached.accounts, counts: bootCached.accountCounts || {} }
+      applyPanelAccounts(payload)
+      writePanelUsersCache(payload)
+      setLoading(false)
+      void fetchPanelUsersStaleWhileRevalidate(applyPanelAccounts)
+      return
+    }
+
+    const cached = readPanelUsersCache()
     if (cached) {
       applyPanelAccounts(cached)
       setLoading(false)
+      void fetchPanelUsersStaleWhileRevalidate(applyPanelAccounts)
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/panel-users', { credentials: 'include' })
-      const json = await res.json()
-      if (res.ok && json.success) {
-        applyPanelAccounts({ users: json.users || [], counts: json.counts || {} })
-      }
+      await fetchPanelUsersStaleWhileRevalidate((data) => {
+        applyPanelAccounts(data)
+        setLoading(false)
+      })
     } catch (e: unknown) {
       console.error('[CPUsersSection] panel-users:', e)
-    } finally {
       setLoading(false)
     }
   }
@@ -3680,13 +3697,23 @@ export function CPUsersSection({
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
               {msg && <div className={`mb-3 px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('✅') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
-              <div className="flex items-center justify-end gap-3">
-                <button onClick={() => setUserModal({ ...userModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
-                <button onClick={() => {
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setUserModal({ ...userModal, show: false })} className={panelBtnSecondary}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                   if (userModal.mode === 'create') handleCreate(userModal.data)
                   else if (isPanelAuthForm) handlePanelUpdate(userModal.data)
                   else handleUpdate(userModal.data)
-                }} disabled={loading || creating} className="px-6 py-2 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 rounded text-xs font-bold  transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {userModal.mode === 'create' ? (isPanelAuthCreate ? 'Criar conta' : 'Criar Utilizador') : 'Guardar Alterações'}</button>
+                }}
+                  disabled={loading || creating}
+                  className={panelBtnPrimary}
+                >
+                  {(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {userModal.mode === 'create' ? (isPanelAuthCreate ? 'Criar conta' : 'Criar Utilizador') : 'Guardar alterações'}
+                </button>
               </div>
             </div>
           </div>
@@ -4134,6 +4161,21 @@ function parseSslRenewalDate(dates?: string): string {
   }
 }
 
+function sslHostRowsFromCachedSsl(domain: string, hostSsl: Record<string, boolean>): SslHostRow[] {
+  const domainLower = domain.toLowerCase()
+  return Object.keys(hostSsl)
+    .sort((a, b) => a.localeCompare(b))
+    .map((hostname) => {
+      const h = hostname.toLowerCase()
+      let type = 'Subdomínio'
+      if (h === domainLower) type = 'Domínio principal'
+      else if (h === `www.${domainLower}`) type = 'Alias www'
+      else if (h === `mail.${domainLower}`) type = 'Email'
+      else if (h === `webmail.${domainLower}`) type = 'Webmail'
+      return { hostname, parentDomain: domain, type }
+    })
+}
+
 export function SSLSection({
   sites,
   initialDomain,
@@ -4178,6 +4220,58 @@ export function SSLSection({
   useEffect(() => {
     let cancelled = false
 
+    const refreshSslNetwork = async (
+      allRows: SslHostRow[],
+      renewalSeed: string,
+      hostSslSeed: Record<string, boolean>,
+    ) => {
+      const hostnames = allRows.map((h) => h.hostname)
+      let renewalDate = renewalSeed
+      let nextHostSsl = hostSslSeed
+
+      try {
+        const [certRes, sslRes] = await Promise.all([
+          fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getSslCertificate', params: { hostname: filterDomain } }),
+          }),
+          hostnames.length
+            ? fetch('/api/server-exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
+              })
+            : Promise.resolve(null),
+        ])
+
+        if (cancelled) return
+
+        const certJson = await certRes.json()
+        if (certJson.success && certJson.data?.success !== false && certJson.data?.certificate) {
+          writeSslCertCache(filterDomain, certJson.data as CachedSslCert)
+          renewalDate = parseSslRenewalDate(certJson.data.dates)
+          setSslRenewalDate(renewalDate)
+        }
+
+        if (sslRes) {
+          const sslData = await sslRes.json()
+          if (sslData.success && sslData.data?.ssl) {
+            nextHostSsl = sslData.data.ssl as Record<string, boolean>
+            setHostSsl(nextHostSsl)
+            writeSiteSslCache(nextHostSsl)
+            setHosts(sslHostRowsFromCachedSsl(filterDomain, nextHostSsl))
+          }
+        }
+
+        if (Object.keys(nextHostSsl).length > 0) {
+          writeSslHostsCache(filterDomain, { hostSsl: nextHostSsl, renewalDate })
+        }
+      } catch {
+        /* mantém cache */
+      }
+    }
+
     const loadHosts = async () => {
       if (!filterDomain || !visibleSites.length) {
         setHosts([])
@@ -4187,16 +4281,24 @@ export function SSLSection({
         return
       }
 
-      const cached = readSslHostsCache(filterDomain)
-      if (cached?.hostSsl && Object.keys(cached.hostSsl).length > 0) {
+      const cached = readSslHostsCache(filterDomain, true)
+      const cachedCert = readSslCertCache(filterDomain, true)
+      const hadCache = Boolean(cached?.hostSsl && Object.keys(cached.hostSsl).length > 0)
+
+      if (hadCache && cached?.hostSsl) {
         setHostSsl(cached.hostSsl)
+        setHosts(sslHostRowsFromCachedSsl(filterDomain, cached.hostSsl))
         if (cached.renewalDate) setSslRenewalDate(cached.renewalDate)
         setLoadingHosts(false)
-      } else {
-        setLoadingHosts(true)
+
+        const rows = sslHostRowsFromCachedSsl(filterDomain, cached.hostSsl)
+        const renewalSeed = cached.renewalDate || parseSslRenewalDate(cachedCert?.dates)
+        void refreshSslNetwork(rows, renewalSeed, cached.hostSsl)
+        return
       }
 
-      const cachedCert = readSslCertCache(filterDomain)
+      setLoadingHosts(true)
+
       if (cachedCert?.dates) {
         setSslRenewalDate(parseSslRenewalDate(cachedCert.dates))
       }
@@ -4227,50 +4329,8 @@ export function SSLSection({
       setHosts(allRows)
       setSelectedHosts(new Set())
 
-      const hostnames = allRows.map((h) => h.hostname)
-      let renewalDate = cached?.renewalDate || parseSslRenewalDate(cachedCert?.dates)
-      let nextHostSsl = cached?.hostSsl || {}
-
-      try {
-        const [certRes, sslRes] = await Promise.all([
-          fetch('/api/da', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'getSslCertificate', params: { hostname: filterDomain } }),
-          }),
-          hostnames.length
-            ? fetch('/api/server-exec', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
-              })
-            : Promise.resolve(null),
-        ])
-
-        if (!cancelled) {
-          const certJson = await certRes.json()
-          if (certJson.success && certJson.data?.success !== false && certJson.data?.certificate) {
-            writeSslCertCache(filterDomain, certJson.data as CachedSslCert)
-            renewalDate = parseSslRenewalDate(certJson.data.dates)
-            setSslRenewalDate(renewalDate)
-          }
-
-          if (sslRes) {
-            const sslData = await sslRes.json()
-            if (sslData.success && sslData.data?.ssl) {
-              nextHostSsl = sslData.data.ssl as Record<string, boolean>
-              setHostSsl(nextHostSsl)
-              writeSiteSslCache(nextHostSsl)
-            }
-          }
-
-          if (Object.keys(nextHostSsl).length > 0) {
-            writeSslHostsCache(filterDomain, { hostSsl: nextHostSsl, renewalDate })
-          }
-        }
-      } catch {
-        /* mantém cache */
-      }
+      const renewalSeed = parseSslRenewalDate(cachedCert?.dates)
+      await refreshSslNetwork(allRows, renewalSeed, {})
 
       if (!cancelled) setLoadingHosts(false)
     }
@@ -6636,7 +6696,6 @@ export function PackagesSection({
   const [loadingLive, setLoadingLive] = useState(false)
   const [packageForm, setPackageForm] = useState<ResellerPackageFormState>(() => createDefaultResellerPackageForm())
   const [savingPackage, setSavingPackage] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [editingPackageName, setEditingPackageName] = useState<string | null>(null)
@@ -6708,6 +6767,9 @@ export function PackagesSection({
     allowedDomains: form.limits.vdomains.unlimited ? '-' : (form.limits.vdomains.value || '0'),
   })
 
+  const normalizeFormForEditor = (form: ResellerPackageFormState, fullName: string) =>
+    normalizePackageFormForEditor(form, fullName)
+
   const upsertLivePackage = (nextPkg: any) => {
     setLivePackages((prev) => {
       const current = prev.length > 0 ? prev : packages
@@ -6735,12 +6797,21 @@ export function PackagesSection({
   const handleSavePackage = async () => {
     if (!packageForm.packageName.trim() || savingPackage) return
     const isEdit = Boolean(editingPackageName)
-    const name = (editingPackageName || packageForm.packageName).trim()
+    const baseName = packageForm.packageName.trim()
+    const composedName = composePackageName(baseName, packageForm.ownerDomain || '')
+    const name = isEdit ? String(editingPackageName || composedName).trim() : composedName
+    if (!name) {
+      setMsg('Erro: define nome e domínio do pacote.')
+      return
+    }
+    const formSnapshot = { ...packageForm }
+    const editingSnapshot = editingPackageName
     const previousPackages = [...displayPackages]
     const optimisticRow = packageRowFromForm(packageForm, name)
-    setSavingPackage(true)
-    setMsg('')
     upsertLivePackage(optimisticRow)
+    closePackageForm()
+    setMsg(isEdit ? 'Pacote actualizado.' : 'Pacote criado.')
+    setSavingPackage(true)
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
@@ -6750,7 +6821,7 @@ export function PackagesSection({
           action: isEdit ? 'editPackage' : 'createPackage',
           params: {
             packageName: name,
-            hostingPackageForm: { ...packageForm, packageName: name },
+            hostingPackageForm: { ...packageForm, packageName: baseName },
           },
         }),
       })
@@ -6762,32 +6833,29 @@ export function PackagesSection({
         warning?: string
       }>(res)
       const synced = data.success && data.serverSynced !== false
-      if (synced) {
-        setEditingPackageName(name)
-        setShowPackageForm(true)
-        setPackageForm((prev) => ({ ...prev, packageName: name }))
-        setMsg(
-          data.warning
-            ? `Aviso: ${data.warning}`
-            : isEdit
-              ? 'Pacote actualizado com sucesso!'
-              : 'Pacote criado com sucesso!',
-        )
-        void onRefresh()
-        void loadLivePackages({ background: true })
-      } else {
+      if (!synced) {
         setLivePackages(previousPackages as any[])
         writePackagesCache(previousPackages as any[])
+        setPackageForm(formSnapshot)
+        setEditingPackageName(editingSnapshot)
+        setShowPackageForm(true)
         setMsg(
           'Erro: ' +
             (data.error ||
               data.data?.error ||
-              (isEdit ? 'Falha ao actualizar pacote no servidor' : 'Falha ao criar pacote no servidor')),
+              (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')),
         )
+      } else if (data.warning) {
+        setMsg(`Aviso: ${data.warning}`)
       }
+      void onRefresh()
+      void loadLivePackages({ background: true })
     } catch (e: any) {
       setLivePackages(previousPackages as any[])
       writePackagesCache(previousPackages as any[])
+      setPackageForm(formSnapshot)
+      setEditingPackageName(editingSnapshot)
+      setShowPackageForm(true)
       setMsg('Erro: ' + e.message)
     } finally {
       setSavingPackage(false)
@@ -6797,7 +6865,7 @@ export function PackagesSection({
   const openEditPackage = (pkg: any) => {
     const name = String(pkg.packageName || pkg.name || '').trim()
     if (!name) return
-    const initialForm = packageListRowToForm(pkg, name)
+    const initialForm = normalizeFormForEditor(packageListRowToForm(pkg, name), name)
     setPackageForm(initialForm)
     setEditingPackageName(name)
     setShowPackageForm(true)
@@ -6815,7 +6883,7 @@ export function PackagesSection({
         })
         const data = await parseJsonResponse<{ success?: boolean; data?: ResellerPackageFormState }>(res)
         if (data.success && data.data && typeof data.data === 'object') {
-          setPackageForm(data.data)
+          setPackageForm(normalizeFormForEditor(data.data as ResellerPackageFormState, name))
         }
       } catch {
         /* mantém formulário da listagem */
@@ -6825,27 +6893,29 @@ export function PackagesSection({
 
   const handleDelete = async (name: string) => {
     if (!confirm(`Apagar pacote "${name}"?`)) return
-    setDeleting(name); setMsg('')
+    const previousPackages = [...displayPackages]
+    removeLivePackage(name)
+    setMsg('Pacote apagado.')
     try {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deletePackage', params: { packageName: name } })
+        body: JSON.stringify({ action: 'deletePackage', params: { packageName: name } }),
       })
       const data = await parseJsonResponse<{ success?: boolean; error?: string }>(res)
-      if (data.success) {
-        removeLivePackage(name)
-        setMsg('Pacote apagado com sucesso!')
-        void onRefresh()
-        void loadLivePackages()
-      } else {
+      if (!data.success) {
+        setLivePackages(previousPackages as any[])
+        writePackagesCache(previousPackages as any[])
         setMsg('Erro: ' + (data.error || 'Falha ao apagar pacote'))
       }
+      void onRefresh()
+      void loadLivePackages({ background: true })
     } catch (e: any) {
+      setLivePackages(previousPackages as any[])
+      writePackagesCache(previousPackages as any[])
       setMsg('Erro: ' + e.message)
     }
-    setDeleting(null)
   }
 
   return (
@@ -6861,19 +6931,7 @@ export function PackagesSection({
           <span className="hidden sm:block" aria-hidden />
         )}
         <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
-        {showPackageForm ? (
-          <button
-            type="button"
-            onClick={closePackageForm}
-            className={
-              editingPackageName
-                ? 'inline-flex h-[38px] items-center gap-2 rounded border border-red-200 bg-red-50/80 px-4 text-sm font-medium text-red-700 transition-colors hover:bg-red-100/90 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50'
-                : panelBtnSecondary
-            }
-          >
-            {editingPackageName ? 'Cancelar edição da conta' : 'Cancelar'}
-          </button>
-        ) : (
+        {!showPackageForm ? (
           <>
             <button
               type="button"
@@ -6897,7 +6955,7 @@ export function PackagesSection({
               <RefreshCw className={`h-4 w-4 ${loadingLive ? 'animate-spin' : ''}`} />
             </button>
           </>
-        )}
+        ) : null}
         </div>
       </div>
 
@@ -6909,6 +6967,7 @@ export function PackagesSection({
 
       {showPackageForm ? (
         <HostingPackageFormInline
+          key={editingPackageName ?? 'new'}
           form={packageForm}
           onChange={setPackageForm}
           onCancel={closePackageForm}
@@ -6929,9 +6988,20 @@ export function PackagesSection({
             {displayPackages.map((pkg: any, i: number) => (
               <div key={i} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
                 <div className="col-span-12 min-w-0 self-center sm:col-span-3">
-                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
-                    {pkg.packageName || pkg.name || '-'}
-                  </p>
+                  {(() => {
+                    const name = String(pkg.packageName || pkg.name || '-')
+                    const split = splitCompositePackageName(name)
+                    return (
+                      <>
+                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                          {split.packageName || '-'}
+                        </p>
+                        <p className="truncate text-[11px] text-gray-500 dark:text-zinc-400">
+                          Domínio: {split.ownerDomain || '—'}
+                        </p>
+                      </>
+                    )
+                  })()}
                 </div>
                 <div className="col-span-12 self-center sm:col-span-7">
                   <p className="text-xs text-gray-600 dark:text-zinc-400">
@@ -6949,10 +7019,9 @@ export function PackagesSection({
                   <button
                     type="button"
                     onClick={() => handleDelete(pkg.packageName || pkg.name)}
-                    disabled={deleting === (pkg.packageName || pkg.name)}
-                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5 text-red-600 hover:text-red-800 disabled:opacity-50`}
+                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5 text-red-600 hover:text-red-800`}
                   >
-                    {deleting === (pkg.packageName || pkg.name) ? 'A eliminar…' : 'Eliminar pacote'}
+                    Eliminar pacote
                   </button>
                 </div>
               </div>
@@ -8848,6 +8917,7 @@ export function DomainManagerSection({
       <div className="w-full">
         <DomainCreateModal
           show
+          sites={sites}
           onClose={() => onHubAddClose?.()}
           onSuccess={() => {
             onHubAddClose?.()
@@ -8974,6 +9044,7 @@ export function DomainManagerSection({
       {/* Modal de Criação de Domínio */}
       <DomainCreateModal
         show={domainModal}
+        sites={sites}
         onClose={() => setDomainModal(false)}
         onSuccess={() => {
           setDomainModal(false)
@@ -9479,8 +9550,20 @@ function EmailCreateModal({ show, domain, onClose, onSuccess }: { show: boolean,
   )
 }
 
-// Modal de Criação de Domínio (componente reutilizável)
-function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boolean, onClose: () => void, onSuccess: () => void, packages?: any[] }) {
+// Modal de Criação de Domínio / Subdomínio (componente reutilizável)
+function DomainCreateModal({
+  show,
+  onClose,
+  onSuccess,
+  packages,
+  sites = [],
+}: {
+  show: boolean
+  onClose: () => void
+  onSuccess: () => void
+  packages?: DirectAdminPackage[]
+  sites?: DirectAdminWebsite[]
+}) {
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
   const [newDomain, setNewDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
@@ -9493,7 +9576,7 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
     if (newDomain && !docRoot) {
       setDocRoot(`public_html/${newDomain}`)
     }
-  }, [newDomain])
+  }, [newDomain, docRoot])
 
   const handleSubmit = async () => {
     if (!newDomain || !adminEmail) {
@@ -9622,8 +9705,12 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
               <Globe className="w-5 h-5 " />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 block">Detalhes do domínio</h2>
-              <span className="text-xs text-zinc-500">Criar novo domínio no servidor</span>
+              <h2 className="text-lg font-bold text-zinc-900 block dark:text-zinc-100">
+                Detalhes do domínio
+              </h2>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                Criar novo domínio no servidor
+              </span>
             </div>
           </div>
           <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors text-zinc-400">
@@ -9637,7 +9724,9 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
             <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-3">
                 <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
-                <span className="text-sm text-zinc-600 font-medium">Criando domínio...</span>
+                <span className="text-sm text-zinc-600 font-medium dark:text-zinc-300">
+                  A criar domínio…
+                </span>
                 <span className="text-xs text-zinc-400">Isso pode levar alguns segundos</span>
               </div>
             </div>
@@ -9657,73 +9746,73 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
 
           {/* Domain Type */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Domain Type
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+              Tipo de domínio
             </label>
             <select
               value={domainType}
-              onChange={e => setDomainType(e.target.value as any)}
-              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+              onChange={e => setDomainType(e.target.value as 'addon' | 'subdomain' | 'parked')}
+              className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             >
-              <option value="addon">Addon Domain</option>
-              <option value="subdomain">Subdomain</option>
-              <option value="parked">Parked Domain</option>
+              <option value="addon">Domínio adicional</option>
+              <option value="subdomain">Subdomínio</option>
+              <option value="parked">Domínio estacionado</option>
             </select>
           </div>
 
           {/* Domain Name */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Domain Name
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+              Nome do domínio
             </label>
             <input
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
-              placeholder="subdomain.example.com or newdomain.com"
-              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+              placeholder="subdominio.exemplo.com ou novodominio.com"
+              className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             />
           </div>
 
           {/* Admin Email */}
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-              Admin Email
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+              Email do administrador
             </label>
             <input
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="admin@exemplo.com"
-              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+              className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             />
           </div>
 
           {/* Document Root Path */}
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-              Document Root Path
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+              Caminho da raiz do documento
             </label>
-            <div className="flex items-center border border-zinc-300 rounded overflow-hidden bg-white">
-              <span className="bg-zinc-100 px-4 py-3 text-sm text-zinc-600 border-r border-zinc-300 font-mono whitespace-nowrap">
-                /home/{newDomain || 'domain'}/
+            <div className="flex items-center overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+              <span className="whitespace-nowrap border-r border-zinc-300 bg-zinc-100 px-4 py-3 font-mono text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                /home/{newDomain || 'dominio'}/
               </span>
               <input
                 value={docRoot}
                 onChange={e => setDocRoot(e.target.value)}
-                placeholder="public_html/subdomain"
-                className="flex-1 px-4 py-3 text-sm focus:outline-none"
+                placeholder="public_html/subdominio"
+                className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none dark:text-zinc-100"
               />
             </div>
           </div>
 
           {/* Select PHP Version */}
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-              Select PHP Version
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+              Versão PHP
             </label>
             <select
               value={selectedPHP}
               onChange={e => setSelectedPHP(e.target.value)}
-              className="w-full px-4 py-3 border border-zinc-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+              className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             >
               <option>PHP 7.4</option>
               <option>PHP 8.0</option>
@@ -9734,17 +9823,18 @@ function DomainCreateModal({ show, onClose, onSuccess, packages }: { show: boole
           </div>
         </div>
 
-        <div className="px-8 py-6 bg-white/80 border-t border-zinc-200 flex items-center justify-between">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-white/80 px-8 py-6 dark:border-zinc-800 dark:bg-zinc-900/80">
+          <button type="button" onClick={handleClose} disabled={loading} className={panelBtnSecondary}>
+            Cancelar
+          </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={loading || !newDomain || !adminEmail}
-            className="border border-red-300 bg-red-600/10 text-red-600 hover:bg-red-600/15 px-6 py-3 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
+            className={panelBtnPrimary}
           >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Criar domínio
-          </button>
-          <button onClick={handleClose} className="text-zinc-500 hover:text-zinc-700 text-sm font-medium">
-            Cancelar
+            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Adicionar domínio
           </button>
         </div>
       </div>

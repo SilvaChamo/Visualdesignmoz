@@ -67,13 +67,14 @@ const listCacheKey = (account: string, folder: string) =>
 export function readWebmailListCache(
   account: string,
   folder: string,
+  allowStale = false,
 ): { emails: any[]; folderTotals?: Record<string, number> } | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = sessionStorage.getItem(listCacheKey(account, folder))
     if (!raw) return null
     const parsed = JSON.parse(raw) as { emails: any[]; folderTotals?: Record<string, number>; ts: number }
-    if (Date.now() - parsed.ts > LIST_CACHE_MS) return null
+    if (!allowStale && Date.now() - parsed.ts > LIST_CACHE_MS) return null
     return { emails: parsed.emails, folderTotals: parsed.folderTotals }
   } catch {
     return null

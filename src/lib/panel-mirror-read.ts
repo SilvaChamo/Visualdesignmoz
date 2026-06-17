@@ -290,7 +290,8 @@ export async function getMirrorPackageForm(
     .maybeSingle();
   if (error || !data?.package_form_json || typeof data.package_form_json !== 'object') return null;
   const raw = data.package_form_json as import('@/lib/reseller-package-form').ResellerPackageFormState;
-  return { ...raw, packageName: raw.packageName || name };
+  const { normalizePackageFormForEditor } = await import('@/lib/reseller-package-form');
+  return normalizePackageFormForEditor({ ...raw, packageName: raw.packageName || name }, name);
 }
 
 export async function listMirrorEmails(domain: string, scope: MirrorScope): Promise<PanelEmailAccount[]> {
