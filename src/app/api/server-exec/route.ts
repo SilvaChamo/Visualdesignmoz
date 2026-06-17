@@ -24,6 +24,9 @@ import {
   getMirrorLastSyncAt,
   getMirrorPackageForm,
 } from '@/lib/panel-mirror-read';
+import {
+  filterPackagesForAdminPanel,
+} from '@/lib/panel-scope-filter';
 import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 
@@ -213,10 +216,28 @@ export async function POST(req: NextRequest) {
           ? mergePackageListByName(mirrorList, data as PanelPackage[])
           : data;
 
+      let responseData = listData;
+      if (
+        action === 'listPackages' &&
+        Array.isArray(responseData) &&
+        auth.user.role === 'admin' &&
+        !mirrorScope.daUsername
+      ) {
+        const [sites, users] = await Promise.all([
+          listMirrorWebsites(mirrorScope),
+          listMirrorUsers(mirrorScope),
+        ]);
+        responseData = filterPackagesForAdminPanel(
+          responseData as PanelPackage[],
+          sites,
+          users,
+        );
+      }
+
       const lastSyncedAt = await getMirrorLastSyncAt();
       return NextResponse.json({
         success: true,
-        data: listData,
+        data: responseData,
         meta: { source: 'mirror', lastSyncedAt },
       });
     }

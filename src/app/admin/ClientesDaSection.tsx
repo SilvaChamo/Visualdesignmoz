@@ -273,6 +273,9 @@ export function ClientesDaSection({
   }, [isActive, setChrome]);
 
   const filtered = users.filter((u) => {
+    if (variant === 'reseller' && primaryResellerAccount) {
+      if (u.userName.toLowerCase() === primaryResellerAccount.toLowerCase()) return false;
+    }
     if (listFilter === 'client' && isDaReseller(u)) return false;
     if (listFilter === 'reseller' && !isDaReseller(u)) return false;
     const q = search.toLowerCase();
@@ -398,6 +401,7 @@ export function ClientesDaSection({
           editUser={view === 'edit' ? editUser ?? undefined : undefined}
           accountsApiBase={accountsApiBase}
           allowResellerAccountType={variant === 'admin'}
+          panelScope={variant === 'reseller' ? 'reseller' : 'admin'}
           onCancel={goToList}
           onComplete={() => {
             void load({ sync: true });

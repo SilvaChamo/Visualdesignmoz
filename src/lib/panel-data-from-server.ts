@@ -126,7 +126,7 @@ export async function fetchPanelBootstrap(options?: {
 
   writeBootstrapCache(data, scope);
   try {
-    if (data.accounts.length) {
+    if (scope === 'admin' && data.accounts.length) {
       const { writePanelUsersCache } = await import('@/lib/panel-users-cache');
       writePanelUsersCache({ users: data.accounts, counts: data.accountCounts });
     }

@@ -240,7 +240,7 @@ async function prefetchWordPressInstallsAsync(scope: PanelBootstrapScope): Promi
   const data = await res.json() as { success?: boolean; installs?: { domain: string }[] };
   if (!data.success || !Array.isArray(data.installs)) return;
   const domains = data.installs.map((i) => i.domain.toLowerCase());
-  writeWpInstallsCache(domains);
+  writeWpInstallsCache(domains, scope);
 }
 
 async function prefetchWpPluginsForDomainAsync(domain: string, scope: PanelBootstrapScope): Promise<void> {
@@ -419,9 +419,9 @@ export function prefetchPanelContent(options?: PrefetchPanelOptions) {
   void runPanelPrefetchQueue(steps);
 }
 
-export function prefetchPackages(packages: DirectAdminPackage[]) {
+export function prefetchPackages(packages: DirectAdminPackage[], scope: PanelBootstrapScope = 'admin') {
   if (!packages.length) return;
-  writePackagesCache(packages);
+  writePackagesCache(packages, scope);
 }
 
 export function prefetchEmailConfigsAdmin() {
@@ -440,7 +440,7 @@ export function prefetchPanelContentFromBootstrap(
   },
   scope: PanelBootstrapScope,
 ) {
-  if (boot.packages?.length) prefetchPackages(boot.packages);
+  if (boot.packages?.length) prefetchPackages(boot.packages, scope);
   const daUsername = boot.resellerContext?.daUsername ?? null;
   const primary =
     boot.resellerContext?.primaryDomain?.toLowerCase() ||

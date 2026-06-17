@@ -15,6 +15,7 @@ import { getServerHost } from '@/lib/server-config';
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache';
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache';
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache';
+import type { PanelBootstrapScope } from '@/lib/panel-data-from-server';
 import { directAdminAPI } from '@/lib/directadmin-api';
 import type { DirectAdminWebsite, DirectAdminPackage } from '@/lib/directadmin-api';
 import { removeWebsiteFromSupabase, syncWebsiteToSupabase } from '@/lib/supabase-sync';
@@ -111,6 +112,7 @@ function isWordPressSite(site: DirectAdminWebsite): boolean {
 
 function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, setSelectedSslDomain, primaryDomain, loadDirectAdminData, syncing, handleSync, daLoadError, wordpressOnly = false,
   wordpressOwner = 'admin',
+  panelScope = 'admin',
 }: {
   sites: DirectAdminWebsite[],
   onRefresh: () => void,
@@ -127,6 +129,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   wordpressOnly?: boolean,
   /** Dono dos sites na vista WordPress (admin = 'admin', revendedor = utilizador DA). */
   wordpressOwner?: string,
+  panelScope?: PanelBootstrapScope,
 }) {
   const [expandedSite, setExpandedSite] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<{ domain: string, field: string } | null>(null)
@@ -143,7 +146,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
   const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>(() => readSiteSslCache())
   const [wpDomainSet, setWpDomainSet] = useState<Set<string>>(() =>
-    wordpressOnly ? new Set(readWpInstallsCache().map((d) => d.toLowerCase())) : new Set(),
+    wordpressOnly ? new Set(readWpInstallsCache(panelScope).map((d) => d.toLowerCase())) : new Set(),
   )
   const [wpListLoading, setWpListLoading] = useState(false)
 
@@ -169,7 +172,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         map.set(domain, {
           id: domain,
           domain,
-          owner: wordpressOwner || 'admin',
+          owner: wordpressOwner || '',
           state: 'Active',
           siteType: 'wordpress',
           hasWordPress: true,
@@ -185,9 +188,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       if (s.domain.includes('contaboserver')) return false
       if (s.domain.toLowerCase().startsWith('mail')) return false
       if (wordpressOnly) {
-        const owner = (s.owner || wordpressOwner || 'admin').trim().toLowerCase()
-        const expected = (wordpressOwner || 'admin').trim().toLowerCase()
-        if (owner !== expected) return false
+        const owner = (s.owner || '').trim().toLowerCase()
+        const expected = (wordpressOwner || '').trim().toLowerCase()
+        if (!expected || owner !== expected) return false
       }
       if (wordpressOnly && !isWordPressSite(s) && !wpDomainSet.has(s.domain.toLowerCase())) return false
       return true
@@ -215,7 +218,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   useEffect(() => {
     if (!wordpressOnly) return
     let cancelled = false
-    const cached = readWpInstallsCache()
+    const cached = readWpInstallsCache(panelScope)
     if (cached.length > 0) {
       setWpDomainSet(new Set(cached.map((d) => d.toLowerCase())))
     } else {
@@ -229,7 +232,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         const data = await res.json()
         if (cancelled || !data.success || !Array.isArray(data.installs)) return
         const domains = data.installs.map((i: { domain: string }) => i.domain.toLowerCase())
-        writeWpInstallsCache(domains)
+        writeWpInstallsCache(domains, panelScope)
         setWpDomainSet(new Set(domains))
       } catch {
         /* mantém cache/espelho */
@@ -238,7 +241,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       }
     })()
     return () => { cancelled = true }
-  }, [wordpressOnly])
+  }, [wordpressOnly, panelScope])
 
   useEffect(() => {
     const domains = filtered.map((s) => s.domain).filter(Boolean)
@@ -485,6 +488,15 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             </button>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (wordpressOnly && !wordpressOwner?.trim()) {
+    return (
+      <div className="flex items-center justify-center h-48 text-sm text-gray-500 dark:text-zinc-400">
+        <RefreshCw className="w-5 h-5 animate-spin text-red-600 mr-2" />
+        A sincronizar conta activa…
       </div>
     )
   }

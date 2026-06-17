@@ -6687,12 +6687,14 @@ export function PackagesSection({
   packages,
   onRefresh,
   isActive = true,
+  panelScope = 'admin',
 }: {
   packages: any[]
   onRefresh: () => void
   isActive?: boolean
+  panelScope?: 'admin' | 'reseller'
 }) {
-  const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache() || packages)
+  const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache(panelScope) || packages)
   const [loadingLive, setLoadingLive] = useState(false)
   const [packageForm, setPackageForm] = useState<ResellerPackageFormState>(() => createDefaultResellerPackageForm())
   const [savingPackage, setSavingPackage] = useState(false)
@@ -6721,7 +6723,7 @@ export function PackagesSection({
       const data = await parseJsonResponse<{ success?: boolean; data?: any[] }>(res)
       if (data.success && Array.isArray(data.data)) {
         setLivePackages(data.data)
-        if (data.data.length) writePackagesCache(data.data)
+        if (data.data.length) writePackagesCache(data.data, panelScope)
       }
     } catch {
       /* mantém lista actual */
@@ -6739,7 +6741,7 @@ export function PackagesSection({
   useEffect(() => {
     if (!isActive) return
     setChrome(null)
-    clearPackagesCache()
+    clearPackagesCache(panelScope)
     void loadLivePackages()
     return () => setChrome(null)
   }, [isActive, setChrome])
@@ -6791,7 +6793,7 @@ export function PackagesSection({
       const next = Array.from(byName.values()).sort((a: any, b: any) =>
         String(a.packageName || a.name || '').localeCompare(String(b.packageName || b.name || '')),
       )
-      writePackagesCache(next as any[])
+      writePackagesCache(next as any[], panelScope)
       return next
     })
   }
@@ -6802,7 +6804,7 @@ export function PackagesSection({
       const next = current.filter(
         (p: any) => String(p.packageName || p.name || '').toLowerCase() !== name.toLowerCase(),
       )
-      writePackagesCache(next as any[])
+      writePackagesCache(next as any[], panelScope)
       return next
     })
   }
@@ -6848,7 +6850,7 @@ export function PackagesSection({
       const synced = data.success && data.serverSynced !== false
       if (!synced) {
         setLivePackages(previousPackages as any[])
-        writePackagesCache(previousPackages as any[])
+        writePackagesCache(previousPackages as any[], panelScope)
         setPackageForm(formSnapshot)
         setEditingPackageName(editingSnapshot)
         setShowPackageForm(true)
@@ -6865,7 +6867,7 @@ export function PackagesSection({
       void loadLivePackages({ background: true })
     } catch (e: any) {
       setLivePackages(previousPackages as any[])
-      writePackagesCache(previousPackages as any[])
+      writePackagesCache(previousPackages as any[], panelScope)
       setPackageForm(formSnapshot)
       setEditingPackageName(editingSnapshot)
       setShowPackageForm(true)
@@ -6919,14 +6921,14 @@ export function PackagesSection({
       const data = await parseJsonResponse<{ success?: boolean; error?: string }>(res)
       if (!data.success) {
         setLivePackages(previousPackages as any[])
-        writePackagesCache(previousPackages as any[])
+        writePackagesCache(previousPackages as any[], panelScope)
         setMsg('Erro: ' + (data.error || 'Falha ao apagar pacote'))
       }
       void onRefresh()
       void loadLivePackages({ background: true })
     } catch (e: any) {
       setLivePackages(previousPackages as any[])
-      writePackagesCache(previousPackages as any[])
+      writePackagesCache(previousPackages as any[], panelScope)
       setMsg('Erro: ' + e.message)
     }
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
@@ -60,6 +60,7 @@ import {
 } from '@/lib/panel-data-from-server'
 import { prefetchPanelContentFromBootstrap, resolvePrimaryDomainFromSites } from '@/lib/panel-prefetch'
 import { OSHER_DOMAIN } from '@/lib/email-domains'
+import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich'
 import { WordPressHubSection } from '../admin/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
@@ -2113,6 +2114,11 @@ export default function ResellerPage() {
     return a.domain.localeCompare(b.domain)
   })
 
+  const scopedPackages = useMemo(() => {
+    if (!resellerDaUsername) return directAdminPackages
+    return excludeResellerSelfPackages(directAdminPackages, filteredSites, resellerDaUsername)
+  }, [directAdminPackages, filteredSites, resellerDaUsername])
+
   const RESELLER_SECTION_META: Record<string, { title: string; description: string }> = {
     'notificacoes-recebidas': { title: 'Notificações', description: 'Mensagens recebidas na sua conta' },
     'acesso-directo': { title: 'Acesso directo', description: 'Entrada no servidor, webmail e ferramentas' },
@@ -2136,6 +2142,7 @@ export default function ResellerPage() {
             onSetDNSDomain={setSelectedDNSDomain}
             sessionUser={sessionUser}
             displayName={resellerDisplayName}
+            activeDaUsername={resellerDaUsername}
           />
         )
       case 'acesso-directo':
@@ -2252,7 +2259,7 @@ export default function ResellerPage() {
           <ClientesDaSection
             variant="reseller"
             listFilter="all"
-            packages={directAdminPackages}
+            packages={scopedPackages}
             initialView="list"
             isActive={isActive}
             onRefresh={() => void loadDirectAdminData(true)}
@@ -2291,7 +2298,7 @@ export default function ResellerPage() {
             isActive={isActive}
             initialTab={domainHubTab}
             sites={filteredSites}
-            packages={directAdminPackages}
+            packages={scopedPackages}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
@@ -2305,7 +2312,7 @@ export default function ResellerPage() {
       case 'deploy':
         return <DeploySection sites={filteredSites} />
       case 'packages-new':
-        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
+        return <PackagesSection packages={scopedPackages} panelScope="reseller" onRefresh={() => void loadDirectAdminData(true)} />
       case 'reports':
       case 'analyses':
       case 'cp-audit-sync':
@@ -2332,9 +2339,10 @@ export default function ResellerPage() {
           <PanelListWebsitesSection
             sites={sortedSites}
             wordpressOnly
-            wordpressOwner={resellerDaUsername || 'oshercollective'}
+            panelScope="reseller"
+            wordpressOwner={resellerDaUsername ?? undefined}
             onRefresh={() => void loadDirectAdminData(true)}
-            packages={directAdminPackages}
+            packages={scopedPackages}
             setActiveSection={setActiveSection}
             setFileManagerDomain={setFileManagerDomain}
             setSelectedDNSDomain={setSelectedDNSDomain}
@@ -2407,7 +2415,7 @@ export default function ResellerPage() {
       case 'cp-wp-backup':
         return <WPBackupSection sites={filteredSites} />
       case 'packages-list':
-        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
+        return <PackagesSection packages={scopedPackages} panelScope="reseller" onRefresh={() => void loadDirectAdminData(true)} />
       case 'manage-website':
         return <ManageWebsiteSection
           domain={selectedManageDomain || primaryDomain}
@@ -2442,6 +2450,7 @@ export default function ResellerPage() {
             onSetDNSDomain={setSelectedDNSDomain}
             sessionUser={sessionUser}
             displayName={resellerDisplayName}
+            activeDaUsername={resellerDaUsername}
           />
         )
     }

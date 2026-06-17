@@ -11,6 +11,7 @@ import {
   listMirrorWebsites,
   listMirrorWebsitesForClientEmail,
 } from '@/lib/panel-mirror-read';
+import { applyAdminPanelScope } from '@/lib/panel-scope-filter';
 
 export async function GET() {
   try {
@@ -47,6 +48,7 @@ export async function GET() {
 
     let sitesOut = sites;
     let usersOut = users;
+    let packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
 
     if (resellerContext?.daUsername) {
       const owner = resellerContext.daUsername;
@@ -54,9 +56,16 @@ export async function GET() {
       usersOut = usersOut.filter(
         (u) => u.userName === owner || u.parentUsername === owner,
       );
+      packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
+    } else if (!isReseller) {
+      const scoped = applyAdminPanelScope({
+        sites: sitesOut,
+        users: usersOut,
+        packages: packagesOut,
+      });
+      sitesOut = scoped.sites;
+      packagesOut = scoped.packages;
     }
-
-    const packages = await listMirrorPackages(mirrorScope, sitesOut);
 
     if (!sitesOut.length && !usersOut.length) {
       scheduleDaSync(0);
@@ -74,7 +83,7 @@ export async function GET() {
       success: true,
       sites: sitesOut,
       users: usersOut,
-      packages,
+      packages: packagesOut,
       accounts: accountsResult.accounts,
       accountCounts: accountsResult.counts,
       resellerContext,

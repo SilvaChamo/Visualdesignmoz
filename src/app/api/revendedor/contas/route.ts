@@ -10,6 +10,8 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import {
   belongsToResellerAccount,
   enrichPanelAccounts,
+  excludeResellerSelfAccount,
+  excludeResellerSelfPackages,
   isPanelAdminAccount,
   PRIMARY_RESELLER_DA_USER,
 } from '@/lib/panel-contas-enrich';
@@ -83,10 +85,11 @@ async function resolveResellerContext() {
 }
 
 function filterResellerUsers(users: PanelUser[], daUsername: string): PanelUser[] {
-  return users.filter((u) => {
+  const scoped = users.filter((u) => {
     if (isPanelAdminAccount(u)) return false;
     return belongsToResellerAccount(u, daUsername);
   });
+  return excludeResellerSelfAccount(scoped, daUsername);
 }
 
 function assertManagedUser(user: PanelUser | undefined, daUsername: string): string | null {
@@ -118,7 +121,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     const users = filterResellerUsers(rawUsers, daUsername);
-    const packageMap = new Map(packages.map((p) => [p.packageName, p]));
+    const visiblePackages = excludeResellerSelfPackages(packages, sites, daUsername);
+    const packageMap = new Map(visiblePackages.map((p) => [p.packageName, p]));
     const enriched = enrichPanelAccounts(users, sites, packageMap, {
       resellerOwnerLabel: daUsername,
     });
@@ -129,7 +133,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       users: enriched,
-      packages,
+      packages: visiblePackages,
       primaryResellerAccount: daUsername,
       meta: {
         source: 'mirror',

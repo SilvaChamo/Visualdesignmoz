@@ -24,6 +24,42 @@ export function belongsToResellerAccount(
   return name === owner || parent === owner;
 }
 
+/** Pacotes atribuídos aos sites da própria conta de revenda (ex.: Osher na conta oshercollective). */
+export function getResellerSelfPackageNames(
+  sites: Array<{ owner?: string; package?: string }>,
+  daUsername: string,
+): Set<string> {
+  const owner = daUsername.toLowerCase();
+  const names = new Set<string>();
+  for (const site of sites) {
+    if ((site.owner || '').toLowerCase() === owner && site.package) {
+      names.add(site.package);
+    }
+  }
+  return names;
+}
+
+export function excludeResellerSelfPackages<T extends { packageName?: string; name?: string }>(
+  packages: T[],
+  sites: Array<{ owner?: string; package?: string }>,
+  daUsername: string,
+): T[] {
+  const selfPkgs = getResellerSelfPackageNames(sites, daUsername);
+  if (!selfPkgs.size) return packages;
+  return packages.filter((p) => {
+    const name = String(p.packageName || p.name || '');
+    return name && !selfPkgs.has(name);
+  });
+}
+
+export function excludeResellerSelfAccount<T extends { userName: string }>(
+  users: T[],
+  daUsername: string,
+): T[] {
+  const owner = daUsername.toLowerCase();
+  return users.filter((u) => u.userName.toLowerCase() !== owner);
+}
+
 function pickPrimaryDomain(userName: string, owned: PanelWebsite[], acl: string): string {
   if (!owned.length) return `${userName}.com`;
 

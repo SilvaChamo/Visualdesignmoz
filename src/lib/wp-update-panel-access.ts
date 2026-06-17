@@ -1,6 +1,7 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { listMirrorUsers, listMirrorWebsites } from '@/lib/panel-mirror-read';
+import { buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter';
 import type { WpInstallInfo } from '@/lib/wp-cli-server';
 
 export type PanelWpScope = {
@@ -44,20 +45,11 @@ export async function getAllowedPanelWpDomains(scope: PanelWpScope): Promise<Set
   }
 
   const users = await listMirrorUsers({ role: 'admin' });
-  const resellerOwners = new Set(
-    users
-      .filter((u) => (u.acl || u.type || '').toLowerCase() === 'reseller')
-      .map((u) => String(u.userName || '').toLowerCase())
-      .filter(Boolean),
-  );
+  const resellerTree = buildResellerOwnerTree(users);
 
   return new Set(
     sites
-      .filter((s) => {
-        const owner = (s.owner || 'admin').trim().toLowerCase();
-        if (resellerOwners.has(owner)) return false;
-        return owner === 'admin';
-      })
+      .filter((s) => isAdminPanelSite(s, resellerTree))
       .map((s) => (s.domain || '').toLowerCase())
       .filter(Boolean),
   );

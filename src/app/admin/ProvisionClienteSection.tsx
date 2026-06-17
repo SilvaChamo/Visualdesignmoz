@@ -29,6 +29,7 @@ interface Props {
   editUser?: ProvisionEditUser;
   accountsApiBase?: string;
   allowResellerAccountType?: boolean;
+  panelScope?: 'admin' | 'reseller';
 }
 
 const inputCls =
@@ -73,6 +74,7 @@ export function ProvisionClienteSection({
   editUser,
   accountsApiBase = '/api/admin/clientes',
   allowResellerAccountType = true,
+  panelScope = 'admin',
 }: Props) {
   const isEdit = mode === 'edit' && Boolean(editUser?.userName);
   const [accountType, setAccountType] = useState<AccountType>(() => {
@@ -84,7 +86,7 @@ export function ProvisionClienteSection({
     return initialAccountType;
   });
   const [fixedUsername] = useState(() => editUser?.userName || '');
-  const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache() || packagesProp);
+  const [packages, setPackages] = useState<DirectAdminPackage[]>(() => readPackagesCache(panelScope) || packagesProp);
   const [packageName, setPackageName] = useState('');
   const [identity, setIdentity] = useState({
     firstName: editUser?.firstName || '',
@@ -124,7 +126,7 @@ export function ProvisionClienteSection({
           const rows = data.packages.filter((p) => p.packageName);
           if (rows.length) {
             setPackages(rows);
-            writePackagesCache(rows);
+            writePackagesCache(rows, panelScope);
             setPackageName((prev) =>
               prev && rows.some((p) => p.packageName === prev) ? prev : rows[0].packageName,
             );
@@ -138,10 +140,10 @@ export function ProvisionClienteSection({
   useEffect(() => {
     if (packagesProp.length) {
       setPackages(packagesProp);
-      writePackagesCache(packagesProp);
+      writePackagesCache(packagesProp, panelScope);
       setPackageName((prev) => prev || packagesProp[0]?.packageName || '');
     }
-  }, [packagesProp]);
+  }, [packagesProp, panelScope]);
 
   const deriveUsername = () => {
     if (isEdit && fixedUsername) return fixedUsername;

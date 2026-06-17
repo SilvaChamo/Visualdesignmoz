@@ -77,6 +77,7 @@ import {
   type PanelBootstrapScope,
 } from '@/lib/panel-data-from-server'
 import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
+import { applyAdminPanelScope, buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
 const directAdminAPI = panelAPI
@@ -1537,12 +1538,6 @@ export default function AdminPage() {
   );
 }
 
-function isAdminOwnedSite(site: DirectAdminWebsite, resellerOwners: Set<string>): boolean {
-  const owner = (site.owner || 'admin').trim().toLowerCase()
-  if (resellerOwners.has(owner)) return false
-  return owner === 'admin'
-}
-
 function AdminPageContent() {
   const { chrome } = useAdminSectionChrome();
   const { t } = useI18n()
@@ -1686,16 +1681,19 @@ function AdminPageContent() {
   }
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
-    setDirectAdminSites(boot.sites)
-    setDirectAdminUsers(boot.users)
-    setDirectAdminPackages(boot.packages)
+    const scoped = boot.resellerContext
+      ? { sites: boot.sites, users: boot.users, packages: boot.packages }
+      : applyAdminPanelScope(boot)
+    setDirectAdminSites(scoped.sites)
+    setDirectAdminUsers(scoped.users)
+    setDirectAdminPackages(scoped.packages)
     if (boot.resellerContext?.daUsername) {
       setAccountDaUsername(boot.resellerContext.daUsername)
     }
     const username = (boot.resellerContext?.daUsername ?? accountDaUsername).toLowerCase()
     let primary: string | null = boot.resellerContext?.primaryDomain?.toLowerCase() ?? null
     if (!primary && username) {
-      const ownerSites = boot.sites.filter((s) => {
+      const ownerSites = scoped.sites.filter((s) => {
         const o = (s.owner || 'admin').toLowerCase()
         return (o === username || (o === 'admin' && (username === 'visualdesign' || username === 'admin')))
           && !s.domain.includes('contaboserver')
@@ -1705,20 +1703,23 @@ function AdminPageContent() {
       primary = match?.domain.toLowerCase() ?? ownerSites[0]?.domain.toLowerCase() ?? null
     }
     if (!primary) {
-      const vd = boot.sites.find((s) => s.domain.toLowerCase() === 'visualdesignmoz.com')
-        ?? boot.sites.find((s) => {
+      const vd = scoped.sites.find((s) => s.domain.toLowerCase() === 'visualdesignmoz.com')
+        ?? scoped.sites.find((s) => {
           const o = (s.owner || 'admin').toLowerCase()
           return o === username || (o === 'admin' && (username === 'visualdesign' || username === 'admin'))
         })
       primary = vd?.domain.toLowerCase() ?? null
     }
     setAccountPrimaryDomain(primary)
-    if (!boot.sites.length && boot.meta?.source === 'mirror') {
+    if (!scoped.sites.length && boot.meta?.source === 'mirror') {
       setDaLoadError('Sem sites no espelho — sincronização em curso.')
     } else {
       setDaLoadError('')
     }
-    prefetchPanelContentFromBootstrap(boot, 'admin')
+    prefetchPanelContentFromBootstrap(
+      { sites: scoped.sites, packages: scoped.packages, resellerContext: boot.resellerContext },
+      'admin',
+    )
   }
 
   const loadDirectAdminData = async (fresh = false) => {
@@ -1776,13 +1777,8 @@ function AdminPageContent() {
   }, [])
 
   // Filtrar sites — conta admin vê todos os sites com owner "admin"
-  const resellerOwners = useMemo(
-    () =>
-      new Set(
-        directAdminUsers
-          .filter((u) => (u.acl || u.type || '').toLowerCase() === 'reseller')
-          .map((u) => String(u.userName || u.id).toLowerCase()),
-      ),
+  const resellerTree = useMemo(
+    () => buildResellerOwnerTree(directAdminUsers),
     [directAdminUsers],
   )
   const filteredSitesBase = useMemo(
@@ -1790,23 +1786,17 @@ function AdminPageContent() {
       directAdminSites.filter((s) => {
         if (s.domain.includes('contaboserver')) return false
         if (s.domain.toLowerCase().startsWith('mail.')) return false
-        if (!isAdminOwnedSite(s, resellerOwners)) return false
-        return true
+        return isAdminPanelSite(s, resellerTree)
       }),
-    [directAdminSites, resellerOwners],
+    [directAdminSites, resellerTree],
   )
   const filteredSites = useMemo(
     () => sortSitesPrimaryFirst(filteredSitesBase, accountPrimaryDomain),
     [filteredSitesBase, accountPrimaryDomain],
   )
   const domainHubSites = useMemo(
-    () =>
-      directAdminSites.filter((s) => {
-        if (s.domain.includes('contaboserver')) return false
-        if (s.domain.toLowerCase().startsWith('mail.')) return false
-        return true
-      }),
-    [directAdminSites],
+    () => filteredSitesBase,
+    [filteredSitesBase],
   )
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
@@ -2050,6 +2040,7 @@ function AdminPageContent() {
           <ListWebsitesSection
             sites={filteredSites}
             wordpressOnly
+            panelScope="admin"
             onRefresh={() => void loadDirectAdminData(true)}
             packages={directAdminPackages}
             setActiveSection={setActiveSection}
