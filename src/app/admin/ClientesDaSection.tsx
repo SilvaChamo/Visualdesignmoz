@@ -8,8 +8,10 @@ import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/admin/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
+import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 
-const CLIENTES_CACHE_KEY = 'vd-admin-clientes-v2';
+const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v2';
+const RESELLER_CLIENTES_CACHE_KEY = 'vd-reseller-contas-v1';
 
 interface DaUserRow {
   userName: string;
@@ -40,10 +42,10 @@ type AccountsView = 'list' | 'create' | 'edit' | 'detail';
 const accountsCellBorder =
   'border-r border-gray-100 px-4 py-1.5 text-left whitespace-nowrap dark:border-zinc-800 last:border-r-0';
 
-function readClientesCache(): { users: DaUserRow[]; meta: { lastSyncedAt: string | null; stale: boolean } | null } | null {
+function readClientesCache(cacheKey: string): { users: DaUserRow[]; meta: { lastSyncedAt: string | null; stale: boolean } | null } | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(CLIENTES_CACHE_KEY);
+    const raw = sessionStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { users?: DaUserRow[]; meta?: { lastSyncedAt: string | null; stale: boolean } };
     if (!Array.isArray(parsed.users)) return null;
@@ -85,23 +87,38 @@ function RowActionsMenu({
   user,
   onAction,
   onClose,
+  variant = 'admin',
+  primaryResellerAccount,
 }: {
   anchorRect: DOMRect;
   user: DaUserRow;
   onAction: (action: string) => void;
   onClose: () => void;
+  variant?: 'admin' | 'reseller';
+  primaryResellerAccount?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
+  const primaryAccount = (primaryResellerAccount || PRIMARY_RESELLER_DA_USER).toLowerCase();
+  const isPrimaryAccount = user.userName.toLowerCase() === primaryAccount;
+  const canLoginAsReseller =
+    variant === 'admin' &&
+    isDaReseller(user) &&
+    !isPrimaryAccount;
+
   const items = [
-    ...(isDaReseller(user)
+    ...(canLoginAsReseller
       ? [{ id: 'loginAs', label: 'Entrar como revendedor' }]
       : []),
     { id: 'editAccount', label: 'Editar conta' },
     { id: 'sendMessage', label: 'Enviar mensagem' },
     { id: 'changePassword', label: 'Alterar senha' },
-    { id: user.suspended ? 'unsuspend' : 'suspend', label: user.suspended ? 'Reactivar' : 'Suspender' },
-    { id: 'delete', label: 'Remover', danger: true },
+    ...(isPrimaryAccount
+      ? []
+      : [
+          { id: user.suspended ? 'unsuspend' : 'suspend', label: user.suspended ? 'Reactivar' : 'Suspender' },
+          { id: 'delete', label: 'Remover', danger: true },
+        ]),
   ];
 
   const menuW = 168;
@@ -156,6 +173,7 @@ export function ClientesDaSection({
   initialAccountType = 'client',
   isActive = true,
   listResetToken = 0,
+  variant = 'admin',
 }: {
   onRefresh?: () => void;
   listFilter?: 'all' | 'client' | 'reseller';
@@ -165,10 +183,13 @@ export function ClientesDaSection({
   isActive?: boolean;
   /** Incrementado ao reabrir «Contas» no menu — repõe a listagem. */
   listResetToken?: number;
+  variant?: 'admin' | 'reseller';
 }) {
+  const accountsApiBase = variant === 'reseller' ? '/api/revendedor/contas' : '/api/admin/clientes';
+  const cacheKey = variant === 'reseller' ? RESELLER_CLIENTES_CACHE_KEY : ADMIN_CLIENTES_CACHE_KEY;
   const { setChrome } = useAdminSectionChrome();
   const searchParams = useSearchParams();
-  const initialCache = useMemo(() => readClientesCache(), []);
+  const initialCache = useMemo(() => readClientesCache(cacheKey), [cacheKey]);
   const [users, setUsers] = useState<DaUserRow[]>(initialCache?.users ?? []);
   const [loading, setLoading] = useState(!initialCache);
   const [search, setSearch] = useState('');
@@ -185,21 +206,29 @@ export function ClientesDaSection({
     initialCache?.meta ?? null,
   );
   const [syncing, setSyncing] = useState(false);
+  const [primaryResellerAccount, setPrimaryResellerAccount] = useState<string | null>(
+    variant === 'reseller' ? null : PRIMARY_RESELLER_DA_USER,
+  );
 
   const load = useCallback(async (options?: { sync?: boolean }) => {
     const withSync = options?.sync === true;
     if (withSync) setSyncing(true);
     else setLoading(true);
     try {
-      const url = withSync ? '/api/admin/clientes?sync=1' : '/api/admin/clientes';
+      const url = withSync ? `${accountsApiBase}?sync=1` : accountsApiBase;
       const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao carregar');
       setUsers(data.users || []);
       setSyncMeta(data.meta || null);
+      if (data.primaryResellerAccount) {
+        setPrimaryResellerAccount(String(data.primaryResellerAccount));
+      } else if (data.osherReseller) {
+        setPrimaryResellerAccount(String(data.osherReseller));
+      }
       try {
         sessionStorage.setItem(
-          CLIENTES_CACHE_KEY,
+          cacheKey,
           JSON.stringify({ users: data.users || [], meta: data.meta || null, ts: Date.now() }),
         );
       } catch { /* quota */ }
@@ -208,15 +237,15 @@ export function ClientesDaSection({
     }
     setLoading(false);
     setSyncing(false);
-  }, []);
+  }, [accountsApiBase, cacheKey]);
 
   useEffect(() => {
     const err = searchParams.get('impersonate_error');
     if (err) {
       setMsg(`❌ ${err}`);
-      window.history.replaceState({}, '', '/admin');
+      window.history.replaceState({}, '', variant === 'reseller' ? '/revendedor' : '/admin');
     }
-  }, [searchParams]);
+  }, [searchParams, variant]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -285,7 +314,7 @@ export function ClientesDaSection({
 
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/clientes', {
+      const res = await fetch(accountsApiBase, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +336,7 @@ export function ClientesDaSection({
     if (!messageModal) return;
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/clientes', {
+      const res = await fetch(accountsApiBase, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -340,7 +369,7 @@ export function ClientesDaSection({
     }
     setBusy(true);
     try {
-      const res = await fetch('/api/admin/clientes', {
+      const res = await fetch(accountsApiBase, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -367,6 +396,8 @@ export function ClientesDaSection({
           initialAccountType={initialAccountType === 'admin' ? 'professional' : initialAccountType}
           mode={view === 'edit' ? 'edit' : 'create'}
           editUser={view === 'edit' ? editUser ?? undefined : undefined}
+          accountsApiBase={accountsApiBase}
+          allowResellerAccountType={variant === 'admin'}
           onCancel={goToList}
           onComplete={() => {
             void load({ sync: true });
@@ -563,6 +594,8 @@ export function ClientesDaSection({
           <RowActionsMenu
             anchorRect={openMenu.rect}
             user={u}
+            variant={variant}
+            primaryResellerAccount={primaryResellerAccount}
             onAction={(a) => handleRowAction(u, a)}
             onClose={() => setOpenMenu(null)}
           />

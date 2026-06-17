@@ -41,11 +41,6 @@ const ADMIN_TABS: TabDef[] = [
   { id: 'registar', label: 'Registar domínio', icon: ShoppingCart },
 ];
 
-const RESELLER_TABS: TabDef[] = [
-  { id: 'meus', label: 'Meus domínios', icon: Globe },
-  { id: 'registar', label: 'Registar domínio', icon: ShoppingCart },
-];
-
 type DomainsHubSectionProps = {
   variant: 'admin' | 'reseller';
   isActive: boolean;
@@ -73,7 +68,8 @@ export function DomainsHubSection({
   const [listSearch, setListSearch] = useState('');
   const [filteredCount, setFilteredCount] = useState(0);
   const { setChrome } = useAdminSectionChrome();
-  const tabs = variant === 'admin' ? ADMIN_TABS : RESELLER_TABS;
+  const tabs = ADMIN_TABS;
+  const hideTabs = variant === 'reseller';
 
   const closeHubPanel = () => {
     setActiveTab('meus');
@@ -95,7 +91,7 @@ export function DomainsHubSection({
 
   return (
     <div className="w-full space-y-5">
-      {activeTab !== 'adicionar' ? (
+      {!hideTabs && activeTab !== 'adicionar' ? (
         <div className="flex items-center justify-between gap-4">
           <nav className="flex shrink-0 flex-wrap gap-x-5" aria-label="Secções de domínios">
             {tabs.map(({ id, label, icon: Icon }) => {
@@ -162,6 +158,39 @@ export function DomainsHubSection({
         </div>
       ) : null}
 
+      {hideTabs && showListToolbar ? (
+        <div className="flex items-center justify-end gap-3">
+          <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+            {filteredCount} domínio(s)
+          </span>
+
+          <div className="relative min-w-[10rem] flex-1 max-w-xl">
+            <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+            <input
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+              placeholder="Pesquisar domínios..."
+              className={cn(
+                panelField,
+                'rounded',
+                'w-full pl-8 pr-3 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+              )}
+            />
+          </div>
+
+          {activeTab === 'meus' ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab('adicionar')}
+              className={cn(panelBtnSecondary, 'shrink-0')}
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar domínio
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {activeTab === 'meus' ? (
         <DomainManagerSection
           sites={sites}
@@ -193,7 +222,7 @@ export function DomainsHubSection({
         />
       ) : null}
 
-      {activeTab === 'registados' && variant === 'admin' ? (
+      {activeTab === 'registados' ? (
         <DomainManagerSection
           sites={sites}
           packages={packages}

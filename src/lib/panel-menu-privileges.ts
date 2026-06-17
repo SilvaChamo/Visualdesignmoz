@@ -1,6 +1,5 @@
 import {
-  ADMIN_MENU_ITEM_DEFS,
-  RESELLER_ADMIN_MENU_DEFS,
+  RESELLER_MAIN_MENU_DEFS,
   isMenuHeaderSubItem,
   type PanelMenuItemDef,
 } from '@/lib/panel-admin-menu';
@@ -30,12 +29,12 @@ function defaultSubPrivileges(items: PanelMenuItemDef[]): Record<string, boolean
 
 export function defaultResellerMenuPrivileges(): ResellerMenuPrivilegesConfig {
   const reseller = Object.fromEntries(
-    RESELLER_ADMIN_MENU_DEFS.map((item) => [item.id, true]),
+    RESELLER_MAIN_MENU_DEFS.map((item) => [item.id, true]),
   ) as Record<ResellerMenuKey, boolean>;
 
   return {
     reseller,
-    resellerSub: defaultSubPrivileges(RESELLER_ADMIN_MENU_DEFS),
+    resellerSub: defaultSubPrivileges(RESELLER_MAIN_MENU_DEFS),
   };
 }
 
@@ -83,7 +82,7 @@ export function patchResellerMenuToggle(
   privileges: ResellerMenuPrivilegesConfig,
   key: ResellerMenuKey,
   enabled: boolean,
-  menuDefs: PanelMenuItemDef[] = RESELLER_ADMIN_MENU_DEFS,
+  menuDefs: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS,
 ): ResellerMenuPrivilegesConfig {
   const reseller = { ...privileges.reseller, [key]: enabled };
   const resellerSub = { ...privileges.resellerSub };
@@ -104,7 +103,7 @@ export function patchResellerSubToggle(
   parent: ResellerMenuKey,
   childKey: string,
   enabled: boolean,
-  menuDefs: PanelMenuItemDef[] = RESELLER_ADMIN_MENU_DEFS,
+  menuDefs: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS,
 ): ResellerMenuPrivilegesConfig {
   const subKey = menuSubPrivilegeKey(parent, childKey);
   const resellerSub = { ...privileges.resellerSub, [subKey]: enabled };
@@ -151,8 +150,8 @@ export function filterMenuByPrivileges(
 }
 
 /** Chaves e etiquetas para o painel de privilégios (admin) */
-export const RESELLER_PRIVILEGE_MENU_DEFS = RESELLER_ADMIN_MENU_DEFS;
+export const RESELLER_PRIVILEGE_MENU_DEFS = RESELLER_MAIN_MENU_DEFS;
 
 export const RESELLER_PRIVILEGE_MENU_LABELS: Record<string, string> = Object.fromEntries(
-  ADMIN_MENU_ITEM_DEFS.map((item) => [item.id, item.label]),
+  RESELLER_MAIN_MENU_DEFS.map((item) => [item.id, item.label]),
 );

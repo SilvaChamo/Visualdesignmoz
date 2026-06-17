@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Shield, Save, CheckCircle2, ChevronDown } from 'lucide-react';
+import { panelBtnPrimary, panelCard } from '@/lib/panel-ui';
+import { RESELLER_MENU_PRIVILEGES_EVENT } from '@/hooks/useResellerMenuPrivileges';
 import {
   RESELLER_PRIVILEGE_MENU_DEFS,
   RESELLER_PRIVILEGE_MENU_LABELS,
@@ -14,7 +16,7 @@ import {
 } from '@/lib/panel-menu-privileges';
 import { isMenuHeaderSubItem as isHeader } from '@/lib/panel-admin-menu';
 
-function IosToggle({
+function PanelToggle({
   checked,
   disabled,
   onChange,
@@ -32,7 +34,7 @@ function IosToggle({
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <span className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-indigo-600 peer-focus:outline-none" />
+      <span className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-red-600 peer-focus:outline-none dark:bg-zinc-700" />
       <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
     </label>
   );
@@ -55,13 +57,13 @@ function MenuPrivilegeGroup({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
+    <div className={`${panelCard} overflow-hidden`}>
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {hasChildren ? (
             <button
               type="button"
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
               aria-expanded={open}
               onClick={() => setOpen((prev) => !prev)}
             >
@@ -70,12 +72,12 @@ function MenuPrivilegeGroup({
           ) : (
             <span className="w-6" />
           )}
-          <p className="truncate text-sm font-semibold text-gray-900">{title}</p>
+          <p className="truncate text-sm font-bold text-gray-900 dark:text-zinc-100">{title}</p>
         </div>
-        <IosToggle checked={checked} disabled={disabled} onChange={onToggle} />
+        <PanelToggle checked={checked} disabled={disabled} onChange={onToggle} />
       </div>
       {hasChildren && open && (
-        <div className="space-y-1 border-t border-gray-50 bg-gray-50/60 px-4 py-2">
+        <div className="space-y-0.5 px-2 py-2">
           {children}
         </div>
       )}
@@ -95,9 +97,9 @@ function SubToggleRow({
   onChange: (enabled: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2">
-      <p className="pl-6 text-sm text-gray-700">{title}</p>
-      <IosToggle checked={checked} disabled={disabled} onChange={onChange} />
+    <div className="flex items-center justify-between gap-3 rounded px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+      <p className="pl-6 text-sm text-gray-700 dark:text-zinc-300">{title}</p>
+      <PanelToggle checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   );
 }
@@ -120,11 +122,13 @@ export function ResellerMenuPermissionsConfig() {
       .finally(() => setLoading(false));
   }, []);
 
+  const markDirty = () => setSavedStatus(false);
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const merged = resolveResellerMenuPrivileges(privileges);
-      await fetch('/api/admin/permissions', {
+      const res = await fetch('/api/admin/permissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,7 +136,10 @@ export function ResellerMenuPermissionsConfig() {
           permissions: { menuPrivileges: merged },
         }),
       });
+      if (!res.ok) throw new Error('save failed');
+      setPrivileges(merged);
       setSavedStatus(true);
+      window.dispatchEvent(new Event(RESELLER_MENU_PRIVILEGES_EVENT));
     } catch (e) {
       console.error(e);
     } finally {
@@ -141,81 +148,76 @@ export function ResellerMenuPermissionsConfig() {
   };
 
   if (loading) {
-    return <div className="p-10 flex justify-center text-gray-500">A carregar configurações...</div>;
+    return <div className="flex justify-center p-10 text-sm text-gray-500 dark:text-zinc-400">A carregar configurações…</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6">
-        <div className="flex items-start justify-between gap-4">
+    <div className="space-y-4">
+      <div className={`${panelCard} p-6`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5" />
+            <div className="mb-2 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded border border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-950/30">
+                <Shield className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900">Painel do Revendedor</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-zinc-100">Painel do Revendedor</h2>
             </div>
-            <p className="text-sm text-gray-600 max-w-2xl">
-              Active ou desactive itens do menu lateral do revendedor (excepto o Dashboard, que fica sempre visível).
+            <p className="max-w-2xl text-sm text-gray-600 dark:text-zinc-400">
+              Active ou desactive itens do menu lateral do revendedor. Ao desactivar, o item desaparece do painel (excepto o Dashboard, que fica sempre visível).
             </p>
           </div>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all disabled:opacity-70 shrink-0"
+            className={`${panelBtnPrimary} shrink-0`}
           >
             {saving ? (
-              'A Guardar...'
+              'A guardar…'
             ) : savedStatus ? (
-              <><CheckCircle2 className="w-4 h-4" /> Guardado!</>
+              <><CheckCircle2 className="h-4 w-4" /> Guardado</>
             ) : (
-              <><Save className="w-4 h-4" /> Guardar Alterações</>
+              <><Save className="h-4 w-4" /> Guardar alterações</>
             )}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="bg-gray-50 px-5 py-3 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Menu do revendedor</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Mesma estrutura do painel admin. Desactivar um grupo desliga todos os submenus.
-          </p>
-        </div>
-        <div>
-          {RESELLER_PRIVILEGE_MENU_DEFS.map((item) => {
-            const children = item.subItems?.filter((sub) => !isHeader(sub.id));
-            const parentEnabled = privileges.reseller?.[item.id] !== false;
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {RESELLER_PRIVILEGE_MENU_DEFS.map((item) => {
+          const children = item.subItems?.filter((sub) => !isHeader(sub.id));
+          const parentEnabled = privileges.reseller?.[item.id] !== false;
 
-            return (
-              <MenuPrivilegeGroup
-                key={item.id}
-                title={RESELLER_PRIVILEGE_MENU_LABELS[item.id] || item.label}
-                checked={parentEnabled}
-                onToggle={(enabled) =>
-                  setPrivileges((prev) => patchResellerMenuToggle(prev, item.id, enabled))
-                }
-              >
-                {children?.map((child) => (
-                  <SubToggleRow
-                    key={child.id}
-                    title={child.label}
-                    checked={
-                      parentEnabled &&
-                      privileges.resellerSub?.[menuSubPrivilegeKey(item.id, child.id)] !== false
-                    }
-                    disabled={!parentEnabled}
-                    onChange={(enabled) =>
-                      setPrivileges((prev) =>
-                        patchResellerSubToggle(prev, item.id, child.id, enabled),
-                      )
-                    }
-                  />
-                ))}
-              </MenuPrivilegeGroup>
-            );
-          })}
-        </div>
+          return (
+            <MenuPrivilegeGroup
+              key={item.id}
+              title={RESELLER_PRIVILEGE_MENU_LABELS[item.id] || item.label}
+              checked={parentEnabled}
+              onToggle={(enabled) => {
+                markDirty();
+                setPrivileges((prev) => patchResellerMenuToggle(prev, item.id, enabled));
+              }}
+            >
+              {children?.map((child) => (
+                <SubToggleRow
+                  key={child.id}
+                  title={child.label}
+                  checked={
+                    parentEnabled &&
+                    privileges.resellerSub?.[menuSubPrivilegeKey(item.id, child.id)] !== false
+                  }
+                  disabled={!parentEnabled}
+                  onChange={(enabled) => {
+                    markDirty();
+                    setPrivileges((prev) =>
+                      patchResellerSubToggle(prev, item.id, child.id, enabled),
+                    );
+                  }}
+                />
+              ))}
+            </MenuPrivilegeGroup>
+          );
+        })}
       </div>
     </div>
   );

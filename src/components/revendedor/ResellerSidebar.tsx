@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Palette, Layers, Wrench,
+  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings,
 } from 'lucide-react';
 
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
@@ -29,7 +29,7 @@ function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?
 
 import {
   RESELLER_MAIN_MENU_DEFS,
-  RESELLER_LEGACY_MENU_DEFS,
+  RESELLER_SECTION_TO_PARENT,
   isPanelMenuItemActive,
   resolveSectionId,
   resellerMenuParentForSection,
@@ -59,15 +59,6 @@ const MAIN_MENU_ICONS: Record<string, React.ElementType> = {
   'nov-notificacoes': Bell,
   'nov-wordpress': WordPressMenuIcon,
   'nov-definicoes': Settings,
-};
-
-const LEGACY_MENU_ICONS: Record<string, React.ElementType> = {
-  'leg-gestao-sites': Globe,
-  'leg-gestao-dominios': Server,
-  'leg-wordpress': WordPressMenuIcon,
-  'leg-construtores': Palette,
-  'leg-gestao-emails': Mail,
-  'leg-outros': Wrench,
 };
 
 const DASHBOARD_ITEM: MenuItem = {
@@ -101,13 +92,6 @@ export function ResellerSidebar({
     }),
   );
 
-  const legacyMenuItems: MenuItem[] = filterMenuByPrivileges(RESELLER_LEGACY_MENU_DEFS, privileges).map(
-    (item) => ({
-      ...item,
-      icon: LEGACY_MENU_ICONS[item.id] || Layers,
-    }),
-  );
-
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
     resellerMenuParentForSection(activeSection),
   );
@@ -131,6 +115,9 @@ export function ResellerSidebar({
     }
 
     if (expandedMenu === item.id) {
+      if (isPanelMenuItemActive(item, activeSection, RESELLER_SECTION_TO_PARENT)) {
+        return;
+      }
       setExpandedMenu(null);
       return;
     }
@@ -141,7 +128,7 @@ export function ResellerSidebar({
       return;
     }
     if (item.id === 'nov-hospedagem') {
-      onNavigate('packages-list');
+      onNavigate('hospedagem-contas');
       return;
     }
     const firstNavigable = item.subItems.find((s) => !s.id.endsWith('-header'));
@@ -149,18 +136,19 @@ export function ResellerSidebar({
   };
 
   const handleSubClick = (subId: string) => {
+    const parent = resellerMenuParentForSection(resolveSectionId(subId));
+    if (parent) setExpandedMenu(parent);
     onNavigate(resolveSectionId(subId));
   };
 
-  const renderMenuBlock = (items: MenuItem[], options?: { includeDashboard?: boolean; legacy?: boolean }) => {
+  const renderMenuBlock = (items: MenuItem[], options?: { includeDashboard?: boolean }) => {
     const blockItems = options?.includeDashboard ? [DASHBOARD_ITEM, ...items] : items;
-    const isLegacyBlock = options?.legacy;
 
     return blockItems.map((item) => {
       const Icon = item.icon;
       const isActive = item.id === 'dashboard'
         ? activeSection === 'dashboard'
-        : isPanelMenuItemActive(item, activeSection);
+        : isPanelMenuItemActive(item, activeSection, RESELLER_SECTION_TO_PARENT);
       const showNotifBadge = item.id === 'nov-notificacoes' && unreadCount > 0;
       const hasSubItems = !!item.subItems?.length;
       const isOpen = expandedMenu === item.id && hasSubItems;
@@ -179,7 +167,7 @@ export function ResellerSidebar({
             }`}
             title={isCollapsed ? item.label : ''}
           >
-            {item.id === 'nov-wordpress' || item.id === 'leg-wordpress' ? (
+            {item.id === 'nov-wordpress' ? (
               <WordPressMenuIcon
                 size={20}
                 className={
@@ -219,14 +207,7 @@ export function ResellerSidebar({
           {!isCollapsed && hasSubItems && isOpen && (
             <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
               {item.subItems!.map((sub) => {
-                if (sub.id.endsWith('-header')) {
-                  if (isLegacyBlock) return null;
-                  return (
-                    <div key={sub.id} className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      {sub.label.replace(/^—\s*|\s*—$/g, '')}
-                    </div>
-                  );
-                }
+                if (sub.id.endsWith('-header')) return null;
                 const resolved = resolveSectionId(sub.id);
                 const isSubActive = resolveSectionId(activeSection) === resolved;
                 const isRecebidas = sub.id === 'notificacoes-recebidas';
@@ -308,19 +289,9 @@ export function ResellerSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 py-2">
         <div className="space-y-0">
           {renderMenuBlock(mainMenuItems, { includeDashboard: true })}
-        </div>
-
-        {!isCollapsed && legacyMenuItems.length > 0 && (
-          <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Menu anterior
-          </div>
-        )}
-
-        <div className="space-y-0">
-          {renderMenuBlock(legacyMenuItems, { legacy: true })}
         </div>
       </nav>
 

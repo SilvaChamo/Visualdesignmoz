@@ -3,6 +3,7 @@ import { loadResellerCredentialsByDaUsername, loadResellerCredentialsByUserId } 
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import type { PanelAuthSuccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { OSHER_DOMAIN } from '@/lib/email-domains';
 
 export type ResellerPanelContext = {
   daUsername: string;
@@ -102,7 +103,9 @@ export async function resolveResellerPanelContext(
     daUsername,
     email,
     displayName,
-    primaryDomain: creds?.domain || null,
+    primaryDomain:
+      creds?.domain ||
+      (daUsername.toLowerCase() === 'oshercollective' ? OSHER_DOMAIN : null),
     impersonating: Boolean(ctx.impersonating),
   };
 }

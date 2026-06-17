@@ -181,19 +181,8 @@ export function ResellerDashboard({
           </div>
         </div>
 
-        {/* Lista de Sites em Cards - Estilo da imagem */}
+        {/* Lista de Sites em Cards */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Meus Sites</h2>
-            <button 
-              onClick={onRefresh}
-              className="text-gray-400 hover:text-red-600 transition-colors"
-              title="Actualizar"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-          </div>
-
           {filteredSites.length === 0 ? (
             <div className="bg-white rounded border border-gray-200 shadow-sm p-10 text-center">
               <Globe className="w-12 h-12 text-gray-300 mx-auto mb-4" />

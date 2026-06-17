@@ -54,7 +54,6 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
       { id: 'cp-email-dkim', label: 'DKIM Manager' },
       { id: 'cp-email-limits', label: 'Limites de e-mail' },
       { id: 'setup-smtp', label: 'Configurar SMTP' },
-      { id: 'email-diagnostico', label: 'Diagnóstico' },
       { id: 'newsletter', label: 'Email Marketing' },
     ],
   },
@@ -199,7 +198,6 @@ export function resellerMenuParentForSection(sectionId: string): string | null {
     'manage-website': 'gestao-dominios',
     'git-deploy': 'gestao-dominios',
     'deploy': 'gestao-dominios',
-    'diagnostico': 'metricas',
     'cp-audit-sync': 'metricas',
   };
   return aliases[sectionId] ?? null;

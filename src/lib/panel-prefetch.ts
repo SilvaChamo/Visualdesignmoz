@@ -65,12 +65,18 @@ function menuSectionIds(scope: PanelBootstrapScope): string[] {
   return ids;
 }
 
+import { OSHER_DOMAIN } from '@/lib/email-domains';
+
 export function resolvePrimaryDomainFromSites(
   sites: DirectAdminWebsite[],
   daUsername?: string | null,
 ): string | null {
   if (!sites.length) return null;
   const username = (daUsername || 'admin').toLowerCase();
+  if (username === 'oshercollective') {
+    const osher = sites.find((s) => s.domain?.toLowerCase() === OSHER_DOMAIN);
+    if (osher?.domain) return OSHER_DOMAIN;
+  }
   const vd = sites.find((s) => s.domain?.toLowerCase() === 'visualdesignmoz.com');
   if (vd?.domain) return vd.domain.toLowerCase();
   const owned = sites.find((s) => {

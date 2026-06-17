@@ -27,6 +27,8 @@ interface Props {
   initialAccountType?: AccountType;
   mode?: 'create' | 'edit';
   editUser?: ProvisionEditUser;
+  accountsApiBase?: string;
+  allowResellerAccountType?: boolean;
 }
 
 const inputCls =
@@ -69,6 +71,8 @@ export function ProvisionClienteSection({
   initialAccountType = 'client',
   mode = 'create',
   editUser,
+  accountsApiBase = '/api/admin/clientes',
+  allowResellerAccountType = true,
 }: Props) {
   const isEdit = mode === 'edit' && Boolean(editUser?.userName);
   const [accountType, setAccountType] = useState<AccountType>(() => {
@@ -112,7 +116,7 @@ export function ProvisionClienteSection({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch('/api/admin/clientes', { credentials: 'include' })
+    void fetch(accountsApiBase, { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { success?: boolean; packages?: DirectAdminPackage[] }) => {
         if (cancelled || !data.success) return;
@@ -129,7 +133,7 @@ export function ProvisionClienteSection({
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, []);
+  }, [accountsApiBase]);
 
   useEffect(() => {
     if (packagesProp.length) {
@@ -179,7 +183,7 @@ export function ProvisionClienteSection({
 
     try {
       if (isEdit && editUser) {
-        const res = await fetch('/api/admin/clientes', {
+        const res = await fetch(accountsApiBase, {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -200,7 +204,7 @@ export function ProvisionClienteSection({
         if (!res.ok || !json.success) throw new Error(String(json.error || 'Falha ao actualizar conta'));
 
         if (identity.password.length >= 8) {
-          const passRes = await fetch('/api/admin/clientes', {
+          const passRes = await fetch(accountsApiBase, {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -222,7 +226,7 @@ export function ProvisionClienteSection({
         return;
       }
 
-      const res = await fetch('/api/admin/clientes', {
+      const res = await fetch(accountsApiBase, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -341,8 +345,12 @@ export function ProvisionClienteSection({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
                 { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
-                { id: 'professional' as const, title: 'Profissional', desc: 'Conta profissional com direitos de revenda', icon: Shield },
-                { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
+                ...(allowResellerAccountType
+                  ? [
+                      { id: 'professional' as const, title: 'Profissional', desc: 'Conta profissional com direitos de revenda', icon: Shield },
+                      { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
+                    ]
+                  : []),
               ]).map((opt) => (
                 <button
                   key={opt.id}

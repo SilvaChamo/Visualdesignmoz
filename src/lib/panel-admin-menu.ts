@@ -83,6 +83,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'infrastructure', label: 'Estado do servidor' },
       { id: 'git-deploy', label: 'Deploy / GitHub' },
+      { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
     ],
   },
 ];
@@ -122,7 +123,10 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
   {
     id: 'nov-hospedagem',
     label: 'Hospedagem',
-    subItems: [{ id: 'packages-list', label: 'Pacotes' }],
+    subItems: [
+      { id: 'hospedagem-contas', label: 'Contas' },
+      { id: 'packages-list', label: 'Pacotes' },
+    ],
   },
   {
     id: 'nov-email',
@@ -132,7 +136,6 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
       { id: 'webmail', label: 'Webmail' },
       { id: 'newsletter', label: 'Mailmarketing' },
       { id: 'setup-smtp', label: 'Envio e Recepção' },
-      { id: 'email-diagnostico', label: 'Diagnóstico' },
     ],
   },
   {
@@ -140,7 +143,10 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     label: 'Domínios & DNS',
     subItems: [
       { id: 'domain-manager', label: 'Domínios' },
+      { id: 'porkbun-domains', label: 'Registar domínio' },
       { id: 'dns-central', label: 'DNS Central' },
+      { id: 'cp-ssl', label: 'SSL / TLS' },
+      { id: 'cp-php', label: 'Configurar PHP' },
       { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'transferir-dominio', label: 'Transferir domínio' },
     ],
@@ -237,17 +243,13 @@ export const RESELLER_LEGACY_MENU_DEFS: PanelMenuItemDef[] = [
   },
 ];
 
-/** Menu revendedor completo (privilégios + referência) */
-export const RESELLER_MENU_DEFS: PanelMenuItemDef[] = [
-  ...RESELLER_MAIN_MENU_DEFS,
-  ...RESELLER_LEGACY_MENU_DEFS,
-];
+/** Menu revendedor — apenas menu principal (sem menu anterior) */
+export const RESELLER_MENU_DEFS: PanelMenuItemDef[] = [...RESELLER_MAIN_MENU_DEFS];
 
 /** Secções do menu legado admin */
 export const LEGACY_SUB_ITEM_DEFS: PanelMenuSubItem[] = [
   { id: 'gestao-paineis-header', label: '— Gestão de Painéis —' },
   { id: 'cp-client-permissions', label: 'Painel do Cliente' },
-  { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
   { id: 'gestao-sites-header', label: '— Hospedagem —' },
   { id: 'domains-legacy', label: 'Listar Websites' },
   { id: 'packages-list-legacy', label: 'Pacotes' },
@@ -334,7 +336,6 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'emails-new': 'nov-email',
   webmail: 'nov-email',
   'setup-smtp': 'nov-email',
-  'email-diagnostico': 'nov-email',
   'criar-email': 'menu-anterior',
   'dns-central': 'nov-dominios',
   'domain-manager': 'nov-dominios',
@@ -343,6 +344,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'cp-dns-nameserver': 'nov-dominios',
   'cp-subdomains': 'nov-dominios',
   'cp-ssl': 'nov-dominios',
+  'cp-ssl-view': 'nov-dominios',
   'cp-php': 'nov-dominios',
   'porkbun-domains': 'nov-dominios',
   'porkbun-my-domains': 'nov-dominios',
@@ -362,19 +364,44 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'settings-branding': 'nov-definicoes',
   'settings-profile': 'nov-definicoes',
   'git-deploy': 'nov-sistema',
+  'cp-reseller-permissions': 'nov-sistema',
+};
+
+/** Parent menu no painel revendedor (estrutura própria, separada do admin) */
+export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
+  dashboard: 'dashboard',
+  'hospedagem-contas': 'nov-hospedagem',
+  'packages-list': 'nov-hospedagem',
+  'emails-new': 'nov-email',
+  webmail: 'nov-email',
+  newsletter: 'nov-email',
+  'setup-smtp': 'nov-email',
+  'domain-manager': 'nov-dominios',
+  'porkbun-domains': 'nov-dominios',
+  'dns-central': 'nov-dominios',
+  'cp-ssl': 'nov-dominios',
+  'cp-ssl-view': 'nov-dominios',
+  'cp-php': 'nov-dominios',
+  'cp-dns-nameserver': 'nov-dominios',
+  'transferir-dominio': 'nov-dominios',
+  'notificacoes-recebidas': 'nov-notificacoes',
+  renewals: 'nov-notificacoes',
+  'cadastrar-renovacao': 'nov-notificacoes',
+  'templates-renovacao': 'nov-notificacoes',
+  'wp-sites': 'nov-wordpress',
+  'wp-plugins': 'nov-wordpress',
+  'wordpress-install': 'nov-wordpress',
+  'wp-backup': 'nov-wordpress',
+  infrastructure: 'nov-definicoes',
+  'settings-branding': 'nov-definicoes',
+  'settings-profile': 'nov-definicoes',
 };
 
 /** Parent menu no painel revendedor */
 export function resellerMenuParentForSection(sectionId: string): string | null {
-  const legacyParent = resellerLegacySectionParent(sectionId);
-  if (legacyParent) return legacyParent;
   const resolved = resolveSectionId(sectionId);
-  if (['setup-smtp', 'email-diagnostico', 'cp-email-dkim'].includes(resolved)) {
-    const mainParent = NEW_SECTION_TO_PARENT[resolved];
-    if (mainParent) return mainParent;
-  }
-  const mainParent = NEW_SECTION_TO_PARENT[resolved];
-  if (mainParent && mainParent !== 'menu-anterior') return mainParent;
+  const parent = RESELLER_SECTION_TO_PARENT[resolved];
+  if (parent) return parent;
   return null;
 }
 
@@ -456,14 +483,19 @@ export function adminMenuParentForSection(sectionId: string): string | null {
 export function isPanelMenuItemActive(
   item: PanelMenuItemDef,
   activeSection: string,
+  sectionToParent: Record<string, string> = NEW_SECTION_TO_PARENT,
 ): boolean {
   const resolved = resolveSectionId(activeSection);
   if (resolved === item.id || activeSection === item.id) return true;
   if (item.subItems?.some((s) => resolveSectionId(s.id) === resolved || s.id === activeSection)) {
     return true;
   }
-  if (NEW_SECTION_TO_PARENT[resolved] === item.id) return true;
+  if (sectionToParent[resolved] === item.id) return true;
   if (item.id === 'menu-anterior') {
+    const newMenuParent = sectionToParent[resolved];
+    if (newMenuParent && newMenuParent !== 'menu-anterior') {
+      return false;
+    }
     return (
       activeSection.endsWith('-legacy') ||
       LEGACY_ONLY_IDS.has(activeSection) ||

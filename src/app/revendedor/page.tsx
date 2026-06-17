@@ -15,10 +15,10 @@ import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
 import {
   DatabasesSection, FTPSection, EmailManagementSection,
-  CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
+  CPUsersSection, SSLSection, SSLViewSection, SecuritySection, PHPConfigSection,
   APIConfigSection, GitDeploySection, WPPluginsSection,
   ResellerSection, ModifyWebsiteSection, SuspendWebsiteSection,
-  DeleteWebsiteSection, DNSNameserverSection, DNSDefaultNSSection,
+  DeleteWebsiteSection, DNSDefaultNSSection,
   DNSCreateZoneSection, DNSDeleteZoneSection, CloudFlareSection,
   DNSResetSection, EmailDeleteSection, EmailLimitsSection,
   EmailForwardingSection, CatchAllEmailSection, PatternForwardingSection,
@@ -27,13 +27,14 @@ import {
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
-  SMTPConfigSection
+  SMTPConfigSection, NameserverManagementSection
 } from '../admin/DirectAdminSections'
-import { EmailDiagnosticoSection } from '../admin/EmailDiagnosticoSection'
+import { ClientesDaSection } from '../admin/ClientesDaSection'
 import { NotificationsSection } from '../admin/NotificationsSection'
 import { RenewalsSection } from '../admin/RenewalsSection'
 import { TemplatesSection } from '../admin/TemplatesSection'
 import { DNSCentralSection } from '../admin/DNSCentralSection'
+import { DomainTransferSection } from '../admin/DomainTransferSection'
 import {
   DomainsHubSection,
   isDomainHubSection,
@@ -57,11 +58,13 @@ import {
   clearPanelBootstrapCache,
   type PanelBootstrapData,
 } from '@/lib/panel-data-from-server'
-import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
+import { prefetchPanelContentFromBootstrap, resolvePrimaryDomainFromSites } from '@/lib/panel-prefetch'
+import { OSHER_DOMAIN } from '@/lib/email-domains'
 import { WordPressHubSection } from '../admin/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
+import { ListWebsitesSection as PanelListWebsitesSection } from '@/components/panel/ListWebsitesSection'
 
 const directAdminAPI = panelAPI
 
@@ -450,27 +453,6 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                         className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-xs font-bold transition-colors">
                         <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
                       </a>
-                      <button
-                        onClick={async () => {
-                          setLoading(s.domain)
-                          try {
-                            const res = await fetch('/api/server-exec', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'issueSSL', params: { domain: s.domain } })
-                            })
-                            const data = await res.json()
-                            alert(data.success ? '✅ SSL emitido com sucesso!' : '❌ Erro: ' + (data.data?.output || data.error))
-                          } catch (e: any) {
-                            alert('Erro: ' + e.message)
-                          }
-                          setLoading(null)
-                        }}
-                        disabled={loading === s.domain}
-                        className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
-                        {loading === s.domain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                        Issue SSL
-                      </button>
                       <button
                         onClick={() => {
                           if (setFileManagerDomain) setFileManagerDomain(s.domain);
@@ -879,60 +861,6 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     className="flex items-center gap-1.5 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100  px-4 py-2 rounded text-xs font-bold transition-colors">
                     <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
                   </a>
-                  <button
-                    onClick={async () => {
-                      setLoading(s.domain + '-ssl')
-                      try {
-                        // Primeiro verificar se o domínio resolve para o IP correcto
-                        const checkRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `dig +short ${s.domain} 2>&1` }
-                          })
-                        })
-                        const checkData = await checkRes.json()
-                        const resolvedIP = (checkData.data?.output || '').trim()
-                        const serverIP = getServerHost()
-
-                        if (!resolvedIP) {
-                          alert(`⚠️ DNS não propagou ainda!\n\nO domínio "${s.domain}" não está a resolver para nenhum IP.\n\nAguarda a propagação DNS (pode demorar até 24h) e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
-
-                        if (!resolvedIP.includes(serverIP)) {
-                          alert(`⚠️ DNS ainda não propagou!\n\nO domínio "${s.domain}" está a resolver para:\n${resolvedIP}\n\nMas devia resolver para:\n${serverIP}\n\nAguarda a propagação DNS e tenta novamente.`)
-                          setLoading(null)
-                          return
-                        }
-
-                        // DNS está correcto — emitir SSL
-                        const sslRes = await fetch('/api/server-exec', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'execCommand',
-                            params: { command: `directadmin issueSSL --domainName ${s.domain} 2>&1` }
-                          })
-                        })
-                        const sslData = await sslRes.json()
-                        const output = sslData.data?.output || ''
-
-                        if (output.toLowerCase().includes('success') || output.toLowerCase().includes('issued')) {
-                          alert(`✅ SSL emitido com sucesso para ${s.domain}!`)
-                          onRefresh()
-                        } else {
-                          alert(`⚠️ Erro ao emitir SSL:\n\n${output}`)
-                        }
-
-                      } catch (e: any) {
-                        alert('Erro: ' + e.message)
-                      }
-                      setLoading(null)
-                    }} disabled={loading === s.domain + '-ssl'}
-                    className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-300 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 px-4 py-2 rounded text-xs font-bold transition-colors disabled:opacity-50">
-                    <Lock className="w-3.5 h-3.5" /> {loading === s.domain + '-ssl' ? 'A verificar...' : 'Issue SSL'}
-                  </button>
                   <button
                     onClick={() => {
                       setSelectedDNSDomain(s.domain)
@@ -2050,6 +1978,15 @@ export default function ResellerPage() {
     }
   }, [activeSection]);
 
+  useEffect(() => {
+    if (activeSection !== 'cp-ssl') {
+      setSelectedSslDomain('');
+    }
+    if (activeSection !== 'cp-ssl-view') {
+      setSelectedSslViewHostname('');
+    }
+  }, [activeSection]);
+
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
     setDirectAdminSites(boot.sites)
@@ -2064,6 +2001,9 @@ export default function ResellerPage() {
       setIsAdminImpersonating(Boolean(boot.resellerContext.impersonating))
       if (boot.resellerContext.primaryDomain) {
         setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
+      } else if (boot.resellerContext.daUsername) {
+        const resolved = resolvePrimaryDomainFromSites(boot.sites, boot.resellerContext.daUsername)
+        if (resolved) setResellerPrimaryDomain(resolved)
       }
     }
 
@@ -2120,6 +2060,8 @@ export default function ResellerPage() {
 
   const [syncing, setSyncing] = useState(false)
   const [selectedDNSDomain, setSelectedDNSDomain] = useState<string>('')
+  const [selectedSslDomain, setSelectedSslDomain] = useState<string>('')
+  const [selectedSslViewHostname, setSelectedSslViewHostname] = useState<string>('')
   const [dashboardSearch, setDashboardSearch] = useState('')
 
   // Modal de criação de email (movido para nível do AdminPage)
@@ -2160,8 +2102,16 @@ export default function ResellerPage() {
 
   const primaryDomain =
     resellerPrimaryDomain ||
-    (filteredSites.length > 0 ? filteredSites[0].domain : null) ||
-    'your-domain.com'
+    resolvePrimaryDomainFromSites(filteredSites, resellerDaUsername) ||
+    OSHER_DOMAIN
+
+  const sortedSites = [...filteredSites].sort((a, b) => {
+    const primary = primaryDomain.toLowerCase()
+    const aPri = a.domain.toLowerCase() === primary ? 0 : 1
+    const bPri = b.domain.toLowerCase() === primary ? 0 : 1
+    if (aPri !== bPri) return aPri - bPri
+    return a.domain.localeCompare(b.domain)
+  })
 
   const RESELLER_SECTION_META: Record<string, { title: string; description: string }> = {
     'notificacoes-recebidas': { title: 'Notificações', description: 'Mensagens recebidas na sua conta' },
@@ -2215,7 +2165,7 @@ export default function ResellerPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || 'your-domain.com'} sites={filteredSites} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} />
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':
@@ -2283,8 +2233,6 @@ export default function ResellerPage() {
         return <DKIMManagerSection sites={filteredSites} />
       case 'setup-smtp':
         return <SMTPConfigSection />
-      case 'email-diagnostico':
-        return <EmailDiagnosticoSection />
       case 'notifications':
         return <NotificationsSection />
       case 'notificacoes-recebidas':
@@ -2299,8 +2247,34 @@ export default function ResellerPage() {
         return <CPUsersSection key={resellerDaUsername || 'reseller'} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-reseller':
         return <ResellerSection />
+      case 'hospedagem-contas':
+        return (
+          <ClientesDaSection
+            variant="reseller"
+            listFilter="all"
+            packages={directAdminPackages}
+            initialView="list"
+            isActive={isActive}
+            onRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
       case 'cp-ssl':
-        return <SSLSection sites={filteredSites} />
+        return (
+          <SSLSection
+            sites={sortedSites}
+            initialDomain={selectedSslDomain || primaryDomain}
+            setActiveSection={setActiveSection}
+            setSelectedSslViewHostname={setSelectedSslViewHostname}
+          />
+        )
+      case 'cp-ssl-view':
+        return (
+          <SSLViewSection
+            sites={sortedSites}
+            initialHostname={selectedSslViewHostname || selectedSslDomain || primaryDomain}
+            setActiveSection={setActiveSection}
+          />
+        )
       case 'cp-security':
         return <SecuritySection sites={filteredSites} />
       case 'cp-php':
@@ -2334,7 +2308,6 @@ export default function ResellerPage() {
         return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} />
       case 'reports':
       case 'analyses':
-      case 'diagnostico':
       case 'cp-audit-sync':
         return (
           <div className="p-6 bg-white border border-gray-200 rounded-lg">
@@ -2356,13 +2329,17 @@ export default function ResellerPage() {
       case 'cp-wp-list':
       case 'wp-sites':
         return (
-          <ListWebsitesSection
-            sites={filteredSites}
+          <PanelListWebsitesSection
+            sites={sortedSites}
+            wordpressOnly
+            wordpressOwner={resellerDaUsername || 'oshercollective'}
             onRefresh={() => void loadDirectAdminData(true)}
             packages={directAdminPackages}
             setActiveSection={setActiveSection}
             setFileManagerDomain={setFileManagerDomain}
             setSelectedDNSDomain={setSelectedDNSDomain}
+            setSelectedSslDomain={setSelectedSslDomain}
+            primaryDomain={primaryDomain}
             loadDirectAdminData={loadDirectAdminData}
             syncing={syncing}
             handleSync={handleSync}
@@ -2385,7 +2362,12 @@ export default function ResellerPage() {
       case 'cp-wp-remote-backup':
         return <WPRemoteBackupSection sites={filteredSites} />
       case 'cp-dns-nameserver':
-        return <DNSNameserverSection sites={filteredSites} />
+        return (
+          <NameserverManagementSection
+            sites={filteredSites}
+            initialDomain={selectedDNSDomain || primaryDomain}
+          />
+        )
       case 'cp-dns-default-ns':
         return <DNSDefaultNSSection />
       case 'cp-dns-create-zone':
@@ -2405,6 +2387,8 @@ export default function ResellerPage() {
         return <CloudFlareSection sites={filteredSites} />
       case 'cp-dns-reset':
         return <DNSResetSection sites={filteredSites} />
+      case 'transferir-dominio':
+        return <DomainTransferSection />
       case 'newsletter':
         return (
           <MailMarketingSection
@@ -2600,11 +2584,11 @@ export default function ResellerPage() {
       return
     }
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
-      setPreSelectedEmailDomain(primaryDomain !== 'your-domain.com' ? primaryDomain : '')
+      setPreSelectedEmailDomain(primaryDomain)
     }
     if (isDomainHubSection(section)) {
       setDomainHubTab(sectionToDomainTab(section))
-      setActiveSection('domain-manager')
+      setActiveSection(section)
       return
     }
     setActiveSection(resolveSectionId(section))
@@ -2621,7 +2605,7 @@ export default function ResellerPage() {
         displayName={resellerDisplayName}
         customLogo={logoUrl}
       />
-      <div className="flex-1 flex flex-col overflow-hidden bg-white">
+      <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-white">
         <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
           <div className="flex items-start justify-between">
             <div>
@@ -2647,14 +2631,16 @@ export default function ResellerPage() {
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <a
-                  href={getDirectAdminAccessUrl('reseller')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
-                >
-                  <Globe size={13} /> {t('admin.settings.directadmin')}
-                </a>
+                {['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
+                  <a
+                    href={getDirectAdminAccessUrl('reseller')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
+                  >
+                    <Globe size={13} /> {t('admin.settings.directadmin')}
+                  </a>
+                ) : null}
                 <button
                   onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
                   className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all"
@@ -2677,7 +2663,15 @@ export default function ResellerPage() {
           </div>
         </header>
 
-        <main className={`flex-1 ${['webmail', 'dashboard'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
+        <main
+          className={`flex-1 min-h-0 ${
+            activeSection === 'webmail'
+              ? 'overflow-hidden p-0'
+              : activeSection === 'dashboard'
+                ? 'overflow-y-auto p-0'
+                : 'overflow-y-auto p-4 lg:p-5'
+          }`}
+        >
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>
