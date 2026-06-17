@@ -7,6 +7,7 @@ import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { resolveRegistryDaUsername } from '@/lib/panel-user-registry';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { resolvePanelApiRedirect } from '@/lib/panel-origin';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -115,10 +116,10 @@ async function startImpersonate(
 }
 
 function adminListRedirect(req: NextRequest, error?: string): NextResponse {
-  const url = new URL('/admin', req.url);
-  url.searchParams.set('section', 'hospedagem-contas');
-  if (error) url.searchParams.set('impersonate_error', error);
-  return NextResponse.redirect(url, { status: 307 });
+  const query = error
+    ? `?section=hospedagem-contas&impersonate_error=${encodeURIComponent(error)}`
+    : '?section=hospedagem-contas';
+  return NextResponse.redirect(resolvePanelApiRedirect(`/admin${query}`, req.url), { status: 307 });
 }
 
 export async function GET(req: NextRequest) {
@@ -137,8 +138,7 @@ export async function GET(req: NextRequest) {
     if (!result.ok) {
       return adminListRedirect(req, result.error);
     }
-    const target = new URL('/revendedor', req.url);
-    target.searchParams.set('impersonate', '1');
+    const target = resolvePanelApiRedirect('/revendedor?impersonate=1', req.url);
     return NextResponse.redirect(target, { status: 307 });
   }
 
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     daUsername: result.userName,
-    redirect: '/revendedor?impersonate=1',
+    redirect: resolvePanelApiRedirect('/revendedor?impersonate=1', req.url),
   });
 }
 
@@ -187,6 +187,6 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    redirect: '/admin?section=hospedagem-contas',
+    redirect: resolvePanelApiRedirect('/admin?section=hospedagem-contas', req.url),
   });
 }

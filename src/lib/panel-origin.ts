@@ -178,6 +178,32 @@ export function getPanelAbsoluteUrl(pathAndQuery: string): string {
   return `${getPanelOrigin()}${path}`
 }
 
+/**
+ * Redirecções de rotas API do painel — evita localhost quando o proxy interno
+ * (Apache → 127.0.0.1:3003) não repõe o host público em req.url.
+ */
+export function resolvePanelApiRedirect(pathAndQuery: string, requestUrl?: string): string {
+  const path = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`
+  try {
+    if (requestUrl) {
+      const host = new URL(requestUrl).hostname
+      if (isLocalDevHost(host)) {
+        if (process.env.NODE_ENV === 'production') {
+          return getPanelAbsoluteUrl(path)
+        }
+        return new URL(path, requestUrl).toString()
+      }
+      if (shouldUsePanelOriginForHost(host)) {
+        return getPanelAbsoluteUrl(path)
+      }
+      return new URL(path, requestUrl).toString()
+    }
+  } catch {
+    /* usar origem configurada */
+  }
+  return getPanelAbsoluteUrl(path)
+}
+
 export function resolvePostLoginUrl(options: {
   origin: string
   role: UserRole

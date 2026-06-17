@@ -1,6 +1,6 @@
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 
-const CACHE_KEY = 'vd_panel_packages_v1';
+const CACHE_KEY = 'vd_panel_packages_v2';
 const CACHE_MS = 5 * 60 * 1000;
 
 type Payload = { at: number; packages: DirectAdminPackage[] };
@@ -31,6 +31,7 @@ export function clearPackagesCache() {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.removeItem(CACHE_KEY);
+    sessionStorage.removeItem('vd_panel_packages_v1');
   } catch {
     /* quota */
   }

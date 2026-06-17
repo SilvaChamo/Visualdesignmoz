@@ -6744,7 +6744,20 @@ export function PackagesSection({
     return () => setChrome(null)
   }, [isActive, setChrome])
 
-  const displayPackages = livePackages.length > 0 ? livePackages : packages
+  const displayPackages = useMemo(() => {
+    const byName = new Map<string, any>()
+    for (const p of packages) {
+      const key = String(p.packageName || p.name || '').toLowerCase()
+      if (key) byName.set(key, p)
+    }
+    for (const p of livePackages) {
+      const key = String(p.packageName || p.name || '').toLowerCase()
+      if (key) byName.set(key, p)
+    }
+    return [...byName.values()].sort((a: any, b: any) =>
+      String(a.packageName || a.name || '').localeCompare(String(b.packageName || b.name || '')),
+    )
+  }, [packages, livePackages])
   const formatPackageMetric = (value: unknown, defaultUnit?: string) => {
     const raw = String(value ?? '').trim()
     if (!raw || raw === '-' || raw.toLowerCase() === 'unlimited') return raw || '-'

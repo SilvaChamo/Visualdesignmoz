@@ -24,7 +24,8 @@ import {
   getMirrorLastSyncAt,
   getMirrorPackageForm,
 } from '@/lib/panel-mirror-read';
-import { resolveMirrorOrLive } from '@/lib/panel-list-resolve';
+import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
+import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 
 const LIVE_LIST_FALLBACK: Record<
   string,
@@ -194,12 +195,12 @@ export async function POST(req: NextRequest) {
       const { daApi: api, mirrorScope } = await resolvePanelDaContext(auth);
       const fallback = LIVE_LIST_FALLBACK[action];
 
+      const mirrorRows = (await readFromMirror(action, mirrorScope, params)) as PanelPackage[];
+      const mirrorList = Array.isArray(mirrorRows) ? mirrorRows : [];
+
       const data = await resolveMirrorOrLive({
         onStale: () => scheduleDaSync(0),
-        mirror: async () => {
-          const rows = await readFromMirror(action, mirrorScope, params);
-          return Array.isArray(rows) ? rows : [];
-        },
+        mirror: async () => mirrorList,
         live: async () => {
           const rows = await fallback(api, params);
           if (Array.isArray(rows) && rows.length > 0) scheduleDaSync(500);
@@ -207,10 +208,15 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const listData =
+        action === 'listPackages' && Array.isArray(data)
+          ? mergePackageListByName(mirrorList, data as PanelPackage[])
+          : data;
+
       const lastSyncedAt = await getMirrorLastSyncAt();
       return NextResponse.json({
         success: true,
-        data,
+        data: listData,
         meta: { source: 'mirror', lastSyncedAt },
       });
     }

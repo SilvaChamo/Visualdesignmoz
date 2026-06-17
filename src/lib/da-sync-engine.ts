@@ -320,6 +320,10 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
       .map((r) => String(r.package_name || '').toLowerCase())
       .filter(Boolean),
   );
+  for (const row of panelManagedRows || []) {
+    const name = String(row.package_name || '').trim();
+    if (name) livePackages.add(name);
+  }
 
   for (const pkg of packages) {
     const name = pkg.packageName;
@@ -372,7 +376,12 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const { data: existingPkgs } = await admin.from('panel_packages').select('package_name, package_form_json');
   const stalePkgs = (existingPkgs || [])
     .map((r) => r.package_name as string)
-    .filter((p) => p && !livePackages.has(p));
+    .filter(
+      (p) =>
+        p &&
+        !livePackages.has(p) &&
+        !panelManaged.has(String(p).toLowerCase()),
+    );
   if (stalePkgs.length) {
     await admin.from('panel_packages').delete().in('package_name', stalePkgs);
   }

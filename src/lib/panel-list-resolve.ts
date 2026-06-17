@@ -3,6 +3,25 @@
  * API DirectAdmin só se o espelho estiver vazio.
  */
 
+import type { PanelPackage } from '@/lib/directadmin-hosting-api';
+
+/** União por nome — o espelho prevalece (pacotes criados no painel). */
+export function mergePackageListByName(
+  mirror: PanelPackage[],
+  resolved: PanelPackage[],
+): PanelPackage[] {
+  const byName = new Map<string, PanelPackage>();
+  for (const p of resolved) {
+    const key = p.packageName.toLowerCase();
+    if (key) byName.set(key, p);
+  }
+  for (const p of mirror) {
+    const key = p.packageName.toLowerCase();
+    if (key) byName.set(key, p);
+  }
+  return [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
+}
+
 export async function resolveMirrorOrLive<T>(options: {
   mirror: () => Promise<T[]>;
   live: () => Promise<T[]>;

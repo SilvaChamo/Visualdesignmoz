@@ -9,7 +9,7 @@ import { ProvisionClienteSection } from '@/app/admin/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 
-const CLIENTES_CACHE_KEY = 'vd-admin-clientes-v1';
+const CLIENTES_CACHE_KEY = 'vd-admin-clientes-v2';
 
 interface DaUserRow {
   userName: string;
@@ -47,6 +47,7 @@ function readClientesCache(): { users: DaUserRow[]; meta: { lastSyncedAt: string
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { users?: DaUserRow[]; meta?: { lastSyncedAt: string | null; stale: boolean } };
     if (!Array.isArray(parsed.users)) return null;
+    if (parsed.users.length === 0) return null;
     return { users: parsed.users, meta: parsed.meta ?? null };
   } catch {
     return null;

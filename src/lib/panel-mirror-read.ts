@@ -261,8 +261,13 @@ export async function listMirrorPackages(
   const all = (data || []).map(mapPackage);
 
   if (isAdmin) {
-    const { mergeBrandHostingPackages } = await import('@/lib/panel-brand-packages');
-    return mergeBrandHostingPackages(all);
+    try {
+      const { mergeBrandHostingPackages } = await import('@/lib/panel-brand-packages');
+      return await mergeBrandHostingPackages(all);
+    } catch (e) {
+      console.error('[panel-mirror] mergeBrandHostingPackages:', e);
+      return all;
+    }
   }
 
   const sites = prefetchedSites ?? (await listMirrorWebsites(scope));

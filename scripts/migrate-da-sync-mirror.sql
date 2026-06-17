@@ -81,6 +81,14 @@ ALTER TABLE panel_dns
 CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_dns_domain_name_type
   ON panel_dns (domain, name, type);
 
+ALTER TABLE panel_users
+  ADD COLUMN IF NOT EXISTS parent_username TEXT,
+  ADD COLUMN IF NOT EXISTS disk_used_mb INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS bandwidth_used_mb INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS quota_limit_mb INTEGER,
+  ADD COLUMN IF NOT EXISTS bandwidth_limit_mb INTEGER,
+  ADD COLUMN IF NOT EXISTS package_name TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_panel_sites_owner ON panel_sites(owner);
 CREATE INDEX IF NOT EXISTS idx_panel_emails_domain ON panel_emails(domain);
 CREATE INDEX IF NOT EXISTS idx_panel_sync_log_status ON panel_sync_log(status);

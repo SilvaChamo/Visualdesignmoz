@@ -7,7 +7,7 @@ import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/
 import type { PanelBootstrapAccount } from '@/lib/panel-mirror-read';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
-const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v1';
+const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v2';
 const BOOTSTRAP_CACHE_MS = 180_000;
 
 export type PanelBootstrapScope = 'admin' | 'reseller' | 'client';
@@ -49,6 +49,14 @@ export function readBootstrapCache(scope?: PanelBootstrapScope): PanelBootstrapD
 
 function writeBootstrapCache(data: PanelBootstrapData, scope?: PanelBootstrapScope) {
   if (typeof window === 'undefined') return;
+  if (
+    scope === 'admin' &&
+    data.sites.length === 0 &&
+    data.packages.length === 0 &&
+    data.users.length === 0
+  ) {
+    return;
+  }
   try {
     sessionStorage.setItem(bootstrapStorageKey(scope), JSON.stringify({ at: Date.now(), data }));
   } catch {
@@ -59,14 +67,19 @@ function writeBootstrapCache(data: PanelBootstrapData, scope?: PanelBootstrapSco
 export function clearPanelBootstrapCache(scope?: PanelBootstrapScope) {
   if (typeof window === 'undefined') return;
   try {
+    const legacyKey = (s?: PanelBootstrapScope) =>
+      s ? `vd_panel_bootstrap_v1_${s}` : 'vd_panel_bootstrap_v1';
     if (scope) {
       sessionStorage.removeItem(bootstrapStorageKey(scope));
+      sessionStorage.removeItem(legacyKey(scope));
       return;
     }
-    sessionStorage.removeItem(bootstrapStorageKey('admin'));
-    sessionStorage.removeItem(bootstrapStorageKey('reseller'));
-    sessionStorage.removeItem(bootstrapStorageKey('client'));
+    for (const s of ['admin', 'reseller', 'client'] as const) {
+      sessionStorage.removeItem(bootstrapStorageKey(s));
+      sessionStorage.removeItem(legacyKey(s));
+    }
     sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
+    sessionStorage.removeItem(legacyKey());
   } catch {
     /* ignore */
   }

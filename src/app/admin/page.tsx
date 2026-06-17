@@ -2609,6 +2609,15 @@ function AdminPageContent() {
     () => sortSitesPrimaryFirst(filteredSitesBase, accountPrimaryDomain),
     [filteredSitesBase, accountPrimaryDomain],
   )
+  const domainHubSites = useMemo(
+    () =>
+      directAdminSites.filter((s) => {
+        if (s.domain.includes('contaboserver')) return false
+        if (s.domain.toLowerCase().startsWith('mail.')) return false
+        return true
+      }),
+    [directAdminSites],
+  )
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 
@@ -2721,7 +2730,7 @@ function AdminPageContent() {
             variant="admin"
             isActive={isActive}
             initialTab={domainHubTab}
-            sites={filteredSites}
+            sites={domainHubSites}
             packages={directAdminPackages}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
