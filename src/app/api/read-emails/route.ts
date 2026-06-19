@@ -65,32 +65,25 @@ async function readMessagesInOpenMailbox(
   const mailboxInfo = client.mailbox as { exists?: number } | false
   const total = mailboxInfo && typeof mailboxInfo === 'object' ? mailboxInfo.exists || 0 : 0
 
-  if (!search && total > 0) {
-    const start = Math.max(1, total - limit + 1)
-    for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
-      emails.push(mapFetchedMessage(msg, realPath, email))
-    }
-    return emails
-  }
+  if (total === 0) return emails
 
-  const searchSpec = search
-    ? { or: [{ subject: search }, { from: search }, { body: search }] }
-    : { all: true }
+  // O Segredo: Usamos SEMPRE client.search() para excluir os \Deleted, mesmo quando não há termo de pesquisa.
+  // Isso impede que os emails apagados reapareçam ou esgotem o limite de 'limit' (que estava a bloquear as respostas de entrarem).
+  const searchSpec: any = search
+    ? { and: [{ deleted: false }, { or: [{ subject: search }, { from: search }, { body: search }] }] }
+    : { deleted: false }
+  
   let uids: number[] = []
   try {
     const searchRes = await client.search(searchSpec, { uid: true })
     uids = (Array.isArray(searchRes) ? searchRes : []).reverse().slice(0, limit)
-  } catch {
+  } catch (err) {
+    console.error(`Erro ao pesquisar na pasta ${realPath}:`, err)
     uids = []
   }
 
   if (uids.length > 0) {
     for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
-      emails.push(mapFetchedMessage(msg, realPath, email))
-    }
-  } else if (total > 0 && page === 1 && !search) {
-    const start = Math.max(1, total - limit + 1)
-    for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
       emails.push(mapFetchedMessage(msg, realPath, email))
     }
   }
@@ -122,42 +115,44 @@ export async function POST(req: NextRequest) {
       const { data: contas } = await query.or('status.eq.active,status.eq.activo')
 
       if (contas && contas.length > 0) {
-        const todosEmails: any[] = []
-        // Processar contas sequencialmente para evitar race conditions
-        for (const conta of contas) {
-          for (const folderPath of pastasParaProcessar) {
-            let contaClient: ImapFlow | null = null
-            try {
-              if (!conta.senha_servidor) continue
-              const pass = decryptPassword(conta.senha_servidor)
-              contaClient = await connectImapClient(conta.email, pass)
-              if (!contaClient) continue
+        // PARALELIZAÇÃO EXTREMA: Carregar todas as contas em simultâneo
+        const promessasContas = contas.map(async (conta) => {
+          if (!conta.senha_servidor) return []
+          let contaClient: ImapFlow | null = null
+          const contaEmails: any[] = []
+          try {
+            const pass = decryptPassword(conta.senha_servidor)
+            contaClient = await connectImapClient(conta.email, pass)
+            if (!contaClient) return []
 
-              const folderList = await contaClient.list()
+            const folderList = await contaClient.list()
+            for (const folderPath of pastasParaProcessar) {
               const realPath = resolveFolder(folderPath, folderList)
               if (!realPath) continue
 
               const lock = await contaClient.getMailboxLock(realPath)
               try {
-                const searchSpec = search ? { or: [{ subject: search }, { from: search }] } : { all: true }
-                const searchRes = await contaClient.search(searchSpec, { uid: true })
-                const uids = (Array.isArray(searchRes) ? searchRes : []).reverse().slice(0, 10)
-                for await (const msg of contaClient.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
-                  todosEmails.push({
-                    id: msg.uid, seq: msg.seq, tipo: determinarTipo(realPath),
-                    conta: conta.email, assunto: msg.envelope?.subject || '(sem assunto)',
-                    data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
-                    de: msg.envelope?.from?.[0]?.address || '', lido: msg.flags?.has('\\Seen') || false
-                  })
-                }
-              } finally { lock.release() }
-            } catch (e) {
-              console.error(`📧 [allAccounts] Erro em ${conta.email}/${folderPath}:`, e)
-            } finally {
-              if (contaClient) { try { await contaClient.logout() } catch (_) {} }
+                // Usa a mesma função filtrada de deleted
+                const result = await readMessagesInOpenMailbox(contaClient, realPath, conta.email, limit, search, page)
+                contaEmails.push(...result)
+              } finally {
+                lock.release()
+              }
             }
+          } catch (e) {
+            console.error(`📧 [allAccounts] Erro em ${conta.email}:`, e)
+          } finally {
+            if (contaClient) { try { await contaClient.logout() } catch (_) {} }
           }
-        }
+          return contaEmails
+        })
+
+        const resultados = await Promise.allSettled(promessasContas)
+        const todosEmails = resultados
+          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+          .map(r => r.value)
+          .flat()
+
         return NextResponse.json({
           success: true,
           emails: todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).slice(0, limit * 2),
@@ -168,41 +163,43 @@ export async function POST(req: NextRequest) {
 
     // --- CAMINHO 2: MULTI EMAILS ---
     if (multiEmails && Array.isArray(multiEmails)) {
-      const todosEmails: any[] = []
-      for (const [idx, mEmail] of multiEmails.entries()) {
+      // PARALELIZAÇÃO EXTREMA: Carregar todas as contas pedidas em simultâneo
+      const promessasContas = multiEmails.map(async (mEmail, idx) => {
         let mClient: ImapFlow | null = null
+        const mEmails: any[] = []
         try {
           const pass = multiPasswords?.[idx]
-          if (!pass) continue
+          if (!pass) return []
           mClient = await connectImapClient(mEmail, pass)
-          if (!mClient) continue
+          if (!mClient) return []
 
           const folderList = await mClient.list()
-          const realPath = resolveFolder('INBOX', folderList)
-          if (!realPath) continue
-
-          const lock = await mClient.getMailboxLock(realPath)
-          try {
-            const mailboxInfo = (mClient.mailbox as any)
-            const total = mailboxInfo?.exists || 0
-            const start = Math.max(1, total - 10 + 1)
-            if (total > 0) {
-              for await (const msg of mClient.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
-                todosEmails.push({
-                  id: msg.uid, seq: msg.seq, tipo: 'entrada', conta: mEmail,
-                  assunto: msg.envelope?.subject || '(sem assunto)',
-                  data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
-                  de: msg.envelope?.from?.[0]?.address || '', lido: msg.flags?.has('\\Seen') || false
-                })
-              }
+          for (const folderPath of pastasParaProcessar) {
+            const realPath = resolveFolder(folderPath, folderList)
+            if (!realPath) continue
+            
+            const lock = await mClient.getMailboxLock(realPath)
+            try {
+              const result = await readMessagesInOpenMailbox(mClient, realPath, mEmail, limit, search, page)
+              mEmails.push(...result)
+            } finally {
+              lock.release()
             }
-          } finally { lock.release() }
+          }
         } catch (e) {
           console.error(`📧 [multi] Erro em ${mEmail}:`, e)
         } finally {
           if (mClient) { try { await mClient.logout() } catch (_) {} }
         }
-      }
+        return mEmails
+      })
+
+      const resultados = await Promise.allSettled(promessasContas)
+      const todosEmails = resultados
+        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .map(r => r.value)
+        .flat()
+
       return NextResponse.json({ success: true, emails: todosEmails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()) })
     }
 
