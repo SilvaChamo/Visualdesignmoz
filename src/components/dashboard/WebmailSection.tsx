@@ -20,6 +20,11 @@ import {
   readWebmailBodyCache,
   writeWebmailBodyCache,
   pickDefaultWebmailAccount,
+  sortWebmailAccountsForAdmin,
+  groupWebmailAccountsForSelect,
+  fetchMailboxPassword,
+  writeCachedMailboxPassword,
+  readCachedMailboxPassword,
   type WebmailAccountRow,
 } from '@/lib/panel-webmail-cache'
 
@@ -60,8 +65,8 @@ export function WebmailSection({
   // Estados principais
   const initialAccountsCache = typeof window !== 'undefined' ? readWebmailAccountsCache() : null
   const initialAccountEmail = initialAccountsCache?.length
-    ? pickDefaultWebmailAccount(initialAccountsCache, userEmail)
-    : ''
+    ? pickDefaultWebmailAccount(initialAccountsCache, userEmail, emailOrigem)
+    : emailOrigem || ''
   const initialInboxCache = initialAccountEmail
     ? readWebmailListCache(initialAccountEmail, 'INBOX', true)
     : null
@@ -193,38 +198,37 @@ export function WebmailSection({
 
   const writeAccountsCache = (list: EmailAccount[]) => writeWebmailAccountsCache(list)
 
-  const pickDefaultAccount = (list: EmailAccount[]) => {
-    const silva = list.find((a) => a.email === 'silva.chamo@visualdesignmoz.com')
-    const user = list.find((a) => a.email === userEmail)
-    return silva?.email || user?.email || list[0]?.email || ''
+  const pickDefaultAccount = (list: EmailAccount[]) =>
+    pickDefaultWebmailAccount(list, userEmail, emailOrigem)
+
+  const syncAccountPasswordInList = (email: string, password: string) => {
+    if (!password) return
+    writeCachedMailboxPassword(email, password)
+    const updated = accountsRef.current.map((a) =>
+      a.email === email ? { ...a, password } : a,
+    )
+    accountsRef.current = updated
+    setAccounts(updated)
+    setAllAccounts(updated)
   }
 
   const applyAccountList = (list: EmailAccount[], selectAccount?: string) => {
     if (!list.length) return
-    accountsRef.current = list
-    setAllAccounts(list)
-    setAccounts(list)
+    const ordered = isAdmin ? sortWebmailAccountsForAdmin(list) : list
+    accountsRef.current = ordered
+    setAllAccounts(ordered)
+    setAccounts(ordered)
     setSelectedAccount((prev) => {
       if (selectAccount) return selectAccount
-      if (prev && list.some((a) => a.email === prev)) return prev
-      return pickDefaultAccount(list)
+      if (prev && ordered.some((a) => a.email === prev)) return prev
+      return pickDefaultAccount(ordered)
     })
   }
 
   const fetchAccountPassword = async (email: string): Promise<string | null> => {
-    try {
-      const res = await fetch('/api/email-senha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (data.success && data.senha) return data.senha
-    } catch (e) {
-      console.error('[Webmail] Erro ao obter senha:', e)
-    }
-    return null
+    const cached = readCachedMailboxPassword(email)
+    if (cached) return cached
+    return fetchMailboxPassword(email)
   }
 
   const resolveAccountPassword = async (account: EmailAccount): Promise<string> => {
@@ -291,6 +295,17 @@ export function WebmailSection({
       loadEmails()
     }
   }, [selectedAccount, activeFolder, debouncedSearchQuery, accounts.length])
+
+  // Prefetch senha da conta activa (envio + IMAP sem espera)
+  useEffect(() => {
+    if (!selectedAccount) return
+    const account = accountsRef.current.find((a) => a.email === selectedAccount)
+    if (!account) return
+    void (async () => {
+      const password = await getPasswordForAccount(account)
+      if (password) syncAccountPasswordInList(selectedAccount, password)
+    })()
+  }, [selectedAccount, accounts.length])
 
   // Corpo da mensagem — cache local + IMAP só quando necessário
   useEffect(() => {
@@ -486,6 +501,13 @@ export function WebmailSection({
       if (merged.length > 0) {
         applyAccountList(merged)
         writeAccountsCache(merged)
+        const defaultEmail = pickDefaultAccount(merged)
+        const defaultAcc = merged.find((a) => a.email === defaultEmail)
+        if (defaultAcc) {
+          void getPasswordForAccount(defaultAcc).then((pwd) => {
+            if (pwd) syncAccountPasswordInList(defaultEmail, pwd)
+          })
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar contas:', error)
@@ -525,16 +547,20 @@ export function WebmailSection({
     }
 
     try {
+      const password = await getPasswordForAccount(account)
+      const needFolderTotals = !debouncedSearchQuery && !folderCountsLoadedRef.current
+
       const res = await fetch('/api/read-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           email: account.email,
+          ...(password ? { password } : {}),
           folders: [activeFolder],
           limit: 20,
           search: debouncedSearchQuery,
-          includeTotals: false,
+          includeTotals: needFolderTotals,
         }),
         signal: controller.signal,
       })
@@ -548,8 +574,10 @@ export function WebmailSection({
         if (!debouncedSearchQuery) {
           setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
         }
-
-        if (!debouncedSearchQuery && !folderCountsLoadedRef.current) {
+        if (needFolderTotals && data.folderTotals) {
+          folderCountsLoadedRef.current = true
+          setFolderCounts((prev) => ({ ...prev, ...data.folderTotals }))
+        } else if (!debouncedSearchQuery && !folderCountsLoadedRef.current) {
           void refreshAllFolderCounts()
         }
       } else {
@@ -561,43 +589,11 @@ export function WebmailSection({
           errorLower.includes('credenciais') ||
           errorLower.includes('imap')
         ) {
-          const password = await getPasswordForAccount(account)
-          if (password) {
-            const retry = await fetch('/api/read-emails', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                email: account.email,
-                password,
-                folders: [activeFolder],
-                limit: 20,
-                search: debouncedSearchQuery,
-                includeTotals: false,
-              }),
-              signal: controller.signal,
-            })
-            const retryData = await retry.json()
-            if (retryData.success) {
-              const newEmails = retryData.emails || []
-              setEmails(newEmails)
-              if (!debouncedSearchQuery) {
-                setCachedData(selectedAccount, activeFolder, newEmails, retryData.folderTotals)
-              }
-            } else {
-              setValidCredentials((prev) => {
-                const updated = { ...prev }
-                delete updated[account.email]
-                return updated
-              })
-            }
-          } else {
-            setValidCredentials((prev) => {
-              const updated = { ...prev }
-              delete updated[account.email]
-              return updated
-            })
-          }
+          setValidCredentials((prev) => {
+            const updated = { ...prev }
+            delete updated[account.email]
+            return updated
+          })
         }
       }
     } catch (error: any) {
@@ -624,11 +620,7 @@ export function WebmailSection({
     const controller = new AbortController()
     loadCountsAbortControllerRef.current = controller
 
-    const cachedCred = validCredentials[account.email]
-    const password =
-      cachedCred && Date.now() < cachedCred.expiresAt
-        ? cachedCred.password
-        : account.password || CREDENCIAIS_PADRAO[account.email] || undefined
+    const password = await getPasswordForAccount(account)
 
     try {
       const res = await fetch('/api/read-emails', {
@@ -748,7 +740,7 @@ export function WebmailSection({
       return
     }
 
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    const password = await getPasswordForAccount(account)
     if (!password) {
       setDiagnosticoResult({ error: 'Senha não disponível para esta conta' })
       setDiagnosticoLoading(false)
@@ -810,22 +802,17 @@ export function WebmailSection({
       return
     }
 
-    // Verificar se temos senha para esta conta
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    const password = await getPasswordForAccount(account)
     if (!password) {
-      alert(`Erro: Senha não configurada para ${account.email}.\n\nConfigure a senha em "Configurações" ou adicione-a ao sistema.`)
-      console.error('❌ Senha não encontrada para:', account.email)
-      console.log('💡 Contas com senha configurada:', Object.keys(CREDENCIAIS_PADRAO))
+      alert(`Erro: Não foi possível obter credenciais para ${account.email}. Tente actualizar a página.`)
       return
     }
-
-    console.log('📧 Enviando email de:', account.email)
-    console.log('📧 Para:', composeData.to)
 
     try {
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           from: account.email,
           fromPassword: password,
@@ -862,7 +849,7 @@ export function WebmailSection({
       return
     }
 
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    const password = await getPasswordForAccount(account)
     if (!password) {
       alert('Senha não disponível para esta conta')
       return
@@ -904,7 +891,7 @@ export function WebmailSection({
       return
     }
 
-    const password = account.password || CREDENCIAIS_PADRAO[account.email]
+    const password = await getPasswordForAccount(account)
     if (!password) {
       alert('Senha não disponível para esta conta')
       return
@@ -1113,11 +1100,23 @@ export function WebmailSection({
                 className="px-3 py-1.5 bg-white border border-gray-300 rounded text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {allAccounts.length > 0 ? (
-                  allAccounts.map(acc => (
-                    <option key={acc.email} value={acc.email}>
-                      {acc.name} ({acc.email})
-                    </option>
-                  ))
+                  isAdmin ? (
+                    groupWebmailAccountsForSelect(allAccounts).map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.accounts.map((acc) => (
+                          <option key={acc.email} value={acc.email}>
+                            {acc.name} ({acc.email})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  ) : (
+                    allAccounts.map((acc) => (
+                      <option key={acc.email} value={acc.email}>
+                        {acc.name} ({acc.email})
+                      </option>
+                    ))
+                  )
                 ) : (
                   <option value="">Nenhuma conta disponível</option>
                 )}
@@ -1639,9 +1638,19 @@ export function WebmailSection({
                   onChange={(e) => setSelectedAccount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
-                  {allAccounts.map(acc => (
-                    <option key={acc.email} value={acc.email}>{acc.email}</option>
-                  ))}
+                  {isAdmin ? (
+                    groupWebmailAccountsForSelect(allAccounts).map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.accounts.map((acc) => (
+                          <option key={acc.email} value={acc.email}>{acc.email}</option>
+                        ))}
+                      </optgroup>
+                    ))
+                  ) : (
+                    allAccounts.map((acc) => (
+                      <option key={acc.email} value={acc.email}>{acc.email}</option>
+                    ))
+                  )}
                 </select>
               </div>
               

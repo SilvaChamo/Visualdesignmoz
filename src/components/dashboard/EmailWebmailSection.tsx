@@ -14,6 +14,15 @@ import {
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import { getSnappyMailUrl } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
+import {
+  fetchMailboxPassword,
+  mapEmailContasToWebmailAccounts,
+  pickDefaultWebmailAccount,
+  sortWebmailAccountsForAdmin,
+  writeCachedMailboxPassword,
+  readWebmailListCache,
+  writeWebmailListCache,
+} from '@/lib/panel-webmail-cache'
 const CORES_PALETA = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#ffffff',
   '#ff0000', '#ff4500', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff',
@@ -105,20 +114,40 @@ export function EmailWebmailSection({
 
   // 🚀 FUNÇÃO HELPER: Buscar senha dinamicamente da API segura
   const buscarSenhaDinamica = async (email: string): Promise<string | null> => {
-    try {
-      const res = await fetch('/api/email-senha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      })
-      const data = await res.json()
-      if (data.success && data.senha) {
-        return data.senha
-      }
-    } catch (e) {
-      console.error('[EmailWebmail] Erro ao buscar senha dinâmica:', e)
+    return fetchMailboxPassword(email)
+  }
+
+  const garantirSenhaOrigem = async (email: string): Promise<string> => {
+    if (emailOrigemPassword && emailOrigem === email) return emailOrigemPassword
+    const senha = await buscarSenhaDinamica(email)
+    if (senha) {
+      setEmailOrigemPassword(senha)
+      writeCachedMailboxPassword(email, senha)
     }
-    return null
+    return senha || ''
+  }
+
+  const resolveActionCredentials = async (): Promise<{ email: string; password: string } | null> => {
+    let emailParaUsar = emailOrigem
+    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
+      emailParaUsar = emailsOrigem[0].email
+    }
+    if (!emailParaUsar) return null
+    const password = await garantirSenhaOrigem(emailParaUsar)
+    if (!password) return null
+    return { email: emailParaUsar, password }
+  }
+
+  const pastaParaIMAP = (pasta: string) => {
+    if (pasta === 'Caixa de Entrada') return 'INBOX'
+    const mapa: Record<string, string> = {
+      'Enviados': 'Sent',
+      'Rascunhos': 'Drafts',
+      'Arquivo': 'Archive',
+      'Lixo': 'Trash',
+      'Spam': 'Junk',
+    }
+    return mapa[pasta] || pasta
   }
 
   // Configurar email e senha automaticamente quando abre o compositor (APENAS se não houver email selecionado)
@@ -273,19 +302,15 @@ export function EmailWebmailSection({
     if (modalEmail && !modalEmail.corpo) {
       const carregarCorpo = async () => {
         try {
+          const contaEmail = emailOrigem || (todasAsContas ? modalEmail.conta : '')
+          const senha = contaEmail ? await garantirSenhaOrigem(contaEmail) : ''
           const res = await fetch('/api/read-email-detail', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
-              email: emailOrigem || (todasAsContas ? modalEmail.conta : ''),
-              password: emailOrigemPassword || (() => {
-                const senhas: Record<string, string> = {
-                  'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
-                  'noreply@visualdesignmoz.com': 'VisualDesign#2026',
-                  'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
-                }
-                return senhas[emailOrigem || ''] || ''
-              })(),
+              email: contaEmail,
+              ...(senha ? { password: senha } : {}),
               emailId: modalEmail.id,
               folder: pastaParaIMAP(pastaActiva)
             })
@@ -306,25 +331,60 @@ export function EmailWebmailSection({
   // ⚡ OTIMIZAÇÃO: Se hideSidebar=true e propEmailOrigem existe, não carregar todas as contas
   useEffect(() => {
     const carregarContasServidor = async () => {
-      // 🎯 MODO RÁPIDO: Painel do cliente com email já selecionado
       if (hideSidebar && propEmailOrigem) {
-        console.log('📧 [RÁPIDO] Modo cliente com email predefinido:', propEmailOrigem)
-        // Buscar senha das credenciais padrão ou deixar vazio para buscar dinamicamente
-        const senhaPadrao = CREDENCIAIS_PADRAO[propEmailOrigem] || ''
         setEmailsOrigem([{
           email: propEmailOrigem,
           tipo: 'webmail',
           nome: propEmailOrigem.split('@')[0],
-          password: senhaPadrao
+          password: '',
         }])
         setEmailOrigem(propEmailOrigem)
-        if (senhaPadrao) setEmailOrigemPassword(senhaPadrao)
+        const senha = await buscarSenhaDinamica(propEmailOrigem)
+        if (senha) {
+          setEmailOrigemPassword(senha)
+          setEmailsOrigem([{
+            email: propEmailOrigem,
+            tipo: 'webmail',
+            nome: propEmailOrigem.split('@')[0],
+            password: senha,
+          }])
+        }
         setCarregandoEmails(false)
         return
       }
 
-      console.log('📧 [Contacts] Iniciando carregamento de contactos (servidor + Supabase)...')
       setCarregandoEmails(true)
+
+      if (isAdmin) {
+        try {
+          const res = await fetch('/api/email-contas', { credentials: 'include' })
+          const data = await res.json()
+          if (data.success && Array.isArray(data.contas)) {
+            const accountRows = sortWebmailAccountsForAdmin(mapEmailContasToWebmailAccounts(data.contas))
+            const mapped = accountRows.map((acc) => ({
+              email: acc.email,
+              tipo: 'webmail',
+              nome: acc.name,
+              password: acc.password || '',
+            }))
+            setEmailsOrigem(mapped)
+            if (mapped.length > 0 && !emailOrigem) {
+              const defaultEmail = pickDefaultWebmailAccount(accountRows, null, propEmailOrigem || undefined)
+              const defaultAcc = mapped.find((a) => a.email === defaultEmail) || mapped[0]
+              setEmailOrigem(defaultAcc.email)
+              const senha = defaultAcc.password || (await buscarSenhaDinamica(defaultAcc.email)) || ''
+              if (senha) setEmailOrigemPassword(senha)
+            }
+          }
+        } catch (e) {
+          console.error('📧 [Contacts] Erro ao carregar contas admin:', e)
+        } finally {
+          setCarregandoEmails(false)
+        }
+        return
+      }
+
+      console.log('📧 [Contacts] Iniciando carregamento de contactos (servidor + Supabase)...')
       
       // Buscar emails consolidados (servidor + Supabase)
       const allEmails: any[] = []
@@ -403,7 +463,7 @@ export function EmailWebmailSection({
     }
     
     carregarContasServidor()
-  }, [sites, hideSidebar, propEmailOrigem])
+  }, [sites, hideSidebar, propEmailOrigem, isAdmin])
 
   // Debounce para a pesquisa
   useEffect(() => {
@@ -419,46 +479,46 @@ export function EmailWebmailSection({
     const payloadFolders = [pastaParaIMAP(pastaActiva)]
 
     const carregar = async () => {
-      console.log(`📧 [Frontend] Iniciando carregamento...`)
-      console.log(`📧 [Frontend] todasAsContas: ${todasAsContas}, emailsOrigem.length: ${emailsOrigem.length}`)
-      console.log(`📧 [Frontend] emailOrigem: ${emailOrigem}, pasta: ${pastaActiva}`)
-      
-      setCarregandoEmails(true)
       setErroEmail('')
+      const folderKey = payloadFolders[0]
+      let hadCachedList = false
+
+      if (!todasAsContas && emailOrigem && !searchTerm) {
+        const cached = readWebmailListCache(emailOrigem, folderKey, true)
+        if (cached?.emails?.length) {
+          hadCachedList = true
+          setEmails(cached.emails)
+        }
+      }
+
+      setCarregandoEmails(!hadCachedList)
       try {
         const body: any = {
           folders: payloadFolders,
           page: 1,
           limit: todasAsContas ? 10 : 20,
-          search: searchTerm // Adiciona o termo de pesquisa
+          search: searchTerm
         }
 
         if (todasAsContas) {
           body.allAccounts = true
           body.emails = memoEmailsOrigem.map(e => e.email)
-          console.log(`📧 [Frontend] Modo Todas as Contas - emails:`, body.emails)
           
-          // Se não tem emails para buscar, não faz sentido chamar a API
           if (body.emails.length === 0) {
-            console.log(`📧 [Frontend] Sem emails no modo allAccounts, pulando requisição`)
             setCarregandoEmails(false)
             setEmails([])
             return
           }
         } else {
-          // 🚀 Buscar senha dinamicamente se não estiver no estado
           let senhaImap = emailOrigemPassword
           if (!senhaImap && emailOrigem) {
-            const senhaObtida = await buscarSenhaDinamica(emailOrigem)
-            senhaImap = senhaObtida || ''
+            senhaImap = await garantirSenhaOrigem(emailOrigem)
           }
           if (!senhaImap) {
             senhaImap = CREDENCIAIS_PADRAO[emailOrigem || ''] || ''
           }
           
-          console.log(`📧 [Frontend] Modo conta individual - email: ${emailOrigem}, temSenha: ${!!senhaImap}`)
           if (!emailOrigem || !senhaImap) {
-            console.log(`📧 [Frontend] Sem email ou senha, abortando`)
             setCarregandoEmails(false)
             setErroEmail(emailOrigem 
               ? `Senha não encontrada para ${emailOrigem}. Verifique a configuração da conta.` 
@@ -470,45 +530,30 @@ export function EmailWebmailSection({
           body.password = senhaImap
         }
 
-        console.log(`📧 [Frontend] Chamando API read-emails...`)
         const res = await fetch('/api/read-emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(body)
         })
         const data = await res.json()
-        console.log(`📧 [Frontend] Resposta API:`, { success: data.success, total: data.total, emailsCount: data.emails?.length })
         
         if (data && data.success) {
           setEmails(data.emails)
+          if (!todasAsContas && emailOrigem && !searchTerm) {
+            writeWebmailListCache(emailOrigem, folderKey, data.emails || [], data.folderTotals)
+          }
         } else {
           const errMsg = data?.error || data?.message || data?.details || 'Erro desconhecido ao carregar emails'
-          console.error(`📧 [Frontend] Erro da API:`, data)
           setErroEmail(errMsg)
         }
       } catch (e: any) { 
-        console.error(`📧 [Frontend] Erro na requisição:`, e)
         setErroEmail(e.message) 
       }
       setCarregandoEmails(false)
     }
     carregar()
   }, [pastaActiva, emailOrigem, emailOrigemPassword, todasAsContas, emailsOrigem, searchTerm])
-
-  const pastaParaIMAP = (pasta: string) => {
-    // Enviamos apenas a chave IMAP standard (sem prefixo INBOX.) para que o backend
-    // possa usar o seu algoritmo de fallback e detectar automaticamente o nome real
-    // da pasta no servidor (seja INBOX.Sent, Sent, Enviados, etc.)
-    if (pasta === 'Caixa de Entrada') return 'INBOX'
-    const mapa: Record<string, string> = {
-      'Enviados': 'Sent',
-      'Rascunhos': 'Drafts',
-      'Arquivo': 'Archive',
-      'Lixo': 'Trash',       // Chave standard que o backend reconhece e procura variações
-      'Spam': 'Junk'         // Chave standard que o backend reconhece e procura variações
-    }
-    return mapa[pasta] || pasta
-  }
 
   const [mostrarCc, setMostrarCc] = useState(false)
   const [mostrarBcc, setMostrarBcc] = useState(false)
@@ -831,34 +876,9 @@ export function EmailWebmailSection({
   // ✅ DELETAR EMAIL
   const handleDeleteEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
+    const creds = await resolveActionCredentials()
 
-    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
-    let emailParaUsar = emailOrigem
-    let passwordParaUsar = emailOrigemPassword
-
-    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
-      emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || ''
-    }
-
-    // Se ainda não tiver credenciais, usar fallback padrão
-    if (!passwordParaUsar) {
-      emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = ''
-    }
-
-    // Debug para verificar parâmetros antes de enviar
-    console.log('handleDeleteEmail - Parâmetros:', {
-      emailId,
-      emailParaUsar,
-      passwordParaUsar: passwordParaUsar ? '[HIDDEN]' : null,
-      pastaActiva,
-      pastaIMAP: pastaParaIMAP(pastaActiva),
-      todasAsContas,
-      emailsOrigemLength: emailsOrigem.length
-    })
-
-    if (!emailId || !emailParaUsar) {
+    if (!emailId || !creds) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
     }
@@ -867,9 +887,10 @@ export function EmailWebmailSection({
       const res = await fetch('/api/delete-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          email: emailParaUsar,
-          password: passwordParaUsar,
+          email: creds.email,
+          password: creds.password,
           emailId: emailId,
           folder: pastaParaIMAP(pastaActiva)
         })
@@ -893,13 +914,19 @@ export function EmailWebmailSection({
     if (!modalEmail || !emailOrigem) return
     const forwardTo = prompt('Encaminhar para qual email?')
     if (!forwardTo) return
+    const senha = await garantirSenhaOrigem(emailOrigem)
+    if (!senha) {
+      alert('Não foi possível obter credenciais para esta conta.')
+      return
+    }
     try {
       const res = await fetch('/api/forward-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: emailOrigem,
-          password: emailOrigemPassword || '',
+          password: senha,
           emailId: modalEmail.id,
           forwardTo,
           folder: pastaActiva
@@ -920,34 +947,9 @@ export function EmailWebmailSection({
   // ✅ ARQUIVAR EMAIL
   const handleArchiveEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
+    const creds = await resolveActionCredentials()
 
-    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
-    let emailParaUsar = emailOrigem
-    let passwordParaUsar = emailOrigemPassword
-
-    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
-      emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || ''
-    }
-
-    // Se ainda não tiver credenciais, usar fallback padrão
-    if (!passwordParaUsar) {
-      emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = ''
-    }
-
-    // Debug para verificar parâmetros antes de enviar
-    console.log('handleArchiveEmail - Parâmetros:', {
-      emailId,
-      emailParaUsar,
-      passwordParaUsar: passwordParaUsar ? '[HIDDEN]' : null,
-      pastaActiva,
-      pastaIMAP: pastaParaIMAP(pastaActiva),
-      todasAsContas,
-      emailsOrigemLength: emailsOrigem.length
-    })
-
-    if (!emailId || !emailParaUsar) {
+    if (!emailId || !creds) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
     }
@@ -956,9 +958,10 @@ export function EmailWebmailSection({
       const res = await fetch('/api/archive-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          email: emailParaUsar,
-          password: passwordParaUsar,
+          email: creds.email,
+          password: creds.password,
           emailId: emailId,
           fromFolder: pastaParaIMAP(pastaActiva)
         })
@@ -980,23 +983,9 @@ export function EmailWebmailSection({
   // ✅ SPAM EMAIL
   const handleSpamEmail = async (emailIdParam = null) => {
     const emailId = emailIdParam || modalEmail?.id
+    const creds = await resolveActionCredentials()
 
-    // Solução viável: usar credenciais da primeira conta disponível quando "Todas as Contas" está ativo
-    let emailParaUsar = emailOrigem
-    let passwordParaUsar = emailOrigemPassword
-
-    if (!emailParaUsar && todasAsContas && emailsOrigem.length > 0) {
-      emailParaUsar = emailsOrigem[0].email
-      passwordParaUsar = emailsOrigem[0].password || ''
-    }
-
-    // Se ainda não tiver credenciais, usar fallback padrão
-    if (!passwordParaUsar) {
-      emailParaUsar = 'admin@your-domain.com'
-      passwordParaUsar = ''
-    }
-
-    if (!emailId || !emailParaUsar) {
+    if (!emailId || !creds) {
       alert('Por favor, selecione uma conta específica para realizar ações')
       return
     }
@@ -1005,9 +994,10 @@ export function EmailWebmailSection({
       const res = await fetch('/api/archive-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          email: emailParaUsar,
-          password: passwordParaUsar,
+          email: creds.email,
+          password: creds.password,
           emailId: emailId,
           fromFolder: pastaParaIMAP(pastaActiva),
           toFolder: 'Spam'
@@ -1107,10 +1097,15 @@ export function EmailWebmailSection({
       return
     }
 
-    // 🚀 FECHAR COMPOSER IMEDIATAMENTE - envio em background
+    const senhaEnvio = await garantirSenhaOrigem(emailOrigem)
+    if (!senhaEnvio) {
+      alert(`Não foi possível obter credenciais para ${emailOrigem}. Tente actualizar a página.`)
+      return
+    }
+
     const emailData = {
       from: emailOrigem,
-      fromPassword: emailOrigemPassword,
+      fromPassword: senhaEnvio,
       to: compose.para,
       cc: compose.cc,
       bcc: compose.bcc,

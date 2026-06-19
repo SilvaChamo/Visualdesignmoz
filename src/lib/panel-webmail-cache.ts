@@ -12,22 +12,94 @@ const BODY_PREFIX = 'panel_webmail_body_v1'
 const CACHE_MS = 5 * 60 * 1000
 const LIST_CACHE_MS = 2 * 60 * 1000
 const BODY_CACHE_MS = 30 * 60 * 1000
+const PASSWORD_CACHE_MS = 60 * 60 * 1000
 
 let memoryCache: { accounts: WebmailAccountRow[]; ts: number } | null = null
+const passwordMemoryCache: Record<string, { password: string; ts: number }> = {}
+
+export const SYSTEM_MAIL_DOMAINS = ['visualdesignmoz.com', 'anap.co.mz', 'entrecampos.co.mz']
+
+export function readCachedMailboxPassword(email: string): string | null {
+  const row = passwordMemoryCache[email.toLowerCase()]
+  if (row && Date.now() - row.ts < PASSWORD_CACHE_MS) return row.password
+  return null
+}
+
+export function writeCachedMailboxPassword(email: string, password: string) {
+  if (!email || !password) return
+  passwordMemoryCache[email.toLowerCase()] = { password, ts: Date.now() }
+}
+
+export async function fetchMailboxPassword(email: string): Promise<string | null> {
+  const cached = readCachedMailboxPassword(email)
+  if (cached) return cached
+  if (typeof window === 'undefined') return null
+  try {
+    const res = await fetch('/api/email-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json()
+    if (data.success && data.senha) {
+      writeCachedMailboxPassword(email, data.senha)
+      return data.senha
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+function hydrateAccountPasswords(accounts: WebmailAccountRow[]): WebmailAccountRow[] {
+  return accounts.map((a) => {
+    const pwd = a.password || readCachedMailboxPassword(a.email)
+    return pwd ? { ...a, password: pwd } : a
+  })
+}
+
+export function sortWebmailAccountsForAdmin(accounts: WebmailAccountRow[]): WebmailAccountRow[] {
+  return [...accounts].sort((a, b) => {
+    const aSys = SYSTEM_MAIL_DOMAINS.includes(a.domain) ? 0 : 1
+    const bSys = SYSTEM_MAIL_DOMAINS.includes(b.domain) ? 0 : 1
+    if (aSys !== bSys) return aSys - bSys
+    if (a.domain !== b.domain) return a.domain.localeCompare(b.domain)
+    return a.email.localeCompare(b.email)
+  })
+}
+
+export function groupWebmailAccountsForSelect(accounts: WebmailAccountRow[]): {
+  label: string
+  accounts: WebmailAccountRow[]
+}[] {
+  const sorted = sortWebmailAccountsForAdmin(accounts)
+  const system = sorted.filter((a) => SYSTEM_MAIL_DOMAINS.includes(a.domain))
+  const other = sorted.filter((a) => !SYSTEM_MAIL_DOMAINS.includes(a.domain))
+  const groups: { label: string; accounts: WebmailAccountRow[] }[] = []
+  if (system.length) groups.push({ label: 'Contas do sistema', accounts: system })
+  if (other.length) groups.push({ label: 'Outras contas', accounts: other })
+  if (!groups.length && sorted.length) groups.push({ label: 'Contas', accounts: sorted })
+  return groups
+}
 
 export function mapEmailContasToWebmailAccounts(contas: any[]): WebmailAccountRow[] {
-  return contas.map((c) => ({
-    email: c.email,
-    name: c.nome_conta || c.nome || c.email.split('@')[0],
-    domain: c.email.split('@')[1],
-    password: c.password_smtp || undefined,
-    tipo: (c.tipo_conta || 'webmail') as WebmailAccountRow['tipo'],
-  }))
+  return contas.map((c) => {
+    const password = c.password_smtp || undefined
+    if (password) writeCachedMailboxPassword(c.email, password)
+    return {
+      email: c.email,
+      name: c.nome_conta || c.nome || c.email.split('@')[0],
+      domain: c.email.split('@')[1],
+      password,
+      tipo: (c.tipo_conta || 'webmail') as WebmailAccountRow['tipo'],
+    }
+  })
 }
 
 export function readWebmailAccountsCache(): WebmailAccountRow[] | null {
   if (memoryCache && Date.now() - memoryCache.ts < CACHE_MS && memoryCache.accounts.length > 0) {
-    return memoryCache.accounts
+    return hydrateAccountPasswords(memoryCache.accounts)
   }
   if (typeof window === 'undefined') return null
   try {
@@ -35,14 +107,17 @@ export function readWebmailAccountsCache(): WebmailAccountRow[] | null {
     if (!raw) return null
     const { accounts, ts } = JSON.parse(raw) as { accounts: WebmailAccountRow[]; ts: number }
     if (!accounts?.length || Date.now() - ts > CACHE_MS) return null
-    return accounts
+    return hydrateAccountPasswords(accounts)
   } catch {
     return null
   }
 }
 
 export function writeWebmailAccountsCache(accounts: WebmailAccountRow[]) {
-  memoryCache = { accounts, ts: Date.now() }
+  accounts.forEach((a) => {
+    if (a.password) writeCachedMailboxPassword(a.email, a.password)
+  })
+  memoryCache = { accounts: accounts.map((a) => ({ ...a })), ts: Date.now() }
   if (typeof window === 'undefined') return
   try {
     const safe = accounts.map(({ email, name, domain, tipo }) => ({ email, name, domain, tipo }))
@@ -55,10 +130,15 @@ export function writeWebmailAccountsCache(accounts: WebmailAccountRow[]) {
 export function pickDefaultWebmailAccount(
   accounts: WebmailAccountRow[],
   userEmail?: string | null,
+  preferredEmail?: string | null,
 ): string {
-  const preferred = accounts.find((a) => a.email === 'silva.chamo@visualdesignmoz.com')
+  if (preferredEmail) {
+    const pref = accounts.find((a) => a.email === preferredEmail)
+    if (pref) return pref.email
+  }
+  const silva = accounts.find((a) => a.email === 'silva.chamo@visualdesignmoz.com')
   const user = userEmail ? accounts.find((a) => a.email === userEmail) : null
-  return preferred?.email || user?.email || accounts[0]?.email || ''
+  return silva?.email || user?.email || accounts[0]?.email || ''
 }
 
 const listCacheKey = (account: string, folder: string) =>
