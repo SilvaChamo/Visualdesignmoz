@@ -41,6 +41,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Mensagem não encontrada nesta pasta.' }, { status: 404 })
       }
 
+      // Marcar como lido (\Seen) no servidor
+      try {
+        await client.messageFlagsAdd([emailId], ['\\Seen'], { uid: true })
+      } catch (e) {
+        console.error('Falha ao marcar como lido:', e)
+      }
+
       const parsed = await simpleParser(msg.source)
       return NextResponse.json({
         success: true,

@@ -1862,6 +1862,9 @@ export function EmailWebmailSection({
                         onClick={() => {
                           if (!emailsSelecionados.includes(e.id)) {
                             setModalEmail(e)
+                            if (!e.lido) {
+                              setEmails((prev: any[]) => prev.map((em: any) => em.id === e.id ? { ...em, lido: true } : em))
+                            }
                           }
                         }}
                       >
