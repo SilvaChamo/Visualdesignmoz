@@ -116,15 +116,8 @@ async function saveToSentFolder(
         // Usar IP directo do servidor (igual ao read-emails API)
         // Evita falhas de DNS que ocorrem com mail.{domínio}
         const senderDomain = from.split('@')[1] || 'visualdesignmoz.com'
-        const HOSTED_MAIL_DOMAINS = [
-            'visualdesignmoz.com', 'visualdesigne.pt',
-            'anap.co.mz', 'entrecampos.co.mz',
-            'aamihe.com', 'miv.co.mz', 'moz-servicos.com'
-        ]
-        const isHostedMail = HOSTED_MAIL_DOMAINS.includes(senderDomain) || 
-                             HOSTED_MAIL_DOMAINS.some(d => senderDomain.endsWith('.' + d)) ||
-                             senderDomain.endsWith('.co.mz') || 
-                             senderDomain.endsWith('.mz')
+        const HOSTED_MAIL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
+        const isHostedMail = HOSTED_MAIL_DOMAINS.includes(senderDomain) || HOSTED_MAIL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
         const imapHost = isHostedMail ? resolvePanelImapHost() : `mail.${senderDomain}`
         
         const imapClient = new ImapFlow({
