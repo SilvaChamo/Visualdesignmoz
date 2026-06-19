@@ -33,6 +33,7 @@ type EmailRow = {
   assunto: string
   data: string
   de: string
+  para?: string
   lido: boolean
   messageId?: string
 }
@@ -46,6 +47,7 @@ function mapFetchedMessage(msg: any, realPath: string, email: string): EmailRow 
     assunto: msg.envelope?.subject || '(sem assunto)',
     data: msg.envelope?.date?.toISOString() || new Date().toISOString(),
     de: msg.envelope?.from?.[0]?.address || '',
+    para: msg.envelope?.to?.[0]?.address || '',
     lido: msg.flags?.has('\\Seen') || false,
     messageId: msg.envelope?.messageId || '',
   }
