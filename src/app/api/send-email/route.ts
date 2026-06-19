@@ -111,33 +111,20 @@ async function saveToSentFolder(
     
     try {
         console.log('📁 [IMAP] A guardar email na pasta Sent...');
-        const { ImapFlow } = await import('imapflow');
+        const { connectImapClient, FOLDER_VARIATIONS } = await import('@/lib/imap-panel-shared');
         
-        // Usar IP directo do servidor (igual ao read-emails API)
-        // Evita falhas de DNS que ocorrem com mail.{domínio}
-        const senderDomain = from.split('@')[1] || 'visualdesignmoz.com'
-        const HOSTED_MAIL_DOMAINS = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'anap.co.mz', 'entrecampos.co.mz', 'aamihe.com']
-        const isHostedMail = HOSTED_MAIL_DOMAINS.includes(senderDomain) || HOSTED_MAIL_DOMAINS.some(d => senderDomain.endsWith('.' + d))
-        const imapHost = isHostedMail ? resolvePanelImapHost() : `mail.${senderDomain}`
+        const imapClient = await connectImapClient(from, password);
         
-        const imapClient = new ImapFlow({
-            host: imapHost,
-            port: 993,
-            secure: true,
-            auth: { user: from, pass: password },
-            tls: { rejectUnauthorized: false },
-            logger: false,
-            emitLogs: false
-        });
-
-        await imapClient.connect();
+        if (!imapClient) {
+            console.warn('⚠️ [IMAP] Falha ao ligar para guardar na pasta Sent');
+            return;
+        }
         
-        // Pastas Sent ordenadas por probabilidade no Dovecot
-        // O Dovecot cria tipicamente 'INBOX.Sent' ou 'Sent'
-        const sentFolders = ['Sent', 'INBOX.Sent', 'Sent Items', 'INBOX.Sent Items', 'Enviados', 'INBOX.Enviados'];
+        const sentFolders = FOLDER_VARIATIONS['sent'] || ['Sent', 'INBOX.Sent', 'Sent Items', 'Enviados'];
         
         const toArray = Array.isArray(to) ? to : [to];
         const toStr = toArray.join(', ');
+        const senderDomain = from.split('@')[1] || 'visualdesignmoz.com';
         const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${senderDomain}>`;
         const dateStr = new Date().toUTCString();
         

@@ -3,26 +3,14 @@ import { ImapFlow } from 'imapflow'
 import type { Session } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { resolvePanelImapHost } from '@/lib/imap-host'
-import { decryptStoredPassword } from '@/lib/panel-access-credentials'
-import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
+import {
+  connectImapClient,
+  resolveFolder,
+  getCachedFolderList,
+  resolveMailboxPassword,
+} from '@/lib/imap-panel-shared'
 
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey)
-
-const ADMIN_EMAILS = [
-  'admin@visualdesignmoz.com',
-  'silva.chamo@visualdesignmoz.com',
-  'silva.chamo@gmail.com',
-  'geral@visualdesignmoz.com',
-  'suporte@visualdesignmoz.com',
-]
-
-const folderListCache = new Map<string, { list: { path: string }[]; ts: number }>()
-const FOLDER_LIST_CACHE_MS = 10 * 60 * 1000
 
 // --- HELPERS ---
 const determinarTipo = (path: string) => {
@@ -35,137 +23,7 @@ const determinarTipo = (path: string) => {
   return 'recebido'
 }
 
-// Domínios hospedados no servidor
-const HOSTED_MAIL_DOMAINS = [
-  'visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt',
-  'anap.co.mz', 'entrecampos.co.mz',
-  'aamihe.com', 'entrecampos.co.mz',
-  'miv.co.mz', 'moz-servicos.com'
-]
-
-const resolveImapConfig = (email: string): { host: string; port: number; secure: boolean } => {
-  const host = resolvePanelImapHost()
-  const domain = email.split('@')[1]?.toLowerCase() || ''
-
-  if (domain === 'gmail.com' || domain === 'googlemail.com') return { host: 'imap.gmail.com', port: 993, secure: true }
-  if (['outlook.com', 'hotmail.com', 'hotmail.pt', 'hotmail.co.uk', 'live.com', 'live.pt', 'msn.com', 'microsoft.com'].includes(domain)) return { host: 'outlook.office365.com', port: 993, secure: true }
-  if (domain === 'yahoo.com' || domain === 'yahoo.co.uk' || domain === 'ymail.com') return { host: 'imap.mail.yahoo.com', port: 993, secure: true }
-  if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') return { host: 'imap.mail.me.com', port: 993, secure: true }
-
-  // Domínios no servidor — usar IP directo (evita falhas DNS e instabilidade de SSL no mail.*)
-  const isHostedMail = HOSTED_MAIL_DOMAINS.includes(domain) || 
-                      HOSTED_MAIL_DOMAINS.some(d => domain.endsWith('.' + d)) ||
-                      domain.endsWith('.co.mz') || 
-                      domain.endsWith('.mz') || domain.endsWith('.co.mz')
-
-  if (isHostedMail) {
-    return { host, port: 993, secure: true }
-  }
-
-  return { host: `mail.${domain}`, port: 993, secure: true }
-}
-
-// Cria uma conexão IMAP fresca (não persistente) por pedido
-// NOTA: Pool de conexões persistentes foi removido pois contaminava o estado
-// entre pedidos (ex: ler Deleted Items deixava a conexão nessa pasta;
-// pedido seguinte para INBOX recebia dados do Deleted Items via fallback)
-const createFreshClient = async (email: string, pass: string, cfg: any): Promise<ImapFlow | null> => {
-  const client = new ImapFlow({
-    host: cfg.host, port: 993, secure: true,
-    auth: { user: email, pass },
-    tls: { rejectUnauthorized: false },
-    logger: false,
-    emitLogs: false,
-    socketTimeout: 15000,
-    greetingTimeout: 10000
-  })
-
-  try {
-    await client.connect()
-    return client
-  } catch (err: any) {
-    console.error(`📧 [read-emails] Falha ao ligar ${email}:`, err.message)
-    return null
-  }
-}
-
-// Mapeamento de nomes de pastas baseado em auditoria real do Maildir do servidor:
-//   Lixo    → 'Deleted Items'  (NÃO 'Trash')
-//   Spam    → 'Junk' (pasta activa)
-//   Enviado → 'Sent' (sem prefixo INBOX)
-const FOLDER_VARIATIONS: Record<string, string[]> = {
-  'sent':    ['Sent', 'Sent Items', 'Enviados', 'Enviadas', 'INBOX.Sent'],
-  'trash':   ['Deleted Items', 'Trash', 'Bin', 'Lixo', 'INBOX.Deleted Items', 'INBOX.Trash'],
-  'junk':    ['Junk', 'Junk E-mail', 'Spam', 'Correspondência Indesejada', 'INBOX.Junk', 'INBOX.Spam'],
-  'drafts':  ['Drafts', 'Draft', 'Rascunhos', 'INBOX.Drafts'],
-  'archive': ['Archive', 'Arquivados', 'Arquivo', 'INBOX.Archive'],
-}
-
-// Resolve a pasta real no servidor dado um nome standard, usando a lista já obtida
-const resolveFolder = (folderPath: string, folderList: { path: string }[]): string | null => {
-  const existingPaths = new Set<string>(folderList.map(m => m.path))
-  const existingLowers = new Map<string, string>(folderList.map(m => [m.path.toLowerCase(), m.path]))
-
-  const p = folderPath.toLowerCase()
-  const variations: string[] = FOLDER_VARIATIONS[p] || [folderPath]
-
-  // Adicionar o próprio folderPath como variação inicial se não estiver na lista
-  if (!variations.includes(folderPath)) variations.unshift(folderPath)
-
-  for (const v of variations) {
-    if (existingPaths.has(v)) return v
-    if (existingLowers.has(v.toLowerCase())) return existingLowers.get(v.toLowerCase())!
-  }
-  return null
-}
-
 const STANDARD_FOLDERS = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']
-
-async function getCachedFolderList(client: ImapFlow, email: string) {
-  const cached = folderListCache.get(email.toLowerCase())
-  if (cached && Date.now() - cached.ts < FOLDER_LIST_CACHE_MS) return cached.list
-  const list = await client.list()
-  folderListCache.set(email.toLowerCase(), { list, ts: Date.now() })
-  return list
-}
-
-async function resolveMailboxPassword(
-  email: string,
-  passwordFromClient: string | undefined,
-  session: Session | null,
-): Promise<string | null> {
-  if (passwordFromClient) return passwordFromClient
-  if (!session?.user?.email) return null
-
-  const { data: conta } = await supabaseAdmin
-    .from('email_contas')
-    .select('email, senha_servidor, cliente_id')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (!conta?.senha_servidor) return null
-
-  const effectiveRole = await resolveRoleForAuthUser(supabaseAdmin, session.user)
-  const isAdmin =
-    ADMIN_EMAILS.includes(session.user.email || '') ||
-    effectiveRole === 'admin' ||
-    effectiveRole === 'manager'
-  const sessionEmail = session.user.email.toLowerCase()
-  const accountEmail = (conta.email || '').toLowerCase()
-  const sameDomain =
-    sessionEmail.split('@')[1] &&
-    accountEmail.endsWith(`@${sessionEmail.split('@')[1]}`)
-
-  const canAccess =
-    isAdmin ||
-    effectiveRole === 'reseller' ||
-    conta.cliente_id === session.user.id ||
-    accountEmail === sessionEmail ||
-    Boolean(sameDomain)
-
-  if (!canAccess) return null
-  return decryptStoredPassword(conta.senha_servidor)
-}
 
 type EmailRow = {
   id: number
@@ -270,7 +128,7 @@ export async function POST(req: NextRequest) {
             try {
               if (!conta.senha_servidor) continue
               const pass = decryptPassword(conta.senha_servidor)
-              contaClient = await createFreshClient(conta.email, pass, resolveImapConfig(conta.email))
+              contaClient = await connectImapClient(conta.email, pass)
               if (!contaClient) continue
 
               const folderList = await contaClient.list()
@@ -314,7 +172,7 @@ export async function POST(req: NextRequest) {
         try {
           const pass = multiPasswords?.[idx]
           if (!pass) continue
-          mClient = await createFreshClient(mEmail, pass, resolveImapConfig(mEmail))
+          mClient = await connectImapClient(mEmail, pass)
           if (!mClient) continue
 
           const folderList = await mClient.list()
@@ -356,7 +214,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    client = await createFreshClient(email, resolvedPassword, resolveImapConfig(email))
+    client = await connectImapClient(email, resolvedPassword)
     if (!client) {
       return NextResponse.json({
         success: false,

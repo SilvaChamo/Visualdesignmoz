@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ImapFlow } from 'imapflow'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
-import { resolvePanelImapHost } from '@/lib/imap-host'
-
-// Mapeamento de pastas baseado em auditoria do Maildir do servidor
-const FOLDER_VARIATIONS: Record<string, string[]> = {
-  'sent':    ['Sent', 'Sent Items', 'Enviados', 'INBOX.Sent'],
-  'trash':   ['Deleted Items', 'Trash', 'Bin', 'Lixo', 'INBOX.Deleted Items', 'INBOX.Trash'],
-  'junk':    ['Junk', 'Junk E-mail', 'Spam', 'INBOX.Junk', 'INBOX.Spam'],
-  'drafts':  ['Drafts', 'Draft', 'Rascunhos', 'INBOX.Drafts'],
-  'archive': ['Archive', 'Arquivados', 'Arquivo', 'INBOX.Archive'],
-}
+import { connectImapClient, FOLDER_VARIATIONS } from '@/lib/imap-panel-shared'
 
 const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
   const folderList = await client.list()
@@ -66,16 +55,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    const client = new ImapFlow({
-      host: resolvePanelImapHost(),
-      port: 993,
-      secure: true,
-      auth: { user: email, pass: password },
-      tls: { rejectUnauthorized: false },
-      logger: false
-    })
-
-    await client.connect()
+    const client = await connectImapClient(email, password)
+    if (!client) {
+      return NextResponse.json({ error: 'Falha na autenticação IMAP', success: false }, { status: 401 })
+    }
 
     // Mover para pasta de arquivo
     const archiveFolder = toFolder // Usar toFolder ou padrão
