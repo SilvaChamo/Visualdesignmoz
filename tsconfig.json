@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "test-imap-connect.ts", "scratch-test-imap.js", "scratch-test-imap2.js", "test-delete.js", "list-folders.js"]
 }
