@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
-import { resolvePanelImapHost } from '@/lib/imap-host'
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { getServerHost } from '@/lib/server-config'
 
 // Resolve o servidor SMTP correto com base no domínio do email remetente
 const resolveSmtpConfig = (fromEmail: string, fromPassword: string) => {
@@ -41,16 +41,10 @@ const resolveSmtpConfig = (fromEmail: string, fromPassword: string) => {
   }
 
   // Fallback: usar o IP directo do VPS e a password individual do utilizador
-  // Aqui usamos authType: 'login' porque o DirectAdmin/Dovecot normalmente precisa
-  return { host: getServerHost(), port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: 'login' }
+  return { host: getServerHost(), port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: 'login' as const }
 }
 
-// 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (DirectAdmin/Postfix)
-const SMTP_HOST = getServerHost() // IP direto do servidor
-const SMTP_PORT = 587; // Forçar porta 587 com STARTTLS
-const SMTP_SECURE = false; // 587 usa STARTTLS (não SSL direto)
-
-// 🆕 FUNÇÃO: Enviar via SMTP direto usando Nodemailer
+// 🚀 CONFIGURAÇÃO SMTP - servidor local (porta 587 STARTTLS)
 async function sendViaSMTP(
     to: string | string[],
     subject: string,
@@ -64,26 +58,25 @@ async function sendViaSMTP(
 
     const toArray = Array.isArray(to) ? to : [to];
 
-    const transporter = nodemailer.createTransport({
+    const transportOptions: SMTPTransport.Options = {
         host: smtpCfg.host,
         port: smtpCfg.port,
-        secure: smtpCfg.secure,   // false para 587 (STARTTLS), true para 465 (SSL)
-        requireTLS: !smtpCfg.secure, // Forçar STARTTLS quando porta 587
-        auth: {
-            type: smtpCfg.authType,
-            user: smtpCfg.authUser,
-            pass: smtpCfg.authPass
-        },
+        secure: smtpCfg.secure,
+        requireTLS: !smtpCfg.secure,
+        auth: smtpCfg.authType === 'login'
+            ? { type: 'login', user: smtpCfg.authUser, pass: smtpCfg.authPass }
+            : { user: smtpCfg.authUser, pass: smtpCfg.authPass },
         tls: {
             rejectUnauthorized: false,
-            ciphers: 'SSLv3'
+            ciphers: 'SSLv3',
         },
         connectionTimeout: 30000,
         greetingTimeout: 30000,
         socketTimeout: 45000,
-        // Nome do servidor que se apresenta no HELO/EHLO
-        name: smtpCfg.host
-    });
+        name: smtpCfg.host,
+    };
+
+    const transporter = nodemailer.createTransport(transportOptions);
 
     // Verificar conexão antes de enviar
     try {
