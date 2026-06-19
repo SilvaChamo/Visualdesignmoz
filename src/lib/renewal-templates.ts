@@ -18,8 +18,8 @@
 // ============================================
 // Cores: Vermelho #dc2626, Cinza #374151, Preto #000000
 
-// URL base do site - usa variável de ambiente ou fallback para localhost
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3002'
+// URL base do site - usa variável de ambiente ou fallback para o domínio de produção
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://provisualcorporate.co.mz'
 const LOGO_URL = `${SITE_URL}/assets/logotipoII.png`
 
 export const emailHeader = (clientName: string, companyName: string) => `

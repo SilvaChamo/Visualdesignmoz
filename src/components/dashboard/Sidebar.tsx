@@ -134,7 +134,7 @@ export default function DashboardSidebar() {
                     {/* Logo */}
                     <div className="flex items-center gap-3 mb-12 px-2">
                         <div className="w-12 h-12 flex items-center justify-center">
-                            <img src="/assets/Horizontal_logo.png" alt="Visual Design" className="h-10 object-contain" />
+                            <img src="/assets/simbolo.png" alt="Visual Design" className="h-10 object-contain" />
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-gray-900 tracking-tighter uppercase leading-none">Visual<br />Design</h2>
