@@ -78,6 +78,9 @@ export async function POST(req: NextRequest) {
     }
     // -------------------------------------------------------------------------
 
+    const mailboxesList = await client.list()
+    const realTrash = mailboxesList.find((mb: any) => mb.specialUse === '\\Trash')
+
     const mailboxResult = await getMailboxWithFallback(client, folder)
     if (!mailboxResult) {
       await client.logout()
@@ -85,17 +88,16 @@ export async function POST(req: NextRequest) {
     }
     const { lock, actualPath } = mailboxResult
     console.log(`1. ${actualPath} aberta`)
-    try {
-      // Pastas de Lixeira — ordem baseada em auditoria real do servidor
-      const trashFolders = ['Deleted Items', 'INBOX.Deleted Items', 'Trash', 'INBOX.Trash']
 
-      // Se já estiver na lixeira, apagar permanentemente
+    try {
+      const trashFolders = realTrash ? [realTrash.path] : ['Deleted Items', 'INBOX.Deleted Items', 'Trash', 'INBOX.Trash']
+
       if (trashFolders.includes(actualPath) || trashFolders.includes(folder)) {
-        await client.messageDelete([emailId], { uid: true })
-        console.log('3. Deletado permanentemente via messageDelete')
-        await client.mailboxClose()
+        await client.messageFlagsAdd([emailId], ['\\Deleted'], { uid: true })
+        // Tentar expunge explícito se a biblioteca suportar, senão fechar a caixa
+        try { if (typeof client.expunge === 'function') await client.expunge() } catch (e) {}
+        console.log('3. Deletado permanentemente da lixeira')
       } else {
-        // Mover para a Lixeira antes de apagar da pasta de origem
         let movedToTrash = false
 
         for (const trashFolder of trashFolders) {
@@ -105,39 +107,26 @@ export async function POST(req: NextRequest) {
             console.log(`2. Movido para lixeira (${trashFolder})`)
             break
           } catch (moveErr: any) {
-            console.warn(`Falha ao mover para ${trashFolder}: ${moveErr.message}`, {
-              response: moveErr.response,
-              responseText: moveErr.responseText
-            })
             continue
           }
         }
 
-        // Se nenhuma pasta existir, tenta criar a primeira e mover
-        if (!movedToTrash) {
+        if (!movedToTrash && !realTrash) {
           try {
             await client.mailboxCreate(trashFolders[0])
-            console.log(`Pasta criada: ${trashFolders[0]}`)
             await client.messageMove([emailId], trashFolders[0], { uid: true })
             movedToTrash = true
-            console.log(`2. Movido para lixeira (${trashFolders[0]})`)
-          } catch (createErr: any) {
-             // Fallback final: apagar direto sem lixeira
-             console.error(`Falha ao criar Lixeira. Apagando direto...`)
-             await client.messageDelete([emailId], { uid: true })
-             movedToTrash = true
-          }
+          } catch (createErr: any) {}
         }
 
-        if (movedToTrash) {
-          await client.mailboxClose()
-        } else {
+        // MARCAR COMO APAGADO E FORÇAR A ELIMINAÇÃO FÍSICA PARA NÃO VOLTAR
+        try { await client.messageFlagsAdd([emailId], ['\\Deleted'], { uid: true }) } catch (e) {}
+        try { if (typeof client.expunge === 'function') await client.expunge() } catch (e) {}
+        
+        if (!movedToTrash) {
           lock.release()
           await client.logout()
-          return NextResponse.json({ 
-            error: 'Não foi possível apagar o email.',
-            success: false 
-          }, { status: 500 })
+          return NextResponse.json({ error: 'Não foi possível apagar o email.', success: false }, { status: 500 })
         }
       }
     } finally {
