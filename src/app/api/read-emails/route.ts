@@ -67,11 +67,29 @@ async function readMessagesInOpenMailbox(
 
   if (total === 0) return emails
 
-  // O Segredo: Usamos SEMPRE client.search() para excluir os \Deleted, mesmo quando não há termo de pesquisa.
-  // Isso impede que os emails apagados reapareçam ou esgotem o limite de 'limit' (que estava a bloquear as respostas de entrarem).
-  const searchSpec: any = search
-    ? { and: [{ deleted: false }, { or: [{ subject: search }, { from: search }, { body: search }] }] }
-    : { deleted: false }
+  // Se NÃO houver pesquisa, usamos o método ultra-rápido de fetch por sequência
+  if (!search) {
+    // Procuramos um lote maior (ex: 3x o limite) para garantir que temos suficientes após filtrar os apagados
+    const fetchChunk = limit * 3
+    const start = Math.max(1, total - fetchChunk + 1)
+    
+    try {
+      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
+        // Ignorar fisicamente os emails que têm a etiqueta de apagado invisível
+        if (!msg.flags?.has('\\Deleted')) {
+          emails.push(mapFetchedMessage(msg, realPath, email))
+        }
+      }
+      // Reverter para ter os mais recentes primeiro e cortar pelo limite real
+      return emails.reverse().slice(0, limit)
+    } catch (err) {
+      console.error(`Erro ao fazer fetch rápido na pasta ${realPath}:`, err)
+      return []
+    }
+  }
+
+  // Se houver pesquisa, usamos o search
+  const searchSpec: any = { and: [{ deleted: false }, { or: [{ subject: search }, { from: search }, { body: search }] }] }
   
   let uids: number[] = []
   try {
