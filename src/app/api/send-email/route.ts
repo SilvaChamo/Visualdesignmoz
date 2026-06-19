@@ -4,27 +4,45 @@ import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 import { resolvePanelImapHost } from '@/lib/imap-host'
 
 // Resolve o servidor SMTP correto com base no domínio do email remetente
-const resolveSmtpConfig = (fromEmail: string) => {
+const resolveSmtpConfig = (fromEmail: string, fromPassword: string) => {
   const domain = fromEmail.split('@')[1]?.toLowerCase() || ''
 
   if (domain === 'gmail.com' || domain === 'googlemail.com') {
-    return { host: 'smtp.gmail.com', port: 587, secure: false }
+    return { host: 'smtp.gmail.com', port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: undefined }
   }
   if (['outlook.com', 'hotmail.com', 'hotmail.pt', 'live.com', 'live.pt', 'msn.com'].includes(domain)) {
-    return { host: 'smtp-mail.outlook.com', port: 587, secure: false }
+    return { host: 'smtp-mail.outlook.com', port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: undefined }
   }
   if (domain === 'yahoo.com' || domain === 'ymail.com') {
-    return { host: 'smtp.mail.yahoo.com', port: 465, secure: true }
+    return { host: 'smtp.mail.yahoo.com', port: 465, secure: true, authUser: fromEmail, authPass: fromPassword, authType: undefined }
   }
   if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
-    return { host: 'smtp.mail.me.com', port: 587, secure: false }
+    return { host: 'smtp.mail.me.com', port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: undefined }
   }
   if (domain === 'zoho.com') {
-    return { host: 'smtp.zoho.com', port: 587, secure: false }
+    return { host: 'smtp.zoho.com', port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: undefined }
   }
 
-  // Genérico / servidor hospedado — usa IP directo
-  return { host: process.env.SMTP_HOST || getServerHost(), port: 587, secure: false }
+  // Genérico / servidor hospedado
+  const globalSmtpHost = process.env.SMTP_HOST || process.env.DA_SMTP_HOST;
+  const globalSmtpUser = process.env.SMTP_USER || process.env.DA_SMTP_USER;
+  const globalSmtpPass = process.env.SMTP_PASS || process.env.DA_SMTP_PASS || process.env.SMTP_MASTER_PASSWORD;
+
+  // Se existir configuração de Relay (ex: Brevo), usar e autenticar com as credenciais do Relay
+  if (globalSmtpHost && globalSmtpUser && globalSmtpPass) {
+    return { 
+      host: globalSmtpHost, 
+      port: Number(process.env.SMTP_PORT || process.env.DA_SMTP_PORT || 587), 
+      secure: process.env.SMTP_SECURE === 'true', 
+      authUser: globalSmtpUser, 
+      authPass: globalSmtpPass,
+      authType: undefined
+    }
+  }
+
+  // Fallback: usar o IP directo do VPS e a password individual do utilizador
+  // Aqui usamos authType: 'login' porque o DirectAdmin/Dovecot normalmente precisa
+  return { host: getServerHost(), port: 587, secure: false, authUser: fromEmail, authPass: fromPassword, authType: 'login' }
 }
 
 // 🚀 CONFIGURAÇÃO SMTP - Usar servidor de email local (DirectAdmin/Postfix)
@@ -41,8 +59,8 @@ async function sendViaSMTP(
     fromPassword: string,
     replyTo?: string
 ): Promise<any> {
-    const smtpCfg = resolveSmtpConfig(fromEmail)
-    console.log(`🔄 SMTP: Enviando email de ${fromEmail} → ${smtpCfg.host}:${smtpCfg.port}`);
+    const smtpCfg = resolveSmtpConfig(fromEmail, fromPassword)
+    console.log(`🔄 SMTP: Enviando email de ${fromEmail} → ${smtpCfg.host}:${smtpCfg.port} (Auth User: ${smtpCfg.authUser})`);
 
     const toArray = Array.isArray(to) ? to : [to];
 
@@ -52,9 +70,9 @@ async function sendViaSMTP(
         secure: smtpCfg.secure,   // false para 587 (STARTTLS), true para 465 (SSL)
         requireTLS: !smtpCfg.secure, // Forçar STARTTLS quando porta 587
         auth: {
-            type: 'login',         // Força mecanismo LOGIN (compatível com Dovecot/Postfix)
-            user: fromEmail,
-            pass: fromPassword
+            type: smtpCfg.authType,
+            user: smtpCfg.authUser,
+            pass: smtpCfg.authPass
         },
         tls: {
             rejectUnauthorized: false,
