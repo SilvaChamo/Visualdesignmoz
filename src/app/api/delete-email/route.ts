@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       if (trashFolders.includes(actualPath) || trashFolders.includes(folder)) {
         await client.messageFlagsAdd([emailId], ['\\Deleted'], { uid: true })
         // Tentar expunge explícito se a biblioteca suportar, senão fechar a caixa
-        try { if (typeof client.expunge === 'function') await client.expunge() } catch (e) {}
+        try { await (client as { expunge?: () => Promise<void> }).expunge?.() } catch (e) {}
         console.log('3. Deletado permanentemente da lixeira')
       } else {
         let movedToTrash = false
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
         // MARCAR COMO APAGADO E FORÇAR A ELIMINAÇÃO FÍSICA PARA NÃO VOLTAR
         try { await client.messageFlagsAdd([emailId], ['\\Deleted'], { uid: true }) } catch (e) {}
-        try { if (typeof client.expunge === 'function') await client.expunge() } catch (e) {}
+        try { await (client as { expunge?: () => Promise<void> }).expunge?.() } catch (e) {}
         
         if (!movedToTrash) {
           lock.release()
