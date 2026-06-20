@@ -139,6 +139,20 @@ export function WebmailSection({
   const [diagnosticoLoading, setDiagnosticoLoading] = useState(false)
   const assinaturaEditorRef = useRef<HTMLDivElement>(null)
   const loadEmailsAbortControllerRef = useRef<AbortController | null>(null)
+  const loadEmailsRequestRef = useRef(0)
+  const selectedAccountRef = useRef(selectedAccount)
+  const activeFolderRef = useRef(activeFolder)
+  const debouncedSearchQueryRef = useRef(debouncedSearchQuery)
+
+  useEffect(() => {
+    selectedAccountRef.current = selectedAccount
+  }, [selectedAccount])
+  useEffect(() => {
+    activeFolderRef.current = activeFolder
+  }, [activeFolder])
+  useEffect(() => {
+    debouncedSearchQueryRef.current = debouncedSearchQuery
+  }, [debouncedSearchQuery])
   const loadEmailBodyAbortRef = useRef<AbortController | null>(null)
   const loadCountsAbortControllerRef = useRef<AbortController | null>(null)
 
@@ -321,12 +335,13 @@ export function WebmailSection({
   // Actualizar caixa de entrada automaticamente (novos emails recebidos)
   useEffect(() => {
     if (viewMode !== 'list' || !selectedAccount || showAdvancedCompose || debouncedSearchQuery) return
+    if (activeFolder !== 'INBOX') return
 
     const refreshInbox = () => {
-      if (activeFolder === 'INBOX') void loadEmails({ background: true })
+      void loadEmails({ background: true })
     }
 
-    const intervalId = window.setInterval(refreshInbox, 45000)
+    const intervalId = window.setInterval(refreshInbox, 120000)
     const onVisible = () => {
       if (document.visibilityState === 'visible') refreshInbox()
     }
@@ -435,6 +450,7 @@ export function WebmailSection({
     setSelectedEmail(null)
     setSelectedEmails(new Set())
     folderCountsLoadedRef.current = false
+    loadEmailsRequestRef.current += 1
 
     if (selectedAccount && assinaturasPorEmail[selectedAccount]) {
       const config = assinaturasPorEmail[selectedAccount]
@@ -559,6 +575,11 @@ export function WebmailSection({
   }
 
   const loadEmails = async (options?: { background?: boolean }) => {
+    const fetchAccount = selectedAccount
+    const fetchFolder = activeFolder
+    const fetchSearch = debouncedSearchQuery
+    const requestId = ++loadEmailsRequestRef.current
+
     if (!options?.background && loadEmailsAbortControllerRef.current) {
       loadEmailsAbortControllerRef.current.abort()
     }
@@ -568,20 +589,24 @@ export function WebmailSection({
       loadEmailsAbortControllerRef.current = controller
     }
 
-    const account = accounts.find((a) => a.email === selectedAccount)
+    const account = accounts.find((a) => a.email === fetchAccount)
     if (!account) {
       setLoadingEmails(false)
       return
     }
 
-    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, true) : null
+    const isCurrentView = () =>
+      loadEmailsRequestRef.current === requestId &&
+      fetchAccount === selectedAccountRef.current &&
+      fetchFolder === activeFolderRef.current &&
+      fetchSearch === debouncedSearchQueryRef.current
+
+    const cachedList = !fetchSearch ? getCachedData(fetchAccount, fetchFolder, false) : null
     const hadCachedList = Boolean(cachedList?.emails?.length)
-    if (cachedList?.emails?.length && !options?.background) {
+    if (cachedList?.emails?.length && !options?.background && isCurrentView()) {
       setEmails(cachedList.emails)
-      if (cachedList.folderTotals && Object.keys(cachedList.folderTotals).length > 0) {
-        setFolderCounts((prev) => ({ ...prev, ...cachedList.folderTotals }))
-        folderCountsLoadedRef.current = true
-      }
+    } else if (!options?.background && isCurrentView()) {
+      setEmails([])
     }
 
     if (hadCachedList || options?.background) {
@@ -592,7 +617,9 @@ export function WebmailSection({
 
     try {
       const password = await getPasswordForAccount(account)
-      const needFolderTotals = !debouncedSearchQuery && !folderCountsLoadedRef.current
+      if (!isCurrentView()) return
+
+      const needFolderTotals = !fetchSearch && !folderCountsLoadedRef.current
 
       const res = await fetch('/api/read-emails', {
         method: 'POST',
@@ -601,28 +628,27 @@ export function WebmailSection({
         body: JSON.stringify({
           email: account.email,
           ...(password ? { password } : {}),
-          folders: [activeFolder],
+          folders: [fetchFolder],
           limit: 20,
-          search: debouncedSearchQuery,
+          search: fetchSearch,
           includeTotals: needFolderTotals,
         }),
         signal: controller.signal,
       })
 
       const data = await res.json()
+      if (!isCurrentView()) return
 
       if (data.success) {
         const newEmails = data.emails || []
         const newCounts = data.folderTotals || {}
         setEmails(newEmails)
-        if (!debouncedSearchQuery) {
-          setCachedData(selectedAccount, activeFolder, newEmails, newCounts)
+        if (!fetchSearch) {
+          setCachedData(fetchAccount, fetchFolder, newEmails, newCounts)
         }
         if (needFolderTotals && data.folderTotals) {
           folderCountsLoadedRef.current = true
           setFolderCounts((prev) => ({ ...prev, ...data.folderTotals }))
-        } else if (!debouncedSearchQuery && !folderCountsLoadedRef.current) {
-          void refreshAllFolderCounts()
         }
       } else {
         const errorLower = (data.error || '').toLowerCase()
@@ -646,7 +672,7 @@ export function WebmailSection({
       }
     } finally {
       if (options?.background) {
-        setSyncingEmails(false)
+        if (isCurrentView()) setSyncingEmails(false)
       } else if (loadEmailsAbortControllerRef.current === controller) {
         setLoadingEmails(false)
         setSyncingEmails(false)
@@ -1264,6 +1290,7 @@ export function WebmailSection({
                     key={folder.id}
                     disabled={accounts.length === 0}
                     onClick={() => {
+                      loadEmailsRequestRef.current += 1
                       setActiveFolder(folder.id)
                       setSelectedEmail(null)
                       setSelectedEmails(new Set())

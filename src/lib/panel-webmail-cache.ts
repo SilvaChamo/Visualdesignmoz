@@ -7,7 +7,7 @@ export type WebmailAccountRow = {
 }
 
 const STORAGE_KEY = 'panel_webmail_accounts_v1'
-const LIST_PREFIX = 'panel_webmail_list_v1'
+const LIST_PREFIX = 'panel_webmail_list_v2'
 const BODY_PREFIX = 'panel_webmail_body_v1'
 const CACHE_MS = 5 * 60 * 1000
 const LIST_CACHE_MS = 2 * 60 * 1000
