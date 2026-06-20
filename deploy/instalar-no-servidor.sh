@@ -9,7 +9,7 @@ set -e
 # ── Configuração ──────────────────────────────────────────────
 SERVER_IP="37.27.17.25"
 SERVER_USER="root"
-SSH_KEY="${SSH_KEY:-/Users/macbook/.ssh/aamihe_hetzner}"
+SSH_KEY="${SSH_KEY:-/Users/macbook/.ssh/visualdesign_hetzner}"
 SSH_PORT="${SSH_PORT:-2234}"
 APP_DOMAIN="visualdesignmoz.com"
 APP_DIR="/home/${APP_DOMAIN}/public_html"

@@ -12,7 +12,7 @@
 
 ## Acesso ao Servidor
 ```
-SSH: ssh -i ~/.ssh/aamihe_hetzner -p 2234 root@37.27.17.25
+SSH: ssh -i ~/.ssh/visualdesign_hetzner -p 2234 root@37.27.17.25
 DirectAdmin: https://host.visualdesignmoz.com:2222
 App: https://visualdesignmoz.com
 Supabase: https://supabase.visualdesignmoz.com
@@ -46,9 +46,9 @@ bash deploy/deploy-ssh.sh
 Atualização rápida (só código):
 ```bash
 rsync -avz --exclude node_modules --exclude .next --exclude .git --exclude "*.env*" \
-  -e "ssh -i ~/.ssh/aamihe_hetzner -p 2234" \
+  -e "ssh -i ~/.ssh/visualdesign_hetzner -p 2234" \
   ./ root@37.27.17.25:/home/visualdesignmoz.com/public_html/ && \
-ssh -i ~/.ssh/aamihe_hetzner -p 2234 root@37.27.17.25 \
+ssh -i ~/.ssh/visualdesign_hetzner -p 2234 root@37.27.17.25 \
   "cd /home/visualdesignmoz.com/public_html && npm run build && pm2 restart visualdesign"
 ```
 

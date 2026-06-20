@@ -6,7 +6,7 @@
 echo "🚀 Iniciando deploy para visualdesignmoz.com..."
 
 # Verificar se a chave SSH existe
-SSH_KEY="${SSH_KEY:-/Users/macbook/.ssh/aamihe_hetzner}"
+SSH_KEY="${SSH_KEY:-/Users/macbook/.ssh/visualdesign_hetzner}"
 if [ ! -f "$SSH_KEY" ]; then
     echo "❌ Chave SSH não encontrada: $SSH_KEY"
     exit 1

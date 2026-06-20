@@ -113,6 +113,7 @@ export function WebmailSection({
   const [viewMode, setViewMode] = useState<'list' | 'iframe'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
+  const [emailsError, setEmailsError] = useState('')
 
   // Estado para criação de e-mail no servidor
   const [showCreateEmailModal, setShowCreateEmailModal] = useState(false)
@@ -670,9 +671,11 @@ export function WebmailSection({
 
     if (displayCache?.emails?.length && isCurrentView()) {
       setEmails(displayCache.emails)
+      setEmailsError('')
       setLoadingEmails(false)
     } else if (!options?.background && isCurrentView() && !hadCachedList) {
       setEmails([])
+      setEmailsError('')
     }
 
     const cachedTotals = readWebmailFolderTotalsCache(fetchAccount, true)
@@ -722,6 +725,7 @@ export function WebmailSection({
         const newEmails = data.emails || []
         const newCounts = data.folderTotals || {}
         setEmails(newEmails)
+        setEmailsError('')
         if (!fetchSearch) {
           setCachedData(fetchAccount, fetchFolder, newEmails, newCounts)
         }
@@ -730,6 +734,7 @@ export function WebmailSection({
           setFolderCounts((prev) => ({ ...prev, ...data.folderTotals }))
         }
       } else {
+        setEmailsError(data.error || 'Erro ao carregar e-mails.')
         const errorLower = (data.error || '').toLowerCase()
         if (
           errorLower.includes('senha') ||
@@ -935,13 +940,69 @@ export function WebmailSection({
   }
 
   // 🔓 Abrir RoundCube com SSO (utilizador autenticado não precisa de inserir credenciais)
-  const openRoundCubeSSO = () => {
+  const openRoundCubeSSO = async () => {
     const account = accounts.find(a => a.email === selectedAccount)
-    const email = account?.email || ''
-    const url = email
-      ? `/api/roundcube-sso?email=${encodeURIComponent(email)}`
-      : '/api/roundcube-sso'
-    window.open(url, '_blank')
+    if (!account) return
+
+    // Open a blank window immediately to prevent popup blocker from blocking it
+    const newWindow = window.open('about:blank', '_blank')
+    if (!newWindow) {
+      alert('Por favor, permita pop-ups para aceder ao Webmail.')
+      return
+    }
+
+    newWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>A redirecionar para o Webmail...</title>
+        <style>
+          body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white}
+          .card{text-align:center;padding:2rem;background:rgba(255,255,255,0.05);border-radius:16px;border:1px solid rgba(255,255,255,0.1)}
+          .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.2);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem}
+          @keyframes spin{to{transform:rotate(360deg)}}
+          p{margin:0;opacity:0.7;font-size:0.9rem}
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="spinner"></div>
+          <p>A obter credenciais seguras...</p>
+          <p style="margin-top:0.5rem;font-size:0.8rem;opacity:0.5">${account.email}</p>
+        </div>
+      </body>
+      </html>
+    `)
+
+    try {
+      const password = await getPasswordForAccount(account)
+      if (!password) {
+        newWindow.document.body.innerHTML = `
+          <div style="text-align:center; padding: 2rem; font-family: sans-serif; background: #0f172a; color: #ef4444; height: 100vh; display: flex; align-items: center; justify-content: center;">
+            <div style="border: 1px solid rgba(239, 68, 68, 0.2); padding: 2rem; border-radius: 16px; background: rgba(239, 68, 68, 0.05);">
+              <p style="font-weight: bold; margin-bottom: 0.5rem;">Erro de Autenticação</p>
+              <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">Não foi possível obter as credenciais para a conta ${account.email}.</p>
+            </div>
+          </div>
+        `
+        return
+      }
+
+      const email = account.email
+      const url = `/api/roundcube-sso?email=${encodeURIComponent(email)}&pass=${encodeURIComponent(password)}`
+      newWindow.location.href = url
+    } catch (e) {
+      console.error(e)
+      newWindow.document.body.innerHTML = `
+        <div style="text-align:center; padding: 2rem; font-family: sans-serif; background: #0f172a; color: #ef4444; height: 100vh; display: flex; align-items: center; justify-content: center;">
+          <div style="border: 1px solid rgba(239, 68, 68, 0.2); padding: 2rem; border-radius: 16px; background: rgba(239, 68, 68, 0.05);">
+            <p style="font-weight: bold; margin-bottom: 0.5rem;">Erro de Ligação</p>
+            <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">Ocorreu um erro ao redirecionar para o Webmail.</p>
+          </div>
+        </div>
+      `
+    }
   }
 
   const sendEmail = async () => {
@@ -1317,15 +1378,6 @@ export function WebmailSection({
             </button>
             <button
               onClick={() => {
-                onNavigate?.('newsletter');
-              }}
-              className={panelBtnSecondary}
-            >
-              <Mail size={14} />
-              <span className="hidden sm:inline">Mailmarketing</span>
-            </button>
-            <button
-              onClick={() => {
                 if (selectedAccount && selectedAccount.includes('@')) {
                   const domain = selectedAccount.split('@')[1]
                   setCreateEmailForm(prev => ({ ...prev, domain }))
@@ -1569,6 +1621,17 @@ export function WebmailSection({
                             <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse" />
                           </div>
                         ))}
+                      </div>
+                    ) : emailsError ? (
+                      <div className="flex flex-col items-center justify-center h-full text-red-500 p-8 text-center">
+                        <AlertCircle className="w-12 h-12 mb-3 text-red-500 opacity-80" />
+                        <p className="text-sm font-medium">{emailsError}</p>
+                        <button
+                          onClick={() => void loadEmails({ force: true })}
+                          className="mt-3 text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded transition-colors"
+                        >
+                          Tentar Novamente
+                        </button>
                       </div>
                     ) : emails.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">

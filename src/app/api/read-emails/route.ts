@@ -13,6 +13,14 @@ import {
 const decryptPassword = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
 // --- HELPERS ---
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string = 'Operação expirou (timeout)'): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
 const determinarTipo = (path: string) => {
   const p = path.toLowerCase()
   if (p.includes('sent') || p.includes('enviado') || p.includes('enviada')) return 'enviado'
@@ -79,12 +87,15 @@ async function readMessagesInOpenMailbox(
     const fetchChunk = Math.max(limit * 3, 20)
     const start = Math.max(1, total - fetchChunk + 1)
     try {
-      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
-        if (!msg.flags?.has('\\Deleted')) {
-          const row = mapFetchedMessage(msg, realPath, email)
-          if (row) emails.push(row)
+      const fetchPromise = (async () => {
+        for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
+          if (!msg.flags?.has('\\Deleted')) {
+            const row = mapFetchedMessage(msg, realPath, email)
+            if (row) emails.push(row)
+          }
         }
-      }
+      })()
+      await withTimeout(fetchPromise, 8000, 'O carregamento de mensagens excedeu o limite de tempo.')
       return emails.reverse().slice(0, limit)
     } catch (err) {
       console.error(`Erro ao fazer fetch na pasta ${realPath}:`, err)
@@ -97,7 +108,11 @@ async function readMessagesInOpenMailbox(
   
   let uids: number[] = []
   try {
-    const searchRes = await client.search(searchSpec, { uid: true })
+    const searchRes = await withTimeout(
+      client.search(searchSpec, { uid: true }),
+      6000,
+      'A pesquisa de mensagens excedeu o limite de tempo.'
+    )
     uids = (Array.isArray(searchRes) ? searchRes : []).reverse().slice(0, limit)
   } catch (err) {
     console.error(`Erro ao pesquisar na pasta ${realPath}:`, err)
@@ -105,9 +120,16 @@ async function readMessagesInOpenMailbox(
   }
 
   if (uids.length > 0) {
-    for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
-      const row = mapFetchedMessage(msg, realPath, email)
-      if (row) emails.push(row)
+    try {
+      const fetchPromise = (async () => {
+        for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
+          const row = mapFetchedMessage(msg, realPath, email)
+          if (row) emails.push(row)
+        }
+      })()
+      await withTimeout(fetchPromise, 8000, 'O descarregamento das mensagens pesquisadas excedeu o limite de tempo.')
+    } catch (err) {
+      console.error(`Erro ao buscar mensagens pesquisadas:`, err)
     }
   }
   return emails
@@ -141,27 +163,28 @@ export async function POST(req: NextRequest) {
         // PARALELIZAÇÃO CONTROLADA: Carregar as contas em blocos de 3 para não afogar o servidor
         const processarConta = async (conta: any) => {
           if (!conta.senha_servidor) return []
-          let contaClient: ImapFlow | null = null
+          let contaClient: any = null
           const contaEmails: any[] = []
           try {
             const pass = decryptPassword(conta.senha_servidor)
-            contaClient = await connectImapClient(conta.email, pass)
-            if (!contaClient) return []
+            await withTimeout((async () => {
+              contaClient = await connectImapClient(conta.email, pass)
+              if (!contaClient) return
 
-            const folderList = await contaClient.list()
-            for (const folderPath of pastasParaProcessar) {
-              const realPath = resolveFolder(folderPath, folderList)
-              if (!realPath) continue
+              const folderList = await getCachedFolderList(contaClient, conta.email)
+              for (const folderPath of pastasParaProcessar) {
+                const realPath = resolveFolder(folderPath, folderList)
+                if (!realPath) continue
 
-              const lock = await contaClient.getMailboxLock(realPath)
-              try {
-                // Usa a mesma função filtrada de deleted
-                const result = await readMessagesInOpenMailbox(contaClient, realPath, conta.email, limit, search, page)
-                contaEmails.push(...result)
-              } finally {
-                lock.release()
+                const lock = await contaClient.getMailboxLock(realPath)
+                try {
+                  const result = await readMessagesInOpenMailbox(contaClient, realPath, conta.email, limit, search, page)
+                  contaEmails.push(...result)
+                } finally {
+                  lock.release()
+                }
               }
-            }
+            })(), 10000, 'Excedeu tempo limite por conta')
           } catch (e) {
             console.error(`📧 [allAccounts] Erro em ${conta.email}:`, e)
           } finally {
@@ -193,27 +216,29 @@ export async function POST(req: NextRequest) {
     if (multiEmails && Array.isArray(multiEmails)) {
       // PARALELIZAÇÃO CONTROLADA: Carregar as contas em blocos de 3
       const processarContaMulti = async (mEmail: string, idx: number) => {
-        let mClient: ImapFlow | null = null
+        let mClient: any = null
         const mEmails: any[] = []
         try {
           const pass = multiPasswords?.[idx]
           if (!pass) return []
-          mClient = await connectImapClient(mEmail, pass)
-          if (!mClient) return []
+          await withTimeout((async () => {
+            mClient = await connectImapClient(mEmail, pass)
+            if (!mClient) return
 
-          const folderList = await mClient.list()
-          for (const folderPath of pastasParaProcessar) {
-            const realPath = resolveFolder(folderPath, folderList)
-            if (!realPath) continue
-            
-            const lock = await mClient.getMailboxLock(realPath)
-            try {
-              const result = await readMessagesInOpenMailbox(mClient, realPath, mEmail, limit, search, page)
-              mEmails.push(...result)
-            } finally {
-              lock.release()
+            const folderList = await getCachedFolderList(mClient, mEmail)
+            for (const folderPath of pastasParaProcessar) {
+              const realPath = resolveFolder(folderPath, folderList)
+              if (!realPath) continue
+              
+              const lock = await mClient.getMailboxLock(realPath)
+              try {
+                const result = await readMessagesInOpenMailbox(mClient, realPath, mEmail, limit, search, page)
+                mEmails.push(...result)
+              } finally {
+                lock.release()
+              }
             }
-          }
+          })(), 10000, 'Excedeu tempo limite por conta')
         } catch (e) {
           console.error(`📧 [multi] Erro em ${mEmail}:`, e)
         } finally {
@@ -246,7 +271,11 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    client = await connectImapClient(email, resolvedPassword)
+    client = await withTimeout(
+      connectImapClient(email, resolvedPassword),
+      10000,
+      'Não foi possível estabelecer ligação ao servidor de email (Timeout).'
+    )
     if (!client) {
       return NextResponse.json({
         success: false,
@@ -256,77 +285,82 @@ export async function POST(req: NextRequest) {
     }
 
     if (countsOnly && includeTotals) {
-      const folderList = await getCachedFolderList(client, email)
-      for (const spf of STANDARD_FOLDERS) {
-        const realPath = resolveFolder(spf.toLowerCase(), folderList)
-        if (realPath) {
-          try {
-            const status = await client.status(realPath, { unseen: true })
-            folderTotals[spf] = status.unseen || 0
-          } catch {
+      const folderTotalsResult = await withTimeout((async () => {
+        const folderList = await getCachedFolderList(client!, email)
+        for (const spf of STANDARD_FOLDERS) {
+          const realPath = resolveFolder(spf.toLowerCase(), folderList)
+          if (realPath) {
+            try {
+              const status = await client!.status(realPath, { unseen: true })
+              folderTotals[spf] = status.unseen || 0
+            } catch {
+              folderTotals[spf] = 0
+            }
+          } else {
             folderTotals[spf] = 0
           }
-        } else {
-          folderTotals[spf] = 0
         }
-      }
-      return NextResponse.json({ success: true, emails: [], folderTotals })
+        return folderTotals
+      })(), 8000, 'A leitura de pastas demorou demasiado tempo.')
+      return NextResponse.json({ success: true, emails: [], folderTotals: folderTotalsResult })
     }
 
-    const folderList = await getCachedFolderList(client, email)
     const emails: EmailRow[] = []
 
-    for (const fPath of pastasParaProcessar) {
-      const realPath = resolveFolder(fPath, folderList)
-      if (!realPath) {
-        const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
-        folderTotals[standardKey] = 0
-        continue
-      }
-
-      const itemsToFetch = pastasParaProcessar.length > 1 ? 10 : limit
-      const lock = await client.getMailboxLock(realPath)
-      try {
-        if (includeTotals) {
+    await withTimeout((async () => {
+      const folderList = await getCachedFolderList(client!, email)
+      for (const fPath of pastasParaProcessar) {
+        const realPath = resolveFolder(fPath, folderList)
+        if (!realPath) {
           const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
-          try {
-            const status = await client.status(realPath, { unseen: true })
-            folderTotals[standardKey] = status.unseen || 0
-          } catch {
-            folderTotals[standardKey] = 0
-          }
+          folderTotals[standardKey] = 0
+          continue
         }
 
-        const fetched = await readMessagesInOpenMailbox(client, realPath, email, itemsToFetch, search, page)
-        emails.push(...fetched)
-      } finally {
-        lock.release()
-      }
-    }
+        const itemsToFetch = pastasParaProcessar.length > 1 ? 10 : limit
+        const lock = await client!.getMailboxLock(realPath)
+        try {
+          if (includeTotals) {
+            const standardKey = STANDARD_FOLDERS.find(sf => sf.toLowerCase() === fPath.toLowerCase()) || fPath
+            try {
+              const status = await client!.status(realPath, { unseen: true })
+              folderTotals[standardKey] = status.unseen || 0
+            } catch {
+              folderTotals[standardKey] = 0
+            }
+          }
 
-    if (includeTotals) {
-      for (const spf of STANDARD_FOLDERS) {
-        if (folderTotals[spf] !== undefined) continue
-        const realPath = resolveFolder(spf.toLowerCase(), folderList)
-        if (realPath) {
-          try {
-            const status = await client.status(realPath, { unseen: true })
-            folderTotals[spf] = status.unseen || 0
-          } catch {
+          const fetched = await readMessagesInOpenMailbox(client!, realPath, email, itemsToFetch, search, page)
+          emails.push(...fetched)
+        } finally {
+          lock.release()
+        }
+      }
+
+      if (includeTotals) {
+        for (const spf of STANDARD_FOLDERS) {
+          if (folderTotals[spf] !== undefined) continue
+          const realPath = resolveFolder(spf.toLowerCase(), folderList)
+          if (realPath) {
+            try {
+              const status = await client!.status(realPath, { unseen: true })
+              folderTotals[spf] = status.unseen || 0
+            } catch {
+              folderTotals[spf] = 0
+            }
+          } else {
             folderTotals[spf] = 0
           }
-        } else {
-          folderTotals[spf] = 0
         }
       }
-    }
+    })(), 12000, 'O carregamento de e-mails demorou demasiado tempo.')
 
     return NextResponse.json({
       success: true,
       emails: emails.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()),
       total: emails.length,
       folderTotals,
-      folders: folderList.map(m => m.path)
+      folders: (await getCachedFolderList(client, email)).map(m => m.path)
     })
 
   } catch (error: unknown) {
@@ -334,7 +368,6 @@ export async function POST(req: NextRequest) {
     console.error('❌ [read-emails] Erro:', message)
     return NextResponse.json({ success: false, emails: [], error: message })
   } finally {
-    // Garantir que a conexão é sempre fechada - não mantemos conexões persistentes
     if (client) {
       try { await client.logout() } catch (_) {}
     }

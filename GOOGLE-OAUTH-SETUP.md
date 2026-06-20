@@ -76,7 +76,7 @@ Não é preciso redeploy. Só testar de novo o botão Google no login.
 
 **Correcção no servidor Hetzner:**
 ```bash
-ssh -i ~/.ssh/aamihe_hetzner -p 2234 root@37.27.17.25
+ssh -i ~/.ssh/visualdesign_hetzner -p 2234 root@37.27.17.25
 bash /caminho/para/scripts/fix-supabase-apache-proxy.sh
 systemctl restart docker && bash /usr/local/bin/fix-docker-nat.sh
 cd /opt/supabase-aamihe/docker && docker compose up -d

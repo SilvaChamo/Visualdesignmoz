@@ -6,7 +6,7 @@ set -euo pipefail
 
 SERVER_IP="${SERVER_IP:-37.27.17.25}"
 SSH_PORT="${SSH_PORT:-2234}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/aamihe_hetzner}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/visualdesign_hetzner}"
 SSH_USER="${SSH_USER:-root}"
 LOCAL_PROJECT="$(cd "$(dirname "$0")/.." && pwd)"
 REMOTE_DIR="/opt/visualdesign-panel"

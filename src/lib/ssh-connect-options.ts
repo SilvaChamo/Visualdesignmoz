@@ -56,7 +56,7 @@ export function resolveSshPrivateKey(): string | undefined {
   const candidates = [
     process.env.SERVER_SSH_KEY_PATH,
     process.env.SSH_KEY_PATH,
-    path.join(os.homedir(), '.ssh', 'aamihe_hetzner'),
+    path.join(os.homedir(), '.ssh', 'visualdesign_hetzner'),
     path.join(os.homedir(), '.ssh', 'id_rsa'),
   ].filter(Boolean) as string[];
 
@@ -76,7 +76,7 @@ export function resolveSshKeyPath(): string | undefined {
   const candidates = [
     process.env.SERVER_SSH_KEY_PATH,
     process.env.SSH_KEY_PATH,
-    path.join(os.homedir(), '.ssh', 'aamihe_hetzner'),
+    path.join(os.homedir(), '.ssh', 'visualdesign_hetzner'),
   ].filter(Boolean) as string[];
 
   for (const candidate of candidates) {

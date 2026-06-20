@@ -49,7 +49,7 @@ Guia de contexto para programadores e agentes de IA que trabalhem neste reposit�
 bash deploy/deploy-ssh.sh
 ```
 
-SSH: `ssh -i ~/.ssh/aamihe_hetzner -p 2234 root@37.27.17.25`
+SSH: `ssh -i ~/.ssh/visualdesign_hetzner -p 2234 root@37.27.17.25`
 
 Variáveis de produção: ver `deploy/env.production.template`
 
