@@ -67,14 +67,25 @@ async function readMessagesInOpenMailbox(
 
   if (total === 0) return emails
 
-  // Se NÃO houver pesquisa, usamos o método ultra-rápido de fetch por sequência
   if (!search) {
-    // Procuramos um lote maior (ex: 3x o limite) para garantir que temos suficientes após filtrar os apagados
-    const fetchChunk = limit * 3
-    const start = Math.max(1, total - fetchChunk + 1)
-    
+    const fetchChunk = Math.max(limit * 3, 20)
     try {
-      // Sequência (não UID): start:total são números de sequência da pasta
+      const searchRes = await client.search({ deleted: false }, { uid: true })
+      const allUids = Array.isArray(searchRes) ? searchRes : []
+      const recentUids = allUids.slice(-fetchChunk).reverse().slice(0, limit)
+
+      if (recentUids.length > 0) {
+        for await (const msg of client.fetch(recentUids, { envelope: true, flags: true }, { uid: true })) {
+          emails.push(mapFetchedMessage(msg, realPath, email))
+        }
+        return emails
+      }
+    } catch (err) {
+      console.error(`Erro ao pesquisar UIDs na pasta ${realPath}:`, err)
+    }
+
+    const start = Math.max(1, total - fetchChunk + 1)
+    try {
       for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
         if (!msg.flags?.has('\\Deleted')) {
           emails.push(mapFetchedMessage(msg, realPath, email))
@@ -82,7 +93,7 @@ async function readMessagesInOpenMailbox(
       }
       return emails.reverse().slice(0, limit)
     } catch (err) {
-      console.error(`Erro ao fazer fetch rápido na pasta ${realPath}:`, err)
+      console.error(`Erro ao fazer fetch na pasta ${realPath}:`, err)
       return []
     }
   }

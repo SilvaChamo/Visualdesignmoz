@@ -69,7 +69,7 @@ export function WebmailSection({
     ? pickDefaultWebmailAccount(initialAccountsCache, userEmail, emailOrigem)
     : emailOrigem || ''
   const initialInboxCache = initialAccountEmail
-    ? readWebmailListCache(initialAccountEmail, 'INBOX', false)
+    ? readWebmailListCache(initialAccountEmail, 'INBOX', true)
     : null
   const [accounts, setAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
   const [allAccounts, setAllAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
@@ -311,12 +311,12 @@ export function WebmailSection({
     }
   }
 
-  // Carregar emails quando mudar conta, pasta ou lista de contas
+  // Carregar emails quando mudar conta, pasta ou pesquisa
   useEffect(() => {
     if (selectedAccount && viewMode === 'list' && accounts.length > 0) {
       loadEmails()
     }
-  }, [selectedAccount, accounts.length])
+  }, [selectedAccount, activeFolder, debouncedSearchQuery, accounts.length, viewMode])
 
   // Actualizar caixa de entrada automaticamente (novos emails recebidos)
   useEffect(() => {
@@ -559,12 +559,14 @@ export function WebmailSection({
   }
 
   const loadEmails = async (options?: { background?: boolean }) => {
-    if (loadEmailsAbortControllerRef.current) {
+    if (!options?.background && loadEmailsAbortControllerRef.current) {
       loadEmailsAbortControllerRef.current.abort()
     }
 
     const controller = new AbortController()
-    loadEmailsAbortControllerRef.current = controller
+    if (!options?.background) {
+      loadEmailsAbortControllerRef.current = controller
+    }
 
     const account = accounts.find((a) => a.email === selectedAccount)
     if (!account) {
@@ -572,16 +574,14 @@ export function WebmailSection({
       return
     }
 
-    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, false) : null
+    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, true) : null
     const hadCachedList = Boolean(cachedList?.emails?.length)
-    if (cachedList?.emails?.length) {
+    if (cachedList?.emails?.length && !options?.background) {
       setEmails(cachedList.emails)
       if (cachedList.folderTotals && Object.keys(cachedList.folderTotals).length > 0) {
         setFolderCounts((prev) => ({ ...prev, ...cachedList.folderTotals }))
         folderCountsLoadedRef.current = true
       }
-    } else if (!options?.background) {
-      setEmails([])
     }
 
     if (hadCachedList || options?.background) {
@@ -645,7 +645,9 @@ export function WebmailSection({
         console.error('Erro ao carregar emails:', error)
       }
     } finally {
-      if (loadEmailsAbortControllerRef.current === controller) {
+      if (options?.background) {
+        setSyncingEmails(false)
+      } else if (loadEmailsAbortControllerRef.current === controller) {
         setLoadingEmails(false)
         setSyncingEmails(false)
         loadEmailsAbortControllerRef.current = null
@@ -1265,8 +1267,6 @@ export function WebmailSection({
                       setActiveFolder(folder.id)
                       setSelectedEmail(null)
                       setSelectedEmails(new Set())
-                      const cached = getCachedData(selectedAccount, folder.id, false)
-                      setEmails(cached?.emails ?? [])
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-1.5 text-sm transition-colors ${
                       isActive
