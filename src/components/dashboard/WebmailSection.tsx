@@ -1378,7 +1378,7 @@ export function WebmailSection({
 
                 <div className="flex items-center gap-1.5">
                   <button 
-                    onClick={loadEmails} 
+                    onClick={() => void loadEmails()} 
                     className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                     title="Atualizar"
                   >
