@@ -12,11 +12,22 @@ import {
 export async function POST(req: NextRequest) {
   let client: ImapFlow | null = null
   try {
-    const { email, password, emailId, folder } = await req.json()
+    const {
+      email,
+      password,
+      emailId,
+      folder,
+      bySeq: bySeqParam,
+      markRead = true,
+      markReadOnly = false,
+    } = await req.json()
 
-    if (!email || !emailId || !folder) {
+    if (!email || emailId === undefined || emailId === null || emailId === '' || !folder) {
       return NextResponse.json({ error: 'Parâmetros obrigatórios em falta' }, { status: 400 })
     }
+
+    const bySeq = Boolean(bySeqParam)
+    const uidOpts = bySeq ? undefined : { uid: true as const }
 
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
@@ -36,16 +47,28 @@ export async function POST(req: NextRequest) {
 
     const lock = await client.getMailboxLock(realFolder)
     try {
-      const msg = await client.fetchOne(emailId, { source: true }, { uid: true })
+      if (markReadOnly) {
+        if (markRead) {
+          try {
+            await client.messageFlagsAdd([emailId], ['\\Seen'], uidOpts)
+          } catch (e) {
+            console.error('Falha ao marcar como lido:', e)
+          }
+        }
+        return NextResponse.json({ success: true })
+      }
+
+      const msg = await client.fetchOne(String(emailId), { source: true }, uidOpts)
       if (!msg || !msg.source) {
         return NextResponse.json({ error: 'Mensagem não encontrada nesta pasta.' }, { status: 404 })
       }
 
-      // Marcar como lido (\Seen) no servidor
-      try {
-        await client.messageFlagsAdd([emailId], ['\\Seen'], { uid: true })
-      } catch (e) {
-        console.error('Falha ao marcar como lido:', e)
+      if (markRead) {
+        try {
+          await client.messageFlagsAdd([emailId], ['\\Seen'], uidOpts)
+        } catch (e) {
+          console.error('Falha ao marcar como lido:', e)
+        }
       }
 
       const parsed = await simpleParser(msg.source)

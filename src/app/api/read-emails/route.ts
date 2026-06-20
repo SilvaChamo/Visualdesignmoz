@@ -27,7 +27,9 @@ const STANDARD_FOLDERS = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']
 
 type EmailRow = {
   id: number
-  seq: number
+  uid?: number
+  seq?: number
+  bySeq?: boolean
   tipo: string
   conta: string
   assunto: string
@@ -38,10 +40,16 @@ type EmailRow = {
   messageId?: string
 }
 
-function mapFetchedMessage(msg: any, realPath: string, email: string): EmailRow {
+function mapFetchedMessage(msg: any, realPath: string, email: string): EmailRow | null {
+  const uid = typeof msg.uid === 'number' ? msg.uid : undefined
+  const seq = typeof msg.seq === 'number' ? msg.seq : undefined
+  const messageKey = uid != null ? uid : seq
+  if (messageKey == null) return null
   return {
-    id: msg.uid,
-    seq: msg.seq,
+    id: messageKey,
+    uid,
+    seq,
+    bySeq: uid == null && seq != null,
     tipo: determinarTipo(realPath),
     conta: email,
     assunto: msg.envelope?.subject || '(sem assunto)',
@@ -69,26 +77,12 @@ async function readMessagesInOpenMailbox(
 
   if (!search) {
     const fetchChunk = Math.max(limit * 3, 20)
-    try {
-      const searchRes = await client.search({ deleted: false }, { uid: true })
-      const allUids = Array.isArray(searchRes) ? searchRes : []
-      const recentUids = allUids.slice(-fetchChunk).reverse().slice(0, limit)
-
-      if (recentUids.length > 0) {
-        for await (const msg of client.fetch(recentUids, { envelope: true, flags: true }, { uid: true })) {
-          emails.push(mapFetchedMessage(msg, realPath, email))
-        }
-        return emails
-      }
-    } catch (err) {
-      console.error(`Erro ao pesquisar UIDs na pasta ${realPath}:`, err)
-    }
-
     const start = Math.max(1, total - fetchChunk + 1)
     try {
-      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
+      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true, uid: true })) {
         if (!msg.flags?.has('\\Deleted')) {
-          emails.push(mapFetchedMessage(msg, realPath, email))
+          const row = mapFetchedMessage(msg, realPath, email)
+          if (row) emails.push(row)
         }
       }
       return emails.reverse().slice(0, limit)
@@ -112,7 +106,8 @@ async function readMessagesInOpenMailbox(
 
   if (uids.length > 0) {
     for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
-      emails.push(mapFetchedMessage(msg, realPath, email))
+      const row = mapFetchedMessage(msg, realPath, email)
+      if (row) emails.push(row)
     }
   }
   return emails
@@ -143,8 +138,8 @@ export async function POST(req: NextRequest) {
       const { data: contas } = await query.or('status.eq.active,status.eq.activo')
 
       if (contas && contas.length > 0) {
-        // PARALELIZAÇÃO EXTREMA: Carregar todas as contas em simultâneo
-        const promessasContas = contas.map(async (conta) => {
+        // PARALELIZAÇÃO CONTROLADA: Carregar as contas em blocos de 3 para não afogar o servidor
+        const processarConta = async (conta: any) => {
           if (!conta.senha_servidor) return []
           let contaClient: ImapFlow | null = null
           const contaEmails: any[] = []
@@ -173,9 +168,14 @@ export async function POST(req: NextRequest) {
             if (contaClient) { try { await contaClient.logout() } catch (_) {} }
           }
           return contaEmails
-        })
+        }
 
-        const resultados = await Promise.allSettled(promessasContas)
+        const resultados: PromiseSettledResult<any[]>[] = []
+        for (let i = 0; i < contas.length; i += 3) {
+          const chunk = contas.slice(i, i + 3)
+          resultados.push(...(await Promise.allSettled(chunk.map(processarConta))))
+        }
+
         const todosEmails = resultados
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .map(r => r.value)
@@ -191,8 +191,8 @@ export async function POST(req: NextRequest) {
 
     // --- CAMINHO 2: MULTI EMAILS ---
     if (multiEmails && Array.isArray(multiEmails)) {
-      // PARALELIZAÇÃO EXTREMA: Carregar todas as contas pedidas em simultâneo
-      const promessasContas = multiEmails.map(async (mEmail, idx) => {
+      // PARALELIZAÇÃO CONTROLADA: Carregar as contas em blocos de 3
+      const processarContaMulti = async (mEmail: string, idx: number) => {
         let mClient: ImapFlow | null = null
         const mEmails: any[] = []
         try {
@@ -220,9 +220,14 @@ export async function POST(req: NextRequest) {
           if (mClient) { try { await mClient.logout() } catch (_) {} }
         }
         return mEmails
-      })
+      }
 
-      const resultados = await Promise.allSettled(promessasContas)
+      const resultados: PromiseSettledResult<any[]>[] = []
+      for (let i = 0; i < multiEmails.length; i += 3) {
+        const chunk = multiEmails.slice(i, i + 3)
+        resultados.push(...(await Promise.allSettled(chunk.map((mEmail, localIdx) => processarContaMulti(mEmail, i + localIdx)))))
+      }
+
       const todosEmails = resultados
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
         .map(r => r.value)

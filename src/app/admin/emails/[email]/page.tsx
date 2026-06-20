@@ -54,26 +54,14 @@ export default function EmailInboxPage() {
     setError('')
     
     try {
-      // 🚀 CORREÇÃO: Usar POST em vez de GET, a API não suporta GET
-      // Buscar senha das credenciais padrão (fallback) - no admin podemos usar hardcoded
-      const senhasPadrao: Record<string, string> = {
-        'silva.chamo@visualdesignmoz.com': 'Meckito#77?*',
-        'duduchamatavele@visualdesignmoz.com': 'Dudu#2425?*',
-        'geral@visualdesignmoz.com': 'Ge.Vd#2425?*',
-        'admin@visualdesignmoz.com': 'Ad.Vd#2425?*',
-        'info@visualdesignmoz.com': 'Informação!#2020?*',
-        'suporte@visualdesignmoz.com': 'SupaEmail#2026?*',
-        'noreply@visualdesignmoz.com': 'VisualDesign#2026',
-      }
-      const senha = senhasPadrao[email] || ''
-      
+      // O backend agora resolve a senha automaticamente se for admin
       const res = await fetch('/api/read-emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email: email, 
-          password: senha,
-          folder: selectedFolder 
+          folder: selectedFolder,
+          limit: 30 // 🚀 CORREÇÃO: Limite adicionado para evitar overflow
         })
       })
       const data = await res.json()

@@ -21,6 +21,10 @@ import {
   readWebmailAccountsCache,
   readWebmailListCache,
   writeWebmailListCache,
+  readWebmailFolderTotalsCache,
+  writeWebmailFolderTotalsCache,
+  isWebmailListCacheFresh,
+  WEBMAIL_STANDARD_FOLDERS,
   pickDefaultWebmailAccount,
   type WebmailAccountRow,
 } from '@/lib/panel-webmail-cache';
@@ -265,21 +269,72 @@ async function prefetchEmailConfigsAdminAsync(): Promise<void> {
   await prefetchWebmailInboxAsync(accounts);
 }
 
-async function prefetchWebmailInboxAsync(accounts?: WebmailAccountRow[]): Promise<void> {
-  const list = accounts?.length ? accounts : readWebmailAccountsCache() || [];
-  const target = pickDefaultWebmailAccount(list);
-  if (!target) return;
-  if (readWebmailListCache(target, 'INBOX')?.emails?.length) return;
+async function prefetchWebmailAccountFolder(
+  email: string,
+  folder: string,
+  includeTotals = false,
+): Promise<void> {
+  if (isWebmailListCacheFresh(email, folder)) return;
 
   const res = await fetch('/api/read-emails', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: target, folders: ['INBOX'], limit: 20 }),
+    body: JSON.stringify({
+      email,
+      folders: [folder],
+      limit: 20,
+      includeTotals: includeTotals && folder === 'INBOX',
+    }),
   });
-  const data = await res.json() as { success?: boolean; emails?: unknown[]; folderTotals?: Record<string, number> };
+  const data = await res.json() as {
+    success?: boolean;
+    emails?: unknown[];
+    folderTotals?: Record<string, number>;
+  };
   if (!data.success || !Array.isArray(data.emails)) return;
-  writeWebmailListCache(target, 'INBOX', data.emails, data.folderTotals);
+  writeWebmailListCache(email, folder, data.emails, data.folderTotals);
+  if (data.folderTotals) writeWebmailFolderTotalsCache(email, data.folderTotals);
+}
+
+async function prefetchWebmailAccountFolders(email: string, allFolders = false): Promise<void> {
+  const folders = allFolders
+    ? [...WEBMAIL_STANDARD_FOLDERS]
+    : (['INBOX'] as const);
+  const needTotals = !readWebmailFolderTotalsCache(email, true);
+
+  for (const folder of folders) {
+    await prefetchWebmailAccountFolder(email, folder, needTotals && folder === 'INBOX');
+    await yieldUi();
+  }
+}
+
+async function prefetchWebmailInboxAsync(accounts?: WebmailAccountRow[]): Promise<void> {
+  const list = accounts?.length ? accounts : readWebmailAccountsCache() || [];
+  if (!list.length) return;
+
+  const defaultEmail = pickDefaultWebmailAccount(list);
+  if (defaultEmail) {
+    await prefetchWebmailAccountFolders(defaultEmail, true);
+    await yieldUi();
+  }
+
+  const rest = list
+    .map((a) => a.email)
+    .filter((email) => email && email !== defaultEmail);
+
+  const CONCURRENCY = 2;
+  for (let i = 0; i < rest.length; i += CONCURRENCY) {
+    const batch = rest.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map((email) => prefetchWebmailAccountFolders(email, false)));
+    await yieldUi();
+  }
+}
+
+/** Prefetch em background das pastas de uma conta (ex.: ao mudar o selector). */
+export function prefetchWebmailAccount(email: string, allFolders = true) {
+  if (!email) return;
+  void prefetchWebmailAccountFolders(email, allFolders).catch(() => undefined);
 }
 
 function buildPrefetchQueue(options: PrefetchPanelOptions): QueuedPrefetchStep[] {
