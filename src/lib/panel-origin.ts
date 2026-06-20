@@ -216,10 +216,10 @@ export function resolvePostLoginUrl(options: {
   try {
     const host = new URL(origin).hostname
     if (shouldUsePanelOriginForHost(host)) {
-      return `${getPublicSiteOrigin()}${entryPath}`
+      return `${getPanelOrigin()}${entryPath}`
     }
     if (isPanelHost(host) && isSplitPanelDeployment()) {
-      return `${getPublicSiteOrigin()}${entryPath}`
+      return entryPath
     }
   } catch {
     /* path relativo */
