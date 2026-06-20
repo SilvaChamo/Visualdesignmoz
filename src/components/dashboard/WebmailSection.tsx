@@ -17,6 +17,7 @@ import {
   mapEmailContasToWebmailAccounts,
   readWebmailListCache,
   writeWebmailListCache,
+  removeEmailFromListCache,
   readWebmailBodyCache,
   writeWebmailBodyCache,
   pickDefaultWebmailAccount,
@@ -68,7 +69,7 @@ export function WebmailSection({
     ? pickDefaultWebmailAccount(initialAccountsCache, userEmail, emailOrigem)
     : emailOrigem || ''
   const initialInboxCache = initialAccountEmail
-    ? readWebmailListCache(initialAccountEmail, 'INBOX', true)
+    ? readWebmailListCache(initialAccountEmail, 'INBOX', false)
     : null
   const [accounts, setAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
   const [allAccounts, setAllAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
@@ -289,12 +290,53 @@ export function WebmailSection({
   const getCachedData = (account: string, folder: string, allowStale = false) =>
     readListCache(account, folder, allowStale)
 
+  const removeEmailFromViews = (emailId: string | number, fromFolder = activeFolder) => {
+    const id = String(emailId)
+    removeEmailFromListCache(selectedAccount, fromFolder, emailId)
+    if (fromFolder === activeFolder) {
+      setEmails((prev) => {
+        const next = prev.filter((e) => String(e.id) !== id && String(e.uid) !== id)
+        if (!debouncedSearchQuery) {
+          writeListCache(selectedAccount, fromFolder, next)
+        }
+        return next
+      })
+    }
+    if (fromFolder === 'INBOX') {
+      setFolderCounts((prev) => ({
+        ...prev,
+        INBOX: Math.max(0, (prev.INBOX || 0) - 1),
+        Trash: (prev.Trash || 0) + 1,
+      }))
+    }
+  }
+
   // Carregar emails quando mudar conta, pasta ou lista de contas
   useEffect(() => {
     if (selectedAccount && viewMode === 'list' && accounts.length > 0) {
       loadEmails()
     }
-  }, [selectedAccount, activeFolder, debouncedSearchQuery, accounts.length])
+  }, [selectedAccount, accounts.length])
+
+  // Actualizar caixa de entrada automaticamente (novos emails recebidos)
+  useEffect(() => {
+    if (viewMode !== 'list' || !selectedAccount || showAdvancedCompose || debouncedSearchQuery) return
+
+    const refreshInbox = () => {
+      if (activeFolder === 'INBOX') void loadEmails({ background: true })
+    }
+
+    const intervalId = window.setInterval(refreshInbox, 45000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshInbox()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [viewMode, selectedAccount, activeFolder, showAdvancedCompose, debouncedSearchQuery])
 
   // Prefetch senha da conta activa (envio + IMAP sem espera)
   useEffect(() => {
@@ -516,7 +558,7 @@ export function WebmailSection({
     }
   }
 
-  const loadEmails = async () => {
+  const loadEmails = async (options?: { background?: boolean }) => {
     if (loadEmailsAbortControllerRef.current) {
       loadEmailsAbortControllerRef.current.abort()
     }
@@ -530,7 +572,7 @@ export function WebmailSection({
       return
     }
 
-    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, true) : null
+    const cachedList = !debouncedSearchQuery ? getCachedData(selectedAccount, activeFolder, false) : null
     const hadCachedList = Boolean(cachedList?.emails?.length)
     if (cachedList?.emails?.length) {
       setEmails(cachedList.emails)
@@ -538,9 +580,11 @@ export function WebmailSection({
         setFolderCounts((prev) => ({ ...prev, ...cachedList.folderTotals }))
         folderCountsLoadedRef.current = true
       }
+    } else if (!options?.background) {
+      setEmails([])
     }
 
-    if (hadCachedList) {
+    if (hadCachedList || options?.background) {
       setSyncingEmails(true)
     } else {
       setLoadingEmails(true)
@@ -869,9 +913,14 @@ export function WebmailSection({
       
       const data = await res.json()
       if (data.success) {
-        // Atualizar lista local
-        setEmails(prev => prev.filter(e => e.id !== emailId && e.uid !== emailId))
+        const idStr = String(emailId)
+        removeEmailFromViews(emailId)
         setSelectedEmail(null)
+        setSelectedEmails((prev) => {
+          const next = new Set(prev)
+          next.delete(idStr)
+          return next
+        })
       } else {
         alert('Erro ao apagar: ' + (data.error || 'Erro desconhecido'))
       }
@@ -912,9 +961,8 @@ export function WebmailSection({
       
       const data = await res.json()
       if (data.success) {
-        // Atualizar lista local
-        setEmails(prev => prev.filter(e => e.id !== emailId && e.uid !== emailId))
-        if (selectedEmail?.id === emailId) {
+        removeEmailFromViews(emailId)
+        if (selectedEmail?.id === emailId || selectedEmail?.uid === emailId) {
           setSelectedEmail(null)
         }
       } else {
@@ -1216,10 +1264,9 @@ export function WebmailSection({
                     onClick={() => {
                       setActiveFolder(folder.id)
                       setSelectedEmail(null)
-                      const cached = getCachedData(selectedAccount, folder.id)
-                      if (cached?.emails?.length) {
-                        setEmails(cached.emails)
-                      }
+                      setSelectedEmails(new Set())
+                      const cached = getCachedData(selectedAccount, folder.id, false)
+                      setEmails(cached?.emails ?? [])
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-1.5 text-sm transition-colors ${
                       isActive

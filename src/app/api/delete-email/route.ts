@@ -119,10 +119,6 @@ export async function POST(req: NextRequest) {
           } catch (createErr: any) {}
         }
 
-        // MARCAR COMO APAGADO E FORÇAR A ELIMINAÇÃO FÍSICA PARA NÃO VOLTAR
-        try { await client.messageFlagsAdd([emailId], ['\\Deleted'], { uid: true }) } catch (e) {}
-        try { await (client as { expunge?: () => Promise<void> }).expunge?.() } catch (e) {}
-        
         if (!movedToTrash) {
           lock.release()
           await client.logout()

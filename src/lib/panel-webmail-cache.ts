@@ -178,6 +178,37 @@ export function writeWebmailListCache(
   }
 }
 
+export function removeEmailFromListCache(
+  account: string,
+  folder: string,
+  emailId: string | number,
+) {
+  const cached = readWebmailListCache(account, folder, true)
+  if (!cached?.emails?.length) return
+  const id = String(emailId)
+  const filtered = cached.emails.filter(
+    (e) => String(e.id) !== id && String(e.uid) !== id,
+  )
+  writeWebmailListCache(account, folder, filtered, cached.folderTotals)
+}
+
+export function clearWebmailListCache(account: string, folder?: string) {
+  if (typeof window === 'undefined') return
+  try {
+    if (folder) {
+      sessionStorage.removeItem(listCacheKey(account, folder))
+      return
+    }
+    const prefix = `${LIST_PREFIX}:${account}:`
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i)
+      if (key?.startsWith(prefix)) sessionStorage.removeItem(key)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 const bodyCacheKey = (account: string, folder: string, uid: string | number) =>
   `${BODY_PREFIX}:${account}:${folder}:${uid}`
 

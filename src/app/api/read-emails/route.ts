@@ -74,13 +74,12 @@ async function readMessagesInOpenMailbox(
     const start = Math.max(1, total - fetchChunk + 1)
     
     try {
-      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true }, { uid: true })) {
-        // Ignorar fisicamente os emails que têm a etiqueta de apagado invisível
+      // Sequência (não UID): start:total são números de sequência da pasta
+      for await (const msg of client.fetch(`${start}:${total}`, { envelope: true, flags: true })) {
         if (!msg.flags?.has('\\Deleted')) {
           emails.push(mapFetchedMessage(msg, realPath, email))
         }
       }
-      // Reverter para ter os mais recentes primeiro e cortar pelo limite real
       return emails.reverse().slice(0, limit)
     } catch (err) {
       console.error(`Erro ao fazer fetch rápido na pasta ${realPath}:`, err)
