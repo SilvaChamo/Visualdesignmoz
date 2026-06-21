@@ -239,9 +239,16 @@ export function resolvePostLoginUrl(options: {
   return entryPath
 }
 
-export function getSharedAuthCookieDomain(_hostname?: string): string | undefined {
-  // Host-only: Domain=.visualdesignmoz.com enviava cookies do painel para
-  // host.visualdesignmoz.com e rebentava o limite de 4 KB do DirectAdmin (erro 500).
+export function getSharedAuthCookieDomain(hostname?: string): string | undefined {
+  const host = (hostname ?? '').toLowerCase().split(':')[0]
+  if (!host || host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app')) {
+    return undefined
+  }
+  // Partilhar sessão entre visualdesignmoz.com e painel.* — o proxy do DirectAdmin
+  // remove cookies sb-* antes de chegar ao host.visualdesignmoz.com.
+  if (host.endsWith('visualdesignmoz.com')) {
+    return '.visualdesignmoz.com'
+  }
   return undefined
 }
 

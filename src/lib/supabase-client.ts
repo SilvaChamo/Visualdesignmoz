@@ -12,15 +12,30 @@ const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
   'placeholder-key'
 
+function resolveBrowserCookieOptions() {
+  if (typeof window === 'undefined') {
+    return { path: '/', sameSite: 'lax' as const }
+  }
+  const host = window.location.hostname.toLowerCase()
+  const secure = window.location.protocol === 'https:'
+  if (host.endsWith('visualdesignmoz.com')) {
+    return {
+      domain: '.visualdesignmoz.com',
+      path: '/',
+      sameSite: 'lax' as const,
+      secure,
+    }
+  }
+  return { path: '/', sameSite: 'lax' as const, secure }
+}
+
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // O callback em /auth/callback/route.ts faz exchangeCodeForSession no servidor
+    // Callback em /auth/callback/page.tsx faz exchangeCodeForSession no browser (PKCE).
     detectSessionInUrl: false,
     flowType: 'pkce',
   },
-  // Sem cookieOptions.domain no browser — o PKCE code-verifier fica no host
-  // exacto (localhost ou visualdesignmoz.com). A sessão partilhada com o
-  // subdomínio painel.* é definida no servidor em /auth/callback.
+  cookieOptions: resolveBrowserCookieOptions(),
 })
 
 // Tipos para o nosso sistema

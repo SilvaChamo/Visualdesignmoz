@@ -42,6 +42,15 @@ export async function proxy(request: NextRequest) {
   const hostname = getRequestHostname(request.headers, request.url)
   const publicOrigin = getPublicSiteOrigin()
 
+  // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
+  if (
+    hostname.toLowerCase().split(':')[0] === 'www.visualdesignmoz.com' &&
+    (pathname === PUBLIC_LOGIN_ENTRY || pathname.startsWith('/auth/'))
+  ) {
+    const canonical = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
+    return NextResponse.redirect(canonical, 308)
+  }
+
   // FIRST: OAuth ?code= fora de /auth/callback → corrigir rota
   const oauthCode = request.nextUrl.searchParams.get('code')
   if (

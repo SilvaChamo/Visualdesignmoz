@@ -7077,198 +7077,76 @@ export function FileManagerSection({ domain, sites }: {
   domain: string,
   sites: DirectAdminWebsite[]
 }) {
-  const [path, setPath] = useState('')
-  const [files, setFiles] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
-  const [siteRoot, setSiteRoot] = useState('')
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   const getOwner = (targetDomain: string) =>
     sites.find(s => s.domain === targetDomain)?.owner || 'admin'
 
-  const resolveRoot = (targetDomain: string) => {
-    if (!targetDomain) return ''
-    const owner = getOwner(targetDomain)
-    return `/home/${owner}/domains/${targetDomain}/public_html`
-  }
-
   useEffect(() => {
     const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
-    if (!d) return
-
-    let cancelled = false
-    setSelectedDomain(d)
-    const root = resolveRoot(d)
-    if (!cancelled && root) {
-      setSiteRoot(root)
-      setPath(root)
+    if (d) {
+      setSelectedDomain(d)
+      setLoading(true)
     }
-
-    return () => { cancelled = true }
   }, [domain, sites])
 
-  useEffect(() => {
-    if (path) void loadFiles(path)
-  }, [path])
-
-  const loadFiles = async (currentPath: string) => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'listDirectory',
-          params: { path: currentPath },
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Não foi possível listar ficheiros.')
-        setFiles([])
-        return
-      }
-      setFiles(Array.isArray(data.data?.files) ? data.data.files : [])
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
-      setFiles([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const navigateTo = (folder: string) => {
-    const root = siteRoot || `/home/${getOwner(selectedDomain)}/domains/${selectedDomain}/public_html`
-    if (folder === '..') {
-      if (path === root) return
-      const parts = path.split('/').filter(Boolean)
-      parts.pop()
-      const nextPath = `/${parts.join('/')}`
-      setPath(nextPath.startsWith(root) ? nextPath : root)
-    } else {
-      const next = `${path.replace(/\/$/, '')}/${folder}`
-      setPath(next)
-    }
-  }
-
-  // Breadcrumb do path
-  const pathParts = path.split('/').filter(Boolean)
-
   return (
-    <div className="w-full space-y-4">
-
+    <div className="w-full h-[calc(100vh-100px)] flex flex-col space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Gestor de Ficheiros</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Explorar directório do site</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Gestor de Ficheiros</h1>
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Gestão avançada, upload de grandes ficheiros e extração rápida</p>
         </div>
         {/* Selector de domínio */}
         <div className="flex items-center gap-2">
           <select value={selectedDomain}
             onChange={e => {
-              const next = e.target.value
-              setSelectedDomain(next)
-              const root = resolveRoot(next)
-              setSiteRoot(root)
-              setPath(root)
+              setSelectedDomain(e.target.value)
+              setLoading(true)
             }}
-            className="px-3 py-2 border border-gray-300 rounded text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+            className="px-3 py-2 border border-gray-300 rounded text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 min-w-[200px]">
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
           {selectedDomain && (
             <a
-              href={getDirectAdminFileManagerUrl(selectedDomain, getOwner(selectedDomain))}
+              href={`/api/filemanager-sso?domain=${selectedDomain}&owner=${getOwner(selectedDomain)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+              title="Abrir numa nova janela"
             >
-              <ExternalLink className="w-3.5 h-3.5" /> DirectAdmin
+              <ExternalLink className="w-3.5 h-3.5" /> Ecrã Inteiro
             </a>
           )}
         </div>
       </div>
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-sm bg-white border border-gray-200 rounded px-4 py-2">
-        <button onClick={() => setPath(siteRoot || path)} className="text-blue-500 hover:text-red-600 font-medium dark:text-red-400">home</button>
-        {pathParts.map((part, i) => (
-          <span key={i} className="flex items-center gap-1">
-            <span className="text-gray-400">/</span>
-            <button
-              onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
-              className="text-blue-500 hover:text-blue-700">
-              {part}
-            </button>
-          </span>
-        ))}
-        <button onClick={() => loadFiles(path)} className="ml-auto text-gray-400 hover:text-gray-600">
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Tabela de ficheiros */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">Permissões</th>
-              <th className="px-4 py-3">Tamanho</th>
-              <th className="px-4 py-3">Data</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Botão voltar */}
-            <tr className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
-              onClick={() => navigateTo('..')}>
-              <td className="px-4 py-2.5 flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-yellow-500" />
-                <span className="text-blue-600 font-medium">..</span>
-              </td>
-              <td colSpan={3} className="px-4 py-2.5 text-gray-400 text-xs">Pasta anterior</td>
-            </tr>
-
-            {error ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-red-500">
-                {error}
-              </td></tr>
-            ) : loading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
-              </td></tr>
-            ) : files.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                Pasta vazia
-              </td></tr>
-            ) : files.map((f, i) => (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    {f.isDir
-                      ? <FolderOpen className="w-4 h-4 text-yellow-500 shrink-0" />
-                      : <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                    }
-                    {f.isDir ? (
-                      <button onClick={() => navigateTo(f.name)}
-                        className="text-blue-600 hover:underline font-medium">
-                        {f.name}
-                      </button>
-                    ) : (
-                      <span className="text-gray-700">{f.name}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 text-gray-500 font-mono text-xs">{f.permissions}</td>
-                <td className="px-4 py-2.5 text-gray-500 text-xs">{f.size}</td>
-                <td className="px-4 py-2.5 text-gray-500 text-xs">{f.date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* iFrame com FileGator */}
+      <div className="flex-1 bg-white dark:bg-zinc-900 rounded border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-zinc-900/80 z-10">
+            <div className="flex flex-col items-center gap-3">
+              <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+              <p className="text-sm font-medium text-gray-600 dark:text-zinc-400">A carregar Gestor de Ficheiros...</p>
+            </div>
+          </div>
+        )}
+        
+        {selectedDomain ? (
+          <iframe
+            key={selectedDomain}
+            src={`/api/filemanager-sso?domain=${selectedDomain}&owner=${getOwner(selectedDomain)}`}
+            className="w-full h-full border-0"
+            onLoad={() => setLoading(false)}
+            allow="fullscreen"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-gray-500">
+            Por favor, selecione um domínio.
+          </div>
+        )}
       </div>
     </div>
   )

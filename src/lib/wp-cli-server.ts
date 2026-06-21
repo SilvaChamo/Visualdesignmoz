@@ -502,7 +502,7 @@ export async function updateWpUser(input: {
   const urlArg = input.website ? ` --user_url=${shellQuote(input.website)}` : '';
   const displayArg = input.displayName ? ` --display_name=${shellQuote(input.displayName)}` : '';
   
-  const args = `user update ${shellQuote(input.username)} --role=${shellQuote(role)}${passArg}${emailArg}${firstArg}${lastArg}${urlArg}${displayArg}`;
+  const args = `user update ${shellQuote(input.username)}${roleArg}${passArg}${emailArg}${firstArg}${lastArg}${urlArg}${displayArg}`;
 
   let script = `
     sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} ${args}
