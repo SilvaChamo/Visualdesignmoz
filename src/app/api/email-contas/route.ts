@@ -6,8 +6,20 @@ import { PANEL_SLUG, inferPanelSiteFromEmail } from '@/lib/panel-tenant'
 import { decryptStoredPassword, buildPanelAccessConfigText } from '@/lib/panel-access-credentials'
 import { STANDARD_PANEL_PASSWORD } from '@/lib/stored-panel-password'
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
+import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry'
+import type { User } from '@supabase/supabase-js'
 
-const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com', 'suporte@visualdesignmoz.com'];
+async function resolveSessionUser(supabase: Awaited<ReturnType<typeof createClient>>): Promise<User | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.user) return session.user
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (!error && user) return user
+  return null
+}
+
+function isBootstrapAdmin(email?: string | null): boolean {
+  return ADMIN_BOOTSTRAP_EMAILS.has((email || '').toLowerCase())
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
@@ -39,11 +51,12 @@ function userCanAccessMailboxPassword(
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const sessionUser = await resolveSessionUser(supabase);
 
-  if (!session) {
+  if (!sessionUser) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
+  const session = { user: sessionUser };
 
   const { searchParams } = new URL(req.url)
   const configEmail = searchParams.get('config_email')?.trim().toLowerCase()
@@ -53,8 +66,7 @@ export async function GET(req: NextRequest) {
     const effectiveRole = session.user
       ? await resolveRoleForAuthUser(roleDb, session.user)
       : 'guest';
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    const isAdmin = isExplicitAdmin || effectiveRole === 'admin';
+    const isAdmin = isBootstrapAdmin(session.user?.email) || effectiveRole === 'admin';
     if (!isAdmin) {
       return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 });
     }
@@ -113,19 +125,18 @@ export async function GET(req: NextRequest) {
   const clienteId = searchParams.get('cliente_id') || session.user.id
 
   // Proteção: utilizador só vê o seu próprio ID, a menos que seja admin
-  const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-  if (clienteId !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isExplicitAdmin) {
+  const isBootstrap = isBootstrapAdmin(session.user?.email);
+  if (clienteId !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isBootstrap) {
     return NextResponse.json({ error: 'Acesso proibido a dados de terceiros' }, { status: 403 });
   }
 
   try {
     // Detectar perfil (admin, revendedor, cliente)
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
     const roleDb = supabaseAdmin;
     const effectiveRole = session.user
       ? await resolveRoleForAuthUser(roleDb, session.user)
       : 'guest';
-    const isAdmin = isExplicitAdmin || effectiveRole === 'admin' || effectiveRole === 'manager';
+    const isAdmin = isBootstrap || effectiveRole === 'admin' || effectiveRole === 'manager';
     
     console.log(`� [API] Usuário: ${session.user?.email}, isAdmin: ${isAdmin}`);
     
@@ -206,9 +217,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const sessionUser = await resolveSessionUser(supabase);
 
-  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!sessionUser) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const session = { user: sessionUser };
 
   try {
     const { cliente_id = session.user.id, email, password, nome, tipo = 'webmail' } = await req.json()
@@ -218,8 +230,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Proteção: não deixar criar conta para outro cliente ID se não for admin
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    const isAdmin = isExplicitAdmin || session.user?.user_metadata?.role === 'admin';
+    const isAdmin = isBootstrapAdmin(session.user?.email) || session.user?.user_metadata?.role === 'admin';
     if (cliente_id !== session.user.id && !isAdmin) {
       return NextResponse.json({ error: 'Operação não autorizada' }, { status: 403 });
     }
@@ -437,9 +448,10 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const sessionUser = await resolveSessionUser(supabase);
 
-  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!sessionUser) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  const session = { user: sessionUser };
 
   try {
     const { email } = await req.json()
@@ -447,8 +459,7 @@ export async function DELETE(req: NextRequest) {
     // Primeiro verificar se a conta pertence ao utilizador ou se é admin
     const { data: conta } = await supabaseAdmin.from('email_contas').select('cliente_id').eq('email', email).single();
 
-    const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-    if (conta?.cliente_id !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isExplicitAdmin) {
+    if (conta?.cliente_id !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isBootstrapAdmin(session.user?.email)) {
       return NextResponse.json({ error: 'Não tens permissão para eliminar esta conta' }, { status: 403 });
     }
 

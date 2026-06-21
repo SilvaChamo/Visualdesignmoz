@@ -13,9 +13,9 @@ import {
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
-const CraftBuilder = dynamic(() => import("../../admin/page-builders/components/CraftBuilder"), { ssr: false });
-const GrapesBuilder = dynamic(() => import("../../admin/page-builders/components/GrapesBuilder"), { ssr: false });
-const SimpleBuilder = dynamic(() => import("../../admin/page-builders/components/SimpleBuilder"), { ssr: false });
+const CraftBuilder = dynamic(() => import("../../dashboard/page-builders/components/CraftBuilder"), { ssr: false });
+const GrapesBuilder = dynamic(() => import("../../dashboard/page-builders/components/GrapesBuilder"), { ssr: false });
+const SimpleBuilder = dynamic(() => import("../../dashboard/page-builders/components/SimpleBuilder"), { ssr: false });
 
 const builders = [
   {

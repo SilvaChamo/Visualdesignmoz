@@ -531,7 +531,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
             <p className="mt-2 text-red-700/90">
               Em <code>localhost</code> a API do DirectAdmin pode falhar (IP bloqueado ou sem acesso directo). Use o painel em produção{' '}
-              (<strong>visualdesignmoz.com/admin</strong>), o DirectAdmin em{' '}
+              (<strong>visualdesignmoz.com/dashboard</strong>), o DirectAdmin em{' '}
               <strong>https://host.visualdesignmoz.com:2026/</strong>, ou configure <code>SSH_PRIVATE_KEY</code> no{' '}
               <code>.env.local</code> para SSH <code>root@37.27.17.25 -p 2234</code>.
             </p>
@@ -642,7 +642,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     side="left"
                     align="center"
                     sideOffset={6}
-                    className="z-[200] w-32 max-w-[8rem] p-1 text-xs !bg-white dark:!bg-zinc-900 border border-gray-200 dark:border-zinc-700 shadow-lg"
+                    className="z-[200] min-w-max p-1 text-xs !bg-white dark:!bg-zinc-900 border border-gray-200 dark:border-zinc-700 shadow-lg"
                   >
                     <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openSslPage(s.domain)}>
                       Emitir SSL
@@ -656,6 +656,15 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                     <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => openDatabases(s.domain)}>
                       Base de Dados
                     </DropdownMenuItem>
+                    {isWordPressSite(s) && (
+                      <DropdownMenuItem className="text-xs px-2 py-1.5" onClick={() => {
+                        // @ts-ignore
+                        window.__selectedWpDomain = s.domain;
+                        setActiveSection('wp-users');
+                      }}>
+                        Acessos WordPress
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

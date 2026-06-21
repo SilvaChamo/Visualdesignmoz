@@ -1,0 +1,9 @@
+name = "visualdesignmoz-panel-proxy"
+main = "worker.js"
+compatibility_date = "2024-06-01"
+
+# Zona visualdesignmoz.com — activar após criar o Worker no dashboard Cloudflare.
+# routes = [
+#   { pattern = "visualdesignmoz.com/*", zone_name = "visualdesignmoz.com" },
+#   { pattern = "www.visualdesignmoz.com/*", zone_name = "visualdesignmoz.com" },
+# ]

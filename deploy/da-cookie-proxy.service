@@ -1,0 +1,16 @@
+[Unit]
+Description=DirectAdmin cookie filter proxy (VisualDesign)
+After=network.target directadmin.service
+Wants=directadmin.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/da-cookie-proxy
+Environment=DA_PROXY_PORT=2026
+Environment=DA_PROXY_TARGET=https://127.0.0.1:2027
+ExecStart=/usr/bin/node /opt/da-cookie-proxy/da-cookie-proxy.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

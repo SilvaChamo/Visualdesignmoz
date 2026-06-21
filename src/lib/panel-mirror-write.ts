@@ -598,12 +598,27 @@ export async function mirrorAfterDaMutation(
       break;
     case 'suspendEmail':
     case 'unsuspendEmail':
-    case 'changeEmailPassword':
     case 'setEmailLimits':
     case 'addEmailForwarding':
     case 'setCatchAllEmail':
       scheduleDaSync(800);
       break;
+    case 'changeEmailPassword': {
+      const email = str(params, 'email');
+      const password = str(params, 'password');
+      if (email && password) {
+        const sb = getDaSyncAdmin();
+        if (sb) {
+          const { encryptStoredPassword } = await import('@/lib/panel-access-credentials');
+          await sb
+            .from('email_contas')
+            .update({ senha_servidor: encryptStoredPassword(password) })
+            .eq('email', email);
+        }
+      }
+      scheduleDaSync(800);
+      break;
+    }
     case 'createDNSZone':
     case 'resetDNSConfigurations':
       if (domain) await resyncMirrorDnsForDomain(domain);

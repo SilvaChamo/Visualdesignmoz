@@ -129,4 +129,4 @@ ssh_cmd "PANEL_PORT=${PANEL_PORT} bash /tmp/painel-hetzner-apache.sh"
 
 echo ""
 echo "Concluído: https://painel.visualdesignmoz.com"
-echo "Admin: https://painel.visualdesignmoz.com/admin"
+echo "Admin: https://painel.visualdesignmoz.com/dashboard"

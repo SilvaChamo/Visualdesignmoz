@@ -117,6 +117,20 @@ export function readWebmailAccountsCache(): WebmailAccountRow[] | null {
   }
 }
 
+/** Cache expirado — só para mostrar o selector de imediato enquanto actualiza em background. */
+export function readWebmailAccountsCacheStale(): WebmailAccountRow[] | null {
+  if (memoryCache?.accounts.length) return hydrateAccountPasswords(memoryCache.accounts)
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const { accounts } = JSON.parse(raw) as { accounts: WebmailAccountRow[]; ts: number }
+    return accounts?.length ? hydrateAccountPasswords(accounts) : null
+  } catch {
+    return null
+  }
+}
+
 export function writeWebmailAccountsCache(accounts: WebmailAccountRow[]) {
   accounts.forEach((a) => {
     if (a.password) writeCachedMailboxPassword(a.email, a.password)

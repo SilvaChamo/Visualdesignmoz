@@ -7,7 +7,7 @@ import {
   History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, 
   ArrowUpRight, Check, AlertTriangle, X, Bell, Mail, Target, Package, Globe,
   Shield, Database, Settings, ChevronRight, MessageSquare, ExternalLink,
-  ChevronLeft, FileText, Image as ImageIcon, Users
+  ChevronLeft, FileText, Image as ImageIcon, Users, Upload
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,7 @@ export function MailMarketingSection({
 
   const [listas, setListas] = useState<string[]>(["Contactos"]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [contactsListFocus, setContactsListFocus] = useState<string | null>(null);
 
   // Filtrar domínios reais
   const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
@@ -151,10 +152,10 @@ export function MailMarketingSection({
     <div className="space-y-5 h-full overflow-auto">
       <div className="relative min-h-full">
         <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
+          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={(listName) => { setContactsListFocus(listName || null); setActiveTab('subs'); }} onGoToHistory={() => setActiveTab('camp')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} setListas={setListas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} listFocus={contactsListFocus} onClearListFocus={() => setContactsListFocus(null)} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} onResend={(camp: any) => { setCampaignToResend(camp); setActiveTab('comp'); }} />
@@ -164,7 +165,7 @@ export function MailMarketingSection({
   )
 }
 
-function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
+function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, onGoToHistory, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: (listName?: string) => void, onGoToHistory: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
   const { user } = useAuth();
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
@@ -318,6 +319,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
     }
   };
 
+  const handleClearForm = () => {
+    setSubject("");
+    setContent("");
+    setAttachments([]);
+    setCampaignToResend?.(null);
+  };
+
   const handleSend = async () => {
     const errors = [];
     if (!subject || subject.trim() === '') errors.push('Assunto do email é obrigatório');
@@ -463,11 +471,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                     )}
                   </select>
                 </div>
-                <Button onClick={handleSend} disabled={isSending || !senderEmail} className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl transition-all border-none">
-                  {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Enviar
-                </Button>
                 <Button onClick={() => setShowTemplates(true)} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all border-none">
                   <LayoutTemplate className="w-3 h-3" /> Templates
+                </Button>
+                <Button onClick={onGoToHistory} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all border-none">
+                  <HistoryIcon className="w-3 h-3" /> Histórico
                 </Button>
               </div>
             </div>
@@ -479,6 +487,14 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                   <MultiFileUpload value={attachments} onChange={setAttachments} folder="client-marketing" layout="minimal" showList={false} className="shrink-0" />
                 </div>
               </RichTextEditor>
+            </div>
+            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <Button type="button" onClick={handleClearForm} disabled={isSending} className="!bg-slate-100 hover:!bg-red-600 hover:!text-white text-slate-700 gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all border border-slate-200">
+                Limpar
+              </Button>
+              <Button onClick={handleSend} disabled={isSending || !senderEmail} className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl transition-all border-none">
+                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Enviar
+              </Button>
             </div>
           </div>
           <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm space-y-5">
@@ -498,14 +514,31 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Destinatários</h3>
             <div className="space-y-3">
               {listas.map(plan => (
-                <div key={plan} className="group relative">
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
+                <div key={plan} className={`group rounded-lg border transition-all overflow-hidden ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center gap-3 p-2.5">
                     <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} />
-                    <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
-                  </label>
-                  <button onClick={(e) => { e.stopPropagation(); setListas(listas.filter(l => l !== plan)); setSelectedPlans(selectedPlans.filter(p => p !== plan)); }} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all">
-                    <Trash2 size={14} />
-                  </button>
+                    <label htmlFor={`plan-${plan}`} className={`text-xs font-bold flex-1 cursor-pointer ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>
+                      {plan}
+                    </label>
+                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => onGoToContacts()}
+                        className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-md transition-all"
+                        title="Adicionar contactos a esta lista"
+                      >
+                        <Plus size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setListas(listas.filter(l => l !== plan)); setSelectedPlans(selectedPlans.filter(p => p !== plan)); }}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                        title="Eliminar lista"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
               <button onClick={() => setShowNewListPopup(true)} className="w-fit mt-2 ml-1 text-[10px] font-bold text-orange-600 uppercase tracking-widest underline flex items-center gap-1">
@@ -568,7 +601,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   );
 }
 
-function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, searchTerm, setSearchTerm }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[], searchTerm: string, setSearchTerm: (value: string) => void }) {
+function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, setListas, searchTerm, setSearchTerm, listFocus, onClearListFocus }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[], setListas?: React.Dispatch<React.SetStateAction<string[]>>, searchTerm: string, setSearchTerm: (value: string) => void, listFocus?: string | null, onClearListFocus?: () => void }) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -580,6 +613,74 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedSubscriberIds, setSelectedSubscriberIds] = useState<string[]>([]);
   const itemsPerPage = 10;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setLoading(true);
+      const text = await file.text();
+      const lines = text.split('\n');
+      if (lines.length < 2) {
+        toast.error("Ficheiro CSV vazio ou inválido.");
+        return;
+      }
+      
+      const parseCSVLine = (line: string) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') { inQuotes = !inQuotes; }
+          else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+          else { current += line[i]; }
+        }
+        result.push(current);
+        return result.map(c => c.trim().replace(/^"|"$/g, ''));
+      };
+
+      const headers = parseCSVLine(lines[0].toLowerCase());
+      const emailIndex = headers.findIndex(h => h.includes('email') || h === 'e-mail 1 - value' || h === 'email address');
+      const nameIndex = headers.findIndex(h => h === 'name' || h === 'first name' || h.includes('nome') || h === 'given name');
+      
+      if (emailIndex === -1) {
+        toast.error("Não foi possível encontrar a coluna de E-mail no ficheiro CSV.");
+        return;
+      }
+
+      const targetList = prompt("Qual o nome da lista para onde quer importar estes contactos?", "Contactos Importados");
+      if (!targetList) return;
+
+      let successCount = 0;
+      const promises = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const columns = parseCSVLine(lines[i]);
+        const email = columns[emailIndex];
+        const name = nameIndex !== -1 ? columns[nameIndex] : '';
+        
+        if (email && email.includes('@')) {
+           promises.push(adicionarSubscritor({
+             email,
+             full_name: name,
+             domain: selectedSite,
+             list: targetList
+           }).then(res => { if(res) successCount++; }).catch(() => {}));
+        }
+      }
+      
+      await Promise.all(promises);
+      toast.success(`Foram importados ${successCount} contactos com sucesso!`);
+      fetchSubs();
+    } catch (err) {
+      toast.error("Ocorreu um erro ao processar o CSV.");
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const fetchSubs = async () => {
     try {
@@ -589,6 +690,13 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
         data = await listarSubscritores();
       }
       setSubscribers(data || []);
+      
+      if (data && data.length > 0 && setListas) {
+        const dbLists = [...new Set(data.map((s: any) => s.metadata?.list).filter(Boolean))] as string[];
+        if (dbLists.length > 0) {
+          setListas((prev) => [...new Set([...prev, ...dbLists])]);
+        }
+      }
     } catch (error) {
       console.error(error);
       toast.error("Erro ao carregar subscritores");
@@ -598,6 +706,21 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   };
 
   useEffect(() => { fetchSubs(); }, [selectedSite, searchTerm]);
+
+  useEffect(() => {
+    if (!listFocus) return;
+    setNewListLabel(listFocus);
+    setShowAddForm(true);
+    onClearListFocus?.();
+  }, [listFocus]);
+
+  const openListEditor = (listName: string) => {
+    setNewListLabel(listName);
+    setEditingSub(null);
+    setNewEmail('');
+    setNewName('');
+    setShowAddForm(true);
+  };
 
   const filteredSubscribers = subscribers.filter(s => !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredSubscribers.length / itemsPerPage);
@@ -628,36 +751,49 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
   };
 
   return (
-    <div className="w-full space-y-5 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-5">
-          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center"><Users className="w-6 h-6 text-orange-600" /></div>
-          <div><h2 className="text-xl font-black text-slate-900 tracking-tight">Lista de Contactos</h2></div>
+    <div className="w-full space-y-6 animate-in fade-in duration-500">
+      {/* Vercel Style Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Contactos</h2>
+          <p className="text-sm text-gray-500 mt-1">Gerir todos os subscritores e as suas respetivas listas de envio.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setShowAddForm(true)} className="!bg-emerald-600 text-white font-black uppercase text-[10px] tracking-widest">Adicionar</Button>
-          <Button onClick={() => fetchSubs()} className="!bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest">Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={() => fetchSubs()} className="h-9 w-9 p-0 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md" title="Actualizar">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleCsvUpload} />
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-md hidden sm:flex">
+            <Upload className="w-4 h-4 mr-2" />
+            Importar CSV
+          </Button>
+          <Button size="sm" onClick={() => { setEditingSub(null); setNewEmail(''); setShowAddForm(true); }} className="h-9 bg-black hover:bg-gray-800 text-white rounded-md">
+            <Plus className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Adicionar</span>
+          </Button>
         </div>
       </div>
-      <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b">
+
+      {/* Vercel Style Table */}
+      <div className="border border-gray-200 rounded-md bg-white overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50/80 border-b border-gray-200">
             <tr>
-              <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
-              <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dominio</th>
-              <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista</th>
-              <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acoes</th>
+              <th className="px-5 py-3 font-medium text-gray-500">Contacto</th>
+              <th className="px-5 py-3 font-medium text-gray-500">Domínio</th>
+              <th className="px-5 py-3 font-medium text-gray-500">Lista</th>
+              <th className="px-5 py-3 font-medium text-gray-500 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? <MailMarketingContactsSkeleton /> : currentItems.map(sub => (
-              <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-5 py-3 font-bold text-slate-900 text-sm">{sub.email}</td>
-                <td className="px-5 py-3"><span className="text-[10px] font-black px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">{sub.metadata?.domain || '-'}</span></td>
-                <td className="px-5 py-3"><span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full">{sub.metadata?.list || 'Contactos'}</span></td>
+              <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
+                <td className="px-5 py-3 font-medium text-gray-900">{sub.email}</td>
+                <td className="px-5 py-3"><span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{sub.metadata?.domain || '-'}</span></td>
+                <td className="px-5 py-3"><span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{sub.metadata?.list || 'Contactos'}</span></td>
                 <td className="px-5 py-3 text-right flex justify-end gap-2">
-                  <button onClick={() => { setEditingSub(sub); setNewEmail(sub.email); setNewName(sub.full_name || ''); setShowAddForm(true); }} className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>
-                  <button onClick={() => handleDelete(sub.id)} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
+                  <button onClick={() => { setEditingSub(sub); setNewEmail(sub.email); setNewName(sub.full_name || ''); setShowAddForm(true); }} className="p-2 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded-md transition-colors"><Pencil size={14} /></button>
+                  <button onClick={() => handleDelete(sub.id)} className="p-2 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-md transition-colors"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}
@@ -666,14 +802,27 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       </div>
       {showAddForm && (
         <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md shadow-2xl p-6">
-            <h3 className="text-lg font-black mb-5">{editingSub ? 'Editar' : 'Novo'} Contacto</h3>
+          <div className="bg-white rounded-md w-full max-w-md shadow-2xl p-6">
+            <h3 className="text-lg font-black mb-5 text-gray-900">{editingSub ? 'Editar' : 'Novo'} Contacto</h3>
             <form onSubmit={handleAdd} className="space-y-4">
-              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email" required />
-              <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome" />
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1 !bg-slate-900">Guardar</Button>
-                <Button type="button" onClick={() => setShowAddForm(false)} className="flex-1 !bg-red-600">Cancelar</Button>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">Email *</label>
+                <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="exemplo@email.com" required className="rounded-md border-gray-200 focus-visible:ring-1 focus-visible:ring-gray-300" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">Nome</label>
+                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome completo" className="rounded-md border-gray-200 focus-visible:ring-1 focus-visible:ring-gray-300" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">Lista de Destino *</label>
+                <Input value={newListLabel} onChange={e => setNewListLabel(e.target.value)} placeholder="Ex: Campanha Natal" list="listas-disponiveis" required className="rounded-md border-gray-200 focus-visible:ring-1 focus-visible:ring-gray-300" />
+                <datalist id="listas-disponiveis">
+                  {listas.map(l => <option key={l} value={l} />)}
+                </datalist>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="button" onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md">Cancelar</Button>
+                <Button type="submit" className="flex-1 bg-black hover:bg-gray-800 text-white rounded-md">Guardar</Button>
               </div>
             </form>
           </div>

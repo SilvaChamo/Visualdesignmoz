@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings,
+  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Target
 } from 'lucide-react';
 
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
@@ -55,6 +55,7 @@ const MAIN_MENU_ICONS: Record<string, React.ElementType> = {
   dashboard: Home,
   'nov-hospedagem': Server,
   'nov-email': Mail,
+  'newsletter': Target,
   'nov-dominios': Globe,
   'nov-notificacoes': Bell,
   'nov-wordpress': WordPressMenuIcon,

@@ -14,6 +14,7 @@ import { EmailWebmailSection } from './EmailWebmailSection'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import {
   readWebmailAccountsCache,
+  readWebmailAccountsCacheStale,
   writeWebmailAccountsCache,
   mapEmailContasToWebmailAccounts,
   readWebmailListCache,
@@ -37,7 +38,8 @@ import {
   readCachedMailboxPassword,
   type WebmailAccountRow,
 } from '@/lib/panel-webmail-cache'
-import { prefetchWebmailInbox, prefetchWebmailAccount } from '@/lib/panel-prefetch'
+import { prefetchWebmailAccount } from '@/lib/panel-prefetch'
+import { directAdminAPI } from '@/lib/directadmin-api'
 
 // Interface para contas de email
 type EmailAccount = WebmailAccountRow
@@ -74,7 +76,10 @@ export function WebmailSection({
   onNavigate
 }: WebmailSectionProps) {
   // Estados principais
-  const initialAccountsCache = typeof window !== 'undefined' ? readWebmailAccountsCache() : null
+  const initialAccountsCache =
+    typeof window !== 'undefined'
+      ? readWebmailAccountsCache() || readWebmailAccountsCacheStale()
+      : null
   const initialAccountEmail = initialAccountsCache?.length
     ? pickDefaultWebmailAccount(initialAccountsCache, userEmail, emailOrigem)
     : emailOrigem || ''
@@ -85,7 +90,7 @@ export function WebmailSection({
   const [allAccounts, setAllAccounts] = useState<EmailAccount[]>(() => initialAccountsCache || [])
   const accountsRef = useRef<EmailAccount[]>(initialAccountsCache || [])
   const [selectedAccount, setSelectedAccount] = useState<string>(() => initialAccountEmail)
-  const [loading, setLoading] = useState(() => !initialAccountsCache?.length)
+  const [loading, setLoading] = useState(false)
   const sitesLoadedKeyRef = useRef('')
   const folderCountsLoadedRef = useRef(Boolean(initialInboxCache?.folderTotals && Object.keys(initialInboxCache.folderTotals).length > 0))
   const [activeFolder, setActiveFolder] = useState('INBOX')
@@ -99,7 +104,7 @@ export function WebmailSection({
     Archive: 0,
     ...(initialInboxCache?.folderTotals || {}),
   }))
-  const [loadingEmails, setLoadingEmails] = useState(() => !initialInboxCache?.emails?.length)
+  const [loadingEmails, setLoadingEmails] = useState(false)
   const [loadingEmailBody, setLoadingEmailBody] = useState(false)
   const [emailBodyError, setEmailBodyError] = useState('')
   const [syncingEmails, setSyncingEmails] = useState(false)
@@ -292,15 +297,16 @@ export function WebmailSection({
     return colors[code % colors.length]
   }
 
-  // Carregar contas quando há sessão/admin ou sites disponíveis
+  // Carregar contas quando há sessão/dashboard ou sites disponíveis
   useEffect(() => {
     const sitesKey = (sites || []).map((s: { domain?: string }) => s.domain || '').sort().join('|')
     const canLoad = Boolean(userEmail || isAdmin || sitesKey)
     if (!canLoad) return
-    if (sitesKey === sitesLoadedKeyRef.current && accountsRef.current.length > 0) return
-    sitesLoadedKeyRef.current = sitesKey
-    void loadEmailAccounts()
-  }, [sites, userEmail, isAdmin])
+    const loadKey = `${sitesKey}|${userEmail || ''}|${isAdmin ? '1' : '0'}`
+    if (loadKey === sitesLoadedKeyRef.current && accountsRef.current.length > 0) return
+    sitesLoadedKeyRef.current = loadKey
+    void loadEmailAccounts({ fallbackServerMailboxes: isAdmin && useDirectAdminAPI })
+  }, [sites, userEmail, isAdmin, useDirectAdminAPI])
 
   // Notificar parent quando estado do compose muda (para admin)
   useEffect(() => {
@@ -365,10 +371,10 @@ export function WebmailSection({
     }
   }, [viewMode, selectedAccount, activeFolder, showAdvancedCompose, debouncedSearchQuery])
 
-  // Prefetch pastas da conta activa em background
+  // Prefetch INBOX da conta activa em background (pastas extra só ao abrir)
   useEffect(() => {
     if (!selectedAccount) return
-    prefetchWebmailAccount(selectedAccount, true)
+    prefetchWebmailAccount(selectedAccount, false)
   }, [selectedAccount])
 
   // Prefetch senha da conta activa (envio + IMAP sem espera)
@@ -382,10 +388,13 @@ export function WebmailSection({
     })()
   }, [selectedAccount, accounts.length])
 
-  // Prefetch corpo das mensagens visíveis (abertura instantânea)
+  // Prefetch corpo das mensagens visíveis — só depois da lista estar estável
   useEffect(() => {
     if (!selectedAccount || !emails.length || debouncedSearchQuery || selectedEmail) return
-    prefetchWebmailBodies(selectedAccount, activeFolder, emails, 6)
+    const timer = window.setTimeout(() => {
+      prefetchWebmailBodies(selectedAccount, activeFolder, emails, 3)
+    }, 1200)
+    return () => window.clearTimeout(timer)
   }, [selectedAccount, activeFolder, emails, debouncedSearchQuery, selectedEmail])
 
   // Corpo da mensagem — cache local + IMAP só quando necessário
@@ -548,14 +557,26 @@ export function WebmailSection({
     return merged
   }
 
-  const loadEmailAccounts = async (options?: { includeDomainContacts?: boolean }) => {
-    const cached = readAccountsCache()
+  const loadEmailAccounts = async (options?: {
+    includeDomainContacts?: boolean
+    fallbackServerMailboxes?: boolean
+    background?: boolean
+  }) => {
+    const cached = readAccountsCache() || readWebmailAccountsCacheStale()
     if (cached?.length) {
       const fromCache = mergeImportedAccounts(cached)
       applyAccountList(fromCache)
       setLoading(false)
-    } else if (accountsRef.current.length === 0) {
+    } else if (accountsRef.current.length === 0 && !options?.background) {
       setLoading(true)
+    }
+
+    const publishAccounts = (list: EmailAccount[]) => {
+      const merged = mergeImportedAccounts(list)
+      if (!merged.length) return
+      applyAccountList(merged)
+      writeAccountsCache(merged)
+      setLoading(false)
     }
 
     try {
@@ -573,35 +594,6 @@ export function WebmailSection({
         console.error('Erro ao buscar contas:', e)
       }
 
-      if (options?.includeDomainContacts && (sites || []).length) {
-        const fetchContactsPromises = (sites || []).map(async (site: { domain?: string }) => {
-          if (!site?.domain) return [] as EmailAccount[]
-          try {
-            const res = await fetch(
-              `/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`,
-              { credentials: 'include' },
-            )
-            const data = await res.json()
-            if (data.success && Array.isArray(data.emails)) {
-              return data.emails.map((email: string) => ({
-                email,
-                name: email.split('@')[0],
-                domain: site.domain!,
-                password: CREDENCIAIS_PADRAO[email],
-                tipo: 'webmail' as const,
-              }))
-            }
-          } catch (e) {
-            console.error(`Erro ao buscar contactos de ${site.domain}:`, e)
-          }
-          return []
-        })
-        const contactResults = await Promise.all(fetchContactsPromises)
-        for (const acc of contactResults.flat()) {
-          if (!consolidated.find((a) => a.email === acc.email)) consolidated.push(acc)
-        }
-      }
-
       if (userEmail && !consolidated.find((a) => a.email === userEmail)) {
         const domain = userEmail.split('@')[1]
         consolidated.push({
@@ -613,18 +605,75 @@ export function WebmailSection({
         })
       }
 
-      const merged = mergeImportedAccounts(consolidated)
-      if (merged.length > 0) {
-        applyAccountList(merged)
-        writeAccountsCache(merged)
-        void prefetchWebmailInbox(merged)
-        const defaultEmail = pickDefaultAccount(merged)
-        const defaultAcc = merged.find((a) => a.email === defaultEmail)
-        if (defaultAcc) {
-          void getPasswordForAccount(defaultAcc).then((pwd) => {
-            if (pwd) syncAccountPasswordInList(defaultEmail, pwd)
-          })
+      // Resposta rápida: mostrar selector assim que email-contas responder
+      if (consolidated.length > 0) {
+        publishAccounts(consolidated)
+      }
+
+      // Fallback lento só se a lista principal estiver vazia
+      if (
+        consolidated.length === 0 &&
+        options?.fallbackServerMailboxes &&
+        (sites || []).length
+      ) {
+        for (const site of sites || []) {
+          if (!site?.domain) continue
+          try {
+            const rows = await directAdminAPI.listEmails(site.domain).catch(() => [])
+            for (const row of rows) {
+              const user =
+                (row as { user?: string; email?: string }).user ||
+                (row as { email?: string }).email?.split('@')[0] ||
+                ''
+              const email = (row as { email?: string }).email || `${user}@${site.domain}`
+              if (!consolidated.find((a) => a.email === email)) {
+                consolidated.push({
+                  email,
+                  name: user || email.split('@')[0],
+                  domain: site.domain!,
+                  password: CREDENCIAIS_PADRAO[email],
+                  tipo: 'webmail',
+                })
+              }
+            }
+          } catch (e) {
+            console.error(`Erro ao buscar emails do servidor (${site.domain}):`, e)
+          }
         }
+        if (consolidated.length > 0) publishAccounts(consolidated)
+      }
+
+      if (options?.includeDomainContacts && (sites || []).length) {
+        void (async () => {
+          const extra: EmailAccount[] = [...consolidated]
+          const fetchContactsPromises = (sites || []).map(async (site: { domain?: string }) => {
+            if (!site?.domain) return [] as EmailAccount[]
+            try {
+              const res = await fetch(
+                `/api/get-all-contacts?domain=${encodeURIComponent(site.domain)}&includeSupabase=true`,
+                { credentials: 'include' },
+              )
+              const data = await res.json()
+              if (data.success && Array.isArray(data.emails)) {
+                return data.emails.map((email: string) => ({
+                  email,
+                  name: email.split('@')[0],
+                  domain: site.domain!,
+                  password: CREDENCIAIS_PADRAO[email],
+                  tipo: 'webmail' as const,
+                }))
+              }
+            } catch (e) {
+              console.error(`Erro ao buscar contactos de ${site.domain}:`, e)
+            }
+            return []
+          })
+          const contactResults = await Promise.all(fetchContactsPromises)
+          for (const acc of contactResults.flat()) {
+            if (!extra.find((a) => a.email === acc.email)) extra.push(acc)
+          }
+          if (extra.length > consolidated.length) publishAccounts(extra)
+        })()
       }
     } catch (error) {
       console.error('Erro ao carregar contas:', error)
@@ -699,10 +748,7 @@ export function WebmailSection({
     }
 
     try {
-      const needFolderTotals =
-        !fetchSearch && !options?.background &&
-        (!readWebmailFolderTotalsCache(fetchAccount, false) ||
-          Boolean(options?.force && fetchFolder === 'INBOX'))
+      const needFolderTotals = false
 
       const res = await fetch('/api/read-emails', {
         method: 'POST',
@@ -729,9 +775,13 @@ export function WebmailSection({
         if (!fetchSearch) {
           setCachedData(fetchAccount, fetchFolder, newEmails, newCounts)
         }
-        if (needFolderTotals && data.folderTotals) {
-          folderCountsLoadedRef.current = true
-          setFolderCounts((prev) => ({ ...prev, ...data.folderTotals }))
+        if (
+          !fetchSearch &&
+          fetchFolder === 'INBOX' &&
+          !folderCountsLoadedRef.current &&
+          !options?.background
+        ) {
+          void refreshAllFolderCounts()
         }
       } else {
         setEmailsError(data.error || 'Erro ao carregar e-mails.')
@@ -818,7 +868,7 @@ export function WebmailSection({
       const data = await res.json()
       if (data.success) {
         alert(`Sincronização concluída!\nEmails encontrados: ${data.results?.emailsFound}\nNovos usuários: ${data.results?.usersCreated}`)
-        loadEmailAccounts({ includeDomainContacts: true }) // Recarregar lista completa
+        loadEmailAccounts({ includeDomainContacts: true, fallbackServerMailboxes: useDirectAdminAPI })
       } else {
         alert('Erro na sincronização: ' + (data.error || 'Erro desconhecido'))
       }
@@ -1169,129 +1219,6 @@ export function WebmailSection({
     { id: 'Trash', name: 'Lixo', icon: Trash2 },
   ]
 
-  if (loading && accounts.length === 0) {
-    return (
-      <div className="flex flex-col bg-gray-50 h-[calc(100vh-80px)]">
-        {/* Header Skeleton */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            {/* Botão Voltar skeleton */}
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-gray-200 rounded-full animate-pulse" />
-              <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
-            </div>
-            <div className="h-6 w-px bg-gray-300" />
-            {/* Título Webmail skeleton */}
-            <div className="h-6 w-20 bg-gray-200 rounded animate-pulse" />
-          </div>
-          {/* Selector de Conta skeleton */}
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
-            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-          </div>
-          {/* Botões direita skeleton */}
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-            <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
-          </div>
-        </div>
-
-        {/* Content Skeleton - Layout 2 colunas (Sidebar | Lista/Conteúdo único) */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar Skeleton */}
-          <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
-            {/* Botão Nova Mensagem skeleton */}
-            <div className="p-4">
-              <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
-            </div>
-            {/* Lista de Folders skeleton */}
-            <div className="flex-1 px-3 space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded">
-                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                  <div className="ml-auto h-4 w-6 bg-gray-200 rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-            {/* Botão Atualizar skeleton */}
-            <div className="p-3 border-t border-gray-200">
-              <div className="h-9 w-full bg-gray-200 rounded animate-pulse" />
-            </div>
-          </div>
-
-          {/* Lista de Emails Skeleton */}
-          <div className="flex-1 bg-white flex flex-col min-w-0">
-            {/* Barra de ferramentas skeleton */}
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
-                <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-              </div>
-            </div>
-            {/* Lista skeleton com detalhes */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded border-b border-gray-100 hover:bg-gray-50">
-                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
-                  <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
-                      <div className="h-2.5 w-10 bg-gray-150 rounded animate-pulse" />
-                    </div>
-                    <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-                    <div className="h-2.5 w-4/5 bg-gray-100 rounded animate-pulse" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Skeleton do Conteúdo Único (sem painel lateral - layout alterna entre lista e conteúdo) */}
-          <div className="flex-1 bg-white flex flex-col min-w-0">
-            {/* Barra de ferramentas skeleton */}
-            <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-              </div>
-              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse ml-auto" />
-            </div>
-            {/* Lista de emails skeleton */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded border-b border-gray-100">
-                  <div className="w-5 h-5 bg-gray-200 rounded animate-pulse mt-0.5 flex-shrink-0" />
-                  <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0" />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="h-3.5 w-32 bg-gray-200 rounded animate-pulse" />
-                      <div className="h-2.5 w-10 bg-gray-150 rounded animate-pulse" />
-                    </div>
-                    <div className="h-3 w-full bg-gray-150 rounded animate-pulse" />
-                    <div className="h-2.5 w-4/5 bg-gray-100 rounded animate-pulse" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Paginação skeleton */}
-            <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
-              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
-                <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className={`flex flex-col bg-gray-50 ${showAdvancedCompose ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
@@ -1337,6 +1264,10 @@ export function WebmailSection({
                   <option value="">Nenhuma conta disponível</option>
                 )}
               </select>
+
+              {loading && allAccounts.length === 0 && (
+                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+              )}
 
               {isAdmin && (
                 <button

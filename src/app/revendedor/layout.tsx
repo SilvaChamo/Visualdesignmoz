@@ -52,7 +52,7 @@ export default async function AdminLayout({
         if (userEmail.includes('silva.chamo') || userEmail.includes('chamo.silva')) {
             console.log('ResellerLayout: FORCE BYPASS for silva.chamo');
         } else {
-            console.log('ResellerLayout: Denied access. Not reseller/admin nor in explicit list.');
+            console.log('ResellerLayout: Denied access. Not reseller/dashboard nor in explicit list.');
             notFound();
         }
     }

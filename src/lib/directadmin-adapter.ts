@@ -636,7 +636,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         const result = await daPost(creds, 'CMD_API_DOMAIN', {
           action: 'select',
           select0: domain,
-          suspend: 'yes',
+          suspend: 'Suspend',
         });
         return { success: result.ok, output: result.error };
       }
@@ -662,7 +662,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         const result = await daPost(creds, 'CMD_API_DOMAIN', {
           action: 'select',
           select0: domain,
-          unsuspend: 'yes',
+          unsuspend: 'Unsuspend',
         });
         return { success: result.ok, output: result.error };
       }

@@ -13,6 +13,7 @@ import {
   resolvePanelInnerRedirect,
   shouldUsePanelOriginForHost,
 } from '@/lib/panel-origin'
+import { getRequestHostname } from '@/lib/request-host'
 import { createAppServerClient } from '@/lib/supabase-cookies'
 
 // Simulação de Rate Limiting
@@ -38,8 +39,7 @@ function isPublicMarketingPath(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const host = request.headers.get('host') ?? ''
-  const hostname = host.split(':')[0].toLowerCase()
+  const hostname = getRequestHostname(request.headers, request.url)
   const publicOrigin = getPublicSiteOrigin()
 
   // FIRST: OAuth ?code= fora de /auth/callback → corrigir rota
@@ -73,15 +73,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Subdomínio painel.* — site público e entrada só no domínio principal
-  if (isPanelHost(hostname)) {
-    if (isPublicMarketingPath(pathname)) {
+  // Legado: /admin → /dashboard
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    const legacy = request.nextUrl.clone()
+    legacy.pathname = pathname.replace(/^\/admin/, '/dashboard')
+    return NextResponse.redirect(legacy, 308)
+  }
+
+  const onPanelHost = isPanelHost(hostname)
+
+  // Subdomínio painel.* — marketing no site principal; raiz = entrada do painel
+  if (onPanelHost) {
+    if (pathname !== '/' && isPublicMarketingPath(pathname)) {
       return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin))
-    }
-    if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
-      return NextResponse.redirect(
-        new URL(`${pathname}${request.nextUrl.search}`, publicOrigin),
-      )
     }
     if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
       const login = buildPanelLoginUrl(publicOrigin, request.nextUrl.searchParams)
@@ -93,8 +97,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Home sem ?code= — não correr auth no proxy (performance)
-  if (pathname === '/' && !oauthCode) {
+  // Home do site público — não correr auth no proxy (performance)
+  if (pathname === '/' && !oauthCode && !onPanelHost) {
     return NextResponse.next()
   }
 
@@ -109,8 +113,13 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
-  // Entrada universal /painel (todas as contas, sem config por domínio)
-  if (pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) {
+  const isPanelEntryPath =
+    pathname === PUBLIC_PANEL_ENTRY ||
+    pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`) ||
+    (onPanelHost && pathname === '/')
+
+  // Entrada: visualdesignmoz.com/painel (site) ou painel.* / (subdomínio)
+  if (isPanelEntryPath) {
     if (!user) {
       return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
@@ -128,8 +137,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(target)
   }
 
-  // Site público (Vercel): rotas legadas /admin → login com /painel
-  if (shouldUsePanelOriginForHost(host) && isPanelRoute(pathname)) {
+  // Site público (Vercel): rotas do painel → Hetzner (ou login)
+  if (shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname)) {
     if (!user) {
       return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
@@ -138,8 +147,8 @@ export async function proxy(request: NextRequest) {
     )
   }
 
-  // Local / mesmo host: /admin, /client… — API e UI no mesmo `npm run dev`
-  if (!shouldUsePanelOriginForHost(host) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
+  // Local / mesmo host: /dashboard, /client… — API e UI no mesmo `npm run dev`
+  if (!shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
       return NextResponse.redirect(buildPanelLoginUrl(request.url))
     }
@@ -219,9 +228,11 @@ export const config = {
     '/cursos/:path*',
     '/faq',
     '/faq/:path*',
+    '/dashboard',
+    '/dashboard/:path*',
+    '/admin',
     '/admin/:path*',
     '/api/:path*',
-    '/dashboard/:path*',
     '/client/:path*',
     '/guest/:path*',
     '/revendedor/:path*',

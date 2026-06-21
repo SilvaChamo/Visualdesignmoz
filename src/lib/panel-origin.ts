@@ -1,7 +1,8 @@
 import type { CookieOptions } from '@supabase/ssr'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
+import { PANEL_LEGACY_HOST } from '@/lib/panel-proxy-paths'
 
-const PANEL_PATHS = ['/admin', '/client', '/revendedor', '/guest', '/dashboard'] as const
+const PANEL_PATHS = ['/dashboard', '/client', '/revendedor', '/guest'] as const
 
 const DEFAULT_PANEL_ORIGIN = 'https://painel.visualdesignmoz.com'
 const DEFAULT_PUBLIC_SITE_ORIGIN = 'https://visualdesignmoz.com'
@@ -72,14 +73,21 @@ export function isLocalDevHost(hostname: string): boolean {
  * Produção: site na Vercel + painel no Hetzner (hosts diferentes).
  * Dev: um só host (localhost) — mesmo código, mesmo fluxo /painel.
  */
-export function isSplitPanelDeployment(): boolean {
+export function isCanonicalPanelOnMainDomain(): boolean {
   try {
-    const panelHost = new URL(getPanelOrigin()).host
-    const siteHost = new URL(getPublicSiteOrigin()).host
-    return panelHost !== siteHost
+    return new URL(getPanelOrigin()).host === new URL(getPublicSiteOrigin()).host
   } catch {
-    return true
+    return false
   }
+}
+
+export function isLegacyPanelSubdomain(hostname: string): boolean {
+  const host = hostname.toLowerCase().split(':')[0]
+  return host === PANEL_LEGACY_HOST || host === `www.${PANEL_LEGACY_HOST}`
+}
+
+export function isSplitPanelDeployment(): boolean {
+  return !isCanonicalPanelOnMainDomain()
 }
 
 export function buildPanelEntryPath(
@@ -103,7 +111,7 @@ export function isPanelRoute(pathname: string): boolean {
   )
 }
 
-/** /painel/admin → /admin; /painel → null (usar papel). */
+/** /painel/dashboard → /admin; /painel → null (usar papel). */
 export function panelRouteFromPublicEntry(pathname: string): string | null {
   if (pathname === PUBLIC_PANEL_ENTRY) return null
   if (!pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)) return null
@@ -215,11 +223,14 @@ export function resolvePostLoginUrl(options: {
 
   try {
     const host = new URL(origin).hostname
+    if (isCanonicalPanelOnMainDomain()) {
+      return innerPath
+    }
     if (shouldUsePanelOriginForHost(host)) {
       return `${getPanelOrigin()}${entryPath}`
     }
     if (isPanelHost(host) && isSplitPanelDeployment()) {
-      return entryPath
+      return innerPath
     }
   } catch {
     /* path relativo */
@@ -228,14 +239,9 @@ export function resolvePostLoginUrl(options: {
   return entryPath
 }
 
-export function getSharedAuthCookieDomain(hostname?: string): string | undefined {
-  const host = (hostname ?? '').toLowerCase().split(':')[0]
-  if (!host || host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app')) {
-    return undefined
-  }
-  if (host.endsWith('visualdesignmoz.com')) {
-    return '.visualdesignmoz.com'
-  }
+export function getSharedAuthCookieDomain(_hostname?: string): string | undefined {
+  // Host-only: Domain=.visualdesignmoz.com enviava cookies do painel para
+  // host.visualdesignmoz.com e rebentava o limite de 4 KB do DirectAdmin (erro 500).
   return undefined
 }
 

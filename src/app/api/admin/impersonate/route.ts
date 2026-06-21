@@ -119,7 +119,7 @@ function adminListRedirect(req: NextRequest, error?: string): NextResponse {
   const query = error
     ? `?section=hospedagem-contas&impersonate_error=${encodeURIComponent(error)}`
     : '?section=hospedagem-contas';
-  return NextResponse.redirect(resolvePanelApiRedirect(`/admin${query}`, req.url), { status: 307 });
+  return NextResponse.redirect(resolvePanelApiRedirect(`/dashboard${query}`, req.url), { status: 307 });
 }
 
 export async function GET(req: NextRequest) {
@@ -187,6 +187,6 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    redirect: resolvePanelApiRedirect('/admin?section=hospedagem-contas', req.url),
+    redirect: resolvePanelApiRedirect('/dashboard?section=hospedagem-contas', req.url),
   });
 }

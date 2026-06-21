@@ -62,7 +62,7 @@ export function getRedirectPathForRole(role: UserRole): string {
   switch (role) {
     case 'admin':
     case 'manager':
-      return '/admin';
+      return '/dashboard';
     case 'reseller':
       return '/revendedor';
     case 'client':

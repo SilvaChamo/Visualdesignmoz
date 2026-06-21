@@ -19,6 +19,7 @@ import {
   mapEmailContasToWebmailAccounts,
   writeWebmailAccountsCache,
   readWebmailAccountsCache,
+  readWebmailAccountsCacheStale,
   readWebmailListCache,
   writeWebmailListCache,
   readWebmailFolderTotalsCache,
@@ -310,25 +311,13 @@ async function prefetchWebmailAccountFolders(email: string, allFolders = false):
 }
 
 async function prefetchWebmailInboxAsync(accounts?: WebmailAccountRow[]): Promise<void> {
-  const list = accounts?.length ? accounts : readWebmailAccountsCache() || [];
+  const list = accounts?.length ? accounts : readWebmailAccountsCache() || readWebmailAccountsCacheStale() || [];
   if (!list.length) return;
 
   const defaultEmail = pickDefaultWebmailAccount(list);
-  if (defaultEmail) {
-    await prefetchWebmailAccountFolders(defaultEmail, true);
-    await yieldUi();
-  }
+  if (!defaultEmail || isWebmailListCacheFresh(defaultEmail, 'INBOX')) return;
 
-  const rest = list
-    .map((a) => a.email)
-    .filter((email) => email && email !== defaultEmail);
-
-  const CONCURRENCY = 2;
-  for (let i = 0; i < rest.length; i += CONCURRENCY) {
-    const batch = rest.slice(i, i + CONCURRENCY);
-    await Promise.all(batch.map((email) => prefetchWebmailAccountFolders(email, false)));
-    await yieldUi();
-  }
+  await prefetchWebmailAccountFolder(defaultEmail, 'INBOX', false);
 }
 
 /** Prefetch em background das pastas de uma conta (ex.: ao mudar o selector). */

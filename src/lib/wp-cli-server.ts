@@ -2,6 +2,7 @@
  * WordPress via wp-cli no servidor Hetzner (SSH).
  */
 
+import crypto from 'crypto';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 
 function shellQuote(value: string): string {
@@ -36,12 +37,13 @@ export async function resolveDomainSitePath(
   if (!safeDomain) return null;
 
   const raw = await executeServerCommand(
-    `find /home -path "*/domains/${safeDomain}/public_html" -type d 2>/dev/null | head -1`,
+    `ls -d /home/*/domains/${safeDomain}/public_html 2>/dev/null | head -1`,
   );
   const path = raw.trim();
   if (!path) return null;
 
-  const user = (await executeServerCommand(`stat -c '%U' ${shellQuote(path)}`)).trim();
+  const match = path.match(/^\/home\/([^/]+)\/domains\//);
+  const user = match ? match[1] : '';
   return user ? { user, path } : null;
 }
 
@@ -100,22 +102,17 @@ export async function resolveWpInstall(domain: string): Promise<WpInstallInfo | 
   const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, '');
   if (!safeDomain) return null;
 
-  const findCmd = `find /home -path "*/domains/${safeDomain}/public_html/wp-config.php" 2>/dev/null | head -1`;
-  const configPath = (await executeServerCommand(findCmd)).trim();
+  const configPath = (
+    await executeServerCommand(`ls -d /home/*/domains/${safeDomain}/public_html/wp-config.php 2>/dev/null | head -1`)
+  ).trim();
   if (!configPath) return null;
 
   const wpPath = configPath.replace(/\/wp-config\.php$/, '');
-  const user = (await executeServerCommand(`stat -c '%U' ${shellQuote(wpPath)}`)).trim();
+  const match = wpPath.match(/^\/home\/([^/]+)\/domains\//);
+  const user = match ? match[1] : '';
   if (!user) return null;
 
-  let wpVersion: string | undefined;
-  try {
-    wpVersion = (await runAsWpUser(user, wpPath, 'core version')).trim() || undefined;
-  } catch {
-    wpVersion = undefined;
-  }
-
-  return { domain: safeDomain, path: wpPath, user, wpVersion };
+  return { domain: safeDomain, path: wpPath, user };
 }
 
 export async function listWpInstalls(): Promise<WpInstallInfo[]> {
@@ -314,3 +311,254 @@ export async function uploadWpPluginZip(
     await executeServerCommand(`rm -f ${shellQuote(tmpZip)}`).catch(() => undefined);
   }
 }
+
+export interface WpUserRow {
+  ID: string;
+  user_login: string;
+  user_email: string;
+  roles: string;
+  user_registered: string;
+  user_url?: string;
+  display_name?: string;
+  first_name?: string;
+  last_name?: string;
+  telefone?: string;
+  profissao?: string;
+  cargo?: string;
+  description?: string;
+}
+
+export async function listWpUsers(domain: string): Promise<WpUserRow[]> {
+  const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, '');
+  if (!safeDomain) {
+    throw new Error('Domínio inválido');
+  }
+
+  const script = `
+    CONFIG=$(ls -d /home/*/domains/${safeDomain}/public_html/wp-config.php 2>/dev/null | head -1)
+    if [ -z "$CONFIG" ]; then
+      echo '{"error": "WordPress não encontrado"}'
+      exit 0
+    fi
+    WPPATH=$(dirname "$CONFIG")
+    USER=$(echo "$WPPATH" | awk -F'/' '{print $3}')
+    # List basic fields
+    USERS_JSON=$(sudo -u "$USER" /usr/local/bin/wp --path="$WPPATH" user list --fields=ID,user_login,user_email,roles,user_registered,user_url,display_name,first_name,last_name --format=json 2>&1)
+    
+    # We will need to inject meta fields but let's just return what we have and maybe fetch meta later if needed or in a loop.
+    # To keep list fast, we just return basic WP fields plus first_name, last_name, display_name, user_url.
+    # The meta fields like telefone, profissao, cargo can be fetched per user during edit.
+    echo "$USERS_JSON"
+  `;
+
+  const raw = await executeServerCommand(script);
+  if (raw.includes('{"error": "WordPress não encontrado"}')) {
+    throw new Error('WordPress não encontrado neste domínio');
+  }
+
+  return parseWpJson<WpUserRow[]>(raw);
+}
+
+export async function createWpUser(input: {
+  domain: string;
+  username: string;
+  email: string;
+  role: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  website?: string;
+  displayName?: string;
+  bio?: string;
+  telefone?: string;
+  profissao?: string;
+  cargo?: string;
+}): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(input.domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const role = input.role || 'administrator';
+  const passArg = input.password ? ` --user_pass=${shellQuote(input.password)}` : '';
+  const firstArg = input.firstName ? ` --first_name=${shellQuote(input.firstName)}` : '';
+  const lastArg = input.lastName ? ` --last_name=${shellQuote(input.lastName)}` : '';
+  const urlArg = input.website ? ` --user_url=${shellQuote(input.website)}` : '';
+  const displayArg = input.displayName ? ` --display_name=${shellQuote(input.displayName)}` : '';
+  
+  const args = `user create ${shellQuote(input.username)} ${shellQuote(input.email)} --role=${shellQuote(role)}${passArg}${firstArg}${lastArg}${urlArg}${displayArg} --porcelain`;
+  
+  let script = `
+    NEW_ID=$(sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} ${args})
+    echo "$NEW_ID"
+    if [[ "$NEW_ID" =~ ^[0-9]+$ ]]; then
+  `;
+  if (input.bio) script += `      sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update "$NEW_ID" description ${shellQuote(input.bio)} >/dev/null 2>&1\n`;
+  if (input.telefone) script += `      sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update "$NEW_ID" telefone ${shellQuote(input.telefone)} >/dev/null 2>&1\n`;
+  if (input.profissao) script += `      sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update "$NEW_ID" profissao ${shellQuote(input.profissao)} >/dev/null 2>&1\n`;
+  if (input.cargo) script += `      sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update "$NEW_ID" cargo ${shellQuote(input.cargo)} >/dev/null 2>&1\n`;
+  script += `    fi`;
+
+  const output = await executeServerCommand(script);
+  if (wpCommandFailed(output)) {
+    return { ok: false, output };
+  }
+
+  return { ok: true, output };
+}
+
+export async function deleteWpUser(
+  domain: string,
+  username: string,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const output = await runAsWpUser(
+    install.user,
+    install.path,
+    `user delete ${shellQuote(username)} --yes`,
+  );
+  return { ok: !wpCommandFailed(output), output };
+}
+
+export async function generateWpAutoLoginToken(
+  domain: string,
+  username: string,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
+
+  const token = crypto.randomUUID();
+  const filename = `wp-login-${token}.php`;
+  const filePath = `${install.path}/${filename}`;
+
+  const phpContent = `<?php
+// Autologin gerado pelo painel
+@unlink(__FILE__);
+require_once __DIR__ . '/wp-load.php';
+$user = get_user_by('login', '${username.replace(/'/g, "\\'")}');
+if ($user) {
+    wp_clear_auth_cookie();
+    wp_set_current_user($user->ID);
+    wp_set_auth_cookie($user->ID, true);
+    wp_safe_redirect(admin_url());
+    exit;
+} else {
+    echo "Erro: Utilizador não encontrado.";
+}
+`;
+
+  const base64Content = Buffer.from(phpContent).toString('base64');
+  const writeCmd = `echo '${base64Content}' | base64 -d > ${shellQuote(filePath)} && chown ${shellQuote(install.user)}:${shellQuote(install.user)} ${shellQuote(filePath)}`;
+
+  try {
+    await executeServerCommand(writeCmd);
+    const url = `https://${domain}/${filename}`;
+    return { success: true, url };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Erro ao criar ficheiro de auto-login';
+    return { success: false, error: msg };
+  }
+}
+
+export async function updateWpUserPassword(
+  domain: string,
+  username: string,
+  newPassword: string,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const output = await runAsWpUser(
+    install.user,
+    install.path,
+    `user update ${shellQuote(username)} --user_pass=${shellQuote(newPassword)}`,
+  );
+  return { ok: !wpCommandFailed(output), output };
+}
+
+export async function updateWpUser(input: {
+  domain: string;
+  username: string;
+  email: string;
+  role: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  website?: string;
+  displayName?: string;
+  bio?: string;
+  telefone?: string;
+  profissao?: string;
+  cargo?: string;
+}): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(input.domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const passArg = input.password ? ` --user_pass=${shellQuote(input.password)}` : '';
+  const roleArg = input.role ? ` --role=${shellQuote(input.role)}` : '';
+  const emailArg = input.email ? ` --user_email=${shellQuote(input.email)}` : '';
+  const firstArg = input.firstName ? ` --first_name=${shellQuote(input.firstName)}` : '';
+  const lastArg = input.lastName ? ` --last_name=${shellQuote(input.lastName)}` : '';
+  const urlArg = input.website ? ` --user_url=${shellQuote(input.website)}` : '';
+  const displayArg = input.displayName ? ` --display_name=${shellQuote(input.displayName)}` : '';
+  
+  const args = `user update ${shellQuote(input.username)} --role=${shellQuote(role)}${passArg}${emailArg}${firstArg}${lastArg}${urlArg}${displayArg}`;
+
+  let script = `
+    sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} ${args}
+  `;
+  if (input.bio !== undefined) script += `    sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update ${shellQuote(input.username)} description ${shellQuote(input.bio)} >/dev/null 2>&1\n`;
+  if (input.telefone !== undefined) script += `    sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update ${shellQuote(input.username)} telefone ${shellQuote(input.telefone)} >/dev/null 2>&1\n`;
+  if (input.profissao !== undefined) script += `    sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update ${shellQuote(input.username)} profissao ${shellQuote(input.profissao)} >/dev/null 2>&1\n`;
+  if (input.cargo !== undefined) script += `    sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta update ${shellQuote(input.username)} cargo ${shellQuote(input.cargo)} >/dev/null 2>&1\n`;
+
+  const output = await executeServerCommand(script);
+  if (wpCommandFailed(output)) {
+    return { ok: false, output };
+  }
+
+  return { ok: true, output };
+}
+
+export async function getWpUser(domain: string, username: string): Promise<WpUserRow | null> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return null;
+
+  const script = `
+    USER_JSON=$(sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user get ${shellQuote(username)} --fields=ID,user_login,user_email,roles,user_registered,user_url,display_name,first_name,last_name --format=json 2>/dev/null)
+    if [ -z "$USER_JSON" ]; then
+      echo ""
+      exit 0
+    fi
+    META_JSON=$(sudo -u ${shellQuote(install.user)} /usr/local/bin/wp --path=${shellQuote(install.path)} user meta list ${shellQuote(username)} --format=json 2>/dev/null)
+    echo "---SPLIT---"
+    echo "$USER_JSON"
+    echo "---SPLIT---"
+    echo "$META_JSON"
+  `;
+  
+  const raw = await executeServerCommand(script);
+  const parts = raw.split('---SPLIT---');
+  if (parts.length < 3) return null;
+
+  try {
+    const userJson = parts[1].trim();
+    const metaJson = parts[2].trim();
+    const user = JSON.parse(userJson) as WpUserRow;
+    
+    if (metaJson) {
+      const metas = JSON.parse(metaJson) as Array<{meta_key: string, meta_value: string}>;
+      for (const meta of metas) {
+        if (meta.meta_key === 'description') user.description = meta.meta_value;
+        if (meta.meta_key === 'telefone') user.telefone = meta.meta_value;
+        if (meta.meta_key === 'profissao') user.profissao = meta.meta_value;
+        if (meta.meta_key === 'cargo') user.cargo = meta.meta_value;
+      }
+    }
+    
+    return user;
+  } catch (e) {
+    return null;
+  }
+}
+

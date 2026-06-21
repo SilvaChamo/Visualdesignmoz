@@ -17,10 +17,10 @@ import {
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
 import { ClientSidebar } from '@/components/client/ClientSidebar'
 import { clientSectionLabel } from '@/lib/panel-client-menu'
-import { WordPressHubSection } from '@/app/admin/WordPressHubSection'
-import { DNSCentralSection } from '@/app/admin/DNSCentralSection'
-import { RegistrarDomainsSection } from '@/app/admin/RegistrarDomainsSection'
-import { DomainTransferSection } from '@/app/admin/DomainTransferSection'
+import { WordPressHubSection } from '@/app/dashboard/WordPressHubSection'
+import { DNSCentralSection } from '@/app/dashboard/DNSCentralSection'
+import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection'
+import { DomainTransferSection } from '@/app/dashboard/DomainTransferSection'
 import {
   SubdomainsSection, DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SecuritySection, PHPConfigSection,
@@ -35,7 +35,7 @@ import {
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   NameserverManagementSection,
-} from '../admin/DirectAdminSections'
+} from '../dashboard/DirectAdminSections'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -643,6 +643,7 @@ function MailMarketingCampaignsSkeleton() {
 }
 
 function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab, listas, setListas, searchTerm, setSearchTerm }: { sites: any[], currentUserEmail?: string, activeTab: string, setActiveTab: (tab: any) => void, listas: string[], setListas: (l: string[]) => void, searchTerm: string, setSearchTerm: (value: string) => void }) {
+  const [contactsListFocus, setContactsListFocus] = useState<string | null>(null);
   // Filtrar domínios reais
   const pureSites = sites.filter(s => !s.domain.toLowerCase().startsWith('mail.'));
 
@@ -687,10 +688,10 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
     <div className="space-y-5 h-full overflow-auto">
       <div className="relative min-h-full">
         <div className={`transition-all duration-300 ${activeTab === 'comp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={() => setActiveTab('subs')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
+          <MailMarketingComposer selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} onGoToContacts={(listName) => { setContactsListFocus(listName || null); setActiveTab('subs'); }} onGoToHistory={() => setActiveTab('camp')} currentUserEmail={currentUserEmail} listas={listas} setListas={setListas} campaignToResend={campaignToResend} setCampaignToResend={setCampaignToResend} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'subs' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
-          <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          <MailMarketingContacts selectedSite={selectedSite} setSelectedSite={setSelectedSite} sites={pureSites} listas={listas} setListas={setListas} searchTerm={searchTerm} setSearchTerm={setSearchTerm} listFocus={contactsListFocus} onClearListFocus={() => setContactsListFocus(null)} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === 'camp' ? 'block opacity-100 relative z-10' : 'hidden opacity-0 absolute inset-0 z-0 pointer-events-none'}`}>
           <MailMarketingCampaigns selectedSite={selectedSite} currentUserEmail={currentUserEmail} onResend={(camp) => { setCampaignToResend(camp); setActiveTab('comp'); }} />
@@ -700,7 +701,7 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   )
 }
 
-function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
+function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToContacts, onGoToHistory, currentUserEmail, listas, setListas, campaignToResend, setCampaignToResend }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], onGoToContacts: (listName?: string) => void, onGoToHistory: () => void, currentUserEmail?: string, listas: string[], setListas: (l: string[]) => void, campaignToResend?: any, setCampaignToResend?: (c: any) => void }) {
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
   const [selectedPlans, setSelectedPlans] = useState<string[]>(["Contactos"]);
@@ -936,6 +937,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
     }
   };
 
+  const handleClearForm = () => {
+    setSubject("");
+    setContent("");
+    setAttachments([]);
+    setCampaignToResend?.(null);
+  };
+
   const handleSend = async () => {
     // Validar campos obrigatórios
     const errors = [];
@@ -1161,20 +1169,19 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                 </div>
 
                 <Button
-                  onClick={handleSend}
-                  disabled={isSending || !senderEmail}
-                  className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
-                >
-                  {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                  Enviar
-                </Button>
-
-                <Button
                   onClick={() => setShowTemplates(true)}
                   className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100 cursor-pointer"
                 >
                   <LayoutTemplate className="w-3 h-3" />
                   Templates
+                </Button>
+
+                <Button
+                  onClick={onGoToHistory}
+                  className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all shadow-xl shadow-gray-900/10 border-none !opacity-100 cursor-pointer"
+                >
+                  <HistoryIcon className="w-3 h-3" />
+                  Histórico
                 </Button>
               </div>
             </div>
@@ -1204,6 +1211,24 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                   />
                 </div>
               </RichTextEditor>
+            </div>
+            <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                onClick={handleClearForm}
+                disabled={isSending}
+                className="!bg-slate-100 hover:!bg-red-600 hover:!text-white text-slate-700 gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md transition-all border border-slate-200"
+              >
+                Limpar
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={isSending || !senderEmail}
+                className="!bg-emerald-600 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-md shadow-xl shadow-emerald-500/20 transition-all border-none !opacity-100 cursor-pointer"
+              >
+                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                Enviar
+              </Button>
             </div>
           </div>
 
@@ -1236,22 +1261,31 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             </div>
             <div className="space-y-3">
               {listas.map(plan => (
-                <div key={plan} className="group relative">
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                <div key={plan} className={`group rounded-lg border transition-all overflow-hidden ${selectedPlans.includes(plan) ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-500/10' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+                  <label className="flex items-center gap-3 p-3 cursor-pointer">
                     <Checkbox id={`plan-${plan}`} checked={selectedPlans.includes(plan)} onCheckedChange={() => handlePlanToggle(plan)} className="rounded-md border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" />
-                    <span className={`text-xs font-bold ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
+                    <span className={`text-xs font-bold flex-1 ${selectedPlans.includes(plan) ? 'text-orange-700' : 'text-slate-600'}`}>{plan}</span>
                   </label>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setListas(listas.filter(l => l !== plan));
-                      setSelectedPlans(selectedPlans.filter(p => p !== plan));
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
-                    title="Eliminar lista"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center justify-between px-3 pb-2 pt-0 border-t border-slate-100/80">
+                    <button
+                      type="button"
+                      onClick={() => onGoToContacts(plan)}
+                      className="text-[10px] font-black text-orange-600 hover:text-orange-800 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                    >
+                      <Edit2 size={11} /> Editar lista
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setListas(listas.filter(l => l !== plan));
+                        setSelectedPlans(selectedPlans.filter(p => p !== plan));
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-red-600 transition-all"
+                      title="Eliminar lista"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -1527,7 +1561,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   );
 }
 
-function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, searchTerm, setSearchTerm }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[], searchTerm: string, setSearchTerm: (value: string) => void }) {
+function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, setListas, searchTerm, setSearchTerm, listFocus, onClearListFocus }: { selectedSite: string, setSelectedSite: (s: string) => void, sites: any[], listas: string[], setListas?: (l: string[]) => void, searchTerm: string, setSearchTerm: (value: string) => void, listFocus?: string | null, onClearListFocus?: () => void }) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1650,6 +1684,22 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     runMigration();
     fetchSubs();
   }, [selectedSite, searchTerm]);
+
+  useEffect(() => {
+    if (!listFocus) return;
+    setNewListLabel(listFocus);
+    setShowAddForm(true);
+    onClearListFocus?.();
+  }, [listFocus]);
+
+  const openListEditor = (listName: string) => {
+    setNewListLabel(listName);
+    setEditingSub(null);
+    setNewEmail('');
+    setNewName('');
+    setNewDomainLabel(selectedSite || '');
+    setShowAddForm(true);
+  };
 
   const openEdit = (sub: any) => {
     setEditingSub(sub);
@@ -1963,6 +2013,30 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
             }}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {listas.map((listName) => {
+          const count = subscribers.filter((s) => (s.metadata?.list || 'Contactos') === listName).length;
+          return (
+            <div key={listName} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{listName}</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1">{count} contacto{count !== 1 ? 's' : ''}</p>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100">Lista</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => openListEditor(listName)}
+                className="w-full text-[10px] font-black text-orange-600 hover:text-orange-800 uppercase tracking-widest flex items-center justify-center gap-1 py-2 rounded-md border border-orange-100 hover:bg-orange-50 transition-colors"
+              >
+                <Edit2 size={11} /> Editar lista
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">

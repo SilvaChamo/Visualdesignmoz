@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
@@ -28,21 +28,21 @@ import {
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection, NameserverManagementSection
-} from '../admin/DirectAdminSections'
-import { ClientesDaSection } from '../admin/ClientesDaSection'
-import { NotificationsSection } from '../admin/NotificationsSection'
-import { RenewalsSection } from '../admin/RenewalsSection'
-import { TemplatesSection } from '../admin/TemplatesSection'
-import { DNSCentralSection } from '../admin/DNSCentralSection'
-import { DomainTransferSection } from '../admin/DomainTransferSection'
+} from '../dashboard/DirectAdminSections'
+import { ClientesDaSection } from '../dashboard/ClientesDaSection'
+import { NotificationsSection } from '../dashboard/NotificationsSection'
+import { RenewalsSection } from '../dashboard/RenewalsSection'
+import { TemplatesSection } from '../dashboard/TemplatesSection'
+import { DNSCentralSection } from '../dashboard/DNSCentralSection'
+import { DomainTransferSection } from '../dashboard/DomainTransferSection'
 import {
   DomainsHubSection,
   isDomainHubSection,
   sectionToDomainTab,
   type DomainHubTab,
-} from '../admin/DomainsHubSection'
-import { PanelPermissionsConfig } from '../admin/PanelPermissionsConfig'
-import { ProvisionClienteSection } from '../admin/ProvisionClienteSection'
+} from '../dashboard/DomainsHubSection'
+import { PanelPermissionsConfig } from '../dashboard/PanelPermissionsConfig'
+import { ProvisionClienteSection } from '../dashboard/ProvisionClienteSection'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { ResellerNotificationsInbox } from '@/components/revendedor/ResellerNotificationsInbox'
@@ -61,10 +61,12 @@ import {
 import { prefetchPanelContentFromBootstrap, resolvePrimaryDomainFromSites } from '@/lib/panel-prefetch'
 import { OSHER_DOMAIN } from '@/lib/email-domains'
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich'
-import { WordPressHubSection } from '../admin/WordPressHubSection'
+import { WordPressHubSection } from '../dashboard/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
+import { getPanelBreadcrumbTrail } from '@/lib/panel-breadcrumb'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
+import { PanelBreadcrumb } from '@/components/panel/PanelBreadcrumb'
 import { ListWebsitesSection as PanelListWebsitesSection } from '@/components/panel/ListWebsitesSection'
 
 const directAdminAPI = panelAPI
@@ -2398,11 +2400,17 @@ export default function ResellerPage() {
       case 'transferir-dominio':
         return <DomainTransferSection />
       case 'newsletter':
+      case 'newsletter-subs':
+      case 'newsletter-comp':
+      case 'newsletter-camp':
+        const derivedTab = activeSection === 'newsletter-subs' ? 'subs' :
+                           activeSection === 'newsletter-comp' ? 'comp' :
+                           activeSection === 'newsletter-camp' ? 'camp' : mailMarketingTab;
         return (
           <MailMarketingSection
             sites={filteredSites}
             currentUserEmail={sessionUser || undefined}
-            activeTab={mailMarketingTab}
+            activeTab={derivedTab}
             onTabChange={setMailMarketingTab}
           />
         )
@@ -2603,6 +2611,20 @@ export default function ResellerPage() {
     setActiveSection(resolveSectionId(section))
   }
 
+  const breadcrumbs = useMemo(
+    () => getPanelBreadcrumbTrail(activeSection, 'reseller'),
+    [activeSection],
+  )
+
+  const handleBreadcrumbNavigate = useCallback((section: string) => {
+    if (isDomainHubSection(section)) {
+      setDomainHubTab(sectionToDomainTab(section))
+      setActiveSection('domain-manager')
+      return
+    }
+    setActiveSection(resolveSectionId(section))
+  }, [])
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <ResellerSidebar
@@ -2618,6 +2640,7 @@ export default function ResellerPage() {
         <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
           <div className="flex items-start justify-between">
             <div>
+              <PanelBreadcrumb items={breadcrumbs} onNavigate={handleBreadcrumbNavigate} className="mb-1" />
               <h1 className="text-2xl font-bold text-gray-900">
                 {getSectionInfo(activeSection).title}
               </h1>

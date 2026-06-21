@@ -38,7 +38,7 @@ Require all granted
 </Directory>
 ProxyPreserveHost On
 RequestHeader set X-Forwarded-Proto "https"
-RequestHeader set X-Forwarded-Host "painel.visualdesignmoz.com"
+RequestHeader setifempty X-Forwarded-Host "painel.visualdesignmoz.com"
 ProxyPass / http://127.0.0.1:${PORT}/
 ProxyPassReverse / http://127.0.0.1:${PORT}/
 |*endif|

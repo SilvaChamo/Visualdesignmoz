@@ -14,6 +14,7 @@ const SECTION_TITLES: Record<string, string> = {
   'domain-manager': 'Meus domínios',
   'porkbun-domains': 'Registar domínio',
   'porkbun-my-domains': 'Domínios registados',
+  'wp-users': 'Contas WordPress',
 };
 
 /** Descrições por secção (título vem do menu quando existir). */
@@ -28,6 +29,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'news-manager': 'Gestão de notícias',
   clientes: 'Clientes com acesso ao painel cliente',
   revendedores: 'Contas de revenda no painel',
+  'wp-users': 'Gerir contas de utilizadores e acessos directos ao painel de administração WordPress',
   'cp-subdomains': 'Criar e gerir subdomínios',
   'cp-list-subdomains': 'Ver subdomínios e addon domains',
   'cp-databases': 'Crie e gira bases de dados MySQL para os seus websites',
