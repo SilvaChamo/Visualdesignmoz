@@ -250,11 +250,18 @@ export async function listMirrorWebsitesForClientEmail(email: string): Promise<P
   if (!admin || !email) return [];
 
   const normalized = email.toLowerCase().trim();
-  const localPart = normalized.split('@')[0] || '';
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('user_id, id')
+    .ilike('email', normalized)
+    .maybeSingle();
+  const userId = String(profile?.user_id || profile?.id || '').trim();
+  if (userId) return listMirrorWebsitesForClientUser(userId, normalized);
 
   const { data, error } = await admin.from('panel_sites').select('*').order('domain');
   if (error) return [];
 
+  const localPart = normalized.split('@')[0] || '';
   return (data || [])
     .filter((row) => {
       const adminEmail = String(row.admin_email || '').toLowerCase();
@@ -265,6 +272,37 @@ export async function listMirrorWebsitesForClientEmail(email: string): Promise<P
         owner === normalized ||
         (localPart.length > 2 && domain.includes(localPart))
       );
+    })
+    .map((row) => mapSite(row as Record<string, unknown>));
+}
+
+/** Sites do cliente — ligação forte auth_user_id → panel_users → panel_sites.owner */
+export async function listMirrorWebsitesForClientUser(
+  userId: string,
+  email?: string | null,
+): Promise<PanelWebsite[]> {
+  const admin = getDaSyncAdmin();
+  if (!admin || !userId) return [];
+
+  const { data: panelUser } = await admin
+    .from('panel_users')
+    .select('username, email')
+    .eq('auth_user_id', userId)
+    .maybeSingle();
+
+  const username = String(panelUser?.username || '').trim().toLowerCase();
+  const normalizedEmail = String(email || panelUser?.email || '').toLowerCase().trim();
+
+  const { data, error } = await admin.from('panel_sites').select('*').order('domain');
+  if (error) return [];
+
+  return (data || [])
+    .filter((row) => {
+      const owner = String(row.owner || '').toLowerCase();
+      const adminEmail = String(row.admin_email || '').toLowerCase();
+      if (username && owner === username) return true;
+      if (normalizedEmail && adminEmail === normalizedEmail) return true;
+      return false;
     })
     .map((row) => mapSite(row as Record<string, unknown>));
 }

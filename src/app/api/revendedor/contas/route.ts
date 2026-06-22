@@ -3,6 +3,7 @@ import { daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
+import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { sendEmail } from '@/lib/email-service';
 import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
@@ -174,6 +175,15 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Domínio obrigatório (ex.: exemplo.com).' },
         { status: 400 },
       );
+    }
+
+    const resolvedAuth = resolved as Exclude<typeof resolved, { error: NextResponse }>;
+    const quota = await assertResellerHostingQuota({
+      userId: resolvedAuth.auth.user.id,
+      daUsername: ctx.daUsername,
+    });
+    if (!quota.ok) {
+      return NextResponse.json({ success: false, error: quota.error }, { status: 403 });
     }
 
     const result = await daPostViaSshAsDaUser(

@@ -32,6 +32,8 @@ ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS bandwidth_used_mb INTEGER DEFAU
 ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS quota_limit_mb INTEGER;
 ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS bandwidth_limit_mb INTEGER;
 ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS package_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS reseller_tier TEXT;
+ALTER TABLE panel_auth_accounts ADD COLUMN IF NOT EXISTS reseller_tier TEXT;
 ALTER TABLE panel_dns ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE panel_packages ADD COLUMN IF NOT EXISTS package_form_json JSONB;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_dns_domain_name_type ON panel_dns (domain, name, type);

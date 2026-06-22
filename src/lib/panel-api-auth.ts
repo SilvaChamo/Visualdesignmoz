@@ -66,18 +66,13 @@ export type PanelBootstrapAuthSuccess = {
   user: {
     id: string;
     email?: string;
-    role: 'admin' | 'reseller' | 'client';
+    role: 'admin' | 'manager' | 'reseller' | 'client';
   };
 };
 
 export async function requirePanelBootstrapAccess(): Promise<
   PanelBootstrapAuthSuccess | PanelAuthFailure
 > {
-  const staff = await requireAdminOrReseller();
-  if (!('error' in staff)) {
-    return { user: { ...staff.user, role: staff.user.role } };
-  }
-
   const supabase = await createClient();
   const {
     data: { user: verifiedUser },
@@ -100,7 +95,13 @@ export async function requirePanelBootstrapAccess(): Promise<
 
   const email = (user.email || '').toLowerCase();
   let effectiveRole = user.user_metadata?.role || user.app_metadata?.role;
-  if (!effectiveRole || (effectiveRole !== 'admin' && effectiveRole !== 'reseller' && effectiveRole !== 'client')) {
+  if (
+    !effectiveRole ||
+    (effectiveRole !== 'admin' &&
+      effectiveRole !== 'manager' &&
+      effectiveRole !== 'reseller' &&
+      effectiveRole !== 'client')
+  ) {
     try {
       effectiveRole = await resolveRoleForAuthUser(supabase, user);
     } catch {
@@ -110,6 +111,10 @@ export async function requirePanelBootstrapAccess(): Promise<
 
   if (effectiveRole === 'client') {
     return { user: { id: user.id, email, role: 'client' } };
+  }
+
+  if (effectiveRole === 'manager') {
+    return { user: { id: user.id, email, role: 'manager' } };
   }
 
   if (effectiveRole === 'admin' || ADMIN_EMAILS.has(email)) {

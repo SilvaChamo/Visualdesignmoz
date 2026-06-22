@@ -5,6 +5,8 @@
 
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api';
 import type { PanelBootstrapAccount } from '@/lib/panel-mirror-read';
+import type { UserProductsSummary } from '@/lib/user-products';
+import type { PanelCapabilities, ResellerTier } from '@/lib/panel-role-capabilities';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
 const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v2';
@@ -22,6 +24,14 @@ export type PanelBootstrapResellerContext = {
   displayName: string;
   primaryDomain: string | null;
   impersonating: boolean;
+  resellerTier?: ResellerTier | null;
+};
+
+export type PanelBootstrapSession = {
+  role: string;
+  readOnly: boolean;
+  capabilities?: PanelCapabilities;
+  resellerTier?: ResellerTier | null;
 };
 
 export type PanelBootstrapData = {
@@ -31,6 +41,8 @@ export type PanelBootstrapData = {
   accounts: PanelBootstrapAccount[];
   accountCounts: Record<string, number>;
   resellerContext: PanelBootstrapResellerContext | null;
+  products?: UserProductsSummary | null;
+  session?: PanelBootstrapSession | null;
   meta?: { source?: string; lastSyncedAt?: string | null };
 };
 
@@ -105,6 +117,8 @@ export async function fetchPanelBootstrap(options?: {
     accounts?: PanelBootstrapAccount[];
     accountCounts?: Record<string, number>;
     resellerContext?: PanelBootstrapResellerContext | null;
+    products?: UserProductsSummary | null;
+    session?: PanelBootstrapSession | null;
     meta?: { source?: string; lastSyncedAt?: string | null };
   }>(res);
   if (!res.ok || !json.success) {
@@ -121,6 +135,8 @@ export async function fetchPanelBootstrap(options?: {
         ? json.accountCounts
         : {},
     resellerContext: json.resellerContext || null,
+    products: json.products ?? null,
+    session: json.session ?? null,
     meta: json.meta,
   };
 

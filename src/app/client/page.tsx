@@ -3502,7 +3502,8 @@ export default function ClientPage() {
 
 function ClientPageContent() {
   const { chrome } = useAdminSectionChrome()
-  const [activeSection, setActiveSection] = useState('dashboard')
+  const [activeSection, setActiveSection] = useState('meus-produtos')
+  const [clientReadOnly, setClientReadOnly] = useState(true)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [mailMarketingSearchTerm, setMailMarketingSearchTerm] = useState('')
   const [mailMarketingListas, setMailMarketingListas] = useState(['Contactos', 'Clientes', 'Newsletter'])
@@ -3563,6 +3564,7 @@ function ClientPageContent() {
     setDirectAdminSites(boot.sites)
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
+    setClientReadOnly(boot.session?.readOnly !== false)
     prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
@@ -3639,6 +3641,13 @@ function ClientPageContent() {
   );
 
   const renderSection = () => {
+    const readOnlyBlocked =
+      clientReadOnly &&
+      !['dashboard', 'meus-produtos', 'domains', 'domains-list'].includes(activeSection);
+    if (readOnlyBlocked) {
+      return <ClientProductsHub onNavigate={setActiveSection} />;
+    }
+
     switch (activeSection) {
       case 'dashboard':
       case 'meus-produtos':
@@ -3906,6 +3915,7 @@ function ClientPageContent() {
         setIsCollapsed={setIsCollapsed}
         cliente={cliente}
         isMobile={isMobile}
+        readOnly={clientReadOnly}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">

@@ -12,6 +12,7 @@ export type PanelAuthAccountRow = {
   panel_slug: string;
   server_linked: boolean;
   da_username: string | null;
+  reseller_tier?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS public.panel_auth_accounts (
   panel_slug TEXT NOT NULL DEFAULT 'visualdesign',
   server_linked BOOLEAN NOT NULL DEFAULT false,
   da_username TEXT,
+  reseller_tier TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (panel_slug, email)
@@ -72,6 +74,7 @@ export async function upsertPanelAuthAccount(
     name?: string | null;
     serverLinked?: boolean;
     daUsername?: string | null;
+    resellerTier?: string | null;
     panelSlug?: string;
   },
 ): Promise<void> {
@@ -86,6 +89,7 @@ export async function upsertPanelAuthAccount(
     panel_slug: (params.panelSlug || PANEL_SLUG).toLowerCase(),
     server_linked: params.serverLinked === true,
     da_username: params.daUsername?.trim() || null,
+    reseller_tier: params.resellerTier?.trim() || null,
     updated_at: new Date().toISOString(),
   };
 

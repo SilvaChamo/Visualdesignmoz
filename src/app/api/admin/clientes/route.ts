@@ -12,7 +12,7 @@ import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { sendEmail } from '@/lib/email-service';
 import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
-import { saveProfileForAuthUser } from '@/lib/profile-db';
+import { saveProfileForAuthUser, getProfileForAuthUser } from '@/lib/profile-db';
 import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
@@ -37,6 +37,7 @@ import { enrichPanelAccounts } from '@/lib/panel-contas-enrich';
 import {
   schedulePanelServerProvision,
 } from '@/lib/panel-server-provision';
+import { normalizeResellerTier } from '@/lib/panel-role-capabilities';
 
 const OSHER_RESELLER = 'oshercollective';
 
@@ -278,16 +279,27 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const accountType = String(body.accountType || 'client') as 'client' | 'reseller' | 'professional';
+    const existingUserId = String(body.existingUserId || '').trim();
+    const isExistingUser = Boolean(existingUserId);
     const email = String(body.email || '').trim();
     const password = String(body.password || '');
     const domain = String(body.domain || '').trim().toLowerCase();
     const packageName = String(body.packageName || 'Default');
     const adminEmail = String(body.adminEmail || email).trim();
-    const userName = String(body.userName || '').trim() || deriveUsername(domain, email);
+    let userName = String(body.userName || '').trim() || deriveUsername(domain, email);
+    const resellerTier =
+      accountType === 'reseller' ? normalizeResellerTier(body.resellerTier) : null;
 
-    if (!email.includes('@') || password.length < 8) {
+    if (!isExistingUser && (!email.includes('@') || password.length < 8)) {
       return NextResponse.json(
         { success: false, error: 'Email válido e password (mín. 8 caracteres) são obrigatórios.' },
+        { status: 400 },
+      );
+    }
+
+    if (isExistingUser && !existingUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Utilizador existente inválido.' },
         { status: 400 },
       );
     }
@@ -323,47 +335,102 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const normalizedEmail = email.toLowerCase();
+    let authUserId: string;
+    let normalizedEmail = email.toLowerCase();
 
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email: normalizedEmail,
-      password,
-      email_confirm: true,
-      user_metadata: {
+    if (isExistingUser) {
+      const { data: existingAuth, error: loadErr } = await admin.auth.admin.getUserById(existingUserId);
+      if (loadErr || !existingAuth?.user) {
+        return NextResponse.json(
+          { success: false, error: 'Utilizador do painel não encontrado.' },
+          { status: 404 },
+        );
+      }
+      authUserId = existingAuth.user.id;
+      normalizedEmail = (existingAuth.user.email || normalizedEmail).toLowerCase();
+
+      const profile = await getProfileForAuthUser(admin, authUserId);
+      const sb = getDaSyncAdmin();
+      if (sb) {
+        const { data: linked } = await sb
+          .from('panel_users')
+          .select('username')
+          .eq('auth_user_id', authUserId)
+          .maybeSingle();
+        if (linked?.username) userName = String(linked.username);
+      }
+
+      if (firstName || lastName || resellerTier) {
+        await saveProfileForAuthUser(admin, authUserId, {
+          ...(firstName ? { name: displayName } : {}),
+          ...(resellerTier ? { reseller_tier: resellerTier } : {}),
+        });
+      }
+
+      if (password.length >= 8) {
+        await admin.auth.admin.updateUserById(authUserId, { password });
+        await upsertDownloadableCredentials(admin, {
+          email: normalizedEmail,
+          password,
+          userId: authUserId,
+          role: panelRole,
+        });
+      }
+
+      await upsertPanelAuthAccount(admin, {
+        userId: authUserId,
+        email: normalizedEmail,
+        role: (profile?.role as UserRole) || panelRole,
+        name: displayName || profile?.name,
+        serverLinked: false,
+        daUsername: profile?.da_username ?? userName,
+        resellerTier: resellerTier || profile?.reseller_tier || null,
+      });
+    } else {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: panelRole,
+          name: displayName,
+          nome: displayName,
+          site: PANEL_SLUG,
+        },
+      });
+
+      if (createError || !created.user) {
+        const msg = createError?.message || 'Erro ao criar conta';
+        const status = msg.toLowerCase().includes('already') ? 409 : 400;
+        return NextResponse.json({ success: false, error: msg }, { status });
+      }
+
+      authUserId = created.user.id;
+
+      await saveProfileForAuthUser(admin, authUserId, {
+        email: normalizedEmail,
         role: panelRole,
         name: displayName,
-        nome: displayName,
-        site: PANEL_SLUG,
-      },
-    });
+        ...(resellerTier ? { reseller_tier: resellerTier } : {}),
+      });
 
-    if (createError || !created.user) {
-      const msg = createError?.message || 'Erro ao criar conta';
-      const status = msg.toLowerCase().includes('already') ? 409 : 400;
-      return NextResponse.json({ success: false, error: msg }, { status });
+      await upsertDownloadableCredentials(admin, {
+        email: normalizedEmail,
+        password,
+        userId: authUserId,
+        role: panelRole,
+      });
+
+      await upsertPanelAuthAccount(admin, {
+        userId: authUserId,
+        email: normalizedEmail,
+        role: panelRole,
+        name: displayName,
+        serverLinked: false,
+        daUsername: null,
+        resellerTier,
+      });
     }
-
-    await saveProfileForAuthUser(admin, created.user.id, {
-      email: normalizedEmail,
-      role: panelRole,
-      name: displayName,
-    });
-
-    await upsertDownloadableCredentials(admin, {
-      email: normalizedEmail,
-      password,
-      userId: created.user.id,
-      role: panelRole,
-    });
-
-    await upsertPanelAuthAccount(admin, {
-      userId: created.user.id,
-      email: normalizedEmail,
-      role: panelRole,
-      name: displayName,
-      serverLinked: false,
-      daUsername: null,
-    });
 
     const pkgLimits = await lookupPackageLimits(effectivePackageName);
 
@@ -374,7 +441,7 @@ export async function POST(req: NextRequest) {
       last_name: lastName,
       acl: panelAcl,
       status: 'Active',
-      auth_user_id: created.user.id,
+      auth_user_id: authUserId,
       package_name: effectivePackageName,
       quota_limit_mb: pkgLimits.diskMb === null ? null : pkgLimits.diskMb,
       bandwidth_limit_mb: pkgLimits.bandwidthMb === null ? null : pkgLimits.bandwidthMb,

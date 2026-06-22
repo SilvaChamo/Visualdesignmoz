@@ -63,6 +63,7 @@ import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/s
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
+import { getStaffAdminMenu, isManagerSectionAllowed, type PanelCapabilities } from '@/lib/panel-role-capabilities'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
@@ -1555,6 +1556,7 @@ function AdminPageContent() {
   const [selectedBackupDomain, setSelectedBackupDomain] = useState('')
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
+  const [panelCapabilities, setPanelCapabilities] = useState<PanelCapabilities | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
@@ -1684,6 +1686,9 @@ function AdminPageContent() {
   }
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
+    if (boot.session?.capabilities) {
+      setPanelCapabilities(boot.session.capabilities);
+    }
     const scoped = boot.resellerContext
       ? { sites: boot.sites, users: boot.users, packages: boot.packages }
       : applyAdminPanelScope(boot)
@@ -1819,6 +1824,15 @@ function AdminPageContent() {
   const getSectionInfo = (section: string) => getPanelSectionMeta(section)
 
   const renderSectionFor = (sectionId: string, isActive: boolean) => {
+    if (panelCapabilities?.role === 'manager' && !isManagerSectionAllowed(sectionId)) {
+      return (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+          Esta área não está disponível no perfil profissional. Pode gerir sites WordPress e configurações
+          dos serviços já atribuídos, mas não criar utilizadores, pacotes nem contas de hospedagem.
+        </div>
+      );
+    }
+
     switch (sectionId) {
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
@@ -2322,6 +2336,7 @@ function AdminPageContent() {
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
         isMobile={isMobile}
+        menuDefs={panelCapabilities ? getStaffAdminMenu(panelCapabilities) : undefined}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PanelHeader
@@ -2343,7 +2358,7 @@ function AdminPageContent() {
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {activeSection === 'dashboard' ? (
+              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' ? (
                 <a
                   href={getDirectAdminAccessUrl('admin')}
                   target="_blank"

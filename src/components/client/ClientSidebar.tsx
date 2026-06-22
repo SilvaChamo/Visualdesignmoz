@@ -18,6 +18,7 @@ import {
   clientMenuParentForSection,
   isClientMenuItemActive,
 } from '@/lib/panel-client-menu';
+import { CLIENT_READONLY_MENU_DEFS } from '@/lib/panel-role-capabilities';
 import { resolveSectionId } from '@/lib/panel-admin-menu';
 import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
 import { panelShellHeaderHeight } from '@/lib/panel-ui';
@@ -69,6 +70,7 @@ interface ClientSidebarProps {
   setIsCollapsed: (collapsed: boolean) => void;
   cliente?: { nome?: string; email?: string } | null;
   isMobile?: boolean;
+  readOnly?: boolean;
 }
 
 export function ClientSidebar({
@@ -78,9 +80,17 @@ export function ClientSidebar({
   setIsCollapsed,
   cliente,
   isMobile = false,
+  readOnly = false,
 }: ClientSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 64 : 250;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(null);
+  const flatItems = readOnly
+    ? [
+        { id: 'meus-produtos', label: 'Os meus produtos', icon: Home },
+        { id: 'domains', label: 'Os meus sites', icon: Globe },
+      ]
+    : FLAT_ITEMS;
+  const expandableMenus = readOnly ? [] : CLIENT_MENU_DEFS;
 
   React.useEffect(() => {
     const parent = clientMenuParentForSection(activeSection);
@@ -167,7 +177,7 @@ export function ClientSidebar({
 
       <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2.5">
         <div className="flex flex-col space-y-0.5">
-          {FLAT_ITEMS.slice(0, 2).map((item) => {
+          {flatItems.slice(0, readOnly ? flatItems.length : 2).map((item) => {
             const Icon = item.icon;
             const isActive = isFlatActive(item);
             return (
@@ -189,7 +199,7 @@ export function ClientSidebar({
             );
           })}
 
-          {CLIENT_MENU_DEFS.map((menu) => {
+          {expandableMenus.map((menu) => {
             const Icon = EXPANDABLE_ICONS[menu.id] || Globe;
             const isActive = isClientMenuItemActive(menu, activeSection);
             const isOpen = expandedMenu === menu.id;
@@ -294,7 +304,7 @@ export function ClientSidebar({
             );
           })}
 
-          {FLAT_ITEMS.slice(2).map((item) => {
+          {!readOnly && FLAT_ITEMS.slice(2).map((item) => {
             const Icon = item.icon;
             const isActive = isFlatActive(item);
             return (

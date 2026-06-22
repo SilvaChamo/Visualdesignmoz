@@ -115,6 +115,23 @@ export function ProvisionClienteSection({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState(false);
+  const [userMode, setUserMode] = useState<'new' | 'existing'>('new');
+  const [existingUserId, setExistingUserId] = useState('');
+  const [resellerTier, setResellerTier] = useState<'essencial' | 'expandido'>('essencial');
+  const [panelUsers, setPanelUsers] = useState<Array<{ id: string; email: string; userName: string; panelRole: string }>>([]);
+
+  useEffect(() => {
+    if (isEdit || panelScope !== 'admin') return;
+    let cancelled = false;
+    void fetch('/api/admin/panel-users', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data: { success?: boolean; users?: Array<{ id: string; email: string; userName: string; panelRole: string }> }) => {
+        if (cancelled || !data.success || !Array.isArray(data.users)) return;
+        setPanelUsers(data.users);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [isEdit, panelScope]);
 
   useEffect(() => {
     if (!isEdit) setAccountType(initialAccountType);
@@ -166,7 +183,12 @@ export function ProvisionClienteSection({
   const passwordOk =
     isEdit
       ? !identity.password || (identity.password.length >= 8 && identity.password === identity.confirmPassword)
-      : identity.password.length >= 8 && identity.password === identity.confirmPassword;
+      : userMode === 'existing'
+        ? !identity.password || (identity.password.length >= 8 && identity.password === identity.confirmPassword)
+        : identity.password.length >= 8 && identity.password === identity.confirmPassword;
+
+  const identityEmailOk =
+    userMode === 'existing' ? Boolean(existingUserId) : identity.email.includes('@');
 
   const displayName = useMemo(() => {
     const n = `${identity.firstName} ${identity.lastName}`.trim();
@@ -179,7 +201,7 @@ export function ProvisionClienteSection({
     packageName || packages.find((p) => p.packageName)?.packageName || '';
 
   const canSubmit =
-    identity.email.includes('@') &&
+    identityEmailOk &&
     passwordOk &&
     (isEdit ||
       ((accountType === 'reseller' || accountType === 'professional') && Boolean(activePackageName)) ||
@@ -249,6 +271,8 @@ export function ProvisionClienteSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountType,
+          existingUserId: userMode === 'existing' ? existingUserId : undefined,
+          resellerTier: accountType === 'reseller' ? resellerTier : undefined,
           firstName: identity.firstName,
           lastName: identity.lastName,
           email: identity.email,
@@ -365,8 +389,8 @@ export function ProvisionClienteSection({
                 { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
                 ...(allowResellerAccountType
                   ? [
-                      { id: 'professional' as const, title: 'Profissional', desc: 'Conta profissional com direitos de revenda', icon: Shield },
-                      { id: 'reseller' as const, title: 'Revendedor', desc: 'Conta de revenda no servidor', icon: Globe },
+                      { id: 'professional' as const, title: 'Profissional', desc: 'Gestão de sites e WordPress (sem criar contas)', icon: Shield },
+                      { id: 'reseller' as const, title: 'Revendedor', desc: 'Revenda com plano Essencial ou Expandido', icon: Globe },
                     ]
                   : []),
               ]).map((opt) => (
@@ -399,6 +423,83 @@ export function ProvisionClienteSection({
             )}
           </section>
 
+          {!isEdit && panelScope === 'admin' && (
+            <section className={`${formCardCls} space-y-4`}>
+              <h2 className="font-bold text-gray-900">Utilizador do painel</h2>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUserMode('new')}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                    userMode === 'new' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  Criar novo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserMode('existing')}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                    userMode === 'existing' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  Associar existente
+                </button>
+              </div>
+              {userMode === 'existing' && (
+                <select
+                  value={existingUserId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setExistingUserId(id);
+                    const row = panelUsers.find((u) => u.id === id);
+                    if (row) {
+                      setIdentity((prev) => ({
+                        ...prev,
+                        email: row.email,
+                        firstName: prev.firstName || row.userName.split(' ')[0] || '',
+                        lastName: prev.lastName || row.userName.split(' ').slice(1).join(' ') || '',
+                      }));
+                      setHosting((prev) => ({ ...prev, adminEmail: row.email }));
+                    }
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">Seleccionar utilizador…</option>
+                  {panelUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email} ({u.panelRole})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </section>
+          )}
+
+          {accountType === 'reseller' && !isEdit && (
+            <section className={`${formCardCls} space-y-3`}>
+              <h2 className="font-bold text-gray-900">Plano de revenda</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { id: 'essencial' as const, title: 'Essencial', desc: 'Até 15 contas · 50 GB' },
+                  { id: 'expandido' as const, title: 'Expandido', desc: 'Até 150 contas · 500 GB' },
+                ]).map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setResellerTier(plan.id)}
+                    className={`rounded-lg border-2 p-4 text-left ${
+                      resellerTier === plan.id ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="font-bold text-gray-900">{plan.title}</div>
+                    <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className={`${formCardCls} space-y-4`}>
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
               <UserPlus className="w-5 h-5" /> Identidade
@@ -406,11 +507,18 @@ export function ProvisionClienteSection({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input placeholder="Nome" value={identity.firstName} onChange={(e) => setIdentity({ ...identity, firstName: e.target.value })} className={inputCls} />
               <input placeholder="Apelido" value={identity.lastName} onChange={(e) => setIdentity({ ...identity, lastName: e.target.value })} className={inputCls} />
-              <input placeholder="E-mail" type="email" value={identity.email} onChange={(e) => setIdentity({ ...identity, email: e.target.value })} className={`${inputCls} sm:col-span-2`} />
+              <input
+                placeholder="E-mail"
+                type="email"
+                value={identity.email}
+                onChange={(e) => setIdentity({ ...identity, email: e.target.value })}
+                disabled={userMode === 'existing'}
+                className={`${inputCls} sm:col-span-2 disabled:bg-gray-50`}
+              />
               <div className="relative sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="relative">
                   <input
-                    placeholder={isEdit ? 'Nova password (opcional)' : 'Password (mín. 8)'}
+                    placeholder={isEdit ? 'Nova password (opcional)' : userMode === 'existing' ? 'Nova password (opcional)' : 'Password (mín. 8)'}
                     type={showPassword ? 'text' : 'password'}
                     value={identity.password}
                     onChange={(e) => setIdentity({ ...identity, password: e.target.value })}

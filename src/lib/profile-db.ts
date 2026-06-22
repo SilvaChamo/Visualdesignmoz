@@ -10,10 +10,11 @@ export type ProfileRow = {
   da_password_encrypted?: string | null;
   da_domain?: string | null;
   da_provisioned_at?: string | null;
+  reseller_tier?: string | null;
 };
 
 const PROFILE_COLUMNS =
-  'id, user_id, email, role, name, da_username, da_password_encrypted, da_domain, da_provisioned_at';
+  'id, user_id, email, role, name, da_username, da_password_encrypted, da_domain, da_provisioned_at, reseller_tier';
 
 /** Filtro PostgREST para perfil ligado ao Auth (suporta `user_id` e legado `id`). */
 export function profileAuthOrFilter(authUserId: string): string {
@@ -60,6 +61,7 @@ export async function saveProfileForAuthUser(
     da_password_encrypted?: string | null;
     da_domain?: string | null;
     da_provisioned_at?: string | null;
+    reseller_tier?: string | null;
   },
 ): Promise<void> {
   const displayName = fields.name ?? fields.nome ?? undefined;
@@ -75,6 +77,7 @@ export async function saveProfileForAuthUser(
   }
   if (fields.da_domain !== undefined) payload.da_domain = fields.da_domain;
   if (fields.da_provisioned_at !== undefined) payload.da_provisioned_at = fields.da_provisioned_at;
+  if (fields.reseller_tier !== undefined) payload.reseller_tier = fields.reseller_tier;
 
   if (existing?.id) {
     const { error } = await admin.from('profiles').update(payload).eq('id', existing.id);

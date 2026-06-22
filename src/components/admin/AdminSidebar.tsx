@@ -42,6 +42,7 @@ interface AdminSidebarProps {
   setIsCollapsed: (collapsed: boolean) => void;
   sessionUser: string | null;
   isMobile?: boolean;
+  menuDefs?: PanelMenuItemDef[];
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -66,6 +67,13 @@ const menuItems: MenuItem[] = ADMIN_MENU_ITEM_DEFS.map((item) => ({
   icon: MENU_ICONS[item.id] || Archive,
 }));
 
+function buildMenuItems(defs: PanelMenuItemDef[]): MenuItem[] {
+  return defs.map((item) => ({
+    ...item,
+    icon: MENU_ICONS[item.id] || Archive,
+  }));
+}
+
 /** Altura fixa — cada linha do menu principal (não cresce nem encolhe com o conteúdo). */
 const MENU_ROW_CLASS = 'box-border h-11 min-h-11 max-h-11 shrink-0';
 /** Submenu: texto maior, mas linhas mais apertadas entre si. */
@@ -78,7 +86,9 @@ export function AdminSidebar({
   setIsCollapsed,
   sessionUser,
   isMobile = false,
+  menuDefs,
 }: AdminSidebarProps) {
+  const items = menuDefs ? buildMenuItems(menuDefs) : menuItems;
   const currentSidebarWidth = isCollapsed ? 64 : 242;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
     adminMenuParentForSection(activeSection),
@@ -170,7 +180,7 @@ export function AdminSidebar({
 
       <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
         <div className="flex flex-col space-y-0">
-          {menuItems.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             const isActive = isPanelMenuItemActive(item, activeSection);
             const isOpen = expandedMenu === item.id && !!item.subItems?.length;
