@@ -3912,7 +3912,6 @@ function ClientPageContent() {
         <PanelHeader
           title={clientSectionLabel(activeSection)}
           description="Gestão de Serviços"
-          toolbar={chrome?.toolbar}
           hidden={isComposeActive && activeSection === 'emails-new'}
           search={
             activeSection === 'mailmarketing' && mailMarketingTab === 'subs'
@@ -3960,7 +3959,7 @@ function ClientPageContent() {
                   Contactos
                 </button>
               </div>
-            ) : undefined
+            ) : chrome?.toolbar
           }
           actions={
             <>

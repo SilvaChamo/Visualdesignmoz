@@ -139,12 +139,12 @@ function mapPackage(row: Record<string, unknown>): PanelPackage {
     | undefined;
 
   if (form?.limits) {
-    const fromForm = (key: string, fallback: number | string) => {
+    const fromForm = (key: string, fallback: number | string | undefined) => {
       const rowLimit = form.limits?.[key];
-      if (!rowLimit) return fallback;
+      if (!rowLimit) return fallback ?? 0;
       if (rowLimit.unlimited) return 0;
       const n = Number(String(rowLimit.value || '').replace(/[^\d.]/g, ''));
-      return Number.isFinite(n) && n > 0 ? n : fallback;
+      return Number.isFinite(n) && n > 0 ? n : (fallback ?? 0);
     };
     if (!Number(pkg.diskSpace)) pkg.diskSpace = fromForm('quota', pkg.diskSpace);
     if (!Number(pkg.bandwidth)) pkg.bandwidth = fromForm('bandwidth', pkg.bandwidth);
