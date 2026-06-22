@@ -3,6 +3,8 @@
 import React from 'react';
 import { Globe, Server, Mail, ShoppingCart, CreditCard, LogOut, User } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { PanelHeader } from '@/components/panel/PanelHeader';
+import { panelBtnSecondary } from '@/lib/panel-ui';
 
 type Props = {
   userEmail?: string | null;
@@ -62,23 +64,17 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
   const displayName = userName || userEmail?.split('@')[0] || 'Visitante';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Conta visitante</p>
-            <h1 className="text-xl font-bold text-gray-900">Olá, {displayName}</h1>
-            <p className="text-sm text-gray-500">{userEmail}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-red-600 border border-gray-200 px-4 py-2 rounded-lg"
-          >
-            <LogOut className="w-4 h-4" /> Sair
+    <div className="panel-shell font-panel min-h-screen bg-gray-50 dark:bg-zinc-950">
+      <PanelHeader
+        title={`Olá, ${displayName}`}
+        description={userEmail || 'Conta visitante'}
+        actions={
+          <button type="button" onClick={onSignOut} className={panelBtnSecondary}>
+            <LogOut className="h-4 w-4" />
+            Sair
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-8">
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">

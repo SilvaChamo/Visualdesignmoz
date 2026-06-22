@@ -92,8 +92,8 @@ export function DomainsHubSection({
   return (
     <div className="w-full space-y-5">
       {!hideTabs && activeTab !== 'adicionar' ? (
-        <div className="flex items-center justify-between gap-4">
-          <nav className="flex shrink-0 flex-wrap gap-x-5" aria-label="Secções de domínios">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <nav className="flex shrink-0 flex-wrap justify-center gap-x-5 lg:justify-start" aria-label="Secções de domínios">
             {tabs.map(({ id, label, icon: Icon }) => {
               const isTabActive = activeTab === id;
               return (
@@ -122,15 +122,15 @@ export function DomainsHubSection({
 
           <div
             className={cn(
-              'ml-auto flex min-w-0 items-center justify-end gap-3 pl-4',
+              'flex w-full min-w-0 flex-col gap-2 lg:ml-auto lg:w-auto lg:flex-row lg:items-center lg:justify-end lg:gap-3 lg:pl-4',
               !showListToolbar && 'hidden',
             )}
           >
-            <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="flex h-[38px] shrink-0 items-center justify-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400 lg:justify-start">
               {filteredCount} domínio(s)
             </span>
 
-            <div className="relative min-w-[10rem] flex-1 max-w-xl">
+            <div className="relative w-full min-w-0 lg:min-w-[10rem] lg:max-w-xl lg:flex-1">
               <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
               <input
                 value={listSearch}

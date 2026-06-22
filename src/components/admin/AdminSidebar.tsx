@@ -5,6 +5,7 @@ import {
   Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
 } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
+import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
 
 function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
   return (
@@ -31,6 +32,8 @@ import {
   resolveSectionId,
   type PanelMenuItemDef,
 } from '@/lib/panel-admin-menu';
+import { panelShellHeaderHeight } from '@/lib/panel-ui';
+import { cn } from '@/lib/utils';
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -38,6 +41,7 @@ interface AdminSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   sessionUser: string | null;
+  isMobile?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -72,7 +76,8 @@ export function AdminSidebar({
   onNavigate,
   isCollapsed,
   setIsCollapsed,
-  sessionUser
+  sessionUser,
+  isMobile = false,
 }: AdminSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 64 : 242;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(() =>
@@ -115,10 +120,15 @@ export function AdminSidebar({
 
   return (
     <div
-      className="font-panel relative flex h-screen shrink-0 flex-col border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
+      className="font-panel relative z-50 flex h-screen shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="border-b border-zinc-200 px-2 pb-4 pt-4 dark:border-zinc-800">
+      <div
+        className={cn(
+          'shrink-0 border-b border-zinc-200 px-2 dark:border-zinc-800',
+          isCollapsed ? 'py-4' : cn(panelShellHeaderHeight, 'flex items-center'),
+        )}
+      >
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
@@ -158,8 +168,8 @@ export function AdminSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
-        <div className="space-y-0">
+      <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
+        <div className="flex flex-col space-y-0">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = isPanelMenuItemActive(item, activeSection);
@@ -174,41 +184,69 @@ export function AdminSidebar({
                   </div>
                 )}
                 <div>
-                  <button
-                    onClick={() => handleParentClick(item)}
-                    className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
-                      isCollapsed ? 'justify-center px-2' : 'px-2.5'
-                    } rounded-lg ${
-                      isActive
-                        ? 'text-red-600 font-bold'
-                        : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
-                    }`}
-                    title={isCollapsed ? item.label : ''}
-                  >
-                    {item.id === 'nov-wordpress' ? (
-                      <WordPressMenuIcon
-                        size={20}
-                        className={
+                  {(() => {
+                    const parentButton = (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isCollapsed && isMobile && item.subItems?.length) return;
+                          handleParentClick(item);
+                        }}
+                        className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
+                          isCollapsed ? 'justify-center px-2' : 'px-2.5'
+                        } rounded-lg ${
                           isActive
-                            ? 'text-red-600'
-                            : 'text-gray-500 group-hover:text-red-600'
-                        }
-                      />
-                    ) : (
-                      <Icon
-                        size={20}
-                        className={`shrink-0 ${
-                          isActive
-                            ? 'text-red-600'
-                            : 'text-gray-500 group-hover:text-red-600'
+                            ? 'text-red-600 font-bold'
+                            : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
                         }`}
-                      />
-                    )}
-                    {!isCollapsed && <span className="ml-3 truncate text-base leading-none">{item.label}</span>}
-                    {!isCollapsed && item.subItems && (
-                      <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
-                    )}
-                  </button>
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        {item.id === 'nov-wordpress' ? (
+                          <WordPressMenuIcon
+                            size={20}
+                            className={
+                              isActive
+                                ? 'text-red-600'
+                                : 'text-gray-500 group-hover:text-red-600'
+                            }
+                          />
+                        ) : (
+                          <Icon
+                            size={20}
+                            className={`shrink-0 ${
+                              isActive
+                                ? 'text-red-600'
+                                : 'text-gray-500 group-hover:text-red-600'
+                            }`}
+                          />
+                        )}
+                        {!isCollapsed && <span className="ml-3 truncate text-base leading-none">{item.label}</span>}
+                        {!isCollapsed && item.subItems && (
+                          <ChevronRight size={14} className={`ml-auto text-gray-400 transition-transform group-hover:text-red-600 ${isOpen ? 'rotate-90' : ''}`} />
+                        )}
+                      </button>
+                    );
+
+                    if (isCollapsed && isMobile && item.subItems?.length) {
+                      return (
+                        <SidebarMenuFlyout
+                          label={item.label}
+                          subItems={item.subItems.map((sub) => ({
+                            id: sub.id,
+                            label: sub.label,
+                            isHeader: sub.id.endsWith('-header'),
+                          }))}
+                          activeSection={activeSection}
+                          resolveSectionId={resolveSectionId}
+                          onSubNavigate={handleSubClick}
+                        >
+                          {parentButton}
+                        </SidebarMenuFlyout>
+                      );
+                    }
+
+                    return parentButton;
+                  })()}
 
                   {!isCollapsed && item.subItems && isOpen && (
                     <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { Mail, Users, History, LogOut } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed';
 import { supabase as createClientInstance } from '@/lib/supabase';
 
 export default function MensagensLayout({
@@ -14,7 +15,7 @@ export default function MensagensLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { isCollapsed, setIsCollapsed, isMobile } = usePanelSidebarCollapsed();
   const [sessionUser, setSessionUser] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function MensagensLayout({
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
+        isMobile={isMobile}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

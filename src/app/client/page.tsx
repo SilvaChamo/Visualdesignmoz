@@ -16,7 +16,10 @@ import {
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
 import { ClientSidebar } from '@/components/client/ClientSidebar'
+import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { clientSectionLabel } from '@/lib/panel-client-menu'
+import { PanelHeader } from '@/components/panel/PanelHeader'
+import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui'
 import { WordPressHubSection } from '@/app/dashboard/WordPressHubSection'
 import { DNSCentralSection } from '@/app/dashboard/DNSCentralSection'
 import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection'
@@ -3494,7 +3497,7 @@ export default function AdminPage() {
   const [mailMarketingSearchTerm, setMailMarketingSearchTerm] = useState('')
   const [mailMarketingListas, setMailMarketingListas] = useState(['Contactos', 'Clientes', 'Newsletter'])
   const [compondoEmail, setCompondoEmail] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { isCollapsed, setIsCollapsed, isMobile } = usePanelSidebarCollapsed()
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
   const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
@@ -3885,80 +3888,98 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
+    <div className="panel-shell font-panel flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
       <ClientSidebar
         activeSection={activeSection}
         onNavigate={setActiveSection}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         cliente={cliente}
+        isMobile={isMobile}
       />
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
-        {/* Top Header - Escondido quando compose está ativo na seção de emails */}
-        <header className={`mb-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 ${isComposeActive && activeSection === 'emails-new' ? 'hidden' : ''}`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-zinc-100">
-                {clientSectionLabel(activeSection)}
-              </h1>
-              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">
-                VisualDesign Admin Cloud
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {activeSection === 'mailmarketing' && (
-                <div className="flex items-center gap-3 mr-4">
-                  {mailMarketingTab === 'subs' && (
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <Input
-                        placeholder="Pesquisar contacto..."
-                        value={mailMarketingSearchTerm}
-                        onChange={(e) => setMailMarketingSearchTerm(e.target.value)}
-                        className="pl-9 h-9 min-w-[230px] rounded-lg"
-                      />
-                    </div>
-                  )}
-                  <div className="flex relative bg-slate-100 p-1 rounded-lg shadow-inner">
-                    <div 
-                      className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
-                      style={{
-                        width: 'calc(33.33% - 2.66px)',
-                        left: mailMarketingTab === 'comp' ? '4px' : mailMarketingTab === 'camp' ? 'calc(33.33% + 1.33px)' : 'calc(66.66% - 1.33px)',
-                      }}
-                    />
-                    <button onClick={() => setMailMarketingTab('comp')}
-                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
-                      Compor
-                    </button>
-                    <button onClick={() => setMailMarketingTab('camp')}
-                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
-                      Campanhas
-                    </button>
-                    <button onClick={() => setMailMarketingTab('subs')}
-                      className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>
-                      Contactos
-                    </button>
-                  </div>
-                </div>
-              )}
-              {activeSection === 'emails-new' && (
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
+        <PanelHeader
+          title={clientSectionLabel(activeSection)}
+          description="Gestão de Serviços"
+          hidden={isComposeActive && activeSection === 'emails-new'}
+          search={
+            activeSection === 'mailmarketing' && mailMarketingTab === 'subs'
+              ? {
+                  value: mailMarketingSearchTerm,
+                  onChange: setMailMarketingSearchTerm,
+                  placeholder: 'Pesquisar contacto...',
+                }
+              : undefined
+          }
+          toolbar={
+            activeSection === 'mailmarketing' ? (
+              <div className="flex relative bg-slate-100 p-1 rounded-lg shadow-inner dark:bg-zinc-800">
+                <div
+                  className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out dark:bg-zinc-900"
+                  style={{
+                    width: 'calc(33.33% - 2.66px)',
+                    left:
+                      mailMarketingTab === 'comp'
+                        ? '4px'
+                        : mailMarketingTab === 'camp'
+                          ? 'calc(33.33% + 1.33px)'
+                          : 'calc(66.66% - 1.33px)',
+                  }}
+                />
                 <button
-                  onClick={() => { setMostrarAdicionarConta(true); setModalAdicionarPasso('escolher') }}
-                  className="ml-2 bg-red-600 hover:bg-red-700 text-white text-xs border border-red-600 rounded-lg px-4 py-2 transition-colors font-bold">
+                  type="button"
+                  onClick={() => setMailMarketingTab('comp')}
+                  className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'comp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700 dark:text-zinc-400'}`}
+                >
+                  Compor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMailMarketingTab('camp')}
+                  className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'camp' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700 dark:text-zinc-400'}`}
+                >
+                  Campanhas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMailMarketingTab('subs')}
+                  className={`relative z-10 w-[95px] flex items-center justify-center py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${mailMarketingTab === 'subs' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700 dark:text-zinc-400'}`}
+                >
+                  Contactos
+                </button>
+              </div>
+            ) : undefined
+          }
+          actions={
+            <>
+              {activeSection === 'emails-new' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarAdicionarConta(true)
+                    setModalAdicionarPasso('escolher')
+                  }}
+                  className={panelBtnPrimary}
+                >
                   + Adicionar Conta
                 </button>
-              )}
-              <button onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors" title="Sair">
+              ) : null}
+              <button
+                type="button"
+                onClick={async () => {
+                  await createClientInstance.auth.signOut()
+                  window.location.href = '/auth/login'
+                }}
+                className={panelBtnSecondary}
+                title="Sair"
+              >
                 <LogOut size={13} />
                 Sair
               </button>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         {/* Content Area */}
         <main className={`flex-1 ${isComposeActive && activeSection === 'emails-new' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'emails-new', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50 dark:bg-zinc-950`}>

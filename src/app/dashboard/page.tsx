@@ -19,7 +19,8 @@ import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { ListWebsitesSection, sortSitesPrimaryFirst } from '@/components/panel/ListWebsitesSection'
-import { panelBtnSecondary } from '@/lib/panel-ui'
+import { panelBtnSecondary, panelDashboardGrid, panelDashboardToolCard, panelSectionPadding } from '@/lib/panel-ui'
+import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
@@ -1078,7 +1079,7 @@ function ManageWebsiteSection({
     isForm?: boolean
   }) => {
     const content = (
-      <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[130px]">
+      <div className={panelDashboardToolCard}>
         <div className={cn(
           "mb-3 p-3 rounded-full transform group-hover:scale-110 transition-transform duration-300",
           bgColor || "bg-gray-50"
@@ -1149,7 +1150,7 @@ function ManageWebsiteSection({
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <button
           onClick={() => toggleSection(id)}
-          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+          className="w-full flex items-center justify-between px-4 py-3 md:px-6 md:py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
         >
           <div className="flex items-center gap-3">
             <div className={`${bgColor} ${color} p-2 rounded-lg`}>
@@ -1167,8 +1168,8 @@ function ManageWebsiteSection({
         </button>
 
         {isExpanded && (
-          <div className="p-6 bg-[#f8fafc]">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+          <div className={`${panelSectionPadding} bg-[#f8fafc]`}>
+            <div className={panelDashboardGrid}>
               {children}
             </div>
           </div>
@@ -1190,7 +1191,7 @@ function ManageWebsiteSection({
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
 
       {/* 1-Click Apps Section */}
       <SectionCard
@@ -1545,7 +1546,7 @@ function AdminPageContent() {
   const { chrome } = useAdminSectionChrome();
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { isCollapsed, setIsCollapsed, isMobile } = usePanelSidebarCollapsed()
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
   const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
@@ -2335,6 +2336,7 @@ function AdminPageContent() {
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
+        isMobile={isMobile}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PanelHeader

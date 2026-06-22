@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { panelDashboardGrid, panelDashboardToolCard, panelSectionPadding, panelBtnSecondary } from '@/lib/panel-ui'
+import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { ResellerDirectAccessSection } from '@/components/revendedor/ResellerDirectAccessSection'
 import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -66,7 +68,7 @@ import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { getPanelBreadcrumbTrail } from '@/lib/panel-breadcrumb'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
-import { PanelBreadcrumb } from '@/components/panel/PanelBreadcrumb'
+import { PanelHeader } from '@/components/panel/PanelHeader'
 import { ListWebsitesSection as PanelListWebsitesSection } from '@/components/panel/ListWebsitesSection'
 
 const directAdminAPI = panelAPI
@@ -1424,7 +1426,7 @@ function ManageWebsiteSection({
     isForm?: boolean
   }) => {
     const content = (
-      <div className="relative group flex flex-col items-center justify-center p-5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer h-full min-h-[130px]">
+      <div className={panelDashboardToolCard}>
         <div className={cn(
           "mb-3 p-3 rounded-full transform group-hover:scale-110 transition-transform duration-300",
           bgColor || "bg-gray-50"
@@ -1495,7 +1497,7 @@ function ManageWebsiteSection({
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <button
           onClick={() => toggleSection(id)}
-          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+          className="w-full flex items-center justify-between px-4 py-3 md:px-6 md:py-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
         >
           <div className="flex items-center gap-3">
             <div className={`${bgColor} ${color} p-2 rounded-lg`}>
@@ -1513,8 +1515,8 @@ function ManageWebsiteSection({
         </button>
 
         {isExpanded && (
-          <div className="p-6 bg-[#f8fafc]">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+          <div className={`${panelSectionPadding} bg-[#f8fafc]`}>
+            <div className={panelDashboardGrid}>
               {children}
             </div>
           </div>
@@ -1536,7 +1538,7 @@ function ManageWebsiteSection({
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
 
       {/* 1-Click Apps Section */}
       <SectionCard
@@ -1889,7 +1891,7 @@ function ManageWebsiteSection({
 export default function ResellerPage() {
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { isCollapsed, setIsCollapsed, isMobile } = usePanelSidebarCollapsed()
   const [fileManagerDomain, setFileManagerDomain] = useState('')
   const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
   const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
@@ -2626,7 +2628,7 @@ export default function ResellerPage() {
   }, [])
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="panel-shell font-panel flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
       <ResellerSidebar
         activeSection={activeSection}
         onNavigate={handleNavigate}
@@ -2635,65 +2637,58 @@ export default function ResellerPage() {
         sessionUser={sessionUser}
         displayName={resellerDisplayName}
         customLogo={logoUrl}
+        isMobile={isMobile}
       />
-      <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-white">
-        <header className={`bg-white border-b border-gray-200 px-6 py-4 ${isComposeActive && activeSection === 'webmail' ? 'hidden' : ''}`}>
-          <div className="flex items-start justify-between">
-            <div>
-              <PanelBreadcrumb items={breadcrumbs} onNavigate={handleBreadcrumbNavigate} className="mb-1" />
-              <h1 className="text-2xl font-bold text-gray-900">
-                {getSectionInfo(activeSection).title}
-              </h1>
-              {getSectionInfo(activeSection).description ? (
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {getSectionInfo(activeSection).description}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-3">
-              {activeSection === 'dashboard' && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    value={dashboardSearch}
-                    onChange={(e) => setDashboardSearch(e.target.value)}
-                    placeholder="Pesquisar ferramentas..."
-                    className="w-[350px] pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                {['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
-                  <a
-                    href={getDirectAdminAccessUrl('reseller')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 transition-all"
-                  >
-                    <Globe size={13} /> {t('admin.settings.directadmin')}
-                  </a>
-                ) : null}
-                <button
-                  onClick={async () => { await createClientInstance.auth.signOut(); window.location.href = '/auth/login'; }}
-                  className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all"
-                  title={t('sidebar.logout')}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
+        <PanelHeader
+          title={getSectionInfo(activeSection).title}
+          description={getSectionInfo(activeSection).description}
+          breadcrumbs={breadcrumbs}
+          onBreadcrumbNavigate={handleBreadcrumbNavigate}
+          search={
+            activeSection === 'dashboard'
+              ? {
+                  value: dashboardSearch,
+                  onChange: setDashboardSearch,
+                  placeholder: 'Pesquisar ferramentas...',
+                }
+              : undefined
+          }
+          hidden={isComposeActive && activeSection === 'webmail'}
+          actions={
+            <>
+              {['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
+                <a
+                  href={getDirectAdminAccessUrl('reseller')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={panelBtnSecondary}
                 >
-                  <LogOut size={14} />
-                  <span>Sair da Conta</span>
-                </button>
-                {isAdminImpersonating ? (
-                  <a
-                    href="/api/admin/impersonate?exit=1"
-                    className="bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 text-xs font-bold px-4 py-2 rounded flex items-center gap-2 transition-all"
-                  >
-                    <ArrowLeft size={14} />
-                    <span>Voltar ao painel</span>
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </header>
+                  <Globe size={13} />
+                  <span>{t('admin.settings.directadmin')}</span>
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={async () => {
+                  await createClientInstance.auth.signOut()
+                  window.location.href = '/auth/login'
+                }}
+                className={panelBtnSecondary}
+                title={t('sidebar.logout')}
+              >
+                <LogOut size={14} />
+                <span>Sair da Conta</span>
+              </button>
+              {isAdminImpersonating ? (
+                <a href="/api/admin/impersonate?exit=1" className={panelBtnSecondary}>
+                  <ArrowLeft size={14} />
+                  <span>Voltar ao painel</span>
+                </a>
+              ) : null}
+            </>
+          }
+        />
 
         <main
           className={`flex-1 min-h-0 ${

@@ -8,6 +8,9 @@ import {
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
 import { useResellerNotificationBadge } from '@/components/revendedor/ResellerNotificationsInbox';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
+import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
+import { panelShellHeaderHeight } from '@/lib/panel-ui';
+import { cn } from '@/lib/utils';
 
 function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
   return (
@@ -45,6 +48,7 @@ interface ResellerSidebarProps {
   sessionUser: string | null;
   displayName?: string | null;
   customLogo?: string;
+  isMobile?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -80,6 +84,7 @@ export function ResellerSidebar({
   sessionUser,
   displayName,
   customLogo,
+  isMobile = false,
 }: ResellerSidebarProps) {
   const { privileges } = useResellerMenuPrivileges();
   const { unreadCount, refreshUnread } = useResellerNotificationBadge();
@@ -156,54 +161,87 @@ export function ResellerSidebar({
 
       return (
         <div key={item.id}>
-          <button
-            type="button"
-            onClick={() => handleParentClick(item)}
-            className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
-              isCollapsed ? 'justify-center px-2' : 'px-2.5'
-            } rounded-lg ${
-              isActive
-                ? 'text-red-600 font-bold'
-                : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
-            }`}
-            title={isCollapsed ? item.label : ''}
-          >
-            {item.id === 'nov-wordpress' ? (
-              <WordPressMenuIcon
-                size={20}
-                className={
+          {(() => {
+            const parentButton = (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isCollapsed && isMobile && hasSubItems) return;
+                  handleParentClick(item);
+                }}
+                className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
+                  isCollapsed ? 'justify-center px-2' : 'px-2.5'
+                } rounded-lg ${
                   isActive
-                    ? 'text-red-600'
-                    : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
-                }
-              />
-            ) : (
-              <Icon
-                size={20}
-                className={`shrink-0 ${
-                  isActive
-                    ? 'text-red-600'
-                    : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                    ? 'text-red-600 font-bold'
+                    : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
                 }`}
-              />
-            )}
-            {!isCollapsed && (
-              <span className="ml-3 flex flex-1 items-center gap-2 truncate text-base leading-none">
-                {item.label}
-                {showNotifBadge && (
-                  <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                title={isCollapsed ? item.label : ''}
+              >
+                {item.id === 'nov-wordpress' ? (
+                  <WordPressMenuIcon
+                    size={20}
+                    className={
+                      isActive
+                        ? 'text-red-600'
+                        : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                    }
+                  />
+                ) : (
+                  <Icon
+                    size={20}
+                    className={`shrink-0 ${
+                      isActive
+                        ? 'text-red-600'
+                        : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                    }`}
+                  />
+                )}
+                {!isCollapsed && (
+                  <span className="ml-3 flex flex-1 items-center gap-2 truncate text-base leading-none">
+                    {item.label}
+                    {showNotifBadge && (
+                      <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                   </span>
                 )}
-              </span>
-            )}
-            {!isCollapsed && hasSubItems && (
-              <ChevronRight
-                size={14}
-                className={`${showNotifBadge ? '' : 'ml-auto'} text-gray-400 transition-transform group-hover:text-red-600 dark:group-hover:text-red-400 ${isOpen ? 'rotate-90' : ''}`}
-              />
-            )}
-          </button>
+                {!isCollapsed && hasSubItems && (
+                  <ChevronRight
+                    size={14}
+                    className={`${showNotifBadge ? '' : 'ml-auto'} text-gray-400 transition-transform group-hover:text-red-600 dark:group-hover:text-red-400 ${isOpen ? 'rotate-90' : ''}`}
+                  />
+                )}
+              </button>
+            );
+
+            if (isCollapsed && isMobile && hasSubItems) {
+              return (
+                <SidebarMenuFlyout
+                  label={item.label}
+                  subItems={item.subItems!.map((sub) => ({
+                    id: sub.id,
+                    label: sub.label,
+                    isHeader: sub.id.endsWith('-header'),
+                    badge:
+                      sub.id === 'notificacoes-recebidas' && unreadCount > 0 ? (
+                        <span className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold leading-none text-white">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      ) : undefined,
+                  }))}
+                  activeSection={activeSection}
+                  resolveSectionId={resolveSectionId}
+                  onSubNavigate={handleSubClick}
+                >
+                  {parentButton}
+                </SidebarMenuFlyout>
+              );
+            }
+
+            return parentButton;
+          })()}
 
           {!isCollapsed && hasSubItems && isOpen && (
             <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
@@ -243,10 +281,15 @@ export function ResellerSidebar({
 
   return (
     <div
-      className="font-panel relative flex h-screen shrink-0 flex-col border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
+      className="font-panel relative z-50 flex h-screen shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="border-b border-zinc-200 px-2 pb-4 pt-4 dark:border-zinc-800">
+      <div
+        className={cn(
+          'shrink-0 border-b border-zinc-200 px-2 dark:border-zinc-800',
+          isCollapsed ? 'py-4' : cn(panelShellHeaderHeight, 'flex items-center'),
+        )}
+      >
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
@@ -290,8 +333,8 @@ export function ResellerSidebar({
         )}
       </div>
 
-      <nav className="flex-1 min-h-0 overflow-y-auto px-2 py-2">
-        <div className="space-y-0">
+      <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
+        <div className="flex flex-col space-y-0">
           {renderMenuBlock(mainMenuItems, { includeDashboard: true })}
         </div>
       </nav>

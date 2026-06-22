@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost } from '@/lib/server-config'
+import { panelDashboardGridCompact, panelDashboardToolCardCompact, panelSectionPadding } from '@/lib/panel-ui'
 
 
 interface Tool {
@@ -238,14 +239,14 @@ export function CpanelDashboard({
     : sections
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
       {/* Main Grid */}
       <div className="flex-1 min-w-0 space-y-3">
         {filtered.map(section => (
           <div key={section.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <button
               onClick={() => toggle(section.id)}
-              className={`w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b ${collapsed[section.id] ? 'border-transparent' : 'border-gray-100 dark:border-zinc-800'}`}
+              className={`w-full flex items-center justify-between px-4 py-3 md:px-5 md:py-3.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b ${collapsed[section.id] ? 'border-transparent' : 'border-gray-100 dark:border-zinc-800'}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`${section.bgColor} ${section.color} p-1.5 rounded`}>
@@ -260,20 +261,18 @@ export function CpanelDashboard({
             </button>
 
             {!collapsed[section.id] && (
-              <div className="p-4">
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              <div className={`${panelSectionPadding} md:p-4`}>
+                <div className={panelDashboardGridCompact}>
                   {section.tools.map((tool, i) =>
                     tool.external ? (
                       <a key={i} href={tool.external} target="_blank" rel="noopener noreferrer"
-                        className={`dashboard-tool flex flex-col items-center gap-2 p-3 rounded border transition-all group text-center hover:bg-gray-50 dark:hover:bg-white/10 dark:hover:border-zinc-700 ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:border-zinc-700 dark:bg-transparent' : 'border-transparent hover:border-gray-200'
-                          }`}>
+                        className={`${panelDashboardToolCardCompact} ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:bg-blue-950/20' : ''}`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
                         <span className={`text-xs font-medium leading-tight dark:text-zinc-400 group-hover:dark:text-red-400 ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </a>
                     ) : (
                       <button key={i} onClick={() => handleDNSNavigate(tool.id)}
-                        className={`dashboard-tool flex flex-col items-center gap-2 p-3 rounded border transition-all group text-center w-full hover:bg-gray-50 dark:hover:bg-white/10 dark:hover:border-zinc-700 ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:border-zinc-700 dark:bg-transparent' : 'border-transparent hover:border-gray-200'
-                          }`}>
+                        className={`${panelDashboardToolCardCompact} w-full ${tool.highlight ? 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:bg-blue-950/20' : ''}`}>
                         <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
                         <span className={`text-xs font-medium leading-tight dark:text-zinc-400 group-hover:dark:text-red-400 ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}>{tool.name}</span>
                       </button>
@@ -287,7 +286,7 @@ export function CpanelDashboard({
       </div>
 
       {/* Right Sidebar */}
-      <div className="w-60 shrink-0 space-y-4">
+      <div className="hidden w-60 shrink-0 space-y-4 lg:block">
         {/* Server Info */}
         <div className="bg-white rounded border border-gray-200 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">

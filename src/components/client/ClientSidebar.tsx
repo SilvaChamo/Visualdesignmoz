@@ -19,6 +19,9 @@ import {
   isClientMenuItemActive,
 } from '@/lib/panel-client-menu';
 import { resolveSectionId } from '@/lib/panel-admin-menu';
+import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
+import { panelShellHeaderHeight } from '@/lib/panel-ui';
+import { cn } from '@/lib/utils';
 
 function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
   return (
@@ -65,6 +68,7 @@ interface ClientSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   cliente?: { nome?: string; email?: string } | null;
+  isMobile?: boolean;
 }
 
 export function ClientSidebar({
@@ -73,8 +77,9 @@ export function ClientSidebar({
   isCollapsed,
   setIsCollapsed,
   cliente,
+  isMobile = false,
 }: ClientSidebarProps) {
-  const currentSidebarWidth = isCollapsed ? 80 : 250;
+  const currentSidebarWidth = isCollapsed ? 64 : 250;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -109,16 +114,21 @@ export function ClientSidebar({
 
   return (
     <div
-      className="relative flex flex-col border-r border-gray-200 bg-white text-gray-800 shadow-sm transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+      className="relative z-50 flex shrink-0 flex-col overflow-visible border-r border-gray-200 bg-white text-gray-800 shadow-sm transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
       style={{ width: `${currentSidebarWidth}px` }}
     >
-      <div className="border-b border-gray-100 px-2 pb-4 pt-4 dark:border-zinc-800">
+      <div
+        className={cn(
+          'shrink-0 border-b border-gray-100 px-2 dark:border-zinc-800',
+          isCollapsed ? 'py-4' : cn(panelShellHeaderHeight, 'flex items-center'),
+        )}
+      >
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-3">
             <img
               src="/assets/simbolo.png"
               alt="Logo"
-              className="h-12 w-12 cursor-pointer object-contain"
+              className="h-11 w-11 cursor-pointer object-contain"
               onClick={() => { window.location.href = '/'; }}
             />
             <button
@@ -134,7 +144,7 @@ export function ClientSidebar({
             <img
               src="/assets/simbolo.png"
               alt="Logo"
-              className="h-14 w-14 cursor-pointer object-contain"
+              className="h-11 w-11 cursor-pointer object-contain"
               onClick={() => { window.location.href = '/'; }}
             />
             <div className="flex-1">
@@ -155,8 +165,8 @@ export function ClientSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2.5">
-        <div className="space-y-0.5">
+      <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2.5">
+        <div className="flex flex-col space-y-0.5">
           {FLAT_ITEMS.slice(0, 2).map((item) => {
             const Icon = item.icon;
             const isActive = isFlatActive(item);
@@ -187,48 +197,75 @@ export function ClientSidebar({
 
             return (
               <div key={menu.id} className="mb-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleParentClick(menu.id, hasSubItems)}
-                  className={`group flex w-full items-center rounded-lg transition-all duration-200 ease-out hover:translate-x-1 ${
-                    isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'
-                  } ${
-                    isActive || isOpen
-                      ? 'font-bold text-gray-900 dark:text-zinc-100'
-                      : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
-                  }`}
-                >
-                  {menu.id === 'nov-wordpress' ? (
-                    <WordPressMenuIcon
-                      size={22}
-                      className={
-                        isActive
-                          ? 'text-gray-900 dark:text-zinc-100'
-                          : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
-                      }
-                    />
-                  ) : (
-                    <Icon
-                      size={22}
-                      className={
-                        isActive
-                          ? 'text-gray-900 dark:text-zinc-100'
-                          : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
-                      }
-                    />
-                  )}
-                  {!isCollapsed && (
-                    <>
-                      <span className="ml-3 flex-1 text-left text-[15px]">{menu.label}</span>
-                      {hasSubItems && (
-                        <ChevronRight
-                          size={14}
-                          className={`text-gray-400 transition-transform group-hover:text-red-600 dark:group-hover:text-red-400 ${isOpen ? 'rotate-90' : ''}`}
+                {(() => {
+                  const parentButton = (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCollapsed && isMobile && hasSubItems) return;
+                        handleParentClick(menu.id, hasSubItems);
+                      }}
+                      className={`group flex w-full items-center rounded-lg transition-all duration-200 ease-out hover:translate-x-1 ${
+                        isCollapsed ? 'justify-center px-2 py-2' : 'p-2.5 px-4'
+                      } ${
+                        isActive || isOpen
+                          ? 'font-bold text-gray-900 dark:text-zinc-100'
+                          : 'text-gray-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400'
+                      }`}
+                      title={isCollapsed ? menu.label : ''}
+                    >
+                      {menu.id === 'nov-wordpress' ? (
+                        <WordPressMenuIcon
+                          size={22}
+                          className={
+                            isActive
+                              ? 'text-gray-900 dark:text-zinc-100'
+                              : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                          }
+                        />
+                      ) : (
+                        <Icon
+                          size={22}
+                          className={
+                            isActive
+                              ? 'text-gray-900 dark:text-zinc-100'
+                              : 'text-gray-500 group-hover:text-red-600 dark:text-zinc-500 dark:group-hover:text-red-400'
+                          }
                         />
                       )}
-                    </>
-                  )}
-                </button>
+                      {!isCollapsed && (
+                        <>
+                          <span className="ml-3 flex-1 text-left text-[15px]">{menu.label}</span>
+                          {hasSubItems && (
+                            <ChevronRight
+                              size={14}
+                              className={`text-gray-400 transition-transform group-hover:text-red-600 dark:group-hover:text-red-400 ${isOpen ? 'rotate-90' : ''}`}
+                            />
+                          )}
+                        </>
+                      )}
+                    </button>
+                  );
+
+                  if (isCollapsed && isMobile && hasSubItems) {
+                    return (
+                      <SidebarMenuFlyout
+                        label={menu.label}
+                        subItems={menu.subItems!.map((sub) => ({
+                          id: sub.id,
+                          label: sub.label,
+                        }))}
+                        activeSection={activeSection}
+                        resolveSectionId={resolveSectionId}
+                        onSubNavigate={handleSubClick}
+                      >
+                        {parentButton}
+                      </SidebarMenuFlyout>
+                    );
+                  }
+
+                  return parentButton;
+                })()}
 
                 {!isCollapsed && hasSubItems && isOpen && (
                   <div className="ml-9 mt-1 flex flex-col gap-0.5 border-l border-gray-200 dark:border-zinc-800">

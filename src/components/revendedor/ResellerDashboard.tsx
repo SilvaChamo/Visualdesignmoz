@@ -186,7 +186,7 @@ export function ResellerDashboard({
   return (
     <div className="flex gap-5 p-5">
       <div className="flex-1 space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
               <Globe className="w-6 h-6 text-blue-600 dark:text-blue-400" />
