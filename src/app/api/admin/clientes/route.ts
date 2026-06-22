@@ -34,6 +34,9 @@ import {
 } from '@/lib/panel-mirror-read';
 
 import { enrichPanelAccounts } from '@/lib/panel-contas-enrich';
+import {
+  schedulePanelServerProvision,
+} from '@/lib/panel-server-provision';
 
 const OSHER_RESELLER = 'oshercollective';
 
@@ -133,6 +136,23 @@ async function lookupPackageLimits(packageName: string): Promise<{
     diskMb === null ? 'Ilimitado' : diskMb !== undefined ? formatPackageSize(diskMb) : '—';
 
   return { diskMb, bandwidthMb, quotaLabel };
+}
+
+async function isPanelManagedWithoutServer(userName: string): Promise<boolean> {
+  const sb = getDaSyncAdmin();
+  if (!sb) return false;
+  const { data: user } = await sb
+    .from('panel_users')
+    .select('auth_user_id')
+    .eq('username', userName)
+    .maybeSingle();
+  if (!user?.auth_user_id) return false;
+  const { data: auth } = await sb
+    .from('panel_auth_accounts')
+    .select('server_linked')
+    .eq('user_id', user.auth_user_id)
+    .maybeSingle();
+  return auth?.server_linked !== true;
 }
 
 export async function GET(req: NextRequest) {
@@ -383,12 +403,15 @@ export async function POST(req: NextRequest) {
 
     const primaryDomain = createdDomain.includes('.') ? createdDomain : `${userName}.com`;
 
+    schedulePanelServerProvision(userName, 800);
+
     return NextResponse.json({
       success: true,
       userName,
       domain: createdDomain,
       accountType,
       provisionMode: 'panel',
+      serverSynced: false,
       user: {
         userName,
         email: normalizedEmail,
@@ -496,13 +519,6 @@ export async function PATCH(req: NextRequest) {
         packageName,
       });
 
-      if (!pushed.ok) {
-        return NextResponse.json(
-          { success: false, error: pushed.error || 'Não foi possível aplicar no servidor' },
-          { status: 502 },
-        );
-      }
-
       if (primaryDomain && (packageName !== undefined || adminEmail !== undefined)) {
         await mirrorAfterDaMutation('modifyWebsite', {
           domain: primaryDomain,
@@ -511,8 +527,19 @@ export async function PATCH(req: NextRequest) {
         });
       }
 
+      if (!pushed.ok) {
+        schedulePanelServerProvision(userName, 1500);
+        scheduleDaSync(1500);
+        return NextResponse.json({
+          success: true,
+          data,
+          serverSynced: false,
+          warning: 'Conta actualizada no painel. O servidor sincroniza quando estiver disponível.',
+        });
+      }
+
       scheduleDaSync(1500);
-      return NextResponse.json({ success: true, data });
+      return NextResponse.json({ success: true, data, serverSynced: true });
     }
 
     let data: unknown;
@@ -575,6 +602,19 @@ export async function PATCH(req: NextRequest) {
       if (action === 'suspend') await patchMirrorUser(userName, { status: 'Suspended' });
       else if (action === 'unsuspend') await patchMirrorUser(userName, { status: 'Active' });
       else if (action === 'delete') await deleteMirrorUser(userName);
+    } else if (action === 'suspend' || action === 'unsuspend' || action === 'delete') {
+      const panelOnly = await isPanelManagedWithoutServer(userName);
+      if (panelOnly) {
+        if (action === 'suspend') await patchMirrorUser(userName, { status: 'Suspended' });
+        else if (action === 'unsuspend') await patchMirrorUser(userName, { status: 'Active' });
+        else if (action === 'delete') await deleteMirrorUser(userName);
+        return NextResponse.json({
+          success: true,
+          data,
+          serverSynced: false,
+          warning: 'Alteração aplicada no painel. O servidor sincroniza quando estiver disponível.',
+        });
+      }
     }
 
     if (action !== 'sendMessage' && ok) scheduleDaSync(1500);

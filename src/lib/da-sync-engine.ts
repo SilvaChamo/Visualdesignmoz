@@ -164,6 +164,20 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     };
   }
 
+  try {
+    const { provisionPendingPanelAccounts } = await import('@/lib/panel-server-provision');
+    const pushed = await provisionPendingPanelAccounts();
+    if (pushed.linked > 0) {
+      console.info(`[da-sync] ${pushed.linked} conta(s) do painel reflectidas no servidor`);
+    }
+    for (const err of pushed.errors.slice(0, 5)) {
+      errors.push(`provision: ${err}`);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Falha ao provisionar contas do painel';
+    errors.push(msg);
+  }
+
   let syncId: string | undefined;
   try {
     const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();

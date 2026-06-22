@@ -215,6 +215,11 @@ export function ProvisionClienteSection({
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(String(json.error || 'Falha ao actualizar conta'));
 
+        const serverNote =
+          json.serverSynced === false && json.warning
+            ? ` ${String(json.warning)}`
+            : '';
+
         if (identity.password.length >= 8) {
           const passRes = await fetch(accountsApiBase, {
             method: 'PATCH',
@@ -233,7 +238,7 @@ export function ProvisionClienteSection({
         }
 
         setDone(true);
-        setMsg(`Conta ${editUser.userName} actualizada.`);
+        setMsg(`Conta ${editUser.userName} actualizada.${serverNote}`);
         onComplete?.();
         return;
       }
@@ -264,8 +269,12 @@ export function ProvisionClienteSection({
         String(json.domain || domain || (accountType !== 'client' ? `${username}.com` : '')).trim();
       const typeLabel =
         accountType === 'professional' ? 'Profissional' : accountType === 'reseller' ? 'Revendedor' : 'Cliente';
+      const serverNote =
+        json.serverSynced === true
+          ? ''
+          : ' A sincronização com o servidor de hospedagem será feita automaticamente quando estiver disponível.';
       setMsg(
-        `Conta ${typeLabel} ${username}${createdDomain ? ` (${createdDomain})` : ''} criada no painel.`,
+        `Conta ${typeLabel} ${username}${createdDomain ? ` (${createdDomain})` : ''} criada no painel.${serverNote}`,
       );
       onComplete?.({ user: json.user as ProvisionCreatedUser | undefined });
     } catch (e: unknown) {
