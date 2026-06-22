@@ -64,7 +64,7 @@ export async function GET() {
         packages: packagesOut,
       });
       sitesOut = scoped.sites;
-      packagesOut = scoped.packages;
+      // Pacotes: lista completa do espelho (igual ao DA); sites continuam filtrados ao âmbito admin.
     }
 
     if (!sitesOut.length && !usersOut.length) {

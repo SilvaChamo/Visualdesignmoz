@@ -10,7 +10,7 @@ SSH_KEY="${SSH_KEY:-$HOME/.ssh/visualdesign_hetzner}"
 SSH_USER="${SSH_USER:-root}"
 LOCAL_PROJECT="$(cd "$(dirname "$0")/.." && pwd)"
 REMOTE_DIR="/opt/visualdesign-panel"
-PANEL_PORT="${PANEL_PORT:-3003}"
+PANEL_PORT="${PANEL_PORT:-3002}"
 ENV_FILE="${LOCAL_PROJECT}/.env.local"
 
 SSH_OPTS=(-p "$SSH_PORT" -o StrictHostKeyChecking=no)

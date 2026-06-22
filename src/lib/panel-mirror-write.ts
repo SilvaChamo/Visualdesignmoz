@@ -19,26 +19,32 @@ export async function upsertMirrorUser(row: {
   websites_limit?: number;
   emails_limit?: number;
   parent_username?: string | null;
+  auth_user_id?: string | null;
+  package_name?: string | null;
+  quota_limit_mb?: number | null;
+  bandwidth_limit_mb?: number | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const sb = getDaSyncAdmin();
   if (!sb) return { ok: false, error: 'Base de dados indisponível' };
   const ts = now();
-  const { error } = await sb.from('panel_users').upsert(
-    {
-      username: row.username,
-      email: row.email ?? '',
-      first_name: row.first_name ?? '',
-      last_name: row.last_name ?? '',
-      acl: row.acl ?? 'user',
-      status: row.status ?? 'Active',
-      websites_limit: row.websites_limit ?? 0,
-      emails_limit: row.emails_limit ?? 0,
-      parent_username: row.parent_username ?? null,
-      synced_at: ts,
-      updated_at: ts,
-    },
-    { onConflict: 'username' },
-  );
+  const payload: Record<string, unknown> = {
+    username: row.username,
+    email: row.email ?? '',
+    first_name: row.first_name ?? '',
+    last_name: row.last_name ?? '',
+    acl: row.acl ?? 'user',
+    status: row.status ?? 'Active',
+    websites_limit: row.websites_limit ?? 0,
+    emails_limit: row.emails_limit ?? 0,
+    parent_username: row.parent_username ?? null,
+    synced_at: ts,
+    updated_at: ts,
+  };
+  if (row.auth_user_id) payload.auth_user_id = row.auth_user_id;
+  if (row.package_name) payload.package_name = row.package_name;
+  if (row.quota_limit_mb !== undefined) payload.quota_limit_mb = row.quota_limit_mb;
+  if (row.bandwidth_limit_mb !== undefined) payload.bandwidth_limit_mb = row.bandwidth_limit_mb;
+  const { error } = await sb.from('panel_users').upsert(payload, { onConflict: 'username' });
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 

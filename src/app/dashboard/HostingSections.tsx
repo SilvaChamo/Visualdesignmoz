@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
-import { panelBtnPrimary, panelBtnSecondary, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard } from '@/lib/panel-ui'
+import { panelBtnPrimary, panelBtnSecondary, panelCard, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard } from '@/lib/panel-ui'
 import { PanelIconTip } from '@/components/panel/PanelIconTip'
 import { directAdminAPI } from '@/lib/directadmin-api'
 import type {
@@ -55,7 +55,7 @@ import {
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
   Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search,
-  Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare
+  Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare, FolderPlus, FilePlus
 } from 'lucide-react'
 
 function isDaCommandOk(result: unknown): boolean {
@@ -6779,9 +6779,17 @@ export function PackagesSection({
     setPackageForm(createDefaultResellerPackageForm())
   }
 
-  const loadLivePackages = async (opts?: { background?: boolean }) => {
+  const loadLivePackages = async (opts?: { background?: boolean; sync?: boolean }) => {
     if (!opts?.background) setLoadingLive(true)
     try {
+      if (opts?.sync) {
+        await fetch('/api/server-exec', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fullSync' }),
+        })
+      }
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         credentials: 'include',
@@ -6810,7 +6818,7 @@ export function PackagesSection({
     if (!isActive) return
     setChrome(null)
     clearPackagesCache(panelScope)
-    void loadLivePackages()
+    void loadLivePackages({ sync: true })
     return () => setChrome(null)
   }, [isActive, setChrome])
 
@@ -7030,7 +7038,7 @@ export function PackagesSection({
             </button>
             <button
               type="button"
-              onClick={() => void loadLivePackages()}
+              onClick={() => void loadLivePackages({ sync: true })}
               disabled={loadingLive}
               title="Actualizar"
               className={panelBtnSecondary}
@@ -7075,20 +7083,15 @@ export function PackagesSection({
                     const name = String(pkg.packageName || pkg.name || '-')
                     const split = splitCompositePackageName(name)
                     return (
-                      <>
-                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
-                          {split.packageName || '-'}
-                        </p>
-                        <p className="truncate text-[11px] text-gray-500 dark:text-zinc-400">
-                          Domínio: {split.ownerDomain || '—'}
-                        </p>
-                      </>
+                      <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                        {split.packageName || name || '-'}
+                      </p>
                     )
                   })()}
                 </div>
                 <div className="col-span-12 self-center sm:col-span-7">
                   <p className="text-xs text-gray-600 dark:text-zinc-400">
-                    Disco {formatPackageMetric(pkg.diskSpace ?? pkg.disk ?? '-', 'MB')} · Banda {formatPackageMetric(pkg.bandwidth ?? '-', 'MB')} · Emails {pkg.emailAccounts ?? pkg.emails ?? '-'} · BDs {pkg.dataBases ?? pkg.databases ?? '-'} · FTPs {pkg.ftpAccounts ?? pkg.ftp ?? '-'} · Domínios {pkg.allowedDomains ?? pkg.vdomains ?? '-'}
+                    Disco {formatPackageMetric(pkg.diskSpace ?? pkg.disk ?? '-', 'MB')} · Banda {formatPackageMetric(pkg.bandwidth ?? '-', 'MB')} · Emails {pkg.emailAccounts ?? pkg.emails ?? '-'} · BDs {pkg.dataBases ?? pkg.databases ?? '-'} · FTPs {pkg.ftpAccounts ?? pkg.ftp ?? '-'} · Sites {pkg.allowedDomains ?? pkg.vdomains ?? '-'}
                   </p>
                 </div>
                 <div className="col-span-12 flex shrink-0 items-center justify-end gap-2 sm:col-span-2">
@@ -7130,19 +7133,55 @@ export function PackagesSection({
   )
 }
 
-export function FileManagerSection({ domain, sites }: {
+const FM_EDITABLE_EXT = new Set([
+  'txt', 'html', 'htm', 'css', 'js', 'ts', 'jsx', 'tsx', 'php', 'json', 'xml', 'md', 'sql',
+  'yaml', 'yml', 'ini', 'conf', 'log', 'svg', 'sh', 'env', 'htaccess', 'twig', 'vue',
+])
+
+const fmToolbarBtn =
+  'inline-flex items-center gap-1.5 rounded border border-gray-200 dark:border-zinc-700 bg-transparent px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-zinc-300 transition-colors hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:pointer-events-none'
+
+const fmToolbarBtnGreen =
+  'inline-flex items-center gap-1.5 rounded border border-green-300/60 dark:border-green-800/60 bg-transparent px-2.5 py-1.5 text-xs font-medium text-green-600 dark:text-green-500 transition-colors hover:text-green-700 dark:hover:text-green-400 disabled:opacity-40'
+
+function formatFmBytes(value: number | string | undefined): string {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n < 0) return '—'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+function isFmEditableName(name: string): boolean {
+  if (name === '.htaccess') return true
+  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() || '' : ''
+  return FM_EDITABLE_EXT.has(ext)
+}
+
+export function FileManagerSection({ domain, sites, isActive = false }: {
   domain: string,
   sites: DirectAdminWebsite[]
+  isActive?: boolean
 }) {
   const [path, setPath] = useState('')
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [showAdvancedUpload, setShowAdvancedUpload] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
   const [siteRoot, setSiteRoot] = useState('')
   const [error, setError] = useState('')
+  const [actionMsg, setActionMsg] = useState('')
   const [uploadProgress, setUploadProgress] = useState<{name: string, current: number, total: number, progress: number, processing?: boolean} | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [editing, setEditing] = useState<{ path: string; name: string; content: string; saving: boolean } | null>(null)
+  const [transfer, setTransfer] = useState<{ mode: 'copy' | 'move'; sources: string[] } | null>(null)
+  const [transferDest, setTransferDest] = useState('')
+  const [transferBusy, setTransferBusy] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [toolbarStuck, setToolbarStuck] = useState(false)
+  const toolbarSentinelRef = useRef<HTMLDivElement>(null)
+  const { setChrome } = useAdminSectionChrome()
 
   const getOwner = (targetDomain: string) =>
     sites.find(s => s.domain === targetDomain)?.owner || 'admin'
@@ -7212,19 +7251,358 @@ export function FileManagerSection({ domain, sites }: {
       const next = `${path.replace(/\/$/, '')}/${folder}`
       setPath(next)
     }
+    setSelectedFiles([])
+    setMoreOpen(false)
   }
 
-  // Breadcrumb do path
+  const joinPath = (name: string) => `${path.replace(/\/$/, '')}/${name}`
+
+  const selectedEntries = () =>
+    files.filter((f: { name: string }) => selectedFiles.includes(f.name))
+
+  const selectedFullPaths = () => selectedFiles.map((name) => joinPath(name))
+
+  const execFileAction = async (action: string, params: Record<string, unknown>) => {
+    const res = await fetch('/api/server-exec', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, params }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Operação falhou')
+    }
+    return data
+  }
+
+  const flashAction = (text: string) => {
+    setActionMsg(text)
+    setTimeout(() => setActionMsg(''), 3500)
+  }
+
+  const refreshList = () => {
+    setSelectedFiles([])
+    setMoreOpen(false)
+    void loadFiles(path)
+  }
+
+  const handleEdit = async (name?: string) => {
+    const target = name || selectedFiles.find((n) => {
+      const entry = files.find((f: { name: string; isDir?: boolean }) => f.name === n)
+      return entry && !entry.isDir && isFmEditableName(n)
+    })
+    if (!target) {
+      alert('Seleccione um ficheiro de texto para editar.')
+      return
+    }
+    const filePath = joinPath(target)
+    setActionBusy(true)
+    try {
+      const data = await execFileAction('readFileContent', { path: filePath })
+      const b64 = data.data?.content as string
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      const content = new TextDecoder('utf-8').decode(bytes)
+      setEditing({ path: filePath, name: target, content, saving: false })
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível abrir o ficheiro')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editing) return
+    setEditing((prev) => prev ? { ...prev, saving: true } : null)
+    try {
+      const encoded = new TextEncoder().encode(editing.content)
+      let binary = ''
+      encoded.forEach((b) => { binary += String.fromCharCode(b) })
+      const contentBase64 = btoa(binary)
+      await execFileAction('writeFileContent', { path: editing.path, contentBase64 })
+      flashAction('Ficheiro guardado.')
+      setEditing(null)
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Erro ao guardar')
+      setEditing((prev) => prev ? { ...prev, saving: false } : null)
+    }
+  }
+
+  const handleCopy = () => {
+    if (!selectedFiles.length) return
+    setTransfer({ mode: 'copy', sources: selectedFullPaths() })
+    setTransferDest(path)
+    setMoreOpen(false)
+  }
+
+  const handleMove = () => {
+    if (!selectedFiles.length) return
+    setTransfer({ mode: 'move', sources: selectedFullPaths() })
+    setTransferDest(path)
+    setMoreOpen(false)
+  }
+
+  const confirmTransfer = async () => {
+    if (!transfer || !transferDest.trim()) return
+    setTransferBusy(true)
+    try {
+      const action = transfer.mode === 'copy' ? 'copyPaths' : 'movePaths'
+      await execFileAction(action, { sources: transfer.sources, destDir: transferDest.trim() })
+      flashAction(transfer.mode === 'copy' ? 'Cópia concluída.' : 'Movimento concluído.')
+      setTransfer(null)
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Operação falhou')
+    } finally {
+      setTransferBusy(false)
+    }
+  }
+
+  const handleDuplicate = async () => {
+    if (selectedFiles.length !== 1) {
+      alert('Seleccione apenas um item para duplicar.')
+      return
+    }
+    setActionBusy(true)
+    try {
+      await execFileAction('duplicatePath', { path: joinPath(selectedFiles[0]) })
+      flashAction('Duplicado com sucesso.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível duplicar')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    const targets = selectedEntries().filter((f: { isDir?: boolean }) => !f.isDir)
+    if (!targets.length) {
+      alert('Seleccione ficheiros para transferir.')
+      return
+    }
+    setActionBusy(true)
+    try {
+      for (const f of targets) {
+        const data = await execFileAction('downloadFile', { path: joinPath(f.name) })
+        const b64 = data.data?.content as string
+        const filename = (data.data?.filename as string) || f.name
+        const mime = (data.data?.mime as string) || 'application/octet-stream'
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+        const blob = new Blob([bytes], { type: mime })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+      flashAction('Download iniciado.')
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Download falhou')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const handleCompress = async () => {
+    if (!selectedFiles.length) return
+    const archivePath = `${path.replace(/\/$/, '')}/arquivo-${Date.now()}.zip`
+    setActionBusy(true)
+    try {
+      await execFileAction('compressPaths', { sources: selectedFullPaths(), archivePath })
+      flashAction('Arquivo criado na pasta actual.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível compactar')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedFiles.length) return
+    if (!confirm(`Eliminar ${selectedFiles.length} item(ns)? Esta acção é irreversível.`)) return
+    setActionBusy(true)
+    try {
+      await execFileAction('deletePaths', { paths: selectedFullPaths() })
+      flashAction('Eliminado.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
+    } finally {
+      setActionBusy(false)
+      setMoreOpen(false)
+    }
+  }
+
+  const handleRename = async () => {
+    if (selectedFiles.length !== 1) {
+      alert('Seleccione um único item para renomear.')
+      return
+    }
+    const current = selectedFiles[0]
+    const newName = prompt('Novo nome:', current)
+    if (!newName || newName === current) return
+    setActionBusy(true)
+    try {
+      await execFileAction('renamePath', { path: joinPath(current), newName })
+      flashAction('Renomeado.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível renomear')
+    } finally {
+      setActionBusy(false)
+      setMoreOpen(false)
+    }
+  }
+
+  const handleExtract = async () => {
+    if (selectedFiles.length !== 1) {
+      alert('Seleccione um arquivo (.zip, .tar.gz, .tgz, .tar).')
+      return
+    }
+    const name = selectedFiles[0].toLowerCase()
+    if (!name.endsWith('.zip') && !name.endsWith('.tar.gz') && !name.endsWith('.tgz') && !name.endsWith('.tar')) {
+      alert('Formato não suportado para extracção.')
+      return
+    }
+    setActionBusy(true)
+    try {
+      await execFileAction('extractArchive', { path: joinPath(selectedFiles[0]), destDir: path })
+      flashAction('Arquivo extraído.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Extracção falhou')
+    } finally {
+      setActionBusy(false)
+      setMoreOpen(false)
+    }
+  }
+
+  const handleNewFolder = async () => {
+    const name = prompt('Nome da nova pasta:')
+    if (!name?.trim()) return
+    setActionBusy(true)
+    try {
+      await execFileAction('createFolder', { path: joinPath(name.trim()) })
+      flashAction('Pasta criada.')
+      refreshList()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível criar a pasta')
+    } finally {
+      setActionBusy(false)
+      setMoreOpen(false)
+    }
+  }
+
+  const handleNewFile = async () => {
+    const name = prompt('Nome do novo ficheiro:')
+    if (!name?.trim()) return
+    const trimmed = name.trim()
+    if (files.some((f: { name: string }) => f.name === trimmed)) {
+      alert(`O ficheiro "${trimmed}" já existe na pasta actual.`)
+      return
+    }
+    setActionBusy(true)
+    try {
+      await execFileAction('writeFileContent', { path: joinPath(trimmed), contentBase64: btoa('') })
+      flashAction('Ficheiro criado.')
+      await loadFiles(path)
+      if (isFmEditableName(trimmed)) void handleEdit(trimmed)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Não foi possível criar o ficheiro')
+    } finally {
+      setActionBusy(false)
+      setMoreOpen(false)
+    }
+  }
+
+  const handleDomainChange = (next: string) => {
+    setSelectedDomain(next)
+    const root = resolveRoot(next)
+    setSiteRoot(root)
+    setPath(root)
+    setSelectedFiles([])
+    setMoreOpen(false)
+  }
+
+  const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
+
+  useEffect(() => {
+    if (!isActive) return
+    setChrome({
+      toolbar: (
+        <select
+          value={selectedDomain}
+          onChange={(e) => handleDomainChange(e.target.value)}
+          className={`${panelField} w-44 min-w-[10rem] max-w-xs`}
+        >
+          <option value="" disabled>Seleccione o domínio…</option>
+          {sites.map((s) => (
+            <option key={s.domain} value={s.domain}>{s.domain}</option>
+          ))}
+        </select>
+      ),
+    })
+    return () => setChrome(null)
+  }, [isActive, selectedDomain, siteDomainKey, setChrome])
+
+  useEffect(() => {
+    const sentinel = toolbarSentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setToolbarStuck(!entry.isIntersecting),
+      { threshold: 0 },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [])
+
+  const canEditSelection = selectedFiles.length === 1 && selectedEntries().every(
+    (f: { isDir?: boolean; name: string }) => !f.isDir && isFmEditableName(f.name),
+  )
+
   const pathParts = path.split('/').filter(Boolean)
 
+  if (editing) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-zinc-800 bg-transparent px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setEditing(null)}
+            className={panelBtnSecondary}
+          >
+            ← Voltar à lista
+          </button>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">{editing.name}</span>
+          <button
+            type="button"
+            onClick={() => void handleSaveEdit()}
+            disabled={editing.saving}
+            className={fmToolbarBtnGreen}
+          >
+            {editing.saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Guardar
+          </button>
+        </div>
+        <textarea
+          value={editing.content}
+          onChange={(e) => setEditing((prev) => prev ? { ...prev, content: e.target.value } : null)}
+          className={`${panelField} min-h-[65vh] w-full resize-y font-mono text-sm dark:bg-zinc-900`}
+          spellCheck={false}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="w-full space-y-4">
-      {/* Header & cPanel-like Toolbar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        
-        {/* Breadcrumb Control (Moved to Header) */}
-        <div className="flex-1 flex items-center gap-2 text-sm bg-transparent border border-gray-200 dark:border-zinc-800 rounded-lg px-4 py-2 shadow-sm min-h-[42px] overflow-x-auto whitespace-nowrap">
-          <button onClick={() => setPath(siteRoot || path)} className="text-zinc-600 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors flex items-center gap-1">
+    <div className="w-full space-y-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-h-[38px] flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap text-sm">
+          <button onClick={() => setPath(siteRoot || path)} className="flex items-center gap-1 font-semibold text-zinc-600 transition-colors hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-500">
             <FolderOpen className="w-4 h-4" />
             {selectedDomain || 'home'}
           </button>
@@ -7233,33 +7611,35 @@ export function FileManagerSection({ domain, sites }: {
               <span className="opacity-50">/</span>
               <button
                 onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
-                className="text-gray-700 dark:text-zinc-300 hover:text-red-500 dark:hover:text-red-500 font-medium transition-colors">
+                className="font-medium text-gray-700 transition-colors hover:text-red-500 dark:text-zinc-300 dark:hover:text-red-500">
                 {part}
               </button>
             </span>
           ))}
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <select value={selectedDomain}
-            onChange={e => {
-              const next = e.target.value
-              setSelectedDomain(next)
-              const root = resolveRoot(next)
-              setSiteRoot(root)
-              setPath(root)
-            }}
-            className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm dark:border-zinc-700 bg-transparent dark:bg-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-red-500 transition-colors h-[42px]">
-            <option value="" disabled>Seleccione o domínio...</option>
-            {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-          </select>
-          
-          {selectedDomain && (
-            <div className="flex bg-transparent border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-sm h-[42px]">
-              <label
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold cursor-pointer border-r border-gray-200 dark:border-zinc-800 transition-colors ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10'}`}
-                title="Upload Nativo Direto"
-              >
+
+        {selectedDomain ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={() => void handleNewFolder()}
+              className={fmToolbarBtn}
+            >
+              <FolderPlus className="w-4 h-4" /> Nova pasta
+            </button>
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={() => void handleNewFile()}
+              className={fmToolbarBtn}
+            >
+              <FilePlus className="w-4 h-4" /> Novo ficheiro
+            </button>
+            <label
+              className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
+              title="Upload"
+            >
                 <input 
                   type="file" 
                   multiple 
@@ -7335,71 +7715,84 @@ export function FileManagerSection({ domain, sites }: {
                     e.target.value = '';
                   }}
                 />
-                <UploadCloud className="w-4 h-4" /> 
+                <UploadCloud className="w-4 h-4" />
                 Upload
               </label>
-              <button
-                onClick={() => loadFiles(path)}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                title="Recarregar"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Recarregar
-              </button>
-            </div>
-          )}
+          </div>
+        ) : null}
+      </div>
+
+      {actionMsg ? (
+        <div className="rounded-lg border border-green-300/50 bg-transparent px-4 py-2 text-sm text-green-600 dark:border-green-800/50 dark:text-green-500">
+          {actionMsg}
+        </div>
+      ) : null}
+
+      <div ref={toolbarSentinelRef} className="h-px w-full shrink-0" aria-hidden />
+
+      <div
+        className={cn(
+          'sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-2 px-4 py-1.5 transition-[margin,background-color,box-shadow,border-color] duration-200 lg:-mx-5 lg:px-5',
+          toolbarStuck
+            ? '-mt-4 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 lg:-mt-5'
+            : 'border-b border-transparent bg-transparent',
+        )}
+      >
+        <input
+          type="checkbox"
+          checked={selectedFiles.length === files.length && files.length > 0}
+          onChange={(e) => {
+            if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name))
+            else setSelectedFiles([])
+          }}
+          className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+        />
+        <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+          {selectedFiles.length > 0 ? `Selecionado: ${selectedFiles.length} / ${files.length}` : 'Nenhum ficheiro seleccionado'}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolbarBtn}><Edit className="w-4 h-4" /> Editar</button>
+          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={handleCopy} className={fmToolbarBtn}><Copy className="w-4 h-4" /> Copiar</button>
+          <button type="button" disabled={selectedFiles.length !== 1 || actionBusy} onClick={() => void handleDuplicate()} className={fmToolbarBtn}><Layers className="w-4 h-4" /> Duplicar</button>
+          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={handleMove} className={fmToolbarBtn}><ArrowRightLeft className="w-4 h-4" /> Mover</button>
+          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={() => void handleDownload()} className={fmToolbarBtn}><Download className="w-4 h-4" /> Transferir</button>
+          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={() => void handleCompress()} className={fmToolbarBtn}><Archive className="w-4 h-4" /> Compactar</button>
+          <div className="relative">
+            <button type="button" disabled={actionBusy} onClick={() => setMoreOpen((v) => !v)} className={fmToolbarBtn}><MoreVertical className="w-4 h-4" /> Mais</button>
+            {moreOpen ? (
+              <div className="absolute left-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" onClick={() => void handleRename()}>Renomear</button>
+                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" onClick={() => void handleExtract()}>Extrair arquivo</button>
+                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-red-600 hover:text-red-700 dark:text-red-400" onClick={() => void handleDelete()}>Eliminar</button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
       {/* Tabela de ficheiros */}
-      <div className="bg-transparent rounded-xl border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className={panelCard}>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50/50 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800">
-            {selectedFiles.length > 0 ? (
-              <tr className="text-xs font-bold text-gray-700 dark:text-zinc-200 uppercase tracking-wider bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-900/30">
-                <th className="px-6 py-3 w-10">
-                  <input type="checkbox" checked={selectedFiles.length === files.length} onChange={(e) => {
+          <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <tr className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-zinc-400">
+                <th className="w-10 px-3 py-1.5">
+                  <input type="checkbox" checked={selectedFiles.length === files.length && files.length > 0} onChange={(e) => {
                     if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name));
                     else setSelectedFiles([]);
                   }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
                 </th>
-                <th colSpan={4} className="px-6 py-3">
-                  <div className="flex items-center gap-6">
-                    <span className="text-red-600 dark:text-red-400 font-semibold">
-                      Selecionado: {selectedFiles.length} / {files.length}
-                    </span>
-                    <div className="flex items-center gap-4 text-gray-600 dark:text-zinc-400 normal-case font-medium">
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Edit className="w-4 h-4" /> Editar</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Copy className="w-4 h-4" /> Copiar</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Layers className="w-4 h-4" /> Duplicar</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><ArrowRightLeft className="w-4 h-4" /> Mover</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Download className="w-4 h-4" /> Download</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Archive className="w-4 h-4" /> Compactar</button>
-                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><MoreVertical className="w-4 h-4" /> Mais</button>
-                    </div>
-                  </div>
-                </th>
+                <th className="px-3 py-1.5">Nome do Ficheiro</th>
+                <th className="px-3 py-1.5">Tamanho</th>
+                <th className="px-3 py-1.5 hidden md:table-cell">Permissões</th>
+                <th className="px-3 py-1.5 hidden sm:table-cell">Modificado</th>
               </tr>
-            ) : (
-              <tr className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
-                <th className="px-6 py-3 w-10">
-                  <input type="checkbox" checked={false} onChange={(e) => {
-                    if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name));
-                  }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
-                </th>
-                <th className="px-6 py-3">Nome do Ficheiro</th>
-                <th className="px-6 py-3">Tamanho</th>
-                <th className="px-6 py-3 hidden md:table-cell">Permissões</th>
-                <th className="px-6 py-3 hidden sm:table-cell">Modificado</th>
-              </tr>
-            )}
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {path !== siteRoot && !loading && files.length > 0 && (
-            <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group" onClick={() => navigateTo('..')}>
-              <td className="px-6 py-3.5 w-10"></td>
-              <td className="px-6 py-3.5" colSpan={4}>
+            <tr className="cursor-pointer bg-gray-50/80 transition-colors hover:bg-gray-100/80 group dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50" onClick={() => navigateTo('..')}>
+              <td className="w-10 px-3 py-1"></td>
+              <td className="px-3 py-1" colSpan={4}>
                 <div className="flex items-center gap-3">
                   <div className="p-1 text-gray-400 group-hover:text-red-500 transition-colors">
                     <FolderOpen className="w-4 h-4" />
@@ -7483,16 +7876,19 @@ export function FileManagerSection({ domain, sites }: {
               }
 
               const isSelected = selectedFiles.includes(f.name);
+              const stripeBg = i % 2 === 0
+                ? 'bg-white dark:bg-zinc-900'
+                : 'bg-gray-50/80 dark:bg-zinc-800/30';
 
               return (
-              <tr key={i} className={`hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors group ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
-                <td className="px-6 py-3">
+              <tr key={i} className={`transition-colors group hover:bg-gray-100/80 dark:hover:bg-zinc-800/50 ${stripeBg} ${isSelected ? 'ring-1 ring-inset ring-red-300/60 dark:ring-red-900/50' : ''}`}>
+                <td className="px-3 py-1">
                   <input type="checkbox" checked={isSelected} onChange={(e) => {
                     if (e.target.checked) setSelectedFiles([...selectedFiles, f.name]);
                     else setSelectedFiles(selectedFiles.filter(name => name !== f.name));
                   }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
                 </td>
-                <td className="px-6 py-3">
+                <td className="px-3 py-1">
                   <div className="flex items-center gap-3">
                     <div className={`p-1.5 rounded-lg bg-transparent ${iconColor}`}>
                       <Icon className="w-5 h-5" />
@@ -7504,15 +7900,23 @@ export function FileManagerSection({ domain, sites }: {
                         {f.name}
                       </button>
                     ) : (
-                      <span className="text-gray-700 dark:text-zinc-300 font-medium">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isFmEditableName(f.name)) void handleEdit(f.name)
+                        }}
+                        className={`text-gray-700 dark:text-zinc-300 font-medium transition-colors ${isFmEditableName(f.name) ? 'hover:text-red-500 dark:hover:text-red-400' : ''}`}
+                      >
+                        {f.name}
+                      </button>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-3 text-gray-600 dark:text-zinc-300 font-medium text-xs bg-transparent w-24">
-                  {f.size}
+                <td className="w-24 px-3 py-1 text-xs font-medium text-gray-600 dark:text-zinc-300">
+                  {f.isDir ? '—' : formatFmBytes(f.size)}
                 </td>
-                <td className="px-6 py-3 hidden md:table-cell text-gray-500 dark:text-zinc-400 font-mono text-xs">{f.permissions}</td>
-                <td className="px-6 py-3 hidden sm:table-cell text-gray-500 dark:text-zinc-400 text-xs">
+                <td className="hidden px-3 py-1 font-mono text-xs text-gray-500 dark:text-zinc-400 md:table-cell">{f.permissions}</td>
+                <td className="hidden px-3 py-1 text-xs text-gray-500 dark:text-zinc-400 sm:table-cell">
                   {f.date}
                 </td>
               </tr>
@@ -7520,7 +7924,37 @@ export function FileManagerSection({ domain, sites }: {
             })}
           </tbody>
         </table>
+        </div>
       </div>
+
+      {transfer ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !transferBusy && setTransfer(null)} />
+          <div className={`${panelCard} relative w-full max-w-lg space-y-4 p-6`}>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              {transfer.mode === 'copy' ? 'Copiar para pasta' : 'Mover para pasta'}
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {transfer.sources.length} item(ns) seleccionado(s)
+            </p>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Pasta de destino</label>
+              <input
+                value={transferDest}
+                onChange={(e) => setTransferDest(e.target.value)}
+                className={`${panelField} w-full dark:bg-zinc-900`}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={transferBusy} onClick={() => setTransfer(null)} className={panelBtnSecondary}>Cancelar</button>
+              <button type="button" disabled={transferBusy} onClick={() => void confirmTransfer()} className={fmToolbarBtnGreen}>
+                {transferBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

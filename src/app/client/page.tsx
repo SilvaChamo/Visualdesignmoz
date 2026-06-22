@@ -19,6 +19,7 @@ import { ClientSidebar } from '@/components/client/ClientSidebar'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { clientSectionLabel } from '@/lib/panel-client-menu'
 import { PanelHeader } from '@/components/panel/PanelHeader'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui'
 import { WordPressHubSection } from '@/app/dashboard/WordPressHubSection'
 import { DNSCentralSection } from '@/app/dashboard/DNSCentralSection'
@@ -3491,7 +3492,16 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   )
 }
 
-export default function AdminPage() {
+export default function ClientPage() {
+  return (
+    <AdminSectionChromeProvider>
+      <ClientPageContent />
+    </AdminSectionChromeProvider>
+  )
+}
+
+function ClientPageContent() {
+  const { chrome } = useAdminSectionChrome()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [mailMarketingSearchTerm, setMailMarketingSearchTerm] = useState('')
@@ -3672,7 +3682,7 @@ export default function AdminPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || directAdminSites[0]?.domain || 'oseudominio.com'} sites={directAdminSites} />
+        return <FileManagerSection domain={fileManagerDomain || directAdminSites[0]?.domain || 'oseudominio.com'} sites={directAdminSites} isActive={activeSection === 'file-manager' || activeSection === 'cp-file-manager'} />
       case 'tickets':
         return <SuporteSection
           cliente={cliente}
@@ -3902,6 +3912,7 @@ export default function AdminPage() {
         <PanelHeader
           title={clientSectionLabel(activeSection)}
           description="Gestão de Serviços"
+          toolbar={chrome?.toolbar}
           hidden={isComposeActive && activeSection === 'emails-new'}
           search={
             activeSection === 'mailmarketing' && mailMarketingTab === 'subs'

@@ -77,6 +77,13 @@ async function syncUserMirrorRow(
     /* limites/uso opcionais */
   }
 
+  const { data: existing } = await admin
+    .from('panel_users')
+    .select('auth_user_id, package_name, quota_limit_mb, bandwidth_limit_mb')
+    .eq('username', username)
+    .maybeSingle();
+  const panelManaged = Boolean(existing?.auth_user_id);
+
   const { error } = await admin.from('panel_users').upsert(
     {
       username,
@@ -87,14 +94,21 @@ async function syncUserMirrorRow(
       websites_limit: user.websitesLimit ?? 0,
       emails_limit: user.emailsLimit ?? 0,
       parent_username: parentUsername ?? user.parentUsername ?? null,
-      package_name: usage.packageName || null,
+      package_name: panelManaged && existing?.package_name
+        ? existing.package_name
+        : usage.packageName || null,
       disk_used_mb: usage.diskUsedMb,
       bandwidth_used_mb: usage.bandwidthUsedMb,
-      quota_limit_mb: usage.diskLimitMb,
-      bandwidth_limit_mb: usage.bandwidthLimitMb,
+      quota_limit_mb: panelManaged && existing?.quota_limit_mb !== undefined && existing?.quota_limit_mb !== null
+        ? existing.quota_limit_mb
+        : usage.diskLimitMb,
+      bandwidth_limit_mb: panelManaged && existing?.bandwidth_limit_mb !== undefined && existing?.bandwidth_limit_mb !== null
+        ? existing.bandwidth_limit_mb
+        : usage.bandwidthLimitMb,
       status: user.suspended ? 'Suspended' : user.status || 'Active',
       synced_at: syncedAt,
       updated_at: syncedAt,
+      ...(existing?.auth_user_id ? { auth_user_id: existing.auth_user_id } : {}),
     },
     { onConflict: 'username' },
   );
@@ -152,7 +166,7 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
 
   let syncId: string | undefined;
   try {
-    const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     await admin
       .from('panel_sync_log')
       .update({
@@ -180,8 +194,9 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   let packages: PanelPackage[] = [];
 
   try {
+    const { listAllHostingUsersFromDa } = await import('@/lib/directadmin-adapter');
     sites = await da.listWebsites();
-    users = await da.listUsers();
+    users = await listAllHostingUsersFromDa();
     packages = await da.listPackages().catch(() => [] as PanelPackage[]);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Falha ao ler DirectAdmin';
@@ -229,10 +244,18 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     else counts.sites++;
   }
 
-  const { data: existingSites } = await admin.from('panel_sites').select('domain');
+  const { data: existingSites } = await admin.from('panel_sites').select('domain, owner');
+  const { data: panelLinkedUsers } = await admin
+    .from('panel_users')
+    .select('username')
+    .not('auth_user_id', 'is', null);
+  const panelOnlyOwners = new Set(
+    (panelLinkedUsers || []).map((r) => String(r.username || '')).filter(Boolean),
+  );
   const staleDomains = (existingSites || [])
-    .map((r) => r.domain as string)
-    .filter((d) => d && !liveDomains.has(d));
+    .map((r) => ({ domain: r.domain as string, owner: String(r.owner || '') }))
+    .filter((r) => r.domain && !liveDomains.has(r.domain) && !panelOnlyOwners.has(r.owner))
+    .map((r) => r.domain);
   if (staleDomains.length) {
     await admin.from('panel_sites').delete().in('domain', staleDomains);
     for (const d of staleDomains) {
@@ -250,60 +273,24 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     const username = user.userName;
     if (!username) continue;
     liveUsernames.add(username);
-    const saved = await syncUserMirrorRow(admin, user, syncedAt);
+    const saved = await syncUserMirrorRow(
+      admin,
+      user,
+      syncedAt,
+      user.parentUsername || null,
+    );
     if (!saved.ok) errors.push(`user ${username}: ${saved.error}`);
     else counts.users++;
   }
 
-  // ── Sub-contas sob revenda (quando SHOW_ALL_USERS não as inclui) ──
-  const resellerNames = new Set<string>();
-  for (const user of users) {
-    const acl = (user.acl || user.type || '').toLowerCase();
-    if (acl.includes('reseller') && user.userName) {
-      resellerNames.add(user.userName);
-    }
-  }
-  const legacyReseller = process.env.DIRECTADMIN_RESELLER_USER?.trim();
-  if (legacyReseller) resellerNames.add(legacyReseller);
-  resellerNames.add('oshercollective');
-
-  for (const resellerUsername of resellerNames) {
-    if (!resellerUsername || resellerUsername === 'admin') continue;
-    try {
-      const stored = await loadResellerCredentialsByDaUsername(resellerUsername);
-      const legacyPass =
-        process.env.DIRECTADMIN_RESELLER_LOGIN_KEY?.trim() ||
-        process.env.DIRECTADMIN_RESELLER_PASSWORD?.trim() ||
-        process.env.DIRECTADMIN_RESELLER_PASS?.trim();
-      let creds: DirectAdminCredentials | null = null;
-      if (stored) {
-        creds = { role: 'reseller', user: stored.user, password: stored.password };
-      } else if (legacyReseller === resellerUsername && legacyPass) {
-        creds = { role: 'reseller', user: legacyReseller, password: legacyPass };
-      }
-      if (!creds) continue;
-
-      const resellerApi = createDirectAdminAPI(creds);
-      const subUsers = await resellerApi.listUsers();
-      for (const sub of subUsers) {
-        const username = sub.userName;
-        if (!username || username === resellerUsername) continue;
-        liveUsernames.add(username);
-        const saved = await syncUserMirrorRow(admin, sub, syncedAt, resellerUsername);
-        if (!saved.ok) errors.push(`reseller sub ${username}: ${saved.error}`);
-        else counts.users++;
-      }
-    } catch (e: unknown) {
-      errors.push(
-        `reseller subs ${resellerUsername}: ${e instanceof Error ? e.message : 'erro'}`,
-      );
-    }
-  }
-
-  const { data: existingUsers } = await admin.from('panel_users').select('username');
+  const { data: existingUsers } = await admin.from('panel_users').select('username, auth_user_id');
   const staleUsers = (existingUsers || [])
-    .map((r) => r.username as string)
-    .filter((u) => u && !liveUsernames.has(u));
+    .map((r) => ({
+      username: r.username as string,
+      authUserId: r.auth_user_id as string | null | undefined,
+    }))
+    .filter((r) => r.username && !liveUsernames.has(r.username) && !r.authUserId)
+    .map((r) => r.username);
   if (staleUsers.length) {
     await admin.from('panel_users').delete().in('username', staleUsers);
   }
@@ -329,7 +316,6 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     const name = pkg.packageName;
     if (!name) continue;
     livePackages.add(name);
-    if (panelManaged.has(name.toLowerCase())) continue;
     const { error } = await admin.from('panel_packages').upsert(
       {
         package_name: name,
@@ -342,7 +328,7 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
         synced_at: syncedAt,
         updated_at: syncedAt,
       },
-      { onConflict: 'package_name' },
+      { onConflict: 'package_name', ignoreDuplicates: false },
     );
     if (error) errors.push(`package ${name}: ${error.message}`);
     else counts.packages++;
@@ -354,7 +340,6 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     const name = pkg.packageName;
     if (!name) continue;
     livePackages.add(name);
-    if (panelManaged.has(name.toLowerCase())) continue;
     const { error } = await admin.from('panel_packages').upsert(
       {
         package_name: name,

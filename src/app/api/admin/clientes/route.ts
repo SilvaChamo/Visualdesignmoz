@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDirectAdminAPI, getDirectAdminAPIForDaUsername } from '@/lib/directadmin-adapter';
-import { adminImpersonateResellerCreds, daPostViaSsh, daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import {
+  getAdminDirectAdminAPI,
+  getDirectAdminAPIForDaUsername,
+  listAllHostingUsersFromDa,
+} from '@/lib/directadmin-adapter';
+import { daPostViaSsh } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { sendEmail } from '@/lib/email-service';
-import { sendPlainEmailConfigToMailbox } from '@/lib/email-config-send-server';
 import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { saveProfileForAuthUser } from '@/lib/profile-db';
+import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
+import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
+import { PANEL_SLUG } from '@/lib/panel-tenant';
+import type { UserRole } from '@/lib/user-roles';
 import {
   deleteMirrorUser,
   mirrorAfterDaMutation,
   patchMirrorUser,
   mutationSucceeded,
+  upsertMirrorSite,
+  upsertMirrorUser,
 } from '@/lib/panel-mirror-write';
 import {
   getMirrorLastSyncAt,
@@ -22,9 +33,12 @@ import {
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
 
-import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
+import { enrichPanelAccounts } from '@/lib/panel-contas-enrich';
 
 const OSHER_RESELLER = 'oshercollective';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function deriveUsername(domain: string, email: string): string {
   const fromDomain = domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
@@ -33,111 +47,23 @@ function deriveUsername(domain: string, email: string): string {
   return fromEmail || 'cliente';
 }
 
-function isLicenseLimitError(message?: string): boolean {
-  const text = String(message || '').toLowerCase();
-  return (
-    text.includes('license') ||
-    text.includes('licença') ||
-    text.includes('limited to') ||
-    text.includes('limitada a')
-  );
+function panelRoleForAccountType(accountType: 'client' | 'reseller' | 'professional'): UserRole {
+  if (accountType === 'reseller') return 'reseller';
+  if (accountType === 'professional') return 'manager';
+  return 'client';
 }
 
-function accountUserCreateFields(input: {
-  userName: string;
-  email: string;
-  password: string;
-  domain: string;
-  packageName: string;
-}): Record<string, string> {
-  return {
-    action: 'create',
-    username: input.userName,
-    email: input.email,
-    passwd: input.password,
-    passwd2: input.password,
-    domain: input.domain,
-    package: input.packageName,
-    ip: 'shared',
-    notify: 'no',
-  };
-}
-
-function domainCreateFields(domain: string, issueSsl: boolean): Record<string, string> {
-  return {
-    action: 'create',
-    domain,
-    bandwidth: 'unlimited',
-    quota: 'unlimited',
-    ssl: issueSsl ? 'ON' : 'OFF',
-    php: 'ON',
-    cgi: 'ON',
-    notify: 'no',
-  };
-}
-
-function formatProvisionError(error?: string): string {
-  const raw = String(error || 'Falha ao criar conta de hospedagem');
-  if (isLicenseLimitError(raw)) {
-    return 'A licença do servidor permite apenas 2 contas de utilizador (admin + revenda). O domínio não pôde ser criado na conta de revenda.';
-  }
-  if (raw.toLowerCase().includes('unauthorized')) {
-    return 'Não autorizado no servidor. Verifique as credenciais de administração.';
-  }
-  return raw;
-}
-
-const VISUALDESIGN_PRIMARY_DOMAINS = [
-  'visualdesignmoz.com',
-  'visualdesigne.com',
-  'visualdesigne.pt',
-];
-
-function pickPrimaryDomain(userName: string, owned: PanelWebsite[], acl: string): string {
-  if (!owned.length) return `${userName}.com`;
-
-  if (acl === 'admin') {
-    for (const preferred of VISUALDESIGN_PRIMARY_DOMAINS) {
-      const match = owned.find((s) => s.domain === preferred);
-      if (match) return match.domain;
-    }
-    const visual = owned.find((s) => /visualdesign/i.test(s.domain));
-    if (visual) return visual.domain;
-  }
-
-  const exact = owned.find((s) => s.domain === `${userName}.com`);
-  if (exact) return exact.domain;
-  const partial = owned.find((s) => s.domain.startsWith(userName));
-  if (partial) return partial.domain;
-  return [...owned].sort((a, b) => a.domain.localeCompare(b.domain))[0].domain;
-}
-
-function pickAccountPackage(
-  userName: string,
-  owned: PanelWebsite[],
-  acl: string,
-): string {
-  if (acl === 'admin') return 'VisualDESIGN';
-  if (userName === OSHER_RESELLER) return 'Osher';
-
-  const counts = new Map<string, number>();
-  for (const site of owned) {
-    const name = site.package || '';
-    if (!name || name === 'admin') continue;
-    counts.set(name, (counts.get(name) || 0) + 1);
-  }
-  let packageName = '';
-  counts.forEach((count, name) => {
-    if (!packageName || count > (counts.get(packageName) || 0)) packageName = name;
-  });
-  return packageName;
+function panelAclForAccountType(accountType: 'client' | 'reseller' | 'professional'): string {
+  if (accountType === 'reseller') return 'reseller';
+  if (accountType === 'professional') return 'manager';
+  return 'user';
 }
 
 function formatPackageSize(value: unknown): string {
   if (value === null) return 'Ilimitado';
   const raw = String(value ?? '').trim();
-  if (!raw) return '—';
-  if (raw.toLowerCase() === 'unlimited' || raw === '-1') return 'Ilimitado';
+  if (!raw || raw === '—') return '—';
+  if (raw === '-' || raw.toLowerCase() === 'unlimited' || raw === '-1') return 'Ilimitado';
   if (/[a-z]/i.test(raw)) return raw.toUpperCase();
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return '—';
@@ -145,10 +71,68 @@ function formatPackageSize(value: unknown): string {
   return `${n} MB`;
 }
 
-function formatDiskUsedMb(mb: number): string {
-  if (!Number.isFinite(mb) || mb <= 0) return '0 MB';
-  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
-  return `${mb} MB`;
+function resolvePackageMeta(
+  packageMap: Map<string, import('@/lib/directadmin-hosting-api').PanelPackage>,
+  name: string,
+) {
+  if (!name) return undefined;
+  const direct = packageMap.get(name);
+  if (direct) return direct;
+  const lower = name.toLowerCase();
+  for (const [key, pkg] of packageMap) {
+    if (key.toLowerCase() === lower) return pkg;
+  }
+  return undefined;
+}
+
+async function lookupPackageLimits(packageName: string): Promise<{
+  diskMb: number | null | undefined;
+  bandwidthMb: number | null | undefined;
+  quotaLabel: string;
+}> {
+  const parseLimit = (v: unknown): number | null | undefined => {
+    if (v === null || v === undefined) return undefined;
+    const raw = String(v).trim();
+    if (!raw || raw === '-' || raw.toLowerCase() === 'unlimited' || raw === '-1') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return undefined;
+    return n;
+  };
+
+  let diskMb: number | null | undefined;
+  let bandwidthMb: number | null | undefined;
+
+  try {
+    const adminApi = await getAdminDirectAdminAPI();
+    const pkgs = await adminApi.listPackages();
+    const pkg = pkgs.find((p) => p.packageName.toLowerCase() === packageName.toLowerCase());
+    if (pkg) {
+      diskMb = parseLimit(pkg.diskSpace);
+      bandwidthMb = parseLimit(pkg.bandwidth);
+    }
+  } catch {
+    /* espelho abaixo */
+  }
+
+  if (diskMb === undefined) {
+    const sb = getDaSyncAdmin();
+    if (sb) {
+      const { data } = await sb
+        .from('panel_packages')
+        .select('disk_space, bandwidth')
+        .ilike('package_name', packageName)
+        .maybeSingle();
+      if (data) {
+        diskMb = data.disk_space === -1 ? null : Number(data.disk_space) || undefined;
+        bandwidthMb = data.bandwidth === -1 ? null : Number(data.bandwidth) || undefined;
+      }
+    }
+  }
+
+  const quotaLabel =
+    diskMb === null ? 'Ilimitado' : diskMb !== undefined ? formatPackageSize(diskMb) : '—';
+
+  return { diskMb, bandwidthMb, quotaLabel };
 }
 
 export async function GET(req: NextRequest) {
@@ -162,13 +146,6 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const syncNow = searchParams.get('sync') === '1';
 
-    if (syncNow) {
-      await runDaFullSyncDeduped();
-    } else {
-      const stale = await isMirrorStale(5);
-      if (stale) scheduleDaSync(0);
-    }
-
     const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
     let [users, sites, packages] = await Promise.all([
       listMirrorUsers(mirrorScope),
@@ -176,22 +153,38 @@ export async function GET(req: NextRequest) {
       listMirrorPackages(mirrorScope),
     ]);
 
+    if (syncNow) {
+      await runDaFullSyncDeduped();
+      [users, sites, packages] = await Promise.all([
+        listMirrorUsers(mirrorScope),
+        listMirrorWebsites(mirrorScope),
+        listMirrorPackages(mirrorScope),
+      ]);
+    } else {
+      const stale = await isMirrorStale(5);
+      if (stale) scheduleDaSync(0);
+    }
+
     let source: 'mirror' | 'live' = 'mirror';
 
-    // Espelho vazio (primeira vez) — uma leitura live para não mostrar página em branco
+    // Espelho vazio — leitura live do DA (admin + sub-contas revenda) e sync em background
     if (users.length === 0 && !syncNow) {
       scheduleDaSync(0);
-      const adminApi = await getAdminDirectAdminAPI();
-      const [liveUsers, liveSites, livePackages] = await Promise.all([
-        adminApi.listUsers(),
-        adminApi.listWebsites(),
-        adminApi.listPackages(),
-      ]);
-      if (liveUsers.length > 0) {
-        users = liveUsers;
-        sites = liveSites;
-        packages = livePackages;
-        source = 'live';
+      try {
+        const adminApi = await getAdminDirectAdminAPI();
+        const [liveUsers, liveSites, livePackages] = await Promise.all([
+          listAllHostingUsersFromDa(),
+          adminApi.listWebsites(),
+          adminApi.listPackages(),
+        ]);
+        if (liveUsers.length > 0) {
+          users = liveUsers;
+          sites = liveSites;
+          packages = livePackages;
+          source = 'live';
+        }
+      } catch {
+        /* espelho apenas */
       }
     }
 
@@ -223,44 +216,15 @@ export async function GET(req: NextRequest) {
       a.packageName.localeCompare(b.packageName),
     );
 
-    const enriched = users.map((u) => {
-      const owned = sites.filter((s) => s.owner === u.userName);
-      const acl = String(u.acl || u.type || '').toLowerCase();
-      const primaryDomain = pickPrimaryDomain(u.userName, owned, acl);
-      const packageName =
-        u.packageName || pickAccountPackage(u.userName, owned, acl);
-      const pkgMeta = packageName ? packageMap.get(packageName) : undefined;
-      const siteDiskSum = owned.reduce(
-        (sum, s) => sum + (parseInt(String(s.diskUsage || '0'), 10) || 0),
-        0,
-      );
-      const diskUsedMb =
-        typeof u.diskUsedMb === 'number' && u.diskUsedMb > 0 ? u.diskUsedMb : siteDiskSum;
-      const quotaLabel =
-        u.quotaLimitMb !== undefined
-          ? formatPackageSize(u.quotaLimitMb)
-          : formatPackageSize(pkgMeta?.diskSpace);
-      const resellerOwner =
-        u.parentUsername ||
-        (acl === 'admin' || (acl === 'reseller' && !u.parentUsername) ? 'admin' : '—');
-
-      return {
-        ...u,
-        primaryDomain,
-        packageName: packageName || '—',
-        quotaLabel,
-        diskUsedLabel: formatDiskUsedMb(diskUsedMb),
-        resellerOwner,
-        domainCount: owned.length,
-        ownedDomains: owned.map((s) => ({
-          domain: s.domain,
-          package: s.package || '—',
-          diskUsage: String(s.diskUsage ?? '0'),
-          status: s.state || s.status || 'Active',
-        })),
-        registeredAt: u.registeredAt || null,
-      };
-    });
+    const enriched = enrichPanelAccounts(users, sites, packageMap).map((row) => ({
+      ...row,
+      packageName: row.packageName || '—',
+      quotaLabel:
+        row.quotaLabel ||
+        (row.packageName && row.packageName !== '—'
+          ? formatPackageSize(resolvePackageMeta(packageMap, row.packageName)?.diskSpace)
+          : '—'),
+    }));
 
     const lastSyncedAt = await getMirrorLastSyncAt();
     const stale = await isMirrorStale(5);
@@ -308,145 +272,146 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (accountType === 'reseller' || accountType === 'professional') {
-      const createdDomain = domain || `${userName}.com`;
-      const effectivePackageName = String(packageName || '').trim();
+    const firstName = String(body.firstName || '').trim();
+    const lastName = String(body.lastName || '').trim();
+    const effectivePackageName = String(packageName || '').trim();
+    const createdDomain =
+      accountType === 'client' ? domain : domain || `${userName}.com`;
+    const panelRole = panelRoleForAccountType(accountType);
+    const panelAcl = panelAclForAccountType(accountType);
+    const displayName = `${firstName} ${lastName}`.trim() || email.split('@')[0] || userName;
 
-      if (!effectivePackageName) {
-        return NextResponse.json(
-          { success: false, error: 'Seleccione um pacote.' },
-          { status: 400 },
-        );
-      }
-
-      const result = await daPostViaSsh('CMD_API_ACCOUNT_RESELLER', {
-        action: 'create',
-        username: userName,
-        email,
-        passwd: password,
-        passwd2: password,
-        domain: createdDomain,
-        package: effectivePackageName,
-        ip: 'shared',
-        notify: 'no',
-      });
-
-      if (!result.ok) {
-        throw new Error(result.error || 'Falha ao criar revendedor');
-      }
-
-      await mirrorAfterDaMutation('createUser', {
-        userName,
-        email,
-        acl: 'reseller',
-        domain: createdDomain,
-        packageName: effectivePackageName,
-      });
-      scheduleDaSync(1500);
-      return NextResponse.json({ success: true, userName, accountType });
+    if (!effectivePackageName) {
+      return NextResponse.json(
+        { success: false, error: 'Seleccione um pacote.' },
+        { status: 400 },
+      );
     }
 
-    // Conta de hospedagem — mesmo fluxo que no servidor: pacote + domínio
-    if (!domain.includes('.')) {
+    if (accountType === 'client' && !domain.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'Domínio obrigatório para cliente (ex.: exemplo.com).' },
         { status: 400 },
       );
     }
 
-    const createFields = accountUserCreateFields({
-      userName,
-      email: adminEmail,
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Serviço de contas indisponível.' },
+        { status: 500 },
+      );
+    }
+
+    const admin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const normalizedEmail = email.toLowerCase();
+
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email: normalizedEmail,
       password,
-      domain,
-      packageName,
+      email_confirm: true,
+      user_metadata: {
+        role: panelRole,
+        name: displayName,
+        nome: displayName,
+        site: PANEL_SLUG,
+      },
     });
 
-    let result = await daPostViaSsh('CMD_API_ACCOUNT_USER', createFields);
-    let provisionMode: 'user' | 'domain' = 'user';
-
-    // Licença Personal PLUS: máx. 2 utilizadores (admin + revenda). Novos clientes = domínio na revenda.
-    if (!result.ok && isLicenseLimitError(result.error)) {
-      result = await daPostViaSshAsDaUser(
-        OSHER_RESELLER,
-        'CMD_API_DOMAIN',
-        domainCreateFields(domain, Boolean(body.issueSsl)),
-      );
-      provisionMode = 'domain';
+    if (createError || !created.user) {
+      const msg = createError?.message || 'Erro ao criar conta';
+      const status = msg.toLowerCase().includes('already') ? 409 : 400;
+      return NextResponse.json({ success: false, error: msg }, { status });
     }
 
-    if (!result.ok) {
+    await saveProfileForAuthUser(admin, created.user.id, {
+      email: normalizedEmail,
+      role: panelRole,
+      name: displayName,
+    });
+
+    await upsertDownloadableCredentials(admin, {
+      email: normalizedEmail,
+      password,
+      userId: created.user.id,
+      role: panelRole,
+    });
+
+    await upsertPanelAuthAccount(admin, {
+      userId: created.user.id,
+      email: normalizedEmail,
+      role: panelRole,
+      name: displayName,
+      serverLinked: false,
+      daUsername: null,
+    });
+
+    const pkgLimits = await lookupPackageLimits(effectivePackageName);
+
+    const mirrorUser = await upsertMirrorUser({
+      username: userName,
+      email: normalizedEmail,
+      first_name: firstName,
+      last_name: lastName,
+      acl: panelAcl,
+      status: 'Active',
+      auth_user_id: created.user.id,
+      package_name: effectivePackageName,
+      quota_limit_mb: pkgLimits.diskMb === null ? null : pkgLimits.diskMb,
+      bandwidth_limit_mb: pkgLimits.bandwidthMb === null ? null : pkgLimits.bandwidthMb,
+    });
+    if (!mirrorUser.ok) {
       return NextResponse.json(
-        { success: false, error: formatProvisionError(result.error) },
-        { status: 400 },
+        { success: false, error: mirrorUser.error || 'Falha ao registar conta no painel.' },
+        { status: 500 },
       );
     }
 
-    const daPostForDomain = async (cmd: string, fields: Record<string, string>) => {
-      if (provisionMode === 'domain') {
-        return daPostViaSshAsDaUser(OSHER_RESELLER, cmd, fields);
-      }
-      return daPostViaSsh(cmd, fields);
-    };
-
-    if (body.createEmail && body.emailUser) {
-      await daPostForDomain('CMD_API_POP', {
-        action: 'create',
-        domain,
-        user: String(body.emailUser),
-        passwd: password,
-        passwd2: password,
-        quota: '500',
+    if (createdDomain.includes('.')) {
+      const mirrorSite = await upsertMirrorSite({
+        domain: createdDomain,
+        owner: userName,
+        admin_email: adminEmail,
+        package: effectivePackageName,
       });
-      try {
-        await sendPlainEmailConfigToMailbox(
-          `${String(body.emailUser)}@${domain}`,
-          password,
-          500,
+      if (!mirrorSite.ok) {
+        return NextResponse.json(
+          { success: false, error: mirrorSite.error || 'Falha ao registar domínio no painel.' },
+          { status: 500 },
         );
-      } catch (mailErr: unknown) {
-        console.error('Envio config email:', mailErr);
       }
     }
 
-    if (body.issueSsl && provisionMode === 'user') {
-      await daPostViaSsh('CMD_API_SSL', { action: 'save', domain, type: 'acme' });
-    }
+    const primaryDomain = createdDomain.includes('.') ? createdDomain : `${userName}.com`;
 
-    if (provisionMode === 'domain') {
-      await mirrorAfterDaMutation('createWebsite', {
-        domain,
-        owner: OSHER_RESELLER,
-        adminEmail,
-        packageName,
-      });
-    } else {
-      await mirrorAfterDaMutation('createUser', {
-        userName,
-        email: adminEmail,
-        acl: 'user',
-        domain,
-        packageName,
-      });
-    }
-    if (body.createEmail && body.emailUser) {
-      await mirrorAfterDaMutation('createEmail', {
-        domain,
-        userName: String(body.emailUser),
-        quota: '500',
-      });
-    }
-    if (body.issueSsl) {
-      await mirrorAfterDaMutation('issueSSL', { domain });
-    }
-
-    scheduleDaSync(1500);
     return NextResponse.json({
       success: true,
-      userName: provisionMode === 'domain' ? OSHER_RESELLER : userName,
-      domain,
-      accountType: 'client',
-      provisionMode,
+      userName,
+      domain: createdDomain,
+      accountType,
+      provisionMode: 'panel',
+      user: {
+        userName,
+        email: normalizedEmail,
+        type: panelAcl,
+        firstName,
+        lastName,
+        primaryDomain,
+        packageName: effectivePackageName,
+        quotaLabel: pkgLimits.quotaLabel,
+        diskUsedLabel: '0 MB',
+        resellerOwner: '—',
+        domainCount: createdDomain.includes('.') ? 1 : 0,
+        registeredAt: new Date().toISOString(),
+        suspended: false,
+        ownedDomains: createdDomain.includes('.')
+          ? [{
+              domain: createdDomain,
+              package: effectivePackageName,
+              diskUsage: '0',
+              status: 'Active',
+            }]
+          : [],
+      },
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro interno';

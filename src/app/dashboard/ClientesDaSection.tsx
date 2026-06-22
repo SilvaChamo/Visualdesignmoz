@@ -10,7 +10,7 @@ import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 
-const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v2';
+const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v4';
 const RESELLER_CLIENTES_CACHE_KEY = 'vd-reseller-contas-v1';
 
 interface DaUserRow {
@@ -403,10 +403,23 @@ export function ClientesDaSection({
           allowResellerAccountType={variant === 'admin'}
           panelScope={variant === 'reseller' ? 'reseller' : 'admin'}
           onCancel={goToList}
-          onComplete={() => {
-            void load({ sync: true });
-            onRefresh?.();
+          onComplete={(result) => {
             goToList();
+            if (result?.user?.userName) {
+              const created = result.user as DaUserRow;
+              setUsers((prev) => {
+                const next = [created, ...prev.filter((u) => u.userName !== created.userName)];
+                try {
+                  sessionStorage.setItem(
+                    cacheKey,
+                    JSON.stringify({ users: next, meta: syncMeta, ts: Date.now() }),
+                  );
+                } catch { /* quota */ }
+                return next;
+              });
+            }
+            void load();
+            onRefresh?.();
           }}
         />
       </div>

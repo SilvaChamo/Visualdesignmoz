@@ -7,7 +7,7 @@ set -euo pipefail
 DOMAIN=visualdesignmoz.com
 USER=admin
 SUB=painel
-PORT="${PANEL_PORT:-3003}"
+PORT="${PANEL_PORT:-3002}"
 CUST_HTTPD="/usr/local/directadmin/data/users/${USER}/domains/${DOMAIN}.cust_httpd"
 SUBDOMAINS="/usr/local/directadmin/data/users/${USER}/domains/${DOMAIN}.subdomains"
 

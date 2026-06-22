@@ -20,9 +20,24 @@ export type ProvisionEditUser = {
   emailsLimit?: number;
 };
 
+export type ProvisionCreatedUser = ProvisionEditUser & {
+  quotaLabel?: string;
+  diskUsedLabel?: string;
+  resellerOwner?: string;
+  domainCount?: number;
+  registeredAt?: string | null;
+  suspended?: boolean;
+  ownedDomains?: Array<{
+    domain: string;
+    package: string;
+    diskUsage: string;
+    status: string;
+  }>;
+};
+
 interface Props {
   packages: DirectAdminPackage[];
-  onComplete?: () => void;
+  onComplete?: (result?: { user?: ProvisionCreatedUser }) => void;
   onCancel?: () => void;
   initialAccountType?: AccountType;
   mode?: 'create' | 'edit';
@@ -37,9 +52,6 @@ const inputCls =
 
 const formCardCls =
   'rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900';
-
-const optionRowCls =
-  'flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/40 p-3 dark:border-zinc-800 dark:bg-zinc-800/20';
 
 function generatePassword(length = 16): string {
   const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&';
@@ -98,9 +110,7 @@ export function ProvisionClienteSection({
   const [hosting, setHosting] = useState({
     domain: editUser?.primaryDomain || '',
     adminEmail: editUser?.email || '',
-    php: '8.2',
   });
-  const [options, setOptions] = useState({ createEmail: false, emailUser: 'info', issueSsl: false });
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -234,15 +244,14 @@ export function ProvisionClienteSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountType,
+          firstName: identity.firstName,
+          lastName: identity.lastName,
           email: identity.email,
           password: identity.password,
           userName: username,
           domain: accountType === 'reseller' || accountType === 'professional' ? domain || `${username}.com` : domain,
           packageName: activePackageName,
           adminEmail,
-          createEmail: options.createEmail,
-          emailUser: options.emailUser,
-          issueSsl: options.issueSsl,
         }),
       });
       const json = await res.json();
@@ -251,12 +260,14 @@ export function ProvisionClienteSection({
       }
 
       setDone(true);
+      const createdDomain =
+        String(json.domain || domain || (accountType !== 'client' ? `${username}.com` : '')).trim();
+      const typeLabel =
+        accountType === 'professional' ? 'Profissional' : accountType === 'reseller' ? 'Revendedor' : 'Cliente';
       setMsg(
-        json.provisionMode === 'domain'
-          ? `Domínio ${domain} criado na conta de revenda (licença do servidor: máx. 2 utilizadores).`
-          : `Conta ${accountType === 'reseller' || accountType === 'professional' ? username : domain} criada.`,
+        `Conta ${typeLabel} ${username}${createdDomain ? ` (${createdDomain})` : ''} criada no painel.`,
       );
-      onComplete?.();
+      onComplete?.({ user: json.user as ProvisionCreatedUser | undefined });
     } catch (e: unknown) {
       const raw = e instanceof Error ? e.message : 'Erro ao provisionar';
       setMsg(`Erro: ${normalizeErrorMessage(raw)}`);
@@ -284,18 +295,14 @@ export function ProvisionClienteSection({
           <dt className="text-xs text-zinc-400">E-mail</dt>
           <dd className="break-all text-zinc-800">{identity.email || '—'}</dd>
         </div>
-        {accountType !== 'professional' && (
-          <div>
-            <dt className="text-xs text-zinc-400">Utilizador</dt>
-            <dd className="font-mono text-zinc-900">{deriveUsername()}</dd>
-          </div>
-        )}
-        {accountType !== 'professional' && (
-          <div>
-            <dt className="text-xs text-zinc-400">Pacote</dt>
-            <dd className="text-zinc-900">{activePackageName || '—'}</dd>
-          </div>
-        )}
+        <div>
+          <dt className="text-xs text-zinc-400">Utilizador</dt>
+          <dd className="font-mono text-zinc-900">{deriveUsername()}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-zinc-400">Pacote</dt>
+          <dd className="text-zinc-900">{activePackageName || '—'}</dd>
+        </div>
         {(accountType === 'client' || accountType === 'reseller' || accountType === 'professional') && (
           <div>
             <dt className="text-xs text-zinc-400">Domínio</dt>
@@ -326,7 +333,7 @@ export function ProvisionClienteSection({
               password: '',
               confirmPassword: '',
             });
-            setHosting({ domain: '', adminEmail: '', php: '8.2' });
+            setHosting({ domain: '', adminEmail: '' });
           }}
           className="px-5 py-2.5 bg-black text-white rounded-lg font-bold hover:bg-red-600"
         >
@@ -429,89 +436,97 @@ export function ProvisionClienteSection({
           </section>
 
           {!isEdit && (
-            <section className={`${formCardCls} space-y-4`}>
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Package className="w-5 h-5" /> Pacote
-              </h2>
-              {packageOptions.length === 0 ? (
-                <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                  Nenhum pacote no servidor. Crie um em Hospedagem → Pacotes.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <select
-                    value={activePackageName}
-                    onChange={(e) => setPackageName(e.target.value)}
-                    className={inputCls}
-                  >
-                    {packageOptions.map((p) => (
-                      <option key={p.packageName} value={p.packageName}>
-                        {p.packageName}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500">
-                    {(() => {
-                      const selected = packageOptions.find((p) => p.packageName === activePackageName);
-                      if (!selected) return 'Sem detalhes do pacote.';
-                      return `Disco ${formatPackageLimit(selected.diskSpace, 'MB')} · BW ${formatPackageLimit(selected.bandwidth, 'MB')} · Emails ${formatPackageLimit(selected.emailAccounts)}`;
-                    })()}
+            <div className="space-y-6">
+              <section className={`${formCardCls} space-y-4`}>
+                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                  <Package className="w-5 h-5 shrink-0" /> Pacote
+                </h2>
+                {packageOptions.length === 0 ? (
+                  <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
+                    Nenhum pacote no servidor. Crie um em Hospedagem → Pacotes.
                   </p>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                    <select
+                      value={activePackageName}
+                      onChange={(e) => setPackageName(e.target.value)}
+                      className={inputCls}
+                    >
+                      {packageOptions.map((p) => (
+                        <option key={p.packageName} value={p.packageName}>
+                          {p.packageName}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="flex items-center text-xs text-gray-500 sm:px-1">
+                      {(() => {
+                        const selected = packageOptions.find((p) => p.packageName === activePackageName);
+                        if (!selected) return 'Sem detalhes do pacote.';
+                        return `Disco ${formatPackageLimit(selected.diskSpace, 'MB')} · BW ${formatPackageLimit(selected.bandwidth, 'MB')} · Emails ${formatPackageLimit(selected.emailAccounts)} · Domínios ${formatPackageLimit(selected.allowedDomains)}`;
+                      })()}
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              {accountType === 'client' ? (
+                <section className={`${formCardCls} space-y-4`}>
+                  <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                    <Globe className="w-5 h-5 shrink-0" /> Hospedagem
+                  </h2>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input placeholder="Domínio (exemplo.com)" value={hosting.domain} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={inputCls} />
+                    <input placeholder="E-mail admin do domínio" type="email" value={hosting.adminEmail} onChange={(e) => setHosting({ ...hosting, adminEmail: e.target.value })} className={inputCls} />
+                  </div>
+                </section>
+              ) : (
+                <section className={`${formCardCls} space-y-3`}>
+                  <h2 className="font-bold text-gray-900">
+                    {accountType === 'professional' ? 'Profissional' : 'Revenda'}
+                  </h2>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input
+                      placeholder="Domínio principal (opcional)"
+                      value={hosting.domain}
+                      onChange={(e) => setHosting({ ...hosting, domain: e.target.value })}
+                      className={inputCls}
+                    />
+                    <div className="flex h-[38px] items-center rounded border border-gray-100 bg-gray-50/40 px-3 text-sm text-gray-600 dark:border-zinc-800 dark:bg-zinc-800/20">
+                      Utilizador: <strong className="ml-1 font-mono">{deriveUsername()}</strong>
+                    </div>
+                  </div>
+                </section>
               )}
-            </section>
+            </div>
           )}
 
-          {accountType === 'client' && (
+          {accountType === 'client' && isEdit && (
             <section className={`${formCardCls} space-y-4`}>
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Globe className="w-5 h-5" /> Hospedagem
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input placeholder="Domínio (exemplo.com)" value={hosting.domain} readOnly={isEdit} onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={`${inputCls} sm:col-span-2 ${isEdit ? 'opacity-70' : ''}`} />
+                <input placeholder="Domínio (exemplo.com)" value={hosting.domain} readOnly onChange={(e) => setHosting({ ...hosting, domain: e.target.value })} className={`${inputCls} sm:col-span-2 opacity-70`} />
                 <input placeholder="E-mail admin do domínio" type="email" value={hosting.adminEmail} onChange={(e) => setHosting({ ...hosting, adminEmail: e.target.value })} className={`${inputCls} sm:col-span-2`} />
-                {!isEdit && (
-                <select value={hosting.php} onChange={(e) => setHosting({ ...hosting, php: e.target.value })} className={inputCls}>
-                  <option value="8.2">PHP 8.2</option>
-                  <option value="8.3">PHP 8.3</option>
-                  <option value="8.1">PHP 8.1</option>
-                </select>
-                )}
               </div>
-              {!isEdit && (
-              <>
-              <label className={optionRowCls}>
-                <input type="checkbox" checked={options.createEmail} onChange={(e) => setOptions({ ...options, createEmail: e.target.checked })} />
-                <span className="text-sm">
-                  Criar email{' '}
-                  <input className="mx-1 w-24 rounded border border-gray-200 bg-white px-2 py-0.5 dark:border-zinc-700 dark:bg-transparent" value={options.emailUser} onChange={(e) => setOptions({ ...options, emailUser: e.target.value })} />
-                  @{hosting.domain || 'domínio'}
-                </span>
-              </label>
-              <label className={optionRowCls}>
-                <input type="checkbox" checked={options.issueSsl} onChange={(e) => setOptions({ ...options, issueSsl: e.target.checked })} />
-                <span className="text-sm">Emitir SSL Let&apos;s Encrypt para {hosting.domain || 'domínio'}</span>
-              </label>
-              </>
-              )}
             </section>
           )}
 
-          {(accountType === 'reseller' || accountType === 'professional') && (
+          {(accountType === 'reseller' || accountType === 'professional') && isEdit && (
             <section className={`${formCardCls} space-y-3`}>
-              <h2 className="font-bold text-gray-900">Revenda</h2>
+              <h2 className="font-bold text-gray-900">
+                {accountType === 'professional' ? 'Profissional' : 'Revenda'}
+              </h2>
               <input
                 placeholder="Domínio principal (opcional)"
                 value={hosting.domain}
-                readOnly={isEdit}
+                readOnly
                 onChange={(e) => setHosting({ ...hosting, domain: e.target.value })}
-                className={`${inputCls} ${isEdit ? 'opacity-70' : ''}`}
+                className={`${inputCls} opacity-70`}
               />
-              {!isEdit && (
               <p className="text-sm text-gray-600">
                 Utilizador: <strong>{deriveUsername()}</strong>
               </p>
-              )}
             </section>
           )}
 

@@ -24,11 +24,30 @@ import {
   getMirrorLastSyncAt,
   getMirrorPackageForm,
 } from '@/lib/panel-mirror-read';
-import {
-  filterPackagesForAdminPanel,
-} from '@/lib/panel-scope-filter';
 import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
+
+function isValidHomePath(targetPath: string): boolean {
+  const p = targetPath.trim();
+  return p.startsWith('/home/') && !p.includes('..') && !p.includes('\0');
+}
+
+function normalizeHomePaths(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => String(item).trim()).filter(isValidHomePath);
+}
+
+async function runPythonOnServer(script: string): Promise<string> {
+  const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+  const b64 = Buffer.from(script, 'utf8').toString('base64');
+  return executeServerCommand(
+    `python3 -c "import base64; exec(base64.b64decode('${b64}').decode())"`,
+  );
+}
+
+function parsePythonJsonOutput(output: string): unknown {
+  return JSON.parse(output.trim());
+}
 
 const LIVE_LIST_FALLBACK: Record<
   string,
@@ -201,36 +220,38 @@ export async function POST(req: NextRequest) {
       const mirrorRows = (await readFromMirror(action, mirrorScope, params)) as PanelPackage[];
       const mirrorList = Array.isArray(mirrorRows) ? mirrorRows : [];
 
-      const data = await resolveMirrorOrLive({
-        onStale: () => scheduleDaSync(0),
-        mirror: async () => mirrorList,
-        live: async () => {
-          const rows = await fallback(api, params);
-          if (Array.isArray(rows) && rows.length > 0) scheduleDaSync(500);
-          return Array.isArray(rows) ? rows : [];
-        },
-      });
+      let liveList: PanelPackage[] = [];
+      try {
+        liveList = (await fallback(api, params)) as PanelPackage[];
+        if (Array.isArray(liveList) && liveList.length > 0) scheduleDaSync(500);
+      } catch {
+        /* espelho apenas */
+      }
 
-      const listData =
-        action === 'listPackages' && Array.isArray(data)
-          ? mergePackageListByName(mirrorList, data as PanelPackage[])
-          : data;
+      const data =
+        action === 'listPackages'
+          ? mergePackageListByName(mirrorList, liveList)
+          : await resolveMirrorOrLive({
+              onStale: () => scheduleDaSync(0),
+              mirror: async () => mirrorList,
+              live: async () => liveList,
+            });
+
+      const listData = data;
 
       let responseData = listData;
       if (
         action === 'listPackages' &&
         Array.isArray(responseData) &&
-        auth.user.role === 'admin' &&
-        !mirrorScope.daUsername
+        auth.user.role === 'reseller' &&
+        mirrorScope.daUsername
       ) {
-        const [sites, users] = await Promise.all([
-          listMirrorWebsites(mirrorScope),
-          listMirrorUsers(mirrorScope),
-        ]);
-        responseData = filterPackagesForAdminPanel(
-          responseData as PanelPackage[],
-          sites,
-          users,
+        const sites = await listMirrorWebsites(mirrorScope);
+        const usedNames = new Set(
+          sites.map((s) => s.package).filter((name): name is string => Boolean(name)),
+        );
+        responseData = (responseData as PanelPackage[]).filter((p) =>
+          usedNames.has(p.packageName),
         );
       }
 
@@ -505,6 +526,372 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, data: { files: Array.isArray(parsed) ? parsed : [] } });
       } catch {
         return NextResponse.json({ success: false, error: output.slice(0, 300) || 'Erro ao listar pasta' }, { status: 500 });
+      }
+    }
+
+    const FILE_OPS = new Set([
+      'readFileContent',
+      'writeFileContent',
+      'deletePaths',
+      'copyPaths',
+      'movePaths',
+      'duplicatePath',
+      'compressPaths',
+      'extractArchive',
+      'renamePath',
+      'createFolder',
+      'downloadFile',
+    ]);
+
+    if (FILE_OPS.has(action)) {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+
+      const p = params as Record<string, unknown>;
+
+      if (action === 'readFileContent') {
+        const filePath = String(p.path || '').trim();
+        if (!isValidHomePath(filePath)) {
+          return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        const maxBytes = Math.min(Number(p.maxBytes) || 2 * 1024 * 1024, 4 * 1024 * 1024);
+        const script = [
+          'import os, json, base64',
+          `p = ${JSON.stringify(filePath)}`,
+          `limit = ${maxBytes}`,
+          'if not os.path.isfile(p):',
+          '    print(json.dumps({"error": "not_file"}))',
+          'elif os.path.getsize(p) > limit:',
+          '    print(json.dumps({"error": "too_large"}))',
+          'else:',
+          '    with open(p, "rb") as f:',
+          '        data = base64.b64encode(f.read()).decode()',
+          '    print(json.dumps({"content": data, "size": os.path.getsize(p)}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string; content?: string };
+          if (parsed.error === 'not_file') {
+            return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+          }
+          if (parsed.error === 'too_large') {
+            return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande para editar' }, { status: 413 });
+          }
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'writeFileContent') {
+        const filePath = String(p.path || '').trim();
+        const contentB64 = String(p.contentBase64 || '');
+        if (!isValidHomePath(filePath) || !contentB64) {
+          return NextResponse.json({ success: false, error: 'Dados inválidos' }, { status: 400 });
+        }
+        const script = [
+          'import os, json, base64',
+          `p = ${JSON.stringify(filePath)}`,
+          `data = base64.b64decode(${JSON.stringify(contentB64)})`,
+          'parent = os.path.dirname(p)',
+          'if not parent.startswith("/home/"):',
+          '    print(json.dumps({"error": "invalid"}))',
+          'else:',
+          '    os.makedirs(parent, exist_ok=True)',
+          '    with open(p, "wb") as f:',
+          '        f.write(data)',
+          '    os.chmod(p, 0o644)',
+          '    print(json.dumps({"ok": True}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string };
+          if (parsed.error) {
+            return NextResponse.json({ success: false, error: 'Não foi possível guardar' }, { status: 400 });
+          }
+          return NextResponse.json({ success: true });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'deletePaths') {
+        const paths = normalizeHomePaths(p.paths);
+        if (!paths.length) {
+          return NextResponse.json({ success: false, error: 'Nenhum caminho válido' }, { status: 400 });
+        }
+        const script = [
+          'import os, shutil, json',
+          `paths = ${JSON.stringify(paths)}`,
+          'deleted = []',
+          'errors = []',
+          'for p in paths:',
+          '    if not p.startswith("/home/") or ".." in p:',
+          '        continue',
+          '    try:',
+          '        if os.path.isdir(p) and not os.path.islink(p):',
+          '            shutil.rmtree(p)',
+          '        elif os.path.exists(p):',
+          '            os.remove(p)',
+          '        deleted.append(p)',
+          '    except OSError as e:',
+          '        errors.append({"path": p, "error": str(e)})',
+          'print(json.dumps({"deleted": deleted, "errors": errors}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { deleted?: string[]; errors?: unknown[] };
+          const ok = (parsed.deleted?.length || 0) > 0;
+          return NextResponse.json({
+            success: ok,
+            data: parsed,
+            error: ok ? undefined : 'Não foi possível eliminar',
+          });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'copyPaths' || action === 'movePaths') {
+        const sources = normalizeHomePaths(p.sources);
+        const destDir = String(p.destDir || '').trim();
+        if (!sources.length || !isValidHomePath(destDir)) {
+          return NextResponse.json({ success: false, error: 'Origem ou destino inválido' }, { status: 400 });
+        }
+        const op = action === 'movePaths' ? 'move' : 'copy';
+        const script = [
+          'import os, shutil, json',
+          `sources = ${JSON.stringify(sources)}`,
+          `dest_dir = ${JSON.stringify(destDir)}`,
+          `op = ${JSON.stringify(op)}`,
+          'if not os.path.isdir(dest_dir):',
+          '    print(json.dumps({"error": "dest_missing"}))',
+          'else:',
+          '    done = []',
+          '    errors = []',
+          '    for src in sources:',
+          '        try:',
+          '            target = os.path.join(dest_dir, os.path.basename(src))',
+          '            if op == "move":',
+          '                shutil.move(src, target)',
+          '            elif os.path.isdir(src):',
+          '                shutil.copytree(src, target)',
+          '            else:',
+          '                shutil.copy2(src, target)',
+          '            done.append(target)',
+          '        except Exception as e:',
+          '            errors.append({"path": src, "error": str(e)})',
+          '    print(json.dumps({"done": done, "errors": errors}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string; done?: string[] };
+          if (parsed.error === 'dest_missing') {
+            return NextResponse.json({ success: false, error: 'Pasta de destino não encontrada' }, { status: 404 });
+          }
+          const ok = (parsed.done?.length || 0) > 0;
+          return NextResponse.json({ success: ok, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'duplicatePath') {
+        const source = String(p.path || '').trim();
+        if (!isValidHomePath(source)) {
+          return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        const script = [
+          'import os, shutil, json',
+          `src = ${JSON.stringify(source)}`,
+          'if not os.path.exists(src):',
+          '    print(json.dumps({"error": "missing"}))',
+          'else:',
+          '    base = os.path.basename(src)',
+          '    parent = os.path.dirname(src)',
+          '    name, ext = os.path.splitext(base)',
+          '    candidate = f"{name}_copia{ext}" if ext else f"{base}_copia"',
+          '    i = 1',
+          '    while os.path.exists(os.path.join(parent, candidate)):',
+          '        candidate = f"{name}_copia{i}{ext}" if ext else f"{base}_copia{i}"',
+          '        i += 1',
+          '    dest = os.path.join(parent, candidate)',
+          '    if os.path.isdir(src) and not os.path.islink(src):',
+          '        shutil.copytree(src, dest)',
+          '    else:',
+          '        shutil.copy2(src, dest)',
+          '    print(json.dumps({"path": dest}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string; path?: string };
+          if (parsed.error) {
+            return NextResponse.json({ success: false, error: 'Origem não encontrada' }, { status: 404 });
+          }
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'compressPaths') {
+        const sources = normalizeHomePaths(p.sources);
+        const archivePath = String(p.archivePath || '').trim();
+        if (!sources.length || !isValidHomePath(archivePath)) {
+          return NextResponse.json({ success: false, error: 'Dados inválidos' }, { status: 400 });
+        }
+        const script = [
+          'import os, zipfile, json',
+          `sources = ${JSON.stringify(sources)}`,
+          `archive = ${JSON.stringify(archivePath)}`,
+          'with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:',
+          '    for src in sources:',
+          '        if not os.path.exists(src):',
+          '            continue',
+          '        if os.path.isfile(src):',
+          '            zf.write(src, os.path.basename(src))',
+          '        else:',
+          '            for root, _, files in os.walk(src):',
+          '                for fn in files:',
+          '                    fp = os.path.join(root, fn)',
+          '                    arc = os.path.relpath(fp, os.path.dirname(src))',
+          '                    zf.write(fp, arc)',
+          'print(json.dumps({"path": archive}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { path?: string };
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'extractArchive') {
+        const archivePath = String(p.path || '').trim();
+        const destDir = String(p.destDir || '').trim();
+        if (!isValidHomePath(archivePath) || !isValidHomePath(destDir)) {
+          return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        const script = [
+          'import os, zipfile, tarfile, json',
+          `archive = ${JSON.stringify(archivePath)}`,
+          `dest = ${JSON.stringify(destDir)}`,
+          'if not os.path.isfile(archive):',
+          '    print(json.dumps({"error": "missing"}))',
+          'elif archive.endswith(".zip"):',
+          '    with zipfile.ZipFile(archive, "r") as zf:',
+          '        zf.extractall(dest)',
+          '    print(json.dumps({"ok": True}))',
+          'elif archive.endswith((".tar.gz", ".tgz", ".tar")):',
+          '    with tarfile.open(archive, "r:*") as tf:',
+          '        tf.extractall(dest)',
+          '    print(json.dumps({"ok": True}))',
+          'else:',
+          '    print(json.dumps({"error": "format"}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string };
+          if (parsed.error === 'missing') {
+            return NextResponse.json({ success: false, error: 'Arquivo não encontrado' }, { status: 404 });
+          }
+          if (parsed.error === 'format') {
+            return NextResponse.json({ success: false, error: 'Formato não suportado' }, { status: 400 });
+          }
+          return NextResponse.json({ success: true });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'renamePath') {
+        const source = String(p.path || '').trim();
+        const newName = String(p.newName || '').trim();
+        if (!isValidHomePath(source) || !newName || newName.includes('/') || newName.includes('..')) {
+          return NextResponse.json({ success: false, error: 'Nome inválido' }, { status: 400 });
+        }
+        const script = [
+          'import os, json',
+          `src = ${JSON.stringify(source)}`,
+          `new_name = ${JSON.stringify(newName)}`,
+          'dest = os.path.join(os.path.dirname(src), new_name)',
+          'if not os.path.exists(src):',
+          '    print(json.dumps({"error": "missing"}))',
+          'elif os.path.exists(dest):',
+          '    print(json.dumps({"error": "exists"}))',
+          'else:',
+          '    os.rename(src, dest)',
+          '    print(json.dumps({"path": dest}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { error?: string; path?: string };
+          if (parsed.error === 'missing') {
+            return NextResponse.json({ success: false, error: 'Origem não encontrada' }, { status: 404 });
+          }
+          if (parsed.error === 'exists') {
+            return NextResponse.json({ success: false, error: 'Já existe um item com esse nome' }, { status: 409 });
+          }
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'createFolder') {
+        const folderPath = String(p.path || '').trim();
+        if (!isValidHomePath(folderPath)) {
+          return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        const script = [
+          'import os, json',
+          `p = ${JSON.stringify(folderPath)}`,
+          'os.makedirs(p, exist_ok=True)',
+          'print(json.dumps({"ok": True}))',
+        ].join('\n');
+        await runPythonOnServer(script);
+        return NextResponse.json({ success: true });
+      }
+
+      if (action === 'downloadFile') {
+        const filePath = String(p.path || '').trim();
+        if (!isValidHomePath(filePath)) {
+          return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        const maxBytes = Math.min(Number(p.maxBytes) || 50 * 1024 * 1024, 50 * 1024 * 1024);
+        const script = [
+          'import os, json, base64, mimetypes',
+          `p = ${JSON.stringify(filePath)}`,
+          `limit = ${maxBytes}`,
+          'if not os.path.isfile(p):',
+          '    print(json.dumps({"error": "not_file"}))',
+          'elif os.path.getsize(p) > limit:',
+          '    print(json.dumps({"error": "too_large"}))',
+          'else:',
+          '    mime, _ = mimetypes.guess_type(p)',
+          '    with open(p, "rb") as f:',
+          '        data = base64.b64encode(f.read()).decode()',
+          '    print(json.dumps({"content": data, "filename": os.path.basename(p), "mime": mime or "application/octet-stream"}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as {
+            error?: string;
+            content?: string;
+            filename?: string;
+            mime?: string;
+          };
+          if (parsed.error === 'not_file') {
+            return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+          }
+          if (parsed.error === 'too_large') {
+            return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande' }, { status: 413 });
+          }
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
       }
     }
 

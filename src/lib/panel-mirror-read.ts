@@ -122,7 +122,7 @@ function mapLimitFromDb(value: unknown): number | string {
 }
 
 function mapPackage(row: Record<string, unknown>): PanelPackage {
-  return {
+  const pkg: PanelPackage = {
     id: String(row.package_name || row.id || ''),
     packageName: String(row.package_name || ''),
     diskSpace: mapLimitFromDb(row.disk_space),
@@ -132,6 +132,29 @@ function mapPackage(row: Record<string, unknown>): PanelPackage {
     ftpAccounts: mapLimitFromDb(row.ftp_accounts),
     allowedDomains: mapLimitFromDb(row.allowed_domains),
   };
+
+  const form = row.package_form_json as
+    | { limits?: Record<string, { value?: string; unlimited?: boolean }> }
+    | null
+    | undefined;
+
+  if (form?.limits) {
+    const fromForm = (key: string, fallback: number | string) => {
+      const rowLimit = form.limits?.[key];
+      if (!rowLimit) return fallback;
+      if (rowLimit.unlimited) return 0;
+      const n = Number(String(rowLimit.value || '').replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
+    if (!Number(pkg.diskSpace)) pkg.diskSpace = fromForm('quota', pkg.diskSpace);
+    if (!Number(pkg.bandwidth)) pkg.bandwidth = fromForm('bandwidth', pkg.bandwidth);
+    if (!Number(pkg.emailAccounts)) pkg.emailAccounts = fromForm('nemails', pkg.emailAccounts);
+    if (!Number(pkg.dataBases)) pkg.dataBases = fromForm('mysql', pkg.dataBases);
+    if (!Number(pkg.ftpAccounts)) pkg.ftpAccounts = fromForm('ftp', pkg.ftpAccounts);
+    if (!Number(pkg.allowedDomains)) pkg.allowedDomains = fromForm('vdomains', pkg.allowedDomains);
+  }
+
+  return pkg;
 }
 
 /** Igual a mapPackage — exportado para carregar formulário a partir do espelho. */

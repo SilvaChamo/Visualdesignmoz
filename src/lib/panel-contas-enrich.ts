@@ -132,7 +132,17 @@ export function enrichPanelAccounts(
     const acl = String(u.acl || u.type || '').toLowerCase();
     const primaryDomain = pickPrimaryDomain(u.userName, owned, acl);
     const packageName = u.packageName || pickAccountPackage(u.userName, owned, acl);
-    const pkgMeta = packageName ? packageMap.get(packageName) : undefined;
+    const pkgMeta = packageName
+      ? (() => {
+          const direct = packageMap.get(packageName);
+          if (direct) return direct;
+          const lower = packageName.toLowerCase();
+          for (const [key, pkg] of packageMap) {
+            if (key.toLowerCase() === lower) return pkg;
+          }
+          return undefined;
+        })()
+      : undefined;
     const siteDiskSum = owned.reduce(
       (sum, s) => sum + (parseInt(String(s.diskUsage || '0'), 10) || 0),
       0,

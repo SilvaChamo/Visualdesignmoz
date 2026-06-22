@@ -188,7 +188,7 @@ export function getPanelAbsoluteUrl(pathAndQuery: string): string {
 
 /**
  * Redirecções de rotas API do painel — evita localhost quando o proxy interno
- * (Apache → 127.0.0.1:3003) não repõe o host público em req.url.
+ * (Apache → 127.0.0.1:3002) não repõe o host público em req.url.
  */
 export function resolvePanelApiRedirect(pathAndQuery: string, requestUrl?: string): string {
   const path = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`

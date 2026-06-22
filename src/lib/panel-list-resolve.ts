@@ -5,19 +5,19 @@
 
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 
-/** União por nome — o espelho prevalece (pacotes criados no painel). */
+/** União por nome — o servidor (DA) prevalece nos limites; o espelho só acrescenta pacotes ainda não vistos no DA. */
 export function mergePackageListByName(
   mirror: PanelPackage[],
-  resolved: PanelPackage[],
+  live: PanelPackage[],
 ): PanelPackage[] {
   const byName = new Map<string, PanelPackage>();
-  for (const p of resolved) {
+  for (const p of live) {
     const key = p.packageName.toLowerCase();
     if (key) byName.set(key, p);
   }
   for (const p of mirror) {
     const key = p.packageName.toLowerCase();
-    if (key) byName.set(key, p);
+    if (key && !byName.has(key)) byName.set(key, p);
   }
   return [...byName.values()].sort((a, b) => a.packageName.localeCompare(b.packageName));
 }

@@ -65,11 +65,10 @@ import { OSHER_DOMAIN } from '@/lib/email-domains'
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich'
 import { WordPressHubSection } from '../dashboard/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
-import { getPanelBreadcrumbTrail } from '@/lib/panel-breadcrumb'
 import { resolveSectionId } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { PanelHeader } from '@/components/panel/PanelHeader'
-import { PanelBreadcrumb } from '@/components/panel/PanelBreadcrumb'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { ListWebsitesSection as PanelListWebsitesSection } from '@/components/panel/ListWebsitesSection'
 
 const directAdminAPI = panelAPI
@@ -1890,6 +1889,15 @@ function ManageWebsiteSection({
 }
 
 export default function ResellerPage() {
+  return (
+    <AdminSectionChromeProvider>
+      <ResellerPageContent />
+    </AdminSectionChromeProvider>
+  )
+}
+
+function ResellerPageContent() {
+  const { chrome } = useAdminSectionChrome()
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
   const { isCollapsed, setIsCollapsed, isMobile } = usePanelSidebarCollapsed()
@@ -2177,7 +2185,7 @@ export default function ResellerPage() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} isActive={isActive} />
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':
@@ -2614,20 +2622,6 @@ export default function ResellerPage() {
     setActiveSection(resolveSectionId(section))
   }
 
-  const breadcrumbs = useMemo(
-    () => getPanelBreadcrumbTrail(activeSection, 'reseller'),
-    [activeSection],
-  )
-
-  const handleBreadcrumbNavigate = useCallback((section: string) => {
-    if (isDomainHubSection(section)) {
-      setDomainHubTab(sectionToDomainTab(section))
-      setActiveSection('domain-manager')
-      return
-    }
-    setActiveSection(resolveSectionId(section))
-  }, [])
-
   return (
     <div className="panel-shell font-panel flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
       <ResellerSidebar
@@ -2644,6 +2638,7 @@ export default function ResellerPage() {
         <PanelHeader
           title={getSectionInfo(activeSection).title}
           description={getSectionInfo(activeSection).description}
+          toolbar={chrome?.toolbar}
           search={
             activeSection === 'dashboard'
               ? {
@@ -2698,17 +2693,6 @@ export default function ResellerPage() {
                 : 'overflow-y-auto p-4 lg:p-5'
           }`}
         >
-          {breadcrumbs.length > 1 ? (
-            <div
-              className={
-                ['webmail', 'dashboard'].includes(activeSection)
-                  ? 'shrink-0 px-4 pt-4'
-                  : 'mb-3 shrink-0'
-              }
-            >
-              <PanelBreadcrumb items={breadcrumbs} onNavigate={handleBreadcrumbNavigate} />
-            </div>
-          ) : null}
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>

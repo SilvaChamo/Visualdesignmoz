@@ -336,10 +336,19 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const cached = cacheService.get(cacheKey);
       if (cached) return cached as PanelPackage[];
 
-      const cmd =
+      const listCmd =
         credentials.role === 'reseller' ? 'CMD_API_PACKAGES_RESELLER' : 'CMD_API_PACKAGES_USER';
-      const pkgData = await daGet(credentials, cmd);
-      const names = extractList(pkgData);
+      const pkgData = await daGet(credentials, listCmd);
+      const nameSet = new Set(extractList(pkgData));
+      if (credentials.role === 'admin') {
+        try {
+          const resellerPkgData = await daGet(credentials, 'CMD_API_PACKAGES_RESELLER');
+          for (const n of extractList(resellerPkgData)) nameSet.add(n);
+        } catch {
+          /* apenas pacotes de utilizador */
+        }
+      }
+      const names = [...nameSet];
       const packages: PanelPackage[] = [];
       const { packageRowFromFields } = await import('@/lib/panel-brand-packages');
 
@@ -1277,6 +1286,48 @@ export async function getDirectAdminAPIForDaUsername(daUsername: string) {
     user: stored.user,
     password: stored.password,
   });
+}
+
+/** Utilizadores de hospedagem no DA: admin + revendas + sub-contas (leitura real, sem inventar linhas). */
+export async function listAllHostingUsersFromDa(): Promise<PanelUser[]> {
+  const adminApi = await getAdminDirectAdminAPI();
+  const adminUsers = await adminApi.listUsers();
+  const byName = new Map<string, PanelUser>();
+  for (const u of adminUsers) {
+    if (u.userName) byName.set(u.userName.toLowerCase(), u);
+  }
+
+  const resellerNames = new Set<string>();
+  for (const u of adminUsers) {
+    const acl = String(u.acl || u.type || '').toLowerCase();
+    if (acl.includes('reseller') && u.userName) resellerNames.add(u.userName);
+  }
+  const legacyReseller = process.env.DIRECTADMIN_RESELLER_USER?.trim();
+  if (legacyReseller) resellerNames.add(legacyReseller);
+  resellerNames.add('oshercollective');
+
+  const { loadResellerCredentialsByDaUsername } = await import('@/lib/da-credential-store');
+  for (const resellerUsername of resellerNames) {
+    if (!resellerUsername || resellerUsername.toLowerCase() === 'admin') continue;
+    try {
+      const stored = await loadResellerCredentialsByDaUsername(resellerUsername);
+      if (!stored) continue;
+      const resellerApi = await getDirectAdminAPIForDaUsername(resellerUsername);
+      const subs = await resellerApi.listUsers();
+      for (const sub of subs) {
+        const name = sub.userName;
+        if (!name || name.toLowerCase() === resellerUsername.toLowerCase()) continue;
+        byName.set(name.toLowerCase(), {
+          ...sub,
+          parentUsername: sub.parentUsername || resellerUsername,
+        });
+      }
+    } catch {
+      /* revenda sem credenciais ou sem sub-contas */
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => a.userName.localeCompare(b.userName));
 }
 
 export async function getDirectAdminAPI(

@@ -17,7 +17,6 @@ import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanel
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
-import { PanelBreadcrumb } from '@/components/panel/PanelBreadcrumb'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { ListWebsitesSection, sortSitesPrimaryFirst } from '@/components/panel/ListWebsitesSection'
 import { panelBtnSecondary, panelDashboardGrid, panelDashboardToolCard, panelSectionPadding } from '@/lib/panel-ui'
@@ -60,7 +59,6 @@ import { ClientesDaSection } from './ClientesDaSection'
 import { WordPressHubSection } from './WordPressHubSection'
 import { WordPressUsersSection } from './WordPressUsersSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
-import { getPanelBreadcrumbTrail } from '@/lib/panel-breadcrumb'
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache'
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
@@ -1820,11 +1818,6 @@ function AdminPageContent() {
 
   const getSectionInfo = (section: string) => getPanelSectionMeta(section)
 
-  const breadcrumbs = useMemo(
-    () => getPanelBreadcrumbTrail(activeSection, 'admin'),
-    [activeSection],
-  )
-
   const renderSectionFor = (sectionId: string, isActive: boolean) => {
     switch (sectionId) {
       case 'cp-client-permissions':
@@ -1890,7 +1883,7 @@ function AdminPageContent() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} />
       case 'infra-manager':
         return <InfraManagerSection />
       case 'news-manager':
@@ -2320,15 +2313,6 @@ function AdminPageContent() {
     setActiveSection(section)
   }
 
-  const handleBreadcrumbNavigate = useCallback((section: string) => {
-    if (isDomainHubSection(section)) {
-      setDomainHubTab(sectionToDomainTab(section))
-      setActiveSection('domain-manager')
-      return
-    }
-    setActiveSection(section)
-  }, [])
-
   return (
     <div className="panel-shell font-panel flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
       <AdminSidebar
@@ -2384,11 +2368,6 @@ function AdminPageContent() {
         />
 
         <main className={`panel-content flex-1 ${['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
-          {breadcrumbs.length > 1 ? (
-            <div className={['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'shrink-0 px-4 pt-4' : 'mb-3 shrink-0'}>
-              <PanelBreadcrumb items={breadcrumbs} onNavigate={handleBreadcrumbNavigate} />
-            </div>
-          ) : null}
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>

@@ -105,6 +105,6 @@ export function applyAdminPanelScope(boot: {
     resellerTree,
     sites: filterSitesForAdminPanel(boot.sites, boot.users),
     users: boot.users,
-    packages: filterPackagesForAdminPanel(boot.packages, boot.sites, boot.users),
+    packages: boot.packages,
   };
 }
