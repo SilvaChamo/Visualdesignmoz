@@ -46,11 +46,25 @@ function getBrowserClient() {
   return browserClient
 }
 
-/** Copia sessão OAuth (localStorage) para cookies partilhados do painel. */
+/** Copia sessão OAuth para cookies do browser (UI) e do servidor (proxy). */
 export async function syncCookieSessionFromOAuth(session: {
   access_token: string
   refresh_token: string
 }) {
+  const syncRes = await fetch('/api/auth/sync-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    }),
+  })
+  if (!syncRes.ok) {
+    const payload = (await syncRes.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error || 'Não foi possível guardar a sessão')
+  }
+
   const { error } = await getBrowserClient().auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,

@@ -223,6 +223,9 @@ export function resolvePostLoginUrl(options: {
 
   try {
     const host = new URL(origin).hostname
+    if (isLocalDevHost(host)) {
+      return innerPath
+    }
     if (isCanonicalPanelOnMainDomain()) {
       return innerPath
     }
