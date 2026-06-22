@@ -112,6 +112,7 @@ function mapUser(row: Record<string, unknown>): PanelUser {
           ? row.bandwidth_limit_mb
           : undefined,
     packageName: row.package_name ? String(row.package_name) : undefined,
+    authUserId: row.auth_user_id ? String(row.auth_user_id) : undefined,
   };
 }
 

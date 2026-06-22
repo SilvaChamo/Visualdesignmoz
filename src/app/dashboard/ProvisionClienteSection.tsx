@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Eye, EyeOff, Globe, Loader2, Package, RefreshCw, Shield, UserPlus, Users } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, Globe, Loader2, Package, RefreshCw, UserPlus } from 'lucide-react';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache';
 import { panelBtnSecondary } from '@/lib/panel-ui';
@@ -18,6 +18,7 @@ export type ProvisionEditUser = {
   type?: string;
   websitesLimit?: number;
   emailsLimit?: number;
+  authUserId?: string;
 };
 
 export type ProvisionCreatedUser = ProvisionEditUser & {
@@ -121,17 +122,26 @@ export function ProvisionClienteSection({
   const [panelUsers, setPanelUsers] = useState<Array<{ id: string; email: string; userName: string; panelRole: string }>>([]);
 
   useEffect(() => {
-    if (isEdit || panelScope !== 'admin') return;
+    if (panelScope !== 'admin') return;
     let cancelled = false;
     void fetch('/api/admin/panel-users', { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { success?: boolean; users?: Array<{ id: string; email: string; userName: string; panelRole: string }> }) => {
         if (cancelled || !data.success || !Array.isArray(data.users)) return;
         setPanelUsers(data.users);
+        if (isEdit && editUser) {
+          const linked =
+            (editUser.authUserId && data.users.find((u) => u.id === editUser.authUserId)) ||
+            data.users.find((u) => u.email.toLowerCase() === String(editUser.email || '').toLowerCase());
+          if (linked) {
+            setUserMode('existing');
+            setExistingUserId(linked.id);
+          }
+        }
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [isEdit, panelScope]);
+  }, [panelScope, isEdit, editUser?.authUserId, editUser?.email]);
 
   useEffect(() => {
     if (!isEdit) setAccountType(initialAccountType);
@@ -382,123 +392,121 @@ export function ProvisionClienteSection({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-6">
           <section className={`${formCardCls} space-y-4`}>
-            <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Tipo de conta'}</h2>
-            {!isEdit && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {([
-                { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
-                ...(allowResellerAccountType
-                  ? [
-                      { id: 'professional' as const, title: 'Profissional', desc: 'Gestão de sites e WordPress (sem criar contas)', icon: Shield },
-                      { id: 'reseller' as const, title: 'Revendedor', desc: 'Revenda com plano Essencial ou Expandido', icon: Globe },
-                    ]
-                  : []),
-              ]).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setAccountType(opt.id);
+            <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Criar conta'}</h2>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">Tipo de conta</span>
+                <select
+                  value={accountType}
+                  disabled={isEdit}
+                  onChange={(e) => {
+                    const next = e.target.value as AccountType;
+                    setAccountType(next);
                     setPackageName(packages[0]?.packageName || '');
                   }}
-                  className={`rounded-lg border-2 p-4 text-left transition-all ${
-                    accountType === opt.id ? 'border-red-600 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`${inputCls} disabled:bg-gray-50`}
                 >
-                  <div className="flex items-start gap-3">
-                    <opt.icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
-                    <div className="min-w-0 font-bold text-gray-900">{opt.title}</div>
-                  </div>
-                  <p className="mt-2 pl-8 text-sm text-gray-500">{opt.desc}</p>
-                </button>
-              ))}
+                  <option value="client">Cliente</option>
+                  {allowResellerAccountType ? (
+                    <>
+                      <option value="professional">Profissional</option>
+                      <option value="reseller">Revendedor</option>
+                    </>
+                  ) : null}
+                </select>
+              </label>
+
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">Utilizador de hospedagem</span>
+                <input
+                  value={isEdit ? fixedUsername : deriveUsername()}
+                  readOnly
+                  className={`${inputCls} bg-gray-50 font-mono`}
+                />
+              </label>
             </div>
+
+            {panelScope === 'admin' && (
+              <div className="space-y-3 border-t border-gray-100 pt-4 dark:border-zinc-800">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Utilizador do painel</p>
+                {!isEdit ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUserMode('new')}
+                      className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                        userMode === 'new' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                      }`}
+                    >
+                      Criar novo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserMode('existing')}
+                      className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                        userMode === 'existing' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                      }`}
+                    >
+                      Associar existente
+                    </button>
+                  </div>
+                ) : null}
+                {(isEdit || userMode === 'existing') && (
+                  <select
+                    value={existingUserId}
+                    disabled={isEdit}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setExistingUserId(id);
+                      const row = panelUsers.find((u) => u.id === id);
+                      if (row) {
+                        setIdentity((prev) => ({
+                          ...prev,
+                          email: row.email,
+                          firstName: prev.firstName || row.userName.split(' ')[0] || '',
+                          lastName: prev.lastName || row.userName.split(' ').slice(1).join(' ') || '',
+                        }));
+                        setHosting((prev) => ({ ...prev, adminEmail: row.email }));
+                      }
+                    }}
+                    className={`${inputCls} disabled:bg-gray-50`}
+                  >
+                    <option value="">Seleccionar utilizador do painel…</option>
+                    {panelUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.email} ({u.panelRole})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )}
-            {isEdit && (
-              <p className="text-sm text-gray-600">
-                Utilizador: <strong className="font-mono">{fixedUsername}</strong>
-                {' · '}
-                {accountType === 'reseller' ? 'Revendedor' : accountType === 'professional' ? 'Profissional' : 'Cliente'}
-              </p>
+
+            {accountType === 'reseller' && (
+              <div className="space-y-3 border-t border-gray-100 pt-4 dark:border-zinc-800">
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Plano de revenda</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {([
+                    { id: 'essencial' as const, title: 'Essencial', desc: 'Até 15 contas · 50 GB' },
+                    { id: 'expandido' as const, title: 'Expandido', desc: 'Até 150 contas · 500 GB' },
+                  ]).map((plan) => (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setResellerTier(plan.id)}
+                      className={`rounded-lg border-2 p-4 text-left ${
+                        resellerTier === plan.id ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="font-bold text-gray-900">{plan.title}</div>
+                      <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </section>
-
-          {!isEdit && panelScope === 'admin' && (
-            <section className={`${formCardCls} space-y-4`}>
-              <h2 className="font-bold text-gray-900">Utilizador do painel</h2>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUserMode('new')}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
-                    userMode === 'new' ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                  }`}
-                >
-                  Criar novo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserMode('existing')}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
-                    userMode === 'existing' ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                  }`}
-                >
-                  Associar existente
-                </button>
-              </div>
-              {userMode === 'existing' && (
-                <select
-                  value={existingUserId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setExistingUserId(id);
-                    const row = panelUsers.find((u) => u.id === id);
-                    if (row) {
-                      setIdentity((prev) => ({
-                        ...prev,
-                        email: row.email,
-                        firstName: prev.firstName || row.userName.split(' ')[0] || '',
-                        lastName: prev.lastName || row.userName.split(' ').slice(1).join(' ') || '',
-                      }));
-                      setHosting((prev) => ({ ...prev, adminEmail: row.email }));
-                    }
-                  }}
-                  className={inputCls}
-                >
-                  <option value="">Seleccionar utilizador…</option>
-                  {panelUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.email} ({u.panelRole})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </section>
-          )}
-
-          {accountType === 'reseller' && !isEdit && (
-            <section className={`${formCardCls} space-y-3`}>
-              <h2 className="font-bold text-gray-900">Plano de revenda</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {([
-                  { id: 'essencial' as const, title: 'Essencial', desc: 'Até 15 contas · 50 GB' },
-                  { id: 'expandido' as const, title: 'Expandido', desc: 'Até 150 contas · 500 GB' },
-                ]).map((plan) => (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    onClick={() => setResellerTier(plan.id)}
-                    className={`rounded-lg border-2 p-4 text-left ${
-                      resellerTier === plan.id ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="font-bold text-gray-900">{plan.title}</div>
-                    <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
 
           <section className={`${formCardCls} space-y-4`}>
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
@@ -512,7 +520,7 @@ export function ProvisionClienteSection({
                 type="email"
                 value={identity.email}
                 onChange={(e) => setIdentity({ ...identity, email: e.target.value })}
-                disabled={userMode === 'existing'}
+                disabled={isEdit || userMode === 'existing'}
                 className={`${inputCls} sm:col-span-2 disabled:bg-gray-50`}
               />
               <div className="relative sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">

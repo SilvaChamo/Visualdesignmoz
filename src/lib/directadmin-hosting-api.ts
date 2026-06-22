@@ -78,6 +78,7 @@ export interface PanelUser {
   quotaLimitMb?: number | null;
   bandwidthLimitMb?: number | null;
   packageName?: string;
+  authUserId?: string;
 }
 
 export interface PanelSubdomain {

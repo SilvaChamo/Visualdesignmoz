@@ -33,7 +33,8 @@ import {
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
 
-import { enrichPanelAccounts } from '@/lib/panel-contas-enrich';
+import { enrichPanelAccounts, PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
+import type { PanelUser } from '@/lib/directadmin-hosting-api';
 import {
   schedulePanelServerProvision,
 } from '@/lib/panel-server-provision';
@@ -156,6 +157,29 @@ async function isPanelManagedWithoutServer(userName: string): Promise<boolean> {
   return auth?.server_linked !== true;
 }
 
+async function mergeHostingAccountUsers(mirrorUsers: PanelUser[]): Promise<PanelUser[]> {
+  const byName = new Map(
+    mirrorUsers
+      .filter((u) => u.userName)
+      .map((u) => [u.userName.toLowerCase(), u] as const),
+  );
+
+  try {
+    const liveUsers = await listAllHostingUsersFromDa();
+    for (const user of liveUsers) {
+      const key = String(user.userName || '').toLowerCase();
+      if (!key) continue;
+      if (!byName.has(key)) {
+        byName.set(key, user);
+      }
+    }
+  } catch {
+    /* espelho apenas */
+  }
+
+  return [...byName.values()].sort((a, b) => a.userName.localeCompare(b.userName));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAdminOrReseller();
@@ -237,6 +261,8 @@ export async function GET(req: NextRequest) {
       a.packageName.localeCompare(b.packageName),
     );
 
+    users = await mergeHostingAccountUsers(users);
+
     const enriched = enrichPanelAccounts(users, sites, packageMap).map((row) => ({
       ...row,
       packageName: row.packageName || '—',
@@ -257,6 +283,7 @@ export async function GET(req: NextRequest) {
       resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
       osherReseller: OSHER_RESELLER,
       osherCredsOk: Boolean(osherCreds),
+      primaryResellerAccount: PRIMARY_RESELLER_DA_USER,
       meta: {
         source,
         lastSyncedAt,
