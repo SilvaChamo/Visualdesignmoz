@@ -6,15 +6,10 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { panelField, panelShellHeaderHeightLg } from '@/lib/panel-ui';
 import type { SectionChromeBack, SectionChromeSearch } from '@/components/admin/AdminSectionChrome';
-import { PanelBreadcrumb } from '@/components/panel/PanelBreadcrumb';
-import type { PanelBreadcrumbItem } from '@/lib/panel-breadcrumb';
-
 type PanelHeaderProps = {
   title: string;
   description?: string;
   back?: SectionChromeBack;
-  breadcrumbs?: PanelBreadcrumbItem[];
-  onBreadcrumbNavigate?: (sectionId: string) => void;
   search?: SectionChromeSearch;
   hidden?: boolean;
   children?: React.ReactNode;
@@ -27,8 +22,6 @@ export function PanelHeader({
   title,
   description,
   back,
-  breadcrumbs,
-  onBreadcrumbNavigate,
   search,
   hidden,
   children,
@@ -74,9 +67,6 @@ export function PanelHeader({
       >
         <div className="flex w-full flex-col gap-3 lg:h-full lg:flex-row lg:items-center lg:justify-between lg:gap-4">
           <div className="min-w-0 lg:shrink-0">
-            {breadcrumbs && breadcrumbs.length > 1 && onBreadcrumbNavigate ? (
-              <PanelBreadcrumb items={breadcrumbs} onNavigate={onBreadcrumbNavigate} />
-            ) : null}
             {back ? (
               <button
                 type="button"

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
-import { panelBtnPrimary, panelBtnSecondary, panelField, panelInnerDetailCard, panelMobileCardGrid, panelMobileStackCard } from '@/lib/panel-ui'
+import { panelBtnPrimary, panelBtnSecondary, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard } from '@/lib/panel-ui'
 import { PanelIconTip } from '@/components/panel/PanelIconTip'
 import { directAdminAPI } from '@/lib/directadmin-api'
 import type {
@@ -1162,7 +1162,7 @@ export function DNSZoneEditorSection({
                     key={record.id}
                     className={`${panelInnerDetailCard} space-y-2 bg-white dark:bg-zinc-900`}
                   >
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-start gap-2">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(record.id)}
@@ -1170,7 +1170,7 @@ export function DNSZoneEditorSection({
                       />
                       <span className="text-sm font-bold text-gray-900 dark:text-zinc-100">{record.name}</span>
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-start gap-2 text-xs">
                       <span className="text-gray-500">TTL: {record.ttl || 0}</span>
                       <span
                         className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${typeColors[record.type] || 'bg-gray-200 text-gray-800'}`}
@@ -1179,7 +1179,7 @@ export function DNSZoneEditorSection({
                       </span>
                     </div>
                     <p className="break-all text-sm text-gray-700 dark:text-zinc-300">{displayContent}</p>
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <div className="flex flex-wrap items-center justify-start gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => startEditRecord(record)}
@@ -3947,23 +3947,23 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
     <div className="space-y-6">
 
       <div className="bg-white rounded shadow-sm border border-gray-200 p-4 md:p-6">
-        <div className="flex flex-col items-center gap-4 mb-6 md:flex-row md:flex-wrap md:items-end">
-          <div className="w-full flex-1 min-w-0 md:min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5 text-center md:text-left">Website</label>
+        <div className="flex flex-wrap gap-4 items-end mb-6">
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadConfig(e.target.value) }}
               className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione...</option>
               {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
             </select>
           </div>
-          <div className="w-full min-w-0 md:min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5 text-center md:text-left">Versão PHP</label>
-            <div className="flex flex-col items-center gap-2 sm:flex-row">
+          <div className="min-w-[200px]">
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Versão PHP</label>
+            <div className="flex items-center gap-2">
               <select value={phpVersion} onChange={(e) => setPhpVersion(e.target.value)}
-                className="w-full flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm text-center md:text-left">
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm">
                 <option>PHP 7.4</option><option>PHP 8.0</option><option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
               </select>
-              <button onClick={handleChangePHP} disabled={saving || !selectedDomain} className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">Alterar</button>
+              <button onClick={handleChangePHP} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 whitespace-nowrap">Alterar</button>
             </div>
           </div>
         </div>
@@ -3972,7 +3972,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
         {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : config && (
           <>
-            <div className={`${panelMobileCardGrid} mb-6`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               {[
                 { key: 'maxExecutionTime', label: 'Max Execution Time', placeholder: '30', suffix: 's' },
                 { key: 'memoryLimit', label: 'Memory Limit', placeholder: '256M', suffix: '' },
@@ -3981,7 +3981,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
                 { key: 'maxInputVars', label: 'Max Input Vars', placeholder: '1000', suffix: '' },
                 { key: 'maxInputTime', label: 'Max Input Time', placeholder: '60', suffix: 's' },
               ].map(f => (
-                <div key={f.key} className="text-center md:text-left">
+                <div key={f.key}>
                   <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">{f.label}</label>
                   <input value={(config as any)[f.key] || ''} onChange={(e) => updateConfig(f.key, e.target.value)}
                     placeholder={f.placeholder} className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm font-mono focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
@@ -3997,13 +3997,13 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
       {/* PHP Extensions */}
       <div className="bg-white rounded shadow-sm border border-gray-200 p-4 md:p-6">
-        <div className="flex flex-col items-center gap-4 mb-5 text-center md:flex-row md:items-center md:justify-between md:text-left">
+        <div className={`${panelMobileStack} mb-5 md:justify-between`}>
           <div>
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
           <a href={`${getHestiaUrl()}/list/php/`} target="_blank" rel="noopener noreferrer"
-            className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center justify-center gap-2">
+            className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center justify-start gap-2 sm:justify-center">
             <ExternalLink className="w-3.5 h-3.5" /> Gerir no DirectAdmin
           </a>
         </div>
@@ -4025,8 +4025,8 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
             { name: 'exif', desc: 'Metadados imagens', wp: true },
             { name: 'fileinfo', desc: 'Info de ficheiros', wp: true },
           ].map(ext => (
-            <div key={ext.name} className={`flex flex-col items-center gap-1 p-3 rounded-lg border text-center md:items-stretch md:text-left ${ext.wp ? 'border-indigo-200 bg-indigo-50/50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="flex items-center justify-center gap-2 md:justify-between">
+            <div key={ext.name} className={`flex flex-col items-stretch gap-1 p-3 rounded-lg border text-left ${ext.wp ? 'border-indigo-200 bg-indigo-50/50' : 'border-gray-200 bg-gray-50'}`}>
+              <div className="flex items-center justify-between gap-2">
                 <code className="text-xs font-bold text-gray-800">{ext.name}</code>
                 {ext.wp && <span className="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-1 rounded">WP</span>}
               </div>
@@ -4571,8 +4571,8 @@ export function SSLSection({
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-4 mb-4 rounded border border-gray-200 bg-gray-50 p-4 text-center dark:border-zinc-700 dark:bg-zinc-800/50 md:flex-row md:items-center md:justify-between md:text-left">
-          <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-zinc-300">
               <input type="checkbox" checked={forceIssue} onChange={(e) => setForceIssue(e.target.checked)} className="rounded" />
               Forçar SSL
@@ -4582,12 +4582,12 @@ export function SSLSection({
               Renovar
             </label>
           </div>
-          <div className="flex w-full flex-col items-center gap-3 md:ml-auto md:w-auto md:flex-row md:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase">Renovação automática</span>
             <select
               value={autoRenewDays}
               onChange={(e) => setAutoRenewDays(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800 md:w-auto"
+              className="px-3 py-2 border border-gray-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-800"
             >
               <option value="30">30 dias antes</option>
               <option value="60">60 dias antes</option>
@@ -4597,7 +4597,7 @@ export function SSLSection({
               type="button"
               onClick={() => void handleBulkIssue()}
               disabled={bulkIssuing || !hosts.length}
-              className="w-full bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2 md:w-auto"
+              className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
             >
               {bulkIssuing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               Emitir em massa
@@ -4611,77 +4611,7 @@ export function SSLSection({
           </div>
         )}
 
-        <div className="space-y-3 p-3 md:hidden">
-          {loadingHosts && !hosts.length && (
-            <div className="py-8 text-center text-gray-500">
-              <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
-              A carregar domínios e subdomínios...
-            </div>
-          )}
-          {!loadingHosts && !hosts.length && (
-            <div className="py-8 text-center text-gray-500">Nenhum domínio encontrado.</div>
-          )}
-          {hosts.map((row) => {
-            const secure = isHostSecure(row.hostname)
-            const busy = issuing === `issueSSL-${row.hostname}` || issuing?.endsWith(`-${row.hostname}`)
-            return (
-              <article
-                key={row.hostname}
-                className={`${panelInnerDetailCard} space-y-2 bg-white dark:bg-zinc-900`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedHosts.has(row.hostname)}
-                    onChange={() => toggleHost(row.hostname)}
-                    aria-label={`Seleccionar ${row.hostname}`}
-                  />
-                  <span className="text-sm font-bold text-gray-900 dark:text-zinc-100">{row.hostname}</span>
-                </div>
-                <p className="text-xs text-gray-500">{row.type}</p>
-                <div className="flex justify-center">
-                  {secure ? (
-                    <button
-                      type="button"
-                      onClick={() => openViewSsl(row.hostname)}
-                      className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs hover:underline"
-                    >
-                      <Lock className="w-3.5 h-3.5" /> SSL Activo
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-red-500 font-semibold text-xs">
-                      <LockOpen className="w-3.5 h-3.5" /> Sem SSL
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-                  {!secure && (
-                    <button
-                      type="button"
-                      onClick={() => void handleIssueSSL(row.hostname)}
-                      disabled={busy}
-                      className="text-green-600 hover:underline font-medium disabled:opacity-50"
-                    >
-                      {busy ? 'A emitir...' : 'Emitir SSL'}
-                    </button>
-                  )}
-                  {secure && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void runSslAction('replaceSSL', row.hostname, `Substituir certificado de ${row.hostname}?`)}
-                      className="text-blue-600 hover:underline font-medium disabled:opacity-50"
-                    >
-                      Substituir
-                    </button>
-                  )}
-                </div>
-              </article>
-            )
-          })}
-        </div>
-
-        <div className="hidden overflow-x-auto rounded border border-gray-200 dark:border-zinc-700 md:block">
+        <div className="overflow-x-auto rounded border border-gray-200 dark:border-zinc-700">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 text-left">
@@ -9205,7 +9135,7 @@ export function DomainManagerSection({
     'block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400'
 
   const renderDomainCardActions = (d: CachedDomainRow) => (
-    <div className="relative flex shrink-0 flex-wrap items-center justify-center gap-2 md:justify-end">
+    <div className="flex shrink-0 items-center gap-2">
       <button type="button" className={`${domainCardBtn} font-bold`} onClick={() => openManage(d)}>
         Gerir website
       </button>
@@ -9332,14 +9262,14 @@ export function DomainManagerSection({
             return (
               <article
                 key={d.domain}
-                className={`${panelMobileStackCard} gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between`}
+                className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 lg:flex-row lg:items-center lg:justify-between"
               >
-                <div className="flex w-full flex-col items-center gap-3 md:flex-row md:items-center md:gap-4 md:text-left">
+                <div className="flex min-w-0 flex-1 items-start gap-3 md:items-center md:gap-4">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
                     <Globe className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
                   </div>
-                  <div className="min-w-0 text-center md:text-left">
-                    <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-start gap-2">
                       <span className="text-base font-bold text-gray-900 dark:text-zinc-100">{baseName}</span>
                       {tld && <span className="text-sm font-medium text-gray-400 dark:text-zinc-500">{tld}</span>}
                       {hasSsl ? (
@@ -9352,7 +9282,7 @@ export function DomainManagerSection({
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs md:justify-start">
+                    <div className="mt-2 flex flex-wrap items-center justify-start gap-2 text-xs">
                       <span className={`font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                         ● {isActive ? 'Activo' : 'Desactivo'}
                       </span>

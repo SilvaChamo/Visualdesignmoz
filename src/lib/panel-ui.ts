@@ -49,10 +49,17 @@ export const panelSectionPadding = 'p-4 md:p-6';
 /** Grelha interna — 1 coluna no mobile, multi-coluna no desktop. */
 export const panelMobileCardGrid = 'grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3';
 
-/** Detalhe dentro de card — conteúdo centrado no mobile. */
+/** Detalhe dentro de card — alinhado à esquerda. */
 export const panelInnerDetailCard =
-  'rounded-lg border border-gray-200 bg-gray-50 p-3 text-center min-h-[4.75rem] box-border dark:border-zinc-700 dark:bg-zinc-800/50 md:text-left';
+  'rounded-lg border border-gray-200 bg-gray-50 p-3 text-left min-h-[4.75rem] box-border dark:border-zinc-700 dark:bg-zinc-800/50';
 
-/** Card de lista — coluna centrada no mobile. */
+/** Card de lista — coluna vertical à esquerda no mobile. */
 export const panelMobileStackCard =
-  'flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900 md:flex-row md:items-center md:text-left';
+  'flex flex-col items-stretch gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-zinc-700 dark:bg-zinc-900 md:flex-row md:items-center';
+
+/** Stack vertical mobile (toolbar, filtros, acções). */
+export const panelMobileStack = 'flex flex-col items-stretch gap-3 md:flex-row md:items-center md:gap-4';
+
+/** Linha de botões — coluna à esquerda no mobile. */
+export const panelMobileActions =
+  'flex flex-col items-stretch gap-2 w-full md:flex-row md:flex-wrap md:items-center md:gap-2 md:w-auto';

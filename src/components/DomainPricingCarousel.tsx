@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatMtPrice, type DomainTldPrice } from '@/lib/domain-tld-prices'
+import { panelMobileStackCard } from '@/lib/panel-ui'
 
 const CARD_GAP = 16
 const VISIBLE_CARDS = 4
@@ -12,6 +13,35 @@ const CARD_WIDTH_CSS = `calc((100% - ${CARD_GAP * (VISIBLE_CARDS - 1)}px) / ${VI
 
 type DomainPricingCarouselProps = {
   items: DomainTldPrice[]
+}
+
+function PricingCard({
+  domain,
+  className = '',
+}: {
+  domain: DomainTldPrice
+  className?: string
+}) {
+  return (
+    <article className={`${panelMobileStackCard} px-4 py-4 shadow-sm md:items-stretch ${className}`}>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          <span className="text-green-600">.</span>
+          {domain.label.replace(/^\./, '')}
+        </h4>
+        <p className="mt-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+          {formatMtPrice(domain.price)} MT
+          <span className="text-zinc-500">/{domain.periodLabel || 'ano'}</span>
+        </p>
+      </div>
+      <button
+        type="button"
+        className="w-full shrink-0 rounded-md bg-green-600 px-3 py-2 text-left text-sm font-semibold text-white transition-colors hover:bg-green-700 md:w-auto md:text-center"
+      >
+        Registar agora
+      </button>
+    </article>
+  )
 }
 
 export function DomainPricingCarousel({ items }: DomainPricingCarouselProps) {
@@ -76,65 +106,73 @@ export function DomainPricingCarousel({ items }: DomainPricingCarouselProps) {
 
   if (items.length === 0) return null
 
-  if (!ready) {
-    return <div ref={viewportRef} className="h-[168px] w-full min-w-0" />
-  }
-
   return (
-    <div className="flex w-full min-w-0 items-center gap-2">
-      <button
-        type="button"
-        onClick={goPrev}
-        aria-label="Anterior"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 transition-colors hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/60"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-
-      <div ref={viewportRef} className="min-w-0 flex-1 overflow-hidden py-1">
-        <div
-          ref={trackRef}
-          className="flex"
-          style={{
-            gap: CARD_GAP,
-            transform: step > 0 ? `translateX(-${slideIndex * step}px)` : undefined,
-            transition: transitionEnabled ? 'transform 500ms ease-in-out' : 'none',
-          }}
-          onTransitionEnd={handleTransitionEnd}
-        >
-          {loopItems.map((domain, index) => (
-            <article
-              key={`${domain.value}-${index}`}
-              className="box-border flex shrink-0 flex-col items-center rounded-lg border border-zinc-200 bg-white px-4 py-5 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-              style={{ width: CARD_WIDTH_CSS, maxWidth: CARD_WIDTH_CSS }}
-            >
-              <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                <span className="text-green-600">.</span>
-                {domain.label.replace(/^\./, '')}
-              </h4>
-              <p className="mt-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                {formatMtPrice(domain.price)} MT
-                <span className="text-zinc-500">/{domain.periodLabel || 'ano'}</span>
-              </p>
-              <button
-                type="button"
-                className="mt-4 flex w-full items-center justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-              >
-                Registar agora
-              </button>
-            </article>
-          ))}
-        </div>
+    <>
+      <div className="flex w-full flex-col gap-3 md:hidden">
+        {items.map((domain) => (
+          <PricingCard key={domain.value} domain={domain} />
+        ))}
       </div>
 
-      <button
-        type="button"
-        onClick={goNext}
-        aria-label="Seguinte"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 transition-colors hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/60"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
-    </div>
+      {!ready ? (
+        <div ref={viewportRef} className="hidden h-[168px] w-full min-w-0 md:block" />
+      ) : (
+        <div className="hidden w-full min-w-0 items-center gap-2 md:flex">
+          <button
+            type="button"
+            onClick={goPrev}
+            aria-label="Anterior"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 transition-colors hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/60"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+
+          <div ref={viewportRef} className="min-w-0 flex-1 overflow-hidden py-1">
+            <div
+              ref={trackRef}
+              className="flex"
+              style={{
+                gap: CARD_GAP,
+                transform: step > 0 ? `translateX(-${slideIndex * step}px)` : undefined,
+                transition: transitionEnabled ? 'transform 500ms ease-in-out' : 'none',
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {loopItems.map((domain, index) => (
+                <article
+                  key={`${domain.value}-${index}`}
+                  className="box-border flex shrink-0 flex-col items-stretch rounded-lg border border-zinc-200 bg-white px-4 py-5 text-left shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  style={{ width: CARD_WIDTH_CSS, maxWidth: CARD_WIDTH_CSS }}
+                >
+                  <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                    <span className="text-green-600">.</span>
+                    {domain.label.replace(/^\./, '')}
+                  </h4>
+                  <p className="mt-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {formatMtPrice(domain.price)} MT
+                    <span className="text-zinc-500">/{domain.periodLabel || 'ano'}</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-4 flex w-full items-center justify-start rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                  >
+                    Registar agora
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={goNext}
+            aria-label="Seguinte"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 transition-colors hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/60"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+    </>
   )
 }

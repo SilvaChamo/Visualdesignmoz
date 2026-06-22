@@ -93,7 +93,7 @@ export function DomainsHubSection({
     <div className="w-full space-y-5">
       {!hideTabs && activeTab !== 'adicionar' ? (
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <nav className="flex shrink-0 flex-wrap justify-center gap-x-5 lg:justify-start" aria-label="Secções de domínios">
+          <nav className="flex shrink-0 flex-wrap justify-start gap-x-5" aria-label="Secções de domínios">
             {tabs.map(({ id, label, icon: Icon }) => {
               const isTabActive = activeTab === id;
               return (
@@ -126,7 +126,7 @@ export function DomainsHubSection({
               !showListToolbar && 'hidden',
             )}
           >
-            <span className="flex h-[38px] shrink-0 items-center justify-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400 lg:justify-start">
+            <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
               {filteredCount} domínio(s)
             </span>
 

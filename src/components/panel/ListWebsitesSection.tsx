@@ -452,7 +452,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       <div className={SITE_DETAIL_CARD}>
         <p className="text-xs font-bold text-gray-400 uppercase mb-1">{label}</p>
         {isEditing ? (
-          <div className="flex flex-col items-center gap-2 md:flex-row md:items-center">
+          <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
             {field === 'state' ? (
               <select value={editValue} onChange={e => setEditValue(e.target.value)}
                 className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1">
@@ -481,7 +481,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               className="text-xs bg-gray-200 px-2 py-1 rounded">✕</button>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-2 md:justify-between">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-bold text-gray-900 truncate">{value || '-'}</p>
             <button onClick={() => { setEditingField({ domain, field }); setEditValue(value) }}
               className="text-gray-400 hover:text-blue-500 ml-2">
@@ -513,13 +513,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               placeholder="Pesquisar websites..."
               className="pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm w-full" />
           </div>
-          <span className="text-center text-base font-bold text-gray-900 shrink-0 dark:text-zinc-100 sm:text-left">
+          <span className="text-left text-base font-bold text-gray-900 shrink-0 dark:text-zinc-100">
             Websites ({filtered.length})
           </span>
         </div>
 
         <button onClick={() => setActiveSection('wordpress-install')}
-          className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2 rounded text-xs font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 w-full sm:w-auto">
+          className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2 rounded text-xs font-bold flex items-center justify-start gap-1.5 transition-all shrink-0 w-full sm:w-auto">
           <Plus className="w-3 h-3" /> Criar Website
         </button>
       </div>
@@ -559,7 +559,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
             <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
 
               {/* Info do site */}
-              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start md:gap-3">
+              <div className="flex flex-wrap items-center justify-start gap-2 md:gap-3">
                 <button
                   onClick={() => setExpandedSite(expandedSite === s.domain ? null : s.domain)}
                   className="p-1 rounded hover:bg-gray-100 transition-colors"
@@ -598,7 +598,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               </div>
 
               {/* Acções */}
-              <div className="flex flex-wrap items-center justify-center gap-2 shrink-0 md:justify-end">
+              <div className="flex flex-wrap items-center justify-start gap-2 shrink-0 md:justify-end">
                 <button
                   type="button"
                   onClick={() => openFileManager(s.domain)}
@@ -677,7 +677,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
                 {/* Miniatura + 6 cards uniformes */}
                 <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:min-h-[10.5rem]">
-                  <div className="mx-auto w-full max-w-[300px] shrink-0 h-40 overflow-hidden rounded border border-gray-200 dark:border-zinc-600 md:mx-0 md:w-[38%] md:h-[10.5rem]">
+                  <div className="w-full max-w-[300px] shrink-0 h-40 overflow-hidden rounded border border-gray-200 dark:border-zinc-600 md:w-[38%] md:max-w-[300px] md:h-[10.5rem]">
                     <SiteThumbnail
                       domain={s.domain}
                       width={wordpressOnly ? 320 : 600}
@@ -707,7 +707,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 </div>
 
                 {!wordpressOnly ? (
-                <div className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-100 pt-3 dark:border-zinc-800 md:justify-start">
+                <div className="flex flex-wrap items-center justify-start gap-2 border-t border-gray-100 pt-3 dark:border-zinc-800">
                   <button
                     type="button"
                     onClick={() => {
