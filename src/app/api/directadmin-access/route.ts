@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
-import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
-import { ADMIN_EMAILS } from '@/lib/user-roles';
 import { CANONICAL_DIRECTADMIN_HOST } from '@/lib/directadmin-url';
 import { buildDirectAdminBase } from '@/lib/directadmin-url';
 import { getAdminDaUsername } from '@/lib/directadmin-credentials';
 import { resolveDirectAdminLoginUsernameFast } from '@/lib/directadmin-access-target';
 import { daOneTimeLoginUrl } from '@/lib/da-api-ssh';
 import type { DirectAdminAccessTarget } from '@/lib/server-config';
-import type { PanelAuthSuccess } from '@/lib/panel-api-auth';
+import { buildPanelLoginUrl } from '@/lib/panel-origin';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 
 function readEnv(...keys: string[]): string {
   for (const key of keys) {
@@ -33,74 +31,34 @@ function parseAccessTarget(request: NextRequest): DirectAdminAccessTarget {
   return request.nextUrl.searchParams.get('as') === 'reseller' ? 'reseller' : 'admin';
 }
 
-function staffRoleFromSession(
-  user: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof createClient>>['auth']['getSession']>>['data']['session']>['user'],
-): PanelAuthSuccess | null {
-  const email = (user.email || '').toLowerCase();
-  const metaRole = user.user_metadata?.role || user.app_metadata?.role;
-
-  if (ADMIN_EMAILS.has(email) || metaRole === 'admin') {
-    return { user: { id: user.id, email, role: 'admin' } };
-  }
-  if (metaRole === 'reseller') {
-    return { user: { id: user.id, email, role: 'reseller' } };
-  }
-  return null;
+/** Navegação no browser (botão DirectAdmin) — redirecionar ao login em vez de JSON. */
+function isBrowserNavigation(request: NextRequest): boolean {
+  const accept = request.headers.get('accept') ?? '';
+  if (accept.includes('text/html')) return true;
+  const dest = request.headers.get('sec-fetch-dest');
+  return dest === 'document' || dest === 'iframe';
 }
 
-async function requireStaffForDaAccess(): Promise<PanelAuthSuccess | NextResponse> {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const sessionUser = session?.user ?? null;
-  if (sessionUser) {
-    const quick = staffRoleFromSession(sessionUser);
-    if (quick) return quick;
-  }
-
-  let user = sessionUser;
-  if (!user) {
-    const {
-      data: { user: verified },
-    } = await supabase.auth.getUser();
-    user = verified;
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-  }
-
-  const email = (user.email || '').toLowerCase();
-  const quick = staffRoleFromSession(user);
-  if (quick) return quick;
-
-  try {
-    const effectiveRole = await resolveRoleForAuthUser(supabase, user);
-    if (effectiveRole === 'admin') {
-      return { user: { id: user.id, email, role: 'admin' } };
-    }
-    if (effectiveRole === 'reseller') {
-      return { user: { id: user.id, email, role: 'reseller' } };
-    }
-  } catch {
-    /* abaixo */
-  }
-
-  return NextResponse.json(
-    { error: 'Acesso restrito a administradores ou revendedores' },
-    { status: 403 },
-  );
+function loginRedirect(request: NextRequest): NextResponse {
+  return NextResponse.redirect(buildPanelLoginUrl(request.nextUrl.origin), {
+    status: 307,
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }
 
 /** Abre o DirectAdmin com SSO (admin ou revenda conforme o painel). */
 export async function GET(request: NextRequest) {
   const loginUrl = directAdminLoginPageUrl();
   const target = parseAccessTarget(request);
+  const browserNav = isBrowserNavigation(request);
 
-  const auth = await requireStaffForDaAccess();
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) {
+    if (browserNav) {
+      return loginRedirect(request);
+    }
+    return auth.error;
+  }
 
   try {
     const requestedUser = request.nextUrl.searchParams.get('user')?.trim().toLowerCase();
@@ -111,7 +69,17 @@ export async function GET(request: NextRequest) {
         : await resolveDirectAdminLoginUsernameFast(auth, target);
 
     if (requestedUser && auth.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 });
+      const forbidden = NextResponse.json(
+        { error: 'Acesso restrito a administradores' },
+        { status: 403 },
+      );
+      if (browserNav) {
+        return NextResponse.redirect(
+          new URL('/dashboard', request.nextUrl.origin),
+          { status: 307 },
+        );
+      }
+      return forbidden;
     }
 
     const oneTimeUrl = await daOneTimeLoginUrl(daUsername, CANONICAL_DIRECTADMIN_HOST);

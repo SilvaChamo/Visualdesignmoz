@@ -8,6 +8,9 @@ Type=simple
 WorkingDirectory=/opt/da-cookie-proxy
 Environment=DA_PROXY_PORT=2026
 Environment=DA_PROXY_TARGET=https://127.0.0.1:2027
+Environment=DA_PROXY_CERT=/opt/da-cookie-proxy/fullchain.pem
+Environment=DA_PROXY_KEY=/usr/local/directadmin/data/.lego/certificates/host.visualdesignmoz.com.key
+ExecStartPre=/opt/da-cookie-proxy/sync-da-ssl.sh
 ExecStart=/usr/bin/node /opt/da-cookie-proxy/da-cookie-proxy.js
 Restart=always
 RestartSec=3

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { startGoogleOAuth } from '@/lib/supabase-oauth-browser'
+import { supabase } from '@/lib/supabase-client'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n'
 
@@ -12,16 +13,7 @@ export function AuthButton() {
   const signInWithGoogle = async () => {
     setLoading(true)
     
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
-    })
-    
-    if (error) {
-      console.error('Error signing in with Google:', error.message)
-    }
+    await startGoogleOAuth(`${window.location.origin}/auth/callback`)
     
     setLoading(false)
   }

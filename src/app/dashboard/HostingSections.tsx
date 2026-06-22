@@ -54,7 +54,8 @@ import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
-  Upload, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search
+  Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search,
+  Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare
 } from 'lucide-react'
 
 function isDaCommandOk(result: unknown): boolean {
@@ -630,7 +631,7 @@ export function DNSZoneEditorSection({
           type="button"
           onClick={handleSyncMirror}
           disabled={!selectedDomain || syncing}
-          className={panelBtnPrimary}
+          className="px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-green-500 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-zinc-800 rounded text-sm font-bold transition-all disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${syncing || refreshing ? 'animate-spin' : ''}`} />
           Sincronizar
@@ -2253,7 +2254,7 @@ export function EmailManagementSection({
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Mail className="w-5 h-5 " /></div>
-                <div><h2 className="text-sm font-bold text-gray-900 block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
+                <div><h2 className="text-sm font-bold text-gray-900 dark:text-white block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
               </div>
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
@@ -2268,7 +2269,7 @@ export function EmailManagementSection({
                       <select 
                         value={selectedDomain} 
                         onChange={e => setSelectedDomain(e.target.value)} 
-                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="">Selecione um website</option>
                         {sites.map(site => (
@@ -2291,12 +2292,12 @@ export function EmailManagementSection({
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
               {emailModal.mode === 'edit' && (
                 <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
-                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
                   <button onClick={() => setEmailModal({...emailModal, data: {...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active'}})} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
@@ -3295,7 +3296,7 @@ export function CPUsersSection({
                         type="button"
                         onClick={() => void applyBulkPanelRole()}
                         disabled={creating}
-                        className={`${panelBtnPrimary} shrink-0`}
+                        className="shrink-0 px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm font-bold transition-all disabled:opacity-50"
                       >
                         Aplicar
                       </button>
@@ -3310,10 +3311,10 @@ export function CPUsersSection({
           )}
           {!isPanelsMode && (
             <>
-              <button onClick={loadUsers} className={`${panelBtnSecondary} font-semibold`}><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
+              <button onClick={loadUsers} className="font-semibold px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm transition-all disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
               <button
                 onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })}
-                className={panelBtnPrimary}
+                className="px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm font-bold transition-all disabled:opacity-50"
               >
                 <PlusCircle className="w-4 h-4" /> Novo Utilizador
               </button>
@@ -3323,7 +3324,7 @@ export function CPUsersSection({
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={openPanelCreateModal}
-                className={`${panelBtnPrimary} whitespace-nowrap`}
+                className="whitespace-nowrap px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm font-bold transition-all disabled:opacity-50"
               >
                 <PlusCircle className="w-4 h-4" /> {panelCreateButtonLabel}
               </button>
@@ -3332,7 +3333,7 @@ export function CPUsersSection({
                 onClick={() => void refreshPanelAccounts()}
                 disabled={refreshing || loading}
                 title="Actualizar"
-                className={panelBtnSecondary}
+                className="px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm transition-all disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -3418,7 +3419,7 @@ export function CPUsersSection({
                         account.daUsername ? (
                           <a
                             href={`/api/admin/impersonate?user=${encodeURIComponent(account.daUsername)}`}
-                            className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                            className="hidden sm:inline-flex h-8 items-center rounded border border-gray-300 dark:border-zinc-700 bg-transparent px-2.5 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
                           >
                             Entrar
                           </a>
@@ -3427,7 +3428,7 @@ export function CPUsersSection({
                             type="button"
                             disabled={creating}
                             onClick={() => handlePanelLoginAs(account)}
-                            className="hidden sm:inline-flex h-8 items-center rounded border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                            className="hidden sm:inline-flex h-8 items-center rounded border border-gray-300 dark:border-zinc-700 bg-transparent px-2.5 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white disabled:opacity-50"
                           >
                             Entrar
                           </button>
@@ -3454,7 +3455,7 @@ export function CPUsersSection({
         ) : !loading && (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
+              <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
                 <th className="px-4 py-2.5 w-10">
                   <input 
                     type="checkbox" 
@@ -3472,7 +3473,7 @@ export function CPUsersSection({
             </thead>
             <tbody>
               {users.map((u, i) => (
-                <tr key={i} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${selected.includes(u.userName) ? 'bg-red-50/30' : ''}`}>
+                <tr key={i} className={`border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors ${selected.includes(u.userName) ? 'bg-red-50/30 dark:bg-red-900/20' : ''}`}>
                   <td className="px-4 py-2.5">
                     <input 
                       type="checkbox" 
@@ -3522,13 +3523,13 @@ export function CPUsersSection({
                     <div className="flex items-center justify-end gap-1">
                        <button
                          onClick={() => setUserModal({ show: true, mode: 'edit', data: { ...u, password: '' } })}
-                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
+                         className="p-1.5 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 hover:text-black dark:hover:text-white rounded transition-all"
                          title="Gerir Utilizador"
                        >
                          <Edit2 className="w-4 h-4" />
                        </button>
                        {u.userName !== 'admin' && (
-                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
+                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 dark:text-red-500 border border-transparent hover:border-red-200 dark:hover:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/10 rounded transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
                        )}
                     </div>
                   </td>
@@ -3562,8 +3563,8 @@ export function CPUsersSection({
       {userModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setUserModal({ ...userModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-[80%] shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-3xl shadow-2xl dark:bg-zinc-900 dark:border-zinc-800 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Users className="w-5 h-5 " /></div>
                 <div><h2 className="text-sm font-bold text-gray-900 block">{isPanelsMode ? panelModalTitle : (userModal.mode === 'create' ? 'Novo Utilizador' : 'Editar Utilizador')}</h2><span className="text-[11px] text-gray-500 font-mono">{userModal.mode === 'create' ? (isPanelAuthCreate ? 'Conta de acesso ao painel (sem DirectAdmin)' : 'Configurar acesso ao servidor') : (isPanelAuthForm ? userModal.data.email : `Gerir: ${userModal.data.userName}`)}</span></div>
@@ -3572,16 +3573,16 @@ export function CPUsersSection({
             </div>
             <div className="p-6 max-h-[min(80vh,720px)] overflow-y-auto overflow-x-visible">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
                 {isPanelAuthForm && (
                   <div className="space-y-1.5 col-span-1 relative z-[1]">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Papel</label>
                     <select
                       value={userModal.data.panelRole || 'client'}
                       onChange={(e) => setUserModal({ ...userModal, data: { ...userModal.data, panelRole: e.target.value } })}
-                      className="relative z-[2] w-full bg-white border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                      className="relative z-[2] w-full bg-white dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                     >
                       {panelScope === 'reseller' ? (
                         <option value="reseller">Revendedor</option>
@@ -3605,7 +3606,7 @@ export function CPUsersSection({
                   <>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Domínio revenda</label>
-                      <input value={userModal.data.domain || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, domain: e.target.value}})} placeholder="oshercollective.com (opcional — detecta do email)" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" />
+                      <input value={userModal.data.domain || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, domain: e.target.value}})} placeholder="oshercollective.com (opcional — detecta do email)" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5 col-span-1 flex items-end">
                       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -3622,7 +3623,7 @@ export function CPUsersSection({
                       <select 
                         value={userModal.data.acl || 'user'} 
                         onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} 
-                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="admin">Administrador</option>
                         <option value="reseller">Revendedor</option>
@@ -3630,7 +3631,7 @@ export function CPUsersSection({
                       </select>
                       <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione o nível de acesso para este utilizador</p>
                     </div>
-                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
+                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
                     <div className="space-y-1.5 lg:col-span-1">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-600">Username</label>
                       <input 
@@ -3641,7 +3642,7 @@ export function CPUsersSection({
                           setUserModal({...userModal, data: {...userModal.data, userName: val}})
                         }} 
                         placeholder="ex: provisual" 
-                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
+                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
                       />
                       <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha um username único para login (apenas letras e números)</p>
                     </div>
@@ -3655,7 +3656,7 @@ export function CPUsersSection({
                       value={userModal.data.password || ''} 
                       onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
                       placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
-                      className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
+                      className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
                     />
                     <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -3678,7 +3679,7 @@ export function CPUsersSection({
                         value={userModal.data.confirmPassword || ''}
                         onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})}
                         placeholder="Confirmar Password"
-                        className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       />
                     </div>
                     <button
@@ -3689,27 +3690,27 @@ export function CPUsersSection({
                         for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length))
                         setUserModal({ ...userModal, data: { ...userModal.data, password: p, confirmPassword: p } })
                       }}
-                      className="px-3 py-2 bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 rounded text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1"
+                      className="px-3 py-2 bg-transparent border border-green-500 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-zinc-800 rounded text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1"
                     >
                       <RefreshCw className="w-3 h-3" /> Gerar
                     </button>
                   </div>
                 </div>
                 {!isPanelAuthForm && (
-                  <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
+                  <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
                 )}
               </div>
               {userModal.mode === 'edit' && (
-                <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
+                <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
                   <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
                   <button onClick={() => setUserModal({...userModal, data: {...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended'}})} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-800/50 border-t border-gray-100 dark:border-zinc-800">
               {msg && <div className={`mb-3 px-4 py-2.5 rounded text-sm font-medium border ${msg.includes('✅') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{msg}</div>}
               <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setUserModal({ ...userModal, show: false })} className={panelBtnSecondary}>
+                <button type="button" onClick={() => setUserModal({ ...userModal, show: false })} className="px-4 py-2 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm font-bold transition-all">
                   Cancelar
                 </button>
                 <button
@@ -3993,6 +3994,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
 export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [firewallOn, setFirewallOn] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showAdvancedUpload, setShowAdvancedUpload] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [blockedIPs, setBlockedIPs] = useState<string[]>([])
   const [newIP, setNewIP] = useState('')
@@ -7077,76 +7079,392 @@ export function FileManagerSection({ domain, sites }: {
   domain: string,
   sites: DirectAdminWebsite[]
 }) {
+  const [path, setPath] = useState('')
+  const [files, setFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showAdvancedUpload, setShowAdvancedUpload] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [siteRoot, setSiteRoot] = useState('')
+  const [error, setError] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<{name: string, current: number, total: number, progress: number, processing?: boolean} | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
 
   const getOwner = (targetDomain: string) =>
     sites.find(s => s.domain === targetDomain)?.owner || 'admin'
 
+  const resolveRoot = (targetDomain: string) => {
+    if (!targetDomain) return ''
+    const owner = getOwner(targetDomain)
+    return `/home/${owner}/domains/${targetDomain}/public_html`
+  }
+
   useEffect(() => {
     const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
-    if (d) {
-      setSelectedDomain(d)
-      setLoading(true)
+    if (!d) return
+
+    let cancelled = false
+    setSelectedDomain(d)
+    const root = resolveRoot(d)
+    if (!cancelled && root) {
+      setSiteRoot(root)
+      setPath(root)
     }
+
+    return () => { cancelled = true }
   }, [domain, sites])
 
+  useEffect(() => {
+    if (path) void loadFiles(path)
+  }, [path])
+
+  const loadFiles = async (currentPath: string) => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'listDirectory',
+          params: { path: currentPath },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Não foi possível listar ficheiros.')
+        setFiles([])
+        return
+      }
+      setFiles(Array.isArray(data.data?.files) ? data.data.files : [])
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
+      setFiles([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const navigateTo = (folder: string) => {
+    const root = siteRoot || `/home/${getOwner(selectedDomain)}/domains/${selectedDomain}/public_html`
+    if (folder === '..') {
+      if (path === root) return
+      const parts = path.split('/').filter(Boolean)
+      parts.pop()
+      const nextPath = `/${parts.join('/')}`
+      setPath(nextPath.startsWith(root) ? nextPath : root)
+    } else {
+      const next = `${path.replace(/\/$/, '')}/${folder}`
+      setPath(next)
+    }
+  }
+
+  // Breadcrumb do path
+  const pathParts = path.split('/').filter(Boolean)
+
   return (
-    <div className="w-full h-[calc(100vh-100px)] flex flex-col space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Gestor de Ficheiros</h1>
-          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Gestão avançada, upload de grandes ficheiros e extração rápida</p>
+    <div className="w-full space-y-4">
+      {/* Header & cPanel-like Toolbar */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        
+        {/* Breadcrumb Control (Moved to Header) */}
+        <div className="flex-1 flex items-center gap-2 text-sm bg-transparent border border-gray-200 dark:border-zinc-800 rounded-lg px-4 py-2 shadow-sm min-h-[42px] overflow-x-auto whitespace-nowrap">
+          <button onClick={() => setPath(siteRoot || path)} className="text-zinc-600 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors flex items-center gap-1">
+            <FolderOpen className="w-4 h-4" />
+            {selectedDomain || 'home'}
+          </button>
+          {pathParts.map((part, i) => (
+            <span key={i} className="flex items-center gap-2 text-gray-400">
+              <span className="opacity-50">/</span>
+              <button
+                onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
+                className="text-gray-700 dark:text-zinc-300 hover:text-red-500 dark:hover:text-red-500 font-medium transition-colors">
+                {part}
+              </button>
+            </span>
+          ))}
         </div>
-        {/* Selector de domínio */}
-        <div className="flex items-center gap-2">
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3">
           <select value={selectedDomain}
             onChange={e => {
-              setSelectedDomain(e.target.value)
-              setLoading(true)
+              const next = e.target.value
+              setSelectedDomain(next)
+              const root = resolveRoot(next)
+              setSiteRoot(root)
+              setPath(root)
             }}
-            className="px-3 py-2 border border-gray-300 rounded text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 min-w-[200px]">
+            className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm dark:border-zinc-700 bg-transparent dark:bg-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-red-500 transition-colors h-[42px]">
+            <option value="" disabled>Seleccione o domínio...</option>
             {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
+          
           {selectedDomain && (
-            <a
-              href={`/api/filemanager-sso?domain=${selectedDomain}&owner=${getOwner(selectedDomain)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
-              title="Abrir numa nova janela"
-            >
-              <ExternalLink className="w-3.5 h-3.5" /> Ecrã Inteiro
-            </a>
+            <div className="flex bg-transparent border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-sm h-[42px]">
+              <label
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold cursor-pointer border-r border-gray-200 dark:border-zinc-800 transition-colors ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10'}`}
+                title="Upload Nativo Direto"
+              >
+                <input 
+                  type="file" 
+                  multiple 
+                  className="hidden" 
+                  disabled={loading}
+                  onChange={async (e) => {
+                    const selectedFiles = Array.from(e.target.files || []);
+                    if (!selectedFiles.length) return;
+                    
+                    e.target.value = ''; // reset
+                    const originalError = error;
+                    
+                    try {
+                      let successCount = 0;
+                      let failCount = 0;
+                      
+                      for (let i = 0; i < selectedFiles.length; i++) {
+                        const file = selectedFiles[i];
+                        
+                        // Verificar se já existe
+                        if (files.some(f => f.name === file.name)) {
+                          alert(`O ficheiro "${file.name}" já existe na pasta atual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
+                          continue;
+                        }
+
+                        const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
+                        
+                        setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
+                        
+                        await new Promise<void>((resolve, reject) => {
+                          const xhr = new XMLHttpRequest();
+                          xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                              const pct = Math.round((e.loaded / e.total) * 100);
+                              setUploadProgress(prev => prev ? { ...prev, progress: pct, processing: pct === 100 } : null);
+                            }
+                          });
+                          
+                          xhr.onload = () => {
+                            if (xhr.status === 200) {
+                              try {
+                                const data = JSON.parse(xhr.responseText);
+                                if (data.success) successCount++;
+                                else { console.error(data.error); failCount++; }
+                                resolve();
+                              } catch (e) {
+                                failCount++; resolve();
+                              }
+                            } else {
+                              failCount++; resolve();
+                            }
+                          };
+                          
+                          xhr.onerror = () => { failCount++; resolve(); };
+                          xhr.open('POST', '/api/upload-native');
+                          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
+                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                          xhr.send(file);
+                        });
+                      }
+                      
+                      setUploadProgress(null);
+                      loadFiles(path);
+                      
+                      if (failCount > 0) {
+                        alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
+                      }
+                    } catch (err: any) {
+                      setError(err.message || 'Erro ao processar uploads');
+                      setTimeout(() => setError(originalError), 5000);
+                    }
+                    // clear the input
+                    e.target.value = '';
+                  }}
+                />
+                <UploadCloud className="w-4 h-4" /> 
+                Upload
+              </label>
+              <button
+                onClick={() => loadFiles(path)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                title="Recarregar"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Recarregar
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* iFrame com FileGator */}
-      <div className="flex-1 bg-white dark:bg-zinc-900 rounded border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden relative">
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-zinc-900/80 z-10">
-            <div className="flex flex-col items-center gap-3">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-              <p className="text-sm font-medium text-gray-600 dark:text-zinc-400">A carregar Gestor de Ficheiros...</p>
-            </div>
-          </div>
-        )}
-        
-        {selectedDomain ? (
-          <iframe
-            key={selectedDomain}
-            src={`/api/filemanager-sso?domain=${selectedDomain}&owner=${getOwner(selectedDomain)}`}
-            className="w-full h-full border-0"
-            onLoad={() => setLoading(false)}
-            allow="fullscreen"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-500">
-            Por favor, selecione um domínio.
-          </div>
-        )}
+      {/* Tabela de ficheiros */}
+      <div className="bg-transparent rounded-xl border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50/50 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800">
+            {selectedFiles.length > 0 ? (
+              <tr className="text-xs font-bold text-gray-700 dark:text-zinc-200 uppercase tracking-wider bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-900/30">
+                <th className="px-6 py-3 w-10">
+                  <input type="checkbox" checked={selectedFiles.length === files.length} onChange={(e) => {
+                    if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name));
+                    else setSelectedFiles([]);
+                  }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                </th>
+                <th colSpan={4} className="px-6 py-3">
+                  <div className="flex items-center gap-6">
+                    <span className="text-red-600 dark:text-red-400 font-semibold">
+                      Selecionado: {selectedFiles.length} / {files.length}
+                    </span>
+                    <div className="flex items-center gap-4 text-gray-600 dark:text-zinc-400 normal-case font-medium">
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Edit className="w-4 h-4" /> Editar</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Copy className="w-4 h-4" /> Copiar</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Layers className="w-4 h-4" /> Duplicar</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><ArrowRightLeft className="w-4 h-4" /> Mover</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Download className="w-4 h-4" /> Download</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Archive className="w-4 h-4" /> Compactar</button>
+                      <button className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-400 transition-colors"><MoreVertical className="w-4 h-4" /> Mais</button>
+                    </div>
+                  </div>
+                </th>
+              </tr>
+            ) : (
+              <tr className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                <th className="px-6 py-3 w-10">
+                  <input type="checkbox" checked={false} onChange={(e) => {
+                    if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name));
+                  }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                </th>
+                <th className="px-6 py-3">Nome do Ficheiro</th>
+                <th className="px-6 py-3">Tamanho</th>
+                <th className="px-6 py-3 hidden md:table-cell">Permissões</th>
+                <th className="px-6 py-3 hidden sm:table-cell">Modificado</th>
+              </tr>
+            )}
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {path !== siteRoot && !loading && files.length > 0 && (
+            <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group" onClick={() => navigateTo('..')}>
+              <td className="px-6 py-3.5 w-10"></td>
+              <td className="px-6 py-3.5" colSpan={4}>
+                <div className="flex items-center gap-3">
+                  <div className="p-1 text-gray-400 group-hover:text-red-500 transition-colors">
+                    <FolderOpen className="w-4 h-4" />
+                  </div>
+                  <span className="text-gray-600 dark:text-zinc-300 font-medium group-hover:text-red-500 transition-colors">.. (Subir de Nível)</span>
+                </div>
+              </td>
+            </tr>
+            )}
+
+            {uploadProgress ? (
+              <tr><td colSpan={5} className="px-6 py-12">
+                <div className="w-full space-y-4">
+                  <div className="flex justify-between items-end mb-1">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                        {uploadProgress.processing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 text-green-500 animate-spin" />
+                            A processar no servidor... ({uploadProgress.current} de {uploadProgress.total})
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="w-4 h-4 text-green-500 animate-pulse" />
+                            A fazer upload... ({uploadProgress.current} de {uploadProgress.total})
+                          </>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate max-w-lg mt-1">{uploadProgress.name}</div>
+                    </div>
+                    <span className="text-sm font-bold text-green-600 dark:text-green-500">{uploadProgress.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2.5 overflow-hidden">
+                    <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress.progress}%` }}></div>
+                  </div>
+                </div>
+              </td></tr>
+            ) : error ? (
+              <tr><td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
+                <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                {error}
+              </td></tr>
+            ) : loading ? (
+              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-3" />
+                <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
+              </td></tr>
+            ) : files.length === 0 ? (
+              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-zinc-700" />
+                <span className="font-medium text-gray-500 dark:text-zinc-400">Pasta vazia</span>
+              </td></tr>
+            ) : files.map((f, i) => {
+              const ext = f.name.split('.').pop()?.toLowerCase() || '';
+              let Icon = FileText;
+              let iconColor = "text-gray-400 dark:text-zinc-600";
+              if (f.isDir) {
+                Icon = FolderOpen;
+                iconColor = "text-zinc-500 dark:text-zinc-400 group-hover:text-red-500";
+              } else if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) {
+                Icon = FileArchive;
+                iconColor = "text-yellow-600 dark:text-yellow-500";
+              } else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) {
+                Icon = ImageIcon;
+                iconColor = "text-blue-500 dark:text-blue-400";
+              } else if (['js', 'ts', 'jsx', 'tsx', 'php', 'html', 'css'].includes(ext)) {
+                Icon = FileCode;
+                iconColor = "text-purple-500 dark:text-purple-400";
+              } else if (ext === 'json') {
+                Icon = FileJson;
+                iconColor = "text-emerald-500 dark:text-emerald-400";
+              } else if (['mp4', 'webm', 'avi', 'mkv'].includes(ext)) {
+                Icon = PlaySquare;
+                iconColor = "text-rose-500 dark:text-rose-400";
+              } else if (['sh', 'bash'].includes(ext)) {
+                Icon = Terminal;
+                iconColor = "text-gray-700 dark:text-gray-300";
+              } else if (ext === 'pdf') {
+                Icon = FileText;
+                iconColor = "text-red-500 dark:text-red-400";
+              }
+
+              const isSelected = selectedFiles.includes(f.name);
+
+              return (
+              <tr key={i} className={`hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors group ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
+                <td className="px-6 py-3">
+                  <input type="checkbox" checked={isSelected} onChange={(e) => {
+                    if (e.target.checked) setSelectedFiles([...selectedFiles, f.name]);
+                    else setSelectedFiles(selectedFiles.filter(name => name !== f.name));
+                  }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                </td>
+                <td className="px-6 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-1.5 rounded-lg bg-transparent ${iconColor}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    
+                    {f.isDir ? (
+                      <button onClick={() => navigateTo(f.name)}
+                        className="text-gray-900 dark:text-zinc-100 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors">
+                        {f.name}
+                      </button>
+                    ) : (
+                      <span className="text-gray-700 dark:text-zinc-300 font-medium">{f.name}</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-3 text-gray-600 dark:text-zinc-300 font-medium text-xs bg-transparent w-24">
+                  {f.size}
+                </td>
+                <td className="px-6 py-3 hidden md:table-cell text-gray-500 dark:text-zinc-400 font-mono text-xs">{f.permissions}</td>
+                <td className="px-6 py-3 hidden sm:table-cell text-gray-500 dark:text-zinc-400 text-xs">
+                  {f.date}
+                </td>
+              </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )

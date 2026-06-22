@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { startGoogleOAuth } from '@/lib/supabase-oauth-browser'
 import { supabase, auth } from '@/lib/supabase-client'
 import { User } from '@supabase/supabase-js'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_OUT') {
         clearPanelActivity()
         setUser(null)
@@ -242,18 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Google OAuth: Iniciando login...')
       console.log('Redirect URL:', redirectTo)
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: { access_type: 'offline', prompt: 'consent' },
-        },
-      })
-
-      if (error) {
-        console.error('Google OAuth Error:', error)
-        throw error
-      }
+      await startGoogleOAuth(redirectTo)
 
       console.log('Google OAuth: Redirecionando para Google...')
     } catch (error) {

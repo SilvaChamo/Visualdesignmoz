@@ -9,7 +9,7 @@ export default function GuestPage() {
   const [name, setName] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: any) => {
       const user = data.user;
       setEmail(user?.email ?? null);
       setName(

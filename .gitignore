@@ -45,3 +45,6 @@ client_secret*.json
 Visual author/
 client_secret*.json
 Visual author/
+
+# scratch node_modules
+scratch/node_modules/

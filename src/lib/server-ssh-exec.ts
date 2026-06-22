@@ -150,3 +150,86 @@ export function executeServerCommand(command: string, options?: { fast?: boolean
     }),
   );
 }
+
+export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('stream/web').ReadableStream): Promise<void> {
+  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (Buffer.isBuffer(fileData)) {
+          fs.writeFile(remotePath, fileData, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        } else {
+          const stream = require('stream');
+          const fileStream = fs.createWriteStream(remotePath);
+          stream.Readable.fromWeb(fileData as any).pipe(fileStream);
+          fileStream.on('finish', resolve);
+          fileStream.on('error', reject);
+        }
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  return withSshSlot(async () => {
+    const opts = getSshConnectOptions();
+    const keyPath = resolveSshKeyPath();
+    let tempKeyPath: string | undefined;
+    let identityArg: string[];
+
+    if (keyPath) {
+      identityArg = ['-i', keyPath];
+    } else {
+      const key = resolveSshPrivateKey();
+      if (!key) throw new Error('Chave SSH indisponível');
+      tempKeyPath = path.join(os.tmpdir(), `vd-ssh-${process.pid}-${Date.now()}.key`);
+      fs.writeFileSync(tempKeyPath, key, { mode: 0o600 });
+      identityArg = ['-i', tempKeyPath];
+    }
+
+    const sshOpts = [
+      ...identityArg,
+      '-p', String(opts.port),
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'BatchMode=yes',
+      '-o', 'ConnectTimeout=15',
+      '-o', 'ConnectionAttempts=1',
+      `${opts.username}@${opts.host}`,
+      `cat > "${remotePath}"`
+    ];
+
+    return new Promise<void>((resolve, reject) => {
+      const { spawn } = require('child_process') as typeof import('child_process');
+      const child = spawn('ssh', sshOpts);
+      
+      let errOutput = '';
+      child.stderr.on('data', data => { errOutput += data; });
+      
+      child.on('close', code => {
+        if (tempKeyPath) {
+          try { fs.unlinkSync(tempKeyPath); } catch {}
+        }
+        if (code === 0) resolve();
+        else reject(new Error(`Upload falhou com código ${code}: ${errOutput}`));
+      });
+      
+      child.on('error', err => {
+        if (tempKeyPath) {
+          try { fs.unlinkSync(tempKeyPath); } catch {}
+        }
+        reject(err);
+      });
+
+      if (Buffer.isBuffer(fileData)) {
+        child.stdin.write(fileData);
+        child.stdin.end();
+      } else {
+        const stream = require('stream');
+        stream.Readable.fromWeb(fileData as any).pipe(child.stdin);
+      }
+    });
+  });
+}

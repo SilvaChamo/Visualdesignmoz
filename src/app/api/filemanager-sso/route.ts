@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,9 +12,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing domain or owner' }, { status: 400 });
     }
 
-    // Auth check
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    // Auth check using standard app router client
+    const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.user) {

@@ -52,6 +52,7 @@ export async function daOneTimeLoginUrlViaHttp(
     const parsed = new URL(data.url);
     if (!parsed.pathname.includes('/api/login/')) return null;
     parsed.hostname = publicHost;
+    parsed.port = '2026';
     return parsed.toString();
   } catch {
     return null;

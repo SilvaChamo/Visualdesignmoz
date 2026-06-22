@@ -42,7 +42,8 @@ export function googleOAuthUserMessage(error?: string | null, description?: stri
       title: 'Sessão Google expirou',
       desc:
         'O navegador perdeu a chave temporária do login (cookies bloqueados ou sessão antiga). ' +
-        'Feche outras abas do site, limpe cookies de visualdesignmoz.com e tente de novo. ' +
+        'Feche outras abas do site, limpe cookies deste site e tente de novo. ' +
+        'Use sempre o mesmo endereço (localhost ou 127.0.0.1, não misturar). ' +
         'Use janela normal (não privada) se possível.',
     };
   }

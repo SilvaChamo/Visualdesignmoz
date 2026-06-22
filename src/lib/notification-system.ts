@@ -197,7 +197,7 @@ export async function runDailyNotificationCheck(): Promise<{
 
     if (error) throw error
 
-    const clients: Client[] = (subscriptions || []).map(s => ({
+    const clients: Client[] = (subscriptions || []).map((s: any) => ({
       id: s.id,
       name: s.vhm_username, // Usando username como nome
       email: s.client_email,

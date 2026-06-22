@@ -1,3 +1,5 @@
+'use client'
+
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -29,13 +31,40 @@ function resolveBrowserCookieOptions() {
   return { path: '/', sameSite: 'lax' as const, secure }
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    // Callback em /auth/callback/page.tsx faz exchangeCodeForSession no browser (PKCE).
-    detectSessionInUrl: false,
-    flowType: 'pkce',
+let browserClient: ReturnType<typeof createBrowserClient> | null = null
+
+function getBrowserClient() {
+  if (typeof window === 'undefined') {
+    throw new Error('Supabase browser client só está disponível no browser')
+  }
+  if (!browserClient) {
+    browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+      auth: { flowType: 'pkce', detectSessionInUrl: false },
+      cookieOptions: resolveBrowserCookieOptions(),
+    })
+  }
+  return browserClient
+}
+
+/** Copia sessão OAuth (localStorage) para cookies partilhados do painel. */
+export async function syncCookieSessionFromOAuth(session: {
+  access_token: string
+  refresh_token: string
+}) {
+  const { error } = await getBrowserClient().auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  })
+  if (error) throw error
+}
+
+/** Cliente Supabase só no browser — evita PKCE perdido em pré-render do servidor. */
+export const supabase = new Proxy({} as ReturnType<typeof createBrowserClient>, {
+  get(_target, prop) {
+    const client = getBrowserClient() as Record<string | symbol, unknown>
+    const value = client[prop]
+    return typeof value === 'function' ? value.bind(client) : value
   },
-  cookieOptions: resolveBrowserCookieOptions(),
 })
 
 // Tipos para o nosso sistema
@@ -271,22 +300,22 @@ export const auth = {
   }
 }
 
-// Listener para mudanças de autenticação
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Auth state changed:', event, session?.user?.email)
+// Listener para mudanças de autenticação (evitar init com ?code= no callback OAuth)
+if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/callback')) {
+  getBrowserClient().auth.onAuthStateChange((event: any, session: any) => {
+    console.log('Auth state changed:', event, session?.user?.email)
 
-  if (event === 'SIGNED_IN') {
-    // Usuário logou
-    console.log('User signed in:', session?.user?.email)
-  } else if (event === 'SIGNED_OUT') {
-    // Usuário deslogou
-    console.log('User signed out')
-  }
-})
+    if (event === 'SIGNED_IN') {
+      console.log('User signed in:', session?.user?.email)
+    } else if (event === 'SIGNED_OUT') {
+      console.log('User signed out')
+    }
+  })
+}
 
 // Função createClientInstance para compatibilidade
 export function createClientInstance() {
-  return supabase
+  return getBrowserClient()
 }
 
 export default supabase

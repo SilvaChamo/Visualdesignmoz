@@ -16,6 +16,7 @@ fi
 scp -P "$SSH_PORT" -o StrictHostKeyChecking=no ${SSH_KEY:+-i "$SSH_KEY"} \
   "${LOCAL_PROJECT}/deploy/da-cookie-proxy.js" \
   "${LOCAL_PROJECT}/deploy/da-cookie-proxy.service" \
+  "${LOCAL_PROJECT}/deploy/sync-da-ssl.sh" \
   "${SSH_USER}@${SERVER_IP}:/tmp/"
 
 ssh "${SSH_OPTS[@]}" "${SSH_USER}@${SERVER_IP}" bash -s <<'REMOTE'
@@ -41,6 +42,14 @@ if grep -q '^port=2026$' "$DA_CONF"; then
 fi
 
 cp /tmp/da-cookie-proxy.service /etc/systemd/system/da-cookie-proxy.service
+cp /tmp/sync-da-ssl.sh /opt/da-cookie-proxy/sync-da-ssl.sh 2>/dev/null || true
+if [[ -f /opt/da-cookie-proxy/sync-da-ssl.sh ]]; then
+  chmod +x /opt/da-cookie-proxy/sync-da-ssl.sh
+  /opt/da-cookie-proxy/sync-da-ssl.sh
+fi
+if [[ ! -f /etc/cron.d/directadmin_ssl-proxy ]]; then
+  echo '15 4 * * * root /opt/da-cookie-proxy/sync-da-ssl.sh' > /etc/cron.d/directadmin_ssl-proxy
+fi
 systemctl daemon-reload
 systemctl enable da-cookie-proxy
 systemctl restart da-cookie-proxy

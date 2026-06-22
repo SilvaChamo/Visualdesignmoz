@@ -1,19 +1,22 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { supabase, auth } from '@/lib/supabase-client'
+import { exchangeOAuthCode } from '@/lib/supabase-oauth-browser'
+import { auth, supabase, syncCookieSessionFromOAuth } from '@/lib/supabase-client'
 import { buildPanelLoginUrl, PUBLIC_PANEL_ENTRY, resolvePostLoginUrl } from '@/lib/panel-origin'
 import { clearPanelFromCookieHeader } from '@/lib/panel-oauth-from'
 
 function AuthCallbackInner() {
   const searchParams = useSearchParams()
   const [message, setMessage] = useState('A concluir login…')
+  const hasRun = useRef(false)
 
   useEffect(() => {
-    let cancelled = false
-
     const finish = async () => {
+      if (hasRun.current) return
+      hasRun.current = true
+
       const oauthError = searchParams.get('error')
       const oauthDesc = searchParams.get('error_description')
       const code = searchParams.get('code')
@@ -36,56 +39,52 @@ function AuthCallbackInner() {
 
       setMessage('A validar sessão Google…')
 
-      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      try {
+        const session = await exchangeOAuthCode(code)
+        window.history.replaceState({}, '', '/auth/callback')
+        await syncCookieSessionFromOAuth(session)
 
-      if (cancelled) return
+        const user = session.user
+        if (!user.user_metadata?.role) {
+          await supabase.auth.updateUser({
+            data: {
+              ...user.user_metadata,
+              role: 'guest',
+              nome:
+                user.user_metadata?.full_name ||
+                user.user_metadata?.name ||
+                user.email?.split('@')[0],
+            },
+          })
+        }
 
-      if (exchangeError || !data.user) {
+        const role = await auth.getUserRole(user)
+
+        const cleared = clearPanelFromCookieHeader()
+        document.cookie = `${cleared.name}=; path=${cleared.options.path}; max-age=0`
+
+        const target = resolvePostLoginUrl({
+          origin: window.location.origin,
+          role,
+          from: PUBLIC_PANEL_ENTRY,
+        })
+
+        setMessage('A entrar no painel…')
+        window.location.assign(
+          target.startsWith('http') ? target : new URL(target, window.location.origin).toString(),
+        )
+      } catch (err) {
         const loginUrl = buildPanelLoginUrl(window.location.origin)
         loginUrl.searchParams.set('error', 'callback_error')
         loginUrl.searchParams.set(
           'error_description',
-          exchangeError?.message || 'Erro desconhecido',
+          err instanceof Error ? err.message : 'Erro desconhecido',
         )
         window.location.replace(loginUrl.toString())
-        return
       }
-
-      if (!data.user.user_metadata?.role) {
-        await supabase.auth.updateUser({
-          data: {
-            ...data.user.user_metadata,
-            role: 'guest',
-            nome:
-              data.user.user_metadata?.full_name ||
-              data.user.user_metadata?.name ||
-              data.user.email?.split('@')[0],
-          },
-        })
-      }
-
-      const role = await auth.getUserRole(data.user)
-
-      if (cancelled) return
-
-      const cleared = clearPanelFromCookieHeader()
-      document.cookie = `${cleared.name}=; path=${cleared.options.path}; max-age=0`
-
-      const target = resolvePostLoginUrl({
-        origin: window.location.origin,
-        role,
-        from: PUBLIC_PANEL_ENTRY,
-      })
-
-      setMessage('A entrar no painel…')
-      window.location.assign(target.startsWith('http') ? target : new URL(target, window.location.origin).toString())
     }
 
     void finish()
-
-    return () => {
-      cancelled = true
-    }
   }, [searchParams])
 
   return (

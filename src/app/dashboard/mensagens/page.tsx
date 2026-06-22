@@ -97,7 +97,7 @@ export default function AdminMessagesPage() {
 
                 if (subError) throw subError;
                 if (subscribers) {
-                    allRecipients = [...allRecipients, ...subscribers.map(s => ({ email: s.email }))];
+                    allRecipients = [...allRecipients, ...subscribers.map((s: any) => ({ email: s.email }))];
                 }
             }
 

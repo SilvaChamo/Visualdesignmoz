@@ -197,6 +197,7 @@ export async function daOneTimeLoginUrlViaSsh(
     const url = new URL(raw);
     if (!url.pathname.includes('/api/login/')) return null;
     url.hostname = publicHost;
+    url.port = CANONICAL_DIRECTADMIN_PORT;
     return url.toString();
   } catch {
     return null;
