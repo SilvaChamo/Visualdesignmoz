@@ -7,6 +7,7 @@ import {
   getRedirectPathForRole,
   type UserRole,
 } from '@/lib/user-roles'
+import { getOAuthCallbackUrl } from '@/lib/oauth-callback'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseAnonKey =
@@ -230,7 +231,7 @@ export const auth = {
       password,
       options: {
         data: { ...metadata, role: 'guest' },
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+        emailRedirectTo: getOAuthCallbackUrl()
       }
     })
 

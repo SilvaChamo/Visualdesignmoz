@@ -13,6 +13,7 @@ import {
   resolvePanelInnerRedirect,
   shouldUsePanelOriginForHost,
 } from '@/lib/panel-origin'
+import { OAUTH_CALLBACK_PATH } from '@/lib/oauth-callback'
 import { getRequestHostname } from '@/lib/request-host'
 import { createAppServerClient } from '@/lib/supabase-cookies'
 
@@ -41,10 +42,18 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostname = getRequestHostname(request.headers, request.url)
   const publicOrigin = getPublicSiteOrigin()
+  const hostOnly = hostname.toLowerCase().split(':')[0]
+
+  // 127.0.0.1 → localhost (mesmo sítio, cookies/PKCE iguais — automático)
+  if (hostOnly === '127.0.0.1') {
+    const canonical = request.nextUrl.clone()
+    canonical.hostname = 'localhost'
+    return NextResponse.redirect(canonical, 308)
+  }
 
   // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
   if (
-    hostname.toLowerCase().split(':')[0] === 'www.visualdesignmoz.com' &&
+    hostOnly === 'www.visualdesignmoz.com' &&
     (pathname === PUBLIC_LOGIN_ENTRY || pathname.startsWith('/auth/'))
   ) {
     const canonical = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
@@ -59,12 +68,12 @@ export async function proxy(request: NextRequest) {
     pathname !== '/auth/confirm'
   ) {
     const callback = request.nextUrl.clone()
-    callback.pathname = '/auth/callback'
+    callback.pathname = OAUTH_CALLBACK_PATH
     return NextResponse.redirect(callback)
   }
 
   // let auth callback pass immediately
-  if (pathname === '/auth/callback' || pathname === '/auth/confirm') {
+  if (pathname === OAUTH_CALLBACK_PATH || pathname === '/auth/confirm') {
     return NextResponse.next()
   }
 

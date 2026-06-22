@@ -7083,9 +7083,9 @@ export function PackagesSection({
                     const name = String(pkg.packageName || pkg.name || '-')
                     const split = splitCompositePackageName(name)
                     return (
-                      <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
                         {split.packageName || name || '-'}
-                      </p>
+                        </p>
                     )
                   })()}
                 </div>
@@ -7567,8 +7567,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const pathParts = path.split('/').filter(Boolean)
 
   if (editing) {
-    return (
-      <div className="w-full space-y-4">
+  return (
+    <div className="w-full space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-zinc-800 bg-transparent px-4 py-3">
           <button
             type="button"
@@ -7617,7 +7617,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             </span>
           ))}
         </div>
-
+        
         {selectedDomain ? (
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -7636,10 +7636,10 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             >
               <FilePlus className="w-4 h-4" /> Novo ficheiro
             </button>
-            <label
+              <label
               className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
               title="Upload"
-            >
+              >
                 <input 
                   type="file" 
                   multiple 
@@ -7715,10 +7715,10 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                     e.target.value = '';
                   }}
                 />
-                <UploadCloud className="w-4 h-4" />
+                <UploadCloud className="w-4 h-4" /> 
                 Upload
               </label>
-          </div>
+            </div>
         ) : null}
       </div>
 
@@ -7924,7 +7924,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             })}
           </tbody>
         </table>
-        </div>
+      </div>
       </div>
 
       {transfer ? (

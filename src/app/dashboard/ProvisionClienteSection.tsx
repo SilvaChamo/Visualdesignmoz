@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Eye, EyeOff, Globe, Loader2, Package, RefreshCw, UserPlus } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, Globe, Loader2, Package, RefreshCw, Shield, UserPlus, Users } from 'lucide-react';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cache';
 import { panelBtnSecondary } from '@/lib/panel-ui';
@@ -18,7 +18,6 @@ export type ProvisionEditUser = {
   type?: string;
   websitesLimit?: number;
   emailsLimit?: number;
-  authUserId?: string;
 };
 
 export type ProvisionCreatedUser = ProvisionEditUser & {
@@ -65,6 +64,18 @@ function normalizeErrorMessage(input: string): string {
     .replace(/&nbsp;/gi, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function panelRoleForAccountTypeUi(accountType: AccountType): string {
+  if (accountType === 'reseller') return 'reseller';
+  if (accountType === 'professional') return 'manager';
+  return 'client';
+}
+
+function panelRoleLabel(accountType: AccountType): string {
+  if (accountType === 'reseller') return 'Revendedor';
+  if (accountType === 'professional') return 'Profissional';
+  return 'Cliente';
 }
 
 function formatPackageLimit(value: unknown, defaultUnit?: string): string {
@@ -122,26 +133,17 @@ export function ProvisionClienteSection({
   const [panelUsers, setPanelUsers] = useState<Array<{ id: string; email: string; userName: string; panelRole: string }>>([]);
 
   useEffect(() => {
-    if (panelScope !== 'admin') return;
+    if (isEdit || panelScope !== 'admin') return;
     let cancelled = false;
     void fetch('/api/admin/panel-users', { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { success?: boolean; users?: Array<{ id: string; email: string; userName: string; panelRole: string }> }) => {
         if (cancelled || !data.success || !Array.isArray(data.users)) return;
         setPanelUsers(data.users);
-        if (isEdit && editUser) {
-          const linked =
-            (editUser.authUserId && data.users.find((u) => u.id === editUser.authUserId)) ||
-            data.users.find((u) => u.email.toLowerCase() === String(editUser.email || '').toLowerCase());
-          if (linked) {
-            setUserMode('existing');
-            setExistingUserId(linked.id);
-          }
-        }
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [panelScope, isEdit, editUser?.authUserId, editUser?.email]);
+  }, [isEdit, panelScope]);
 
   useEffect(() => {
     if (!isEdit) setAccountType(initialAccountType);
@@ -164,9 +166,6 @@ export function ProvisionClienteSection({
           if (rows.length) {
             setPackages(rows);
             writePackagesCache(rows, panelScope);
-            setPackageName((prev) =>
-              prev && rows.some((p) => p.packageName === prev) ? prev : rows[0].packageName,
-            );
           }
         }
       })
@@ -178,7 +177,6 @@ export function ProvisionClienteSection({
     if (packagesProp.length) {
       setPackages(packagesProp);
       writePackagesCache(packagesProp, panelScope);
-      setPackageName((prev) => prev || packagesProp[0]?.packageName || '');
     }
   }, [packagesProp, panelScope]);
 
@@ -206,16 +204,17 @@ export function ProvisionClienteSection({
   }, [identity.firstName, identity.lastName]);
 
   const packageOptions = packages;
-
-  const activePackageName =
-    packageName || packages.find((p) => p.packageName)?.packageName || '';
+  const selectedPackageName = packageName.trim();
+  const hasHostingPackage = Boolean(selectedPackageName);
+  const expectedPanelRole = panelRoleForAccountTypeUi(accountType);
+  const matchingPanelUsers = panelUsers.filter((u) => u.panelRole === expectedPanelRole);
 
   const canSubmit =
     identityEmailOk &&
     passwordOk &&
     (isEdit ||
-      ((accountType === 'reseller' || accountType === 'professional') && Boolean(activePackageName)) ||
-      (accountType === 'client' && hosting.domain.includes('.') && Boolean(activePackageName)));
+      !hasHostingPackage ||
+      (accountType === 'client' ? hosting.domain.includes('.') : true));
 
   const handleProvision = async () => {
     if (!canSubmit) return;
@@ -239,7 +238,7 @@ export function ProvisionClienteSection({
             email: identity.email,
             websitesLimit: editUser.websitesLimit,
             emailsLimit: editUser.emailsLimit,
-            packageName: accountType !== 'professional' ? activePackageName : undefined,
+            packageName: accountType !== 'professional' && hasHostingPackage ? selectedPackageName : undefined,
             primaryDomain: hosting.domain.trim().toLowerCase() || undefined,
             adminEmail,
           }),
@@ -289,7 +288,8 @@ export function ProvisionClienteSection({
           password: identity.password,
           userName: username,
           domain: accountType === 'reseller' || accountType === 'professional' ? domain || `${username}.com` : domain,
-          packageName: activePackageName,
+          packageName: selectedPackageName || undefined,
+          simpleAccount: !hasHostingPackage,
           adminEmail,
         }),
       });
@@ -301,14 +301,18 @@ export function ProvisionClienteSection({
       setDone(true);
       const createdDomain =
         String(json.domain || domain || (accountType !== 'client' ? `${username}.com` : '')).trim();
-      const typeLabel =
-        accountType === 'professional' ? 'Profissional' : accountType === 'reseller' ? 'Revendedor' : 'Cliente';
+      const typeLabel = panelRoleLabel(accountType);
       const serverNote =
         json.serverSynced === true
           ? ''
-          : ' A sincronização com o servidor de hospedagem será feita automaticamente quando estiver disponível.';
+          : hasHostingPackage
+            ? ' A sincronização com o servidor de hospedagem será feita automaticamente quando estiver disponível.'
+            : '';
+      const simpleNote = json.provisionMode === 'simple' ? ' Conta simples (acesso ao painel).' : '';
       setMsg(
-        `Conta ${typeLabel} ${username}${createdDomain ? ` (${createdDomain})` : ''} criada no painel.${serverNote}`,
+        hasHostingPackage
+          ? `Conta ${typeLabel} ${username}${createdDomain ? ` (${createdDomain})` : ''} criada no painel.${serverNote}`
+          : `Utilizador ${typeLabel} criado no painel.${simpleNote}`,
       );
       onComplete?.({ user: json.user as ProvisionCreatedUser | undefined });
     } catch (e: unknown) {
@@ -343,10 +347,14 @@ export function ProvisionClienteSection({
           <dd className="font-mono text-zinc-900">{deriveUsername()}</dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-400">Pacote</dt>
-          <dd className="text-zinc-900">{activePackageName || '—'}</dd>
+          <dt className="text-xs text-zinc-400">Papel no painel</dt>
+          <dd className="font-medium text-zinc-900">{panelRoleLabel(accountType)}</dd>
         </div>
-        {(accountType === 'client' || accountType === 'reseller' || accountType === 'professional') && (
+        <div>
+          <dt className="text-xs text-zinc-400">Pacote</dt>
+          <dd className="text-zinc-900">{hasHostingPackage ? selectedPackageName : 'Conta simples'}</dd>
+        </div>
+        {hasHostingPackage && (accountType === 'client' || accountType === 'reseller' || accountType === 'professional') && (
           <div>
             <dt className="text-xs text-zinc-400">Domínio</dt>
             <dd className="break-all text-zinc-900">
@@ -392,121 +400,132 @@ export function ProvisionClienteSection({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-6">
           <section className={`${formCardCls} space-y-4`}>
-            <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Criar conta'}</h2>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs font-medium text-zinc-500">Tipo de conta</span>
-                <select
-                  value={accountType}
-                  disabled={isEdit}
-                  onChange={(e) => {
-                    const next = e.target.value as AccountType;
-                    setAccountType(next);
-                    setPackageName(packages[0]?.packageName || '');
+            <h2 className="font-bold text-gray-900">{isEdit ? 'Editar conta' : 'Tipo de conta'}</h2>
+            {!isEdit && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {([
+                { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
+                ...(allowResellerAccountType
+                  ? [
+                      { id: 'professional' as const, title: 'Profissional', desc: 'Gestão de sites e WordPress (sem criar contas)', icon: Shield },
+                      { id: 'reseller' as const, title: 'Revendedor', desc: 'Revenda com plano Essencial ou Expandido', icon: Globe },
+                    ]
+                  : []),
+              ]).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setAccountType(opt.id);
+                    if (userMode === 'existing' && existingUserId) {
+                      const row = panelUsers.find((u) => u.id === existingUserId);
+                      const role = panelRoleForAccountTypeUi(opt.id);
+                      if (row && row.panelRole !== role) setExistingUserId('');
+                    }
                   }}
-                  className={`${inputCls} disabled:bg-gray-50`}
+                  className={`rounded-lg border-2 p-4 text-left transition-all ${
+                    accountType === opt.id ? 'border-red-600 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
                 >
-                  <option value="client">Cliente</option>
-                  {allowResellerAccountType ? (
-                    <>
-                      <option value="professional">Profissional</option>
-                      <option value="reseller">Revendedor</option>
-                    </>
-                  ) : null}
-                </select>
-              </label>
-
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs font-medium text-zinc-500">Utilizador de hospedagem</span>
-                <input
-                  value={isEdit ? fixedUsername : deriveUsername()}
-                  readOnly
-                  className={`${inputCls} bg-gray-50 font-mono`}
-                />
-              </label>
-            </div>
-
-            {panelScope === 'admin' && (
-              <div className="space-y-3 border-t border-gray-100 pt-4 dark:border-zinc-800">
-                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Utilizador do painel</p>
-                {!isEdit ? (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setUserMode('new')}
-                      className={`rounded-lg border px-4 py-2 text-sm font-medium ${
-                        userMode === 'new' ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                      }`}
-                    >
-                      Criar novo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserMode('existing')}
-                      className={`rounded-lg border px-4 py-2 text-sm font-medium ${
-                        userMode === 'existing' ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                      }`}
-                    >
-                      Associar existente
-                    </button>
+                  <div className="flex items-start gap-3">
+                    <opt.icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
+                    <div className="min-w-0 font-bold text-gray-900">{opt.title}</div>
                   </div>
-                ) : null}
-                {(isEdit || userMode === 'existing') && (
-                  <select
-                    value={existingUserId}
-                    disabled={isEdit}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setExistingUserId(id);
-                      const row = panelUsers.find((u) => u.id === id);
-                      if (row) {
-                        setIdentity((prev) => ({
-                          ...prev,
-                          email: row.email,
-                          firstName: prev.firstName || row.userName.split(' ')[0] || '',
-                          lastName: prev.lastName || row.userName.split(' ').slice(1).join(' ') || '',
-                        }));
-                        setHosting((prev) => ({ ...prev, adminEmail: row.email }));
-                      }
-                    }}
-                    className={`${inputCls} disabled:bg-gray-50`}
-                  >
-                    <option value="">Seleccionar utilizador do painel…</option>
-                    {panelUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.email} ({u.panelRole})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+                  <p className="mt-2 pl-8 text-sm text-gray-500">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
             )}
-
-            {accountType === 'reseller' && (
-              <div className="space-y-3 border-t border-gray-100 pt-4 dark:border-zinc-800">
-                <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Plano de revenda</p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {([
-                    { id: 'essencial' as const, title: 'Essencial', desc: 'Até 15 contas · 50 GB' },
-                    { id: 'expandido' as const, title: 'Expandido', desc: 'Até 150 contas · 500 GB' },
-                  ]).map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => setResellerTier(plan.id)}
-                      className={`rounded-lg border-2 p-4 text-left ${
-                        resellerTier === plan.id ? 'border-red-600 bg-red-50' : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="font-bold text-gray-900">{plan.title}</div>
-                      <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {isEdit && (
+              <p className="text-sm text-gray-600">
+                Utilizador: <strong className="font-mono">{fixedUsername}</strong>
+                {' · '}
+                {accountType === 'reseller' ? 'Revendedor' : accountType === 'professional' ? 'Profissional' : 'Cliente'}
+              </p>
             )}
           </section>
+
+          {!isEdit && panelScope === 'admin' && (
+            <section className={`${formCardCls} space-y-4`}>
+              <h2 className="font-bold text-gray-900">Utilizador do painel</h2>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUserMode('new')}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                    userMode === 'new' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  Criar novo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserMode('existing')}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                    userMode === 'existing' ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  Associar existente
+                </button>
+              </div>
+              {userMode === 'existing' && (
+                <select
+                  value={existingUserId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setExistingUserId(id);
+                    const row = matchingPanelUsers.find((u) => u.id === id);
+                    if (row) {
+                      setIdentity((prev) => ({
+                        ...prev,
+                        email: row.email,
+                        firstName: prev.firstName || row.userName.split(' ')[0] || '',
+                        lastName: prev.lastName || row.userName.split(' ').slice(1).join(' ') || '',
+                      }));
+                      setHosting((prev) => ({ ...prev, adminEmail: row.email }));
+                    }
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">Seleccionar utilizador…</option>
+                  {matchingPanelUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email} ({u.panelRole})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {userMode === 'existing' && matchingPanelUsers.length === 0 ? (
+                <p className="text-xs text-amber-700">
+                  Nenhum utilizador com papel «{panelRoleLabel(accountType)}». Crie novo ou altere o tipo de conta.
+                </p>
+              ) : null}
+            </section>
+          )}
+
+          {accountType === 'reseller' && !isEdit && (
+            <section className={`${formCardCls} space-y-3`}>
+              <h2 className="font-bold text-gray-900">Plano de revenda</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { id: 'essencial' as const, title: 'Essencial', desc: 'Até 15 contas · 50 GB' },
+                  { id: 'expandido' as const, title: 'Expandido', desc: 'Até 150 contas · 500 GB' },
+                ]).map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setResellerTier(plan.id)}
+                    className={`rounded-lg border-2 p-4 text-left ${
+                      resellerTier === plan.id ? 'border-red-600 bg-red-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="font-bold text-gray-900">{plan.title}</div>
+                    <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className={`${formCardCls} space-y-4`}>
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
@@ -520,7 +539,7 @@ export function ProvisionClienteSection({
                 type="email"
                 value={identity.email}
                 onChange={(e) => setIdentity({ ...identity, email: e.target.value })}
-                disabled={isEdit || userMode === 'existing'}
+                disabled={userMode === 'existing'}
                 className={`${inputCls} sm:col-span-2 disabled:bg-gray-50`}
               />
               <div className="relative sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -564,19 +583,23 @@ export function ProvisionClienteSection({
             <div className="space-y-6">
               <section className={`${formCardCls} space-y-4`}>
                 <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                  <Package className="w-5 h-5 shrink-0" /> Pacote
+                  <Package className="w-5 h-5 shrink-0" /> Pacote de hospedagem
                 </h2>
+                <p className="text-xs text-zinc-500">
+                  Opcional. Sem pacote seleccionado, cria-se uma conta simples (acesso ao painel apenas).
+                </p>
                 {packageOptions.length === 0 ? (
                   <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-                    Nenhum pacote no servidor. Crie um em Hospedagem → Pacotes.
+                    Nenhum pacote disponível — será criada conta simples.
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
                     <select
-                      value={activePackageName}
+                      value={packageName}
                       onChange={(e) => setPackageName(e.target.value)}
                       className={inputCls}
                     >
+                      <option value="">Conta simples (sem pacote)</option>
                       {packageOptions.map((p) => (
                         <option key={p.packageName} value={p.packageName}>
                           {p.packageName}
@@ -584,17 +607,19 @@ export function ProvisionClienteSection({
                       ))}
                     </select>
                     <p className="flex items-center text-xs text-gray-500 sm:px-1">
-                      {(() => {
-                        const selected = packageOptions.find((p) => p.packageName === activePackageName);
-                        if (!selected) return 'Sem detalhes do pacote.';
-                        return `Disco ${formatPackageLimit(selected.diskSpace, 'MB')} · BW ${formatPackageLimit(selected.bandwidth, 'MB')} · Emails ${formatPackageLimit(selected.emailAccounts)} · Domínios ${formatPackageLimit(selected.allowedDomains)}`;
-                      })()}
+                      {hasHostingPackage
+                        ? (() => {
+                            const selected = packageOptions.find((p) => p.packageName === selectedPackageName);
+                            if (!selected) return 'Pacote seleccionado.';
+                            return `Disco ${formatPackageLimit(selected.diskSpace, 'MB')} · BW ${formatPackageLimit(selected.bandwidth, 'MB')} · Emails ${formatPackageLimit(selected.emailAccounts)} · Domínios ${formatPackageLimit(selected.allowedDomains)}`;
+                          })()
+                        : 'Sem hospedagem associada nesta criação.'}
                     </p>
                   </div>
                 )}
               </section>
 
-              {accountType === 'client' ? (
+              {hasHostingPackage && (accountType === 'client' ? (
                 <section className={`${formCardCls} space-y-4`}>
                   <h2 className="font-bold text-gray-900 flex items-center gap-2">
                     <Globe className="w-5 h-5 shrink-0" /> Hospedagem
@@ -621,7 +646,7 @@ export function ProvisionClienteSection({
                     </div>
                   </div>
                 </section>
-              )}
+              ))}
             </div>
           )}
 
@@ -655,10 +680,10 @@ export function ProvisionClienteSection({
             </section>
           )}
 
-          {isEdit && activePackageName && (
+          {isEdit && selectedPackageName && (
             <section className={`${formCardCls} space-y-2`}>
               <h2 className="font-bold text-gray-900">Pacote actual</h2>
-              <p className="text-sm text-gray-700">{activePackageName}</p>
+              <p className="text-sm text-gray-700">{selectedPackageName}</p>
             </section>
           )}
 

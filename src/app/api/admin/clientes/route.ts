@@ -33,8 +33,7 @@ import {
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
 
-import { enrichPanelAccounts, PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
-import type { PanelUser } from '@/lib/directadmin-hosting-api';
+import { enrichPanelAccounts } from '@/lib/panel-contas-enrich';
 import {
   schedulePanelServerProvision,
 } from '@/lib/panel-server-provision';
@@ -157,29 +156,6 @@ async function isPanelManagedWithoutServer(userName: string): Promise<boolean> {
   return auth?.server_linked !== true;
 }
 
-async function mergeHostingAccountUsers(mirrorUsers: PanelUser[]): Promise<PanelUser[]> {
-  const byName = new Map(
-    mirrorUsers
-      .filter((u) => u.userName)
-      .map((u) => [u.userName.toLowerCase(), u] as const),
-  );
-
-  try {
-    const liveUsers = await listAllHostingUsersFromDa();
-    for (const user of liveUsers) {
-      const key = String(user.userName || '').toLowerCase();
-      if (!key) continue;
-      if (!byName.has(key)) {
-        byName.set(key, user);
-      }
-    }
-  } catch {
-    /* espelho apenas */
-  }
-
-  return [...byName.values()].sort((a, b) => a.userName.localeCompare(b.userName));
-}
-
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAdminOrReseller();
@@ -261,8 +237,6 @@ export async function GET(req: NextRequest) {
       a.packageName.localeCompare(b.packageName),
     );
 
-    users = await mergeHostingAccountUsers(users);
-
     const enriched = enrichPanelAccounts(users, sites, packageMap).map((row) => ({
       ...row,
       packageName: row.packageName || '—',
@@ -283,7 +257,6 @@ export async function GET(req: NextRequest) {
       resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
       osherReseller: OSHER_RESELLER,
       osherCredsOk: Boolean(osherCreds),
-      primaryResellerAccount: PRIMARY_RESELLER_DA_USER,
       meta: {
         source,
         lastSyncedAt,
@@ -311,7 +284,8 @@ export async function POST(req: NextRequest) {
     const email = String(body.email || '').trim();
     const password = String(body.password || '');
     const domain = String(body.domain || '').trim().toLowerCase();
-    const packageName = String(body.packageName || 'Default');
+    const packageName = String(body.packageName || '').trim();
+    const simpleAccount = body.simpleAccount === true || !packageName;
     const adminEmail = String(body.adminEmail || email).trim();
     let userName = String(body.userName || '').trim() || deriveUsername(domain, email);
     const resellerTier =
@@ -333,21 +307,21 @@ export async function POST(req: NextRequest) {
 
     const firstName = String(body.firstName || '').trim();
     const lastName = String(body.lastName || '').trim();
-    const effectivePackageName = String(packageName || '').trim();
+    const effectivePackageName = packageName;
     const createdDomain =
       accountType === 'client' ? domain : domain || `${userName}.com`;
     const panelRole = panelRoleForAccountType(accountType);
     const panelAcl = panelAclForAccountType(accountType);
     const displayName = `${firstName} ${lastName}`.trim() || email.split('@')[0] || userName;
 
-    if (!effectivePackageName) {
+    if (!simpleAccount && !effectivePackageName) {
       return NextResponse.json(
-        { success: false, error: 'Seleccione um pacote.' },
+        { success: false, error: 'Seleccione um pacote ou crie conta simples.' },
         { status: 400 },
       );
     }
 
-    if (accountType === 'client' && !domain.includes('.')) {
+    if (!simpleAccount && accountType === 'client' && !domain.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'Domínio obrigatório para cliente (ex.: exemplo.com).' },
         { status: 400 },
@@ -389,10 +363,28 @@ export async function POST(req: NextRequest) {
 
       if (firstName || lastName || resellerTier) {
         await saveProfileForAuthUser(admin, authUserId, {
-          ...(firstName ? { name: displayName } : {}),
+          email: normalizedEmail,
+          role: panelRole,
+          name: displayName || profile?.name,
+          ...(resellerTier ? { reseller_tier: resellerTier } : {}),
+        });
+      } else {
+        await saveProfileForAuthUser(admin, authUserId, {
+          email: normalizedEmail,
+          role: panelRole,
           ...(resellerTier ? { reseller_tier: resellerTier } : {}),
         });
       }
+
+      await admin.auth.admin.updateUserById(authUserId, {
+        user_metadata: {
+          ...(existingAuth.user.user_metadata || {}),
+          role: panelRole,
+          name: displayName,
+          nome: displayName,
+          site: PANEL_SLUG,
+        },
+      });
 
       if (password.length >= 8) {
         await admin.auth.admin.updateUserById(authUserId, { password });
@@ -407,7 +399,7 @@ export async function POST(req: NextRequest) {
       await upsertPanelAuthAccount(admin, {
         userId: authUserId,
         email: normalizedEmail,
-        role: (profile?.role as UserRole) || panelRole,
+        role: panelRole,
         name: displayName || profile?.name,
         serverLinked: false,
         daUsername: profile?.da_username ?? userName,
@@ -456,6 +448,31 @@ export async function POST(req: NextRequest) {
         serverLinked: false,
         daUsername: null,
         resellerTier,
+      });
+    }
+
+    if (simpleAccount) {
+      return NextResponse.json({
+        success: true,
+        userName: userName || normalizedEmail.split('@')[0],
+        domain: '',
+        accountType,
+        provisionMode: 'simple',
+        serverSynced: false,
+        user: {
+          email: normalizedEmail,
+          type: panelAcl,
+          firstName,
+          lastName,
+          packageName: '—',
+          quotaLabel: '—',
+          diskUsedLabel: '—',
+          resellerOwner: '—',
+          domainCount: 0,
+          registeredAt: new Date().toISOString(),
+          suspended: false,
+          ownedDomains: [],
+        },
       });
     }
 

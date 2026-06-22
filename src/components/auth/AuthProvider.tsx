@@ -238,14 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setPanelFromCookie()
 
-      // redirectTo SEM query — obrigatório para PKCE + allow-list Supabase
-      const redirectTo = `${window.location.origin}/auth/callback`
-      console.log('Google OAuth: Iniciando login...')
-      console.log('Redirect URL:', redirectTo)
-
-      await startGoogleOAuth(redirectTo)
-
-      console.log('Google OAuth: Redirecionando para Google...')
+      await startGoogleOAuth()
     } catch (error) {
       console.error('Google OAuth Exception:', error)
       throw error

@@ -10,7 +10,7 @@ import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 
-const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v5';
+const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v4';
 const RESELLER_CLIENTES_CACHE_KEY = 'vd-reseller-contas-v1';
 
 interface DaUserRow {
@@ -29,7 +29,6 @@ interface DaUserRow {
   quotaLabel?: string;
   diskUsedLabel?: string;
   resellerOwner?: string;
-  authUserId?: string;
   ownedDomains?: Array<{
     domain: string;
     package: string;

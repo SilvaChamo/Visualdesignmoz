@@ -13,7 +13,7 @@ export function AuthButton() {
   const signInWithGoogle = async () => {
     setLoading(true)
     
-    await startGoogleOAuth(`${window.location.origin}/auth/callback`)
+    await startGoogleOAuth()
     
     setLoading(false)
   }
