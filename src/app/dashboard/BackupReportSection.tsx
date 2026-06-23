@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
-import { panelBtnSecondary, panelCard } from '@/lib/panel-ui'
+import { panelBtnSecondary, panelCard, panelInnerDetailCard } from '@/lib/panel-ui'
 import { BACKUP_ITEMS, BACKUP_TABS } from '@/lib/da-backup-types'
 import type { BackupScheduleRow } from '@/lib/panel-backup-schedule-types'
 import { formatScheduleWhen } from '@/lib/panel-backup-schedule-utils'
@@ -62,24 +62,6 @@ function openScheduleEditor(
     ;(window as Window & { __selectedBackupDomain?: string | null }).__selectedBackupDomain = domain
   }
   setActiveSection?.('wp-backup-auto')
-}
-
-function savePayloadFromRow(row: BackupScheduleRow, domain: string, enabled: boolean) {
-  return {
-    action: 'save',
-    domain,
-    enabled,
-    frequency: row.frequency,
-    runTime: row.run_time,
-    dayOfWeek: row.frequency === 'weekly' ? (row.day_of_week ?? 1) : null,
-    runsPerMonth: row.runs_per_month,
-    monthDays: row.month_days,
-    domainMode: row.domain_mode,
-    domains: row.domains,
-    backupScope: row.backup_scope,
-    backupItems: row.backup_items,
-    retentionDays: row.retention_days,
-  }
 }
 
 export function BackupReportSection({
@@ -139,14 +121,26 @@ export function BackupReportSection({
     if (!isActive) return
     setChrome({
       toolbar: (
-        <button type="button" onClick={() => void load()} disabled={loading} className={panelBtnSecondary}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
-          Actualizar
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {setActiveSection ? (
+            <button type="button" onClick={() => setActiveSection('wp-backup-auto')} className={btnGreen}>
+              <Plus className="h-4 w-4" /> Agendar
+            </button>
+          ) : null}
+          {setActiveSection ? (
+            <button type="button" onClick={() => setActiveSection('wp-backup')} className={panelBtnSecondary}>
+              <RotateCcw className="h-4 w-4" /> Restaurar
+            </button>
+          ) : null}
+          <button type="button" onClick={() => void load()} disabled={loading} className={panelBtnSecondary}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+            Actualizar
+          </button>
+        </div>
       ),
     })
     return () => setChrome(null)
-  }, [isActive, loading, setChrome, load])
+  }, [isActive, loading, setChrome, load, setActiveSection])
 
   const runNow = async (row: BackupScheduleRow) => {
     setBusyId(row.id)
@@ -173,20 +167,6 @@ export function BackupReportSection({
       await load()
     } catch (e: unknown) {
       flash(e instanceof Error ? e.message : 'Eliminar falhou.', true)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const toggleEnabled = async (row: BackupScheduleRow, enabled: boolean) => {
-    setBusyId(row.id)
-    try {
-      const domain = resolveEditDomain(row, sites, primaryDomain)
-      await scheduleApi(savePayloadFromRow(row, domain, enabled))
-      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, enabled } : r)))
-      flash(enabled ? 'Agendamento activado.' : 'Agendamento desactivado.')
-    } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : 'Não foi possível actualizar.', true)
     } finally {
       setBusyId(null)
     }
@@ -226,118 +206,114 @@ export function BackupReportSection({
           ) : null}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-4">
           {rows.map((row) => (
-            <article key={row.id} className={`${panelCard} flex flex-col overflow-hidden`}>
-              <div className="flex items-start gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/80">
+            <article key={row.id} className={`${panelCard} overflow-hidden`}>
+              <div className="flex items-start gap-4 p-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/80">
                   <HardDrive className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {formatScheduleWhen(row)}
-                  </p>
-                  <p className="mt-0.5 text-sm text-zinc-500">
-                    Conta: <span className="text-zinc-700 dark:text-zinc-300">{row.owner}</span>
-                  </p>
-                </div>
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    disabled={busyId === row.id}
-                    onClick={() => setMenuId(menuId === row.id ? null : row.id)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-zinc-500 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                    aria-label="Acções do agendamento"
-                  >
-                    {busyId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-                  </button>
-                  {menuId === row.id ? (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuId(null)} aria-hidden />
-                      <div className={`${panelCard} absolute right-0 top-full z-50 mt-1 min-w-[12rem] py-1 shadow-lg`}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => {
-                            setMenuId(null)
-                            openScheduleEditor(row, sites, primaryDomain, setActiveSection, false)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4 text-sky-500" /> Modificar
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => void runNow(row)}
-                        >
-                          <Play className="h-4 w-4 text-sky-500" /> Executar agora
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => {
-                            setMenuId(null)
-                            openScheduleEditor(row, sites, primaryDomain, setActiveSection, true)
-                          }}
-                        >
-                          <Copy className="h-4 w-4 text-sky-500" /> Duplicar
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                          onClick={() => void remove(row)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Eliminar
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {formatScheduleWhen(row)}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        Conta: <span className="font-mono text-zinc-700 dark:text-zinc-300">{row.owner}</span>
+                        {row.enabled ? (
+                          <span className="ml-2 rounded border border-green-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-600 dark:border-green-900 dark:text-green-400">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700">
+                            Inactivo
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        disabled={busyId === row.id}
+                        onClick={() => setMenuId(menuId === row.id ? null : row.id)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-zinc-500 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        aria-label="Acções do agendamento"
+                      >
+                        {busyId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                      </button>
+                      {menuId === row.id ? (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setMenuId(null)} aria-hidden />
+                          <div className={`${panelCard} absolute right-0 top-full z-50 mt-1 min-w-[12rem] py-1 shadow-lg`}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => {
+                                setMenuId(null)
+                                openScheduleEditor(row, sites, primaryDomain, setActiveSection, false)
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 text-sky-500" /> Modificar
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => void runNow(row)}
+                            >
+                              <Play className="h-4 w-4 text-sky-500" /> Executar agora
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => {
+                                setMenuId(null)
+                                openScheduleEditor(row, sites, primaryDomain, setActiveSection, true)
+                              }}
+                            >
+                              <Copy className="h-4 w-4 text-sky-500" /> Duplicar
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              onClick={() => void remove(row)}
+                            >
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </button>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2 border-t border-gray-100 px-4 py-3 text-sm dark:border-zinc-800">
+              <div className={cn(panelInnerDetailCard, 'grid gap-4 border-x-0 border-b-0 sm:grid-cols-3')}>
                 <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">O quê: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">{whatLabel(row)}</span>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">O quê</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{whatLabel(row)}</p>
                 </div>
                 <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">Onde: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">Armazenamento remoto do painel</span>
-                  <span className="text-zinc-500"> · {row.retention_days} dias</span>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Onde</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    Armazenamento remoto do painel
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Retenção: {row.retention_days} dias
+                  </p>
                 </div>
                 <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">Quem: </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">{whoLabel(row)}</span>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Quem</p>
+                  <p className="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-400">{whoLabel(row)}</p>
                 </div>
               </div>
 
               {row.next_run_at ? (
-                <p className="border-t border-gray-100 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800">
-                  Próxima: {new Date(row.next_run_at).toLocaleString('pt-PT')}
+                <p className="border-t border-gray-100 px-5 py-2 text-xs text-zinc-500 dark:border-zinc-800">
+                  Próxima execução: {new Date(row.next_run_at).toLocaleString('pt-PT')}
+                  {row.last_run_at ? ` · Última: ${new Date(row.last_run_at).toLocaleString('pt-PT')}` : ''}
                 </p>
               ) : null}
-
-              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  <input
-                    type="checkbox"
-                    checked={row.enabled}
-                    disabled={busyId === row.id}
-                    onChange={(e) => void toggleEnabled(row, e.target.checked)}
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  Activar
-                </label>
-                {setActiveSection ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveSection('wp-backup')}
-                    className={panelBtnSecondary}
-                  >
-                    <RotateCcw className="h-4 w-4" /> Restaurar
-                  </button>
-                ) : null}
-              </div>
             </article>
           ))}
         </div>

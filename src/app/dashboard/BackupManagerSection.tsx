@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Archive, Download, Loader2, Plus, RefreshCw, RotateCcw, Trash2,
+  Archive, Clock, Download, Loader2, Plus, RefreshCw, RotateCcw, Trash2,
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
@@ -17,7 +17,7 @@ import {
   backupOptionChip, backupOptionChipActive, backupOptionGrid,
   backupDomainGrid, backupDomainItem,
   backupDomainModeLabel, backupDomainModeRow, backupDomainSection,
-  backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed, backupDomainCurtainWrap,
+  backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed,
 } from '@/lib/backup-option-ui'
 import {
   invalidateBackupListCache,
@@ -341,7 +341,7 @@ export function BackupManagerSection({
       {msg ? <div className="rounded border border-green-200 bg-green-50/80 px-4 py-2 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-400">{msg}</div> : null}
       {error ? <div className="rounded border border-red-200 bg-red-50/80 px-4 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">{error}</div> : null}
 
-      <div className={panelCard}>
+      <div className={`${panelCard} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
           <div className="flex flex-wrap">
             {BACKUP_TABS.map((tab) => (
@@ -407,9 +407,9 @@ export function BackupManagerSection({
                     <button
                       type="button"
                       onClick={() => setActiveSection('wp-backup-report')}
-                      className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline dark:text-red-400 dark:hover:text-red-300"
+                      className={panelBtnSecondary}
                     >
-                      Agendamentos de backup
+                      <Clock className="h-4 w-4" /> Backup automático
                     </button>
                   ) : null}
                 </div>
@@ -418,7 +418,6 @@ export function BackupManagerSection({
               {accountDomains.length > 0 ? (
                 <div
                   className={cn(
-                    backupDomainCurtainWrap,
                     backupDomainCurtain,
                     domainMode === 'selected' ? backupDomainCurtainOpen : backupDomainCurtainClosed,
                   )}

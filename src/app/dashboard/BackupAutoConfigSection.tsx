@@ -16,7 +16,7 @@ import {
 } from '@/lib/panel-backup-schedule-types'
 import { formatScheduleWhen } from '@/lib/panel-backup-schedule-utils'
 import { clearBackupScheduleDraft, readBackupScheduleDraft } from '@/lib/panel-backup-schedule-draft'
-import { backupOptionChip, backupOptionChipActive, backupOptionGrid, backupDomainGrid, backupDomainItem, backupDomainSection, backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed, backupDomainCurtainWrap } from '@/lib/backup-option-ui'
+import { backupOptionChip, backupOptionChipActive, backupOptionGrid, backupDomainGrid, backupDomainItem, backupDomainSection, backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed } from '@/lib/backup-option-ui'
 
 const btnGreen =
   'inline-flex h-[38px] items-center justify-center gap-1.5 rounded border border-green-600 bg-transparent px-4 text-sm font-medium text-green-600 transition-colors hover:bg-green-600/10 disabled:opacity-50 dark:border-green-500 dark:text-green-500'
@@ -354,7 +354,6 @@ export function BackupAutoConfigSection({
           {accountDomains.length > 0 ? (
             <div
               className={cn(
-                backupDomainCurtainWrap,
                 backupDomainCurtain,
                 domainMode === 'selected' ? backupDomainCurtainOpen : backupDomainCurtainClosed,
               )}
