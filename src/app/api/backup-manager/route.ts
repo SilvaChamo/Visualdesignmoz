@@ -9,6 +9,7 @@ import {
   daBackupReadFile,
   daBackupRestore,
   daBackupViewItems,
+  waitForBackupFileChange,
 } from '@/lib/da-backup-api';
 import {
   deleteBucketBackup,
@@ -154,7 +155,6 @@ export async function POST(req: NextRequest) {
             continue;
           }
           const before = await daBackupListFiles(o, d);
-          const beforeSet = new Set(before.map((f) => f.filename));
           const result = await daBackupCreate(o, d, items);
           if (!result.ok) {
             daErrors.push(`${d}: ${result.error || 'falhou'}`);
@@ -162,16 +162,12 @@ export async function POST(req: NextRequest) {
           }
           let filename = result.filename;
           if (!filename) {
-            for (let attempt = 0; attempt < 6 && !filename; attempt += 1) {
-              if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
-              const after = await daBackupListFiles(o, d);
-              const fresh = after.filter((f) => !beforeSet.has(f.filename));
-              filename = fresh[0]?.filename
-                || [...after].sort((a, b) => b.filename.localeCompare(a.filename))[0]?.filename;
-              if (filename && beforeSet.has(filename)) filename = fresh[0]?.filename;
-            }
+            filename = await waitForBackupFileChange(o, d, before);
           }
           if (filename) created.push(filename);
+          else if (result.queued) {
+            warnings.push(`${d}: backup em fila no servidor — actualize a lista dentro de instantes`);
+          }
           if (filename) {
             const afterList = await daBackupListFiles(o, d);
             const fileRow = afterList.find((f) => f.filename === filename)

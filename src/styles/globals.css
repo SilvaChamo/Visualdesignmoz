@@ -30,10 +30,10 @@
   --color-error: #EF4444;
   --color-info: #3B82F6;
   
-  /* TIPOGRAFIA */
-  --font-family-primary: var(--font-exo-2), system-ui, -apple-system, sans-serif;
-  --font-family-secondary: var(--font-exo-2), system-ui, sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* TIPOGRAFIA — Exo 2 (carregada em src/lib/site-font.ts) */
+  --font-family-primary: var(--font-site), sans-serif;
+  --font-family-secondary: var(--font-site), sans-serif;
+  --font-family-mono: var(--font-site), sans-serif;
   
   /* Tamanhos de Fonte */
   --font-size-xs: 0.75rem;    /* 12px */
@@ -111,7 +111,7 @@ html {
 }
 
 body {
-  font-family: var(--font-exo-2), system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-site), sans-serif !important;
   font-size: var(--font-size-base);
   font-weight: 400;
   line-height: 1.6;

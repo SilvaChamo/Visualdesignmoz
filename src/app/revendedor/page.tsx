@@ -28,6 +28,8 @@ import {
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
+  BackupAutoConfigSection,
+  BackupReportSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection, NameserverManagementSection
 } from '../dashboard/DirectAdminSections'
@@ -2219,8 +2221,9 @@ function ResellerPageContent() {
         return <SuspendWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-delete-website':
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
+      case 'databases':
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain} />
+        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
@@ -2473,13 +2476,38 @@ function ResellerPageContent() {
           />
         )
 
+      case 'wp-backup-report':
+        return (
+          <BackupReportSection
+            sites={filteredSites}
+            initialDomain={primaryDomain}
+            isActive={isActive}
+            setActiveSection={setActiveSection}
+          />
+        )
+      case 'wp-backup-auto':
+        return (
+          <BackupAutoConfigSection
+            sites={filteredSites}
+            initialDomain={primaryDomain}
+            setActiveSection={setActiveSection}
+          />
+        )
       case 'backup-manager':
       case 'cp-backup':
-        return <BackupManagerSection sites={filteredSites} />
+      case 'cp-wp-backup':
+      case 'cp-wp-restore-backup':
+      case 'cp-wp-remote-backup':
+        return (
+          <BackupManagerSection
+            sites={filteredSites}
+            initialDomain={primaryDomain}
+            isActive={isActive}
+            setActiveSection={setActiveSection}
+          />
+        )
       case 'wordpress-install':
         return <WordPressInstallSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
-      case 'cp-wp-backup':
-        return <WPBackupSection sites={filteredSites} />
       case 'packages-list':
         return <PackagesSection packages={scopedPackages} panelScope="reseller" onRefresh={() => void loadDirectAdminData(true)} />
       case 'manage-website':

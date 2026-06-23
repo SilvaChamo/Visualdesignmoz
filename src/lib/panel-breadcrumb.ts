@@ -25,7 +25,6 @@ const MENU_GROUP_NAV: Record<string, string> = {
   'nov-wordpress': 'wp-sites',
   'nov-sistema': 'infrastructure',
   'nov-definicoes': 'settings-profile',
-  'menu-anterior': 'domains-list',
   newsletter: 'newsletter-subs',
 };
 

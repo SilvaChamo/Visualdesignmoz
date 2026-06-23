@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { daBackupCreate, daBackupListFiles } from '@/lib/da-backup-api'
+import { daBackupCreate, daBackupListFiles, waitForBackupFileChange } from '@/lib/da-backup-api'
 import { TAB_BACKUP_ITEMS } from '@/lib/da-backup-types'
 import type { BackupItemId, BackupTab } from '@/lib/da-backup-types'
 import { pruneBucketBackups, uploadBackupFileToBucket } from '@/lib/panel-backup-bucket'
@@ -26,15 +26,22 @@ export async function runBackupScheduleRow(
   }
 
   for (const domain of domains) {
+    const before = await daBackupListFiles(owner, domain)
     const created = await daBackupCreate(owner, domain, items)
     if (!created.ok) return { ok: false, error: created.error || 'Criação falhou' }
 
     let filename = created.filename
     if (!filename) {
-      const files = await daBackupListFiles(owner, domain)
-      filename = [...files].sort((a, b) => b.filename.localeCompare(a.filename))[0]?.filename
+      filename = await waitForBackupFileChange(owner, domain, before)
     }
-    if (!filename) return { ok: false, error: 'Ficheiro de backup não encontrado' }
+    if (!filename) {
+      return {
+        ok: false,
+        error: created.queued
+          ? 'Backup em fila no servidor — tente novamente dentro de um minuto'
+          : 'Ficheiro de backup não encontrado',
+      }
+    }
 
     const uploaded = await uploadBackupFileToBucket(
       owner, domain, scope, filename, String(row.bucket_name || 'panel-backups'),

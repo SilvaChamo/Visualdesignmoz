@@ -170,6 +170,56 @@ export async function daPostViaSshAsDaUser(
   return { ok: result.ok, error: result.error };
 }
 
+function parseLegacyDaJson(raw: string): { ok: boolean; data?: Record<string, unknown>; error?: string } {
+  if (!raw) return { ok: false, error: 'Resposta vazia do servidor' };
+  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado no servidor' };
+
+  const trimmed = raw.trim();
+  if (trimmed.includes('error=') || (trimmed.includes('&') && trimmed.includes('='))) {
+    const parsed = parseDaResponse(trimmed);
+    if (parsed.error) {
+      return { ok: false, error: parsed.details || parsed.text || 'Pedido falhou' };
+    }
+    return { ok: true, data: { ...(parsed.data || {}), text: parsed.text } };
+  }
+
+  try {
+    const data = JSON.parse(trimmed) as Record<string, unknown>;
+    const errVal = data.error;
+    const err =
+      errVal === 1 ||
+      errVal === '1' ||
+      errVal === true ||
+      data.success === false ||
+      data.success === 'no';
+    if (err) {
+      return { ok: false, error: String(data.text || data.details || 'Pedido falhou') };
+    }
+    return { ok: true, data };
+  } catch {
+    const parsed = parseDaResponse(trimmed);
+    if (parsed.error) {
+      return { ok: false, error: parsed.details || parsed.text || 'Pedido falhou' };
+    }
+    if (trimmed.length > 0 && !trimmed.startsWith('<')) {
+      return { ok: true, data: parsed.data || { text: trimmed } };
+    }
+    return { ok: false, error: trimmed.slice(0, 300) || 'Pedido falhou' };
+  }
+}
+
+/** Legacy API (`CMD_API_*`) com `json=yes` como utilizador DA. */
+export async function daLegacyRequestViaSshAsDaUser(
+  daUsername: string,
+  method: 'GET' | 'POST',
+  cmd: string,
+  fields: Record<string, string> = {},
+): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }> {
+  const result = await daRequestViaSshAsDaUser(method, cmd, { json: 'yes', ...fields }, daUsername);
+  if (!result.ok) return { ok: false, error: result.error };
+  return parseLegacyDaJson(result.raw);
+}
+
 /** Login one-time: HTTP interno (rápido) → SSH (fallback). */
 export async function daOneTimeLoginUrl(
   username: string,
@@ -180,6 +230,147 @@ export async function daOneTimeLoginUrl(
     (await daOneTimeLoginUrlViaHttp(username, publicHost)) ??
     (await daOneTimeLoginUrlViaSsh(username, publicHost))
   );
+}
+
+function buildDaJsonCurlAsUser(
+  daUsername: string,
+  method: string,
+  endpoint: string,
+  options?: {
+    query?: Record<string, string | boolean | undefined>;
+    body?: unknown;
+  },
+): string {
+  const userQ = shellQuote(daUsername);
+  const host = shellQuote(readDaHost());
+  const port = CANONICAL_DIRECTADMIN_PORT;
+  const ep = endpoint.replace(/^\//, '');
+  const apiSetup = `API=$(${DA_BIN} api-url --user=${userQ} 2>/dev/null | tail -1)`;
+  const authSetup = `AUTH=$(echo "$API" | sed -n 's#https://\\([^@]*\\)@.*#\\1#p')`;
+  const qs = options?.query
+    ? Object.entries(options.query)
+        .filter(([, v]) => v !== undefined && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
+    : '';
+  const urlPath = qs
+    ? `https://127.0.0.1:${port}/${ep}?${qs}`
+    : `https://127.0.0.1:${port}/${ep}`;
+  const urlQ = shellQuote(urlPath);
+  const methodUp = method.toUpperCase();
+  if (options?.body !== undefined) {
+    const json = shellQuote(JSON.stringify(options.body));
+    return `${apiSetup}; ${authSetup}; curl -sk -u "$AUTH" -H "Host: ${host}" -H "Content-Type: application/json" -X ${methodUp} -d ${json} ${urlQ} 2>&1`;
+  }
+  return `${apiSetup}; ${authSetup}; curl -sk -u "$AUTH" -H "Host: ${host}" -X ${methodUp} ${urlQ} 2>&1`;
+}
+
+function parseDaJsonBody(raw: string): { ok: boolean; data?: unknown; error?: string } {
+  if (!raw) return { ok: false, error: 'Resposta vazia do servidor' };
+  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado no servidor' };
+  try {
+    const data = JSON.parse(raw);
+    if (data && typeof data === 'object' && 'type' in data && String((data as { type?: string }).type).includes('ERROR')) {
+      const msg = (data as { message?: string }).message || String((data as { type?: string }).type);
+      return { ok: false, error: msg };
+    }
+    return { ok: true, data };
+  } catch {
+    const parsed = parseDaResponse(raw);
+    if (parsed.error) {
+      return { ok: false, error: parsed.details || parsed.text || 'Pedido ao servidor falhou' };
+    }
+    return { ok: false, error: raw.slice(0, 300) };
+  }
+}
+
+/** Pedido JSON à API moderna do DirectAdmin (`/api/...`) como utilizador DA. */
+export async function daJsonRequestViaSshAsDaUser(
+  daUsername: string,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  endpoint: string,
+  options?: {
+    query?: Record<string, string | boolean | undefined>;
+    body?: unknown;
+  },
+): Promise<{ ok: boolean; data?: unknown; error?: string; raw?: string }> {
+  const curl = buildDaJsonCurlAsUser(daUsername, method, endpoint, options);
+  try {
+    const raw = (await executeServerCommand(curl)).trim();
+    const parsed = parseDaJsonBody(raw);
+    return { ...parsed, raw };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Pedido ao servidor falhou',
+    };
+  }
+}
+
+/** Download binário (export SQL/GZ) via API DA. */
+export async function daBinaryGetViaSshAsDaUser(
+  daUsername: string,
+  endpoint: string,
+  query?: Record<string, string | boolean | undefined>,
+): Promise<{ ok: boolean; base64?: string; error?: string }> {
+  const userQ = shellQuote(daUsername);
+  const host = shellQuote(readDaHost());
+  const port = CANONICAL_DIRECTADMIN_PORT;
+  const ep = endpoint.replace(/^\//, '');
+  const apiSetup = `API=$(${DA_BIN} api-url --user=${userQ} 2>/dev/null | tail -1)`;
+  const authSetup = `AUTH=$(echo "$API" | sed -n 's#https://\\([^@]*\\)@.*#\\1#p')`;
+  const qs = query
+    ? Object.entries(query)
+        .filter(([, v]) => v !== undefined && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
+    : '';
+  const urlPath = qs
+    ? `https://127.0.0.1:${port}/${ep}?${qs}`
+    : `https://127.0.0.1:${port}/${ep}`;
+  const curl = `${apiSetup}; ${authSetup}; curl -sk -u "$AUTH" -H "Host: ${host}" ${shellQuote(urlPath)} | base64 -w0 2>&1`;
+  try {
+    const raw = (await executeServerCommand(curl)).trim();
+    if (!raw || isDaAuthFailure(raw)) {
+      return { ok: false, error: 'Não foi possível exportar a base de dados' };
+    }
+    return { ok: true, base64: raw };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Exportação falhou',
+    };
+  }
+}
+
+/** Importar backup SQL via API DA (streaming no servidor). */
+export async function daImportSqlViaSshAsDaUser(
+  daUsername: string,
+  database: string,
+  sqlBase64: string,
+  clean = false,
+): Promise<{ ok: boolean; error?: string }> {
+  const userQ = shellQuote(daUsername);
+  const host = shellQuote(readDaHost());
+  const port = CANONICAL_DIRECTADMIN_PORT;
+  const dbEnc = encodeURIComponent(database);
+  const cleanQ = clean ? 'clean=yes' : 'clean=no';
+  const b64Q = shellQuote(sqlBase64);
+  const apiSetup = `API=$(${DA_BIN} api-url --user=${userQ} 2>/dev/null | tail -1)`;
+  const authSetup = `AUTH=$(echo "$API" | sed -n 's#https://\\([^@]*\\)@.*#\\1#p')`;
+  const url = `https://127.0.0.1:${port}/api/db-manage/databases/${dbEnc}/import?${cleanQ}`;
+  const curl = `${apiSetup}; ${authSetup}; TMP=$(mktemp); echo ${b64Q} | base64 -d > "$TMP"; curl -sk -u "$AUTH" -H "Host: ${host}" -F "sqlfile=@$TMP;filename=import.sql" ${shellQuote(url)}; RC=$?; rm -f "$TMP"; exit $RC`;
+  try {
+    const raw = (await executeServerCommand(curl)).trim();
+    const parsed = parseDaJsonBody(raw);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+    return { ok: true };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Importação falhou',
+    };
+  }
 }
 
 /** @deprecated Use `daOneTimeLoginUrl` */

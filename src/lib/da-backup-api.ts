@@ -117,11 +117,49 @@ function formatBytes(bytes: number): string {
   return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
 
+function backupFileMatchesDomain(filename: string, domain: string): boolean {
+  const low = filename.toLowerCase()
+  const dotted = domain.toLowerCase().replace(/\./g, '_')
+  const compact = domain.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return low.includes(dotted) || (compact.length >= 4 && low.includes(compact))
+}
+
+export function backupFileSignature(file: BackupFileRow): string {
+  return `${file.filename}|${file.sizeBytes}|${file.date}`;
+}
+
+/** O DA coloca backups na fila — detecta ficheiro novo ou actualizado (mesmo nome). */
+export async function waitForBackupFileChange(
+  owner: string,
+  domain: string,
+  before: BackupFileRow[],
+  options?: { maxAttempts?: number; intervalMs?: number },
+): Promise<string | undefined> {
+  const beforeAll = before.filter((f) => backupFileMatchesDomain(f.filename, domain))
+  const beforeByName = new Map(beforeAll.map((f) => [f.filename, backupFileSignature(f)]));
+  const beforeNames = new Set(beforeAll.map((f) => f.filename));
+  const maxAttempts = options?.maxAttempts ?? 30;
+  const intervalMs = options?.intervalMs ?? 2000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, intervalMs));
+    const after = (await daBackupListFiles(owner, domain))
+      .filter((f) => backupFileMatchesDomain(f.filename, domain));
+    for (const file of after) {
+      const sig = backupFileSignature(file);
+      if (!beforeNames.has(file.filename)) return file.filename;
+      const prev = beforeByName.get(file.filename);
+      if (prev && prev !== sig) return file.filename;
+    }
+  }
+  return undefined;
+}
+
 export async function daBackupCreate(
   owner: string,
   domain: string,
   items: BackupItemId[],
-): Promise<{ ok: boolean; filename?: string; error?: string }> {
+): Promise<{ ok: boolean; filename?: string; queued?: boolean; error?: string }> {
   const result = await daLegacyRequestViaSshAsDaUser(owner, 'POST', 'CMD_API_SITE_BACKUP', {
     action: 'backup',
     domain,
@@ -130,7 +168,9 @@ export async function daBackupCreate(
   if (!result.ok) return { ok: false, error: result.error };
   const data = result.data || {};
   const filename = typeof data.file === 'string' ? data.file : undefined;
-  return { ok: true, filename };
+  const rawMsg = [data.success, data.result].filter(Boolean).map(String).join(' ');
+  const queued = /fila|queue|conclu|concluded|when/i.test(rawMsg) && !filename;
+  return { ok: true, filename, queued };
 }
 
 export async function daBackupViewItems(

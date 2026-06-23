@@ -16,6 +16,7 @@ import { writeWpInstallsCache } from '@/lib/panel-wp-cache';
 import { writeWpPluginsCache } from '@/lib/wp-panel-cache';
 import { prefetchEmailConfigs } from '@/lib/panel-email-config-cache';
 import { prefetchBackupLists } from '@/lib/panel-backup-cache';
+import { prefetchDbLists } from '@/lib/panel-databases-cache';
 import {
   mapEmailContasToWebmailAccounts,
   writeWebmailAccountsCache,
@@ -409,6 +410,13 @@ function buildPrefetchQueue(options: PrefetchPanelOptions): QueuedPrefetchStep[]
           const backupOwner = options.backupOwner || 'admin';
           if (!primary) return;
           await prefetchBackupLists(backupOwner, primary, domains);
+        });
+        break;
+      case 'cp-databases':
+        push(sectionId, async () => {
+          const dbOwner = options.backupOwner || 'admin';
+          if (!primary) return;
+          await prefetchDbLists(dbOwner, primary);
         });
         break;
       default:

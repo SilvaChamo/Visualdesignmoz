@@ -15,7 +15,8 @@ import {
   type BackupDomainMode, type BackupFrequency, type BackupScheduleRow,
 } from '@/lib/panel-backup-schedule-types'
 import { formatScheduleWhen } from '@/lib/panel-backup-schedule-utils'
-import { backupOptionChip, backupOptionChipActive, backupOptionGrid } from '@/lib/backup-option-ui'
+import { clearBackupScheduleDraft, readBackupScheduleDraft } from '@/lib/panel-backup-schedule-draft'
+import { backupOptionChip, backupOptionChipActive, backupOptionGrid, backupDomainGrid, backupDomainItem, backupDomainSection, backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed } from '@/lib/backup-option-ui'
 
 const btnGreen =
   'inline-flex h-[38px] items-center justify-center gap-1.5 rounded border border-green-600 bg-transparent px-4 text-sm font-medium text-green-600 transition-colors hover:bg-green-600/10 disabled:opacity-50 dark:border-green-500 dark:text-green-500'
@@ -116,6 +117,12 @@ export function BackupAutoConfigSection({
     if (!primaryDomain) return
     setLoading(true)
     try {
+      const draft = readBackupScheduleDraft()
+      if (draft) {
+        applyRow(draft as BackupScheduleRow)
+        clearBackupScheduleDraft()
+        return
+      }
       const row = await scheduleRequest<BackupScheduleRow | null>('GET', {
         domain: primaryDomain,
       })
@@ -195,6 +202,8 @@ export function BackupAutoConfigSection({
     month_days: monthDays,
   })
 
+  const auxText = 'text-sm text-zinc-500'
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -205,14 +214,6 @@ export function BackupAutoConfigSection({
 
   return (
     <div className="w-full space-y-4">
-      {primaryDomain ? (
-        <p className="text-sm text-zinc-500">
-          Conta: <span className="font-mono text-zinc-700 dark:text-zinc-300">{primaryDomain}</span>
-          {' · '}
-          Utilizador: <span className="font-mono">{owner}</span>
-        </p>
-      ) : null}
-
       {msg ? <div className="rounded border border-green-200 bg-green-50/80 px-4 py-2 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-400">{msg}</div> : null}
       {error ? <div className="rounded border border-red-200 bg-red-50/80 px-4 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">{error}</div> : null}
 
@@ -220,7 +221,13 @@ export function BackupAutoConfigSection({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 dark:border-zinc-800">
           <div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Backup automático</h3>
-            <p className="mt-1 text-sm text-zinc-500">Cópias agendadas enviadas para o armazenamento remoto do painel.</p>
+            {primaryDomain ? (
+              <p className={`mt-1 ${auxText}`}>
+                Conta: <span className="text-zinc-700 dark:text-zinc-300">{primaryDomain}</span>
+                {' · '}
+                Utilizador: <span>{owner}</span>
+              </p>
+            ) : null}
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
             <input
@@ -232,6 +239,18 @@ export function BackupAutoConfigSection({
             Activar
           </label>
         </div>
+
+        <label className="block space-y-1.5">
+          <span className={`font-medium ${auxText}`}>Retenção (dias)</span>
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={retentionDays}
+            onChange={(e) => setRetentionDays(Number(e.target.value) || 30)}
+            className={`${panelField} w-full max-w-[8rem]`}
+          />
+        </label>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className="block space-y-1.5">
@@ -287,7 +306,6 @@ export function BackupAutoConfigSection({
         <p className="text-sm text-zinc-500">{preview}</p>
 
         <div className="space-y-3">
-          <span className="text-sm font-medium text-zinc-500">Âmbito do backup</span>
           <select value={backupScope} onChange={(e) => setBackupScope(e.target.value as BackupTab)} className={`${panelField} w-full max-w-md`}>
             {BACKUP_TABS.map((t) => (
               <option key={t.id} value={t.id}>{t.label}</option>
@@ -325,7 +343,6 @@ export function BackupAutoConfigSection({
         </div>
 
         <div className="space-y-3">
-          <span className="text-xs font-medium text-zinc-500">Domínios</span>
           <select
             value={domainMode}
             onChange={(e) => setDomainMode(e.target.value as BackupDomainMode)}
@@ -334,47 +351,46 @@ export function BackupAutoConfigSection({
             <option value="all">Backup geral (todos os domínios)</option>
             <option value="selected">Domínios seleccionados</option>
           </select>
-          {domainMode === 'selected' ? (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {accountDomains.map((domain) => (
-                <label key={domain} className={cn(panelInnerDetailCard, 'flex items-center gap-2 py-2')}>
-                  <input
-                    type="checkbox"
-                    checked={pickedDomains.includes(domain)}
-                    onChange={() => toggleDomain(domain)}
-                    className="rounded border-gray-300 text-red-600"
-                  />
-                  <span className="truncate font-mono text-xs">{domain}</span>
-                </label>
-              ))}
+          {accountDomains.length > 0 ? (
+            <div
+              className={cn(
+                backupDomainCurtain,
+                domainMode === 'selected' ? backupDomainCurtainOpen : backupDomainCurtainClosed,
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className={backupDomainSection}>
+                  <div className={backupDomainGrid}>
+                    {accountDomains.map((domain) => (
+                      <label key={domain} className={backupDomainItem}>
+                        <input
+                          type="checkbox"
+                          checked={pickedDomains.includes(domain)}
+                          onChange={() => toggleDomain(domain)}
+                          className="rounded border-gray-300 text-red-600"
+                        />
+                        <span className="truncate">{domain}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : (
-            <p className="text-xs text-zinc-500">{accountDomains.length} domínio(s) incluído(s) automaticamente.</p>
-          )}
+          ) : null}
+          {domainMode === 'all' && accountDomains.length > 0 ? (
+            <p className={auxText}>{accountDomains.length} domínio(s) incluído(s) automaticamente.</p>
+          ) : null}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-zinc-500">Retenção (dias)</span>
-            <input
-              type="number"
-              min={1}
-              max={365}
-              value={retentionDays}
-              onChange={(e) => setRetentionDays(Number(e.target.value) || 30)}
-              className={`${panelField} w-full max-w-[8rem]`}
-            />
-          </label>
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-zinc-500">Destino</span>
-            <p className={`${panelInnerDetailCard} text-xs text-zinc-600 dark:text-zinc-400`}>
-              Armazenamento remoto do painel (cópias automáticas)
-            </p>
-          </div>
+        <div className="space-y-1.5">
+          <span className={`font-medium ${auxText}`}>Destino</span>
+          <p className={`${panelInnerDetailCard} text-sm text-zinc-600 dark:text-zinc-400`}>
+            Armazenamento remoto do painel (cópias automáticas)
+          </p>
         </div>
 
         {(lastRun || nextRun) ? (
-          <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
+          <div className={`flex flex-wrap gap-4 ${auxText}`}>
             {lastRun ? <span>Última execução: {new Date(lastRun).toLocaleString('pt-PT')}</span> : null}
             {nextRun ? <span>Próxima execução: {new Date(nextRun).toLocaleString('pt-PT')}</span> : null}
           </div>

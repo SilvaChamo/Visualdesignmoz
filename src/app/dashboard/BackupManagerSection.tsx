@@ -15,8 +15,9 @@ import {
 } from '@/lib/da-backup-types'
 import {
   backupOptionChip, backupOptionChipActive, backupOptionGrid,
-  backupDomainGrid, backupDomainItem, backupDomainItemStatic,
+  backupDomainGrid, backupDomainItem,
   backupDomainModeLabel, backupDomainModeRow, backupDomainSection,
+  backupDomainCurtain, backupDomainCurtainOpen, backupDomainCurtainClosed,
 } from '@/lib/backup-option-ui'
 import {
   invalidateBackupListCache,
@@ -84,6 +85,22 @@ async function downloadBackupFile(
   link.download = file || 'backup'
   link.click()
   URL.revokeObjectURL(url)
+}
+
+function BackupListSkeleton() {
+  return (
+    <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+      {Array.from({ length: 4 }).map((_, r) => (
+        <div key={r} className="flex gap-4 px-4 py-2">
+          <div className="h-4 w-1/4 animate-pulse rounded bg-gray-200 dark:bg-zinc-800" />
+          <div className="h-4 w-1/6 animate-pulse rounded bg-gray-200 dark:bg-zinc-800" />
+          <div className="h-4 w-1/6 animate-pulse rounded bg-gray-200 dark:bg-zinc-800" />
+          <div className="h-4 w-1/12 animate-pulse rounded bg-gray-200 dark:bg-zinc-800" />
+          <div className="ml-auto h-8 w-28 animate-pulse rounded bg-gray-200 dark:bg-zinc-800" />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 const btnGreen =
@@ -219,7 +236,7 @@ export function BackupManagerSection({
     }
     setCreating(true)
     try {
-      const data = await backupRequest<{ warnings?: string[]; created?: string[] }>({
+      const data = await backupRequest<{ warnings?: string[]; created?: string[]; queued?: boolean }>({
         action: 'create-batch',
         domain: listDomain,
         domains: targetDomains,
@@ -227,22 +244,31 @@ export function BackupManagerSection({
         scope: activeTab,
       })
       if (data?.warnings?.length) {
-        flash(`Backup criado. ${data.warnings.join('; ')}`)
+        flash(data.warnings.join('; '), data.created?.length ? false : true)
       } else if (data?.created?.length) {
         flash(targetDomains.length > 1
           ? `Backup criado para ${data.created.length} domínio(s).`
           : 'Backup criado com sucesso.')
       } else {
-        flash('Backup criado com sucesso.')
+        flash('Backup em fila no servidor — a lista actualiza em breve.')
       }
       invalidateBackupListCache(owner)
       await loadBackups()
+      if (!data?.created?.length) {
+        void (async () => {
+          for (let i = 0; i < 8; i += 1) {
+            await new Promise((r) => setTimeout(r, 5000))
+            invalidateBackupListCache(owner)
+            await loadBackups({ silent: true })
+          }
+        })()
+      }
     } catch (e: unknown) {
       flash(e instanceof Error ? e.message : 'Criação falhou.', true)
     } finally {
       setCreating(false)
     }
-  }, [targetDomains, activeTab, fullSelection, tabItems, listDomain, loadBackups])
+  }, [targetDomains, activeTab, fullSelection, tabItems, listDomain, loadBackups, owner])
 
   const openRestore = async (file: string) => {
     setRestoreBusy(true)
@@ -303,7 +329,7 @@ export function BackupManagerSection({
   }, [isActive, listDomain, loading, setChrome, loadBackups])
 
   const tabDescription: Record<BackupTab, string> = {
-    full: '',
+    full: 'Cópias de conta completa. Se a lista estiver vazia, verifique a tab Bases de dados — o servidor pode guardar dumps SQL separadamente.',
     files: 'Inclui ficheiros do site e a base de dados correspondente.',
     databases: 'Backup apenas das bases de dados MySQL.',
     emails: 'Backup de contas e definições de email.',
@@ -336,9 +362,9 @@ export function BackupManagerSection({
           </div>
           {listDomain ? (
             <p className="px-4 py-3 text-sm text-zinc-500">
-              Conta: <span className="font-mono text-zinc-700 dark:text-zinc-300">{listDomain}</span>
+              Conta: <span className="text-zinc-700 dark:text-zinc-300">{listDomain}</span>
               {' · '}
-              Utilizador: <span className="font-mono">{owner}</span>
+              Utilizador: <span>{owner}</span>
             </p>
           ) : null}
         </div>
@@ -390,33 +416,34 @@ export function BackupManagerSection({
               </div>
 
               {accountDomains.length > 0 ? (
-                <div className={backupDomainSection}>
-                  <div className={backupDomainGrid}>
-                    {accountDomains.map((domain) => (
-                      domainMode === 'selected' ? (
-                        <label key={domain} className={backupDomainItem}>
-                          <input
-                            type="checkbox"
-                            checked={pickedDomains.includes(domain)}
-                            onChange={() => togglePickedDomain(domain)}
-                            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                          />
-                          <span className="truncate font-mono">{domain}</span>
-                        </label>
-                      ) : (
-                        <span key={domain} className={backupDomainItemStatic}>
-                          <span className="truncate font-mono">{domain}</span>
-                        </span>
-                      )
-                    ))}
+                <div
+                  className={cn(
+                    backupDomainCurtain,
+                    domainMode === 'selected' ? backupDomainCurtainOpen : backupDomainCurtainClosed,
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className={backupDomainSection}>
+                      <div className={backupDomainGrid}>
+                        {accountDomains.map((domain) => (
+                          <label key={domain} className={backupDomainItem}>
+                            <input
+                              type="checkbox"
+                              checked={pickedDomains.includes(domain)}
+                              onChange={() => togglePickedDomain(domain)}
+                              className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                            />
+                            <span className="truncate">{domain}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}
 
-              {domainMode === 'all' && accountDomains.length > 0 ? (
-                <p className="text-sm text-zinc-500">
-                  Todos os domínios acima incluídos no backup geral.
-                </p>
+              {tabDescription[activeTab] ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">{tabDescription[activeTab]}</p>
               ) : null}
             </>
           ) : (
@@ -432,10 +459,6 @@ export function BackupManagerSection({
               </button>
             </div>
           )}
-
-          {tabDescription[activeTab] ? (
-            <p className="text-sm text-zinc-500">{tabDescription[activeTab]}</p>
-          ) : null}
 
           {activeTab === 'full' ? (
             <div className={backupOptionGrid}>
@@ -476,44 +499,43 @@ export function BackupManagerSection({
       </div>
 
       <div className={`${panelCard} overflow-hidden`}>
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-zinc-800">
-          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            Backups — {BACKUP_TABS.find((t) => t.id === activeTab)?.label}
-          </h3>
-          <p className="mt-1 text-sm text-zinc-500">Cópias deste tipo no servidor e no armazenamento remoto.</p>
-        </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="border-b border-gray-200 bg-gray-50/50 text-xs font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50 text-sm font-semibold text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
               <tr>
-                <th className="px-4 py-3">Ficheiro</th>
-                <th className="px-4 py-3">Domínio</th>
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3">Tamanho</th>
-                <th className="px-4 py-3">Origem</th>
-                <th className="px-4 py-3 text-right">Acções</th>
+                <th className="px-4 py-2">Ficheiro</th>
+                <th className="px-4 py-2">Domínio</th>
+                <th className="px-4 py-2">Data</th>
+                <th className="px-4 py-2">Tamanho</th>
+                <th className="px-4 py-2 text-right">Acções</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+            <tbody>
               {!listDomain ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-zinc-400">Nenhum website associado.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-zinc-400">Nenhum website associado.</td></tr>
               ) : loading && !backups.length ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-red-500" /></td></tr>
+                <tr><td colSpan={5} className="p-0"><BackupListSkeleton /></td></tr>
               ) : backups.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center">
+                <tr><td colSpan={5} className="px-4 py-8 text-center">
                   <Archive className="mx-auto mb-2 h-8 w-8 text-zinc-300 dark:text-zinc-700" />
-                  <p className="font-medium text-zinc-500">Nenhum backup nesta categoria</p>
-                  <p className="text-sm text-zinc-400">Use «Criar backup» no separador activo.</p>
+                  <p className="text-sm font-medium text-zinc-500">Nenhum backup nesta categoria</p>
                 </td></tr>
-              ) : backups.map((b) => (
-                <tr key={`${b.source}-${b.bucketPath || b.filename}`} className="hover:bg-gray-50/80 dark:hover:bg-zinc-800/30">
-                  <td className="px-4 py-3 font-mono text-sm">{b.filename}</td>
-                  <td className="px-4 py-3 font-mono text-sm text-zinc-500">{b.domain || listDomain}</td>
-                  <td className="px-4 py-3 text-sm text-zinc-500">{b.date}</td>
-                  <td className="px-4 py-3 text-sm text-zinc-500">{b.size}</td>
-                  <td className="px-4 py-3 text-sm text-zinc-500">{b.source === 'bucket' ? 'Armazenamento' : 'Servidor'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap justify-end gap-2">
+              ) : backups.map((b, rowIndex) => (
+                <tr
+                  key={`${b.source}-${b.bucketPath || b.filename}`}
+                  className={cn(
+                    'border-b border-gray-100 dark:border-zinc-800',
+                    rowIndex % 2 === 0
+                      ? 'bg-white dark:bg-zinc-900'
+                      : 'bg-gray-50/80 dark:bg-zinc-800/40',
+                  )}
+                >
+                  <td className="px-4 py-2 text-sm text-zinc-800 dark:text-zinc-200">{b.filename}</td>
+                  <td className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{b.domain || listDomain}</td>
+                  <td className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{b.date}</td>
+                  <td className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{b.size}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-nowrap items-center justify-end gap-1.5">
                       {b.source === 'server' ? (
                         <button
                           type="button"
@@ -521,7 +543,7 @@ export function BackupManagerSection({
                           className={panelBtnSecondary}
                           onClick={() => void openRestore(b.filename)}
                         >
-                          <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                          <RotateCcw className="h-4 w-4" /> Restaurar
                         </button>
                       ) : null}
                       <button
@@ -536,13 +558,14 @@ export function BackupManagerSection({
                         }}
                       >
                         {downloading === b.filename
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Download className="h-3.5 w-3.5" />}
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Download className="h-4 w-4" />}
                         Transferir
                       </button>
                       <button
                         type="button"
-                        className={`${panelBtnSecondary} border-red-300 text-red-600 dark:border-red-800 dark:text-red-400`}
+                        aria-label="Eliminar backup"
+                        className={`${panelBtnSecondary} border-red-300 px-2 text-red-600 dark:border-red-800 dark:text-red-400`}
                         onClick={() => setConfirm({
                           title: 'Eliminar backup',
                           message: `Eliminar «${b.filename}»? Esta acção é irreversível.`,
@@ -561,7 +584,7 @@ export function BackupManagerSection({
                           },
                         })}
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>

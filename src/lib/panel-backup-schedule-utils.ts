@@ -59,12 +59,12 @@ export function formatScheduleWhen(row: {
   month_days: number[]
 }): string {
   const time = row.run_time.slice(0, 5)
-  if (row.frequency === 'daily') return `Todos os dias às ${time}`
+  if (row.frequency === 'daily') return `Em ${time}, todos os dias`
   if (row.frequency === 'weekly') {
-    const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
-    const d = days[row.day_of_week ?? 1] || 'segunda'
-    return `Todas as ${d}s às ${time}`
+    const days = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+    const d = days[row.day_of_week ?? 1] || 'segunda-feira'
+    return `Em ${time}, todas as ${d}s`
   }
   const days = row.month_days.slice(0, row.runs_per_month).join(', ')
-  return `${row.runs_per_month}× por mês (dias ${days}) às ${time}`
+  return `Em ${time}, nos dias ${days} de cada mês`
 }

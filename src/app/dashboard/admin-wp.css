@@ -3,7 +3,7 @@
 .wp-admin-page {
   padding: 20px 24px 32px;
   color: #2c3338;
-  font-family: var(--font-admin);
+  font-family: var(--font-site), sans-serif;
   font-size: 13px;
   line-height: 1.5;
   max-width: 100%;

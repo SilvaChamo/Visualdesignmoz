@@ -319,6 +319,8 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'cp-wp-restore-backup': 'backup-manager',
   'cp-wp-remote-backup': 'backup-manager',
   'wp-backup': 'backup-manager',
+  'wp-backup-auto': 'backup-manager',
+  'wp-backup-report': 'backup-manager',
 };
 
 export const LEGACY_ONLY_IDS = new Set(
@@ -373,9 +375,11 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
   'wp-backup': 'nov-wordpress',
+  'wp-backup-auto': 'nov-wordpress',
+  'wp-backup-report': 'nov-wordpress',
   'cp-databases': 'nov-wordpress',
   'manage-website': 'wp-sites',
-  'backup-manager': 'menu-anterior',
+  'backup-manager': 'nov-wordpress',
   infrastructure: 'nov-definicoes',
   'settings-branding': 'nov-definicoes',
   'settings-profile': 'nov-definicoes',
@@ -408,6 +412,8 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
   'wp-backup': 'nov-wordpress',
+  'wp-backup-auto': 'nov-wordpress',
+  'wp-backup-report': 'nov-wordpress',
   'manage-website': 'wp-sites',
   infrastructure: 'nov-definicoes',
   'settings-branding': 'nov-definicoes',
@@ -422,14 +428,7 @@ export function resellerMenuParentForSection(sectionId: string): string | null {
   return null;
 }
 
-export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
-  ...NEW_MENU_ITEM_DEFS,
-  {
-    id: 'menu-anterior',
-    label: 'Menu Anterior',
-    subItems: LEGACY_SUB_ITEM_DEFS,
-  },
-];
+export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [...NEW_MENU_ITEM_DEFS];
 
 /** Menu revendedor (sem dashboard — sidebar trata dashboard à parte) */
 export const RESELLER_ADMIN_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MENU_DEFS;
@@ -469,31 +468,6 @@ export function adminMenuParentForSection(sectionId: string): string | null {
   }
   if (resolved === 'cp-databases') return 'nov-wordpress';
   if (NEW_SECTION_TO_PARENT[resolved]) return NEW_SECTION_TO_PARENT[resolved];
-  if (sectionId.endsWith('-legacy') || LEGACY_ONLY_IDS.has(sectionId)) return 'menu-anterior';
-  if (sectionId.startsWith('cp-email')) return 'menu-anterior';
-  if (['setup-smtp', 'cp-email-dkim'].includes(sectionId)) return 'menu-anterior';
-  if (
-    [
-      'cp-subdomains',
-      'cp-list-subdomains',
-      'cp-modify-website',
-      'cp-suspend-website',
-      'cp-delete-website',
-      'dns-central',
-      'cp-databases',
-      'cp-ftp',
-      'cp-ssl',
-      'cp-php',
-      'cp-wp-list',
-      'cp-wp-plugins',
-      'page-builders',
-      'templates-saved',
-      'settings-branding',
-      'settings-profile',
-    ].includes(sectionId)
-  ) {
-    return 'menu-anterior';
-  }
   return null;
 }
 
@@ -508,17 +482,5 @@ export function isPanelMenuItemActive(
     return true;
   }
   if (sectionToParent[resolved] === item.id) return true;
-  if (item.id === 'menu-anterior') {
-    const newMenuParent = sectionToParent[resolved];
-    if (newMenuParent && newMenuParent !== 'menu-anterior') {
-      return false;
-    }
-    return (
-      activeSection.endsWith('-legacy') ||
-      LEGACY_ONLY_IDS.has(activeSection) ||
-      RESELLER_LEGACY_ONLY_IDS.has(activeSection) ||
-      RESELLER_LEGACY_ONLY_IDS.has(resolveSectionId(activeSection))
-    );
-  }
   return false;
 }

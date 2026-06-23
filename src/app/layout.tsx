@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { siteFont } from "@/lib/site-font";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { OAuthCodeRedirect } from "@/components/auth/OAuthCodeRedirect";
@@ -61,16 +62,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-MZ" suppressHydrationWarning style={{ fontFamily: '"Exo 2", sans-serif' }}>
+    <html lang="pt-MZ" suppressHydrationWarning className={siteFont.variable}>
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('vd-theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
           }}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
         <meta property="og:title" content="VisualDesign" />
         <meta property="og:description" content="Painel de gestão de clientes e campanhas de email marketing" />
         <meta property="og:image" content="https://visualdesignmoz.com/icons/icon-512x512.png" />
@@ -101,7 +99,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">
+      <body className={`${siteFont.className} antialiased`}>
         <ThemeProvider>
           <AuthProvider>
             <OAuthCodeRedirect />

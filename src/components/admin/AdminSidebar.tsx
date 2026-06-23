@@ -59,7 +59,6 @@ const MENU_ICONS: Record<string, React.ElementType> = {
   newsletter: Layout,
   'nov-wordpress': WordPressMenuIcon,
   'nov-sistema': Settings,
-  'menu-anterior': Archive,
 };
 
 const menuItems: MenuItem[] = ADMIN_MENU_ITEM_DEFS.map((item) => ({
@@ -184,15 +183,9 @@ export function AdminSidebar({
             const Icon = item.icon;
             const isActive = isPanelMenuItemActive(item, activeSection);
             const isOpen = expandedMenu === item.id && !!item.subItems?.length;
-            const isLegacy = item.id === 'menu-anterior';
 
             return (
               <React.Fragment key={item.id}>
-                {isLegacy && !isCollapsed && (
-                  <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Menu anterior
-                  </div>
-                )}
                 <div>
                   {(() => {
                     const parentButton = (

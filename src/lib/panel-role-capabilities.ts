@@ -60,7 +60,6 @@ const MANAGER_DENIED_MENU_IDS = new Set([
   'utilizadores',
   'nov-hospedagem',
   'nov-sistema',
-  'menu-anterior',
 ]);
 
 const MANAGER_DENIED_SUB_IDS = new Set([

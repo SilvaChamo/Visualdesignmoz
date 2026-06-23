@@ -2,20 +2,19 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Archive, Copy, Loader2, MoreVertical, Pencil, Play, Plus, RotateCcw, Server, Trash2,
+  Archive, Copy, HardDrive, Loader2, MoreVertical, Pencil, Play, Plus, RotateCcw, Trash2,
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
-import { panelBtnSecondary, panelCard } from '@/lib/panel-ui'
-import { BACKUP_TABS } from '@/lib/da-backup-types'
+import { panelBtnSecondary, panelCard, panelInnerDetailCard } from '@/lib/panel-ui'
+import { BACKUP_ITEMS, BACKUP_TABS } from '@/lib/da-backup-types'
 import type { BackupScheduleRow } from '@/lib/panel-backup-schedule-types'
 import { formatScheduleWhen } from '@/lib/panel-backup-schedule-utils'
+import { writeBackupScheduleDraft } from '@/lib/panel-backup-schedule-draft'
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 
 const btnGreen =
   'inline-flex h-[38px] items-center justify-center gap-1.5 rounded border border-green-600 bg-transparent px-4 text-sm font-medium text-green-600 transition-colors hover:bg-green-600/10 disabled:opacity-50 dark:border-green-500 dark:text-green-500'
-
-type ReportTab = 'schedules' | 'settings'
 
 async function scheduleApi<T = unknown>(payload: Record<string, unknown>): Promise<T> {
   const res = await fetch('/api/backup-schedule', {
@@ -29,18 +28,40 @@ async function scheduleApi<T = unknown>(payload: Record<string, unknown>): Promi
   return data.data as T
 }
 
-function scopeLabel(scope: BackupScheduleRow['backup_scope']) {
-  return BACKUP_TABS.find((t) => t.id === scope)?.label || scope
+function resolveEditDomain(row: BackupScheduleRow, sites: DirectAdminWebsite[], fallback: string): string {
+  if (row.domains.length) return row.domains[0]
+  const match = sites.find((s) => s.owner?.toLowerCase() === row.owner.toLowerCase())
+  return match?.domain || fallback
 }
 
-function whoLabel(row: BackupScheduleRow) {
+function whatLabel(row: BackupScheduleRow): string {
+  if (row.backup_scope === 'full') {
+    const allIds = BACKUP_ITEMS.map((i) => i.id)
+    const hasAll = allIds.every((id) => row.backup_items.includes(id))
+    if (hasAll || row.backup_items.length >= 9) return 'Todos os dados'
+  }
+  return BACKUP_TABS.find((t) => t.id === row.backup_scope)?.label || row.backup_scope
+}
+
+function whoLabel(row: BackupScheduleRow): string {
   if (row.domain_mode === 'all') return 'Todos os domínios'
   if (!row.domains.length) return 'Domínios seleccionados'
   return row.domains.length === 1 ? row.domains[0] : `${row.domains.length} domínios`
 }
 
-function whereLabel(row: BackupScheduleRow) {
-  return `${row.bucket_name}/${row.owner}/${row.backup_scope}/`
+function openScheduleEditor(
+  row: BackupScheduleRow,
+  sites: DirectAdminWebsite[],
+  fallbackDomain: string,
+  setActiveSection: ((section: string) => void) | undefined,
+  duplicate = false,
+) {
+  const domain = resolveEditDomain(row, sites, fallbackDomain)
+  writeBackupScheduleDraft(duplicate ? { ...row, enabled: false } : row)
+  if (typeof window !== 'undefined') {
+    ;(window as Window & { __selectedBackupDomain?: string | null }).__selectedBackupDomain = domain
+  }
+  setActiveSection?.('wp-backup-auto')
 }
 
 export function BackupReportSection({
@@ -63,7 +84,6 @@ export function BackupReportSection({
     return accountDomains[0] || ''
   }, [initialDomain, accountDomains])
 
-  const [tab, setTab] = useState<ReportTab>('schedules')
   const [rows, setRows] = useState<BackupScheduleRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -89,7 +109,7 @@ export function BackupReportSection({
       setRows(list as BackupScheduleRow[])
     } catch (e: unknown) {
       setRows([])
-      flash(e instanceof Error ? e.message : 'Erro ao carregar relatório.', true)
+      flash(e instanceof Error ? e.message : 'Erro ao carregar agendamentos.', true)
     } finally {
       setLoading(false)
     }
@@ -126,7 +146,8 @@ export function BackupReportSection({
     setBusyId(row.id)
     setMenuId(null)
     try {
-      await scheduleApi({ action: 'run-now', domain: row.domains[0] || primaryDomain })
+      const domain = resolveEditDomain(row, sites, primaryDomain)
+      await scheduleApi({ action: 'run-now', domain })
       flash('Backup executado.')
       await load()
     } catch (e: unknown) {
@@ -140,7 +161,8 @@ export function BackupReportSection({
     setBusyId(row.id)
     setMenuId(null)
     try {
-      await scheduleApi({ action: 'delete', domain: row.domains[0] || primaryDomain })
+      const domain = resolveEditDomain(row, sites, primaryDomain)
+      await scheduleApi({ action: 'delete', domain })
       flash('Agendamento eliminado.')
       await load()
     } catch (e: unknown) {
@@ -152,30 +174,14 @@ export function BackupReportSection({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Backup e restauro</h2>
-          <p className="mt-0.5 text-sm text-zinc-500">Gestão de cópias automáticas agendadas.</p>
-        </div>
-      </div>
-
-      <div className="flex gap-4 border-b border-gray-200 text-sm dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={() => setTab('schedules')}
-          className={cn(
-            'border-b-2 pb-2 font-medium transition-colors',
-            tab === 'schedules'
-              ? 'border-red-500 text-red-500'
-              : 'border-transparent text-zinc-500 hover:text-zinc-300',
-          )}
-        >
+      <div className="flex flex-wrap gap-4 border-b border-gray-200 text-sm dark:border-zinc-800">
+        <span className="border-b-2 border-red-500 pb-2 font-medium text-red-500">
           Backup e restauro
-        </button>
+        </span>
         <button
           type="button"
           onClick={() => setActiveSection?.('wp-backup-auto')}
-          className="border-b-2 border-transparent pb-2 font-medium text-zinc-500 transition-colors hover:text-zinc-300"
+          className="border-b-2 border-transparent pb-2 font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
         >
           Configurações do backup
         </button>
@@ -190,8 +196,9 @@ export function BackupReportSection({
         </div>
       ) : rows.length === 0 ? (
         <div className={`${panelCard} px-6 py-12 text-center`}>
-          <Server className="mx-auto mb-3 h-10 w-10 text-zinc-400" />
+          <HardDrive className="mx-auto mb-3 h-10 w-10 text-zinc-400" />
           <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Nenhum backup automático agendado</p>
+          <p className="mt-1 text-sm text-zinc-500">Configure a frequência, domínios e destino das cópias.</p>
           {setActiveSection ? (
             <button type="button" onClick={() => setActiveSection('wp-backup-auto')} className={`${btnGreen} mt-4`}>
               <Plus className="h-4 w-4" /> Agendar backup
@@ -199,97 +206,115 @@ export function BackupReportSection({
           ) : null}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {rows.map((row) => (
-            <div
-              key={row.id}
-              className={`${panelCard} relative flex flex-wrap items-start gap-4 p-4 md:flex-nowrap`}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800/50 text-zinc-400">
-                <Server className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-zinc-100">
-                    {formatScheduleWhen(row)}
-                  </p>
-                  <span className={cn(
-                    'rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-                    row.enabled
-                      ? 'border-green-700 text-green-500'
-                      : 'border-zinc-600 text-zinc-500',
-                  )}
-                  >
-                    {row.enabled ? 'Activo' : 'Inactivo'}
-                  </span>
+            <article key={row.id} className={`${panelCard} overflow-hidden`}>
+              <div className="flex items-start gap-4 p-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/80">
+                  <HardDrive className="h-5 w-5" />
                 </div>
-                <div className="grid gap-2 text-sm sm:grid-cols-3">
-                  <div>
-                    <span className="text-zinc-500">O quê</span>
-                    <p className="mt-0.5 text-zinc-300">{scopeLabel(row.backup_scope)}</p>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500">Onde</span>
-                    <p className="mt-0.5 truncate font-mono text-zinc-400">{whereLabel(row)}</p>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500">Quem</span>
-                    <p className="mt-0.5 truncate text-zinc-300">{whoLabel(row)}</p>
-                  </div>
-                </div>
-                {row.next_run_at ? (
-                  <p className="text-[11px] text-zinc-500">
-                    Próxima execução: {new Date(row.next_run_at).toLocaleString('pt-PT')}
-                  </p>
-                ) : null}
-              </div>
-              <div className="relative ml-auto shrink-0">
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={() => setMenuId(menuId === row.id ? null : row.id)}
-                  className={panelBtnSecondary}
-                  aria-label="Acções"
-                >
-                  {busyId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-                </button>
-                {menuId === row.id ? (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setMenuId(null)} />
-                    <div className={`${panelCard} absolute right-0 top-full z-50 mt-1 min-w-[11rem] py-1 shadow-lg`}>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
-                        onClick={() => { setMenuId(null); setActiveSection?.('wp-backup-auto') }}
-                      >
-                        <Pencil className="h-3.5 w-3.5 text-sky-400" /> Modificar
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
-                        onClick={() => void runNow(row)}
-                      >
-                        <Play className="h-3.5 w-3.5 text-sky-400" /> Executar agora
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
-                        onClick={() => { setMenuId(null); setActiveSection?.('wp-backup-auto') }}
-                      >
-                        <Copy className="h-3.5 w-3.5 text-sky-400" /> Duplicar
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-zinc-800"
-                        onClick={() => void remove(row)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Eliminar
-                      </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {formatScheduleWhen(row)}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        Conta: <span className="font-mono text-zinc-700 dark:text-zinc-300">{row.owner}</span>
+                        {row.enabled ? (
+                          <span className="ml-2 rounded border border-green-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-600 dark:border-green-900 dark:text-green-400">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700">
+                            Inactivo
+                          </span>
+                        )}
+                      </p>
                     </div>
-                  </>
-                ) : null}
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        disabled={busyId === row.id}
+                        onClick={() => setMenuId(menuId === row.id ? null : row.id)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-zinc-500 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        aria-label="Acções do agendamento"
+                      >
+                        {busyId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                      </button>
+                      {menuId === row.id ? (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setMenuId(null)} aria-hidden />
+                          <div className={`${panelCard} absolute right-0 top-full z-50 mt-1 min-w-[12rem] py-1 shadow-lg`}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => {
+                                setMenuId(null)
+                                openScheduleEditor(row, sites, primaryDomain, setActiveSection, false)
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 text-sky-500" /> Modificar
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => void runNow(row)}
+                            >
+                              <Play className="h-4 w-4 text-sky-500" /> Executar agora
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-gray-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              onClick={() => {
+                                setMenuId(null)
+                                openScheduleEditor(row, sites, primaryDomain, setActiveSection, true)
+                              }}
+                            >
+                              <Copy className="h-4 w-4 text-sky-500" /> Duplicar
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              onClick={() => void remove(row)}
+                            >
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </button>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <div className={cn(panelInnerDetailCard, 'grid gap-4 border-x-0 border-b-0 sm:grid-cols-3')}>
+                <div>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">O quê</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{whatLabel(row)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Onde</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    Armazenamento remoto do painel
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Retenção: {row.retention_days} dias
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Quem</p>
+                  <p className="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-400">{whoLabel(row)}</p>
+                </div>
+              </div>
+
+              {row.next_run_at ? (
+                <p className="border-t border-gray-100 px-5 py-2 text-xs text-zinc-500 dark:border-zinc-800">
+                  Próxima execução: {new Date(row.next_run_at).toLocaleString('pt-PT')}
+                  {row.last_run_at ? ` · Última: ${new Date(row.last_run_at).toLocaleString('pt-PT')}` : ''}
+                </p>
+              ) : null}
+            </article>
           ))}
         </div>
       )}

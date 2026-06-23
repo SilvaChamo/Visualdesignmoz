@@ -1398,148 +1398,10 @@ export function DNSZoneEditorSection({
 }
 
 
-// ============================================================
-// DATABASES SECTION
-// ============================================================
-export function DatabasesSection({ sites, initialDomain }: { sites: DirectAdminWebsite[]; initialDomain?: string }) {
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [databases, setDatabases] = useState<DirectAdminDatabase[]>([])
-  const [loading, setLoading] = useState(false)
-  const [dbName, setDbName] = useState('')
-  const [dbUser, setDbUser] = useState('')
-  const [dbPass, setDbPass] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [lastCreated, setLastCreated] = useState<{ dbName: string; dbUser: string; dbPass: string } | null>(null)
-
-  useEffect(() => {
-    if (initialDomain) {
-      setSelectedDomain(initialDomain)
-      loadDBs(initialDomain)
-    }
-  }, [initialDomain])
-
-  const loadDBs = async (domain: string) => {
-    if (!domain) return
-    const ls = cpGetDatabases(domain)
-    if (ls.length > 0) setDatabases(ls)
-    else setLoading(true)
-
-    try {
-      const data = await directAdminAPI.listDatabases(domain)
-      if (data.length > 0) {
-        setDatabases(data)
-        data.forEach((d: any) => cpSaveDatabase(domain, d.dbName, d.dbUser))
-      }
-    } catch (e) { console.error(e) }
-    setLoading(false)
-  }
-
-  const handleCreate = async () => {
-    if (!selectedDomain || !dbName || !dbUser || !dbPass) return
-    setCreating(true); setMsg('')
-    try {
-      const ok = await directAdminAPI.createDatabase({ domain: selectedDomain, dbName, dbUser, dbPassword: dbPass })
-      if (isDaCommandOk(ok)) {
-        cpSaveDatabase(selectedDomain, dbName, dbUser)
-        setLastCreated({ dbName, dbUser, dbPass })
-        setMsg('Base de dados criada com sucesso!')
-        setDbName(''); setDbUser(''); setDbPass('')
-        loadDBs(selectedDomain)
-      } else {
-        setMsg('Erro ao criar base de dados no servidor.')
-      }
-    } catch (e: any) {
-      setMsg('Erro: ' + e.message)
-    }
-    setCreating(false)
-  }
-
-  const handleDelete = async (name: string) => {
-    if (!confirm(`Eliminar base de dados ${name}?`)) return
-    try {
-      const ok = await directAdminAPI.deleteDatabase({ dbName: name })
-      if (isDaCommandOk(ok)) {
-        cpRemoveDatabase(selectedDomain, name)
-        loadDBs(selectedDomain)
-      } else {
-        alert('Erro ao eliminar base de dados.')
-      }
-    } catch (e: any) {
-      alert('Erro: ' + e.message)
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-
-      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-            <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadDBs(e.target.value) }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
-              <option value="">Seleccione...</option>
-              {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome da BD</label>
-            <input value={dbName} onChange={(e) => setDbName(e.target.value)} placeholder="minha_bd" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Utilizador BD</label>
-            <input value={dbUser} onChange={(e) => setDbUser(e.target.value)} placeholder="db_user" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Senha BD</label>
-            <input type="password" value={dbPass} onChange={(e) => setDbPass(e.target.value)} placeholder="••••••" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
-          </div>
-        </div>
-        <button onClick={handleCreate} disabled={creating || !selectedDomain || !dbName || !dbUser || !dbPass}
-          className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-          {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} Criar Base de Dados
-        </button>
-
-        {msg && <div className={`mt-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('criada') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
-
-        {lastCreated && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm">
-            <p className="font-bold text-blue-800 mb-2">Credenciais da Base de Dados Criada:</p>
-            <div className="grid grid-cols-3 gap-3 font-mono text-xs">
-              <div><span className="text-blue-600 font-bold">BD:</span> {lastCreated.dbName}</div>
-              <div><span className="text-blue-600 font-bold">User:</span> {lastCreated.dbUser}</div>
-              <div><span className="text-blue-600 font-bold">Pass:</span> {lastCreated.dbPass}</div>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <a href={`${getHestiaUrl()}/phpmyadmin/`} target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-50 border border-orange-300 text-orange-600 hover:bg-orange-50 border border-orange-300 text-orange-600  px-3 py-1.5 rounded font-bold">Abrir phpMyAdmin</a>
-              <button onClick={() => setLastCreated(null)} className="text-xs text-blue-600 hover:underline">Fechar</button>
-            </div>
-          </div>
-        )}
-
-        {loading && <TableSkeleton columns={3} rows={5} />}
-        {!loading && databases.length > 0 && (
-          <table className="w-full text-sm mt-6">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Base de Dados</th><th className="px-4 py-3">Utilizador</th><th className="px-4 py-3 w-32">Ações</th></tr></thead>
-            <tbody>
-              {databases.map((db, i) => (
-                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium font-mono text-sm">{db.dbName}</td>
-                  <td className="px-4 py-3 text-gray-600 font-mono text-sm">{db.dbUser}</td>
-                  <td className="px-4 py-3 flex items-center gap-2">
-                    <a href={`${getHestiaUrl()}/phpmyadmin/`} target="_blank" rel="noopener noreferrer" className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded font-medium">phpMyAdmin</a>
-                    <button onClick={() => handleDelete(db.dbName)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  )
-}
+export { DatabasesSection } from '@/app/dashboard/DatabasesManagerSection'
+export { BackupManagerSection } from '@/app/dashboard/BackupManagerSection'
+export { BackupAutoConfigSection } from '@/app/dashboard/BackupAutoConfigSection'
+export { BackupReportSection } from '@/app/dashboard/BackupReportSection'
 
 // ============================================================
 // FTP SECTION
@@ -7211,6 +7073,9 @@ const FM_EDITABLE_EXT = new Set([
 const fmToolbarBtn =
   'inline-flex items-center gap-1.5 rounded border border-gray-300 bg-transparent px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed dark:border-zinc-600'
 
+const fmToolbarBtnPlain =
+  'inline-flex items-center gap-1.5 rounded bg-transparent px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed'
+
 const fmToolbarBtnActive =
   'text-gray-700 hover:text-red-600 dark:text-zinc-200 dark:hover:text-red-400'
 
@@ -7282,6 +7147,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const [fmDialog, setFmDialog] = useState<
     | { type: 'transfer'; mode: 'copy' | 'move'; sources: string[] }
     | { type: 'create'; mode: 'file' | 'folder' }
+    | { type: 'confirm-delete'; inTrash: boolean; count: number }
     | null
   >(null)
   const [fmDialogInput, setFmDialogInput] = useState('')
@@ -7508,7 +7374,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   }
 
   const confirmFmDialog = async () => {
-    if (!fmDialog) return
+    if (!fmDialog || fmDialog.type === 'confirm-delete') return
     const input = fmDialogInput.trim()
     if (!input) return
 
@@ -7629,14 +7495,17 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedFiles.length) return
     const inTrash = showTrashView || path === resolveTrashPath()
-    if (!confirm(
-      inTrash
-        ? `Eliminar permanentemente ${selectedFiles.length} item(ns)?`
-        : `Mover ${selectedFiles.length} item(ns) para a lixeira?`,
-    )) return
+    setFmDialog({ type: 'confirm-delete', inTrash, count: selectedFiles.length })
+    setMoreMenuAnchor(null)
+  }
+
+  const confirmDelete = async () => {
+    if (!fmDialog || fmDialog.type !== 'confirm-delete' || !selectedFiles.length) return
+    const inTrash = fmDialog.inTrash
+    setFmDialogBusy(true)
     setActionBusy(true)
     try {
       if (inTrash) {
@@ -7653,6 +7522,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
     } finally {
       setActionBusy(false)
+      setFmDialogBusy(false)
+      setFmDialog(null)
       setMoreMenuAnchor(null)
     }
   }
@@ -7861,7 +7732,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                 type="button"
                 disabled={actionBusy}
                 onClick={() => openCreateFolderDialog()}
-                className={cn(fmToolbarBtn, fmToolbarBtnActive)}
+                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
               >
                 <FolderPlus className="w-4 h-4" /> Nova pasta
               </button>
@@ -7869,7 +7740,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                 type="button"
                 disabled={actionBusy}
                 onClick={() => openCreateFileDialog()}
-                className={cn(fmToolbarBtn, fmToolbarBtnActive)}
+                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
               >
                 <FilePlus className="w-4 h-4" /> Novo ficheiro
               </button>
@@ -8168,7 +8039,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             if (action === 'rename') void handleRename()
             else if (action === 'permissions') void handleSetPermissions()
             else if (action === 'extract') void handleExtract()
-            else if (action === 'delete') void handleDelete()
+            else if (action === 'delete') handleDelete()
           }}
         />
       ) : null}
@@ -8177,352 +8048,74 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => !fmDialogBusy && setFmDialog(null)} />
           <div className={`${panelCard} relative w-full max-w-lg space-y-4 p-6`}>
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              {fmDialog.type === 'transfer'
-                ? fmDialog.mode === 'copy'
-                  ? 'Copiar para pasta'
-                  : 'Mover para pasta'
-                : fmDialog.mode === 'folder'
-                  ? 'Nova pasta'
-                  : 'Novo ficheiro'}
-            </h3>
-            {fmDialog.type === 'transfer' ? (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {fmDialog.sources.length} item(ns) seleccionado(s)
-              </p>
+            {fmDialog.type === 'confirm-delete' ? (
+              <>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {fmDialog.inTrash ? 'Eliminar permanentemente' : 'Mover para a lixeira'}
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {fmDialog.inTrash
+                    ? `Eliminar permanentemente ${fmDialog.count} item(ns)? Esta acção não pode ser desfeita.`
+                    : `Mover ${fmDialog.count} item(ns) para a lixeira?`}
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>
+                  <button type="button" disabled={fmDialogBusy} onClick={() => void confirmDelete()} className={panelBtnPrimary}>
+                    {fmDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {fmDialog.inTrash ? 'Eliminar' : 'Mover para lixeira'}
+                  </button>
+                </div>
+              </>
             ) : (
-              <p className="break-all text-xs text-zinc-500 dark:text-zinc-400">
-                Directório: <span className="font-mono text-zinc-700 dark:text-zinc-300">{path}</span>
-              </p>
+              <>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {fmDialog.type === 'transfer'
+                    ? fmDialog.mode === 'copy'
+                      ? 'Copiar para pasta'
+                      : 'Mover para pasta'
+                    : fmDialog.mode === 'folder'
+                      ? 'Nova pasta'
+                      : 'Novo ficheiro'}
+                </h3>
+                {fmDialog.type === 'transfer' ? (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {fmDialog.sources.length} item(ns) seleccionado(s)
+                  </p>
+                ) : (
+                  <p className="break-all text-xs text-zinc-500 dark:text-zinc-400">
+                    Directório: <span className="font-mono text-zinc-700 dark:text-zinc-300">{path}</span>
+                  </p>
+                )}
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">
+                    {fmDialog.type === 'transfer'
+                      ? 'Pasta de destino'
+                      : fmDialog.mode === 'folder'
+                        ? 'Nome da pasta'
+                        : 'Nome do ficheiro'}
+                  </label>
+                  <input
+                    value={fmDialogInput}
+                    onChange={(e) => setFmDialogInput(e.target.value)}
+                    placeholder={fmDialog.type === 'create' && fmDialog.mode === 'file' ? 'exemplo.php' : ''}
+                    className={`${panelField} w-full dark:bg-zinc-900`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !fmDialogBusy) void confirmFmDialog()
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>
+                  <button type="button" disabled={fmDialogBusy || !fmDialogInput.trim()} onClick={() => void confirmFmDialog()} className={fmToolbarBtnGreen}>
+                    {fmDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Confirmar
+                  </button>
+                </div>
+              </>
             )}
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">
-                {fmDialog.type === 'transfer'
-                  ? 'Pasta de destino'
-                  : fmDialog.mode === 'folder'
-                    ? 'Nome da pasta'
-                    : 'Nome do ficheiro'}
-              </label>
-              <input
-                value={fmDialogInput}
-                onChange={(e) => setFmDialogInput(e.target.value)}
-                placeholder={fmDialog.type === 'create' && fmDialog.mode === 'file' ? 'exemplo.php' : ''}
-                className={`${panelField} w-full dark:bg-zinc-900`}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !fmDialogBusy) void confirmFmDialog()
-                }}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>
-              <button type="button" disabled={fmDialogBusy || !fmDialogInput.trim()} onClick={() => void confirmFmDialog()} className={fmToolbarBtnGreen}>
-                {fmDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Confirmar
-              </button>
-            </div>
           </div>
         </div>
       ) : null}
-    </div>
-  )
-}
-
-// ============================================================
-// BACKUP MANAGER SECTION
-// ============================================================
-export function BackupManagerSection({
-  sites,
-  initialDomain,
-  isActive = true,
-}: {
-  sites: DirectAdminWebsite[]
-  initialDomain?: string
-  isActive?: boolean
-}) {
-  const [activeTab, setActiveTab] = useState<'full' | 'files' | 'databases' | 'emails' | 'ftp'>('full')
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [backups, setBackups] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [msgType, setMsgType] = useState<'success' | 'error'>('success')
-
-  const tabs = [
-    { id: 'full', label: 'Conta Completa', icon: '🗂️' },
-    { id: 'files', label: 'Ficheiros', icon: '📁' },
-    { id: 'databases', label: 'Bases de Dados', icon: '🗄️' },
-    { id: 'emails', label: 'Email Accounts', icon: '✉️' },
-    { id: 'ftp', label: 'FTP Accounts', icon: '📡' },
-  ]
-
-  const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
-    setMsg(text); setMsgType(type)
-    setTimeout(() => setMsg(''), 4000)
-  }
-
-  const loadBackups = async (domain: string) => {
-    if (!domain) return
-    setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'execCommand',
-        params: { command: `ls -lht /home/${domain}/backup/*.tar.gz 2>/dev/null || echo "NO_BACKUPS"` }
-      })
-    })
-    const data = await res.json()
-    const output = data.data?.output || ''
-
-    if (output.includes('NO_BACKUPS') || output.includes('No such file') || !output.trim()) {
-      setBackups([])
-      setLoading(false)
-      return
-    }
-
-    const lines = output.split('\n').filter((l: string) =>
-      l.trim() && l.includes('.tar.gz')
-    )
-
-    setBackups(lines.map((line: string) => {
-      const parts = line.trim().split(/\s+/)
-      const filename = parts[parts.length - 1].split('/').pop() || ''
-      return {
-        size: parts[4] || 'N/A',
-        date: `${parts[5] || ''} ${parts[6] || ''} ${parts[7] || ''}`,
-        filename,
-        path: `/home/${domain}/backup/${filename}`
-      }
-    }).filter((b: any) => b.filename && b.filename.includes('.tar.gz')))
-
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    if (selectedDomain) loadBackups(selectedDomain)
-  }, []) // Disparar ao montar
-
-  useEffect(() => {
-    if (selectedDomain) loadBackups(selectedDomain)
-  }, [selectedDomain]) // Disparar quando selectedDomain muda
-
-  useEffect(() => {
-    if (!isActive) return
-    if (initialDomain) {
-      setSelectedDomain(initialDomain)
-    } else if (sites.length > 0) {
-      setSelectedDomain((prev) => prev || sites[0].domain)
-    }
-  }, [isActive, initialDomain, sites.length, sites[0]?.domain])
-
-  const { setChrome } = useAdminSectionChrome()
-
-  const handleCreate = async () => {
-    if (!selectedDomain) return
-    setCreating(true)
-    const commands: Record<string, string> = {
-      full: `mkdir -p /home/backup/full && directadmin createBackup --domainName ${selectedDomain} --backupPath /home/backup/full 2>&1`,
-      files: `mkdir -p /home/backup/files && tar -czf /home/backup/files/${selectedDomain}_files_$(date +%Y%m%d_%H%M%S).tar.gz /home/${selectedDomain}/public_html/ 2>&1 && echo "SUCCESS"`,
-      databases: `mkdir -p /home/backup/databases && mysqldump --all-databases 2>/dev/null | gzip > /home/backup/databases/${selectedDomain}_db_$(date +%Y%m%d_%H%M%S).sql.gz && echo "SUCCESS"`,
-      emails: `mkdir -p /home/backup/emails && tar -czf /home/backup/emails/${selectedDomain}_emails_$(date +%Y%m%d_%H%M%S).tar.gz /home/vmail/${selectedDomain}/ 2>&1 && echo "SUCCESS"`,
-      ftp: `mkdir -p /home/backup/ftp && tar -czf /home/backup/ftp/${selectedDomain}_ftp_$(date +%Y%m%d_%H%M%S).tar.gz /home/${selectedDomain}/ 2>&1 && echo "SUCCESS"`,
-    }
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'execCommand', params: { command: commands[activeTab] } })
-    })
-    const data = await res.json()
-    const output = data.data?.output || ''
-    if (output.includes('SUCCESS') || !output.toLowerCase().includes('error')) {
-      showMsg(`Backup criado com sucesso!`)
-      await loadBackups(selectedDomain)
-    } else {
-      showMsg('Erro: ' + output, 'error')
-    }
-    setCreating(false)
-  }
-
-  const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
-
-  useEffect(() => {
-    if (!isActive) return
-    setChrome({
-      toolbar: (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedDomain}
-            onChange={(e) => setSelectedDomain(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm w-44"
-          >
-            <option value="">Seleccionar domínio...</option>
-            {sites.map((s) => (
-              <option key={s.domain} value={s.domain}>
-                {s.domain}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => loadBackups(selectedDomain)}
-            disabled={!selectedDomain || loading}
-            className="flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-            title="Actualizar lista"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleCreate()}
-            disabled={!selectedDomain || creating}
-            className="flex items-center gap-2 rounded border border-green-300 bg-green-50 px-4 py-2 text-sm font-bold text-green-600 hover:bg-green-100 disabled:opacity-50"
-          >
-            {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {creating ? 'A criar...' : 'Criar Backup'}
-          </button>
-        </div>
-      ),
-    })
-    return () => setChrome(null)
-  }, [isActive, selectedDomain, siteDomainKey, loading, creating, setChrome])
-
-  const handleRestore = async (filename: string, path: string) => {
-    if (!confirm(`Restaurar "${filename}"?\n\nISTO VAI SUBSTITUIR OS DADOS ACTUAIS!`)) return
-    setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'restoreBackup',
-        params: { domain: selectedDomain, filename: filename, tab: activeTab }
-      })
-    })
-    const data = await res.json()
-    const output = data.data?.output || ''
-    if (data.success) showMsg('Restaurado com sucesso!')
-    else {
-      showMsg('Erro: ' + output);
-      setMsgType('error');
-    }
-    setLoading(false)
-  }
-
-  const handleDownload = async (path: string, filename: string) => {
-    setLoading(true)
-    const res = await fetch('/api/server-exec', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'execCommand',
-        params: { command: `base64 ${path} 2>&1` }
-      })
-    })
-    const data = await res.json()
-    const content = data.data?.output || ''
-    if (content && !content.toLowerCase().includes('error')) {
-      try {
-        const blob = new Blob(
-          [Uint8Array.from(atob(content.trim()), c => c.charCodeAt(0))],
-          { type: 'application/gzip' }
-        )
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = filename; a.click()
-        showMsg('Download iniciado!')
-      } catch { showMsg('Erro no download', 'error' as any) }
-    } else {
-      showMsg('Erro: ' + content, 'error' as any)
-    }
-    setLoading(false)
-  }
-
-  return (
-    <div className="w-full space-y-4">
-      {/* Mensagem */}
-      {msg && (
-        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'success'
-          ? 'bg-green-50 text-green-700 border-green-200'
-          : 'bg-red-50 text-red-700 border-red-200'
-          }`}>{msg}</div>
-      )}
-
-      {/* Tabs */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-200 bg-gray-50">
-          {tabs.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === tab.id
-                ? 'border-red-600 text-red-600 bg-white'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}>
-              <span>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tabela de backups */}
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b bg-gray-50">
-              <th className="px-4 py-3">Ficheiro</th>
-              <th className="px-4 py-3">Data</th>
-              <th className="px-4 py-3">Tamanho</th>
-              <th className="px-4 py-3">Acções</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!selectedDomain ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-gray-400">
-                Selecciona um domínio para ver os backups
-              </td></tr>
-            ) : loading ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto text-gray-400" />
-              </td></tr>
-            ) : backups.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center">
-                <div className="space-y-2">
-                  <Archive className="w-8 h-8 text-gray-300 mx-auto" />
-                  <p className="text-gray-500 font-medium">Nenhum backup encontrado para {selectedDomain}</p>
-                  <p className="text-gray-400 text-xs">Clica em "Criar Backup" para criar o primeiro backup deste site.</p>
-                </div>
-              </td></tr>
-            ) : backups.map((b, i) => (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-xs text-gray-700">{b.filename}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{b.date}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{b.size}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => handleRestore(b.filename, b.path)}
-                      className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
-                      <RefreshCw className="w-3 h-3" /> Restaurar
-                    </button>
-                    <button onClick={() => handleDownload(b.path, b.filename)}
-                      className="bg-gray-700 hover:bg-gray-800  px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
-                      ↓ Download
-                    </button>
-                    <button onClick={async () => {
-                      if (!confirm(`Eliminar "${b.filename}"? Irreversível!`)) return
-                      setLoading(true)
-                      await fetch('/api/server-exec', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'execCommand',
-                          params: { command: `rm -f ${b.path} 2>&1 && echo "DELETED"` }
-                        })
-                      })
-                      await loadBackups(selectedDomain)
-                      showMsg('Backup eliminado!')
-                      setLoading(false)
-                    }}
-                      className="bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors">
-                      <Trash2 className="w-3 h-3" /> Eliminar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }
