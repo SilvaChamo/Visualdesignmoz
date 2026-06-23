@@ -20,6 +20,13 @@ import {
   fetchPanelUsersStaleWhileRevalidate,
 } from '@/lib/panel-users-cache'
 import { readPackagesCache, writePackagesCache, clearPackagesCache } from '@/lib/panel-packages-cache'
+import {
+  invalidateFmDirCache,
+  invalidateFmDirCaches,
+  prefetchFmDir,
+  readFmDirCache,
+  writeFmDirCache,
+} from '@/lib/panel-file-manager-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import {
   readDomainListCache,
@@ -7232,6 +7239,16 @@ function isFmEditableName(name: string): boolean {
   return FM_EDITABLE_EXT.has(ext)
 }
 
+type FmDirEntry = { name: string; isDir?: boolean; size?: number; permissions?: string; date?: string }
+
+function sortFmDirectoryEntries(rows: FmDirEntry[]): FmDirEntry[] {
+  const byNameAsc = (a: FmDirEntry, b: FmDirEntry) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' })
+  const dirs = rows.filter((f) => f.isDir).sort(byNameAsc)
+  const dotFiles = rows.filter((f) => !f.isDir && f.name.startsWith('.')).sort(byNameAsc)
+  const regularFiles = rows.filter((f) => !f.isDir && !f.name.startsWith('.')).sort(byNameAsc)
+  return [...dirs, ...dotFiles, ...regularFiles]
+}
+
 const FileManagerCodeEditor = dynamic(
   () => import('@/app/dashboard/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor),
   {
@@ -7250,8 +7267,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   isActive?: boolean
 }) {
   const [path, setPath] = useState('')
+  const [showTrashView, setShowTrashView] = useState(false)
+  const [pathBeforeTrash, setPathBeforeTrash] = useState('')
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [dirSyncing, setDirSyncing] = useState(false)
   const [selectedDomain, setSelectedDomain] = useState('')
   const [siteRoot, setSiteRoot] = useState('')
   const [error, setError] = useState('')
@@ -7297,11 +7317,25 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   }, [domain, sites])
 
   useEffect(() => {
-    if (path) void loadFiles(path)
+    if (!path) return
+    const cached = readFmDirCache(path)
+    if (cached) {
+      setFiles(cached)
+      setLoading(false)
+      setError('')
+    } else {
+      setLoading(true)
+    }
+    void loadFiles(path, { hadCache: Boolean(cached) })
   }, [path])
 
-  const loadFiles = async (currentPath: string) => {
-    setLoading(true)
+  const loadFiles = async (currentPath: string, options?: { hadCache?: boolean }) => {
+    const hadCache = options?.hadCache === true
+    if (!hadCache) {
+      setLoading(true)
+    } else {
+      setDirSyncing(true)
+    }
     setError('')
     try {
       const res = await fetch('/api/server-exec', {
@@ -7315,16 +7349,23 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       })
       const data = await res.json()
       if (!res.ok || !data.success) {
-        setError(data.error || 'Não foi possível listar ficheiros.')
-        setFiles([])
+        if (!hadCache) {
+          setError(data.error || 'Não foi possível listar ficheiros.')
+          setFiles([])
+        }
         return
       }
-      setFiles(Array.isArray(data.data?.files) ? data.data.files : [])
+      const rows = Array.isArray(data.data?.files) ? data.data.files : []
+      setFiles(rows)
+      writeFmDirCache(currentPath, rows)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
-      setFiles([])
+      if (!hadCache) {
+        setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
+        setFiles([])
+      }
     } finally {
       setLoading(false)
+      setDirSyncing(false)
     }
   }
 
@@ -7345,6 +7386,34 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   }
 
   const joinPath = (name: string) => `${path.replace(/\/$/, '')}/${name}`
+
+  const resolveTrashPath = () => `/home/${getOwner(selectedDomain)}/.trash`
+
+  const sortedFiles = useMemo(() => sortFmDirectoryEntries(files as FmDirEntry[]), [files])
+
+  const ensureTrashDir = async () => {
+    const trash = resolveTrashPath()
+    try {
+      await execFileAction('createFolder', { path: trash })
+    } catch {
+      /* pasta pode já existir */
+    }
+    return trash
+  }
+
+  const toggleTrashView = async () => {
+    if (showTrashView) {
+      setShowTrashView(false)
+      setPath(pathBeforeTrash || siteRoot || path)
+      setSelectedFiles([])
+      return
+    }
+    setPathBeforeTrash(path)
+    setShowTrashView(true)
+    setSelectedFiles([])
+    const trash = await ensureTrashDir()
+    setPath(trash)
+  }
 
   const selectedEntries = () =>
     files.filter((f: { name: string }) => selectedFiles.includes(f.name))
@@ -7370,10 +7439,16 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setTimeout(() => setActionMsg(''), 3500)
   }
 
-  const refreshList = () => {
+  const refreshList = (extraPaths?: string[]) => {
+    invalidateFmDirCaches([path, ...(extraPaths || [])])
     setSelectedFiles([])
     setMoreMenuAnchor(null)
-    void loadFiles(path)
+    const cached = readFmDirCache(path)
+    if (cached) {
+      setFiles(cached)
+      setLoading(false)
+    }
+    void loadFiles(path, { hadCache: Boolean(cached) })
   }
 
   const handleEdit = async (name?: string) => {
@@ -7556,12 +7631,24 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const handleDelete = async () => {
     if (!selectedFiles.length) return
-    if (!confirm(`Eliminar ${selectedFiles.length} item(ns)? Esta acção é irreversível.`)) return
+    const inTrash = showTrashView || path === resolveTrashPath()
+    if (!confirm(
+      inTrash
+        ? `Eliminar permanentemente ${selectedFiles.length} item(ns)?`
+        : `Mover ${selectedFiles.length} item(ns) para a lixeira?`,
+    )) return
     setActionBusy(true)
     try {
-      await execFileAction('deletePaths', { paths: selectedFullPaths() })
-      flashAction('Eliminado.')
-      refreshList()
+      if (inTrash) {
+        await execFileAction('deletePaths', { paths: selectedFullPaths() })
+        flashAction('Eliminado permanentemente.')
+      } else {
+        const trash = await ensureTrashDir()
+        await execFileAction('movePaths', { sources: selectedFullPaths(), destDir: trash })
+        flashAction('Movido para a lixeira.')
+        invalidateFmDirCache(trash)
+      }
+      refreshList(inTrash ? [] : [resolveTrashPath()])
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
     } finally {
@@ -7646,6 +7733,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setSiteRoot(root)
     setPath(root)
     setSelectedFiles([])
+    setShowTrashView(false)
+    setPathBeforeTrash('')
     setMoreMenuAnchor(null)
   }
 
@@ -7849,7 +7938,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                       }
 
                       setUploadProgress(null);
-                      loadFiles(path);
+                      refreshList();
 
                       if (failCount > 0) {
                         alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
@@ -7869,21 +7958,44 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
         </div>
       </div>
 
-      <div className="flex min-h-[38px] w-full items-center gap-2 overflow-x-auto whitespace-nowrap text-sm">
-        <button onClick={() => setPath(siteRoot || path)} className="flex items-center gap-1 font-semibold text-zinc-600 transition-colors hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-500">
-          <FolderOpen className="w-4 h-4" />
-          {selectedDomain || 'home'}
+      <div className="flex min-h-[38px] w-full items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap text-sm">
+          <button onClick={() => { setShowTrashView(false); setPath(siteRoot || path) }} className="flex items-center gap-1 font-semibold text-zinc-600 transition-colors hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-500">
+            <FolderOpen className="w-4 h-4" />
+            {selectedDomain || 'home'}
+          </button>
+          {showTrashView ? (
+            <span className="flex items-center gap-2 text-gray-400">
+              <span className="opacity-50">/</span>
+              <span className="font-medium text-red-600 dark:text-red-400">Lixeira</span>
+            </span>
+          ) : pathParts.map((part, i) => (
+            <span key={i} className="flex items-center gap-2 text-gray-400">
+              <span className="opacity-50">/</span>
+              <button
+                onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
+                className="font-medium text-gray-700 transition-colors hover:text-red-500 dark:text-zinc-300 dark:hover:text-red-500">
+                {part}
+              </button>
+            </span>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => void toggleTrashView()}
+          title={showTrashView ? 'Voltar ao directório' : 'Ver ficheiros eliminados'}
+          className={cn(
+            fmToolbarBtn,
+            'shrink-0',
+            showTrashView ? 'border-red-300 text-red-600 dark:border-red-800 dark:text-red-400' : fmToolbarBtnActive,
+          )}
+        >
+          <Trash2 className="w-4 h-4" />
+          Lixeira
         </button>
-        {pathParts.map((part, i) => (
-          <span key={i} className="flex items-center gap-2 text-gray-400">
-            <span className="opacity-50">/</span>
-            <button
-              onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
-              className="font-medium text-gray-700 transition-colors hover:text-red-500 dark:text-zinc-300 dark:hover:text-red-500">
-              {part}
-            </button>
-          </span>
-        ))}
+        {dirSyncing ? (
+          <span className="shrink-0 text-xs text-zinc-400">A actualizar…</span>
+        ) : null}
       </div>
 
       {/* Tabela de ficheiros */}
@@ -7893,8 +8005,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
               <tr className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-zinc-400">
                 <th className="w-10 px-3 py-1.5">
-                  <input type="checkbox" checked={selectedFiles.length === files.length && files.length > 0} onChange={(e) => {
-                    if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name));
+                  <input type="checkbox" checked={selectedFiles.length === sortedFiles.length && sortedFiles.length > 0} onChange={(e) => {
+                    if (e.target.checked) setSelectedFiles(sortedFiles.map((f: FmDirEntry) => f.name));
                     else setSelectedFiles([]);
                   }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
                 </th>
@@ -7905,7 +8017,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-              {path !== siteRoot && !loading && files.length > 0 && (
+              {path !== siteRoot && !showTrashView && !loading && sortedFiles.length > 0 && (
                 <tr className="cursor-pointer bg-gray-50/80 transition-colors hover:bg-gray-100/80 group dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50" onClick={() => navigateTo('..')}>
                   <td className="w-10 px-3 py-1"></td>
                   <td className="px-3 py-1" colSpan={4}>
@@ -7956,18 +8068,20 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-3" />
                   <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
                 </td></tr>
-              ) : files.length === 0 ? (
+              ) : sortedFiles.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
                   <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-zinc-700" />
-                  <span className="font-medium text-gray-500 dark:text-zinc-400">Pasta vazia</span>
+                  <span className="font-medium text-gray-500 dark:text-zinc-400">
+                    {showTrashView ? 'Lixeira vazia' : 'Pasta vazia'}
+                  </span>
                 </td></tr>
-              ) : files.map((f, i) => {
+              ) : sortedFiles.map((f, i) => {
                 const ext = f.name.split('.').pop()?.toLowerCase() || '';
                 let Icon = FileText;
                 let iconColor = "text-gray-400 dark:text-zinc-600";
                 if (f.isDir) {
                   Icon = FolderOpen;
-                  iconColor = "text-zinc-500 dark:text-zinc-400 group-hover:text-red-500";
+                  iconColor = 'text-red-600 dark:text-red-500';
                 } else if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) {
                   Icon = FileArchive;
                   iconColor = "text-yellow-600 dark:text-yellow-500";
@@ -8011,8 +8125,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                         </div>
 
                         {f.isDir ? (
-                          <button onClick={() => navigateTo(f.name)}
-                            className="text-gray-900 dark:text-zinc-100 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors">
+                          <button
+                            onClick={() => navigateTo(f.name)}
+                            onMouseEnter={() => prefetchFmDir(`${path.replace(/\/$/, '')}/${f.name}`)}
+                            onFocus={() => prefetchFmDir(`${path.replace(/\/$/, '')}/${f.name}`)}
+                            className="font-semibold text-gray-900 transition-colors hover:text-red-600 dark:text-zinc-100 dark:hover:text-red-500">
                             {f.name}
                           </button>
                         ) : (
