@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X, ExternalLink } from 'lucide-react';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/dashboard/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
@@ -195,6 +195,7 @@ export function ClientesDaSection({
   const [search, setSearch] = useState('');
   const [view, setView] = useState<AccountsView>(initialView === 'create' ? 'create' : 'list');
   const [selectedUser, setSelectedUser] = useState<DaUserRow | null>(null);
+  const [activeTypeTab, setActiveTypeTab] = useState<'client' | 'professional' | 'reseller'>('client');
   const [editUser, setEditUser] = useState<DaUserRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -278,6 +279,17 @@ export function ClientesDaSection({
     }
     if (listFilter === 'client' && isDaReseller(u)) return false;
     if (listFilter === 'reseller' && !isDaReseller(u)) return false;
+
+    // Filtrar por Tab de Tipo de Conta
+    const acl = String(u.type || '').toLowerCase();
+    if (activeTypeTab === 'client') {
+      if (acl === 'reseller' || acl === 'manager') return false;
+    } else if (activeTypeTab === 'professional') {
+      if (acl !== 'manager') return false;
+    } else if (activeTypeTab === 'reseller') {
+      if (acl !== 'reseller') return false;
+    }
+
     const q = search.toLowerCase();
     return (
       !q ||
@@ -534,6 +546,28 @@ export function ClientesDaSection({
         </div>
       </div>
 
+      {/* Tabs de Tipos de Contas */}
+      <div className="flex border-b border-gray-200 dark:border-zinc-800 gap-1">
+        {[
+          { id: 'client' as const, label: 'Clientes' },
+          { id: 'professional' as const, label: 'Profissional' },
+          { id: 'reseller' as const, label: 'Revendedores' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTypeTab(tab.id)}
+            className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all -mb-px ${
+              activeTypeTab === tab.id
+                ? 'border-rose-600 text-rose-600 dark:border-rose-500 dark:text-rose-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {msg ? (
         <p className={`text-sm p-2 rounded ${msg.includes('✅') || msg.includes('criada') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
           {msg}
@@ -552,54 +586,77 @@ export function ClientesDaSection({
               <th className={`${accountsCellBorder} py-3`}>Pacote</th>
               <th className={`${accountsCellBorder} py-3`}>Revendedor</th>
               <th className={`${accountsCellBorder} py-3`}>Data</th>
+              <th className={`${accountsCellBorder} py-3 w-28`}>Painel</th>
               <th className="px-4 py-3 text-left w-12">Acções</th>
             </tr>
           </thead>
           <tbody>
             {loading && users.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Nenhuma conta</td></tr>
-            ) : filtered.map((u) => (
-              <tr
-                key={u.userName}
-                className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent ${u.suspended ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
-              >
-                <td className={accountsCellBorder}>
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedUser(u); setView('detail'); }}
-                    className="font-medium text-blue-700 hover:underline dark:text-blue-400"
-                  >
-                    {u.primaryDomain || `${u.userName}.com`}
-                  </button>
-                  {u.suspended ? <span className="ml-2 text-xs text-red-600">Suspenso</span> : null}
-                </td>
-                <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
-                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.email || '—'}</td>
-                <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.quotaLabel || '—'}</td>
-                <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>{u.diskUsedLabel || '0 MB'}</td>
-                <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>{u.packageName || '—'}</td>
-                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
-                <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>
-                  {formatRegisteredAt(u.registeredAt)}
-                </td>
-                <td className="px-4 py-1.5 text-left">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      if (openMenu?.userName === u.userName) setOpenMenu(null);
-                      else setOpenMenu({ userName: u.userName, rect });
-                    }}
-                    className="inline-flex rounded border border-gray-200 p-1.5 text-zinc-600 transition-colors hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-red-800 dark:hover:bg-transparent dark:hover:text-red-400"
-                    aria-label="Mais opções"
-                  >
-                    <MoreVertical size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Nenhuma conta</td></tr>
+            ) : filtered.map((u) => {
+              const isSimpleAccount = !u.packageName || u.packageName === '—';
+              return (
+                <tr
+                  key={u.userName}
+                  className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent ${u.suspended ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
+                >
+                  <td className={accountsCellBorder}>
+                    {isSimpleAccount ? (
+                      <span className="text-gray-400 dark:text-zinc-600">—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedUser(u); setView('detail'); }}
+                        className="font-medium text-blue-700 hover:underline dark:text-blue-400"
+                      >
+                        {u.primaryDomain || `${u.userName}.com`}
+                      </button>
+                    )}
+                    {u.suspended ? <span className="ml-2 text-xs text-red-600">Suspenso</span> : null}
+                  </td>
+                  <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
+                  <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.email || '—'}</td>
+                  <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>
+                    {isSimpleAccount ? <span className="text-gray-400 dark:text-zinc-600">—</span> : (u.quotaLabel || '—')}
+                  </td>
+                  <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>
+                    {isSimpleAccount ? <span className="text-gray-400 dark:text-zinc-600">—</span> : (u.diskUsedLabel || '0 MB')}
+                  </td>
+                  <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>
+                    {isSimpleAccount ? <span className="text-xs text-gray-500 font-medium">Conta Simples</span> : (u.packageName || '—')}
+                  </td>
+                  <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
+                  <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>
+                    {formatRegisteredAt(u.registeredAt)}
+                  </td>
+                  <td className={accountsCellBorder}>
+                    <a
+                      href={`/api/admin/impersonate?user=${encodeURIComponent(u.userName)}`}
+                      className="inline-flex h-7 items-center gap-1 rounded bg-rose-50 px-2.5 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Entrar
+                    </a>
+                  </td>
+                  <td className="px-4 py-1.5 text-left">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        if (openMenu?.userName === u.userName) setOpenMenu(null);
+                        else setOpenMenu({ userName: u.userName, rect });
+                      }}
+                      className="inline-flex rounded border border-gray-200 p-1.5 text-zinc-600 transition-colors hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-red-800 dark:hover:bg-transparent dark:hover:text-red-400"
+                      aria-label="Mais opções"
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -539,6 +539,7 @@ export async function POST(req: NextRequest) {
       'compressPaths',
       'extractArchive',
       'renamePath',
+      'setPathPermissions',
       'createFolder',
       'downloadFile',
     ]);
@@ -585,10 +586,10 @@ export async function POST(req: NextRequest) {
 
       if (action === 'writeFileContent') {
         const filePath = String(p.path || '').trim();
-        const contentB64 = String(p.contentBase64 || '');
-        if (!isValidHomePath(filePath) || !contentB64) {
+        if (!isValidHomePath(filePath) || p.contentBase64 === undefined || p.contentBase64 === null) {
           return NextResponse.json({ success: false, error: 'Dados inválidos' }, { status: 400 });
         }
+        const contentB64 = String(p.contentBase64);
         const script = [
           'import os, json, base64',
           `p = ${JSON.stringify(filePath)}`,
@@ -832,6 +833,48 @@ export async function POST(req: NextRequest) {
           }
           if (parsed.error === 'exists') {
             return NextResponse.json({ success: false, error: 'Já existe um item com esse nome' }, { status: 409 });
+          }
+          return NextResponse.json({ success: true, data: parsed });
+        } catch {
+          return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
+        }
+      }
+
+      if (action === 'setPathPermissions') {
+        const paths = normalizeHomePaths(p.paths);
+        const modeRaw = String(p.mode || '').trim();
+        if (!paths.length || !/^[0-7]{3,4}$/.test(modeRaw)) {
+          return NextResponse.json({ success: false, error: 'Permissões inválidas (ex.: 644 ou 755).' }, { status: 400 });
+        }
+        const script = [
+          'import os, json',
+          `paths = ${JSON.stringify(paths)}`,
+          `mode = int(${JSON.stringify(modeRaw)}, 8)`,
+          'updated = []',
+          'errors = []',
+          'for p in paths:',
+          '    if not p.startswith("/home/") or ".." in p:',
+          '        continue',
+          '    try:',
+          '        if os.path.exists(p):',
+          '            os.chmod(p, mode)',
+          '            updated.append(p)',
+          '    except OSError as e:',
+          '        errors.append({"path": p, "error": str(e)})',
+          'print(json.dumps({"updated": updated, "errors": errors}))',
+        ].join('\n');
+        const output = await runPythonOnServer(script);
+        try {
+          const parsed = parsePythonJsonOutput(output) as { updated?: string[]; errors?: Array<{ path: string; error: string }> };
+          if (!parsed.updated?.length) {
+            return NextResponse.json({ success: false, error: 'Não foi possível alterar permissões.' }, { status: 400 });
+          }
+          if (parsed.errors?.length) {
+            return NextResponse.json({
+              success: true,
+              warning: `${parsed.errors.length} item(ns) com erro.`,
+              data: parsed,
+            });
           }
           return NextResponse.json({ success: true, data: parsed });
         } catch {

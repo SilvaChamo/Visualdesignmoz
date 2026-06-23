@@ -784,7 +784,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   className="bg-purple-50 border border-purple-300 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1">
                   <Palette className="w-3.5 h-3.5" /> GrapesJS
                 </button>
-                
+
                 {/* Botão Craft.js Builder */}
                 <button
                   onClick={() => window.open(`/revendedor/websites/${s.domain}/builder/craft`, '_blank')}
@@ -1440,7 +1440,7 @@ function ManageWebsiteSection({
             <Icon className={cn("w-8 h-8", color)} />
           )}
         </div>
-        
+
         <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
           {label}
         </span>
@@ -1652,13 +1652,13 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="email-accounts" label="Create Email" onClick={() => { setDomainEmailForm({ user: '', password: '', quota: '500' }); setShowDomainEmailModal(true); }} />
         <MenuItem icon="email-accounts" label="List Emails" onClick={() => setActiveSection('cp-email-mgmt')} />
-        <MenuItem 
-          icon="email-accounts" 
-          label="Webmail" 
-          external 
-          href={getSnappyMailUrl(domain)} 
-          bgColor="bg-rose-100" 
-          color="text-rose-600" 
+        <MenuItem
+          icon="email-accounts"
+          label="Webmail"
+          external
+          href={getSnappyMailUrl(domain)}
+          bgColor="bg-rose-100"
+          color="text-rose-600"
         />
         <MenuItem icon="email-forwarding" label="Forwarding" onClick={() => setActiveSection('cp-email-forwarding')} />
         <MenuItem icon="email-deliverability" label="DKIM Manager" onClick={() => setActiveSection('cp-email-dkim')} />
@@ -2462,8 +2462,8 @@ function ResellerPageContent() {
       case 'newsletter-comp':
       case 'newsletter-camp':
         const derivedTab = activeSection === 'newsletter-subs' ? 'subs' :
-                           activeSection === 'newsletter-comp' ? 'comp' :
-                           activeSection === 'newsletter-camp' ? 'camp' : mailMarketingTab;
+          activeSection === 'newsletter-comp' ? 'comp' :
+            activeSection === 'newsletter-camp' ? 'camp' : mailMarketingTab;
         return (
           <MailMarketingSection
             sites={filteredSites}
@@ -2542,7 +2542,7 @@ function ResellerPageContent() {
       const data = await res.json()
       if (data.success) {
         setEmailMsg('Email criado com sucesso! Sincronizando acessos...')
-        
+
         // Sincronizar novo email com Supabase Auth
         try {
           await fetch('/api/admin/sync-directadmin-users', { method: 'POST' });
@@ -2689,10 +2689,10 @@ function ResellerPageContent() {
           search={
             activeSection === 'dashboard'
               ? {
-                  value: dashboardSearch,
-                  onChange: setDashboardSearch,
-                  placeholder: 'Pesquisar ferramentas...',
-                }
+                value: dashboardSearch,
+                onChange: setDashboardSearch,
+                placeholder: 'Pesquisar ferramentas...',
+              }
               : undefined
           }
           hidden={isComposeActive && activeSection === 'webmail'}
@@ -2732,13 +2732,12 @@ function ResellerPageContent() {
         />
 
         <main
-          className={`flex-1 min-h-0 ${
-            activeSection === 'webmail'
+          className={`flex-1 min-h-0 ${activeSection === 'webmail'
               ? 'overflow-hidden p-0'
               : activeSection === 'dashboard'
                 ? 'overflow-y-auto p-0'
                 : 'overflow-y-auto p-4 lg:p-5'
-          }`}
+            }`}
         >
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { panelBtnPrimary, panelBtnSecondary, panelCard, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard } from '@/lib/panel-ui'
@@ -136,22 +137,22 @@ const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" 
     </div>
   )
 }
-const ConfirmModal = ({ 
-  show, 
-  title, 
-  message, 
-  onConfirm, 
-  onCancel, 
+const ConfirmModal = ({
+  show,
+  title,
+  message,
+  onConfirm,
+  onCancel,
   confirmText = "Sim, eliminar",
   cancelText = "Cancelar",
-  isDanger = true 
-}: { 
-  show: boolean, 
-  title: string, 
-  message: string, 
-  onConfirm: () => void, 
-  onCancel: () => void, 
-  confirmText?: string, 
+  isDanger = true
+}: {
+  show: boolean,
+  title: string,
+  message: string,
+  onConfirm: () => void,
+  onCancel: () => void,
+  confirmText?: string,
   cancelText?: string,
   isDanger?: boolean
 }) => {
@@ -173,14 +174,14 @@ const ConfirmModal = ({
           </div>
         </div>
         <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-3">
-          <button 
-            onClick={onCancel} 
+          <button
+            onClick={onCancel}
             className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-[10px] transition-all active:scale-95"
           >
             {cancelText}
           </button>
-          <button 
-            onClick={() => { onConfirm(); onCancel(); }} 
+          <button
+            onClick={() => { onConfirm(); onCancel(); }}
             className={cn(
               "px-4 py-2 text-xs font-bold  rounded-[10px] transition-all active:scale-95",
               isDanger ? "bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700" : "bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
@@ -898,11 +899,10 @@ export function DNSZoneEditorSection({
               key={f}
               type="button"
               onClick={() => handleFilterChange(f)}
-              className={`px-4 py-2 rounded text-xs font-semibold border transition-colors ${
-                filter === f
+              className={`px-4 py-2 rounded text-xs font-semibold border transition-colors ${filter === f
                   ? 'border-red-300 bg-red-600/10 text-red-600 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400'
                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-300 dark:hover:text-red-400'
-              }`}
+                }`}
             >
               {f}
             </button>
@@ -1200,177 +1200,177 @@ export function DNSZoneEditorSection({
               })}
             </div>
             <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs font-bold text-gray-600 uppercase border-b bg-gray-100">
-                <th className="px-3 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={e => handleToggleSelectAllVisible(e.target.checked, pageRecords)}
-                  />
-                </th>
-                <th className="px-3 py-3 whitespace-nowrap pr-6">Nome</th>
-                <th className="px-3 py-3 w-20 text-center pl-3">TTL</th>
-                <th className="px-3 py-3 w-24 text-center">Tipo</th>
-                <th className="px-3 py-3 flex-1">Registo</th>
-                <th className="px-3 py-3 w-32 text-center">Acções</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageRecords.map(record => {
-                const isEditing = editingRecordId === record.id
-                const displayContent =
-                  record.type === 'MX'
-                    ? (() => {
-                      const { priority, value } = parseMxContent(record.content)
-                      return `Prioridade: ${priority || '-'} / Destino: ${value || '-'}`
-                    })()
-                    : record.content
-                return (
-                  <React.Fragment key={record.id}>
-                    <tr className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-3 py-3 align-middle">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(record.id)}
-                          onChange={e => handleToggleSelectOne(record.id, e.target.checked)}
-                        />
-                      </td>
-                      <td className="px-3 py-3 align-middle whitespace-nowrap pr-6">
-                        <div className="text-gray-900">{record.name}</div>
-                      </td>
-                      <td className="px-3 py-3 align-middle text-gray-600 text-center pl-3">{record.ttl || 0}</td>
-                      <td className="px-3 py-3 align-middle text-center">
-                        <span
-                          className={`inline-block px-3 py-1 rounded text-xs font-semibold ${typeColors[record.type] || 'bg-gray-200 text-gray-800'
-                            }`}
-                        >
-                          {record.type}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 align-middle text-gray-700 break-all text-sm">{displayContent}</td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEditRecord(record)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 border border-blue-500 text-blue-600 hover:bg-blue-50 rounded text-xs font-medium transition-colors"
-                          >
-                            <Edit className="w-3 h-3" /> Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRecord(record)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 border border-red-500 text-red-600 hover:bg-red-50 rounded text-xs font-medium transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" /> Remover
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {isEditing && editForm && (
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        <td />
-                        <td colSpan={5} className="px-4 py-4">
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label>
-                                <input
-                                  type="text"
-                                  value={editForm.name}
-                                  onChange={e => setEditForm({ ...(editForm || newRecord), name: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">TTL</label>
-                                <input
-                                  type="number"
-                                  value={editForm.ttl}
-                                  onChange={e => setEditForm({ ...(editForm || newRecord), ttl: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Tipo</label>
-                                <select
-                                  value={editForm.type}
-                                  onChange={e =>
-                                    setEditForm({
-                                      ...(editForm || newRecord),
-                                      type: e.target.value,
-                                    })
-                                  }
-                                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                                >
-                                  <option value="A">A</option>
-                                  <option value="CNAME">CNAME</option>
-                                  <option value="MX">MX</option>
-                                  <option value="TXT">TXT</option>
-                                  <option value="SRV">SRV</option>
-                                  <option value="NS">NS</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">
-                                  {editForm.type === 'MX' ? 'Prioridade' : '—'}
-                                </label>
-                                {editForm.type === 'MX' ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-bold text-gray-600 uppercase border-b bg-gray-100">
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={e => handleToggleSelectAllVisible(e.target.checked, pageRecords)}
+                      />
+                    </th>
+                    <th className="px-3 py-3 whitespace-nowrap pr-6">Nome</th>
+                    <th className="px-3 py-3 w-20 text-center pl-3">TTL</th>
+                    <th className="px-3 py-3 w-24 text-center">Tipo</th>
+                    <th className="px-3 py-3 flex-1">Registo</th>
+                    <th className="px-3 py-3 w-32 text-center">Acções</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRecords.map(record => {
+                    const isEditing = editingRecordId === record.id
+                    const displayContent =
+                      record.type === 'MX'
+                        ? (() => {
+                          const { priority, value } = parseMxContent(record.content)
+                          return `Prioridade: ${priority || '-'} / Destino: ${value || '-'}`
+                        })()
+                        : record.content
+                    return (
+                      <React.Fragment key={record.id}>
+                        <tr className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-3 py-3 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(record.id)}
+                              onChange={e => handleToggleSelectOne(record.id, e.target.checked)}
+                            />
+                          </td>
+                          <td className="px-3 py-3 align-middle whitespace-nowrap pr-6">
+                            <div className="text-gray-900">{record.name}</div>
+                          </td>
+                          <td className="px-3 py-3 align-middle text-gray-600 text-center pl-3">{record.ttl || 0}</td>
+                          <td className="px-3 py-3 align-middle text-center">
+                            <span
+                              className={`inline-block px-3 py-1 rounded text-xs font-semibold ${typeColors[record.type] || 'bg-gray-200 text-gray-800'
+                                }`}
+                            >
+                              {record.type}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 align-middle text-gray-700 break-all text-sm">{displayContent}</td>
+                          <td className="px-3 py-3 align-middle">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEditRecord(record)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-blue-500 text-blue-600 hover:bg-blue-50 rounded text-xs font-medium transition-colors"
+                              >
+                                <Edit className="w-3 h-3" /> Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRecord(record)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-red-500 text-red-600 hover:bg-red-50 rounded text-xs font-medium transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" /> Remover
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isEditing && editForm && (
+                          <tr className="bg-gray-50 border-b border-gray-100">
+                            <td />
+                            <td colSpan={5} className="px-4 py-4">
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                  <div>
+                                    <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Nome</label>
+                                    <input
+                                      type="text"
+                                      value={editForm.name}
+                                      onChange={e => setEditForm({ ...(editForm || newRecord), name: e.target.value })}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">TTL</label>
+                                    <input
+                                      type="number"
+                                      value={editForm.ttl}
+                                      onChange={e => setEditForm({ ...(editForm || newRecord), ttl: e.target.value })}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Tipo</label>
+                                    <select
+                                      value={editForm.type}
+                                      onChange={e =>
+                                        setEditForm({
+                                          ...(editForm || newRecord),
+                                          type: e.target.value,
+                                        })
+                                      }
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    >
+                                      <option value="A">A</option>
+                                      <option value="CNAME">CNAME</option>
+                                      <option value="MX">MX</option>
+                                      <option value="TXT">TXT</option>
+                                      <option value="SRV">SRV</option>
+                                      <option value="NS">NS</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">
+                                      {editForm.type === 'MX' ? 'Prioridade' : '—'}
+                                    </label>
+                                    {editForm.type === 'MX' ? (
+                                      <input
+                                        type="number"
+                                        value={editForm.priority || ''}
+                                        onChange={e =>
+                                          setEditForm({
+                                            ...(editForm || newRecord),
+                                            priority: e.target.value,
+                                          })
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                      />
+                                    ) : (
+                                      <div className="text-xs text-gray-400 mt-2">MX only</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">
+                                    Valor / Registo
+                                  </label>
                                   <input
-                                    type="number"
-                                    value={editForm.priority || ''}
-                                    onChange={e =>
-                                      setEditForm({
-                                        ...(editForm || newRecord),
-                                        priority: e.target.value,
-                                      })
-                                    }
+                                    type="text"
+                                    value={editForm.value}
+                                    onChange={e => setEditForm({ ...(editForm || newRecord), value: e.target.value })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                   />
-                                ) : (
-                                  <div className="text-xs text-gray-400 mt-2">MX only</div>
-                                )}
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditRecord}
+                                    className="px-4 py-2 rounded border border-gray-300 text-xs font-semibold text-gray-700"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleSaveEditRecord}
+                                    className="px-4 py-2 rounded bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-semibold disabled:opacity-50"
+                                  >
+                                    Guardar
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                            <div>
-                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">
-                                Valor / Registo
-                              </label>
-                              <input
-                                type="text"
-                                value={editForm.value}
-                                onChange={e => setEditForm({ ...(editForm || newRecord), value: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={cancelEditRecord}
-                                className="px-4 py-2 rounded border border-gray-300 text-xs font-semibold text-gray-700"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={handleSaveEditRecord}
-                                className="px-4 py-2 rounded bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 text-xs font-semibold disabled:opacity-50"
-                              >
-                                Guardar
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </tbody>
-          </table>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </>
         )}
@@ -1671,7 +1671,7 @@ export function EmailManagementSection({
   const [selected, setSelected] = useState<string[]>([])
   const [deleting, setDeleting] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  
+
   // Modal Único para Criação/Edição de E-mail
   const [emailModal, setEmailModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
     show: false,
@@ -1687,8 +1687,8 @@ export function EmailManagementSection({
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
   const [emailConfigModal, setEmailConfigModal] = useState<EmailConfigBundle | null>(null)
   const [emailRowMenu, setEmailRowMenu] = useState<{ email: string; rect: DOMRect } | null>(null)
-  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
-    show: false, title: '', message: '', onConfirm: () => {} 
+  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({
+    show: false, title: '', message: '', onConfirm: () => { }
   })
 
   // Carregar clientes para o dropdown de proprietário
@@ -1770,7 +1770,7 @@ export function EmailManagementSection({
       setEmails(merged)
       merged.forEach((e: any) => cpSaveEmail(domain, e.user, { quota_mb: e.quota_mb }))
       prefetchEmailConfigs(merged.map((e) => e.email).filter(Boolean))
-      
+
     } catch (err) {
       console.error('Erro na sincronização:', err)
     }
@@ -1782,10 +1782,10 @@ export function EmailManagementSection({
     if (sites.length === 0) return
     setLoading(true)
     setEmails([])
-    
+
     try {
       let allEmails: any[] = []
-      
+
       for (const site of sites) {
         try {
           const daEmails = await directAdminAPI.listEmails(site.domain).catch(() => [])
@@ -1804,7 +1804,7 @@ export function EmailManagementSection({
           console.error(`Erro ao carregar emails de ${site.domain}:`, e)
         }
       }
-      
+
       setEmails(allEmails)
       prefetchEmailConfigs(allEmails.map((e) => e.email).filter(Boolean))
     } catch (err) {
@@ -1828,7 +1828,7 @@ export function EmailManagementSection({
 
   const handleSyncGlobal = async () => {
     setIsSyncingGlobal(true)
-      setMsg('A sincronizar contas com o servidor DirectAdmin...')
+    setMsg('A sincronizar contas com o servidor DirectAdmin...')
     setMsgType('success')
     try {
       const res = await fetch('/api/admin/sync-directadmin-users', { method: 'POST' })
@@ -1974,7 +1974,7 @@ export function EmailManagementSection({
   const handleBulkAction = async (action: string) => {
     if (selected.length === 0) return
     const count = selected.length
-    
+
     if (action === 'delete') {
       setConfirm({
         show: true,
@@ -2029,7 +2029,7 @@ export function EmailManagementSection({
       if (formData.password) {
         await directAdminAPI.changeEmailPassword({ email: formData.email, password: formData.password })
       }
-      
+
       // 2. Atualizar suspensão no DirectAdmin quando suportado
       if (formData.status === 'active') {
         await directAdminAPI.unsuspendEmail(formData.email)
@@ -2321,9 +2321,9 @@ export function EmailManagementSection({
                   <>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Website / Domínio</label>
-                      <select 
-                        value={selectedDomain} 
-                        onChange={e => setSelectedDomain(e.target.value)} 
+                      <select
+                        value={selectedDomain}
+                        onChange={e => setSelectedDomain(e.target.value)}
                         className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="">Selecione um website</option>
@@ -2335,11 +2335,11 @@ export function EmailManagementSection({
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Username</label>
                       <div className="flex items-center gap-2">
-                        <input 
-                          value={emailModal.data.user} 
-                          onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, user: e.target.value}})} 
-                          placeholder="admin" 
-                          className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" 
+                        <input
+                          value={emailModal.data.user}
+                          onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, user: e.target.value } })}
+                          placeholder="admin"
+                          className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                         />
                         <span className="text-gray-400 text-sm">@{selectedDomain || 'dominio.com'}</span>
                       </div>
@@ -2347,16 +2347,16 @@ export function EmailManagementSection({
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, password: e.target.value}})} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({...emailModal, data: {...emailModal.data, confirmPassword: e.target.value}})} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, password: e.target.value } })} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, confirmPassword: e.target.value } })} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
-              {emailModal.mode === 'edit' && (
-                <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
-                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
-                  <button onClick={() => setEmailModal({...emailModal, data: {...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active'}})} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
-                </div>
-              )}
-            </div>
+                {emailModal.mode === 'edit' && (
+                  <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
+                    <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
+                    <button onClick={() => setEmailModal({ ...emailModal, data: { ...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active' } })} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
+                  </div>
+                )}
+              </div>
             )}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
@@ -2367,19 +2367,19 @@ export function EmailManagementSection({
       )}
 
       {/* Bulk Action Bar */}
-      <BulkActionBar 
-        count={selected.length} 
-        onAction={handleBulkAction} 
-        onClear={() => setSelected([])} 
+      <BulkActionBar
+        count={selected.length}
+        onAction={handleBulkAction}
+        onClear={() => setSelected([])}
         label="contas de e-mail"
       />
-      <ConfirmModal 
-        show={confirm.show} 
-        title={confirm.title} 
-        message={confirm.message} 
+      <ConfirmModal
+        show={confirm.show}
+        title={confirm.title}
+        message={confirm.message}
         isDanger={confirm.isDanger}
-        onConfirm={confirm.onConfirm} 
-        onCancel={() => setConfirm({ ...confirm, show: false })} 
+        onConfirm={confirm.onConfirm}
+        onCancel={() => setConfirm({ ...confirm, show: false })}
       />
     </div>
   )
@@ -2549,6 +2549,75 @@ function EmailRowActionsMenu({
   )
 }
 
+function fileManagerDropdownPosition(anchorRect: DOMRect, menuW: number, itemCount: number) {
+  const rowH = 32
+  const estimatedH = itemCount * rowH + 8
+  let top = anchorRect.bottom + 4
+  let left = anchorRect.left
+  if (typeof window !== 'undefined') {
+    if (top + estimatedH > window.innerHeight - 8) {
+      top = anchorRect.top - estimatedH - 4
+    }
+    left = Math.max(8, Math.min(left, window.innerWidth - menuW - 8))
+  }
+  return { top, left }
+}
+
+function FileManagerMoreMenu({
+  anchorRect,
+  onAction,
+  onClose,
+}: {
+  anchorRect: DOMRect
+  onAction: (action: 'rename' | 'permissions' | 'extract' | 'delete') => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const items = [
+    { id: 'rename' as const, label: 'Renomear' },
+    { id: 'permissions' as const, label: 'Definir permissões' },
+    { id: 'extract' as const, label: 'Descompactar' },
+    { id: 'delete' as const, label: 'Eliminar', danger: true },
+  ]
+  const menuW = 176
+  const { top, left } = fileManagerDropdownPosition(anchorRect, menuW, items.length)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onScroll = () => onClose()
+    document.addEventListener('mousedown', handler)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onScroll)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top, left, zIndex: 9999, width: menuW }}
+      className="rounded-lg border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => { onAction(item.id); onClose() }}
+          className={`block w-full px-3 py-2 text-left hover:text-red-600 dark:hover:text-red-400 ${item.danger ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-zinc-300'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
+}
+
 const PANEL_PAGE_TITLES: Record<PanelRoleFilter, { title: string; description: string }> = {
   all: {
     title: 'Utilizadores dos Painéis',
@@ -2629,8 +2698,8 @@ export function CPUsersSection({
     data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 10, emailsLimit: 100, acl: 'user' }
   })
   const [showUserPass, setShowUserPass] = useState(false)
-  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({ 
-    show: false, title: '', message: '', onConfirm: () => {} 
+  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({
+    show: false, title: '', message: '', onConfirm: () => { }
   })
 
   const applyPanelAccounts = (data: { users?: PanelAccount[]; counts?: Record<string, number> }) => {
@@ -3132,14 +3201,14 @@ export function CPUsersSection({
       const serverSuccess = res?.success === true
       const newUser = { ...data, state: 'Active', existsOnServer: serverSuccess }
       cpSaveUser(data.userName, newUser)
-      void syncUserToSupabase({ 
-        username: data.userName, 
-        firstName: data.firstName, 
-        lastName: data.lastName, 
-        email: data.email, 
-        acl: data.acl, 
+      void syncUserToSupabase({
+        username: data.userName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        acl: data.acl,
         websitesLimit: data.websitesLimit,
-        status: 'Active' 
+        status: 'Active'
       })
       if (serverSuccess) {
         setMsg('✅ Utilizador criado com sucesso no DirectAdmin!')
@@ -3150,7 +3219,7 @@ export function CPUsersSection({
         const errorMsg = res?.error || ''
         console.log('[handleCreate] Failed. Raw output:', rawOutput)
         console.log('[handleCreate] Error field:', errorMsg)
-        
+
         // Tentar extrair mensagem de erro do JSON se existir
         let parsedError = ''
         try {
@@ -3159,8 +3228,8 @@ export function CPUsersSection({
             const parsed = JSON.parse(jsonMatch[0])
             parsedError = parsed.error_message || parsed.message || ''
           }
-        } catch {}
-        
+        } catch { }
+
         const errorDetail = parsedError || errorMsg || rawOutput || 'Verifique o console (F12) para detalhes'
         setMsg(`❌ Falhou: ${errorDetail.substring(0, 250)}`)
       }
@@ -3198,7 +3267,7 @@ export function CPUsersSection({
             const parsed = JSON.parse(jsonMatch[0])
             parsedError = parsed.error_message || parsed.message || ''
           }
-        } catch {}
+        } catch { }
         const errorDetail = parsedError || errorMsg || rawOutput || 'Erro desconhecido'
         setMsg(`❌ Erro: ${errorDetail.substring(0, 300)}`)
       }
@@ -3234,7 +3303,7 @@ export function CPUsersSection({
   const handleBulkAction = async (action: string) => {
     if (selected.length === 0) return
     const count = selected.length
-    
+
     if (action === 'delete') {
       setConfirm({
         show: true,
@@ -3286,19 +3355,19 @@ export function CPUsersSection({
       if (data.state !== currentState) {
         await directAdminAPI.execCommand(`directadmin ${data.state === 'Suspended' ? 'suspendUser' : 'unsuspendUser'} --userName ${data.userName}`)
       }
-      
+
       // Sync profile changes to DirectAdmin original server
       await directAdminAPI.modifyUser(data)
       cpSaveUser(data.userName, data)
-      await syncUserToSupabase({ 
-        username: data.userName, 
-        firstName: data.firstName, 
-        lastName: data.lastName, 
-        email: data.email, 
-        acl: data.acl, 
+      await syncUserToSupabase({
+        username: data.userName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        acl: data.acl,
         websitesLimit: data.websitesLimit,
         emailsLimit: data.emailsLimit,
-        status: data.state 
+        status: data.state
       })
       setMsg('Utilizador atualizado com sucesso!')
       setUserModal({ ...userModal, show: false })
@@ -3399,11 +3468,10 @@ export function CPUsersSection({
 
       {msg && (
         <div
-          className={`rounded border px-4 py-2.5 text-sm font-medium transition-opacity duration-500 ${
-            msg.includes('✅') || msg.includes('sucesso') || msg.includes('actualizada')
+          className={`rounded border px-4 py-2.5 text-sm font-medium transition-opacity duration-500 ${msg.includes('✅') || msg.includes('sucesso') || msg.includes('actualizada')
               ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/20 dark:text-green-400'
               : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400'
-          }`}
+            }`}
         >
           {msg}
         </div>
@@ -3430,9 +3498,8 @@ export function CPUsersSection({
               {filteredPanelAccounts.map((account) => (
                 <tr
                   key={account.id}
-                  className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400 ${
-                    selectedPanelIds.includes(account.id) ? 'bg-red-50/40 dark:bg-red-950/10' : ''
-                  }`}
+                  className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400 ${selectedPanelIds.includes(account.id) ? 'bg-red-50/40 dark:bg-red-950/10' : ''
+                    }`}
                 >
                   {panelScope === 'users' && (
                     <td className="px-4 py-1.5">
@@ -3512,9 +3579,9 @@ export function CPUsersSection({
             <thead>
               <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
                 <th className="px-4 py-2.5 w-10">
-                  <input 
-                    type="checkbox" 
-                    checked={selected.length === users.length && users.length > 0} 
+                  <input
+                    type="checkbox"
+                    checked={selected.length === users.length && users.length > 0}
                     onChange={() => setSelected(selected.length === users.length ? [] : users.map(u => u.userName))}
                     className="w-4 h-4 accent-red-600 cursor-pointer"
                   />
@@ -3530,9 +3597,9 @@ export function CPUsersSection({
               {users.map((u, i) => (
                 <tr key={i} className={`border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors ${selected.includes(u.userName) ? 'bg-red-50/30 dark:bg-red-900/20' : ''}`}>
                   <td className="px-4 py-2.5">
-                    <input 
-                      type="checkbox" 
-                      checked={selected.includes(u.userName)} 
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(u.userName)}
                       onChange={() => setSelected(prev => prev.includes(u.userName) ? prev.filter(x => x !== u.userName) : [...prev, u.userName])}
                       className="w-4 h-4 accent-red-600 cursor-pointer"
                     />
@@ -3549,13 +3616,12 @@ export function CPUsersSection({
                   </td>
                   <td className="px-4 py-2.5 text-gray-600">{u.email || 'N/A'}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${
-                      (u as any).acl === 'admin' ? 'bg-purple-100 text-purple-700' :
-                      (u as any).acl === 'reseller' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {(u as any).acl === 'admin' ? 'Administrador' : 
-                       (u as any).acl === 'reseller' ? 'Revendedor' : 'Cliente'}
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${(u as any).acl === 'admin' ? 'bg-purple-100 text-purple-700' :
+                        (u as any).acl === 'reseller' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-700'
+                      }`}>
+                      {(u as any).acl === 'admin' ? 'Administrador' :
+                        (u as any).acl === 'reseller' ? 'Revendedor' : 'Cliente'}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
@@ -3563,8 +3629,8 @@ export function CPUsersSection({
                       {(u as any).state || 'Active'}
                       {!u.existsOnServer && (
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleRetrySync(u)} 
+                          <button
+                            onClick={() => handleRetrySync(u)}
                             className="text-[9px] text-blue-600 hover:underline font-bold uppercase transition-all"
                             title="Tentar criar esta conta no DirectAdmin agora"
                           >
@@ -3576,16 +3642,16 @@ export function CPUsersSection({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                       <button
-                         onClick={() => setUserModal({ show: true, mode: 'edit', data: { ...u, password: '' } })}
-                         className="p-1.5 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 hover:text-black dark:hover:text-white rounded transition-all"
-                         title="Gerir Utilizador"
-                       >
-                         <Edit2 className="w-4 h-4" />
-                       </button>
-                       {u.userName !== 'admin' && (
-                         <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 dark:text-red-500 border border-transparent hover:border-red-200 dark:hover:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/10 rounded transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
-                       )}
+                      <button
+                        onClick={() => setUserModal({ show: true, mode: 'edit', data: { ...u, password: '' } })}
+                        className="p-1.5 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 hover:text-black dark:hover:text-white rounded transition-all"
+                        title="Gerir Utilizador"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      {u.userName !== 'admin' && (
+                        <button onClick={() => handleDelete(u.userName)} className="p-1.5 text-red-600 dark:text-red-500 border border-transparent hover:border-red-200 dark:hover:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/10 rounded transition-all" title="Apagar"><Trash2 className="w-4 h-4" /></button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -3628,9 +3694,9 @@ export function CPUsersSection({
             </div>
             <div className="p-6 max-h-[min(80vh,720px)] overflow-y-auto overflow-x-visible">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, firstName: e.target.value}})} placeholder="João" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, lastName: e.target.value}})} placeholder="Silva" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({...userModal, data: {...userModal.data, email: e.target.value}})} placeholder="exemplo@email.com" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, firstName: e.target.value } })} placeholder="João" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, lastName: e.target.value } })} placeholder="Silva" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, email: e.target.value } })} placeholder="exemplo@email.com" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
                 {isPanelAuthForm && (
                   <div className="space-y-1.5 col-span-1 relative z-[1]">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Papel</label>
@@ -3661,11 +3727,11 @@ export function CPUsersSection({
                   <>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Domínio revenda</label>
-                      <input value={userModal.data.domain || ''} onChange={e => setUserModal({...userModal, data: {...userModal.data, domain: e.target.value}})} placeholder="oshercollective.com (opcional — detecta do email)" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" />
+                      <input value={userModal.data.domain || ''} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, domain: e.target.value } })} placeholder="oshercollective.com (opcional — detecta do email)" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5 col-span-1 flex items-end">
                       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                        <input type="checkbox" checked={Boolean(userModal.data.linkExisting)} onChange={e => setUserModal({...userModal, data: {...userModal.data, linkExisting: e.target.checked}})} className="rounded border-gray-300" />
+                        <input type="checkbox" checked={Boolean(userModal.data.linkExisting)} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, linkExisting: e.target.checked } })} className="rounded border-gray-300" />
                         Ligar conta DA já existente (não criar nova)
                       </label>
                     </div>
@@ -3675,9 +3741,9 @@ export function CPUsersSection({
                   <>
                     <div className="space-y-1.5 col-span-1">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Utilizador (ACL)</label>
-                      <select 
-                        value={userModal.data.acl || 'user'} 
-                        onChange={e => setUserModal({...userModal, data: {...userModal.data, acl: e.target.value}})} 
+                      <select
+                        value={userModal.data.acl || 'user'}
+                        onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, acl: e.target.value } })}
                         className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="admin">Administrador</option>
@@ -3686,18 +3752,18 @@ export function CPUsersSection({
                       </select>
                       <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Selecione o nível de acesso para este utilizador</p>
                     </div>
-                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({...userModal, data: {...userModal.data, websitesLimit: parseInt(e.target.value) || 0}})} placeholder="0 = Unlimited" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
+                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Websites Limit</label><input type="number" value={userModal.data.websitesLimit ?? 0} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, websitesLimit: parseInt(e.target.value) || 0 } })} placeholder="0 = Unlimited" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Número máximo de websites que este utilizador pode criar. 0 = Ilimitado</p></div>
                     <div className="space-y-1.5 lg:col-span-1">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-red-600">Username</label>
-                      <input 
-                        value={userModal.data.userName || ''} 
-                        disabled={userModal.mode === 'edit'} 
+                      <input
+                        value={userModal.data.userName || ''}
+                        disabled={userModal.mode === 'edit'}
                         onChange={e => {
                           const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-                          setUserModal({...userModal, data: {...userModal.data, userName: val}})
-                        }} 
-                        placeholder="ex: provisual" 
-                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50" 
+                          setUserModal({ ...userModal, data: { ...userModal.data, userName: val } })
+                        }}
+                        placeholder="ex: provisual"
+                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50"
                       />
                       <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha um username único para login (apenas letras e números)</p>
                     </div>
@@ -3706,12 +3772,12 @@ export function CPUsersSection({
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
                   <div className="relative">
-                    <input 
-                      type={showUserPass ? 'text' : 'password'} 
-                      value={userModal.data.password || ''} 
-                      onChange={e => setUserModal({...userModal, data: {...userModal.data, password: e.target.value}})} 
-                      placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'} 
-                      className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10" 
+                    <input
+                      type={showUserPass ? 'text' : 'password'}
+                      value={userModal.data.password || ''}
+                      onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, password: e.target.value } })}
+                      placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'}
+                      className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10"
                     />
                     <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -3732,7 +3798,7 @@ export function CPUsersSection({
                       <input
                         type={showUserPass ? 'text' : 'password'}
                         value={userModal.data.confirmPassword || ''}
-                        onChange={e => setUserModal({...userModal, data: {...userModal.data, confirmPassword: e.target.value}})}
+                        onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, confirmPassword: e.target.value } })}
                         placeholder="Confirmar Password"
                         className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       />
@@ -3752,13 +3818,13 @@ export function CPUsersSection({
                   </div>
                 </div>
                 {!isPanelAuthForm && (
-                  <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({...userModal, data: {...userModal.data, securityLevel: e.target.value}})} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
+                  <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, securityLevel: e.target.value } })} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
                 )}
               </div>
               {userModal.mode === 'edit' && (
                 <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
                   <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
-                  <button onClick={() => setUserModal({...userModal, data: {...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended'}})} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
+                  <button onClick={() => setUserModal({ ...userModal, data: { ...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended' } })} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
             </div>
@@ -3771,10 +3837,10 @@ export function CPUsersSection({
                 <button
                   type="button"
                   onClick={() => {
-                  if (userModal.mode === 'create') handleCreate(userModal.data)
-                  else if (isPanelAuthForm) handlePanelUpdate(userModal.data)
-                  else handleUpdate(userModal.data)
-                }}
+                    if (userModal.mode === 'create') handleCreate(userModal.data)
+                    else if (isPanelAuthForm) handlePanelUpdate(userModal.data)
+                    else handleUpdate(userModal.data)
+                  }}
                   disabled={loading || creating}
                   className={panelBtnPrimary}
                 >
@@ -3788,13 +3854,13 @@ export function CPUsersSection({
       )}
 
       {/* Added Missing ConfirmModal */}
-      <ConfirmModal 
-        show={confirm.show} 
-        title={confirm.title} 
-        message={confirm.message} 
+      <ConfirmModal
+        show={confirm.show}
+        title={confirm.title}
+        message={confirm.message}
         isDanger={confirm.isDanger}
-        onConfirm={confirm.onConfirm} 
-        onCancel={() => setConfirm({ ...confirm, show: false })} 
+        onConfirm={confirm.onConfirm}
+        onCancel={() => setConfirm({ ...confirm, show: false })}
       />
     </div>
   )
@@ -3821,8 +3887,8 @@ export function ResellerSection() {
     setAcls(
       Array.isArray(a)
         ? a.map((x: string | { id?: number; name?: string }) =>
-            typeof x === 'string' ? x : (x.name || String(x.id ?? '')),
-          ).filter(Boolean)
+          typeof x === 'string' ? x : (x.name || String(x.id ?? '')),
+        ).filter(Boolean)
         : [],
     )
     setLoading(false)
@@ -4306,10 +4372,10 @@ export function SSLSection({
           }),
           hostnames.length
             ? fetch('/api/server-exec', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
-              })
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'checkSitesSsl', params: { domains: hostnames } }),
+            })
             : Promise.resolve(null),
         ])
 
@@ -5510,11 +5576,10 @@ export function NameserverManagementSection({
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
-            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${
-              mode === 'default'
+            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${mode === 'default'
                 ? 'border-red-300 dark:border-red-800'
                 : 'border-gray-200 dark:border-zinc-700'
-            }`}
+              }`}
           >
             <input
               type="radio"
@@ -5534,11 +5599,10 @@ export function NameserverManagementSection({
           </label>
 
           <label
-            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${
-              mode === 'custom'
+            className={`flex cursor-pointer items-start gap-3 rounded border p-4 transition-colors hover:border-gray-300 dark:hover:border-zinc-600 ${mode === 'custom'
                 ? 'border-red-300 dark:border-red-800'
                 : 'border-gray-200 dark:border-zinc-700'
-            }`}
+              }`}
           >
             <input
               type="radio"
@@ -5606,11 +5670,10 @@ export function NameserverManagementSection({
 
         {msg && (
           <div
-            className={`mb-4 rounded border px-4 py-2.5 text-sm ${
-              msg.includes('Erro')
+            className={`mb-4 rounded border px-4 py-2.5 text-sm ${msg.includes('Erro')
                 ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
                 : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-            }`}
+              }`}
           >
             {msg}
           </div>
@@ -6103,11 +6166,11 @@ export function EmailChangePasswordSection({ sites }: { sites: DirectAdminWebsit
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const loadEmails = async (domain: string) => { 
-    if (!domain) return; 
-    setLoading(true); 
+  const loadEmails = async (domain: string) => {
+    if (!domain) return;
+    setLoading(true);
     try {
-      const data = await directAdminAPI.listEmails(domain); 
+      const data = await directAdminAPI.listEmails(domain);
       setEmails(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Erro ao carregar emails:', err);
@@ -6161,8 +6224,8 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [msg, setMsg] = useState('')
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
-  const loadDKIM = async (domain: string, autoGenerate = false) => { 
-    if (!domain) return; 
+  const loadDKIM = async (domain: string, autoGenerate = false) => {
+    if (!domain) return;
     setLoading(true);
     if (!autoGenerate) setMsg('');
     try {
@@ -6175,7 +6238,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
       console.log('[DKIM] dkimContent:', dkimContent?.substring(0, 100));
       const hasDKIM = dkimContent && dkimContent.includes('v=DKIM1');
       console.log('[DKIM] hasDKIM:', hasDKIM);
-      
+
       // Verificar se temos dados válidos
       if (hasDKIM) {
         console.log('[DKIM] DKIM encontrado! Atualizando estado...');
@@ -6193,19 +6256,19 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
         setMsg('Gerando chaves DKIM...');
         const generated = await directAdminAPI.enableDKIM(domain);
         console.log('DKIM Generate result:', generated);
-        
+
         if (generated?.success !== false) {
           // Aguardar mais tempo para o DirectAdmin gerar as chaves
           await new Promise(r => setTimeout(r, 3000));
-          
+
           // Tentar obter as chaves novamente
           const updated = await directAdminAPI.getDKIMStatus(domain);
           console.log('DKIM Updated after generate:', updated);
-          
+
           // A API retorna no formato { output: 'conteúdo' }
           const updatedContent = updated?.record || updated?.publicKey || updated?.output || '';
           const hasUpdatedDKIM = updatedContent && updatedContent.includes('v=DKIM1');
-          
+
           if (hasUpdatedDKIM) {
             setDkim({
               enabled: true,
@@ -6263,15 +6326,15 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
   // Extrair dados do record DKIM do arquivo default.txt
   const getDKIMData = () => {
     if (!dkim?.record) return null
-    
+
     const record = dkim.record
     const selector = dkim.selector || 'default'
     const name = `${selector}._domainkey.${selectedDomain}`
-    
+
     // Parsear o conteúdo do arquivo default.txt
     // Formato: default._domainkey IN TXT ( "v=DKIM1; h=sha256; k=rsa; " "p=..." )
     let value = ''
-    
+
     if (record.includes('v=DKIM1')) {
       // Extrair tudo entre aspas e concatenar
       const matches = record.match(/"([^"]+)"/g)
@@ -6284,7 +6347,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
     } else {
       value = dkim.publicKey || record
     }
-    
+
     const privateKey = dkim.privateKey || ''
     return { name, value, selector, privateKey }
   }
@@ -6306,9 +6369,9 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
       {/* Seletor de Domínio */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <label className="text-xs font-bold text-gray-600 uppercase block mb-2">Selecionar Website</label>
-        <select 
-          value={selectedDomain} 
-          onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value, false) }} 
+        <select
+          value={selectedDomain}
+          onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value, false) }}
           className="w-full max-w-md px-3 py-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-red-500"
         >
           <option value="">Selecione um domínio...</option>
@@ -6340,20 +6403,20 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
               <h2 className="text-lg font-bold text-gray-900">Chaves DKIM - {selectedDomain}</h2>
             </div>
             <div className="flex gap-2">
-              <button 
-                onClick={handleGenerate} 
-                disabled={enabling} 
+              <button
+                onClick={handleGenerate}
+                disabled={enabling}
                 className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                {enabling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />} 
+                {enabling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
                 {dkim?.enabled ? 'Regenerar Chaves' : 'Gerar Chaves'}
               </button>
               {dkim?.enabled && (
-                <button 
-                  onClick={handleTest} 
+                <button
+                  onClick={handleTest}
                   className="bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-sm font-bold transition-colors flex items-center gap-2"
                 >
-                  <ExternalLink className="w-4 h-4" /> 
+                  <ExternalLink className="w-4 h-4" />
                   Testar DKIM
                 </button>
               )}
@@ -6370,7 +6433,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
                 <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Mantenha segura</span>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                <textarea 
+                <textarea
                   readOnly
                   value={dkimData.privateKey || '-----BEGIN PRIVATE KEY-----\n[Chave privada gerada pelo servidor]\n-----END PRIVATE KEY-----'}
                   className="w-full h-48 bg-white border border-gray-200 rounded p-3 text-xs font-mono text-gray-600 resize-none focus:outline-none"
@@ -6386,7 +6449,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
                 <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Adicione ao DNS</span>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                <textarea 
+                <textarea
                   readOnly
                   value={dkimData.value}
                   className="w-full h-48 bg-white border border-gray-200 rounded p-3 text-xs font-mono text-gray-600 resize-none focus:outline-none"
@@ -6408,7 +6471,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
                   <code className="bg-white border border-blue-200 rounded px-2 py-1 text-xs font-mono flex-1 break-all">
                     {dkimData.name}
                   </code>
-                  <button 
+                  <button
                     onClick={() => copyToClipboard(dkimData.name, 'name')}
                     className="p-1.5 text-blue-600 hover:bg-blue-100 rounded"
                     title="Copiar"
@@ -6432,7 +6495,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
                 <code className="bg-white border border-blue-200 rounded px-3 py-2 text-xs font-mono flex-1 break-all max-h-32 overflow-y-auto">
                   {dkimData.value}
                 </code>
-                <button 
+                <button
                   onClick={() => copyToClipboard(dkimData.value, 'value')}
                   className="p-2 text-blue-600 hover:bg-blue-100 rounded"
                   title="Copiar valor"
@@ -6447,7 +6510,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
           <div className="mt-4 flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
             <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
             <p className="text-xs text-yellow-800">
-              <strong>Importante:</strong> A propagação DNS pode levar até 48h. 
+              <strong>Importante:</strong> A propagação DNS pode levar até 48h.
               Verifique em <a href="https://mxtoolbox.com/dkim.aspx" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">MXToolbox DKIM</a>
             </p>
           </div>
@@ -6459,12 +6522,12 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
           <Key className="w-16 h-16 mx-auto mb-4 text-gray-200" />
           <p className="text-gray-500 mb-4">Nenhuma chave DKIM gerada para {selectedDomain}</p>
-          <button 
-            onClick={handleGenerate} 
-            disabled={enabling} 
+          <button
+            onClick={handleGenerate}
+            disabled={enabling}
             className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-6 py-3 rounded text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
           >
-            {enabling ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />} 
+            {enabling ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />}
             Gerar Chaves DKIM
           </button>
         </div>
@@ -6932,9 +6995,9 @@ export function PackagesSection({
         setShowPackageForm(true)
         setMsg(
           'Erro: ' +
-            (data.error ||
-              data.data?.error ||
-              (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')),
+          (data.error ||
+            data.data?.error ||
+            (isEdit ? 'Falha ao actualizar pacote' : 'Falha ao criar pacote')),
         )
       } else if (data.warning) {
         setMsg(`Aviso: ${data.warning}`)
@@ -7022,31 +7085,31 @@ export function PackagesSection({
           <span className="hidden sm:block" aria-hidden />
         )}
         <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
-        {!showPackageForm ? (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingPackageName(null)
-                setPackageForm(createDefaultResellerPackageForm())
-                setShowPackageForm(true)
-              }}
-              className={`${panelBtnPrimary} whitespace-nowrap`}
-            >
-              <PlusCircle className="h-4 w-4" />
-              Criar pacote
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadLivePackages({ sync: true })}
-              disabled={loadingLive}
-              title="Actualizar"
-              className={panelBtnSecondary}
-            >
-              <RefreshCw className={`h-4 w-4 ${loadingLive ? 'animate-spin' : ''}`} />
-            </button>
-          </>
-        ) : null}
+          {!showPackageForm ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPackageName(null)
+                  setPackageForm(createDefaultResellerPackageForm())
+                  setShowPackageForm(true)
+                }}
+                className={`${panelBtnPrimary} whitespace-nowrap`}
+              >
+                <PlusCircle className="h-4 w-4" />
+                Criar pacote
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadLivePackages({ sync: true })}
+                disabled={loadingLive}
+                title="Actualizar"
+                className={panelBtnSecondary}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingLive ? 'animate-spin' : ''}`} />
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -7067,66 +7130,66 @@ export function PackagesSection({
           mode={editingPackageName ? 'edit' : 'create'}
         />
       ) : (
-      <div className="overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        {displayPackages && displayPackages.length > 0 ? (
-          <div>
-            <div className="grid grid-cols-12 border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-              <div className="col-span-3">Pacote</div>
-              <div className="col-span-7">Configurações</div>
-              <div className="col-span-2 text-right">Acções</div>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-zinc-800">
-            {displayPackages.map((pkg: any, i: number) => (
-              <div key={i} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
-                <div className="col-span-12 min-w-0 self-center sm:col-span-3">
-                  {(() => {
-                    const name = String(pkg.packageName || pkg.name || '-')
-                    const split = splitCompositePackageName(name)
-                    return (
-                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
-                        {split.packageName || name || '-'}
-                        </p>
-                    )
-                  })()}
-                </div>
-                <div className="col-span-12 self-center sm:col-span-7">
-                  <p className="text-xs text-gray-600 dark:text-zinc-400">
-                    Disco {formatPackageMetric(pkg.diskSpace ?? pkg.disk ?? '-', 'MB')} · Banda {formatPackageMetric(pkg.bandwidth ?? '-', 'MB')} · Emails {pkg.emailAccounts ?? pkg.emails ?? '-'} · BDs {pkg.dataBases ?? pkg.databases ?? '-'} · FTPs {pkg.ftpAccounts ?? pkg.ftp ?? '-'} · Sites {pkg.allowedDomains ?? pkg.vdomains ?? '-'}
-                  </p>
-                </div>
-                <div className="col-span-12 flex shrink-0 items-center justify-end gap-2 sm:col-span-2">
-                  <button
-                    type="button"
-                    onClick={() => openEditPackage(pkg)}
-                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5`}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(pkg.packageName || pkg.name)}
-                    className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5 text-red-600 hover:text-red-800`}
-                  >
-                    Eliminar pacote
-                  </button>
-                </div>
+        <div className="overflow-hidden rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          {displayPackages && displayPackages.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-12 border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase text-gray-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <div className="col-span-3">Pacote</div>
+                <div className="col-span-7">Configurações</div>
+                <div className="col-span-2 text-right">Acções</div>
               </div>
-            ))}
+              <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+                {displayPackages.map((pkg: any, i: number) => (
+                  <div key={i} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
+                    <div className="col-span-12 min-w-0 self-center sm:col-span-3">
+                      {(() => {
+                        const name = String(pkg.packageName || pkg.name || '-')
+                        const split = splitCompositePackageName(name)
+                        return (
+                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                            {split.packageName || name || '-'}
+                          </p>
+                        )
+                      })()}
+                    </div>
+                    <div className="col-span-12 self-center sm:col-span-7">
+                      <p className="text-xs text-gray-600 dark:text-zinc-400">
+                        Disco {formatPackageMetric(pkg.diskSpace ?? pkg.disk ?? '-', 'MB')} · Banda {formatPackageMetric(pkg.bandwidth ?? '-', 'MB')} · Emails {pkg.emailAccounts ?? pkg.emails ?? '-'} · BDs {pkg.dataBases ?? pkg.databases ?? '-'} · FTPs {pkg.ftpAccounts ?? pkg.ftp ?? '-'} · Sites {pkg.allowedDomains ?? pkg.vdomains ?? '-'}
+                      </p>
+                    </div>
+                    <div className="col-span-12 flex shrink-0 items-center justify-end gap-2 sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditPackage(pkg)}
+                        className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5`}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(pkg.packageName || pkg.name)}
+                        className={`${panelBtnSecondary} !h-[34px] px-3 py-1.5 text-red-600 hover:text-red-800`}
+                      >
+                        Eliminar pacote
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">Nenhum pacote encontrado ou erro ao carregar do DirectAdmin.</p>
-            <button
-              onClick={onRefresh}
-              className="bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Sincronizar com DirectAdmin
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">Nenhum pacote encontrado ou erro ao carregar do DirectAdmin.</p>
+              <button
+                onClick={onRefresh}
+                className="bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors mx-auto"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Sincronizar com DirectAdmin
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
     </div>
@@ -7139,7 +7202,17 @@ const FM_EDITABLE_EXT = new Set([
 ])
 
 const fmToolbarBtn =
-  'inline-flex items-center gap-1.5 rounded border border-gray-200 dark:border-zinc-700 bg-transparent px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-zinc-300 transition-colors hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:pointer-events-none'
+  'inline-flex items-center gap-1.5 rounded border border-gray-300 bg-transparent px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed dark:border-zinc-600'
+
+const fmToolbarBtnActive =
+  'text-gray-700 hover:text-red-600 dark:text-zinc-200 dark:hover:text-red-400'
+
+const fmToolbarBtnMuted =
+  'text-gray-300 dark:text-zinc-600'
+
+function fmToolBtnClass(active: boolean, busy = false) {
+  return cn(fmToolbarBtn, 'shrink-0', active && !busy ? fmToolbarBtnActive : fmToolbarBtnMuted)
+}
 
 const fmToolbarBtnGreen =
   'inline-flex items-center gap-1.5 rounded border border-green-300/60 dark:border-green-800/60 bg-transparent px-2.5 py-1.5 text-xs font-medium text-green-600 dark:text-green-500 transition-colors hover:text-green-700 dark:hover:text-green-400 disabled:opacity-40'
@@ -7159,6 +7232,18 @@ function isFmEditableName(name: string): boolean {
   return FM_EDITABLE_EXT.has(ext)
 }
 
+const FileManagerCodeEditor = dynamic(
+  () => import('@/app/dashboard/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className={`${panelField} flex min-h-[65vh] items-center justify-center text-sm text-gray-400`}>
+        A carregar editor…
+      </div>
+    ),
+  },
+)
+
 export function FileManagerSection({ domain, sites, isActive = false }: {
   domain: string,
   sites: DirectAdminWebsite[]
@@ -7171,13 +7256,17 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const [siteRoot, setSiteRoot] = useState('')
   const [error, setError] = useState('')
   const [actionMsg, setActionMsg] = useState('')
-  const [uploadProgress, setUploadProgress] = useState<{name: string, current: number, total: number, progress: number, processing?: boolean} | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ name: string, current: number, total: number, progress: number, processing?: boolean } | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [editing, setEditing] = useState<{ path: string; name: string; content: string; saving: boolean } | null>(null)
-  const [transfer, setTransfer] = useState<{ mode: 'copy' | 'move'; sources: string[] } | null>(null)
-  const [transferDest, setTransferDest] = useState('')
-  const [transferBusy, setTransferBusy] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [fmDialog, setFmDialog] = useState<
+    | { type: 'transfer'; mode: 'copy' | 'move'; sources: string[] }
+    | { type: 'create'; mode: 'file' | 'folder' }
+    | null
+  >(null)
+  const [fmDialogInput, setFmDialogInput] = useState('')
+  const [fmDialogBusy, setFmDialogBusy] = useState(false)
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<DOMRect | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const [toolbarStuck, setToolbarStuck] = useState(false)
   const toolbarSentinelRef = useRef<HTMLDivElement>(null)
@@ -7252,7 +7341,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       setPath(next)
     }
     setSelectedFiles([])
-    setMoreOpen(false)
+    setMoreMenuAnchor(null)
   }
 
   const joinPath = (name: string) => `${path.replace(/\/$/, '')}/${name}`
@@ -7283,7 +7372,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const refreshList = () => {
     setSelectedFiles([])
-    setMoreOpen(false)
+    setMoreMenuAnchor(null)
     void loadFiles(path)
   }
 
@@ -7331,32 +7420,76 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const handleCopy = () => {
     if (!selectedFiles.length) return
-    setTransfer({ mode: 'copy', sources: selectedFullPaths() })
-    setTransferDest(path)
-    setMoreOpen(false)
+    setFmDialog({ type: 'transfer', mode: 'copy', sources: selectedFullPaths() })
+    setFmDialogInput(path)
+    setMoreMenuAnchor(null)
   }
 
   const handleMove = () => {
     if (!selectedFiles.length) return
-    setTransfer({ mode: 'move', sources: selectedFullPaths() })
-    setTransferDest(path)
-    setMoreOpen(false)
+    setFmDialog({ type: 'transfer', mode: 'move', sources: selectedFullPaths() })
+    setFmDialogInput(path)
+    setMoreMenuAnchor(null)
   }
 
-  const confirmTransfer = async () => {
-    if (!transfer || !transferDest.trim()) return
-    setTransferBusy(true)
+  const confirmFmDialog = async () => {
+    if (!fmDialog) return
+    const input = fmDialogInput.trim()
+    if (!input) return
+
+    setFmDialogBusy(true)
     try {
-      const action = transfer.mode === 'copy' ? 'copyPaths' : 'movePaths'
-      await execFileAction(action, { sources: transfer.sources, destDir: transferDest.trim() })
-      flashAction(transfer.mode === 'copy' ? 'Cópia concluída.' : 'Movimento concluído.')
-      setTransfer(null)
-      refreshList()
+      if (fmDialog.type === 'transfer') {
+        const action = fmDialog.mode === 'copy' ? 'copyPaths' : 'movePaths'
+        await execFileAction(action, { sources: fmDialog.sources, destDir: input })
+        flashAction(fmDialog.mode === 'copy' ? 'Cópia concluída.' : 'Movimento concluído.')
+        setFmDialog(null)
+        refreshList()
+        return
+      }
+
+      const name = input
+      if (fmDialog.mode === 'folder') {
+        await execFileAction('createFolder', { path: joinPath(name) })
+        flashAction('Pasta criada.')
+        setFmDialog(null)
+        refreshList()
+        return
+      }
+
+      if (files.some((f: { name: string }) => f.name === name)) {
+        alert(`O ficheiro "${name}" já existe na pasta actual.`)
+        return
+      }
+      await execFileAction('writeFileContent', { path: joinPath(name), contentBase64: '' })
+      flashAction('Ficheiro criado.')
+      setFmDialog(null)
+      await loadFiles(path)
+      if (isFmEditableName(name)) {
+        setEditing({ path: joinPath(name), name, content: '', saving: false })
+      }
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Operação falhou')
+      const fallback =
+        fmDialog.type === 'create'
+          ? fmDialog.mode === 'folder'
+            ? 'Não foi possível criar a pasta'
+            : 'Não foi possível criar o ficheiro'
+          : 'Operação falhou'
+      alert(e instanceof Error ? e.message : fallback)
     } finally {
-      setTransferBusy(false)
+      setFmDialogBusy(false)
+      setMoreMenuAnchor(null)
     }
+  }
+
+  const openCreateFolderDialog = () => {
+    setFmDialog({ type: 'create', mode: 'folder' })
+    setFmDialogInput('')
+  }
+
+  const openCreateFileDialog = () => {
+    setFmDialog({ type: 'create', mode: 'file' })
+    setFmDialogInput('')
   }
 
   const handleDuplicate = async () => {
@@ -7433,7 +7566,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
     } finally {
       setActionBusy(false)
-      setMoreOpen(false)
+      setMoreMenuAnchor(null)
     }
   }
 
@@ -7454,7 +7587,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert(e instanceof Error ? e.message : 'Não foi possível renomear')
     } finally {
       setActionBusy(false)
-      setMoreOpen(false)
+      setMoreMenuAnchor(null)
     }
   }
 
@@ -7465,57 +7598,45 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
     const name = selectedFiles[0].toLowerCase()
     if (!name.endsWith('.zip') && !name.endsWith('.tar.gz') && !name.endsWith('.tgz') && !name.endsWith('.tar')) {
-      alert('Formato não suportado para extracção.')
+      alert('Formato não suportado para descompactar.')
       return
     }
     setActionBusy(true)
     try {
       await execFileAction('extractArchive', { path: joinPath(selectedFiles[0]), destDir: path })
-      flashAction('Arquivo extraído.')
+      flashAction('Arquivo descompactado.')
       refreshList()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Extracção falhou')
+      alert(e instanceof Error ? e.message : 'Descompactação falhou')
     } finally {
       setActionBusy(false)
-      setMoreOpen(false)
+      setMoreMenuAnchor(null)
     }
   }
 
-  const handleNewFolder = async () => {
-    const name = prompt('Nome da nova pasta:')
-    if (!name?.trim()) return
-    setActionBusy(true)
-    try {
-      await execFileAction('createFolder', { path: joinPath(name.trim()) })
-      flashAction('Pasta criada.')
-      refreshList()
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Não foi possível criar a pasta')
-    } finally {
-      setActionBusy(false)
-      setMoreOpen(false)
+  const handleSetPermissions = async () => {
+    if (!selectedFiles.length) {
+      alert('Seleccione pelo menos um ficheiro ou pasta.')
+      return
     }
-  }
-
-  const handleNewFile = async () => {
-    const name = prompt('Nome do novo ficheiro:')
-    if (!name?.trim()) return
-    const trimmed = name.trim()
-    if (files.some((f: { name: string }) => f.name === trimmed)) {
-      alert(`O ficheiro "${trimmed}" já existe na pasta actual.`)
+    const entry = selectedEntries()[0] as { permissions?: string } | undefined
+    const suggested = entry?.permissions || '644'
+    const mode = prompt('Permissões (ex.: 644, 755):', suggested)
+    if (!mode?.trim()) return
+    if (!/^[0-7]{3,4}$/.test(mode.trim())) {
+      alert('Formato inválido. Use 3 ou 4 dígitos octais (ex.: 644).')
       return
     }
     setActionBusy(true)
     try {
-      await execFileAction('writeFileContent', { path: joinPath(trimmed), contentBase64: btoa('') })
-      flashAction('Ficheiro criado.')
-      await loadFiles(path)
-      if (isFmEditableName(trimmed)) void handleEdit(trimmed)
+      await execFileAction('setPathPermissions', { paths: selectedFullPaths(), mode: mode.trim() })
+      flashAction('Permissões actualizadas.')
+      refreshList()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Não foi possível criar o ficheiro')
+      alert(e instanceof Error ? e.message : 'Não foi possível alterar permissões')
     } finally {
       setActionBusy(false)
-      setMoreOpen(false)
+      setMoreMenuAnchor(null)
     }
   }
 
@@ -7525,7 +7646,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setSiteRoot(root)
     setPath(root)
     setSelectedFiles([])
-    setMoreOpen(false)
+    setMoreMenuAnchor(null)
   }
 
   const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
@@ -7552,24 +7673,27 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   useEffect(() => {
     const sentinel = toolbarSentinelRef.current
     if (!sentinel) return
+    const scrollRoot = sentinel.closest('main')
     const observer = new IntersectionObserver(
       ([entry]) => setToolbarStuck(!entry.isIntersecting),
-      { threshold: 0 },
+      { root: scrollRoot, threshold: 0 },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [])
+  }, [isActive])
 
   const canEditSelection = selectedFiles.length === 1 && selectedEntries().every(
     (f: { isDir?: boolean; name: string }) => !f.isDir && isFmEditableName(f.name),
   )
+  const hasFileSelection = selectedFiles.length > 0
+  const hasSingleSelection = selectedFiles.length === 1
 
   const pathParts = path.split('/').filter(Boolean)
 
   if (editing) {
-  return (
-    <div className="w-full space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-zinc-800 bg-transparent px-4 py-3">
+    return (
+      <div className="flex min-h-[calc(100dvh-8.5rem)] w-full flex-col gap-3 sm:min-h-[calc(100dvh-7.5rem)]">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-transparent px-4 py-3 dark:border-zinc-800">
           <button
             type="button"
             onClick={() => setEditing(null)}
@@ -7588,140 +7712,20 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             Guardar
           </button>
         </div>
-        <textarea
-          value={editing.content}
-          onChange={(e) => setEditing((prev) => prev ? { ...prev, content: e.target.value } : null)}
-          className={`${panelField} min-h-[65vh] w-full resize-y font-mono text-sm dark:bg-zinc-900`}
-          spellCheck={false}
-        />
+        <div className="min-h-0 flex-1">
+          <FileManagerCodeEditor
+            fileName={editing.name}
+            value={editing.content}
+            onChange={(value) => setEditing((prev) => (prev ? { ...prev, content: value } : null))}
+            fillHeight
+          />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full space-y-3">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-h-[38px] flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap text-sm">
-          <button onClick={() => setPath(siteRoot || path)} className="flex items-center gap-1 font-semibold text-zinc-600 transition-colors hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-500">
-            <FolderOpen className="w-4 h-4" />
-            {selectedDomain || 'home'}
-          </button>
-          {pathParts.map((part, i) => (
-            <span key={i} className="flex items-center gap-2 text-gray-400">
-              <span className="opacity-50">/</span>
-              <button
-                onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
-                className="font-medium text-gray-700 transition-colors hover:text-red-500 dark:text-zinc-300 dark:hover:text-red-500">
-                {part}
-              </button>
-            </span>
-          ))}
-        </div>
-        
-        {selectedDomain ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={actionBusy}
-              onClick={() => void handleNewFolder()}
-              className={fmToolbarBtn}
-            >
-              <FolderPlus className="w-4 h-4" /> Nova pasta
-            </button>
-            <button
-              type="button"
-              disabled={actionBusy}
-              onClick={() => void handleNewFile()}
-              className={fmToolbarBtn}
-            >
-              <FilePlus className="w-4 h-4" /> Novo ficheiro
-            </button>
-              <label
-              className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
-              title="Upload"
-              >
-                <input 
-                  type="file" 
-                  multiple 
-                  className="hidden" 
-                  disabled={loading}
-                  onChange={async (e) => {
-                    const selectedFiles = Array.from(e.target.files || []);
-                    if (!selectedFiles.length) return;
-                    
-                    e.target.value = ''; // reset
-                    const originalError = error;
-                    
-                    try {
-                      let successCount = 0;
-                      let failCount = 0;
-                      
-                      for (let i = 0; i < selectedFiles.length; i++) {
-                        const file = selectedFiles[i];
-                        
-                        // Verificar se já existe
-                        if (files.some(f => f.name === file.name)) {
-                          alert(`O ficheiro "${file.name}" já existe na pasta atual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
-                          continue;
-                        }
-
-                        const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
-                        
-                        setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
-                        
-                        await new Promise<void>((resolve, reject) => {
-                          const xhr = new XMLHttpRequest();
-                          xhr.upload.addEventListener('progress', (e) => {
-                            if (e.lengthComputable) {
-                              const pct = Math.round((e.loaded / e.total) * 100);
-                              setUploadProgress(prev => prev ? { ...prev, progress: pct, processing: pct === 100 } : null);
-                            }
-                          });
-                          
-                          xhr.onload = () => {
-                            if (xhr.status === 200) {
-                              try {
-                                const data = JSON.parse(xhr.responseText);
-                                if (data.success) successCount++;
-                                else { console.error(data.error); failCount++; }
-                                resolve();
-                              } catch (e) {
-                                failCount++; resolve();
-                              }
-                            } else {
-                              failCount++; resolve();
-                            }
-                          };
-                          
-                          xhr.onerror = () => { failCount++; resolve(); };
-                          xhr.open('POST', '/api/upload-native');
-                          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
-                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                          xhr.send(file);
-                        });
-                      }
-                      
-                      setUploadProgress(null);
-                      loadFiles(path);
-                      
-                      if (failCount > 0) {
-                        alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
-                      }
-                    } catch (err: any) {
-                      setError(err.message || 'Erro ao processar uploads');
-                      setTimeout(() => setError(originalError), 5000);
-                    }
-                    // clear the input
-                    e.target.value = '';
-                  }}
-                />
-                <UploadCloud className="w-4 h-4" /> 
-                Upload
-              </label>
-            </div>
-        ) : null}
-      </div>
-
+    <div className="w-full space-y-3 -mt-4 lg:-mt-5">
       {actionMsg ? (
         <div className="rounded-lg border border-green-300/50 bg-transparent px-4 py-2 text-sm text-green-600 dark:border-green-800/50 dark:text-green-500">
           {actionMsg}
@@ -7732,49 +7736,161 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
       <div
         className={cn(
-          'sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-2 px-4 py-1.5 transition-[margin,background-color,box-shadow,border-color] duration-200 lg:-mx-5 lg:px-5',
+          'sticky top-0 z-30 -mx-4 w-[calc(100%+2rem)] px-4 py-2 lg:-mx-5 lg:w-[calc(100%+2.5rem)] lg:px-5 transition-all duration-200',
           toolbarStuck
-            ? '-mt-4 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 lg:-mt-5'
-            : 'border-b border-transparent bg-transparent',
+            ? 'bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shadow-sm'
+            : 'bg-transparent border-b border-transparent',
         )}
       >
-        <input
-          type="checkbox"
-          checked={selectedFiles.length === files.length && files.length > 0}
-          onChange={(e) => {
-            if (e.target.checked) setSelectedFiles(files.map((f: any) => f.name))
-            else setSelectedFiles([])
-          }}
-          className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-        />
-        <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-          {selectedFiles.length > 0 ? `Selecionado: ${selectedFiles.length} / ${files.length}` : 'Nenhum ficheiro seleccionado'}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolbarBtn}><Edit className="w-4 h-4" /> Editar</button>
-          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={handleCopy} className={fmToolbarBtn}><Copy className="w-4 h-4" /> Copiar</button>
-          <button type="button" disabled={selectedFiles.length !== 1 || actionBusy} onClick={() => void handleDuplicate()} className={fmToolbarBtn}><Layers className="w-4 h-4" /> Duplicar</button>
-          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={handleMove} className={fmToolbarBtn}><ArrowRightLeft className="w-4 h-4" /> Mover</button>
-          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={() => void handleDownload()} className={fmToolbarBtn}><Download className="w-4 h-4" /> Transferir</button>
-          <button type="button" disabled={!selectedFiles.length || actionBusy} onClick={() => void handleCompress()} className={fmToolbarBtn}><Archive className="w-4 h-4" /> Compactar</button>
-          <div className="relative">
-            <button type="button" disabled={actionBusy} onClick={() => setMoreOpen((v) => !v)} className={fmToolbarBtn}><MoreVertical className="w-4 h-4" /> Mais</button>
-            {moreOpen ? (
-              <div className="absolute left-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" onClick={() => void handleRename()}>Renomear</button>
-                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" onClick={() => void handleExtract()}>Extrair arquivo</button>
-                <button type="button" className="block w-full px-3 py-2 text-left text-xs text-red-600 hover:text-red-700 dark:text-red-400" onClick={() => void handleDelete()}>Eliminar</button>
-              </div>
-            ) : null}
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+            <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}><Edit className="w-4 h-4" /> Editar</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleCopy} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Copy className="w-4 h-4" /> Copiar</button>
+            <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}><Layers className="w-4 h-4" /> Duplicar</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleMove} className={fmToolBtnClass(hasFileSelection, actionBusy)}><ArrowRightLeft className="w-4 h-4" /> Mover</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Download className="w-4 h-4" /> Transferir</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Archive className="w-4 h-4" /> Compactar</button>
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                disabled={!hasFileSelection || actionBusy}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  if (moreMenuAnchor) setMoreMenuAnchor(null)
+                  else setMoreMenuAnchor(rect)
+                }}
+                className={fmToolBtnClass(hasFileSelection, actionBusy)}
+              >
+                <MoreVertical className="w-4 h-4" /> Mais
+              </button>
+            </div>
           </div>
+
+          {selectedDomain ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => openCreateFolderDialog()}
+                className={cn(fmToolbarBtn, fmToolbarBtnActive)}
+              >
+                <FolderPlus className="w-4 h-4" /> Nova pasta
+              </button>
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => openCreateFileDialog()}
+                className={cn(fmToolbarBtn, fmToolbarBtnActive)}
+              >
+                <FilePlus className="w-4 h-4" /> Novo ficheiro
+              </button>
+              <label
+                className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
+                title="Upload"
+              >
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={loading}
+                  onChange={async (e) => {
+                    const selectedFiles = Array.from(e.target.files || []);
+                    if (!selectedFiles.length) return;
+
+                    e.target.value = '';
+                    const originalError = error;
+
+                    try {
+                      let successCount = 0;
+                      let failCount = 0;
+
+                      for (let i = 0; i < selectedFiles.length; i++) {
+                        const file = selectedFiles[i];
+
+                        if (files.some(f => f.name === file.name)) {
+                          alert(`O ficheiro "${file.name}" já existe na pasta atual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
+                          continue;
+                        }
+
+                        const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
+
+                        setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
+
+                        await new Promise<void>((resolve) => {
+                          const xhr = new XMLHttpRequest();
+                          xhr.upload.addEventListener('progress', (ev) => {
+                            if (ev.lengthComputable) {
+                              const pct = Math.round((ev.loaded / ev.total) * 100);
+                              setUploadProgress(prev => prev ? { ...prev, progress: pct, processing: pct === 100 } : null);
+                            }
+                          });
+
+                          xhr.onload = () => {
+                            if (xhr.status === 200) {
+                              try {
+                                const data = JSON.parse(xhr.responseText);
+                                if (data.success) successCount++;
+                                else { console.error(data.error); failCount++; }
+                              } catch {
+                                failCount++;
+                              }
+                            } else {
+                              failCount++;
+                            }
+                            resolve();
+                          };
+
+                          xhr.onerror = () => { failCount++; resolve(); };
+                          xhr.open('POST', '/api/upload-native');
+                          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
+                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                          xhr.send(file);
+                        });
+                      }
+
+                      setUploadProgress(null);
+                      loadFiles(path);
+
+                      if (failCount > 0) {
+                        alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
+                      }
+                    } catch (err: any) {
+                      setError(err.message || 'Erro ao processar uploads');
+                      setTimeout(() => setError(originalError), 5000);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <UploadCloud className="w-4 h-4" />
+                Upload
+              </label>
+            </div>
+          ) : null}
         </div>
+      </div>
+
+      <div className="flex min-h-[38px] w-full items-center gap-2 overflow-x-auto whitespace-nowrap text-sm">
+        <button onClick={() => setPath(siteRoot || path)} className="flex items-center gap-1 font-semibold text-zinc-600 transition-colors hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-500">
+          <FolderOpen className="w-4 h-4" />
+          {selectedDomain || 'home'}
+        </button>
+        {pathParts.map((part, i) => (
+          <span key={i} className="flex items-center gap-2 text-gray-400">
+            <span className="opacity-50">/</span>
+            <button
+              onClick={() => setPath('/' + pathParts.slice(0, i + 1).join('/'))}
+              className="font-medium text-gray-700 transition-colors hover:text-red-500 dark:text-zinc-300 dark:hover:text-red-500">
+              {part}
+            </button>
+          </span>
+        ))}
       </div>
 
       {/* Tabela de ficheiros */}
       <div className={panelCard}>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <table className="w-full text-sm text-left">
+            <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
               <tr className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-zinc-400">
                 <th className="w-10 px-3 py-1.5">
                   <input type="checkbox" checked={selectedFiles.length === files.length && files.length > 0} onChange={(e) => {
@@ -7787,168 +7903,203 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                 <th className="px-3 py-1.5 hidden md:table-cell">Permissões</th>
                 <th className="px-3 py-1.5 hidden sm:table-cell">Modificado</th>
               </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-            {path !== siteRoot && !loading && files.length > 0 && (
-            <tr className="cursor-pointer bg-gray-50/80 transition-colors hover:bg-gray-100/80 group dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50" onClick={() => navigateTo('..')}>
-              <td className="w-10 px-3 py-1"></td>
-              <td className="px-3 py-1" colSpan={4}>
-                <div className="flex items-center gap-3">
-                  <div className="p-1 text-gray-400 group-hover:text-red-500 transition-colors">
-                    <FolderOpen className="w-4 h-4" />
-                  </div>
-                  <span className="text-gray-600 dark:text-zinc-300 font-medium group-hover:text-red-500 transition-colors">.. (Subir de Nível)</span>
-                </div>
-              </td>
-            </tr>
-            )}
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+              {path !== siteRoot && !loading && files.length > 0 && (
+                <tr className="cursor-pointer bg-gray-50/80 transition-colors hover:bg-gray-100/80 group dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50" onClick={() => navigateTo('..')}>
+                  <td className="w-10 px-3 py-1"></td>
+                  <td className="px-3 py-1" colSpan={4}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-1 text-gray-400 group-hover:text-red-500 transition-colors">
+                        <FolderOpen className="w-4 h-4" />
+                      </div>
+                      <span className="text-gray-600 dark:text-zinc-300 font-medium group-hover:text-red-500 transition-colors">.. (Subir de Nível)</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
 
-            {uploadProgress ? (
-              <tr><td colSpan={5} className="px-6 py-12">
-                <div className="w-full space-y-4">
-                  <div className="flex justify-between items-end mb-1">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
-                        {uploadProgress.processing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 text-green-500 animate-spin" />
-                            A processar no servidor... ({uploadProgress.current} de {uploadProgress.total})
-                          </>
+              {uploadProgress ? (
+                <tr><td colSpan={5} className="px-6 py-12">
+                  <div className="w-full space-y-4">
+                    <div className="flex justify-between items-end mb-1">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                          {uploadProgress.processing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 text-green-500 animate-spin" />
+                              A processar no servidor... ({uploadProgress.current} de {uploadProgress.total})
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-4 h-4 text-green-500 animate-pulse" />
+                              A fazer upload... ({uploadProgress.current} de {uploadProgress.total})
+                            </>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate max-w-lg mt-1">{uploadProgress.name}</div>
+                      </div>
+                      <span className="text-sm font-bold text-green-600 dark:text-green-500">{uploadProgress.progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2.5 overflow-hidden">
+                      <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress.progress}%` }}></div>
+                    </div>
+                  </div>
+                </td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  {error}
+                </td></tr>
+              ) : loading ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-3" />
+                  <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
+                </td></tr>
+              ) : files.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-zinc-700" />
+                  <span className="font-medium text-gray-500 dark:text-zinc-400">Pasta vazia</span>
+                </td></tr>
+              ) : files.map((f, i) => {
+                const ext = f.name.split('.').pop()?.toLowerCase() || '';
+                let Icon = FileText;
+                let iconColor = "text-gray-400 dark:text-zinc-600";
+                if (f.isDir) {
+                  Icon = FolderOpen;
+                  iconColor = "text-zinc-500 dark:text-zinc-400 group-hover:text-red-500";
+                } else if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) {
+                  Icon = FileArchive;
+                  iconColor = "text-yellow-600 dark:text-yellow-500";
+                } else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) {
+                  Icon = ImageIcon;
+                  iconColor = "text-blue-500 dark:text-blue-400";
+                } else if (['js', 'ts', 'jsx', 'tsx', 'php', 'html', 'css'].includes(ext)) {
+                  Icon = FileCode;
+                  iconColor = "text-purple-500 dark:text-purple-400";
+                } else if (ext === 'json') {
+                  Icon = FileJson;
+                  iconColor = "text-emerald-500 dark:text-emerald-400";
+                } else if (['mp4', 'webm', 'avi', 'mkv'].includes(ext)) {
+                  Icon = PlaySquare;
+                  iconColor = "text-rose-500 dark:text-rose-400";
+                } else if (['sh', 'bash'].includes(ext)) {
+                  Icon = Terminal;
+                  iconColor = "text-gray-700 dark:text-gray-300";
+                } else if (ext === 'pdf') {
+                  Icon = FileText;
+                  iconColor = "text-red-500 dark:text-red-400";
+                }
+
+                const isSelected = selectedFiles.includes(f.name);
+                const stripeBg = i % 2 === 0
+                  ? 'bg-white dark:bg-zinc-900'
+                  : 'bg-gray-50/80 dark:bg-zinc-800/30';
+
+                return (
+                  <tr key={i} className={`transition-colors group hover:bg-gray-100/80 dark:hover:bg-zinc-800/50 ${stripeBg} ${isSelected ? 'ring-1 ring-inset ring-red-300/60 dark:ring-red-900/50' : ''}`}>
+                    <td className="px-3 py-1">
+                      <input type="checkbox" checked={isSelected} onChange={(e) => {
+                        if (e.target.checked) setSelectedFiles([...selectedFiles, f.name]);
+                        else setSelectedFiles(selectedFiles.filter(name => name !== f.name));
+                      }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                    </td>
+                    <td className="px-3 py-1">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1.5 rounded-lg bg-transparent ${iconColor}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+
+                        {f.isDir ? (
+                          <button onClick={() => navigateTo(f.name)}
+                            className="text-gray-900 dark:text-zinc-100 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors">
+                            {f.name}
+                          </button>
                         ) : (
-                          <>
-                            <UploadCloud className="w-4 h-4 text-green-500 animate-pulse" />
-                            A fazer upload... ({uploadProgress.current} de {uploadProgress.total})
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isFmEditableName(f.name)) void handleEdit(f.name)
+                            }}
+                            className={`text-gray-700 dark:text-zinc-300 font-medium transition-colors ${isFmEditableName(f.name) ? 'hover:text-red-500 dark:hover:text-red-400' : ''}`}
+                          >
+                            {f.name}
+                          </button>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 truncate max-w-lg mt-1">{uploadProgress.name}</div>
-                    </div>
-                    <span className="text-sm font-bold text-green-600 dark:text-green-500">{uploadProgress.progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2.5 overflow-hidden">
-                    <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress.progress}%` }}></div>
-                  </div>
-                </div>
-              </td></tr>
-            ) : error ? (
-              <tr><td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
-                <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                {error}
-              </td></tr>
-            ) : loading ? (
-              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500 mb-3" />
-                <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
-              </td></tr>
-            ) : files.length === 0 ? (
-              <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-zinc-700" />
-                <span className="font-medium text-gray-500 dark:text-zinc-400">Pasta vazia</span>
-              </td></tr>
-            ) : files.map((f, i) => {
-              const ext = f.name.split('.').pop()?.toLowerCase() || '';
-              let Icon = FileText;
-              let iconColor = "text-gray-400 dark:text-zinc-600";
-              if (f.isDir) {
-                Icon = FolderOpen;
-                iconColor = "text-zinc-500 dark:text-zinc-400 group-hover:text-red-500";
-              } else if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) {
-                Icon = FileArchive;
-                iconColor = "text-yellow-600 dark:text-yellow-500";
-              } else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) {
-                Icon = ImageIcon;
-                iconColor = "text-blue-500 dark:text-blue-400";
-              } else if (['js', 'ts', 'jsx', 'tsx', 'php', 'html', 'css'].includes(ext)) {
-                Icon = FileCode;
-                iconColor = "text-purple-500 dark:text-purple-400";
-              } else if (ext === 'json') {
-                Icon = FileJson;
-                iconColor = "text-emerald-500 dark:text-emerald-400";
-              } else if (['mp4', 'webm', 'avi', 'mkv'].includes(ext)) {
-                Icon = PlaySquare;
-                iconColor = "text-rose-500 dark:text-rose-400";
-              } else if (['sh', 'bash'].includes(ext)) {
-                Icon = Terminal;
-                iconColor = "text-gray-700 dark:text-gray-300";
-              } else if (ext === 'pdf') {
-                Icon = FileText;
-                iconColor = "text-red-500 dark:text-red-400";
-              }
-
-              const isSelected = selectedFiles.includes(f.name);
-              const stripeBg = i % 2 === 0
-                ? 'bg-white dark:bg-zinc-900'
-                : 'bg-gray-50/80 dark:bg-zinc-800/30';
-
-              return (
-              <tr key={i} className={`transition-colors group hover:bg-gray-100/80 dark:hover:bg-zinc-800/50 ${stripeBg} ${isSelected ? 'ring-1 ring-inset ring-red-300/60 dark:ring-red-900/50' : ''}`}>
-                <td className="px-3 py-1">
-                  <input type="checkbox" checked={isSelected} onChange={(e) => {
-                    if (e.target.checked) setSelectedFiles([...selectedFiles, f.name]);
-                    else setSelectedFiles(selectedFiles.filter(name => name !== f.name));
-                  }} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
-                </td>
-                <td className="px-3 py-1">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-lg bg-transparent ${iconColor}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    
-                    {f.isDir ? (
-                      <button onClick={() => navigateTo(f.name)}
-                        className="text-gray-900 dark:text-zinc-100 hover:text-red-500 dark:hover:text-red-500 font-semibold transition-colors">
-                        {f.name}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isFmEditableName(f.name)) void handleEdit(f.name)
-                        }}
-                        className={`text-gray-700 dark:text-zinc-300 font-medium transition-colors ${isFmEditableName(f.name) ? 'hover:text-red-500 dark:hover:text-red-400' : ''}`}
-                      >
-                        {f.name}
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="w-24 px-3 py-1 text-xs font-medium text-gray-600 dark:text-zinc-300">
-                  {f.isDir ? '—' : formatFmBytes(f.size)}
-                </td>
-                <td className="hidden px-3 py-1 font-mono text-xs text-gray-500 dark:text-zinc-400 md:table-cell">{f.permissions}</td>
-                <td className="hidden px-3 py-1 text-xs text-gray-500 dark:text-zinc-400 sm:table-cell">
-                  {f.date}
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    <td className="w-24 px-3 py-1 text-xs font-medium text-gray-600 dark:text-zinc-300">
+                      {f.isDir ? '—' : formatFmBytes(f.size)}
+                    </td>
+                    <td className="hidden px-3 py-1 font-mono text-xs text-gray-500 dark:text-zinc-400 md:table-cell">{f.permissions}</td>
+                    <td className="hidden px-3 py-1 text-xs text-gray-500 dark:text-zinc-400 sm:table-cell">
+                      {f.date}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {transfer ? (
+      {moreMenuAnchor ? (
+        <FileManagerMoreMenu
+          anchorRect={moreMenuAnchor}
+          onClose={() => setMoreMenuAnchor(null)}
+          onAction={(action) => {
+            if (action === 'rename') void handleRename()
+            else if (action === 'permissions') void handleSetPermissions()
+            else if (action === 'extract') void handleExtract()
+            else if (action === 'delete') void handleDelete()
+          }}
+        />
+      ) : null}
+
+      {fmDialog ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => !transferBusy && setTransfer(null)} />
+          <div className="absolute inset-0 bg-black/50" onClick={() => !fmDialogBusy && setFmDialog(null)} />
           <div className={`${panelCard} relative w-full max-w-lg space-y-4 p-6`}>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              {transfer.mode === 'copy' ? 'Copiar para pasta' : 'Mover para pasta'}
+              {fmDialog.type === 'transfer'
+                ? fmDialog.mode === 'copy'
+                  ? 'Copiar para pasta'
+                  : 'Mover para pasta'
+                : fmDialog.mode === 'folder'
+                  ? 'Nova pasta'
+                  : 'Novo ficheiro'}
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {transfer.sources.length} item(ns) seleccionado(s)
-            </p>
+            {fmDialog.type === 'transfer' ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {fmDialog.sources.length} item(ns) seleccionado(s)
+              </p>
+            ) : (
+              <p className="break-all text-xs text-zinc-500 dark:text-zinc-400">
+                Directório: <span className="font-mono text-zinc-700 dark:text-zinc-300">{path}</span>
+              </p>
+            )}
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Pasta de destino</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">
+                {fmDialog.type === 'transfer'
+                  ? 'Pasta de destino'
+                  : fmDialog.mode === 'folder'
+                    ? 'Nome da pasta'
+                    : 'Nome do ficheiro'}
+              </label>
               <input
-                value={transferDest}
-                onChange={(e) => setTransferDest(e.target.value)}
+                value={fmDialogInput}
+                onChange={(e) => setFmDialogInput(e.target.value)}
+                placeholder={fmDialog.type === 'create' && fmDialog.mode === 'file' ? 'exemplo.php' : ''}
                 className={`${panelField} w-full dark:bg-zinc-900`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !fmDialogBusy) void confirmFmDialog()
+                }}
               />
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" disabled={transferBusy} onClick={() => setTransfer(null)} className={panelBtnSecondary}>Cancelar</button>
-              <button type="button" disabled={transferBusy} onClick={() => void confirmTransfer()} className={fmToolbarBtnGreen}>
-                {transferBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>
+              <button type="button" disabled={fmDialogBusy || !fmDialogInput.trim()} onClick={() => void confirmFmDialog()} className={fmToolbarBtnGreen}>
+                {fmDialogBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Confirmar
               </button>
             </div>
@@ -8291,7 +8442,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
       litespeed: false
     }
   })
-  
+
   const selectedSiteData = sites.find(s => s.domain === form.domain)
   const isWPInstalled = selectedSiteData?.hasWordPress || selectedSiteData?.siteType === 'wordpress'
 
@@ -8409,7 +8560,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
   return (
     <div className="space-y-6 w-full">
 
-      
+
       {isWPInstalled && !success && (
         <div className="p-4 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -8444,7 +8595,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
                 <Globe className="w-4 h-4" />
                 Ver Site
               </a>
-              <button 
+              <button
                 onClick={() => window.location.href = '/revendedor?section=cp-wp-list'}
                 className="inline-flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
               >
@@ -8697,7 +8848,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               />
               <div className="w-12 h-12 bg-[#96588a] rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -8715,7 +8866,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               />
               <div className="w-12 h-12 bg-[#a4286a] rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -8733,7 +8884,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               />
               <div className="w-12 h-12 bg-[#2b2b2b] rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg className="w-7 h-7 text-[#9b59b6]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -8751,7 +8902,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               />
               <div className="w-12 h-12 bg-[#00a8e6] rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M13 2v8h8c0-4.42-3.58-8-8-8zM12 22c5.52 0 10-4.48 10-10h-8c0 2.21-1.79 4-4 4s-4-1.79-4-4 1.79-4 4-4V2C6.48 2 2 6.48 2 12s4.48 10 10 10zm1-9h8.94c-.14 2.23-1.09 4.26-2.58 5.71L13 13z"/>
+                  <path d="M13 2v8h8c0-4.42-3.58-8-8-8zM12 22c5.52 0 10-4.48 10-10h-8c0 2.21-1.79 4-4 4s-4-1.79-4-4 1.79-4 4-4V2C6.48 2 2 6.48 2 12s4.48 10 10 10zm1-9h8.94c-.14 2.23-1.09 4.26-2.58 5.71L13 13z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -8765,11 +8916,10 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               <button
                 onClick={handleInstall}
                 disabled={installing || !form.domain || !form.siteName || !form.adminUsername || !form.adminPassword || !form.adminEmail}
-                className={`w-full px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  isWPInstalled 
-                    ? 'bg-amber-50 border border-amber-600 text-amber-600 hover:bg-amber-100' 
+                className={`w-full px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${isWPInstalled
+                    ? 'bg-amber-50 border border-amber-600 text-amber-600 hover:bg-amber-100'
                     : 'bg-transparent border border-green-600 text-green-600 hover:bg-green-50'
-                } disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300`}
+                  } disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300`}
               >
                 {installing ? (
                   <>
@@ -9668,11 +9818,10 @@ export function DomainManagerSection({
       ) : null}
 
       {msg && (
-        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${
-          msgType === 'success'
+        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${msgType === 'success'
             ? 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
             : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
-        }`}>{msg}</div>
+          }`}>{msg}</div>
       )}
 
       {((domainListMode === 'registrar' ? registrarListLoading : loading) && filteredDomains.length === 0) ? (
@@ -9899,11 +10048,10 @@ export function DomainManagerSection({
       </button>
 
       {msg && (
-        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${
-          msgType === 'success'
+        <div className={`rounded border px-4 py-2.5 text-sm font-medium ${msgType === 'success'
             ? 'border-gray-200 bg-gray-50 text-gray-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
             : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400'
-        }`}>{msg}</div>
+          }`}>{msg}</div>
       )}
 
       <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
@@ -10298,13 +10446,13 @@ function DomainCreateModal({
     setError('')
     try {
       console.log('[DomainCreateModal] Enviando requisição:', { domain: newDomain, email: adminEmail, php: selectedPHP })
-      
+
       // Timeout de 30 segundos
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
-      
+
       const res = await fetch('/api/server-exec', {
-        method: 'POST', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'createWebsite',
@@ -10316,22 +10464,22 @@ function DomainCreateModal({
         }),
         signal: controller.signal
       })
-      
+
       clearTimeout(timeoutId)
-      
+
       if (!res.ok) {
         const errorText = await res.text()
         throw new Error(`HTTP ${res.status}: ${errorText || 'Erro no servidor'}`)
       }
-      
+
       const data = await res.json()
       console.log('[DomainCreateModal] Resposta:', data)
-      
+
       const output = data.data?.output || ''
-      
+
       // Verificar sucesso: data.success do backend OU parse do JSON no output
       let isSuccess = data.success === true
-      
+
       // Tentar fazer parse do JSON no output para verificar "success": 1
       if (!isSuccess && output) {
         try {
@@ -10347,22 +10495,22 @@ function DomainCreateModal({
           // Ignora erro de parse
         }
       }
-      
+
       // Fallback: verificar strings de sucesso no output
       if (!isSuccess) {
-        isSuccess = output.includes('website has been created') || 
-                    output.includes('successfully') ||
-                    (output.includes('success') && !output.includes('success": 0'))
+        isSuccess = output.includes('website has been created') ||
+          output.includes('successfully') ||
+          (output.includes('success') && !output.includes('success": 0'))
       }
-      
+
       console.log('[DomainCreateModal] isSuccess:', isSuccess)
-      
+
       if (isSuccess) {
         onSuccess()
       } else {
         // Tentar extrair mensagem de erro do JSON
         let errorMsg = data.error || data.data?.error
-        
+
         if (!errorMsg && output) {
           try {
             const jsonMatch = output.match(/\{[\s\S]*"errorMessage"\s*:\s*"([^"]+)"[\s\S]*\}/)
@@ -10373,9 +10521,9 @@ function DomainCreateModal({
             // Ignora
           }
         }
-        
+
         if (!errorMsg) errorMsg = output || data.message || 'Falha ao criar domínio'
-        
+
         console.error('[DomainCreateModal] Erro:', errorMsg)
         setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg))
       }
@@ -10442,7 +10590,7 @@ function DomainCreateModal({
               </div>
             </div>
           )}
-          
+
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 text-sm text-red-700 break-words">
               <div className="flex items-start gap-2">
@@ -10890,7 +11038,7 @@ export function EmailImportSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
             {result.errors && result.errors.length > 0 && (
               <div className="mt-4 p-3 bg-white border border-red-100 rounded shadow-inner">
-                <button 
+                <button
                   onClick={() => setShowErrors(!showErrors)}
                   className="flex items-center gap-2 font-bold text-red-700 mb-2 hover:underline w-full text-left"
                 >
@@ -11259,8 +11407,8 @@ export function WatchdogSection() {
             <h3 className="font-semibold">OpenDKIM</h3>
           </div>
           <p className="text-sm opacity-90">
-            {status.opendkim === 'active' ? '✅ Em execução' : 
-             status.opendkim === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
+            {status.opendkim === 'active' ? '✅ Em execução' :
+              status.opendkim === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
           </p>
           <p className="text-xs mt-2 opacity-75">Assinatura DKIM para emails</p>
         </div>
@@ -11272,8 +11420,8 @@ export function WatchdogSection() {
             <h3 className="font-semibold">Postfix</h3>
           </div>
           <p className="text-sm opacity-90">
-            {status.postfix === 'active' ? '✅ Em execução' : 
-             status.postfix === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
+            {status.postfix === 'active' ? '✅ Em execução' :
+              status.postfix === 'inactive' ? '❌ Parado' : '⏳ Verificando...'}
           </p>
           <p className="text-xs mt-2 opacity-75">Servidor SMTP</p>
         </div>

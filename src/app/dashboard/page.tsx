@@ -2430,7 +2430,13 @@ function AdminPageContent() {
           }
         />
 
-        <main className={`panel-content flex-1 ${['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-5'}`}>
+        <main className={`panel-content flex-1 ${
+          ['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection)
+            ? 'overflow-hidden p-0'
+            : ['file-manager', 'cp-file-manager'].includes(activeSection)
+              ? 'overflow-y-auto pt-0 px-4 pb-4 lg:px-5 lg:pb-5'
+              : 'overflow-y-auto p-4 lg:p-5'
+        }`}>
           <div className={`${activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             <PanelSectionKeepAlive activeSection={activeSection} renderSection={renderSectionFor} />
           </div>

@@ -110,7 +110,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
     // Evitar chamadas duplicadas (React StrictMode)
     if (dataFetchedRef.current) return
     dataFetchedRef.current = true
-    
+
     fetchAdditionalData()
   }, [])
 
@@ -129,7 +129,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
           .select('*')
           .eq('user_id', user.id)
           .eq('status', 'pending')
-        
+
         if (invError) {
           console.warn('Erro ao carregar faturas:', invError.message)
         } else {
@@ -146,7 +146,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
           .from('tickets_suporte')
           .select('*')
           .eq('user_id', user.id)
-        
+
         if (tktError) {
           console.warn('Erro ao carregar tickets:', tktError.message)
         } else {
@@ -317,7 +317,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
       </div>
 
       {/* Modal de Novo Ticket */}
-      <NovoTicketModal 
+      <NovoTicketModal
         isOpen={showTicketModal}
         onClose={() => setShowTicketModal(false)}
         cliente={cliente}
@@ -345,7 +345,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showTicketModal, setShowTicketModal] = useState(false)
-  
+
   // Formulário de contacto por email
   const [contactForm, setContactForm] = useState({
     nome: cliente?.nome || '',
@@ -387,7 +387,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
   const enviarContacto = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!contactForm.assunto || !contactForm.mensagem) return
-    
+
     setContactEnviando(true)
     try {
       const res = await fetch('/api/contact-form', {
@@ -449,7 +449,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-2">VisualDesign</h3>
           <p className="text-sm text-gray-500 mb-6">Estamos aqui para ajudar. Entre em contacto connosco por qualquer canal.</p>
-          
+
           <div className="space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
@@ -500,7 +500,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-2">Enviar Mensagem</h3>
           <p className="text-sm text-gray-500 mb-6">Preencha o formulário abaixo e responderemos em breve.</p>
-          
+
           {contactEnviado ? (
             <div className="text-center py-8">
               <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">✅</div>
@@ -512,44 +512,44 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nome</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={contactForm.nome}
-                    onChange={e => setContactForm({...contactForm, nome: e.target.value})}
+                    onChange={e => setContactForm({ ...contactForm, nome: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Email</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     value={contactForm.email}
-                    onChange={e => setContactForm({...contactForm, email: e.target.value})}
+                    onChange={e => setContactForm({ ...contactForm, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
                     required
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Assunto</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={contactForm.assunto}
-                  onChange={e => setContactForm({...contactForm, assunto: e.target.value})}
+                  onChange={e => setContactForm({ ...contactForm, assunto: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
                   placeholder="Ex: Dúvida sobre faturação"
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Mensagem</label>
-                <textarea 
+                <textarea
                   value={contactForm.mensagem}
                   onChange={e => {
-                    setContactForm({...contactForm, mensagem: e.target.value})
+                    setContactForm({ ...contactForm, mensagem: e.target.value })
                     e.target.style.height = 'auto'
                     e.target.style.height = Math.max(96, e.target.scrollHeight) + 'px'
                   }}
@@ -559,9 +559,9 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                   required
                 />
               </div>
-              
+
               <div className="flex justify-start">
-                <button 
+                <button
                   type="submit"
                   disabled={contactEnviando}
                   className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-200"
@@ -664,13 +664,13 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
         return emailDomain;
       }
     }
-    
+
     // 3. Terceiro: usar hostname da URL
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.replace('client.', '').replace('portal.', '');
       if (host && host !== 'localhost' && !host.startsWith('127.')) return host;
     }
-    
+
     // Sem domínio detectado - retorna vazio para evitar mostrar contactos errados
     return '';
   };
@@ -720,16 +720,16 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
   const [showReputationInfo, setShowReputationInfo] = useState(false);
-  
+
   // Estado removido - sistema simplificado para 200 emails/dia fixo
-  
+
   // 🆕 Estado para guardar dados do último envio (para reenvio)
   const [lastSendData, setLastSendData] = useState<any>(null);
-  
+
   // 🚀 Estado de reputação de domínio (warm-up)
   const [domainReputation, setDomainReputation] = useState<any>(null);
   const [loadingReputation, setLoadingReputation] = useState(false);
-  
+
   // 🚀 Emails disponíveis do domínio selecionado
   const [domainEmails, setDomainEmails] = useState<string[]>([]);
   const [loadingDomainEmails, setLoadingDomainEmails] = useState(false);
@@ -749,16 +749,16 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
     };
     getUserData();
   }, []);
-  
+
   // 🆕 Função para buscar reputação (independente do useEffect)
   const fetchReputation = async () => {
     if (!selectedSite) return;
-    
+
     setLoadingReputation(true);
     try {
       const response = await fetch(`/api/mailmarketing-send?domain=${encodeURIComponent(selectedSite)}`);
       const data = await response.json();
-      
+
       if (data.success) {
         setDomainReputation(data.reputation);
         console.log("📊 Reputação do domínio:", data.reputation);
@@ -779,7 +779,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   useEffect(() => {
     const fetchDomainEmails = async () => {
       if (!selectedSite) return;
-      
+
       setLoadingDomainEmails(true);
       try {
         // 🆕 BUSCAR DE DUAS FONTES: Supabase + DirectAdmin
@@ -787,9 +787,9 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           fetch('/api/email-contas'),
           fetch(`/api/directadmin-list-emails?domain=${encodeURIComponent(selectedSite)}`)
         ]);
-        
+
         let allEmailsList: string[] = [];
-        
+
         // Processar resultado do Supabase
         if (supabaseRes.status === 'fulfilled') {
           const result = await supabaseRes.value.json();
@@ -805,7 +805,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             console.log("📧 Emails do Supabase:", supabaseEmails);
           }
         }
-        
+
         // Processar resultado do DirectAdmin
         if (directadminRes.status === 'fulfilled') {
           const result = await directadminRes.value.json();
@@ -815,74 +815,74 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             console.log("📧 Fonte:", result.source);
           }
         }
-        
+
         // Remover duplicados
         const domainEmailsList = [...new Set(allEmailsList.filter((e: string) => e && e.includes('@')))];
-        
+
         console.log("📧 Total combinado (sem duplicados):", domainEmailsList);
-          
-          // 🎯 GARANTIR: sempre incluir o email do utilizador logado se pertencer ao domínio
+
+        // 🎯 GARANTIR: sempre incluir o email do utilizador logado se pertencer ao domínio
+        if (currentUserEmail) {
+          const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
+          if (userDomain === selectedSite.toLowerCase() && !domainEmailsList.includes(currentUserEmail)) {
+            domainEmailsList.push(currentUserEmail);
+            console.log("✅ Email do utilizador adicionado:", currentUserEmail);
+          }
+        }
+
+        // 🚀 Apenas emails REAIS da BD/DirectAdmin + email do utilizador
+        // NÃO adicionar fallbacks fictícios
+
+        // Se ainda não tem emails e tem currentUserEmail, usar como fallback
+        if (domainEmailsList.length === 0 && currentUserEmail) {
+          domainEmailsList.push(currentUserEmail);
+        }
+
+        // 🎯 Reordenar: priorizar email do utilizador logado, depois marketing@, depois ordem alfabética
+        const sortedEmails = domainEmailsList.sort((a: string, b: string) => {
+          const aLower = a.toLowerCase();
+          const bLower = b.toLowerCase();
+          const userEmail = currentUserEmail?.toLowerCase();
+          const selectedDomain = selectedSite.toLowerCase();
+
+          // Prioridade 1: email do utilizador logado
+          if (aLower === userEmail) return -1;
+          if (bLower === userEmail) return 1;
+
+          // Prioridade 2: email marketing@dominio
+          if (aLower === `marketing@${selectedDomain}`) return -1;
+          if (bLower === `marketing@${selectedDomain}`) return 1;
+
+          // Prioridade 3: email geral@dominio ou admin@dominio
+          if (aLower === `geral@${selectedDomain}` || aLower === `admin@${selectedDomain}`) return -1;
+          if (bLower === `geral@${selectedDomain}` || bLower === `admin@${selectedDomain}`) return 1;
+
+          // Resto: ordem alfabética
+          return aLower.localeCompare(bLower);
+        });
+
+        // 🚀 Apenas emails REAIS - não adicionar fallbacks fictícios
+        // Se não há emails reais, mostrar apenas o email do utilizador logado
+        if (domainEmailsList.length === 0) {
+          console.log("📧 Nenhum email real encontrado, usando apenas email do utilizador");
           if (currentUserEmail) {
             const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
-            if (userDomain === selectedSite.toLowerCase() && !domainEmailsList.includes(currentUserEmail)) {
+            if (userDomain === selectedSite.toLowerCase()) {
               domainEmailsList.push(currentUserEmail);
-              console.log("✅ Email do utilizador adicionado:", currentUserEmail);
             }
           }
-          
-          // 🚀 Apenas emails REAIS da BD/DirectAdmin + email do utilizador
-          // NÃO adicionar fallbacks fictícios
-          
-          // Se ainda não tem emails e tem currentUserEmail, usar como fallback
-          if (domainEmailsList.length === 0 && currentUserEmail) {
-            domainEmailsList.push(currentUserEmail);
-          }
-          
-          // 🎯 Reordenar: priorizar email do utilizador logado, depois marketing@, depois ordem alfabética
-          const sortedEmails = domainEmailsList.sort((a: string, b: string) => {
-            const aLower = a.toLowerCase();
-            const bLower = b.toLowerCase();
-            const userEmail = currentUserEmail?.toLowerCase();
-            const selectedDomain = selectedSite.toLowerCase();
-            
-            // Prioridade 1: email do utilizador logado
-            if (aLower === userEmail) return -1;
-            if (bLower === userEmail) return 1;
-            
-            // Prioridade 2: email marketing@dominio
-            if (aLower === `marketing@${selectedDomain}`) return -1;
-            if (bLower === `marketing@${selectedDomain}`) return 1;
-            
-            // Prioridade 3: email geral@dominio ou admin@dominio
-            if (aLower === `geral@${selectedDomain}` || aLower === `admin@${selectedDomain}`) return -1;
-            if (bLower === `geral@${selectedDomain}` || bLower === `admin@${selectedDomain}`) return 1;
-            
-            // Resto: ordem alfabética
-            return aLower.localeCompare(bLower);
-          });
-          
-          // 🚀 Apenas emails REAIS - não adicionar fallbacks fictícios
-          // Se não há emails reais, mostrar apenas o email do utilizador logado
-          if (domainEmailsList.length === 0) {
-            console.log("📧 Nenhum email real encontrado, usando apenas email do utilizador");
-            if (currentUserEmail) {
-              const userDomain = currentUserEmail.split('@')[1]?.toLowerCase();
-              if (userDomain === selectedSite.toLowerCase()) {
-                domainEmailsList.push(currentUserEmail);
-              }
-            }
-          }
-          
-          // Remover duplicados antes de definir estado
-          const uniqueEmails = [...new Set(domainEmailsList)];
-          setDomainEmails(uniqueEmails);
-          
-          // Se o senderEmail atual não está na lista, selecionar o primeiro (principal)
-          if (uniqueEmails.length > 0 && !uniqueEmails.includes(senderEmail)) {
-            setSenderEmail(uniqueEmails[0]);
-          }
-          
-          console.log("📧 Emails do domínio (final):", uniqueEmails);
+        }
+
+        // Remover duplicados antes de definir estado
+        const uniqueEmails = [...new Set(domainEmailsList)];
+        setDomainEmails(uniqueEmails);
+
+        // Se o senderEmail atual não está na lista, selecionar o primeiro (principal)
+        if (uniqueEmails.length > 0 && !uniqueEmails.includes(senderEmail)) {
+          setSenderEmail(uniqueEmails[0]);
+        }
+
+        console.log("📧 Emails do domínio (final):", uniqueEmails);
       } catch (error) {
         console.error("Erro ao buscar emails do domínio:", error);
         // Em caso de erro, apenas usar email do utilizador logado
@@ -897,7 +897,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         setLoadingDomainEmails(false);
       }
     };
-    
+
     fetchDomainEmails();
   }, [selectedSite, currentUserEmail]);
 
@@ -986,28 +986,28 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       if (selectedPlans.length > 0) {
         console.log("BUSCANDO SUBSCRITORES PARA:", selectedSite);
         console.log("PLANOS SELECIONADOS:", selectedPlans);
-        
+
         let data = await listarSubscritores(selectedSite);
         // Fallback: se o domínio ativo não tiver contactos, usa todas as listas do cliente.
         if ((!data || data.length === 0) && selectedSite) {
           data = await listarSubscritores();
         }
         console.log("DADOS RECEBIDOS:", data);
-        
+
         if (data) {
           const filteredData = data.filter((s: any) => {
             const contactDomain = normalizeDomain(s?.metadata?.domain);
             const listName = s.metadata?.list || 'Contactos';
-            
+
             // 1. Verificar se a lista está selecionada
             if (!selectedPlans.includes(listName)) return false;
-            
+
             // 2. Se não tem domínio ou é domínio da plataforma, permitir (são contactos genéricos do cliente)
             if (!contactDomain || isPlatformDomain(contactDomain)) return true;
-            
+
             // 3. Se tem domínio, verificar se pertence aos domínios do cliente
             if (allowedDomains.size > 0 && allowedDomains.has(contactDomain)) return true;
-            
+
             // 4. Se chegou aqui e não temos domínios permitidos carregados, permitir por segurança
             if (allowedDomains.size === 0) return true;
 
@@ -1090,26 +1090,26 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       const result = await response.json();
       console.log("RESULTADO DA API:", result);
       console.log("RESPONSE OK?", response.ok, "CODE:", result.code);
-      
+
       // ✅ VERIFICAR ERRO DE LIMITE
       if (!response.ok) {
         console.log("🔍 ERRO DA API:", result);
-        
+
         // Se é erro de limite, mostrar toast informativo
         if (result.code === 'DAILY_LIMIT_EXCEEDED') {
           toast.error(`⚠️ ${result.error}`, { duration: 5000 });
           setIsSending(false);
           return;
         }
-        
+
         // Qualquer outro erro
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
-      
+
       // 🐛 CORREÇÃO: Verificar se realmente enviou algo
       const sentCount = result?.details?.success ?? 0;
       const failedCount = result?.details?.failed ?? emailList.length;
-      
+
       if (sentCount === 0) {
         throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
       } else if (failedCount > 0) {
@@ -1132,7 +1132,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
     } catch (error: any) {
       console.error("❌ ERRO:", error);
-      
+
       // Sempre mostrar erro amigável
       toast.error(error.message || "Erro ao enviar mensagem");
     } finally {
@@ -1301,7 +1301,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
               <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
               <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
             </div>
-            
+
             {/* 🚀 STATUS DE REPUTAÇÃO - SIMPLIFICADO */}
             {selectedSite && (
               <div className="mt-4 p-4 rounded-lg border border-slate-200/70 shadow-sm transition-all duration-300">
@@ -1319,7 +1319,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                         <div className="text-[10px] text-red-500 font-medium">200 emails disponíveis</div>
                       </div>
                     </div>
-                    
+
                     {/* Barra de progresso */}
                     <div className="space-y-1">
                       <div className="flex justify-between text-[10px] text-slate-500">
@@ -1328,17 +1328,16 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         {domainReputation.sentToday > 0 && (
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              domainReputation.remainingToday <= 0 ? 'bg-red-500' : 
-                              domainReputation.sentToday / 200 > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${domainReputation.remainingToday <= 0 ? 'bg-red-500' :
+                                domainReputation.sentToday / 200 > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                              }`}
                             style={{ width: `${Math.min((domainReputation.sentToday / 200) * 100, 100)}%` }}
                           />
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Alerta quando atingir limite */}
                     {domainReputation.remainingToday <= 0 && (
                       <div className="p-2 bg-red-100/50 rounded border border-red-200">
@@ -1347,7 +1346,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                         </p>
                       </div>
                     )}
-                    
+
                     {/* Linha 6: Info adicional */}
                     <div className="flex justify-between text-[9px] text-slate-400 pt-2 border-t border-slate-200/50">
                       <span>Dias ativos: {domainReputation.daysActive || 0}</span>
@@ -1425,7 +1424,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             </div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Campanha Enviada!</h3>
             <p className="text-sm text-slate-500 font-medium mb-6">A sua mensagem foi enviada com sucesso para a lista selecionada.</p>
-            <button 
+            <button
               onClick={() => {
                 setShowSuccessDialog(false);
                 setSubject("");
@@ -1453,7 +1452,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                   <p className="text-xs text-gray-500">Preencha todos os campos obrigatórios</p>
                 </div>
               </div>
-              
+
               <div className="space-y-1.5 mb-4 text-center">
                 {validationErrors.map((error, index) => (
                   <div key={index} className="flex items-center justify-center gap-2 text-xs text-red-600">
@@ -1462,7 +1461,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                   </div>
                 ))}
               </div>
-              
+
               <div className="flex justify-center">
                 <button
                   onClick={() => setShowValidationError(false)}
@@ -1485,19 +1484,19 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg mx-4 border border-slate-200 animate-in zoom-in-95 duration-300 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-black text-slate-900 tracking-tight">🛡️ Sistema de Reputação</h3>
-              <button 
+              <button
                 onClick={() => setShowReputationInfo(false)}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4 text-sm text-slate-600">
               <p className="leading-relaxed">
                 O <strong>sistema de reputação</strong> protege o seu domínio para garantir que os seus emails cheguem à caixa de entrada e não ao spam.
               </p>
-              
+
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <h4 className="font-bold text-blue-800 mb-2 text-xs uppercase tracking-wider">Como funciona?</h4>
                 <ul className="space-y-2 text-xs">
@@ -1550,8 +1549,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
                 </p>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setShowReputationInfo(false)}
               className="w-full mt-6 bg-slate-800 hover:bg-red-600 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
             >
@@ -1721,25 +1720,25 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     try {
       // 🆕 VALIDAÇÃO DE EMAIL ANTES DE ADICIONAR
       toast.loading('A validar email...');
-      
+
       const validationResponse = await fetch(`/api/validate-emails?email=${encodeURIComponent(email)}`);
       const validation = await validationResponse.json();
-      
+
       toast.dismiss();
-      
+
       if (!validation.success || !validation.isValid) {
         const errors = validation.validation?.errors?.join(', ') || 'Email inválido';
         const suggestions = validation.validation?.suggestions;
-        
+
         let errorMsg = `Email inválido: ${errors}`;
         if (suggestions && suggestions.length > 0) {
           errorMsg += `\n\nQuis dizer: ${suggestions.join(', ')}?`;
-          
+
           // Pergunta se quer usar a sugestão
           const useSuggestion = window.confirm(
             `⚠️ ${errorMsg}\n\nDeseja usar "${suggestions[0]}" em vez disso?`
           );
-          
+
           if (useSuggestion) {
             setNewEmail(suggestions[0]);
             return; // Para aqui para o user confirmar
@@ -1749,7 +1748,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
         }
         return;
       }
-      
+
       // Verifica se é email de função (aviso, não bloqueia)
       if (validation.validation?.isRoleBased) {
         const proceed = window.confirm(
@@ -1917,7 +1916,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                 let count = 0;
                 let invalidCount = 0;
                 let duplicateCount = 0;
-                
+
                 // Coleta todos os emails primeiro
                 const emailsToImport: string[] = [];
                 for (let i = 1; i < lines.length; i++) {
@@ -1928,14 +1927,14 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                     emailsToImport.push(normalizeEmailDomainTypos(email.trim()));
                   }
                 }
-                
+
                 if (emailsToImport.length === 0) {
                   toast.error('Nenhum email válido encontrado no ficheiro');
                   return;
                 }
-                
+
                 toast.loading(`A validar ${emailsToImport.length} emails...`);
-                
+
                 // 🆕 VALIDAÇÃO DE EMAILS ANTES DE IMPORTAR
                 try {
                   const response = await fetch('/api/validate-emails', {
@@ -1943,37 +1942,37 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ emails: emailsToImport, mode: 'bulk' })
                   });
-                  
+
                   const validation = await response.json();
-                  
+
                   if (!validation.success) {
                     toast.error('Erro na validação de emails');
                     return;
                   }
-                  
+
                   const { validEmails, invalidEmails, results } = validation.validation;
                   const summary = validation.summary;
-                  
+
                   toast.dismiss();
-                  
+
                   // Mostra resumo da validação
                   if (invalidEmails.length > 0) {
                     const invalidDetails = results
                       .filter((r: any) => !r.isValid)
                       .map((r: any) => `${r.email} (${r.errors.join(', ')})`)
                       .slice(0, 5);
-                    
+
                     toast.warning(
                       `${summary.valid} válidos, ${summary.invalid} inválidos. \n\nInválidos:\n${invalidDetails.join('\n')}${invalidEmails.length > 5 ? '\n...' : ''}`,
                       { duration: 6000 }
                     );
                   }
-                  
+
                   if (validEmails.length === 0) {
                     toast.error('Nenhum email válido para importar');
                     return;
                   }
-                  
+
                   // Confirmação se muitos inválidos
                   if (summary.validPercentage < 70) {
                     const proceed = window.confirm(
@@ -1984,9 +1983,9 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                     );
                     if (!proceed) return;
                   }
-                  
+
                   toast.loading(`A importar ${validEmails.length} contactos válidos...`);
-                  
+
                   // Importa apenas emails válidos
                   for (const email of validEmails) {
                     try {
@@ -2000,14 +1999,14 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                       }
                     }
                   }
-                  
+
                   toast.dismiss();
-                  const msg = `${count} contactos importados` + 
+                  const msg = `${count} contactos importados` +
                     (duplicateCount > 0 ? ` (${duplicateCount} duplicados ignorados)` : '') +
                     (invalidEmails.length > 0 ? ` - ${invalidEmails.length} inválidos rejeitados` : '');
                   toast.success(msg);
                   fetchSubs();
-                  
+
                 } catch (err) {
                   toast.dismiss();
                   toast.error('Erro na validação: ' + (err as Error).message);
@@ -2148,16 +2147,15 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                        currentPage === pageNum
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${currentPage === pageNum
                           ? 'bg-orange-600 text-white'
                           : 'bg-slate-100 hover:bg-slate-200'
-                      }`}
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -2276,12 +2274,12 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
 
   const handleClearTestData = async () => {
     if (!confirm('🧹 Limpar dados de teste?\n\nIsso vai zerar o contador de emails enviados em todas as campanhas.\n\nContinuar?')) return;
-    
+
     try {
       toast.loading('A limpar dados de teste...');
       const result = await limparDadosCampanhas(currentUserEmail);
       toast.dismiss();
-      
+
       if (result.success) {
         toast.success(`✅ ${result.message}`);
         fetchCampaigns(); // Recarregar lista
@@ -2307,7 +2305,7 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
             <p className="text-sm text-slate-500 font-medium">Análise de desempenho e registo de mensagens enviadas.</p>
           </div>
         </div>
-        
+
         {/* Botão limpar dados de teste */}
         <button
           onClick={handleClearTestData}
@@ -2381,7 +2379,7 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
           <div className="flex items-center gap-3">
             <h3 className="font-black text-slate-900 uppercase tracking-widest text-[11px]">Lista de Envios</h3>
             <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-full text-[10px] font-bold border border-slate-100">{filteredCampaigns.length} Registos</span>
-            
+
             {selectedCampaignIds.length > 0 && (
               <button
                 onClick={async () => {
@@ -2403,12 +2401,12 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
           </div>
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
+            <input
               type="text"
               placeholder="Pesquisar assunto..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-300 transition-all text-slate-700" 
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-300 transition-all text-slate-700"
             />
           </div>
         </div>
@@ -2416,7 +2414,7 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
         {/* List Content */}
         <div className="flex-1 p-5">
           {loading ? (
-             <MailMarketingCampaignsSkeleton />
+            <MailMarketingCampaignsSkeleton />
           ) : filteredCampaigns.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full pt-16 pb-12 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mb-6 border border-slate-100">
@@ -2429,7 +2427,7 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
             <div className="space-y-4">
               {/* Select All Checkbox - Opcional se houver poucas */}
               <div className="flex items-center gap-3 px-2 border-b border-slate-50 pb-2">
-                <input 
+                <input
                   type="checkbox"
                   checked={filteredCampaigns.length > 0 && selectedCampaignIds.length === filteredCampaigns.length}
                   onChange={(e) => {
@@ -2440,11 +2438,11 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
                 />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seleccionar Todas</span>
               </div>
-              
+
               {filteredCampaigns.map((camp) => (
                 <div key={camp.id} className={`flex items-center justify-between p-4 rounded-xl border ${selectedCampaignIds.includes(camp.id) ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'} transition-all group`}>
                   <div className="flex items-center gap-4">
-                    <input 
+                    <input
                       type="checkbox"
                       checked={selectedCampaignIds.includes(camp.id)}
                       onChange={(e) => {
@@ -2473,30 +2471,30 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend }: { 
                         {camp.status === 'sent' || !camp.status ? 'Enviado' : camp.status}
                       </span>
                     </div>
-                    
+
                     {/* Acções */}
                     <div className="flex items-center gap-2">
-                       <button
-                         onClick={() => {
-                           if (onResend) onResend(camp);
-                         }}
-                         className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 text-slate-400 transition-all font-bold"
-                         title="Reenviar Campanha"
-                       >
-                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                       </button>
-                       <button
-                         onClick={async () => {
-                           if (confirm(`Tem a certeza que deseja eliminar a campanha "${camp.subject}"?`)) {
-                             await removerCampanha(camp.id);
-                             fetchCampaigns();
-                           }
-                         }}
-                         className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 transition-all font-bold"
-                         title="Apagar Campanha"
-                       >
-                         <Trash2 className="w-4 h-4" />
-                       </button>
+                      <button
+                        onClick={() => {
+                          if (onResend) onResend(camp);
+                        }}
+                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 text-slate-400 transition-all font-bold"
+                        title="Reenviar Campanha"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Tem a certeza que deseja eliminar a campanha "${camp.subject}"?`)) {
+                            await removerCampanha(camp.id);
+                            fetchCampaigns();
+                          }
+                        }}
+                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-100 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 transition-all font-bold"
+                        title="Apagar Campanha"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3372,7 +3370,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                 <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm">
-                   <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
+                  <ExternalLink className="w-3.5 h-3.5" /> Visitar Site
                 </a>
               </div>
             </div>
@@ -3926,10 +3924,10 @@ function ClientPageContent() {
           search={
             activeSection === 'mailmarketing' && mailMarketingTab === 'subs'
               ? {
-                  value: mailMarketingSearchTerm,
-                  onChange: setMailMarketingSearchTerm,
-                  placeholder: 'Pesquisar contacto...',
-                }
+                value: mailMarketingSearchTerm,
+                onChange: setMailMarketingSearchTerm,
+                placeholder: 'Pesquisar contacto...',
+              }
               : undefined
           }
           toolbar={
