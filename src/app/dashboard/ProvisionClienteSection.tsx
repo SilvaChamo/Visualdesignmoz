@@ -385,6 +385,9 @@ export function ProvisionClienteSection({
               confirmPassword: '',
             });
             setHosting({ domain: '', adminEmail: '' });
+            setPackageName('');
+            setExistingUserId('');
+            setUserMode('new');
           }}
           className="px-5 py-2.5 bg-black text-white rounded-lg font-bold hover:bg-red-600"
         >
@@ -404,7 +407,7 @@ export function ProvisionClienteSection({
             {!isEdit && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
-                { id: 'client' as const, title: 'Cliente', desc: 'Conta de hospedagem com pacote e domínio', icon: Users },
+                { id: 'client' as const, title: 'Cliente', desc: 'Hospedagem opcional — sem pacote fica conta simples', icon: Users },
                 ...(allowResellerAccountType
                   ? [
                       { id: 'professional' as const, title: 'Profissional', desc: 'Gestão de sites e WordPress (sem criar contas)', icon: Shield },

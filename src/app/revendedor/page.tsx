@@ -45,6 +45,9 @@ import {
 } from '../dashboard/DomainsHubSection'
 import { PanelPermissionsConfig } from '../dashboard/PanelPermissionsConfig'
 import { ProvisionClienteSection } from '../dashboard/ProvisionClienteSection'
+import { ProvisionAccountFormInline } from '../dashboard/ProvisionAccountFormInline'
+import { ResellerProvisionForm } from '../dashboard/ResellerProvisionForm'
+import { createDefaultResellerPackageForm } from '@/lib/reseller-package-form'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { ResellerNotificationsInbox } from '@/components/revendedor/ResellerNotificationsInbox'
@@ -2278,6 +2281,50 @@ function ResellerPageContent() {
             onRefresh={() => void loadDirectAdminData(true)}
           />
         )
+      case 'audit-form-create':
+        return (
+          <ProvisionClienteSection
+            packages={scopedPackages}
+            initialAccountType="client"
+            mode="create"
+            accountsApiBase="/api/revendedor/contas"
+            onCancel={() => setActiveSection('hospedagem-contas')}
+          />
+        )
+      case 'audit-form-edit':
+        return (
+          <ProvisionClienteSection
+            packages={scopedPackages}
+            mode="edit"
+            editUser={{
+              userName: 'joaosilva',
+              email: 'joao.silva@exemplo.com',
+              firstName: 'João',
+              lastName: 'Silva',
+              primaryDomain: 'joaosilva.com',
+              packageName: 'Standard',
+              type: 'client',
+              websitesLimit: 5,
+              emailsLimit: 50,
+            }}
+            accountsApiBase="/api/revendedor/contas"
+            onCancel={() => setActiveSection('hospedagem-contas')}
+          />
+        )
+      case 'audit-form-password':
+        return <AuditFormPasswordDemo />
+      case 'audit-form-message':
+        return <AuditFormMessageDemo />
+      case 'audit-form-inline':
+        return (
+          <ProvisionAccountFormInline
+            packages={scopedPackages}
+            initialAccountType="client"
+            onCancel={() => setActiveSection('hospedagem-contas')}
+          />
+        )
+      case 'audit-form-reseller':
+        return <AuditFormResellerDemo />
       case 'cp-ssl':
         return (
           <SSLSection
@@ -2905,4 +2952,127 @@ function ResellerPageContent() {
       </div>
     </div>
   )
+}
+
+function AuditFormPasswordDemo() {
+  const [showPassword, setShowPassword] = useState(false);
+  return (
+    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-md mx-auto space-y-4 shadow-sm">
+      <div>
+        <h3 className="font-bold text-gray-900">Demonstração: Alteração de Senha Rápida (Modal)</h3>
+        <p className="text-xs text-gray-500">Este formulário é exibido como um modal pop-up na tabela de listagem de contas.</p>
+      </div>
+      <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 dark:bg-zinc-900 dark:border-zinc-800">
+        <h4 className="mb-4 text-sm font-bold text-gray-900 dark:text-zinc-100">
+          Alterar password — joaosilva
+        </h4>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Nova password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value="senhaMockada123!"
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm pr-10 focus:border-zinc-400 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-rose-600"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Confirmar password</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value="senhaMockada123!"
+              readOnly
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-zinc-400 outline-none"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2 text-xs font-bold">
+          <button type="button" className="px-4 py-2 border border-gray-200 rounded hover:bg-gray-100 text-gray-700">
+            Cancelar
+          </button>
+          <button type="button" className="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700">
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditFormMessageDemo() {
+  return (
+    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-lg mx-auto space-y-4 shadow-sm">
+      <div>
+        <h3 className="font-bold text-gray-900">Demonstração: Enviar Mensagem (Modal)</h3>
+        <p className="text-xs text-gray-500">Este formulário permite ao administrador enviar mensagens de email diretas ao proprietário da conta.</p>
+      </div>
+      <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="font-bold text-gray-900 dark:text-zinc-100">Enviar mensagem — joaosilva</h4>
+          <button type="button" className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="space-y-3">
+          <input
+            value="joao.silva@exemplo.com"
+            disabled
+            placeholder="Para (email)"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
+          />
+          <input
+            value="Notificação sobre sua conta joaosilva"
+            disabled
+            placeholder="Assunto"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
+          />
+          <textarea
+            value="Prezado João,\n\nEstamos entrando em contato para informar que..."
+            disabled
+            placeholder="Mensagem..."
+            rows={5}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
+          />
+        </div>
+        <button
+          type="button"
+          disabled
+          className="mt-4 w-full flex justify-center py-2 px-4 border border-zinc-200 bg-zinc-100 rounded text-sm text-zinc-500 font-bold"
+        >
+          Enviar Mensagem
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AuditFormResellerDemo() {
+  const [resellerForm, setResellerForm] = useState(() => createDefaultResellerPackageForm());
+  const [domain, setDomain] = useState('exemplo-revendedor.com');
+  return (
+    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-4xl mx-auto space-y-6 shadow-sm">
+      <div className="border-b pb-4">
+        <h2 className="text-lg font-bold text-gray-900">Demonstração: Formulário de Configuração de Pacote de Revenda (Inativo)</h2>
+        <p className="text-xs text-gray-500">
+          Este formulário (ResellerProvisionForm) permitia configurar detalhadamente limites de recursos no DirectAdmin para novos revendedores.
+        </p>
+      </div>
+      <div className="bg-gray-50 p-4 border border-gray-200 rounded dark:bg-zinc-900 dark:border-zinc-800">
+        <ResellerProvisionForm
+          form={resellerForm}
+          onChange={setResellerForm}
+          existingPackages={['Essencial', 'Expandido']}
+          domain={domain}
+          onDomainChange={setDomain}
+        />
+      </div>
+    </div>
+  );
 }
