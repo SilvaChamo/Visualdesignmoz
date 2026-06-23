@@ -290,26 +290,15 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
             Hospedagem ({hosting.length})
           </button>
           {!hideTabs && (
-            <>
-              <button
-                onClick={() => setActiveTab('add')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
-                }`}
-              >
-                <Plus className="w-4 h-4 inline mr-2" />
-                Cadastrar
-              </button>
-              <button
-                onClick={() => setActiveTab('templates')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'templates' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-600'
-                }`}
-              >
-                <Palette className="w-4 h-4 inline mr-2" />
-                Templates ({templates.length})
-              </button>
-            </>
+            <button
+              onClick={() => setActiveTab('add')}
+              className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+              }`}
+            >
+              <Plus className="w-4 h-4 inline mr-2" />
+              Cadastrar
+            </button>
           )}
         </div>
 

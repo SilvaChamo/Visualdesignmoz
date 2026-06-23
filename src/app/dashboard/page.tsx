@@ -42,9 +42,6 @@ import {
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection, AuditSyncSection, NameserverManagementSection
 } from './DirectAdminSections'
-import { EmailDiagnosticoSection } from './EmailDiagnosticoSection'
-import { NotificationsSection } from './NotificationsSection'
-import { InfraManagerSection } from './InfraManagerSection'
 import { NewsManagerSection } from './NewsManagerSection'
 import { RenewalsSection } from './RenewalsSection'
 import { TemplatesSection } from './TemplatesSection'
@@ -52,8 +49,6 @@ import { DNSCentralSection } from './DNSCentralSection'
 import { DomainTransferSection } from './DomainTransferSection'
 import {
   DomainsHubSection,
-  isDomainHubSection,
-  sectionToDomainTab,
   type DomainHubTab,
 } from './DomainsHubSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
@@ -64,7 +59,7 @@ import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache'
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
-import { resolveSectionId } from '@/lib/panel-admin-menu'
+import { resolvePanelNavigation, resolveSectionId } from '@/lib/panel-admin-menu'
 import { getStaffAdminMenu, isManagerSectionAllowed, type PanelCapabilities } from '@/lib/panel-role-capabilities'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
@@ -72,7 +67,6 @@ import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/
 import { removeWebsiteFromSupabase, syncWebsiteToSupabase } from '@/lib/supabase-sync'
 import { cn } from '@/lib/utils'
 import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
-import { MailMarketingSectionBackup } from '@/components/dashboard/MailMarketingSectionBackup'
 import { DirectAdminEmailsSection } from './DirectAdminEmailsSection'
 import {
   fetchPanelBootstrap,
@@ -85,10 +79,6 @@ import {
 import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { applyAdminPanelScope, buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter'
 import { auth as panelAuth } from '@/lib/supabase-client'
-import { ProvisionClienteSection } from './ProvisionClienteSection'
-import { ProvisionAccountFormInline } from './ProvisionAccountFormInline'
-import { ResellerProvisionForm } from './ResellerProvisionForm'
-import { createDefaultResellerPackageForm } from '@/lib/reseller-package-form'
 
 const directAdminAPI = panelAPI
 
@@ -1577,19 +1567,32 @@ function AdminPageContent() {
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
+  const [packagesOpenCreate, setPackagesOpenCreate] = useState(false)
+  const [selectedManageDomain, setSelectedManageDomain] = useState('')
   const [provisionAccountType, setProvisionAccountType] = useState<'client' | 'reseller' | 'professional' | 'admin'>('client')
   const [contasListResetToken, setContasListResetToken] = useState(0)
 
   const searchParams = useSearchParams();
   const initialLoadDone = useRef(false);
 
+  const applyPanelNavigation = useCallback((sectionId: string) => {
+    const nav = resolvePanelNavigation(sectionId)
+    if (nav.domainHubTab) setDomainHubTab(nav.domainHubTab)
+    if (nav.openPackagesCreate) setPackagesOpenCreate(true)
+    else if (nav.section !== 'packages-list') setPackagesOpenCreate(false)
+    setActiveSection(nav.section)
+  }, [])
+
   // Efeito para capturar section da URL - garantir dashboard como padrão
   useEffect(() => {
-    // Sempre definir dashboard como padrão na carga inicial/recarga da página
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
       const section = searchParams.get('section');
-      setActiveSection(section || 'dashboard');
+      if (section) {
+        applyPanelNavigation(section);
+      } else {
+        setActiveSection('dashboard');
+      }
       if (section || searchParams.get('impersonate_error')) {
         const err = searchParams.get('impersonate_error');
         window.history.replaceState(
@@ -1601,12 +1604,11 @@ function AdminPageContent() {
       return;
     }
 
-    // Após a carga inicial, permitir navegação por parâmetros de URL (ex: links externos)
     const section = searchParams.get('section');
     if (section) {
-      setActiveSection(section);
+      applyPanelNavigation(section);
     }
-  }, [searchParams]);
+  }, [searchParams, applyPanelNavigation]);
 
   // Efeito para capturar domínio vindo do botão "Base de Dados"
   useEffect(() => {
@@ -1635,6 +1637,18 @@ function AdminPageContent() {
       window.__selectedBackupDomain = null;
     } else if (!backupSections.has(activeSection)) {
       setSelectedBackupDomain('');
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    // @ts-ignore
+    if (window.__selectedManageDomain && activeSection === 'manage-website') {
+      // @ts-ignore
+      setSelectedManageDomain(window.__selectedManageDomain);
+      // @ts-ignore
+      window.__selectedManageDomain = null;
+    } else if (activeSection !== 'manage-website') {
+      setSelectedManageDomain('');
     }
   }, [activeSection]);
 
@@ -1830,18 +1844,6 @@ function AdminPageContent() {
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'domains', label: 'Websites', icon: Globe },
-    { id: 'cp-users', label: 'Contas', icon: Users },
-    { id: 'webmail', label: 'Webmail (Caixa)', icon: Mail },
-    { id: 'emails-new', label: 'Emails (Gestão)', icon: Mail },
-    { id: 'newsletter', label: 'Marketing / News', icon: Layout },
-    { id: 'git-deploy', label: 'Deploy / GitHub', icon: Download },
-    { id: 'cp-api', label: 'Configurações', icon: Settings },
-  ]
-
   const getSectionInfo = (section: string) => getPanelSectionMeta(section)
 
   const renderSectionFor = (sectionId: string, isActive: boolean) => {
@@ -1887,7 +1889,7 @@ function AdminPageContent() {
           sites={filteredSites}
           users={directAdminUsers}
           isFetching={isFetchingDirectAdmin}
-          onNavigate={setActiveSection}
+          onNavigate={handleNavigate}
           onRefresh={() => void loadDirectAdminData(true)}
           onSetDNSDomain={setSelectedDNSDomain}
           onSetFileManagerDomain={setFileManagerDomain}
@@ -1895,32 +1897,29 @@ function AdminPageContent() {
           onSearchChange={setDashboardSearch}
         />
       case 'domains':
-        return <ListWebsitesSection
-          sites={filteredSites}
-          onRefresh={() => void loadDirectAdminData(true)}
-          packages={directAdminPackages}
-          setActiveSection={setActiveSection}
-          setFileManagerDomain={setFileManagerDomain}
-          setSelectedDNSDomain={setSelectedDNSDomain}
-          setSelectedSslDomain={setSelectedSslDomain}
-          primaryDomain={accountPrimaryDomain}
-          loadDirectAdminData={loadDirectAdminData}
-          syncing={syncing}
-          handleSync={handleSync}
-          daLoadError={daLoadError}
-        />
       case 'domains-list':
-        return <ListDomainsSection
-          sites={filteredSites}
-          onRefresh={() => void loadDirectAdminData(true)}
-          setActiveSection={setActiveSection}
-          setFileManagerDomain={setFileManagerDomain}
-        />
+        return (
+          <DomainsHubSection
+            variant="admin"
+            isActive={isActive}
+            initialTab="meus"
+            sites={domainHubSites}
+            packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
+            onCreateEmail={(domain) => {
+              setPreSelectedEmailDomain(domain)
+              setActiveSection('cp-email-mgmt')
+            }}
+            onNavigate={(section, opts) => {
+              if (opts?.domain) setSelectedDNSDomain(opts.domain)
+              handleNavigate(section)
+            }}
+            onHubPanelClose={() => setDomainHubTab('meus')}
+          />
+        )
       case 'file-manager':
       case 'cp-file-manager':
         return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} />
-      case 'infra-manager':
-        return <InfraManagerSection />
       case 'news-manager':
         return <NewsManagerSection />
       case 'clientes':
@@ -1938,10 +1937,6 @@ function AdminPageContent() {
             }}
           />
         )
-      case 'domains-new':
-      case 'porkbun-domains':
-      case 'porkbun-my-domains':
-        return null
       case 'domain-manager':
         return (
           <DomainsHubSection
@@ -1957,13 +1952,11 @@ function AdminPageContent() {
             }}
             onNavigate={(section, opts) => {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              setActiveSection(section)
+              handleNavigate(section)
             }}
             onHubPanelClose={() => setDomainHubTab('meus')}
           />
         )
-      case 'cp-subdomains':
-        return null
       case 'website-preview':
         return <WebsitePreviewSection sites={filteredSites} />
       case 'email-import':
@@ -2015,10 +2008,6 @@ function AdminPageContent() {
         return <DirectAdminEmailsSection />
       case 'setup-smtp':
         return <SMTPConfigSection />
-      case 'email-diagnostico':
-        return <EmailDiagnosticoSection />
-      case 'notifications':
-        return <NotificationsSection />
       case 'renewals':
         return <RenewalsSection initialTab="overview" hideTabs={true} />
       case 'templates-renovacao':
@@ -2186,75 +2175,33 @@ function AdminPageContent() {
             }}
           />
         )
-      case 'newsletter-backup':
-        return (
-          <MailMarketingSectionBackup
-            sites={filteredSites}
-            currentUserEmail={sessionUser || undefined}
-            activeTab="comp"
-            onTabChange={() => {}}
-          />
-        )
       case 'git-deploy':
         return <GitDeploySection />
       case 'deploy':
         return <DeploySection sites={directAdminSites} />
       case 'packages-list':
-        return <PackagesSection packages={directAdminPackages} onRefresh={() => void loadDirectAdminData(true)} isActive={isActive} />
-      case 'audit-form-create':
         return (
-          <ProvisionClienteSection
+          <PackagesSection
             packages={directAdminPackages}
-            initialAccountType="client"
-            mode="create"
-            accountsApiBase="/api/admin/clientes"
-            onCancel={() => setActiveSection('hospedagem-contas')}
+            onRefresh={() => void loadDirectAdminData(true)}
+            isActive={isActive}
+            initialOpenCreate={packagesOpenCreate}
           />
         )
-      case 'audit-form-edit':
+      case 'manage-website':
         return (
-          <ProvisionClienteSection
+          <ManageWebsiteSection
+            domain={selectedManageDomain || primaryDomain}
+            sites={filteredSites}
+            setActiveSection={setActiveSection}
+            setFileManagerDomain={setFileManagerDomain}
+            setSelectedDNSDomain={setSelectedDNSDomain}
             packages={directAdminPackages}
-            mode="edit"
-            editUser={{
-              userName: 'joaosilva',
-              email: 'joao.silva@exemplo.com',
-              firstName: 'João',
-              lastName: 'Silva',
-              primaryDomain: 'joaosilva.com',
-              packageName: 'Standard',
-              type: 'client',
-              websitesLimit: 5,
-              emailsLimit: 50,
-            }}
-            accountsApiBase="/api/admin/clientes"
-            onCancel={() => setActiveSection('hospedagem-contas')}
+            onRefresh={() => void loadDirectAdminData(true)}
           />
         )
-      case 'audit-form-password':
-        return <AuditFormPasswordDemo />
-      case 'audit-form-message':
-        return <AuditFormMessageDemo />
-      case 'audit-form-inline':
-        return (
-          <ProvisionAccountFormInline
-            packages={directAdminPackages}
-            initialAccountType="client"
-            onCancel={() => setActiveSection('hospedagem-contas')}
-          />
-        )
-      case 'audit-form-reseller':
-        return <AuditFormResellerDemo />
-      case 'page-builders':
-        // Redirecionar para a página de construtores
-        if (typeof window !== 'undefined') {
-          window.location.href = '/dashboard/page-builders';
-        }
-        return <div className="p-8 text-center text-gray-500">Redirecionando para construtores...</div>;
-      case 'templates-saved':
-        return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       default:
-        return <CpanelDashboard sites={filteredSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={setActiveSection} onRefresh={() => void loadDirectAdminData(true)} onSetFileManagerDomain={setFileManagerDomain} />
+        return <CpanelDashboard sites={filteredSites} users={directAdminUsers} isFetching={isFetchingDirectAdmin} onNavigate={handleNavigate} onRefresh={() => void loadDirectAdminData(true)} onSetFileManagerDomain={setFileManagerDomain} />
     }
   }
 
@@ -2404,12 +2351,11 @@ function AdminPageContent() {
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
       setPreSelectedEmailDomain('visualdesignmoz.com')
     }
-    if (isDomainHubSection(section)) {
-      setDomainHubTab(sectionToDomainTab(section))
-      setActiveSection('domain-manager')
-      return
-    }
-    setActiveSection(section)
+    const nav = resolvePanelNavigation(section)
+    if (nav.domainHubTab) setDomainHubTab(nav.domainHubTab)
+    if (nav.openPackagesCreate) setPackagesOpenCreate(true)
+    else if (nav.section !== 'packages-list') setPackagesOpenCreate(false)
+    setActiveSection(nav.section)
   }
 
   return (
@@ -2686,127 +2632,4 @@ function AdminPageContent() {
       </div>
     </div>
   )
-}
-
-function AuditFormPasswordDemo() {
-  const [showPassword, setShowPassword] = useState(false);
-  return (
-    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-md mx-auto space-y-4 shadow-sm">
-      <div>
-        <h3 className="font-bold text-gray-900">Demonstração: Alteração de Senha Rápida (Modal)</h3>
-        <p className="text-xs text-gray-500">Este formulário é exibido como um modal pop-up na tabela de listagem de contas.</p>
-      </div>
-      <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 dark:bg-zinc-900 dark:border-zinc-800">
-        <h4 className="mb-4 text-sm font-bold text-gray-900 dark:text-zinc-100">
-          Alterar password — joaosilva
-        </h4>
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-zinc-500">Nova password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value="senhaMockada123!"
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm pr-10 focus:border-zinc-400 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-rose-600"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-zinc-500">Confirmar password</label>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value="senhaMockada123!"
-              readOnly
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-zinc-400 outline-none"
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2 text-xs font-bold">
-          <button type="button" className="px-4 py-2 border border-gray-200 rounded hover:bg-gray-100 text-gray-700">
-            Cancelar
-          </button>
-          <button type="button" className="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700">
-            Guardar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AuditFormMessageDemo() {
-  return (
-    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-lg mx-auto space-y-4 shadow-sm">
-      <div>
-        <h3 className="font-bold text-gray-900">Demonstração: Enviar Mensagem (Modal)</h3>
-        <p className="text-xs text-gray-500">Este formulário permite ao administrador enviar mensagens de email diretas ao proprietário da conta.</p>
-      </div>
-      <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 dark:bg-zinc-900 dark:border-zinc-800">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="font-bold text-gray-900 dark:text-zinc-100">Enviar mensagem — joaosilva</h4>
-          <button type="button" className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="space-y-3">
-          <input
-            value="joao.silva@exemplo.com"
-            disabled
-            placeholder="Para (email)"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
-          />
-          <input
-            value="Notificação sobre sua conta joaosilva"
-            disabled
-            placeholder="Assunto"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
-          />
-          <textarea
-            value="Prezado João,\n\nEstamos entrando em contato para informar que..."
-            disabled
-            placeholder="Mensagem..."
-            rows={5}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100"
-          />
-        </div>
-        <button
-          type="button"
-          disabled
-          className="mt-4 w-full flex justify-center py-2 px-4 border border-zinc-200 bg-zinc-100 rounded text-sm text-zinc-500 font-bold"
-        >
-          Enviar Mensagem
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AuditFormResellerDemo() {
-  const [resellerForm, setResellerForm] = useState(() => createDefaultResellerPackageForm());
-  const [domain, setDomain] = useState('exemplo-revendedor.com');
-  return (
-    <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-4xl mx-auto space-y-6 shadow-sm">
-      <div className="border-b pb-4">
-        <h2 className="text-lg font-bold text-gray-900">Demonstração: Formulário de Configuração de Pacote de Revenda (Inativo)</h2>
-        <p className="text-xs text-gray-500">
-          Este formulário (ResellerProvisionForm) permitia configurar detalhadamente limites de recursos no DirectAdmin para novos revendedores.
-        </p>
-      </div>
-      <div className="bg-gray-50 p-4 border border-gray-200 rounded dark:bg-zinc-900 dark:border-zinc-800">
-        <ResellerProvisionForm
-          form={resellerForm}
-          onChange={setResellerForm}
-          existingPackages={['Essencial', 'Expandido']}
-          domain={domain}
-          onDomainChange={setDomain}
-        />
-      </div>
-    </div>
-  );
 }

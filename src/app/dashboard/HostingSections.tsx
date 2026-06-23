@@ -6688,11 +6688,13 @@ export function PackagesSection({
   onRefresh,
   isActive = true,
   panelScope = 'admin',
+  initialOpenCreate = false,
 }: {
   packages: any[]
   onRefresh: () => void
   isActive?: boolean
   panelScope?: 'admin' | 'reseller'
+  initialOpenCreate?: boolean
 }) {
   const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache(panelScope) || packages)
   const [loadingLive, setLoadingLive] = useState(false)
@@ -6751,8 +6753,13 @@ export function PackagesSection({
     setChrome(null)
     clearPackagesCache(panelScope)
     void loadLivePackages({ sync: true })
+    if (initialOpenCreate) {
+      setEditingPackageName(null)
+      setPackageForm(createDefaultResellerPackageForm())
+      setShowPackageForm(true)
+    }
     return () => setChrome(null)
-  }, [isActive, setChrome])
+  }, [isActive, setChrome, initialOpenCreate])
 
   const displayPackages = useMemo(() => {
     const byName = new Map<string, any>()

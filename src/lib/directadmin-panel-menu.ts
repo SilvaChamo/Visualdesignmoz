@@ -72,8 +72,8 @@ export const RESELLER_DA_MENU: ResellerMenuEntry[] = [
     label: 'Domínios',
     icon: 'globe',
     subItems: [
-      { id: 'porkbun-domains', label: 'Comprar domínio' },
-      { id: 'porkbun-my-domains', label: 'Os meus domínios' },
+      { id: 'registrar-domains', label: 'Registar domínio' },
+      { id: 'domains-registados', label: 'Domínios registados' },
       { id: 'domains-new', label: 'Criar website' },
       { id: 'domains', label: 'Listar websites' },
       { id: 'domain-manager', label: 'Gestor de domínios' },

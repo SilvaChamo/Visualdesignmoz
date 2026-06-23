@@ -375,7 +375,7 @@ function buildPrefetchQueue(options: PrefetchPanelOptions): QueuedPrefetchStep[]
         });
         break;
       case 'domain-manager':
-      case 'porkbun-my-domains':
+      case 'domains-registados':
         push(sectionId, () => prefetchRegistrarDomainsAsync());
         break;
       case 'dns-central':

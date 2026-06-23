@@ -1,6 +1,5 @@
 import {
   ADMIN_MENU_ITEM_DEFS,
-  LEGACY_SUB_ITEM_DEFS,
   resolveSectionId,
 } from '@/lib/panel-admin-menu';
 
@@ -9,28 +8,30 @@ export type PanelSectionMeta = {
   description: string;
 };
 
-/** Títulos quando o item não está no menu lateral. */
 const SECTION_TITLES: Record<string, string> = {
-  'domain-manager': 'Meus domínios',
-  'porkbun-domains': 'Registar domínio',
-  'porkbun-my-domains': 'Domínios registados',
+  'domain-manager': 'Domínios',
+  'registrar-domains': 'Registar domínio',
+  'domains-registados': 'Domínios registados',
   'wp-users': 'Contas WordPress',
+  infrastructure: 'Servidor e API',
+  'cp-client-permissions': 'Painel do cliente',
+  revendedores: 'Revendedores',
+  clientes: 'Acessos ao painel',
+  'hospedagem-contas': 'Contas de hospedagem',
+  'packages-new': 'Criar pacote',
+  'manage-website': 'Gerir website',
 };
 
-/** Descrições por secção (título vem do menu quando existir). */
 const SECTION_DESCRIPTIONS: Record<string, string> = {
   dashboard: 'Painel de controlo principal',
-  domains: 'Gestão de websites e domínios',
-  'domains-list': 'Listar todos os websites',
-  'domains-new': 'Criar novo website',
   'file-manager': 'Gestão de ficheiros',
-  'cp-file-manager': 'Gestor de ficheiros DirectAdmin',
-  'infra-manager': 'Gestão de infraestrutura',
+  'cp-file-manager': 'Gestor de ficheiros',
   'news-manager': 'Gestão de notícias',
-  clientes: 'Clientes com acesso ao painel cliente',
+  clientes: 'Utilizadores com acesso ao painel cliente',
   revendedores: 'Contas de revenda no painel',
-  'wp-users': 'Gerir contas de utilizadores e acessos directos ao painel de administração WordPress',
-  'cp-subdomains': 'Criar e gerir subdomínios',
+  'cp-client-permissions': 'Módulos visíveis no painel do cliente',
+  'wp-users': 'Gerir contas de utilizadores WordPress',
+  'cp-subdomains': 'Adicionar subdomínio ou domínio addon',
   'cp-list-subdomains': 'Ver subdomínios e addon domains',
   'cp-databases': 'Crie e gira bases de dados MySQL para os seus websites',
   'cp-ftp': 'Gira contas FTP para transferência de ficheiros',
@@ -42,6 +43,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'domain-manager': 'Gerir domínios de hospedagem e registo',
   'cp-dns-nameserver': 'Gestão de nameservers personalizados e predefinidos',
   'cp-api': 'Tokens de acesso à API e estado do servidor',
+  infrastructure: 'Estado do servidor e token de API',
   'git-deploy': 'Deploy automático via GitHub',
   'emails-new': 'Cria, elimina e configura contas de e-mail corporativo',
   'cp-email-mgmt': 'Cria, elimina e configura contas de e-mail corporativo',
@@ -64,42 +66,35 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'cp-modify-website': 'Alterar pacote e PHP do website',
   'cp-suspend-website': 'Suspender ou reactivar websites',
   'cp-delete-website': 'Remover website permanentemente',
-  'provision-client': 'Utilizador + pacote + domínio num só formulário',
+  'provision-client': 'Criar conta de hospedagem',
   'hospedagem-contas': 'Contas de hospedagem no servidor',
   'website-preview': 'Pré-visualização do website',
   'manage-website': 'Gerir website e serviços associados',
   'email-import': 'Importar contas de e-mail',
   'packages-list': 'Criar e gerir pacotes de hospedagem',
-  'packages-new': 'Criar novo pacote',
   'cp-reseller': 'ACLs e permissões de revendedores',
   'cp-dns-default-ns': 'Nameservers por defeito para novos sites',
   'cp-dns-create-zone': 'Criar nova zona DNS',
   'cp-dns-delete-zone': 'Apagar zona DNS',
   'domains-dns': 'Registos DNS no servidor',
-  'cp-dns-cloudflare': 'Integração CloudFlare',
+  'cp-dns-cloudflare': 'Integração DNS externa',
   'cp-dns-reset': 'Repor DNS aos valores por defeito',
-  'dns-central': 'Gestão centralizada de zonas DNS — seleccione um domínio para ver os registos',
+  'dns-central': 'Gestão centralizada de zonas DNS',
   'transferir-dominio': 'Transferir um domínio existente para a sua conta',
   'cp-dns-zone-editor': 'Editor de zona DNS no servidor',
-  'porkbun-domains':
-    'Pesquise disponibilidade e registe domínios com preço em tempo real (conta de registo ligada ao servidor)',
-  'porkbun-my-domains':
-    'Domínios associados à conta de registo ligada ao painel Visual Design',
+  'registrar-domains': 'Pesquisar disponibilidade e registar domínios',
+  'domains-registados': 'Domínios associados à conta de registo',
   newsletter: 'Campanhas e envio de email marketing',
-  'da-emails': 'Contas POP/IMAP no DirectAdmin',
+  'da-emails': 'Contas POP/IMAP no servidor',
   'backup-manager': 'Gere backups de sites, ficheiros, bases de dados e e-mails',
-  infrastructure: 'Estado e configuração do servidor',
   'wp-sites': 'Sites WordPress instalados no servidor',
   'wp-plugins': 'Activar, instalar, actualizar e gerir plugins',
   'wp-backup': 'Restaurar e backup remoto WordPress',
-  'wp-update': 'Plugins WordPress (legado)',
-  'cp-client-permissions': 'Módulos visíveis no painel do cliente',
   'cp-reseller-permissions': 'Módulos visíveis no painel do revendedor',
   renewals: 'Renovações de domínios e hospedagem',
   'cadastrar-renovacao': 'Registar nova renovação',
   'templates-renovacao': 'Modelos de notificação de renovação',
   'cp-audit-sync': 'Auditoria e sincronização com o servidor',
-  'email-diagnostico': 'Diagnóstico de envio e recepção de e-mail',
 };
 
 function menuLabelForSection(sectionId: string): string | null {
@@ -109,11 +104,6 @@ function menuLabelForSection(sectionId: string): string | null {
       if (sub.id === sectionId || resolveSectionId(sub.id) === sectionId) {
         return sub.label;
       }
-    }
-  }
-  for (const sub of LEGACY_SUB_ITEM_DEFS) {
-    if (sub.id === sectionId || resolveSectionId(sub.id) === sectionId) {
-      return sub.label;
     }
   }
   return null;

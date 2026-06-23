@@ -66,10 +66,12 @@ const MANAGER_DENIED_SUB_IDS = new Set([
   'cp-users',
   'clientes',
   'hospedagem-contas',
+  'revendedores',
   'packages-list',
   'provision-client',
   'cp-reseller',
   'cp-reseller-permissions',
+  'cp-client-permissions',
   'panel-permissions',
 ]);
 

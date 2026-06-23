@@ -9,25 +9,12 @@ import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import type { DirectAdminPackage, DirectAdminWebsite } from '@/lib/directadmin-api';
 
-export type DomainHubTab = 'meus' | 'adicionar' | 'registados' | 'registar';
-
-const DOMAIN_HUB_SECTION_IDS = new Set([
-  'domain-manager',
-  'porkbun-domains',
-  'porkbun-my-domains',
-  'domains-new',
-]);
-
-export function isDomainHubSection(sectionId: string): boolean {
-  return DOMAIN_HUB_SECTION_IDS.has(sectionId);
-}
-
-export function sectionToDomainTab(sectionId: string): DomainHubTab {
-  if (sectionId === 'domains-new') return 'adicionar';
-  if (sectionId === 'porkbun-domains') return 'registar';
-  if (sectionId === 'porkbun-my-domains') return 'registados';
-  return 'meus';
-}
+import type { DomainHubTab } from '@/lib/panel-admin-menu';
+export type { DomainHubTab } from '@/lib/panel-admin-menu';
+export {
+  isDomainHubRoute as isDomainHubSection,
+  domainHubTabForSection as sectionToDomainTab,
+} from '@/lib/panel-admin-menu';
 
 type TabDef = {
   id: DomainHubTab;

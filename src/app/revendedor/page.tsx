@@ -41,8 +41,6 @@ import { DNSCentralSection } from '../dashboard/DNSCentralSection'
 import { DomainTransferSection } from '../dashboard/DomainTransferSection'
 import {
   DomainsHubSection,
-  isDomainHubSection,
-  sectionToDomainTab,
   type DomainHubTab,
 } from '../dashboard/DomainsHubSection'
 import { PanelPermissionsConfig } from '../dashboard/PanelPermissionsConfig'
@@ -70,7 +68,7 @@ import { OSHER_DOMAIN } from '@/lib/email-domains'
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich'
 import { WordPressHubSection } from '../dashboard/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
-import { resolveSectionId } from '@/lib/panel-admin-menu'
+import { resolvePanelNavigation, resolveSectionId } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
@@ -2352,8 +2350,6 @@ function ResellerPageContent() {
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
-      case 'porkbun-domains':
-      case 'porkbun-my-domains':
       case 'domain-manager':
         return (
           <DomainsHubSection
@@ -2521,14 +2517,6 @@ function ResellerPageContent() {
           packages={directAdminPackages}
           onRefresh={() => void loadDirectAdminData(true)}
         />
-      case 'page-builders':
-        // Redirecionar para a página de construtores do revendedor
-        if (typeof window !== 'undefined') {
-          window.location.href = '/revendedor/page-builders';
-        }
-        return <div className="p-8 text-center text-gray-500">Redirecionando para construtores...</div>;
-      case 'templates-saved':
-        return <div className="p-8"><h2 className="text-2xl font-bold mb-4">Templates Salvos</h2><p className="text-gray-600">Funcionalidade em desenvolvimento.</p></div>;
       case 'settings-branding':
         return <ResellerSettingsSection onLogoChange={setLogoUrl} />;
       case 'settings-profile':
@@ -2689,12 +2677,9 @@ function ResellerPageContent() {
     if (section === 'emails-new' || section === 'cp-email-mgmt') {
       setPreSelectedEmailDomain(primaryDomain)
     }
-    if (isDomainHubSection(section)) {
-      setDomainHubTab(sectionToDomainTab(section))
-      setActiveSection(section)
-      return
-    }
-    setActiveSection(resolveSectionId(section))
+    const nav = resolvePanelNavigation(section)
+    if (nav.domainHubTab) setDomainHubTab(nav.domainHubTab)
+    setActiveSection(nav.section)
   }
 
   return (

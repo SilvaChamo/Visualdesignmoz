@@ -26,7 +26,6 @@ function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?
 }
 import {
   ADMIN_MENU_ITEM_DEFS,
-  LEGACY_ALIAS,
   adminMenuParentForSection,
   isPanelMenuItemActive,
   resolveSectionId,

@@ -3833,20 +3833,6 @@ function ClientPageContent() {
         )
       case 'transferir-dominio':
         return <DomainTransferSection />
-      case 'porkbun-domains':
-        return <RegistrarDomainsSection />
-      case 'porkbun-my-domains':
-        return (
-          <DomainManagerSection
-            sites={directAdminSites}
-            packages={directAdminPackages}
-            onCreateEmail={() => setActiveSection('emails-new')}
-            onNavigate={(section, opts) => {
-              if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              setActiveSection(section)
-            }}
-          />
-        )
       case 'domain-manager':
         return (
           <DomainManagerSection
