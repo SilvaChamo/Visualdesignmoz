@@ -37,6 +37,8 @@ import {
   WPRestoreBackupSection, WPRemoteBackupSection, ListSubdomainsSection,
   WebsitePreviewSection, EmailImportSection,
   PackagesSection, DNSZoneEditorSection, FileManagerSection, BackupManagerSection,
+  BackupAutoConfigSection,
+  BackupReportSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
   SMTPConfigSection, AuditSyncSection, NameserverManagementSection
 } from './DirectAdminSections'
@@ -609,12 +611,19 @@ function ListWordPressSection({ sites, onRefresh, setActiveSection, setFileManag
                         <Globe2 className="w-3.5 h-3.5" /> Editar DNS
                       </button>
                       <button
-                        onClick={() => setActiveSection('backup-manager')}
+                        onClick={() => {
+                          // @ts-ignore
+                          window.__selectedBackupDomain = s.domain
+                          setActiveSection('wp-backup')
+                        }}
                         className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded text-xs font-bold transition-colors">
                         <Archive className="w-3.5 h-3.5" /> Backup
                       </button>
                       <button
-                        onClick={() => setActiveSection('databases')}
+                        onClick={() => {
+                          if (setSelectedDNSDomain) setSelectedDNSDomain(s.domain);
+                          setActiveSection('databases');
+                        }}
                         className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-300 text-cyan-600 hover:bg-cyan-100 px-4 py-2 rounded text-xs font-bold transition-colors">
                         <Database className="w-3.5 h-3.5" /> Base de Dados
                       </button>
@@ -1363,7 +1372,11 @@ function ManageWebsiteSection({
         <MenuItem icon="wordpress" label="Install WP" external href={getDirectAdminWordPressUrl()} badge="DIRECTADMIN" />
         <MenuItem icon="wordpress" label="WP Admin" external href={`https://${domain}/wp-admin`} />
         <MenuItem icon="wordpress" label="Plugins" onClick={() => setActiveSection('cp-wp-plugins')} />
-        <MenuItem icon="backups" label="Backups" onClick={() => setActiveSection('backup-manager')} />
+        <MenuItem icon="backups" label="Backups" onClick={() => {
+          // @ts-ignore
+          window.__selectedBackupDomain = domain
+          setActiveSection('wp-backup')
+        }} />
       </SectionCard>
 
       {/* Modal de Criação de Domínio */}
@@ -1610,13 +1623,17 @@ function AdminPageContent() {
 
   // Efeito para capturar domínio vindo do botão "Backup"
   useEffect(() => {
+    const backupSections = new Set([
+      'backup-manager', 'wp-backup', 'cp-backup',
+      'cp-wp-backup', 'cp-wp-restore-backup', 'cp-wp-remote-backup',
+    ])
     // @ts-ignore
-    if (window.__selectedBackupDomain && activeSection === 'backup-manager') {
+    if (window.__selectedBackupDomain && backupSections.has(activeSection)) {
       // @ts-ignore
       setSelectedBackupDomain(window.__selectedBackupDomain);
       // @ts-ignore
       window.__selectedBackupDomain = null;
-    } else if (activeSection !== 'backup-manager') {
+    } else if (!backupSections.has(activeSection)) {
       setSelectedBackupDomain('');
     }
   }, [activeSection]);
@@ -1959,6 +1976,7 @@ function AdminPageContent() {
         return <SuspendWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'cp-delete-website':
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
+      case 'databases':
       case 'cp-databases':
         return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
       case 'cp-ftp':
@@ -2044,6 +2062,23 @@ function AdminPageContent() {
       case 'cp-api':
       case 'infrastructure':
         return <APIConfigSection />
+      case 'wp-backup-report':
+        return (
+          <BackupReportSection
+            sites={filteredSites}
+            initialDomain={selectedBackupDomain || primaryDomain}
+            isActive={isActive}
+            setActiveSection={setActiveSection}
+          />
+        )
+      case 'wp-backup-auto':
+        return (
+          <BackupAutoConfigSection
+            sites={filteredSites}
+            initialDomain={selectedBackupDomain || primaryDomain}
+            setActiveSection={setActiveSection}
+          />
+        )
       case 'backup-manager':
       case 'cp-backup':
       case 'cp-wp-backup':
@@ -2054,7 +2089,9 @@ function AdminPageContent() {
           <BackupManagerSection
             sites={filteredSites}
             initialDomain={selectedBackupDomain || primaryDomain}
+            siteLocked={Boolean(selectedBackupDomain)}
             isActive={isActive}
+            setActiveSection={setActiveSection}
           />
         )
       case 'wp-sites':

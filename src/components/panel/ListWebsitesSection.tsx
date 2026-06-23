@@ -337,7 +337,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const openBackupPage = (domain: string) => {
     // @ts-ignore
     window.__selectedBackupDomain = domain
-    setTimeout(() => setActiveSection('backup-manager'), 50)
+    setTimeout(() => setActiveSection('wp-backup'), 50)
   }
 
   // Manter sempre o primeiro card da página expandido

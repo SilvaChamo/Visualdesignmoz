@@ -15,6 +15,7 @@ import { writePanelUsersCache } from '@/lib/panel-users-cache';
 import { writeWpInstallsCache } from '@/lib/panel-wp-cache';
 import { writeWpPluginsCache } from '@/lib/wp-panel-cache';
 import { prefetchEmailConfigs } from '@/lib/panel-email-config-cache';
+import { prefetchBackupLists } from '@/lib/panel-backup-cache';
 import {
   mapEmailContasToWebmailAccounts,
   writeWebmailAccountsCache,
@@ -403,6 +404,13 @@ function buildPrefetchQueue(options: PrefetchPanelOptions): QueuedPrefetchStep[]
           }
         });
         break;
+      case 'backup-manager':
+        push(sectionId, async () => {
+          const backupOwner = options.backupOwner || 'admin';
+          if (!primary) return;
+          await prefetchBackupLists(backupOwner, primary, domains);
+        });
+        break;
       default:
         break;
     }
@@ -455,6 +463,7 @@ export type PrefetchPanelOptions = {
   primaryDomain?: string | null;
   siteDomains?: string[];
   daUsername?: string | null;
+  backupOwner?: string | null;
 };
 
 /** Pré-carregar dados das secções (fila por ordem do menu). */
@@ -490,12 +499,17 @@ export function prefetchPanelContentFromBootstrap(
     boot.resellerContext?.primaryDomain?.toLowerCase() ||
     resolvePrimaryDomainFromSites(boot.sites, daUsername);
   const siteDomains = boot.sites.map((s) => s.domain?.toLowerCase()).filter(Boolean) as string[];
+  const backupOwner =
+    boot.sites.find((s) => s.domain?.toLowerCase() === primary)?.owner?.toLowerCase()
+    || boot.sites[0]?.owner?.toLowerCase()
+    || 'admin';
 
   prefetchPanelContent({
     scope,
     primaryDomain: primary,
     siteDomains,
     daUsername,
+    backupOwner,
   });
 }
 

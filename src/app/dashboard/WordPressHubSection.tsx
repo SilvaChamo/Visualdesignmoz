@@ -31,7 +31,7 @@ const WordPressInstallSection = dynamic(
   { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
 );
 const BackupManagerSection = dynamic(
-  () => import('./HostingSections').then((m) => ({ default: m.BackupManagerSection })),
+  () => import('./BackupManagerSection').then((m) => ({ default: m.BackupManagerSection })),
   { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
 );
 
@@ -618,7 +618,11 @@ export function WordPressHubSection({
       )}
 
       {tab === 'backup' && (
-        <BackupManagerSection sites={sites} initialDomain={selectedDomain || sites[0]?.domain} />
+        <BackupManagerSection
+          sites={sites}
+          initialDomain={selectedDomain || sites[0]?.domain}
+          siteLocked={Boolean(selectedDomain)}
+        />
       )}
     </div>
   );
