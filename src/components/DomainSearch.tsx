@@ -100,55 +100,45 @@ export default function DomainSearch({
 
     try {
       const tldsToSearch = Array.from(new Set([selectedTLD, ...TLDS.map((row) => row.value)]))
-      const allResults: SearchResult[] = []
-      const batchSize = 3
+      
+      const fetchPromises = tldsToSearch.map(async (tld) => {
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-      for (let i = 0; i < tldsToSearch.length; i += batchSize) {
-        const batch = tldsToSearch.slice(i, i + batchSize)
-        const fetchPromises = batch.map(async (tld) => {
-          try {
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 15000)
+          const res = await fetch('/api/domain-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: searchQuery.trim(), tld }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
 
-            const res = await fetch('/api/domain-check', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ domain: searchQuery.trim(), tld }),
-              signal: controller.signal,
-            })
-            clearTimeout(timeoutId)
+          const data = await res.json()
+          const tldData = TLDS.find((row) => row.value === tld)
 
-            const data = await res.json()
-            const tldData = TLDS.find((row) => row.value === tld)
-
-            return {
-              domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-              available: data.available,
-              price:
-                typeof data.price === 'number'
-                  ? data.price
-                  : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 8.88),
-              renewPrice: tldData ? tldData.renewPrice : 8.88,
-              currency: data.currency || 'USD',
-              error: data.error,
-              costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
-            } as SearchResult
-          } catch {
-            return {
-              domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-              available: false,
-              error: 'Erro de verificação',
-            } as SearchResult
-          }
-        })
-
-        const batchResults = await Promise.all(fetchPromises)
-        allResults.push(...batchResults)
-
-        if (i + batchSize < tldsToSearch.length) {
-          await new Promise((resolve) => setTimeout(resolve, 800))
+          return {
+            domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+            available: data.available,
+            price:
+              typeof data.price === 'number'
+                ? data.price
+                : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 8.88),
+            renewPrice: tldData ? tldData.renewPrice : 8.88,
+            currency: data.currency || 'USD',
+            error: data.error,
+            costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
+          } as SearchResult
+        } catch {
+          return {
+            domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+            available: false,
+            error: 'Erro de verificação',
+          } as SearchResult
         }
-      }
+      })
+
+      const allResults = await Promise.all(fetchPromises)
 
       allResults.sort((a, b) => {
         if (a.domain.endsWith(selectedTLD)) return -1
