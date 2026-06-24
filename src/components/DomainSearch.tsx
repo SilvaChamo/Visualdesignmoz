@@ -53,8 +53,6 @@ export default function DomainSearch({
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [resultsTab, setResultsTab] = useState<'domains' | 'pricing' | 'plans'>('domains')
   const [billingCycle, setBillingCycle] = useState<'mensal' | 'anual'>('anual')
-  const [confirmModal, setConfirmModal] = useState<{ open: boolean; domain: string } | null>(null)
-  const [infoModal, setInfoModal] = useState<{ open: boolean; title: string; message: string; success: boolean } | null>(null)
 
   const searchRound = isAdmin || panelFieldRounding ? 'rounded' : 'rounded-lg'
   const fieldClass = isAdmin
@@ -176,9 +174,34 @@ export default function DomainSearch({
     if (onResultsAction) onResultsAction([])
   }
 
-  const handleRegisterAction = (domain: string) => {
+  const handleRegisterAction = async (domain: string) => {
     if (isAdmin) {
-      setConfirmModal({ open: true, domain })
+      const row = results.find((r) => r.domain === domain)
+      setActionLoading(domain)
+      try {
+        const res = await fetch('/api/domain-register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            domain,
+            agreeToTerms: true,
+            costPennies: row?.costPennies,
+          }),
+        })
+        const data = await res.json()
+
+        if (data.success) {
+          console.log(`[Registo] Domínio ${domain} registado com sucesso.`)
+          setResults((prev) => prev.map((r) => (r.domain === domain ? { ...r, available: false } : r)))
+        } else {
+          console.error(`[Registo] Erro ao registar: ${data.error}`)
+        }
+      } catch (err) {
+        console.error('[Registo] Erro de ligação:', err)
+      } finally {
+        setActionLoading(null)
+      }
     } else {
       const row = results.find((r) => r.domain === domain)
       if (row && row.price !== undefined) {
@@ -198,55 +221,6 @@ export default function DomainSearch({
           })
         }, 500)
       }
-    }
-  }
-
-  const executeRegister = async (domain: string) => {
-    setConfirmModal(null)
-    const row = results.find((r) => r.domain === domain)
-    setActionLoading(domain)
-    try {
-      const res = await fetch('/api/domain-register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          domain,
-          agreeToTerms: true,
-          costPennies: row?.costPennies,
-        }),
-      })
-      const data = await res.json()
-
-      if (data.success) {
-        setInfoModal({
-          open: true,
-          title: 'Registo Concluído',
-          message: `O domínio «${domain}» foi registado com sucesso!`,
-          success: true
-        })
-        setResults((prev) => prev.map((r) => (r.domain === domain ? { ...r, available: false } : r)))
-      } else {
-        let friendlyMessage = data.error || 'Ocorreu um erro desconhecido no registo.'
-        if (friendlyMessage.includes('Payment method is not available') || friendlyMessage.includes('funds on balance')) {
-          friendlyMessage = 'O registo foi rejeitado: Método de pagamento indisponível ou saldo insuficiente na conta do registador. Por favor, carregue o saldo na sua conta do registador.'
-        }
-        setInfoModal({
-          open: true,
-          title: 'Registo Rejeitado',
-          message: friendlyMessage,
-          success: false
-        })
-      }
-    } catch {
-      setInfoModal({
-        open: true,
-        title: 'Erro de Ligação',
-        message: 'Não foi possível estabelecer ligação com o serviço de registo. Por favor, tente novamente.',
-        success: false
-      })
-    } finally {
-      setActionLoading(null)
     }
   }
 
@@ -569,59 +543,6 @@ export default function DomainSearch({
       {!isAdmin && !hideResultsInternal && hasSearched && results.length > 0 ? (
         <div className="mt-6 w-full transition-all duration-300">{renderResultsPanel(false)}</div>
       ) : null}
-
-      {/* Modal de Confirmação */}
-      {confirmModal?.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              Confirmar Registo
-            </h3>
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-              Tem a certeza de que deseja registar o domínio <strong className="text-zinc-900 dark:text-white">«{confirmModal.domain}»</strong>?
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmModal(null)}
-                className="rounded border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void executeRegister(confirmModal.domain)}
-                className="rounded bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700 shadow-sm"
-              >
-                Confirmar Registo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Informação / Erro */}
-      {infoModal?.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-200">
-            <h3 className={`text-lg font-bold ${infoModal.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {infoModal.title}
-            </h3>
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              {infoModal.message}
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setInfoModal(null)}
-                className={`rounded px-4 py-2 text-sm font-bold text-white shadow-sm ${infoModal.success ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
