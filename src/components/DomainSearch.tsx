@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
 import { DomainPricingCarousel } from '@/components/DomainPricingCarousel'
 import { DOMAIN_TLD_PRICES, formatMtPrice } from '@/lib/domain-tld-prices'
+import { panelTabBtn, panelTabList } from '@/lib/panel-ui'
 
 interface SearchResult {
   domain: string
@@ -331,13 +332,13 @@ export default function DomainSearch({
               : 'Planos e serviços'}
         </h3>
         <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
-          <div className="flex gap-4">
+          <div className={panelTabList}>
             <button
               type="button"
               onClick={() => setResultsTab('domains')}
-              className={`border-b-2 px-2 py-1 text-sm font-bold transition-all ${
+              className={`${panelTabBtn} font-bold ${
                 resultsTab === 'domains'
-                  ? 'border-red-600 text-red-600'
+                  ? 'border-b-red-600 text-red-600'
                   : `border-transparent ${mutedText} hover:text-red-600`
               }`}
             >
@@ -347,9 +348,9 @@ export default function DomainSearch({
               <button
                 type="button"
                 onClick={() => setResultsTab('pricing')}
-                className={`border-b-2 px-2 py-1 text-sm font-bold transition-all ${
+                className={`${panelTabBtn} font-bold ${
                   resultsTab === 'pricing'
-                    ? 'border-red-600 text-red-600'
+                    ? 'border-b-red-600 text-red-600'
                     : `border-transparent ${mutedText} hover:text-red-600`
                 }`}
               >
@@ -359,9 +360,9 @@ export default function DomainSearch({
             <button
               type="button"
               onClick={() => setResultsTab('plans')}
-              className={`border-b-2 px-2 py-1 text-sm font-bold transition-all ${
+              className={`${panelTabBtn} font-bold ${
                 resultsTab === 'plans'
-                  ? 'border-red-600 text-red-600'
+                  ? 'border-b-red-600 text-red-600'
                   : `border-transparent ${mutedText} hover:text-red-600`
               }`}
             >

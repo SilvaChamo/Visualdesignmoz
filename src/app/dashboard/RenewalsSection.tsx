@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Undo2
 } from 'lucide-react'
+import { panelTabList, panelTabBtn } from '@/lib/panel-ui'
 import { getAllTemplates, RenewalTemplate, processTemplate, TemplateVariables } from '@/lib/renewal-templates'
 
 interface Renewal {
@@ -261,42 +262,42 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
 
       {/* Tabs - Simplified when hideTabs is true (hide Cadastrar and Templates) */}
       <div className="bg-white rounded shadow-sm border border-gray-200">
-        <div className="flex border-b border-gray-200">
+        <div className={panelTabList}>
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+            className={`${panelTabBtn} flex items-center gap-2 ${
+              activeTab === 'overview' ? 'border-b-blue-500 text-blue-600' : 'text-gray-600'
             }`}
           >
-            <TrendingUp className="w-4 h-4 inline mr-2" />
+            <TrendingUp className="w-4 h-4 inline" />
             Visão Geral
           </button>
           <button
             onClick={() => setActiveTab('domains')}
-            className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'domains' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+            className={`${panelTabBtn} flex items-center gap-2 ${
+              activeTab === 'domains' ? 'border-b-blue-500 text-blue-600' : 'text-gray-600'
             }`}
           >
-            <Globe className="w-4 h-4 inline mr-2" />
+            <Globe className="w-4 h-4 inline" />
             Domínios ({domains.length})
           </button>
           <button
             onClick={() => setActiveTab('hosting')}
-            className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'hosting' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+            className={`${panelTabBtn} flex items-center gap-2 ${
+              activeTab === 'hosting' ? 'border-b-blue-500 text-blue-600' : 'text-gray-600'
             }`}
           >
-            <Server className="w-4 h-4 inline mr-2" />
+            <Server className="w-4 h-4 inline" />
             Hospedagem ({hosting.length})
           </button>
           {!hideTabs && (
             <button
               onClick={() => setActiveTab('add')}
-              className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === 'add' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600'
+              className={`${panelTabBtn} flex items-center gap-2 ${
+                activeTab === 'add' ? 'border-b-blue-500 text-blue-600' : 'text-gray-600'
               }`}
             >
-              <Plus className="w-4 h-4 inline mr-2" />
+              <Plus className="w-4 h-4 inline" />
               Cadastrar
             </button>
           )}

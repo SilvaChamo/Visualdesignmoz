@@ -22,9 +22,11 @@ export type EnsureProvisionInput = {
   userId: string;
   email: string;
   nome?: string;
-  /** Se omitida, gera e actualiza Auth + DirectAdmin */
+  /** Se omitida, gera para o servidor; auth só actualiza se syncGeneratedPassword !== false */
   password?: string;
   domain?: string;
+  /** Quando false, password gerada não altera o login do painel */
+  syncGeneratedPassword?: boolean;
 };
 
 export type EnsureProvisionResult = ProvisionResellerResult & {
@@ -144,7 +146,9 @@ export async function ensureResellerProvisioned(
   if (!password) {
     password = generateProvisionerPassword();
     generatedPassword = true;
-    await syncAuthPassword(input.userId, password);
+    if (input.syncGeneratedPassword !== false) {
+      await syncAuthPassword(input.userId, password);
+    }
   }
 
   const existingDa = await findExistingDaResellerUsername(email, input.nome);

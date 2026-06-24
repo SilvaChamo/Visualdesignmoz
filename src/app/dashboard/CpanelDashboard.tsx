@@ -4,15 +4,23 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FolderOpen, Database, Globe, Mail, Shield, ShieldCheck, Code, Users, Package,
-  Server, BarChart2, ChevronUp, ChevronDown, HardDrive,
+  Server, ChevronUp, ChevronDown, HardDrive,
   Upload, PlusCircle, Lock, RefreshCw, Key,
-  Layers, Globe2, FileText, Edit, Trash2, List,
-  RotateCcw, Power, ArrowRight, Filter, Settings, Search,
-  Zap, BookOpen, Monitor, Archive, Eye, Layout, ShoppingCart,
+  Layers, FileText, Edit, Trash2, List,
+  RotateCcw, Power, ArrowRight, Filter, Settings,
+  Zap, BookOpen, Monitor, Archive, Eye, Layout, ShoppingCart, Bell,
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost } from '@/lib/server-config'
-import { panelDashboardToolCardCompact, panelSectionPadding } from '@/lib/panel-ui'
+import { panelDashboardToolCardCompact, panelDashboardToolLabel, panelSectionPadding } from '@/lib/panel-ui'
+import {
+  DASHBOARD_MENU_SECTION_STYLES,
+  DASHBOARD_SECTION_ORDER,
+  getDashboardMenuSectionDefs,
+  getDashboardRelocatedCarouselTools,
+  getExposedDashboardMenuParents,
+  isToolInExposedDashboardSection,
+} from '@/lib/panel-dashboard-menu'
 
 interface Tool {
   id: string
@@ -31,11 +39,89 @@ interface Section {
   tools: Tool[]
 }
 
-const VISIBLE_BEFORE_PAIRED = ['email', 'dominios', 'dns', 'databases'] as const
-const VISIBLE_AFTER_PAIRED = ['ficheiros'] as const
-const LOOSE_SECTION_IDS = ['backup', 'software', 'utilizadores', 'metricas', 'manutencao'] as const
-const PAIRED_TWO_CARD_GROUPS: readonly (readonly [string, string])[] = [['seguranca', 'pacotes']]
 const CAROUSEL_VISIBLE = 4
+
+const MENU_HEADER_ICONS: Record<string, React.ReactNode> = {
+  utilizadores: <Users className="h-5 w-5" />,
+  'nov-hospedagem': <Server className="h-5 w-5" />,
+  'nov-dominios': <Globe className="h-5 w-5" />,
+  'nov-notificacoes': <Bell className="h-5 w-5" />,
+  'nov-wordpress': <Layout className="h-5 w-5" />,
+  'nov-sistema': <Settings className="h-5 w-5" />,
+}
+
+function dashboardToolIcon(toolId: string, accent: string): React.ReactNode {
+  const cls = `h-9 w-9 ${accent}`
+  const map: Record<string, React.ReactNode> = {
+    clientes: <Users className={cls} />,
+    'utilizadores-visitantes': <Eye className={cls} />,
+    'utilizadores-gestao': <Shield className={cls} />,
+    'hospedagem-contas': <Users className={cls} />,
+    'hospedagem-mover-revenda': <RefreshCw className={cls} />,
+    revendedores: <Package className={cls} />,
+    'packages-list': <HardDrive className={cls} />,
+    'packages-new': <PlusCircle className={cls} />,
+    'cp-reseller': <Package className={cls} />,
+    'registrar-domains': <ShoppingCart className={cls} />,
+    'domains-registados': <List className={cls} />,
+    'cp-subdomains': <Layers className={cls} />,
+    'cp-list-subdomains': <List className={cls} />,
+    'cp-modify-website': <Edit className={cls} />,
+    'cp-suspend-website': <Power className={cls} />,
+    'website-preview': <Eye className={cls} />,
+    'cp-delete-website': <Trash2 className={cls} />,
+    phpmyadmin: <Database className={cls} />,
+    'backup-manager': <HardDrive className={cls} />,
+    'cp-wp-restore-backup': <RotateCcw className={cls} />,
+    'file-manager': <FolderOpen className={cls} />,
+    'cp-ftp': <Upload className={cls} />,
+    'cp-audit-sync': <ShieldCheck className={cls} />,
+    'cp-client-permissions': <Lock className={cls} />,
+    'domain-manager': <Globe className={cls} />,
+    'dns-central': <Globe className={cls} />,
+    'cp-ssl': <Lock className={cls} />,
+    'cp-php': <Code className={cls} />,
+    'cp-dns-nameserver': <Server className={cls} />,
+    'transferir-dominio': <ArrowRight className={cls} />,
+    renewals: <RefreshCw className={cls} />,
+    'cadastrar-renovacao': <PlusCircle className={cls} />,
+    'templates-renovacao': <FileText className={cls} />,
+    'wp-sites': <Globe className={cls} />,
+    'wordpress-install': <PlusCircle className={cls} />,
+    'wp-plugins': <Zap className={cls} />,
+    'wp-backup': <Archive className={cls} />,
+    'cp-databases': <Database className={cls} />,
+    infrastructure: <Monitor className={cls} />,
+    'git-deploy': <Upload className={cls} />,
+    'cp-reseller-permissions': <Shield className={cls} />,
+  }
+  return map[toolId] ?? <Settings className={cls} />
+}
+
+const EMAIL_SECTION: Section = {
+  id: 'email',
+  name: 'E-mails',
+  headerIcon: <Mail className="h-5 w-5" />,
+  color: 'text-cyan-700',
+  bgColor: 'bg-cyan-50',
+  tools: [
+    { id: 'cp-email-mgmt', name: 'E-mails', icon: <Mail className="h-9 w-9 text-cyan-500" /> },
+    { id: 'emails-webmail', name: 'Webmail', icon: <Mail className="h-9 w-9 text-cyan-500" /> },
+    { id: 'newsletter', name: 'Email Marketing', icon: <Layout className="h-9 w-9 text-cyan-500" /> },
+    { id: 'mensagens', name: 'Mensagens', icon: <FileText className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens' },
+    { id: 'mensagens-subs', name: 'Subscritores', icon: <Users className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens/subscritores' },
+    { id: 'mensagens-camp', name: 'Campanhas', icon: <Archive className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens/campanhas' },
+    { id: 'cp-email-delete', name: 'Apagar Email', icon: <Trash2 className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-forwarding', name: 'Encaminhamento', icon: <ArrowRight className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-catchall', name: 'Catch-All Email', icon: <Filter className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-pattern-fwd', name: 'Pattern Forwarding', icon: <Zap className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-plus-addr', name: 'Plus-Addressing', icon: <BookOpen className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-change-pass', name: 'Alterar Password', icon: <Key className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-dkim', name: 'DKIM Manager', icon: <Shield className="h-9 w-9 text-cyan-500" /> },
+    { id: 'cp-email-limits', name: 'Limites de Email', icon: <Settings className="h-9 w-9 text-cyan-500" /> },
+    { id: 'setup-smtp', name: 'Configurar SMTP', icon: <Server className="h-9 w-9 text-red-500" /> },
+  ],
+}
 
 interface Props {
   onNavigate: (section: string) => void
@@ -74,7 +160,7 @@ function ToolCard({
     >
       <div className="group-hover:scale-110 transition-transform">{tool.icon}</div>
       <span
-        className={`text-xs font-medium leading-tight dark:text-zinc-400 group-hover:dark:text-red-400 ${tool.highlight ? 'text-blue-700' : 'text-gray-600'}`}
+        className={`${panelDashboardToolLabel} ${tool.highlight ? 'text-blue-700' : ''}`}
       >
         {tool.name}
       </span>
@@ -218,55 +304,6 @@ function SectionAccordion({
   )
 }
 
-function PairedTwoCardSections({
-  sections,
-  collapsed,
-  onToggle,
-  onToolClick,
-}: {
-  sections: [Section, Section]
-  collapsed: boolean
-  onToggle: () => void
-  onToolClick: (tool: Tool) => void
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={!collapsed}
-        className={`flex w-full items-center justify-end px-4 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-white/5 md:px-5 ${collapsed ? '' : 'border-b border-gray-100 dark:border-zinc-800'}`}
-      >
-        {collapsed ? (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
-        ) : (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
-        )}
-      </button>
-
-      {!collapsed && (
-        <div className={`${panelSectionPadding} md:p-4`}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {sections.map((section) => (
-              <div key={section.id}>
-                <div className="mb-2 flex items-center gap-2">
-                  <div className={`${section.bgColor} ${section.color} rounded p-1`}>{section.headerIcon}</div>
-                  <span className="text-xs font-bold text-gray-700 dark:text-zinc-200">{section.name}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 md:gap-3">
-                  {section.tools.map((tool, i) => (
-                    <ToolCard key={`${section.id}-${tool.id}-${i}`} tool={tool} onClick={() => onToolClick(tool)} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function CpanelDashboard({
   onNavigate,
   onSetDNSDomain,
@@ -325,239 +362,77 @@ export function CpanelDashboard({
 
   const toggle = (id: string) => setCollapsed((p) => ({ ...p, [id]: !p[id] }))
 
-  const sections: Section[] = useMemo(
-    () => [
-      {
-        id: 'dominios',
-        name: 'Domínios',
-        headerIcon: <Globe className="h-5 w-5" />,
-        color: 'text-blue-700',
-        bgColor: 'bg-blue-50',
-        tools: [
-          { id: 'registrar-domains', name: 'Registar domínio', icon: <ShoppingCart className="h-9 w-9 text-blue-600" />, highlight: true },
-          { id: 'domains-registados', name: 'Domínios registados', icon: <List className="h-9 w-9 text-blue-500" /> },
-          { id: 'domain-manager', name: 'Domínios de hospedagem', icon: <Globe className="h-9 w-9 text-blue-500" /> },
-          { id: 'cp-subdomains', name: 'Adicionar domínio', icon: <Layers className="h-9 w-9 text-blue-500" /> },
-          { id: 'cp-list-subdomains', name: 'Listar Sub/Addon', icon: <List className="h-9 w-9 text-blue-500" /> },
-          { id: 'cp-modify-website', name: 'Modificar Website', icon: <Edit className="h-9 w-9 text-blue-500" /> },
-          { id: 'cp-suspend-website', name: 'Suspender/Activar', icon: <Power className="h-9 w-9 text-blue-500" /> },
-          { id: 'website-preview', name: 'Website Preview', icon: <Eye className="h-9 w-9 text-blue-500" /> },
-          { id: 'cp-delete-website', name: 'Apagar Website', icon: <Trash2 className="h-9 w-9 text-red-500" /> },
-        ],
-      },
-      {
-        id: 'dns',
-        name: 'DNS',
-        headerIcon: <Server className="h-5 w-5" />,
-        color: 'text-amber-800',
-        bgColor: 'bg-yellow-50',
-        tools: [
-          { id: 'dns-central', name: 'DNS Central', icon: <Globe className="h-9 w-9 text-amber-600" /> },
-          { id: 'cp-dns-nameserver', name: 'Criar Nameserver', icon: <Server className="h-9 w-9 text-amber-600" /> },
-          { id: 'cp-dns-default-ns', name: 'Nameservers Padrão', icon: <Settings className="h-9 w-9 text-amber-600" /> },
-          { id: 'cp-dns-create-zone', name: 'Criar Zona DNS', icon: <PlusCircle className="h-9 w-9 text-amber-600" /> },
-          { id: 'cp-dns-delete-zone', name: 'Apagar Zona DNS', icon: <Trash2 className="h-9 w-9 text-red-500" /> },
-          { id: 'cp-dns-reset', name: 'Reset DNS', icon: <RotateCcw className="h-9 w-9 text-amber-600" /> },
-        ],
-      },
-      {
-        id: 'databases',
-        name: 'Databases',
-        headerIcon: <Database className="h-5 w-5" />,
-        color: 'text-orange-700',
-        bgColor: 'bg-orange-50',
-        tools: [
-          { id: 'cp-databases', name: 'Criar Base de Dados', icon: <PlusCircle className="h-9 w-9 text-orange-500" /> },
-          { id: 'cp-databases', name: 'Gerir Bases de Dados', icon: <Database className="h-9 w-9 text-orange-500" /> },
-          { id: 'phpmyadmin', name: 'phpMyAdmin', icon: <Database className="h-9 w-9 text-orange-500" /> },
-        ],
-      },
-      {
-        id: 'seguranca',
-        name: 'Segurança',
-        headerIcon: <Shield className="h-5 w-5" />,
-        color: 'text-red-700',
-        bgColor: 'bg-red-50',
-        tools: [
-          { id: 'cp-ssl', name: 'SSL / TLS', icon: <Lock className="h-9 w-9 text-red-500" /> },
-          { id: 'cp-api', name: 'Configurações API', icon: <Settings className="h-9 w-9 text-red-500" /> },
-        ],
-      },
-      {
-        id: 'pacotes',
-        name: 'Pacotes de Hosting',
-        headerIcon: <Package className="h-5 w-5" />,
-        color: 'text-teal-700',
-        bgColor: 'bg-teal-50',
-        tools: [
-          { id: 'packages-new', name: 'Criar Pacote', icon: <PlusCircle className="h-9 w-9 text-teal-500" /> },
-          { id: 'packages-list', name: 'Listar Pacotes', icon: <HardDrive className="h-9 w-9 text-teal-500" /> },
-        ],
-      },
-      {
-        id: 'email',
-        name: 'E-mails',
-        headerIcon: <Mail className="h-5 w-5" />,
-        color: 'text-cyan-700',
-        bgColor: 'bg-cyan-50',
-        tools: [
-          { id: 'cp-email-mgmt', name: 'E-mails', icon: <Mail className="h-9 w-9 text-cyan-500" /> },
-          { id: 'emails-webmail', name: 'Webmail', icon: <Mail className="h-9 w-9 text-cyan-500" /> },
-          { id: 'newsletter', name: 'Email Marketing', icon: <Layout className="h-9 w-9 text-cyan-500" /> },
-          { id: 'mensagens', name: 'Mensagens', icon: <FileText className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens' },
-          { id: 'mensagens-subs', name: 'Subscritores', icon: <Users className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens/subscritores' },
-          { id: 'mensagens-camp', name: 'Campanhas', icon: <Archive className="h-9 w-9 text-cyan-500" />, panelPath: '/dashboard/mensagens/campanhas' },
-          { id: 'cp-email-delete', name: 'Apagar Email', icon: <Trash2 className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-forwarding', name: 'Encaminhamento', icon: <ArrowRight className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-catchall', name: 'Catch-All Email', icon: <Filter className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-pattern-fwd', name: 'Pattern Forwarding', icon: <Zap className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-plus-addr', name: 'Plus-Addressing', icon: <BookOpen className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-change-pass', name: 'Alterar Password', icon: <Key className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-dkim', name: 'DKIM Manager', icon: <Shield className="h-9 w-9 text-cyan-500" /> },
-          { id: 'cp-email-limits', name: 'Limites de Email', icon: <Settings className="h-9 w-9 text-cyan-500" /> },
-          { id: 'setup-smtp', name: 'Configurar SMTP', icon: <Server className="h-9 w-9 text-red-500" /> },
-        ],
-      },
-      {
-        id: 'ficheiros',
-        name: 'Ficheiros',
-        headerIcon: <FolderOpen className="h-5 w-5" />,
-        color: 'text-amber-700',
-        bgColor: 'bg-amber-50',
-        tools: [
-          { id: 'file-manager', name: 'Gestor de Ficheiros', icon: <FolderOpen className="h-9 w-9 text-amber-500" /> },
-          { id: 'cp-ftp', name: 'Contas FTP', icon: <Upload className="h-9 w-9 text-amber-500" /> },
-          { id: 'infrastructure', name: 'Servidor e API', icon: <Monitor className="h-9 w-9 text-amber-500" /> },
-        ],
-      },
-      {
-        id: 'backup',
-        name: 'BackUp',
-        headerIcon: <Archive className="h-5 w-5" />,
-        color: 'text-violet-700',
-        bgColor: 'bg-violet-50',
-        tools: [{ id: 'backup-manager', name: 'Gestão de Backups', icon: <HardDrive className="h-9 w-9 text-violet-500" /> }],
-      },
-      {
-        id: 'software',
-        name: 'Software / PHP',
-        headerIcon: <Code className="h-5 w-5" />,
-        color: 'text-purple-700',
-        bgColor: 'bg-purple-50',
-        tools: [{ id: 'cp-php', name: 'Configuração PHP', icon: <Code className="h-9 w-9 text-purple-500" /> }],
-      },
-      {
-        id: 'utilizadores',
-        name: 'Utilizadores',
-        headerIcon: <Users className="h-5 w-5" />,
-        color: 'text-green-700',
-        bgColor: 'bg-green-50',
-        tools: [{ id: 'cp-reseller', name: 'Centro de Revenda', icon: <Package className="h-9 w-9 text-green-500" /> }],
-      },
-      {
-        id: 'metricas',
-        name: 'Métricas e Relatórios',
-        headerIcon: <BarChart2 className="h-5 w-5" />,
-        color: 'text-slate-700',
-        bgColor: 'bg-slate-50',
-        tools: [{ id: 'infrastructure', name: 'Servidor e API', icon: <Server className="h-9 w-9 text-slate-500" /> }],
-      },
-      {
-        id: 'manutencao',
-        name: 'Manutenção',
-        headerIcon: <ShieldCheck className="h-5 w-5" />,
-        color: 'text-red-700',
-        bgColor: 'bg-red-50',
-        tools: [{ id: 'cp-audit-sync', name: 'Auditoria & Sync', icon: <ShieldCheck className="h-9 w-9 text-red-500" /> }],
-      },
-    ],
+  const menuMirrorSections: Section[] = useMemo(
+    () =>
+      getDashboardMenuSectionDefs().map((def) => {
+        const style = DASHBOARD_MENU_SECTION_STYLES[def.menuItemId] ?? {
+          color: 'text-gray-700',
+          bgColor: 'bg-gray-50',
+          toolAccent: 'text-gray-500',
+        }
+        return {
+          id: def.id,
+          name: def.name,
+          headerIcon: MENU_HEADER_ICONS[def.menuItemId] ?? <Settings className="h-5 w-5" />,
+          color: style.color,
+          bgColor: style.bgColor,
+          tools: def.tools.map((tool) => ({
+            id: tool.id,
+            name: tool.name,
+            panelPath: tool.panelPath,
+            highlight: tool.highlight,
+            icon: dashboardToolIcon(tool.id, style.toolAccent),
+          })),
+        }
+      }),
     [],
   )
 
   const query = searchQuery.trim().toLowerCase()
 
-  const { sectionsBeforePaired, sectionsAfterPaired, pairedGroups, carouselTools } = useMemo(() => {
-    const byId = new Map(sections.map((s) => [s.id, s]))
+  const { orderedSections, carouselTools } = useMemo(() => {
+    const byId = new Map<string, Section>([
+      ...menuMirrorSections.map((s) => [s.id, s] as const),
+      [EMAIL_SECTION.id, EMAIL_SECTION],
+    ])
+
     const filterTools = (tools: Tool[]) =>
       query ? tools.filter((t) => t.name.toLowerCase().includes(query)) : tools
 
-    const mapSection = (s: Section | undefined): Section | null => {
-      if (!s) return null
-      const tools = filterTools(s.tools)
-      return tools.length > 0 ? { ...s, tools } : null
+    const mapSection = (section: Section | undefined): Section | null => {
+      if (!section) return null
+      const tools = filterTools(section.tools)
+      return tools.length > 0 ? { ...section, tools } : null
     }
 
-    const mapOrdered = (ids: readonly string[]) =>
-      ids.map((id) => mapSection(byId.get(id))).filter(Boolean) as Section[]
-
-    const beforePaired = mapOrdered(VISIBLE_BEFORE_PAIRED)
-    const afterPaired = mapOrdered(VISIBLE_AFTER_PAIRED)
-
-    const paired = PAIRED_TWO_CARD_GROUPS.map(([aId, bId]) => {
-      const a = mapSection(byId.get(aId))
-      const b = mapSection(byId.get(bId))
-      if (!a && !b) return null
-      const pair: [Section, Section] = [
-        a ?? { ...byId.get(aId)!, tools: [] },
-        b ?? { ...byId.get(bId)!, tools: [] },
-      ]
-      if (pair[0].tools.length === 0 && pair[1].tools.length === 0) return null
-      return pair
-    }).filter(Boolean) as [Section, Section][]
+    const mainSections = DASHBOARD_SECTION_ORDER.map((id) => mapSection(byId.get(id))).filter(
+      Boolean,
+    ) as Section[]
 
     const exposedToolIds = new Set<string>()
-    for (const section of [...beforePaired, ...afterPaired]) {
+    for (const section of mainSections) {
       for (const tool of section.tools) exposedToolIds.add(tool.id)
     }
-    for (const [a, b] of paired) {
-      for (const tool of a.tools) exposedToolIds.add(tool.id)
-      for (const tool of b.tools) exposedToolIds.add(tool.id)
-    }
 
-    const carouselSeen = new Set<string>()
-    const carousel = LOOSE_SECTION_IDS.flatMap((id) => {
-      const section = byId.get(id)
-      if (!section) return []
-      return filterTools(section.tools).filter((tool) => {
-        if (exposedToolIds.has(tool.id) || carouselSeen.has(tool.id)) return false
-        carouselSeen.add(tool.id)
-        return true
-      })
-    })
+    const exposedMenuParents = getExposedDashboardMenuParents()
+    const relocatedCarousel = getDashboardRelocatedCarouselTools().map((tool) => ({
+      id: tool.id,
+      name: tool.name,
+      panelPath: tool.panelPath,
+      highlight: tool.highlight,
+      icon: dashboardToolIcon(tool.id, 'text-gray-500'),
+    }))
+    const carousel = filterTools(relocatedCarousel).filter(
+      (tool) => !isToolInExposedDashboardSection(tool.id, exposedToolIds, exposedMenuParents),
+    )
 
-    return {
-      sectionsBeforePaired: beforePaired,
-      sectionsAfterPaired: afterPaired,
-      pairedGroups: paired,
-      carouselTools: carousel,
-    }
-  }, [sections, query])
+    return { orderedSections: mainSections, carouselTools: carousel }
+  }, [menuMirrorSections, query])
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
       <div className="min-w-0 flex-1 space-y-3">
-        {sectionsBeforePaired.map((section) => (
-          <SectionAccordion
-            key={section.id}
-            section={section}
-            collapsed={Boolean(collapsed[section.id])}
-            onToggle={() => toggle(section.id)}
-            onToolClick={handleToolClick}
-          />
-        ))}
-        {pairedGroups.map(([a, b]) => {
-          const pairId = `${a.id}-${b.id}`
-          return (
-            <PairedTwoCardSections
-              key={pairId}
-              sections={[a, b]}
-              collapsed={Boolean(collapsed[pairId])}
-              onToggle={() => toggle(pairId)}
-              onToolClick={handleToolClick}
-            />
-          )
-        })}
-        {sectionsAfterPaired.map((section) => (
+        {orderedSections.map((section) => (
           <SectionAccordion
             key={section.id}
             section={section}
@@ -700,7 +575,6 @@ export function CpanelDashboard({
               { label: 'Contas hospedagem', id: 'hospedagem-contas', icon: <Users className="h-3.5 w-3.5" /> },
               { label: 'Emitir SSL', id: 'cp-ssl', icon: <Lock className="h-3.5 w-3.5" /> },
               { label: 'Criar Pacote', id: 'packages-new', icon: <Package className="h-3.5 w-3.5" /> },
-              { label: 'Zona DNS', id: 'cp-dns-create-zone', icon: <Server className="h-3.5 w-3.5" /> },
             ].map((item, i) => (
               <button
                 key={i}

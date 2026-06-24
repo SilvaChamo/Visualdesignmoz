@@ -16,6 +16,7 @@ import {
   Palette,
   ArrowRight
 } from 'lucide-react'
+import { panelTabList, panelTabBtn } from '@/lib/panel-ui'
 
 interface Notification {
   id: string
@@ -176,13 +177,13 @@ export function NotificationsSection() {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className={panelTabList}>
         <button
           onClick={() => setActiveTab('renewal-templates')}
-          className={`px-4 py-2 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`${panelTabBtn} flex items-center gap-2 ${
             activeTab === 'renewal-templates' 
-              ? 'border-red-500 text-red-600' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
+              ? 'border-b-red-500 text-red-600' 
+              : 'text-gray-600 hover:text-gray-800'
           }`}
         >
           <Palette className="w-4 h-4" />
@@ -190,10 +191,10 @@ export function NotificationsSection() {
         </button>
         <button
           onClick={() => setActiveTab('send')}
-          className={`px-4 py-2 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`${panelTabBtn} flex items-center gap-2 ${
             activeTab === 'send' 
-              ? 'border-gray-700 text-gray-900' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
+              ? 'border-b-gray-700 text-gray-900' 
+              : 'text-gray-600 hover:text-gray-800'
           }`}
         >
           <Send className="w-4 h-4" />
@@ -201,10 +202,10 @@ export function NotificationsSection() {
         </button>
         <button
           onClick={() => setActiveTab('list')}
-          className={`px-4 py-2 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`${panelTabBtn} flex items-center gap-2 ${
             activeTab === 'list' 
-              ? 'border-gray-700 text-gray-900' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
+              ? 'border-b-gray-700 text-gray-900' 
+              : 'text-gray-600 hover:text-gray-800'
           }`}
         >
           <Bell className="w-4 h-4" />

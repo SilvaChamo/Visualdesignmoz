@@ -3,6 +3,8 @@ export type PanelUsersCachePayload = {
     id: string;
     email: string;
     userName: string;
+    daUsername?: string | null;
+    serverLinked?: boolean;
     panelRole: string;
     panelPath: string;
     state?: string;

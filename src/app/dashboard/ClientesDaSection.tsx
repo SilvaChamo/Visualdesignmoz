@@ -7,7 +7,7 @@ import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X, ExternalL
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/dashboard/ProvisionClienteSection';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
-import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
+import { panelBtnPrimary, panelBtnSecondary, panelField, panelTabList, panelTabBtn } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 
 const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v4';
@@ -168,6 +168,7 @@ function RowActionsMenu({
 export function ClientesDaSection({
   onRefresh,
   listFilter = 'all',
+  listScope = 'all',
   packages = [],
   initialView = 'list',
   initialAccountType = 'client',
@@ -177,6 +178,8 @@ export function ClientesDaSection({
 }: {
   onRefresh?: () => void;
   listFilter?: 'all' | 'client' | 'reseller';
+  /** «Meus utilizadores» — contas directamente sob o revendedor principal. */
+  listScope?: 'all' | 'direct';
   packages?: DirectAdminPackage[];
   initialView?: 'list' | 'create';
   initialAccountType?: 'client' | 'reseller' | 'professional' | 'admin';
@@ -257,12 +260,20 @@ export function ClientesDaSection({
     setMsg('');
   }, []);
 
+  const openEditAccount = useCallback((user: DaUserRow) => {
+    setEditUser(user);
+    setSelectedUser(null);
+    setView('edit');
+    setMsg('');
+  }, []);
+
   useEffect(() => {
     if (isActive) {
       setView(initialView === 'create' ? 'create' : 'list');
       if (initialView !== 'create') {
         setSelectedUser(null);
         setEditUser(null);
+        setActiveTypeTab('client');
       }
     }
   }, [isActive, initialView, listResetToken]);
@@ -276,6 +287,11 @@ export function ClientesDaSection({
   const filtered = users.filter((u) => {
     if (variant === 'reseller' && primaryResellerAccount) {
       if (u.userName.toLowerCase() === primaryResellerAccount.toLowerCase()) return false;
+    }
+    if (listScope === 'direct' && primaryResellerAccount) {
+      const owner = String(u.resellerOwner || '').toLowerCase();
+      const primary = primaryResellerAccount.toLowerCase();
+      if (owner && owner !== primary && owner !== 'admin' && owner !== '—') return false;
     }
     if (listFilter === 'client' && isDaReseller(u)) return false;
     if (listFilter === 'reseller' && !isDaReseller(u)) return false;
@@ -408,7 +424,13 @@ export function ClientesDaSection({
       <div className="font-panel space-y-6">
         <ProvisionClienteSection
           packages={packages}
-          initialAccountType={initialAccountType === 'admin' ? 'professional' : initialAccountType}
+          initialAccountType={
+            view === 'create'
+              ? activeTypeTab
+              : initialAccountType === 'admin'
+                ? 'professional'
+                : initialAccountType
+          }
           mode={view === 'edit' ? 'edit' : 'create'}
           editUser={view === 'edit' ? editUser ?? undefined : undefined}
           accountsApiBase={accountsApiBase}
@@ -547,25 +569,27 @@ export function ClientesDaSection({
       </div>
 
       {/* Tabs de Tipos de Contas */}
-      <div className="flex border-b border-gray-200 dark:border-zinc-800 gap-1">
-        {[
-          { id: 'client' as const, label: 'Clientes' },
-          { id: 'professional' as const, label: 'Profissional' },
-          { id: 'reseller' as const, label: 'Revendedores' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTypeTab(tab.id)}
-            className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all -mb-px ${
-              activeTypeTab === tab.id
-                ? 'border-rose-600 text-rose-600 dark:border-rose-500 dark:text-rose-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="w-full border-b border-gray-200 dark:border-zinc-800">
+        <nav className={panelTabList} aria-label="Tipos de conta">
+          {[
+            { id: 'client' as const, label: 'Clientes' },
+            { id: 'professional' as const, label: 'Profissional' },
+            { id: 'reseller' as const, label: 'Revendedores' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTypeTab(tab.id)}
+              className={`${panelTabBtn} relative font-bold ${
+                activeTypeTab === tab.id
+                  ? 'z-10 border-b-red-600 text-red-600 dark:border-b-red-500 dark:text-red-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {msg ? (
@@ -604,11 +628,17 @@ export function ClientesDaSection({
                 >
                   <td className={accountsCellBorder}>
                     {isSimpleAccount ? (
-                      <span className="text-gray-400 dark:text-zinc-600">—</span>
+                      <button
+                        type="button"
+                        onClick={() => openEditAccount(u)}
+                        className="font-medium text-blue-700 hover:underline dark:text-blue-400"
+                      >
+                        {u.userName}
+                      </button>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => { setSelectedUser(u); setView('detail'); }}
+                        onClick={() => openEditAccount(u)}
                         className="font-medium text-blue-700 hover:underline dark:text-blue-400"
                       >
                         {u.primaryDomain || `${u.userName}.com`}
@@ -616,7 +646,15 @@ export function ClientesDaSection({
                     )}
                     {u.suspended ? <span className="ml-2 text-xs text-red-600">Suspenso</span> : null}
                   </td>
-                  <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>{u.userName}</td>
+                  <td className={`${accountsCellBorder} font-medium text-gray-900 dark:text-zinc-100`}>
+                    <button
+                      type="button"
+                      onClick={() => openEditAccount(u)}
+                      className="text-left hover:text-red-600 dark:hover:text-red-400"
+                    >
+                      {u.userName}
+                    </button>
+                  </td>
                   <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.email || '—'}</td>
                   <td className={`${accountsCellBorder} text-gray-700 tabular-nums dark:text-zinc-300`}>
                     {isSimpleAccount ? <span className="text-gray-400 dark:text-zinc-600">—</span> : (u.quotaLabel || '—')}
@@ -644,6 +682,7 @@ export function ClientesDaSection({
                     <button
                       type="button"
                       onClick={(e) => {
+                        e.stopPropagation();
                         const rect = e.currentTarget.getBoundingClientRect();
                         if (openMenu?.userName === u.userName) setOpenMenu(null);
                         else setOpenMenu({ userName: u.userName, rect });

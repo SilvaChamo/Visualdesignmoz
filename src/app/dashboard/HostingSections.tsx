@@ -28,6 +28,7 @@ import {
   writeFmDirCache,
 } from '@/lib/panel-file-manager-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
+import { loadScreenshot as fetchSiteScreenshot } from '@/lib/site-screenshot-cache'
 import {
   readDomainListCache,
   readRegistrarDomainListCache,
@@ -336,28 +337,17 @@ export function WebsitePreviewSection({ sites }: { sites: DirectAdminWebsite[] }
       setScreenshotLoading(true)
       setScreenshotError('')
 
-      const res = await fetch('/api/server-exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'getScreenshot',
-          params: { domain }
-        })
-      })
-
-      if (!res.ok) throw new Error('Falha ao carregar screenshot')
-
-      const data = await res.json()
-      if (data.success && data.data?.screenshotUrl) {
-        setScreenshotUrl(data.data.screenshotUrl)
+      const url = await fetchSiteScreenshot(domain, 1200)
+      if (url) {
+        setScreenshotUrl(url)
         setLastUpdate(new Date())
-      } else {
-        setScreenshotUrl(`https://image.thum.io/get/width/1200/crop/800/noanimate/https://${domain}`)
-        setLastUpdate(new Date())
+        return
       }
-    } catch (error) {
-      setScreenshotError(`Erro: ${error instanceof Error ? error.message : 'Desconhecido'}`)
-      console.error('Screenshot error:', error)
+
+      setScreenshotUrl(`https://image.thum.io/get/width/1200/crop/800/noanimate/https://${domain}`)
+      setLastUpdate(new Date())
+    } catch {
+      setScreenshotError('Não foi possível carregar a pré-visualização deste site.')
     } finally {
       setScreenshotLoading(false)
     }
@@ -2266,6 +2256,7 @@ type PanelAccount = {
   email: string
   userName: string
   daUsername?: string | null
+  serverLinked?: boolean
   panelRole: PanelRoleFilter extends 'all' ? string : PanelRoleFilter | string
   panelPath: string
   state?: string
@@ -2287,6 +2278,10 @@ const PANEL_ROLE_BADGE: Record<string, string> = {
   reseller: 'bg-blue-100 text-blue-700',
   client: 'bg-gray-100 text-gray-700',
   guest: 'bg-amber-100 text-amber-800',
+}
+
+function panelResellerNeedsServer(account: PanelAccount): boolean {
+  return account.panelRole === 'reseller' && !account.serverLinked && !account.daUsername
 }
 
 function floatingMenuPosition(anchorRect: DOMRect, menuW: number, itemCount: number) {
@@ -2314,6 +2309,9 @@ function PanelAccountActionsMenu({
   const ref = useRef<HTMLDivElement>(null)
 
   const items = [
+    ...(panelResellerNeedsServer(account)
+      ? [{ id: 'provisionServer', label: 'Activar hospedagem' }]
+      : []),
     ...(account.panelRole === 'reseller'
       ? [{ id: 'loginAs', label: 'Entrar como revendedor' }]
       : []),
@@ -2517,6 +2515,7 @@ export function CPUsersSection({
   onBootstrapRefresh,
   onNavigate,
   isActive = true,
+  initialUsersScopeFilter,
 }: {
   variant?: 'directadmin' | 'panels';
   fixedPanelFilter?: PanelRoleFilter;
@@ -2526,6 +2525,7 @@ export function CPUsersSection({
   onBootstrapRefresh?: () => void | Promise<void>;
   onNavigate?: (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => void;
   isActive?: boolean;
+  initialUsersScopeFilter?: UsersScopeFilter;
 }) {
   const isPanelsMode = variant === 'panels'
   const { setChrome } = useAdminSectionChrome()
@@ -2650,11 +2650,12 @@ export function CPUsersSection({
 
   useEffect(() => {
     if (!isActive || !isPanelsMode || !panelScope) return
-    if (panelScope === 'users') setUsersScopeFilter('all')
+    if (initialUsersScopeFilter) setUsersScopeFilter(initialUsersScopeFilter)
+    else if (panelScope === 'users') setUsersScopeFilter('all')
     else if (panelScope === 'client') setUsersScopeFilter('client')
     else if (panelScope === 'reseller') setUsersScopeFilter('reseller')
     setSelectedPanelIds([])
-  }, [isActive, panelScope, isPanelsMode])
+  }, [isActive, panelScope, isPanelsMode, initialUsersScopeFilter])
 
   useEffect(() => {
     if (!isActive || !isPanelsMode || !panelScope) {
@@ -2785,6 +2786,10 @@ export function CPUsersSection({
   }
 
   const handlePanelRowAction = (account: PanelAccount, action: string) => {
+    if (action === 'provisionServer') {
+      void handleProvisionServer(account)
+      return
+    }
     if (action === 'loginAs') {
       void handlePanelLoginAs(account)
       return
@@ -2809,6 +2814,39 @@ export function CPUsersSection({
     }
   }
 
+  const handleProvisionServer = async (account: PanelAccount) => {
+    setCreating(true)
+    setMsg('')
+    try {
+      await supabase.auth.getSession()
+      const res = await fetch('/api/admin/panel-users', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: account.id,
+          role: 'reseller',
+          email: account.email,
+          nome: account.nome || account.userName,
+          provisionDa: true,
+        }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || payload.success === false) {
+        const raw = payload.error || payload.message || 'Falha ao criar no servidor'
+        throw new Error(String(raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+      }
+      const note = payload.provisionWarning ? ` (${payload.provisionWarning})` : ''
+      setMsg(`✅ ${payload.message || 'Conta actualizada.'}${note}`)
+      clearPanelUsersCache()
+      clearPanelBootstrapCache()
+      await loadPanelAccounts({ fresh: true })
+    } catch (e: unknown) {
+      setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+    }
+    setCreating(false)
+  }
+
   const handlePanelDelete = (account: PanelAccount) => {
     setConfirm({
       show: true,
@@ -2819,15 +2857,17 @@ export function CPUsersSection({
         setCreating(true)
         setMsg('')
         try {
+          await supabase.auth.getSession()
           const res = await fetch(`/api/admin/panel-users?userId=${encodeURIComponent(account.id)}`, {
             method: 'DELETE',
+            credentials: 'include',
           })
-          const d = await res.json()
-          if (d.success) {
+          const d = await res.json().catch(() => ({}))
+          if (res.ok && d.success) {
             setMsg('✅ Conta eliminada.')
             await loadPanelAccounts({ fresh: true })
           } else {
-            setMsg(`❌ ${d.error}`)
+            setMsg(`❌ ${d.error || d.message || 'Falha ao eliminar'}`)
           }
         } catch (e: unknown) {
           setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
@@ -2857,7 +2897,7 @@ export function CPUsersSection({
           email: data.email,
           nome: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
           password: data.password || undefined,
-          provisionDa: false,
+          provisionDa: data.panelRole === 'reseller',
         }),
       })
       const payload = await res.json().catch(() => ({}))
@@ -2902,7 +2942,7 @@ export function CPUsersSection({
             role: bulkPanelRole,
             email: account.email,
             nome: fullName,
-            provisionDa: false,
+            provisionDa: bulkPanelRole === 'reseller',
           }),
         })
         const payload = await res.json().catch(() => ({}))
@@ -2924,19 +2964,13 @@ export function CPUsersSection({
     setCreating(false)
   }
 
-  const generatePanelPassword = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#!$%&*'
-    return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  }
-
   const openPanelCreateModal = () => {
-    const generated = generatePanelPassword()
     const base = {
       firstName: '',
       lastName: '',
       email: '',
-      password: generated,
-      confirmPassword: generated,
+      password: '',
+      confirmPassword: '',
     }
     if (panelScope === 'reseller') {
       setUserModal({
@@ -2956,15 +2990,13 @@ export function CPUsersSection({
       data: {
         ...base,
         acl: 'panel',
-        panelRole: 'client',
+        panelRole: panelScope === 'users' && usersScopeFilter !== 'all' ? usersScopeFilter : 'client',
       },
     })
   }
 
   const isPanelAuthForm =
     isPanelsMode && userModal.data.acl === 'panel'
-
-  const isPanelAuthCreate = isPanelAuthForm && userModal.mode === 'create'
 
   const panelModalTitle =
     userModal.mode === 'edit'
@@ -2974,6 +3006,26 @@ export function CPUsersSection({
         : panelScope === 'reseller'
           ? 'Novo revendedor'
           : 'Novo utilizador'
+
+  const handlePanelFormSave = async (data: Record<string, unknown>) => {
+    if (!data.password && userModal.mode === 'create') {
+      setMsg('Defina a palavra-passe.')
+      return
+    }
+    if (data.password && data.password !== data.confirmPassword) {
+      setMsg('As passwords não coincidem!')
+      return
+    }
+    if (isPanelsMode && data.acl === 'panel' && data.password && String(data.password).length < 6) {
+      setMsg('A palavra-passe deve ter pelo menos 6 caracteres.')
+      return
+    }
+    if (userModal.mode === 'create') {
+      await handleCreate(data)
+      return
+    }
+    await handlePanelUpdate(data)
+  }
 
   const handleCreate = async (data: any) => {
     if (data.password !== data.confirmPassword) {
@@ -2996,7 +3048,7 @@ export function CPUsersSection({
             password: data.password,
             name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
             role: data.panelRole,
-            provisionDa: false,
+            provisionDa: data.panelRole === 'reseller',
           }),
         })
         const payload = await res.json().catch(() => ({}))
@@ -3008,7 +3060,7 @@ export function CPUsersSection({
               .trim(),
           )
         }
-        setMsg(`✅ ${payload.message}`)
+        setMsg(`✅ ${payload.message}${payload.provisionWarning ? ` (${payload.provisionWarning})` : ''}`)
         setUserModal({ ...userModal, show: false })
         await loadPanelAccounts({ fresh: true })
         const role = data.panelRole || 'client'
@@ -3357,8 +3409,8 @@ export function CPUsersSection({
                 {panelScope === 'users' && <th className="w-10 px-4 py-3" aria-hidden="true" />}
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Painel</th>
                 <th className="px-4 py-3">Papel</th>
+                <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3">Último acesso</th>
                 <th className="px-4 py-3 text-right">Acções</th>
               </tr>
@@ -3390,14 +3442,24 @@ export function CPUsersSection({
                   <td className="px-4 py-1.5 font-medium text-gray-900 dark:text-zinc-100">{account.email}</td>
                   <td className="px-4 py-1.5 text-gray-600 dark:text-zinc-400">{account.nome || account.userName || '—'}</td>
                   <td className="px-4 py-1.5">
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight bg-slate-100 text-slate-700">
-                      {account.panelPath}
-                    </span>
-                  </td>
-                  <td className="px-4 py-1.5">
                     <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${PANEL_ROLE_BADGE[account.panelRole] || 'bg-gray-100 text-gray-700'}`}>
                       {PANEL_ROLE_LABELS[account.panelRole] || account.panelRole}
                     </span>
+                  </td>
+                  <td className="px-4 py-1.5">
+                    {account.panelRole === 'reseller' ? (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${
+                          account.serverLinked || account.daUsername
+                            ? 'bg-slate-100 text-slate-700'
+                            : 'bg-amber-50 text-amber-800'
+                        }`}
+                      >
+                        {account.serverLinked || account.daUsername ? 'Activo' : 'Pendente'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-1.5 text-gray-500 text-xs dark:text-zinc-500">
                     {account.lastSignIn
@@ -3557,7 +3619,7 @@ export function CPUsersSection({
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Users className="w-5 h-5 " /></div>
-                <div><h2 className="text-sm font-bold text-gray-900 block">{isPanelsMode ? panelModalTitle : (userModal.mode === 'create' ? 'Novo Utilizador' : 'Editar Utilizador')}</h2><span className="text-[11px] text-gray-500 font-mono">{userModal.mode === 'create' ? (isPanelAuthCreate ? 'Conta de acesso ao painel (sem DirectAdmin)' : 'Configurar acesso ao servidor') : (isPanelAuthForm ? userModal.data.email : `Gerir: ${userModal.data.userName}`)}</span></div>
+                <div><h2 className="text-sm font-bold text-gray-900 block">{isPanelsMode ? panelModalTitle : (userModal.mode === 'create' ? 'Novo Utilizador' : 'Editar Utilizador')}</h2><span className="text-[11px] text-gray-500 font-mono">{isPanelAuthForm ? (userModal.data.email || 'Conta de acesso ao painel') : (userModal.mode === 'create' ? 'Configurar acesso ao servidor' : `Gerir: ${userModal.data.userName}`)}</span></div>
               </div>
               <button onClick={() => setUserModal({ ...userModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
@@ -3565,7 +3627,7 @@ export function CPUsersSection({
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nome</label><input value={userModal.data.firstName || ''} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, firstName: e.target.value } })} placeholder="João" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Apelido</label><input value={userModal.data.lastName || ''} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, lastName: e.target.value } })} placeholder="Silva" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, email: e.target.value } })} placeholder="exemplo@email.com" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail</label><input value={userModal.data.email || ''} disabled={!isPanelAuthForm && userModal.mode === 'edit'} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, email: e.target.value } })} placeholder="exemplo@email.com" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-60" /></div>
                 {isPanelAuthForm && (
                   <div className="space-y-1.5 col-span-1 relative z-[1]">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Papel</label>
@@ -3584,7 +3646,7 @@ export function CPUsersSection({
                           <option value="client">Cliente</option>
                           <option value="admin">Administrador</option>
                           <option value="reseller">Revendedor</option>
-                          {userModal.mode === 'edit' && userModal.data.panelRole === 'guest' ? (
+                          {userModal.data.panelRole === 'guest' ? (
                             <option value="guest">Visitante</option>
                           ) : null}
                         </>
@@ -3645,20 +3707,24 @@ export function CPUsersSection({
                       type={showUserPass ? 'text' : 'password'}
                       value={userModal.data.password || ''}
                       onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, password: e.target.value } })}
-                      placeholder={userModal.mode === 'edit' ? 'Alterar password...' : '••••••••'}
+                      placeholder={userModal.mode === 'edit' ? 'Alterar password...' : 'Definir password...'}
                       className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-10"
                     />
                     <button type="button" onClick={() => setShowUserPass(!showUserPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {showUserPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {userModal.mode === 'edit' && (
+                  {isPanelAuthForm ? (
                     <p className="text-[9px] text-gray-400 mt-1 italic">
-                      {isPanelAuthForm
-                        ? 'Vazio = manter a password actual.'
-                        : 'Vazio = manter a password actual (o servidor não permite ler a password antiga).'}
+                      {userModal.mode === 'edit'
+                        ? 'Vazio = manter a password actual. Mínimo 6 caracteres se alterar.'
+                        : 'Obrigatória na criação. Mínimo 6 caracteres.'}
                     </p>
-                  )}
+                  ) : userModal.mode === 'edit' ? (
+                    <p className="text-[9px] text-gray-400 mt-1 italic">
+                      Vazio = manter a password actual (o servidor não permite ler a password antiga).
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5 lg:col-span-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar Password</label>
@@ -3690,7 +3756,7 @@ export function CPUsersSection({
                   <div className="space-y-1.5 col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Security Level</label><select value={userModal.data.securityLevel || 'HIGH'} onChange={e => setUserModal({ ...userModal, data: { ...userModal.data, securityLevel: e.target.value } })} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"><option value="HIGH">HIGH</option><option value="LOW">LOW</option></select><p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Escolha o nível de segurança para esta conta</p></div>
                 )}
               </div>
-              {userModal.mode === 'edit' && (
+              {userModal.mode === 'edit' && !isPanelAuthForm && (
                 <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
                   <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
                   <button onClick={() => setUserModal({ ...userModal, data: { ...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended' } })} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
@@ -3706,15 +3772,19 @@ export function CPUsersSection({
                 <button
                   type="button"
                   onClick={() => {
-                    if (userModal.mode === 'create') handleCreate(userModal.data)
-                    else if (isPanelAuthForm) handlePanelUpdate(userModal.data)
-                    else handleUpdate(userModal.data)
+                    if (isPanelAuthForm) void handlePanelFormSave(userModal.data)
+                    else if (userModal.mode === 'create') void handleCreate(userModal.data)
+                    else void handleUpdate(userModal.data)
                   }}
                   disabled={loading || creating}
                   className={panelBtnPrimary}
                 >
                   {(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  {userModal.mode === 'create' ? (isPanelAuthCreate ? 'Criar conta' : 'Criar Utilizador') : 'Guardar alterações'}
+                  {isPanelAuthForm
+                    ? (userModal.mode === 'create' ? 'Criar conta' : 'Guardar alterações')
+                    : userModal.mode === 'create'
+                      ? 'Criar Utilizador'
+                      : 'Guardar alterações'}
                 </button>
               </div>
             </div>
@@ -6689,12 +6759,14 @@ export function PackagesSection({
   isActive = true,
   panelScope = 'admin',
   initialOpenCreate = false,
+  packageScope = 'user',
 }: {
   packages: any[]
   onRefresh: () => void
   isActive?: boolean
   panelScope?: 'admin' | 'reseller'
   initialOpenCreate?: boolean
+  packageScope?: 'user' | 'reseller'
 }) {
   const [livePackages, setLivePackages] = useState<any[]>(() => readPackagesCache(panelScope) || packages)
   const [loadingLive, setLoadingLive] = useState(false)
@@ -6771,10 +6843,24 @@ export function PackagesSection({
       const key = String(p.packageName || p.name || '').toLowerCase()
       if (key) byName.set(key, p)
     }
-    return [...byName.values()].sort((a: any, b: any) =>
+    const merged = [...byName.values()]
+    const scoped =
+      packageScope === 'reseller'
+        ? merged.filter((p) => {
+            const scope = String(p.packageScope || p.scope || '').toLowerCase()
+            if (scope === 'reseller') return true
+            const name = String(p.packageName || p.name || '')
+            return name.includes('reseller') || name.includes('revenda')
+          })
+        : merged.filter((p) => {
+            const scope = String(p.packageScope || p.scope || '').toLowerCase()
+            if (scope === 'reseller') return false
+            return true
+          })
+    return scoped.sort((a: any, b: any) =>
       String(a.packageName || a.name || '').localeCompare(String(b.packageName || b.name || '')),
     )
-  }, [packages, livePackages])
+  }, [packages, livePackages, packageScope])
   const formatPackageMetric = (value: unknown, defaultUnit?: string) => {
     const raw = String(value ?? '').trim()
     if (!raw || raw === '-' || raw.toLowerCase() === 'unlimited') return raw || '-'

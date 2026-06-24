@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Globe, List, Plus, Search as SearchIcon, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { panelField, panelBtnSecondary } from '@/lib/panel-ui';
+import { panelField, panelBtnSecondary, panelTabList, panelTabBtn } from '@/lib/panel-ui';
 import { DomainManagerSection } from '@/app/dashboard/HostingSections';
 import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
@@ -80,7 +80,7 @@ export function DomainsHubSection({
     <div className="w-full space-y-5">
       {!hideTabs && activeTab !== 'adicionar' ? (
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <nav className="flex shrink-0 flex-wrap justify-start gap-x-5" aria-label="Secções de domínios">
+          <nav className={cn(panelTabList, 'shrink-0')} aria-label="Secções de domínios">
             {tabs.map(({ id, label, icon: Icon }) => {
               const isTabActive = activeTab === id;
               return (
@@ -89,9 +89,10 @@ export function DomainsHubSection({
                   type="button"
                   onClick={() => setActiveTab(id)}
                   className={cn(
-                    'inline-flex items-center justify-center gap-1.5 border-b-2 pb-2.5 text-sm font-medium transition-colors',
+                    panelTabBtn,
+                    'inline-flex items-center justify-center gap-1.5',
                     isTabActive
-                      ? 'border-red-600 text-zinc-900 dark:border-red-500 dark:text-zinc-100'
+                      ? 'border-b-red-600 text-zinc-900 dark:border-b-red-500 dark:text-zinc-100'
                       : 'border-transparent text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400',
                   )}
                 >

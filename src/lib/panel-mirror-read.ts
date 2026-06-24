@@ -461,6 +461,7 @@ export type PanelBootstrapAccount = {
   email: string;
   userName: string;
   daUsername?: string | null;
+  serverLinked?: boolean;
   panelRole: UserRole;
   panelPath: string;
   state: string;
@@ -510,6 +511,7 @@ function mapProfileToAccount(profile: ProfileRow): PanelBootstrapAccount | null 
     email,
     userName: displayName,
     daUsername: profile.da_username ?? null,
+    serverLinked: Boolean(profile.da_username),
     panelRole,
     panelPath: getRedirectPathForRole(panelRole),
     state: 'Active',
@@ -526,6 +528,7 @@ function mapAuthAccountToBootstrap(row: PanelAuthAccountRow): PanelBootstrapAcco
     email,
     userName: displayName,
     daUsername: row.da_username,
+    serverLinked: row.server_linked === true || Boolean(row.da_username),
     panelRole: row.role,
     panelPath: getRedirectPathForRole(row.role),
     state: 'Active',

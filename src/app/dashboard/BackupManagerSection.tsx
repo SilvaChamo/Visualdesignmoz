@@ -8,6 +8,7 @@ import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
 import {
   panelBtnPrimary, panelBtnSecondary, panelCard, panelInnerDetailCard,
+  panelTabBtn, panelTabList,
 } from '@/lib/panel-ui'
 import {
   BACKUP_ITEMS, BACKUP_TABS, TAB_BACKUP_ITEMS,
@@ -343,16 +344,16 @@ export function BackupManagerSection({
 
       <div className={`${panelCard} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
-          <div className="flex flex-wrap">
+          <div className={panelTabList}>
             {BACKUP_TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'border-b-2 px-4 py-3 text-sm font-medium transition-colors',
+                  panelTabBtn,
                   activeTab === tab.id
-                    ? 'border-red-600 bg-white text-red-600 dark:border-red-500 dark:bg-zinc-900 dark:text-red-400'
+                    ? 'border-b-red-600 text-red-600 dark:border-b-red-500 dark:text-red-400'
                     : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
                 )}
               >

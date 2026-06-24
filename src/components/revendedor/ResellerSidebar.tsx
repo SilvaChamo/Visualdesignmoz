@@ -75,6 +75,11 @@ const DASHBOARD_ITEM: MenuItem = {
 /** Altura fixa — igual ao painel admin. */
 const MENU_ROW_CLASS = 'box-border h-11 min-h-11 max-h-11 shrink-0';
 const SUB_ROW_CLASS = 'box-border h-8 min-h-8 max-h-8 shrink-0 leading-none';
+const SUB_MENU_TRACK_CLASS = 'relative w-[3px] shrink-0 self-stretch';
+const SUB_MENU_TRACK_LINE =
+  'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200 dark:bg-zinc-800';
+const SUB_MENU_ACTIVE_MARK =
+  'pointer-events-none absolute left-1/2 top-1/2 z-10 h-3 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600';
 
 export function ResellerSidebar({
   activeSection,
@@ -244,32 +249,37 @@ export function ResellerSidebar({
           })()}
 
           {!isCollapsed && hasSubItems && isOpen && (
-            <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
+            <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto">
               {item.subItems!.map((sub) => {
                 if (sub.id.endsWith('-header')) return null;
                 const resolved = resolveSectionId(sub.id);
                 const isSubActive = resolveSectionId(activeSection) === resolved;
                 const isRecebidas = sub.id === 'notificacoes-recebidas';
                 return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => handleSubClick(sub.id)}
-                    className={`relative flex items-center overflow-visible px-3 text-left text-[15px] transition-colors duration-200 focus:outline-none ${SUB_ROW_CLASS} ${
-                      isSubActive
-                        ? 'font-bold text-red-600 before:absolute before:-left-px before:top-1/2 before:z-20 before:h-3 before:w-1 before:-translate-x-px before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
-                        : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
-                    }`}
-                  >
-                    <span className="flex flex-1 items-center gap-2">
-                      {sub.label}
-                      {isRecebidas && unreadCount > 0 && (
-                        <span className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold leading-none text-white">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </span>
-                  </button>
+                  <div key={sub.id} className={`flex items-stretch ${SUB_ROW_CLASS}`}>
+                    <div className={SUB_MENU_TRACK_CLASS} aria-hidden>
+                      <div className={SUB_MENU_TRACK_LINE} />
+                      {isSubActive && <span className={SUB_MENU_ACTIVE_MARK} />}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSubClick(sub.id)}
+                      className={`flex min-w-0 flex-1 items-center px-3 text-left text-[15px] transition-colors duration-200 focus:outline-none ${
+                        isSubActive
+                          ? 'font-bold text-red-600'
+                          : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
+                      }`}
+                    >
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        {sub.label}
+                        {isRecebidas && unreadCount > 0 && (
+                          <span className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold leading-none text-white">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </div>
                 );
               })}
             </div>

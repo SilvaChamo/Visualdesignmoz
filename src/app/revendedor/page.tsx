@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
-import { panelDashboardGrid, panelDashboardToolCard, panelSectionPadding, panelBtnSecondary } from '@/lib/panel-ui'
+import { panelDashboardGrid, panelDashboardToolCard, panelDashboardToolLabel, panelSectionPadding, panelBtnSecondary } from '@/lib/panel-ui'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { ResellerDirectAccessSection } from '@/components/revendedor/ResellerDirectAccessSection'
 import { ResellerDashboard } from '@/components/revendedor/ResellerDashboard'
@@ -1441,7 +1441,7 @@ function ManageWebsiteSection({
           )}
         </div>
 
-        <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
+        <span className={`${panelDashboardToolLabel} font-bold uppercase tracking-tight text-center group-hover:text-blue-600 transition-colors`}>
           {label}
         </span>
 

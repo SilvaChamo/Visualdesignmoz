@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
-import { panelBtnSecondary, panelCard, panelInnerDetailCard } from '@/lib/panel-ui'
+import { panelBtnSecondary, panelCard, panelInnerDetailCard, panelTabList, panelTabBtn } from '@/lib/panel-ui'
 import { BACKUP_ITEMS, BACKUP_TABS } from '@/lib/da-backup-types'
 import type { BackupScheduleRow } from '@/lib/panel-backup-schedule-types'
 import { formatScheduleWhen } from '@/lib/panel-backup-schedule-utils'
@@ -174,14 +174,14 @@ export function BackupReportSection({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-wrap gap-4 border-b border-gray-200 text-sm dark:border-zinc-800">
-        <span className="border-b-2 border-red-500 pb-2 font-medium text-red-500">
+      <div className={cn(panelTabList, 'text-sm')}>
+        <span className={cn(panelTabBtn, 'border-b-red-500 text-red-500')}>
           Backup e restauro
         </span>
         <button
           type="button"
           onClick={() => setActiveSection?.('wp-backup-auto')}
-          className="border-b-2 border-transparent pb-2 font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
+          className={cn(panelTabBtn, 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200')}
         >
           Configurações do backup
         </button>

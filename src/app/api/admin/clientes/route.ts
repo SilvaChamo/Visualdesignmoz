@@ -680,6 +680,24 @@ export async function PATCH(req: NextRequest) {
           data = { success: r.ok, error: r.error };
         }
         break;
+      case 'moveToReseller': {
+        const fromReseller = String(body.fromReseller || '').trim();
+        const toReseller = String(body.toReseller || '').trim();
+        if (!fromReseller || !toReseller) {
+          return NextResponse.json({ success: false, error: 'Revendedores de origem e destino são obrigatórios.' }, { status: 400 });
+        }
+        if (fromReseller === toReseller) {
+          return NextResponse.json({ success: false, error: 'Origem e destino devem ser diferentes.' }, { status: 400 });
+        }
+        const r = await daPostViaSsh('CMD_API_MOVE_USERS', {
+          action: 'move',
+          select0: userName,
+          reseller: fromReseller,
+          new_reseller: toReseller,
+        });
+        data = { success: r.ok, error: r.error };
+        break;
+      }
       case 'delete': {
         const r = await daPostViaSsh('CMD_API_SELECT_USERS', { delete: 'yes', select0: userName });
         data = { success: r.ok, error: r.error };

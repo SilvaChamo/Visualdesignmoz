@@ -19,7 +19,7 @@ import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { ListWebsitesSection, sortSitesPrimaryFirst } from '@/components/panel/ListWebsitesSection'
-import { panelBtnSecondary, panelDashboardGrid, panelDashboardToolCard, panelSectionPadding } from '@/lib/panel-ui'
+import { panelBtnSecondary, panelDashboardGrid, panelDashboardToolCard, panelDashboardToolLabel, panelSectionPadding } from '@/lib/panel-ui'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
@@ -53,14 +53,22 @@ import {
 } from './DomainsHubSection'
 import { PanelPermissionsConfig } from './PanelPermissionsConfig'
 import { ClientesDaSection } from './ClientesDaSection'
+import {
+  AccountMessageTemplatesSection,
+  BulkChangePasswordsSection,
+  MoveUsersBetweenResellersSection,
+} from './HostingAccountMgmtSections'
 import { WordPressHubSection } from './WordPressHubSection'
 import { WordPressUsersSection } from './WordPressUsersSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache'
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
-import { resolvePanelNavigation, resolveSectionId } from '@/lib/panel-admin-menu'
+import { resolvePanelNavigation, resolveSectionId, PANEL_EXTERNAL_PATHS } from '@/lib/panel-admin-menu'
 import { getStaffAdminMenu, isManagerSectionAllowed, type PanelCapabilities } from '@/lib/panel-role-capabilities'
+import { filterMenuByPrivileges } from '@/lib/panel-menu-privileges'
+import { ADMIN_MENU_ITEM_DEFS } from '@/lib/panel-admin-menu'
+import { usePanelMenuPrivileges } from '@/hooks/usePanelMenuPrivileges'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
@@ -1094,7 +1102,7 @@ function ManageWebsiteSection({
           )}
         </div>
         
-        <span className="text-[12px] font-bold text-gray-700 group-hover:text-blue-600 transition-colors text-center leading-tight uppercase tracking-tight">
+        <span className={`${panelDashboardToolLabel} font-bold uppercase tracking-tight text-center group-hover:text-blue-600 transition-colors`}>
           {label}
         </span>
 
@@ -1564,6 +1572,15 @@ function AdminPageContent() {
   const [preSelectedEmailDomain, setPreSelectedEmailDomain] = useState<string>('')
   const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [panelCapabilities, setPanelCapabilities] = useState<PanelCapabilities | null>(null)
+  const { privileges: managerMenuPrivileges } = usePanelMenuPrivileges('manager')
+  const adminSidebarMenuDefs = useMemo(() => {
+    if (!panelCapabilities) return undefined
+    if (panelCapabilities.role === 'manager') {
+      const base = ADMIN_MENU_ITEM_DEFS.filter((item) => item.isNewMenu !== false)
+      return filterMenuByPrivileges(base.length ? base : ADMIN_MENU_ITEM_DEFS, managerMenuPrivileges)
+    }
+    return getStaffAdminMenu(panelCapabilities)
+  }, [panelCapabilities, managerMenuPrivileges])
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
@@ -1573,6 +1590,7 @@ function AdminPageContent() {
   const [contasListResetToken, setContasListResetToken] = useState(0)
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialLoadDone = useRef(false);
 
   const applyPanelNavigation = useCallback((sectionId: string) => {
@@ -1862,12 +1880,22 @@ function AdminPageContent() {
       case 'cp-reseller-permissions':
         return <PanelPermissionsConfig role="reseller" />
       case 'provision-client':
+      case 'provision-reseller':
+      case 'provision-admin':
         return (
           <ClientesDaSection
             listFilter="all"
             packages={directAdminPackages}
             initialView="create"
-            initialAccountType={provisionAccountType === 'admin' ? 'professional' : provisionAccountType}
+            initialAccountType={
+              sectionId === 'provision-reseller'
+                ? 'reseller'
+                : sectionId === 'provision-admin'
+                  ? 'professional'
+                  : provisionAccountType === 'admin'
+                    ? 'professional'
+                    : provisionAccountType
+            }
             isActive={isActive}
             listResetToken={contasListResetToken}
             onRefresh={() => void loadDirectAdminData(true)}
@@ -1877,11 +1905,40 @@ function AdminPageContent() {
         return (
           <ClientesDaSection
             listFilter="all"
+            listScope="all"
             packages={directAdminPackages}
             initialView="list"
             isActive={isActive}
             listResetToken={contasListResetToken}
             onRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
+      case 'hospedagem-meus':
+        return (
+          <ClientesDaSection
+            listFilter="all"
+            listScope="direct"
+            packages={directAdminPackages}
+            initialView="list"
+            isActive={isActive}
+            listResetToken={contasListResetToken}
+            onRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
+      case 'hospedagem-mover-revenda':
+        return <MoveUsersBetweenResellersSection isActive={isActive} />
+      case 'hospedagem-templates-mensagem':
+        return <AccountMessageTemplatesSection isActive={isActive} />
+      case 'hospedagem-alterar-senhas':
+        return <BulkChangePasswordsSection isActive={isActive} />
+      case 'hospedagem-administradores':
+        return (
+          <CPUsersSection
+            variant="panels"
+            panelScope="users"
+            initialUsersScopeFilter="admin"
+            isActive={isActive}
+            onBootstrapRefresh={() => void loadDirectAdminData(true)}
           />
         )
       case 'dashboard':
@@ -1924,6 +1981,7 @@ function AdminPageContent() {
         return <NewsManagerSection />
       case 'clientes':
         return <CPUsersSection variant="panels" panelScope="client" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+      case 'utilizadores-revendedores':
       case 'revendedores':
         return (
           <CPUsersSection
@@ -1935,6 +1993,26 @@ function AdminPageContent() {
               if (opts?.accountType) setProvisionAccountType(opts.accountType)
               handleNavigate(section)
             }}
+          />
+        )
+      case 'utilizadores-visitantes':
+        return (
+          <CPUsersSection
+            variant="panels"
+            panelScope="users"
+            initialUsersScopeFilter="guest"
+            isActive={isActive}
+            onBootstrapRefresh={() => void loadDirectAdminData(true)}
+          />
+        )
+      case 'utilizadores-gestao':
+        return (
+          <CPUsersSection
+            variant="panels"
+            panelScope="users"
+            initialUsersScopeFilter="manager"
+            isActive={isActive}
+            onBootstrapRefresh={() => void loadDirectAdminData(true)}
           />
         )
       case 'domain-manager':
@@ -2186,6 +2264,17 @@ function AdminPageContent() {
             onRefresh={() => void loadDirectAdminData(true)}
             isActive={isActive}
             initialOpenCreate={packagesOpenCreate}
+            packageScope="user"
+          />
+        )
+      case 'packages-reseller':
+        return (
+          <PackagesSection
+            packages={directAdminPackages}
+            onRefresh={() => void loadDirectAdminData(true)}
+            isActive={isActive}
+            initialOpenCreate={packagesOpenCreate}
+            packageScope="reseller"
           />
         )
       case 'manage-website':
@@ -2319,6 +2408,16 @@ function AdminPageContent() {
 
   // Função para navegar com domínio padrão para emails
   const handleNavigate = (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => {
+    const externalPath = PANEL_EXTERNAL_PATHS[section]
+    if (externalPath) {
+      router.push(externalPath)
+      return
+    }
+    if (section === 'provision-reseller') {
+      setProvisionAccountType('reseller')
+    } else if (section === 'provision-admin') {
+      setProvisionAccountType('professional')
+    }
     if (section === 'provision-client') {
       setProvisionAccountType(opts?.accountType || 'client')
     }
@@ -2367,7 +2466,7 @@ function AdminPageContent() {
         setIsCollapsed={setIsCollapsed}
         sessionUser={sessionUser}
         isMobile={isMobile}
-        menuDefs={panelCapabilities ? getStaffAdminMenu(panelCapabilities) : undefined}
+        menuDefs={adminSidebarMenuDefs}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PanelHeader
@@ -2414,7 +2513,7 @@ function AdminPageContent() {
         />
 
         <main className={`panel-content flex-1 ${
-          ['webmail', 'cp-reseller', 'cp-reseller-permissions'].includes(activeSection)
+          ['webmail', 'cp-reseller'].includes(activeSection)
             ? 'overflow-hidden p-0'
             : ['file-manager', 'cp-file-manager'].includes(activeSection)
               ? 'overflow-y-auto pt-0 px-4 pb-4 lg:px-5 lg:pb-5'

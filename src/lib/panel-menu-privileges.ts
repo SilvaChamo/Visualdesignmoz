@@ -1,8 +1,26 @@
 import {
-  RESELLER_MAIN_MENU_DEFS,
+  NEW_MENU_ITEM_DEFS,
   isMenuHeaderSubItem,
   type PanelMenuItemDef,
 } from '@/lib/panel-admin-menu';
+
+/** Menu admin (sem Dashboard) — opções dos painéis Revendedor e Profissional. */
+export const RESELLER_PRIVILEGE_MENU_DEFS: PanelMenuItemDef[] = NEW_MENU_ITEM_DEFS.filter(
+  (item) => item.id !== 'dashboard',
+);
+
+export const RESELLER_PRIVILEGE_MENU_LABELS: Record<string, string> = Object.fromEntries(
+  RESELLER_PRIVILEGE_MENU_DEFS.map((item) => [item.id, item.label]),
+);
+
+/** Grupos do menu revendedor que usam privilégios de outro grupo do menu admin. */
+const RESELLER_SIDEBAR_PRIVILEGE_PARENT: Record<string, string> = {
+  'nov-definicoes': 'nov-sistema',
+};
+
+function sidebarPrivilegeParent(menuParentId: string): string {
+  return RESELLER_SIDEBAR_PRIVILEGE_PARENT[menuParentId] ?? menuParentId;
+}
 
 export type ResellerMenuKey = string;
 
@@ -29,36 +47,101 @@ function defaultSubPrivileges(items: PanelMenuItemDef[]): Record<string, boolean
 
 export function defaultResellerMenuPrivileges(): ResellerMenuPrivilegesConfig {
   const reseller = Object.fromEntries(
-    RESELLER_MAIN_MENU_DEFS.map((item) => [item.id, true]),
+    RESELLER_PRIVILEGE_MENU_DEFS.map((item) => [item.id, true]),
   ) as Record<ResellerMenuKey, boolean>;
 
   return {
     reseller,
-    resellerSub: defaultSubPrivileges(RESELLER_MAIN_MENU_DEFS),
+    resellerSub: defaultSubPrivileges(RESELLER_PRIVILEGE_MENU_DEFS),
   };
+}
+
+const MANAGER_DEFAULT_DENIED_PARENTS = new Set(['utilizadores', 'nov-hospedagem', 'nov-sistema']);
+
+/** Perfil profissional (manager) — espelha restrições actuais do painel. */
+export function defaultManagerMenuPrivileges(): ResellerMenuPrivilegesConfig {
+  const base = defaultResellerMenuPrivileges();
+  const reseller = { ...base.reseller };
+  const resellerSub = { ...base.resellerSub };
+
+  for (const parentId of MANAGER_DEFAULT_DENIED_PARENTS) {
+    reseller[parentId] = false;
+    const parent = RESELLER_PRIVILEGE_MENU_DEFS.find((item) => item.id === parentId);
+    for (const child of parent?.subItems ?? []) {
+      if (isMenuHeaderSubItem(child.id)) continue;
+      resellerSub[menuSubPrivilegeKey(parentId, child.id)] = false;
+    }
+  }
+
+  return { reseller, resellerSub };
+}
+
+function resolvePanelMenuPrivileges(
+  raw: ResellerMenuPrivilegesConfig | null | undefined,
+  defaults: () => ResellerMenuPrivilegesConfig,
+): ResellerMenuPrivilegesConfig {
+  const defaultConfig = defaults();
+  if (!raw) return defaultConfig;
+
+  const mergedReseller = { ...defaultConfig.reseller, ...raw.reseller };
+  const mergedSub = { ...defaultConfig.resellerSub, ...raw.resellerSub };
+
+  // Migração: menu pai renomeado de clientes → utilizadores
+  if (raw.reseller?.clientes !== undefined) {
+    mergedReseller.utilizadores = raw.reseller.clientes;
+  }
+  if (raw.reseller?.['nov-definicoes'] !== undefined) {
+    mergedReseller['nov-sistema'] = raw.reseller['nov-definicoes'];
+  }
+  if (raw.reseller?.newsletter !== undefined) {
+    mergedReseller.newsletter = raw.reseller.newsletter;
+  }
+  for (const [key, value] of Object.entries(raw.resellerSub || {})) {
+    if (key.startsWith('clientes:')) {
+      const migrated = key.replace('clientes:', 'utilizadores:');
+      if (mergedSub[migrated] === undefined) mergedSub[migrated] = value;
+    }
+    if (key.startsWith('nov-definicoes:')) {
+      const migrated = key.replace('nov-definicoes:', 'nov-sistema:');
+      if (mergedSub[migrated] === undefined) mergedSub[migrated] = value;
+    }
+    if (key.startsWith('nov-email:newsletter-')) {
+      const migrated = key.replace('nov-email:', 'newsletter:');
+      if (mergedSub[migrated] === undefined) mergedSub[migrated] = value;
+    }
+  }
+
+  const reseller = Object.fromEntries(
+    RESELLER_PRIVILEGE_MENU_DEFS.map((item) => [
+      item.id,
+      mergedReseller[item.id] !== false,
+    ]),
+  ) as Record<ResellerMenuKey, boolean>;
+  reseller.dashboard = true;
+
+  const resellerSub: Record<string, boolean> = {};
+  for (const parent of RESELLER_PRIVILEGE_MENU_DEFS) {
+    if (!parent.subItems?.length) continue;
+    for (const child of parent.subItems) {
+      if (isMenuHeaderSubItem(child.id)) continue;
+      const key = menuSubPrivilegeKey(parent.id, child.id);
+      resellerSub[key] = mergedSub[key] !== false;
+    }
+  }
+
+  return { reseller, resellerSub };
 }
 
 export function resolveResellerMenuPrivileges(
   raw: ResellerMenuPrivilegesConfig | null | undefined,
 ): ResellerMenuPrivilegesConfig {
-  const defaults = defaultResellerMenuPrivileges();
-  if (!raw) return defaults;
+  return resolvePanelMenuPrivileges(raw, defaultResellerMenuPrivileges);
+}
 
-  const reseller = { ...defaults.reseller, ...raw.reseller };
-  const resellerSub = { ...defaults.resellerSub, ...raw.resellerSub };
-
-  // Migração: menu pai renomeado de clientes → utilizadores
-  if (raw.reseller?.clientes !== undefined) {
-    reseller.utilizadores = raw.reseller.clientes;
-  }
-  for (const [key, value] of Object.entries(raw.resellerSub || {})) {
-    if (key.startsWith('clientes:')) {
-      const migrated = key.replace('clientes:', 'utilizadores:');
-      if (resellerSub[migrated] === undefined) resellerSub[migrated] = value;
-    }
-  }
-
-  return { reseller, resellerSub };
+export function resolveManagerMenuPrivileges(
+  raw: ResellerMenuPrivilegesConfig | null | undefined,
+): ResellerMenuPrivilegesConfig {
+  return resolvePanelMenuPrivileges(raw, defaultManagerMenuPrivileges);
 }
 
 export function isResellerMenuEnabled(
@@ -82,9 +165,12 @@ export function patchResellerMenuToggle(
   privileges: ResellerMenuPrivilegesConfig,
   key: ResellerMenuKey,
   enabled: boolean,
-  menuDefs: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS,
+  menuDefs: PanelMenuItemDef[] = RESELLER_PRIVILEGE_MENU_DEFS,
 ): ResellerMenuPrivilegesConfig {
   const reseller = { ...privileges.reseller, [key]: enabled };
+  if (key === 'dashboard') {
+    reseller.dashboard = true;
+  }
   const resellerSub = { ...privileges.resellerSub };
   const parent = menuDefs.find((item) => item.id === key);
   const children = parent?.subItems ?? [];
@@ -103,7 +189,7 @@ export function patchResellerSubToggle(
   parent: ResellerMenuKey,
   childKey: string,
   enabled: boolean,
-  menuDefs: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS,
+  menuDefs: PanelMenuItemDef[] = RESELLER_PRIVILEGE_MENU_DEFS,
 ): ResellerMenuPrivilegesConfig {
   const subKey = menuSubPrivilegeKey(parent, childKey);
   const resellerSub = { ...privileges.resellerSub, [subKey]: enabled };
@@ -132,13 +218,14 @@ export function filterMenuByPrivileges(
   privileges: ResellerMenuPrivilegesConfig,
 ): PanelMenuItemDef[] {
   return items
-    .filter((item) => isResellerMenuEnabled(privileges, item.id))
+    .filter((item) => isResellerMenuEnabled(privileges, sidebarPrivilegeParent(item.id)))
     .map((item) => {
       if (!item.subItems?.length) return item;
 
+      const privilegeParent = sidebarPrivilegeParent(item.id);
       const subItems = item.subItems.filter((sub) => {
         if (isMenuHeaderSubItem(sub.id)) return true;
-        return isResellerSubmenuEnabled(privileges, item.id, sub.id);
+        return isResellerSubmenuEnabled(privileges, privilegeParent, sub.id);
       });
 
       const hasNavigable = subItems.some((sub) => !isMenuHeaderSubItem(sub.id));
@@ -148,10 +235,3 @@ export function filterMenuByPrivileges(
     })
     .filter(Boolean) as PanelMenuItemDef[];
 }
-
-/** Chaves e etiquetas para o painel de privilégios (admin) */
-export const RESELLER_PRIVILEGE_MENU_DEFS = RESELLER_MAIN_MENU_DEFS;
-
-export const RESELLER_PRIVILEGE_MENU_LABELS: Record<string, string> = Object.fromEntries(
-  RESELLER_MAIN_MENU_DEFS.map((item) => [item.id, item.label]),
-);

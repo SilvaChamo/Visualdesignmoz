@@ -17,7 +17,7 @@ import {
   saveProfileForAuthUser,
   type ProfileRow,
 } from '@/lib/profile-db';
-import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
+import { upsertDownloadableCredentials, decryptStoredPassword } from '@/lib/panel-access-credentials';
 import { STANDARD_PANEL_PASSWORD } from '@/lib/stored-panel-password';
 import {
   filterPanelAccountsForCaller,
@@ -106,6 +106,7 @@ export type PanelAccountRow = {
   email: string;
   userName: string;
   daUsername?: string | null;
+  serverLinked?: boolean;
   panelRole: UserRole;
   panelPath: string;
   state: string;
@@ -253,6 +254,74 @@ function isManualPanelRole(role: UserRole | null): boolean {
   return role === 'admin' || role === 'manager';
 }
 
+function shouldTryServerProvision(role: UserRole, provisionDa?: boolean): boolean {
+  return role === 'reseller' && provisionDa !== false;
+}
+
+async function resolveResellerProvisionPassword(
+  admin: SupabaseClient,
+  userId: string,
+  email: string,
+  explicitPassword?: string,
+): Promise<{ password?: string; syncGeneratedPassword: boolean }> {
+  if (explicitPassword && explicitPassword.length >= 6) {
+    return { password: explicitPassword, syncGeneratedPassword: true };
+  }
+
+  const { data: cred } = await admin
+    .from('email_contas')
+    .select('senha_servidor')
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
+
+  if (cred?.senha_servidor) {
+    const stored = decryptStoredPassword(String(cred.senha_servidor));
+    if (stored && stored.length >= 6) {
+      return { password: stored, syncGeneratedPassword: false };
+    }
+  }
+
+  return { password: undefined, syncGeneratedPassword: false };
+}
+
+async function tryProvisionReseller(
+  admin: SupabaseClient,
+  params: {
+    userId: string;
+    email: string;
+    nome?: string;
+    explicitPassword?: string;
+    provisionDa?: boolean;
+    role: UserRole;
+  },
+) {
+  if (!shouldTryServerProvision(params.role, params.provisionDa)) {
+    return { provisionResult: null as Awaited<ReturnType<typeof ensureResellerProvisioned>> | null, provisionWarning: null as string | null };
+  }
+
+  try {
+    const resolved = await resolveResellerProvisionPassword(
+      admin,
+      params.userId,
+      params.email,
+      params.explicitPassword,
+    );
+    const provisionResult = await ensureResellerProvisioned({
+      userId: params.userId,
+      email: params.email,
+      nome: params.nome,
+      password: resolved.password ?? params.explicitPassword,
+      syncGeneratedPassword: resolved.syncGeneratedPassword,
+    });
+    return { provisionResult, provisionWarning: null };
+  } catch (e: unknown) {
+    return {
+      provisionResult: null,
+      provisionWarning: stripHtml(e instanceof Error ? e.message : 'Erro ao provisionar no servidor'),
+    };
+  }
+}
+
 async function buildPanelAccounts(options?: {
   sync?: boolean;
   includePaidCheck?: boolean;
@@ -271,9 +340,13 @@ async function buildPanelAccounts(options?: {
     }
   }
 
-  const [authUsers, profilesRes] = await Promise.all([
+  const [authUsers, profilesRes, authAccountsRes] = await Promise.all([
     listAllAuthUsers(admin),
     admin.from('profiles').select('id, user_id, email, role, name, da_username'),
+    admin
+      .from('panel_auth_accounts')
+      .select('user_id, server_linked, da_username')
+      .eq('panel_slug', PANEL_SLUG.toLowerCase()),
   ]);
 
   if (profilesRes.error) {
@@ -284,6 +357,15 @@ async function buildPanelAccounts(options?: {
   for (const profile of profilesRes.data ?? []) {
     const authId = (profile.user_id as string) || (profile.id as string);
     if (authId) profilesByAuthId.set(authId, profile as ProfileRow);
+  }
+
+  const authAccountByUserId = new Map<
+    string,
+    { server_linked?: boolean; da_username?: string | null }
+  >();
+  for (const row of authAccountsRes.data ?? []) {
+    const userId = String((row as { user_id?: string }).user_id || '');
+    if (userId) authAccountByUserId.set(userId, row as { server_linked?: boolean; da_username?: string | null });
   }
 
   const paidIds = options?.includePaidCheck
@@ -305,9 +387,11 @@ async function buildPanelAccounts(options?: {
     .map((authUser) => {
       const email = authUser.email!.toLowerCase();
       const profile = profilesByAuthId.get(authUser.id);
+      const authAccount = authAccountByUserId.get(authUser.id);
       const daUsername =
         (profile?.da_username as string) ||
         (authUser.user_metadata?.da_username as string) ||
+        authAccount?.da_username ||
         null;
       const panelRole = resolveUserRole({
         email,
@@ -324,6 +408,7 @@ async function buildPanelAccounts(options?: {
         email,
         userName: displayName,
         daUsername,
+        serverLinked: authAccount?.server_linked === true || Boolean(daUsername),
         panelRole,
         panelPath: getRedirectPathForRole(panelRole),
         state: 'Active',
@@ -580,17 +665,16 @@ export async function PUT(req: NextRequest) {
 
     let provisionResult = null;
     let provisionWarning: string | null = null;
-    if (role === 'reseller' && provisionDa === true) {
-      try {
-        provisionResult = await ensureResellerProvisioned({
-          userId: created.user.id,
-          email: normalizedEmail,
-          nome: displayName,
-        });
-      } catch (e: unknown) {
-        provisionWarning = stripHtml(e instanceof Error ? e.message : 'Erro ao provisionar no servidor');
-      }
-    }
+    const provisionAttempt = await tryProvisionReseller(admin, {
+      userId: created.user.id,
+      email: normalizedEmail,
+      nome: displayName,
+      explicitPassword: password,
+      provisionDa,
+      role,
+    });
+    provisionResult = provisionAttempt.provisionResult;
+    provisionWarning = provisionAttempt.provisionWarning;
 
     if (role === 'reseller' && provisionResult?.daUsername) {
       await upsertPanelAuthAccount(admin, {
@@ -715,17 +799,16 @@ export async function PATCH(req: NextRequest) {
 
     let provisionResult = null;
     let provisionWarning: string | null = null;
-    if (role === 'reseller' && provisionDa === true) {
-      try {
-        provisionResult = await ensureResellerProvisioned({
-          userId,
-          email: resolvedEmail,
-          nome: nome || (authUser.user_metadata?.nome as string),
-        });
-      } catch (e: unknown) {
-        provisionWarning = stripHtml(e instanceof Error ? e.message : 'Erro ao provisionar no servidor');
-      }
-    }
+    const provisionAttempt = await tryProvisionReseller(admin, {
+      userId,
+      email: resolvedEmail,
+      nome: nome || (authUser.user_metadata?.nome as string),
+      explicitPassword: password,
+      provisionDa,
+      role,
+    });
+    provisionResult = provisionAttempt.provisionResult;
+    provisionWarning = provisionAttempt.provisionWarning;
 
     if (role === 'reseller' && provisionResult?.daUsername) {
       await upsertPanelAuthAccount(admin, {

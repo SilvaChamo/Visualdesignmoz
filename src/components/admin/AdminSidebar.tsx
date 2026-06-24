@@ -76,6 +76,11 @@ function buildMenuItems(defs: PanelMenuItemDef[]): MenuItem[] {
 const MENU_ROW_CLASS = 'box-border h-11 min-h-11 max-h-11 shrink-0';
 /** Submenu: texto maior, mas linhas mais apertadas entre si. */
 const SUB_ROW_CLASS = 'box-border h-8 min-h-8 max-h-8 shrink-0 leading-none';
+const SUB_MENU_TRACK_CLASS = 'relative w-[3px] shrink-0 self-stretch';
+const SUB_MENU_TRACK_LINE =
+  'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200 dark:bg-zinc-800';
+const SUB_MENU_ACTIVE_MARK =
+  'pointer-events-none absolute left-1/2 top-1/2 z-10 h-3 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600';
 
 export function AdminSidebar({
   activeSection,
@@ -251,29 +256,40 @@ export function AdminSidebar({
                   })()}
 
                   {!isCollapsed && item.subItems && isOpen && (
-                    <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto border-l border-gray-200 dark:border-zinc-800">
+                    <div className="ml-9 flex max-h-[55vh] flex-col overflow-y-auto">
                       {item.subItems.map((sub) => {
                         if (sub.id.endsWith('-header')) {
                           return (
-                            <div key={sub.id} className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                              {sub.label.replace(/^—\s*|\s*—$/g, '')}
+                            <div key={sub.id} className="flex items-stretch">
+                              <div className={SUB_MENU_TRACK_CLASS} aria-hidden>
+                                <div className={SUB_MENU_TRACK_LINE} />
+                              </div>
+                              <div className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                {sub.label.replace(/^—\s*|\s*—$/g, '')}
+                              </div>
                             </div>
                           );
                         }
                         const resolved = resolveSectionId(sub.id);
                         const isSubActive = resolveSectionId(activeSection) === resolved;
                         return (
-                          <button
-                            key={sub.id}
-                            onClick={() => handleSubClick(sub.id)}
-                            className={`relative flex items-center overflow-visible px-3 text-left text-[15px] transition-colors duration-200 focus:outline-none ${SUB_ROW_CLASS} ${
-                              isSubActive
-                                ? 'font-bold text-red-600 before:absolute before:-left-px before:top-1/2 before:z-20 before:h-3 before:w-1 before:-translate-x-px before:-translate-y-1/2 before:rounded-sm before:bg-red-600'
-                                : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
-                            }`}
-                          >
-                            {sub.label}
-                          </button>
+                          <div key={sub.id} className={`flex items-stretch ${SUB_ROW_CLASS}`}>
+                            <div className={SUB_MENU_TRACK_CLASS} aria-hidden>
+                              <div className={SUB_MENU_TRACK_LINE} />
+                              {isSubActive && <span className={SUB_MENU_ACTIVE_MARK} />}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSubClick(sub.id)}
+                              className={`flex min-w-0 flex-1 items-center px-3 text-left text-[15px] transition-colors duration-200 focus:outline-none ${
+                                isSubActive
+                                  ? 'font-bold text-red-600'
+                                  : 'text-gray-600 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400'
+                              }`}
+                            >
+                              {sub.label}
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
