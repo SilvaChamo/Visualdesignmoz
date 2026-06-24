@@ -30,7 +30,7 @@ const MUTATION_ACTIONS = new Set([
   'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
   'configDefaultNameservers', 'createNameserver', 'configCloudFlare',
   'changePHPVersion', 'savePHPConfig',
-  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
+  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP', 'saveBruteForceConfig',
   'installWordPress', 'installWPPlugin', 'toggleWPPlugin',
   'restoreWPBackup', 'createRemoteBackup',
 ]);
@@ -314,6 +314,15 @@ export async function POST(req: NextRequest) {
         break;
       case 'unblockIP':
         data = await daApi.unblockIP(params);
+        break;
+      case 'getBruteForceConfig':
+        data = await daApi.getBruteForceConfig();
+        break;
+      case 'getBruteForceHistory':
+        data = await daApi.getBruteForceHistory();
+        break;
+      case 'saveBruteForceConfig':
+        data = await daApi.saveBruteForceConfig(params);
         break;
 
       case 'serverStats':

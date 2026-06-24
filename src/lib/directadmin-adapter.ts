@@ -1205,13 +1205,151 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     getServerStats: async () => api.getServerStatus(),
 
-    getFirewallStatus: async () => ({ enabled: true, note: 'Gerido pelo CSF/DA' }),
+    getFirewallStatus: async () => {
+      try {
+        const { daGetViaSsh } = await import('@/lib/da-api-ssh');
+        const res = await daGetViaSsh('CMD_API_BRUTE_FORCE', { json: 'yes' });
+        return { enabled: res.ok, note: res.ok ? 'Brute Force activo no DA' : 'Não configurado' };
+      } catch {
+        return { enabled: false, note: 'Indisponível' };
+      }
+    },
     toggleFirewall: async (_p: Record<string, unknown>) => ({ success: true }),
-    getModSecurityStatus: async () => ({ enabled: false }),
+
+    getModSecurityStatus: async () => {
+      try {
+        const { daGetViaSsh } = await import('@/lib/da-api-ssh');
+        const res = await daGetViaSsh('CMD_API_MOD_SECURITY', { json: 'yes' });
+        const raw = res.raw || '';
+        return { enabled: raw.toLowerCase().includes('enabled=yes') || raw.toLowerCase().includes('"enabled":"1"') };
+      } catch {
+        return { enabled: false };
+      }
+    },
     toggleModSecurity: async (_p: Record<string, unknown>) => ({ success: true }),
-    getBlockedIPs: async () => [] as string[],
-    blockIP: async (_p: Record<string, unknown>) => ({ success: true }),
-    unblockIP: async (_p: Record<string, unknown>) => ({ success: true }),
+
+    /** IPs bloqueados no DA (ficheiro block_temp + brute force) via SSH */
+    getBlockedIPs: async (): Promise<Array<{ ip: string; reason: string; since: string; source: string }>> => {
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        // Lê ficheiro de IPs bloqueados temporários do DirectAdmin
+        const raw = await executeServerCommand(
+          'cat /usr/local/directadmin/data/admin/block_temp 2>/dev/null; ' +
+          'cat /usr/local/directadmin/data/admin/blocked_ips 2>/dev/null; ' +
+          'echo "---brute---"; ' +
+          'cat /usr/local/directadmin/data/admin/brute_temp 2>/dev/null'
+        );
+        const results: Array<{ ip: string; reason: string; since: string; source: string }> = [];
+        const seen = new Set<string>();
+        let section = 'block';
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (trimmed === '---brute---') { section = 'brute'; continue; }
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          // Formato: ip=1.2.3.4&time=1234567890&reason=brute_force
+          if (trimmed.includes('=')) {
+            const params = new URLSearchParams(trimmed.replace(/&amp;/g, '&'));
+            const ip = params.get('ip') || params.get('IP') || '';
+            const reason = params.get('reason') || (section === 'brute' ? 'Brute Force (DA)' : 'Bloqueado (DA)');
+            const timeRaw = params.get('time') || '';
+            const since = timeRaw ? new Date(parseInt(timeRaw) * 1000).toLocaleString('pt-PT') : '—';
+            if (ip && !seen.has(ip)) { seen.add(ip); results.push({ ip, reason, since, source: section === 'brute' ? 'da-brute' : 'da-block' }); }
+          } else if (/^[\d.]+$/.test(trimmed)) {
+            if (!seen.has(trimmed)) { seen.add(trimmed); results.push({ ip: trimmed, reason: section === 'brute' ? 'Brute Force (DA)' : 'Bloqueado (DA)', since: '—', source: section === 'brute' ? 'da-brute' : 'da-block' }); }
+          }
+        }
+        return results;
+      } catch {
+        return [];
+      }
+    },
+
+    /** Bloqueia IP no DA via CMD_API_BRUTE_FORCE */
+    blockIP: async (p: Record<string, unknown>) => {
+      try {
+        const ip = String(p.ip || p);
+        const { daPostViaSsh } = await import('@/lib/da-api-ssh');
+        const res = await daPostViaSsh('CMD_API_BRUTE_FORCE', { action: 'block', ip });
+        return { success: res.ok, error: res.error };
+      } catch (e: unknown) {
+        return { success: false, error: e instanceof Error ? e.message : 'Erro ao bloquear' };
+      }
+    },
+
+    /** Desbloqueia IP no DA via CMD_API_BRUTE_FORCE */
+    unblockIP: async (p: Record<string, unknown>) => {
+      try {
+        const ip = String(p.ip || p);
+        const { daPostViaSsh } = await import('@/lib/da-api-ssh');
+        const res = await daPostViaSsh('CMD_API_BRUTE_FORCE', { action: 'unblock', ip });
+        return { success: res.ok, error: res.error };
+      } catch (e: unknown) {
+        return { success: false, error: e instanceof Error ? e.message : 'Erro ao desbloquear' };
+      }
+    },
+
+    /** Lê configurações de brute force do DA */
+    getBruteForceConfig: async (): Promise<Record<string, string>> => {
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        const raw = await executeServerCommand('cat /usr/local/directadmin/conf/brute_force.conf 2>/dev/null');
+        const config: Record<string, string> = {};
+        for (const line of raw.split('\n')) {
+          const [k, v] = line.split('=');
+          if (k && v !== undefined) config[k.trim()] = v.trim();
+        }
+        return config;
+      } catch {
+        return {};
+      }
+    },
+
+    /** Histórico de brute force do DA */
+    getBruteForceHistory: async (): Promise<Array<{ ip: string; count: string; service: string; time: string }>> => {
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        const raw = await executeServerCommand(
+          'cat /usr/local/directadmin/data/admin/brute_log 2>/dev/null | tail -100'
+        );
+        const results: Array<{ ip: string; count: string; service: string; time: string }> = [];
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed.includes('=')) {
+            const params = new URLSearchParams(trimmed.replace(/&amp;/g, '&'));
+            const ip = params.get('ip') || '';
+            if (ip) results.push({ ip, count: params.get('count') || '1', service: params.get('service') || 'ssh', time: params.get('time') || '—' });
+          }
+        }
+        return results.reverse().slice(0, 50);
+      } catch {
+        return [];
+      }
+    },
+
+    /** Guarda/salva configurações de brute force no DA */
+    saveBruteForceConfig: async (config: Record<string, string>): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+        const raw = await executeServerCommand('cat /usr/local/directadmin/conf/brute_force.conf 2>/dev/null');
+        const current: Record<string, string> = {};
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const [k, v] = trimmed.split('=');
+          if (k && v !== undefined) current[k.trim()] = v.trim();
+        }
+        const updated = { ...current, ...config };
+        const content = Object.entries(updated)
+          .map(([k, v]) => `${k}=${v}`)
+          .join('\n');
+        const escapedContent = Buffer.from(content).toString('base64');
+        await executeServerCommand(`echo "${escapedContent}" | base64 -d > /usr/local/directadmin/conf/brute_force.conf`);
+        return { success: true };
+      } catch (e: unknown) {
+        return { success: false, error: e instanceof Error ? e.message : 'Erro ao guardar configuração' };
+      }
+    },
 
     listWordPress: async (_domain: string) => [] as unknown[],
     installWordPress: async (_p: Record<string, unknown>) => ({

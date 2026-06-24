@@ -28,6 +28,7 @@ import {
   writeFmDirCache,
 } from '@/lib/panel-file-manager-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
+import { queueHostingAccountEdit } from '@/lib/panel-hosting-edit-nav'
 import { loadScreenshot as fetchSiteScreenshot } from '@/lib/site-screenshot-cache'
 import {
   readDomainListCache,
@@ -2284,6 +2285,10 @@ function panelResellerNeedsServer(account: PanelAccount): boolean {
   return account.panelRole === 'reseller' && !account.serverLinked && !account.daUsername
 }
 
+function isHostingLinkedPanelAccount(account: PanelAccount): boolean {
+  return Boolean(account.daUsername?.trim())
+}
+
 function floatingMenuPosition(anchorRect: DOMRect, menuW: number, itemCount: number) {
   const rowH = 32
   const estimatedH = itemCount * rowH + 4
@@ -2318,7 +2323,7 @@ function PanelAccountActionsMenu({
     ...(account.email.includes('@')
       ? [{ id: 'downloadEmailConfig', label: 'Baixar credenciais de acesso' }]
       : []),
-    { id: 'edit', label: 'Editar conta' },
+    { id: 'edit', label: isHostingLinkedPanelAccount(account) ? 'Editar conta de hospedagem' : 'Editar conta' },
     { id: 'delete', label: 'Eliminar', danger: true },
   ]
 
@@ -2806,6 +2811,11 @@ export function CPUsersSection({
       return
     }
     if (action === 'edit') {
+      if (isHostingLinkedPanelAccount(account) && onNavigate) {
+        queueHostingAccountEdit(account.daUsername || '')
+        onNavigate('hospedagem-contas')
+        return
+      }
       openPanelEditModal(account)
       return
     }
@@ -4049,55 +4059,287 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
 }
 
 // ============================================================
-// SECURITY & FIREWALL SECTION
+// SECURITY & FIREWALL SECTION — estilo DirectAdmin
 // ============================================================
+
+type BlockedIPEntry = {
+  ip: string
+  reason: string
+  since: string
+  source: 'fail2ban' | 'csf' | 'manual' | 'da-brute' | 'da-block' | string
+}
+
+type LoginAttemptEntry = {
+  datetime: string
+  ip: string
+  user: string
+  service: string
+  result: 'falhou' | 'sucesso'
+}
+
+async function fetchSecurityData(): Promise<{
+  firewallOn: boolean
+  blockedIPs: BlockedIPEntry[]
+  loginAttempts: LoginAttemptEntry[]
+  fail2banActive: boolean
+}> {
+  // Executar comandos via /api/server-exec
+  const run = async (action: string, params: Record<string, unknown> = {}) => {
+    try {
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, params }),
+      })
+      const data = await res.json()
+      return (data.success ? data.output || data.data || '' : '') as string
+    } catch {
+      return ''
+    }
+  }
+
+  // Comandos bash como strings simples (evitar interpolação TS nos ${} do bash)
+  const CMD_CSF_STATUS = 'csf --status 2>/dev/null | head -3 || echo "csf_not_found"'
+  const CMD_F2B_STATUS = 'fail2ban-client status 2>/dev/null | head -5 || echo "f2b_not_found"'
+  const CMD_BANNED = [
+    'if command -v csf >/dev/null 2>&1; then',
+    '  csf -l 2>/dev/null | grep -E "^(DROP|REJECT)" | grep -oE "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" | sort -u | head -50 |',
+    '  while read ip; do echo "csf|$ip|Bloqueado pelo CSF|$(date +%Y-%m-%d\\ %H:%M)"; done;',
+    'fi;',
+    'if command -v fail2ban-client >/dev/null 2>&1; then',
+    '  for jail in $(fail2ban-client status 2>/dev/null | grep "Jail list" | sed "s/.*://;s/,//g"); do',
+    '    fail2ban-client status "$jail" 2>/dev/null | grep "Banned IP" | sed "s/.*Banned IP list://;s/^ *//" | tr " " "\\n" | grep -v "^$" |',
+    '    while read ip; do echo "fail2ban|$ip|Bloqueado ($jail)|$(date +%Y-%m-%d\\ %H:%M)"; done;',
+    '  done;',
+    'fi',
+  ].join(' ')
+  const CMD_LOGINS = [
+    '(grep "Failed password\\|Invalid user\\|authentication failure" /var/log/auth.log 2>/dev/null',
+    '|| grep "Failed password\\|Invalid user\\|authentication failure" /var/log/secure 2>/dev/null',
+    '|| journalctl -u sshd --no-pager -n 100 2>/dev/null | grep -E "Failed|Invalid")',
+    '| tail -40 | while IFS= read -r line; do',
+    '  dt=$(echo "$line" | grep -oE "[A-Za-z]+ [0-9]+ [0-9:]+" | head -1);',
+    '  ip=$(echo "$line" | grep -oE "([0-9]{1,3}\\.){3}[0-9]{1,3}" | head -1);',
+    '  user=$(echo "$line" | grep -oP "(?<=invalid user |for )[^ ]+" | head -1);',
+    '  if [ -n "$ip" ]; then echo "$dt|$ip|${user:-unknown}|SSH|falhou"; fi;',
+    'done | tail -30',
+  ].join(' ')
+
+  // Verificar se CSF ou fail2ban está activo
+  const [csfStatus, f2bStatus, daBlockedIPs, logRaw, bannedRaw] = await Promise.all([
+    run('execCommand', { command: CMD_CSF_STATUS }),
+    run('execCommand', { command: CMD_F2B_STATUS }),
+    directAdminAPI.getBlockedIPs().catch(() => []),
+    run('execCommand', { command: CMD_LOGINS }),
+    run('execCommand', { command: CMD_BANNED }),
+  ])
+
+  const fail2banActive = !f2bStatus.includes('f2b_not_found') && f2bStatus.length > 5
+  const firewallOn = !csfStatus.includes('csf_not_found') && (
+    csfStatus.toLowerCase().includes('running') || csfStatus.toLowerCase().includes('enabled')
+  ) || fail2banActive
+
+  // Parsear IPs bloqueados
+  const blockedIPs: BlockedIPEntry[] = []
+  const seen = new Set<string>()
+
+  // 1. IPs do DirectAdmin
+  for (const entry of daBlockedIPs) {
+    if (entry.ip && !seen.has(entry.ip)) {
+      seen.add(entry.ip)
+      blockedIPs.push({
+        ip: entry.ip.trim(),
+        reason: entry.reason || 'Bloqueado (DA)',
+        since: entry.since || '—',
+        source: entry.source || 'da-block',
+      })
+    }
+  }
+
+  // 2. IPs do CSF/fail2ban via script
+  for (const line of bannedRaw.split('\n').filter(Boolean)) {
+    const parts = line.split('|')
+    if (parts.length >= 3) {
+      const [source, ip, reason, since] = parts
+      if (ip && !seen.has(ip)) {
+        seen.add(ip)
+        blockedIPs.push({
+          ip: ip.trim(),
+          reason: reason?.trim() || 'Bloqueado',
+          since: since?.trim() || '—',
+          source: source?.trim() === 'fail2ban' ? 'fail2ban' : source?.trim() === 'csf' ? 'csf' : 'manual',
+        })
+      }
+    }
+  }
+
+  // Parsear tentativas de login
+  const loginAttempts: LoginAttemptEntry[] = []
+  for (const line of logRaw.split('\n').filter(Boolean)) {
+    const parts = line.split('|')
+    if (parts.length >= 4) {
+      const [datetime, ip, user, service, result] = parts
+      if (ip) {
+        loginAttempts.push({
+          datetime: datetime?.trim() || '—',
+          ip: ip.trim(),
+          user: user?.trim() || 'unknown',
+          service: service?.trim() || 'SSH',
+          result: (result?.trim() === 'sucesso' ? 'sucesso' : 'falhou') as 'falhou' | 'sucesso',
+        })
+      }
+    }
+  }
+
+  return { firewallOn, blockedIPs, loginAttempts, fail2banActive }
+}
+
 export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
-  const [firewallOn, setFirewallOn] = useState(false)
+  const [tab, setTab] = useState<'overview' | 'blocked' | 'attempts' | 'modsec' | 'bruteforce'>('overview')
   const [loading, setLoading] = useState(true)
-  const [showAdvancedUpload, setShowAdvancedUpload] = useState(false)
-  const [toggling, setToggling] = useState(false)
-  const [blockedIPs, setBlockedIPs] = useState<string[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+  const [firewallOn, setFirewallOn] = useState(false)
+  const [fail2banActive, setFail2banActive] = useState(false)
+  const [blockedIPs, setBlockedIPs] = useState<BlockedIPEntry[]>([])
+  const [loginAttempts, setLoginAttempts] = useState<LoginAttemptEntry[]>([])
   const [newIP, setNewIP] = useState('')
+  const [newReason, setNewReason] = useState('')
   const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState<'ok' | 'err'>('ok')
+  const [actionIP, setActionIP] = useState<string | null>(null)
   const [selectedDomain, setSelectedDomain] = useState('')
   const [modsecOn, setModsecOn] = useState(false)
   const [modsecLoading, setModsecLoading] = useState(false)
+  const [toggling, setToggling] = useState(false)
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true)
-        const [fw, ips] = await Promise.all([directAdminAPI.getFirewallStatus(), directAdminAPI.getBlockedIPs()])
-        setFirewallOn(fw)
-        setBlockedIPs(Array.isArray(ips) ? ips : [])
-      } catch (error) {
-        console.error('Error loading security status:', error)
-        setMsg('Erro ao carregar dados de segurança/firewall.')
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [])
+  // Estados específicos de Força Bruta
+  const [bfConfig, setBfConfig] = useState<Record<string, string>>({})
+  const [bfHistory, setBfHistory] = useState<Array<{ ip: string; count: string; service: string; time: string }>>([])
+  const [bfLoading, setBfLoading] = useState(false)
+  const [bfSaving, setBfSaving] = useState(false)
 
-  const handleToggleFirewall = async () => {
-    setToggling(true)
-    const ok = await directAdminAPI.toggleFirewall(!firewallOn)
-    if (ok) setFirewallOn(!firewallOn)
-    else setMsg('Erro ao alterar firewall.')
-    setToggling(false)
+  const showMsg = (text: string, type: 'ok' | 'err' = 'ok') => {
+    setMsg(text); setMsgType(type)
+    setTimeout(() => setMsg(''), 4000)
   }
 
+  const loadData = async (quiet = false) => {
+    if (!quiet) setLoading(true)
+    else setRefreshing(true)
+    try {
+      const data = await fetchSecurityData()
+      setFirewallOn(data.firewallOn)
+      setFail2banActive(data.fail2banActive)
+      setBlockedIPs(data.blockedIPs)
+      setLoginAttempts(data.loginAttempts)
+
+      // Carregar dados de Força Bruta
+      setBfLoading(true)
+      const [conf, hist] = await Promise.all([
+        directAdminAPI.getBruteForceConfig().catch(() => ({})),
+        directAdminAPI.getBruteForceHistory().catch(() => []),
+      ])
+      setBfConfig(conf)
+      setBfHistory(hist)
+    } catch (e) {
+      console.error('Security load error:', e)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+      setBfLoading(false)
+    }
+  }
+
+  useEffect(() => { void loadData() }, [])
+
   const handleBlockIP = async () => {
-    if (!newIP.trim()) return
-    const ok = await directAdminAPI.blockIP(newIP.trim())
-    if (ok) { setBlockedIPs([...blockedIPs, newIP.trim()]); setNewIP('') }
-    else setMsg('Erro ao bloquear IP.')
+    const ip = newIP.trim()
+    if (!ip) return
+    setActionIP(ip)
+    try {
+      // 1. Bloquear a nível de SSH CSF/fail2ban
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'execCommand', params: { command: `csf -d ${ip} 2>/dev/null || fail2ban-client set sshd banip ${ip} 2>/dev/null || echo "manual"` } }),
+      })
+      const data = await res.json()
+
+      // 2. Sincronizar bloqueando no DirectAdmin
+      await directAdminAPI.blockIP({ ip }).catch(console.error)
+
+      if (data.success !== false) {
+        const entry: BlockedIPEntry = { ip, reason: newReason || 'Bloqueado manualmente', since: new Date().toLocaleString('pt-PT'), source: 'manual' }
+        setBlockedIPs(prev => [entry, ...prev.filter(e => e.ip !== ip)])
+        setNewIP(''); setNewReason('')
+        showMsg(`✅ IP ${ip} bloqueado com sucesso.`, 'ok')
+      } else {
+        showMsg('❌ Erro ao bloquear IP.', 'err')
+      }
+    } catch { showMsg('❌ Erro ao bloquear IP.', 'err') }
+    setActionIP(null)
   }
 
   const handleUnblockIP = async (ip: string) => {
-    const ok = await directAdminAPI.unblockIP(ip)
-    if (ok) setBlockedIPs(blockedIPs.filter(i => i !== ip))
-    else setMsg('Erro ao desbloquear IP.')
+    setActionIP(ip)
+    try {
+      // 1. Desbloquear a nível de SSH CSF/fail2ban
+      const res = await fetch('/api/server-exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'execCommand', params: { command: `csf -dr ${ip} 2>/dev/null; fail2ban-client set sshd unbanip ${ip} 2>/dev/null; echo "done"` } }),
+      })
+      const data = await res.json()
+
+      // 2. Sincronizar desbloqueando no DirectAdmin
+      await directAdminAPI.unblockIP({ ip }).catch(console.error)
+
+      if (data.success !== false) {
+        setBlockedIPs(prev => prev.filter(e => e.ip !== ip))
+        showMsg(`✅ IP ${ip} desbloqueado.`, 'ok')
+      } else {
+        showMsg('❌ Erro ao desbloquear IP.', 'err')
+      }
+    } catch { showMsg('❌ Erro ao desbloquear.', 'err') }
+    setActionIP(null)
+  }
+
+  const handleSaveBfConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBfSaving(true)
+    try {
+      const res = await directAdminAPI.saveBruteForceConfig(bfConfig)
+      if (res && res.success !== false) {
+        showMsg('✅ Configurações de força bruta guardadas.', 'ok')
+      } else {
+        showMsg('❌ Erro ao guardar configurações de força bruta.', 'err')
+      }
+    } catch {
+      showMsg('❌ Erro ao guardar configurações de força bruta.', 'err')
+    } finally {
+      setBfSaving(false)
+    }
+  }
+
+  const handleToggleFirewall = async () => {
+    setToggling(true)
+    try {
+      const cmd = firewallOn
+        ? 'csf --stop 2>/dev/null || fail2ban-client stop 2>/dev/null'
+        : 'csf --start 2>/dev/null || fail2ban-client start 2>/dev/null'
+      const res = await fetch('/api/server-exec', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'execCommand', params: { command: cmd } }),
+      })
+      const data = await res.json()
+      if (data.success !== false) {
+        setFirewallOn(!firewallOn)
+        showMsg(firewallOn ? '🔴 Firewall desactivado.' : '🟢 Firewall activado.', 'ok')
+      } else {
+        showMsg('❌ Erro ao alterar estado do firewall.', 'err')
+      }
+    } catch { showMsg('❌ Erro ao alterar firewall.', 'err') }
+    setToggling(false)
   }
 
   const loadModSec = async (domain: string) => {
@@ -4112,79 +4354,505 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
     if (!selectedDomain) return
     setModsecLoading(true)
     const ok = await directAdminAPI.toggleModSecurity({ enable: !modsecOn })
-    if (ok) setModsecOn(!modsecOn)
-    else setMsg('Erro ao alterar ModSecurity.')
+    if (ok) { setModsecOn(!modsecOn); showMsg(`ModSecurity ${!modsecOn ? 'activado' : 'desactivado'}.`, 'ok') }
+    else showMsg('Erro ao alterar ModSecurity.', 'err')
     setModsecLoading(false)
   }
 
+  const TABS = [
+    { id: 'overview', label: 'Visão Geral' },
+    { id: 'blocked', label: `IPs Bloqueados (${blockedIPs.length})` },
+    { id: 'attempts', label: `Tentativas (${loginAttempts.length})` },
+    { id: 'modsec', label: 'ModSecurity' },
+    { id: 'bruteforce', label: 'Força Bruta' },
+  ] as const
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
-      {msg && <div className="px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
-
-      {loading ? <div className="py-12 text-center"><RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div> : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Firewall */}
-          <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${firewallOn ? 'bg-green-100' : 'bg-red-100'}`}>
-                  <Shield className={`w-6 h-6 ${firewallOn ? 'text-green-600' : 'text-red-600'}`} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Firewall</h3>
-                  <p className="text-xs text-gray-500">{firewallOn ? 'Ativo e a proteger o servidor' : 'Desativado'}</p>
-                </div>
-              </div>
-              <button onClick={handleToggleFirewall} disabled={toggling}
-                className={`px-4 py-2 rounded text-sm font-bold transition-all ${firewallOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
-                {toggling ? <RefreshCw className="w-4 h-4 animate-spin" /> : firewallOn ? 'Desativar' : 'Ativar'}
-              </button>
-            </div>
-          </div>
-
-          {/* ModSecurity */}
-          <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">ModSecurity (WAF)</h3>
-            <div className="flex gap-3 items-end mb-4">
-              <div className="flex-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-                <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadModSec(e.target.value) }}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm">
-                  <option value="">Seleccione...</option>
-                  {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-                </select>
-              </div>
-              {selectedDomain && (
-                <button onClick={handleToggleModSec} disabled={modsecLoading}
-                  className={`px-4 py-2.5 rounded text-sm font-bold transition-all ${modsecOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
-                  {modsecLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : modsecOn ? 'Desativar' : 'Ativar'}
-                </button>
-              )}
-            </div>
-            {selectedDomain && <p className="text-xs text-gray-500">ModSecurity: <span className={`font-bold ${modsecOn ? 'text-green-600' : 'text-red-600'}`}>{modsecOn ? 'Ativo' : 'Inativo'}</span></p>}
-          </div>
-
-          {/* Blocked IPs */}
-          <div className="bg-white rounded shadow-sm border border-gray-200 p-6 lg:col-span-2">
-            <h3 className="font-bold text-gray-900 mb-4">IPs Bloqueados</h3>
-            <div className="flex gap-2 mb-4">
-              <input value={newIP} onChange={(e) => setNewIP(e.target.value)} placeholder="192.168.1.100" className="flex-1 max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm font-mono" />
-              <button onClick={handleBlockIP} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2.5 rounded text-sm font-bold transition-all flex items-center gap-2"><Lock className="w-4 h-4" /> Bloquear</button>
-            </div>
-            {blockedIPs.length === 0 ? <p className="text-sm text-gray-400">Nenhum IP bloqueado.</p> : (
-              <div className="flex flex-wrap gap-2">
-                {blockedIPs.map((ip, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded">
-                    <span className="text-sm font-mono text-red-700">{ip}</span>
-                    <button onClick={() => handleUnblockIP(ip)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Mensagem de feedback */}
+      {msg && (
+        <div className={`px-4 py-2.5 rounded text-sm font-medium border ${msgType === 'ok' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+          {msg}
         </div>
       )}
+
+      {/* Tabs */}
+      <div className="bg-white rounded shadow-sm border border-gray-200">
+        <div className="flex items-center border-b border-gray-200 px-4">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
+                tab === t.id ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+          <div className="ml-auto">
+            <button
+              onClick={() => void loadData(true)}
+              disabled={refreshing || loading}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 px-3 py-2 rounded hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualizar
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="py-12 text-center">
+              <RefreshCw className="w-7 h-7 animate-spin text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">A carregar dados de segurança...</p>
+            </div>
+          ) : (
+            <>
+              {/* ── VISÃO GERAL ── */}
+              {tab === 'overview' && (
+                <div className="space-y-6">
+
+                  {/* Cards de estado */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: 'Firewall',
+                        value: firewallOn ? 'Activo' : 'Inactivo',
+                        color: firewallOn ? 'text-green-600' : 'text-red-500',
+                        bg: firewallOn ? 'bg-green-50' : 'bg-red-50',
+                        icon: Shield,
+                      },
+                      {
+                        label: 'Fail2Ban',
+                        value: fail2banActive ? 'Activo' : 'Inactivo',
+                        color: fail2banActive ? 'text-green-600' : 'text-gray-400',
+                        bg: fail2banActive ? 'bg-green-50' : 'bg-gray-50',
+                        icon: Shield,
+                      },
+                      {
+                        label: 'IPs Bloqueados',
+                        value: String(blockedIPs.length),
+                        color: blockedIPs.length > 0 ? 'text-orange-600' : 'text-green-600',
+                        bg: blockedIPs.length > 0 ? 'bg-orange-50' : 'bg-green-50',
+                        icon: Lock,
+                      },
+                      {
+                        label: 'Tentativas',
+                        value: String(loginAttempts.length),
+                        color: loginAttempts.length > 10 ? 'text-red-600' : 'text-amber-600',
+                        bg: loginAttempts.length > 10 ? 'bg-red-50' : 'bg-amber-50',
+                        icon: AlertTriangle,
+                      },
+                    ].map(card => {
+                      const Icon = card.icon
+                      return (
+                        <div key={card.label} className={`${card.bg} rounded-lg p-4 border border-gray-100`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Icon className={`w-4 h-4 ${card.color}`} />
+                            <span className="text-xs font-bold text-gray-500 uppercase">{card.label}</span>
+                          </div>
+                          <p className={`text-2xl font-extrabold ${card.color}`}>{card.value}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Controlos de Firewall */}
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${firewallOn ? 'bg-green-100' : 'bg-red-100'}`}>
+                          <Shield className={`w-5 h-5 ${firewallOn ? 'text-green-600' : 'text-red-500'}`} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900 text-sm">Firewall do servidor</h4>
+                          <p className="text-xs text-gray-500">
+                            {firewallOn ? 'CSF/Fail2Ban activo — servidor protegido' : 'Firewall desactivado — servidor exposto'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleToggleFirewall}
+                        disabled={toggling}
+                        className={`px-5 py-2 rounded text-sm font-bold transition-all flex items-center gap-2 ${
+                          firewallOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                      >
+                        {toggling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                        {firewallOn ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Últimas tentativas */}
+                  {loginAttempts.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Últimas tentativas de acesso</h4>
+                      <div className="space-y-2">
+                        {loginAttempts.slice(0, 5).map((a, i) => (
+                          <div key={i} className="flex items-center justify-between bg-red-50 border border-red-100 rounded px-4 py-2.5">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-sm font-bold text-red-700">{a.ip}</span>
+                              <span className="text-xs text-gray-500">{a.service} — utilizador: <strong>{a.user}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-400">{a.datetime}</span>
+                              <button
+                                onClick={() => { setNewIP(a.ip); setNewReason(`Tentativa de login SSH (${a.user})`); setTab('blocked') }}
+                                className="text-xs font-bold text-red-600 hover:underline"
+                              >
+                                Bloquear
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {loginAttempts.length > 5 && (
+                        <button onClick={() => setTab('attempts')} className="text-xs text-blue-600 hover:underline mt-2 font-medium">
+                          Ver todas as {loginAttempts.length} tentativas →
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── IPS BLOQUEADOS ── */}
+              {tab === 'blocked' && (
+                <div className="space-y-5">
+                  {/* Adicionar IP */}
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <h4 className="text-xs font-bold text-gray-600 uppercase mb-3">Bloquear novo IP</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        value={newIP}
+                        onChange={(e) => setNewIP(e.target.value)}
+                        placeholder="192.168.1.100"
+                        className="px-3 py-2 border border-gray-300 rounded text-sm font-mono w-48 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                        onKeyDown={(e) => { if (e.key === 'Enter') void handleBlockIP() }}
+                      />
+                      <input
+                        value={newReason}
+                        onChange={(e) => setNewReason(e.target.value)}
+                        placeholder="Razão (opcional)"
+                        className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                      />
+                      <button
+                        onClick={() => void handleBlockIP()}
+                        disabled={!newIP.trim() || actionIP !== null}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {actionIP === newIP.trim() ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                        Bloquear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabela de IPs */}
+                  {blockedIPs.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">
+                      <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nenhum IP bloqueado.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded border border-gray-200">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Endereço IP</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Razão</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Desde</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Fonte</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase text-right">Acção</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {blockedIPs.map((entry, i) => (
+                            <tr key={i} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                              <td className="px-4 py-3 font-mono font-bold text-red-700">{entry.ip}</td>
+                              <td className="px-4 py-3 text-gray-600">{entry.reason}</td>
+                              <td className="px-4 py-3 text-gray-400 text-xs">{entry.since}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  entry.source === 'fail2ban' ? 'bg-orange-100 text-orange-700' :
+                                  entry.source === 'csf' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {entry.source}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => void handleUnblockIP(entry.ip)}
+                                  disabled={actionIP === entry.ip}
+                                  className="text-xs font-bold text-red-600 hover:underline disabled:opacity-50 flex items-center gap-1 ml-auto"
+                                >
+                                  {actionIP === entry.ip ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                  Desbloquear
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── TENTATIVAS DE LOGIN ── */}
+              {tab === 'attempts' && (
+                <div className="space-y-4">
+                  {loginAttempts.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">
+                      <CheckCircle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nenhuma tentativa de login registada.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded border border-gray-200">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Data/Hora</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">IP</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Utilizador</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Serviço</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Estado</th>
+                            <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase text-right">Acção</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loginAttempts.map((a, i) => (
+                            <tr key={i} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                              <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{a.datetime}</td>
+                              <td className="px-4 py-3 font-mono text-sm font-bold text-gray-800">{a.ip}</td>
+                              <td className="px-4 py-3 text-gray-600">{a.user}</td>
+                              <td className="px-4 py-3 text-gray-500">{a.service}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  a.result === 'sucesso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {a.result}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {!blockedIPs.find(b => b.ip === a.ip) && (
+                                  <button
+                                    onClick={() => { setNewIP(a.ip); setNewReason(`Tentativa de login ${a.service} (${a.user})`); setTab('blocked') }}
+                                    className="text-xs font-bold text-red-600 hover:underline"
+                                  >
+                                    Bloquear →
+                                  </button>
+                                )}
+                                {blockedIPs.find(b => b.ip === a.ip) && (
+                                  <span className="text-[10px] text-gray-400 font-medium">Já bloqueado</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── MODSECURITY ── */}
+              {tab === 'modsec' && (
+                <div className="space-y-5">
+                  <p className="text-sm text-gray-600">
+                    O ModSecurity (WAF) filtra pedidos HTTP maliciosos e protege as aplicações web contra ataques como SQL Injection, XSS e outros.
+                  </p>
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
+                        <select
+                          value={selectedDomain}
+                          onChange={(e) => { setSelectedDomain(e.target.value); void loadModSec(e.target.value) }}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                        >
+                          <option value="">Seleccione um website...</option>
+                          {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+                        </select>
+                      </div>
+                      {selectedDomain && (
+                        <button
+                          onClick={() => void handleToggleModSec()}
+                          disabled={modsecLoading}
+                          className={`px-5 py-2.5 rounded text-sm font-bold flex items-center gap-2 transition-all ${
+                            modsecOn ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                        >
+                          {modsecLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                          {modsecOn ? 'Desactivar' : 'Activar'}
+                        </button>
+                      )}
+                    </div>
+                    {selectedDomain && (
+                      <div className={`mt-4 flex items-center gap-2 px-4 py-3 rounded-lg ${modsecOn ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                        <Shield className={`w-4 h-4 ${modsecOn ? 'text-green-600' : 'text-red-500'}`} />
+                        <span className="text-sm font-medium text-gray-700">
+                          ModSecurity está <strong className={modsecOn ? 'text-green-600' : 'text-red-600'}>{modsecOn ? 'ACTIVO' : 'INACTIVO'}</strong> para <strong>{selectedDomain}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── FORÇA BRUTA (BRUTE FORCE) ── */}
+              {tab === 'bruteforce' && (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
+                    <h3 className="font-bold text-gray-900 text-sm mb-3">Configurações do Monitor de Força Bruta (DirectAdmin)</h3>
+                    <form onSubmit={handleSaveBfConfig} className="space-y-4">
+                      {bfLoading ? (
+                        <div className="py-4 text-center">
+                          <RefreshCw className="w-5 h-5 animate-spin text-gray-400 mx-auto mb-1" />
+                          <p className="text-xs text-gray-400">A carregar configurações...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Monitor de Força Bruta</label>
+                              <select
+                                value={bfConfig.brute_force || '0'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, brute_force: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              >
+                                <option value="1">🟢 Activado</option>
+                                <option value="0">🔴 Desactivado</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Tempo de auto-desbloqueio (minutos)</label>
+                              <input
+                                type="number"
+                                value={bfConfig.unblock_brute_ip_time || '0'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, unblock_brute_ip_time: e.target.value }))}
+                                placeholder="0 (nunca desbloquear automaticamente)"
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite de tentativas por IP</label>
+                              <input
+                                type="number"
+                                value={bfConfig.ip_limit || '10'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, ip_limit: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite de tentativas por Utilizador</label>
+                              <input
+                                type="number"
+                                value={bfConfig.user_limit || '20'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, user_limit: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite de tentativas por Porta</label>
+                              <input
+                                type="number"
+                                value={bfConfig.port_limit || '15'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, port_limit: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Limite de tentativas por Webmail</label>
+                              <input
+                                type="number"
+                                value={bfConfig.webmail_limit || '30'}
+                                onChange={(e) => setBfConfig(prev => ({ ...prev, webmail_limit: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-medium"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end pt-2">
+                            <button
+                              type="submit"
+                              disabled={bfSaving}
+                              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 transition-colors"
+                            >
+                              {bfSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Settings className="w-4 h-4" />}
+                              Guardar Configurações
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </form>
+                  </div>
+
+                  {/* Histórico do DA Brute Force */}
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Histórico de Ataques (DirectAdmin)</h4>
+                    {bfHistory.length === 0 ? (
+                      <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-gray-200">
+                        <CheckCircle className="w-10 h-10 mx-auto mb-2 opacity-30 text-green-500" />
+                        <p className="text-sm">Nenhum ataque de força bruta registado no DirectAdmin.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded border border-gray-200">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                              <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Endereço IP</th>
+                              <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Serviço</th>
+                              <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Tentativas</th>
+                              <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase">Último Ataque</th>
+                              <th className="px-4 py-2.5 text-xs font-bold text-gray-500 uppercase text-right">Acção</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bfHistory.map((item, index) => (
+                              <tr key={index} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                                <td className="px-4 py-3 font-mono font-bold text-gray-800">{item.ip}</td>
+                                <td className="px-4 py-3 text-gray-600">{item.service}</td>
+                                <td className="px-4 py-3 text-red-600 font-semibold">{item.count}</td>
+                                <td className="px-4 py-3 text-gray-400 text-xs">{item.time}</td>
+                                <td className="px-4 py-3 text-right">
+                                  {!blockedIPs.find(b => b.ip === item.ip) && (
+                                    <button
+                                      onClick={() => {
+                                        setNewIP(item.ip)
+                                        setNewReason(`Bloqueado via Monitor Força Bruta (${item.service})`)
+                                        setTab('blocked')
+                                      }}
+                                      className="text-xs font-bold text-red-600 hover:underline"
+                                    >
+                                      Bloquear IP
+                                    </button>
+                                  )}
+                                  {blockedIPs.find(b => b.ip === item.ip) && (
+                                    <span className="text-[10px] text-gray-400 font-medium">Já bloqueado</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

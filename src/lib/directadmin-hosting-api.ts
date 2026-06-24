@@ -21,7 +21,7 @@ const MUTATION_ACTIONS = new Set([
   'enableDKIM', 'issueSSL', 'replaceSSL', 'deleteSSL', 'cancelSslRenewal', 'setForceSsl',
   'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
   'changePHPVersion', 'savePHPConfig',
-  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP',
+  'toggleFirewall', 'toggleModSecurity', 'blockIP', 'unblockIP', 'saveBruteForceConfig',
   'installWordPress', 'installWPPlugin', 'toggleWPPlugin',
   'restoreWPBackup', 'createRemoteBackup',
 ]);
@@ -245,9 +245,12 @@ export const panelHostingAPI = {
   toggleFirewall: (params: unknown) => run('toggleFirewall', params as Record<string, unknown>),
   getModSecurityStatus: () => run<boolean>('getModSecurityStatus'),
   toggleModSecurity: (params: unknown) => run('toggleModSecurity', params as Record<string, unknown>),
-  getBlockedIPs: () => run<string[]>('getBlockedIPs'),
+  getBlockedIPs: () => run<Array<{ ip: string; reason: string; since: string; source: string }>>('getBlockedIPs'),
   blockIP: (params: unknown) => run('blockIP', params as Record<string, unknown>),
   unblockIP: (params: unknown) => run('unblockIP', params as Record<string, unknown>),
+  getBruteForceConfig: () => run<Record<string, string>>('getBruteForceConfig'),
+  getBruteForceHistory: () => run<Array<{ ip: string; count: string; service: string; time: string }>>('getBruteForceHistory'),
+  saveBruteForceConfig: (params: Record<string, string>) => run('saveBruteForceConfig', params),
 
   createUser: (params: unknown) => run('createUser', params as Record<string, unknown>, LONG_TIMEOUT),
   modifyUser: (params: unknown) => run('modifyUser', params as Record<string, unknown>, LONG_TIMEOUT),
