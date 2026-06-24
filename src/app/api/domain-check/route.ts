@@ -20,16 +20,26 @@ export async function POST(req: Request) {
       fullDomain = `${fullDomain}.${cleanTld}`;
     }
 
-    // 1. Verificar Rate Limit no Supabase (5 requisições por domínio a cada 300 segundos)
     const supabase = getSupabaseAdmin();
-    if (supabase) {
-      const threshold = new Date(Date.now() - 300 * 1000).toISOString();
-      const { count, error: countError } = await supabase
-        .from('domain_check_logs')
-        .select('*', { count: 'exact', head: true })
-        .eq('domain', fullDomain)
-        .gte('created_at', threshold);
+    
+    // 1. Iniciar chamadas à base de dados (Rate Limit) e API do registador em paralelo
+    const threshold = new Date(Date.now() - 300 * 1000).toISOString();
+    const dbPromise = supabase
+      ? supabase
+          .from('domain_check_logs')
+          .select('*', { count: 'exact', head: true })
+          .eq('domain', fullDomain)
+          .gte('created_at', threshold)
+      : Promise.resolve(null);
 
+    const apiPromise = checkAvailability(fullDomain);
+
+    // Aguarda ambas as promessas em paralelo (reduz de 3 roundtrips para 1)
+    const [dbResult, result] = await Promise.all([dbPromise, apiPromise]);
+
+    // 2. Verificar o resultado do Rate Limit da BD
+    if (dbResult && 'count' in dbResult) {
+      const { count, error: countError } = dbResult;
       if (countError) {
         console.error('[API] Erro ao verificar rate limit no Supabase:', countError);
       } else if (count !== null && count >= 5) {
@@ -43,19 +53,15 @@ export async function POST(req: Request) {
         );
       }
 
-      // Registar a tentativa de pesquisa
-      const { error: insertError } = await supabase
+      // 3. Registar o log de pesquisa de forma assíncrona (não-bloqueante/fire-and-forget)
+      supabase!
         .from('domain_check_logs')
-        .insert({ domain: fullDomain });
-      
-      if (insertError) {
-        console.error('[API] Erro ao registar log de pesquisa no Supabase:', insertError);
-      }
-    } else {
-      console.warn('[API] Cliente admin do Supabase não configurado. Rate limiting desativado.');
+        .insert({ domain: fullDomain })
+        .then(({ error }) => {
+          if (error) console.error('[API] Erro ao registar log de pesquisa:', error);
+        });
     }
 
-    const result = await checkAvailability(fullDomain);
     console.log(`[API] Resultado do adaptador para ${fullDomain}:`, result);
 
     if ((result as any).error) {
