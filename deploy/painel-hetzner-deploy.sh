@@ -27,18 +27,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 echo "==> 1/6 Node.js + PM2 no servidor"
-ssh_cmd bash -s <<'REMOTE'
-set -e
-if ! command -v node >/dev/null 2>&1 || [[ $(node -v | cut -d. -f1 | tr -d v) -lt 20 ]]; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  apt-get install -y nodejs
-fi
-if ! command -v pm2 >/dev/null 2>&1; then
-  npm install -g pm2
-fi
-node -v
-pm2 -v
-REMOTE
+ssh_cmd "if ! command -v node >/dev/null 2>&1 || [[ \$(node -v | cut -d. -f1 | tr -d v) -lt 20 ]]; then curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs; fi && if ! command -v pm2 >/dev/null 2>&1; then npm install -g pm2; fi && node -v && pm2 -v"
 
 echo "==> 2/6 Enviar código"
 ssh_cmd "mkdir -p ${REMOTE_DIR}"
@@ -63,8 +52,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   export "$key=$val" 2>/dev/null || true
 done < "$ENV_FILE"
 
-ssh_cmd "cat > ${REMOTE_DIR}/.env.local" <<ENVFILE
-NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://supabase.visualdesignmoz.com}
+# Gerar ficheiro .env.local usando strings normais para evitar herestrings/heredocs locais
+ENV_CONTENT="NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://supabase.visualdesignmoz.com}
 NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY:-${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}}
 SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
@@ -99,33 +88,25 @@ PORKBUN_SECRET_KEY=${PORKBUN_SECRET_KEY:-}
 SPACESHIP_API_KEY=${SPACESHIP_API_KEY:-}
 SPACESHIP_SECRET_KEY=${SPACESHIP_SECRET_KEY:-}
 CRON_SECRET=${CRON_SECRET:-}
-PORT=${PANEL_PORT}
-ENVFILE
+PORT=${PANEL_PORT}"
 
-echo "==> 4/6 npm install + build"
-ssh_cmd bash -s <<REMOTE
-set -e
-cd ${REMOTE_DIR}
-export NODE_OPTIONS="--max-old-space-size=4096"
-npm ci --prefer-offline --no-audit --no-fund
-npm run build
-REMOTE
+echo "$ENV_CONTENT" > "${LOCAL_PROJECT}/scratch/.env.remote"
 
-echo "==> 5/6 PM2"
-ssh_cmd bash -s <<REMOTE
-set -e
-cd ${REMOTE_DIR}
-pm2 delete visualdesign-panel 2>/dev/null || true
-pm2 start npm --name visualdesign-panel -- start -- -p ${PANEL_PORT}
-pm2 save
-pm2 list
-REMOTE
-
-echo "==> 6/6 Apache proxy (painel)"
 SCP_OPTS=(-o StrictHostKeyChecking=no -P "$SSH_PORT")
 if [[ -f "$SSH_KEY" ]]; then
   SCP_OPTS+=(-i "$SSH_KEY")
 fi
+
+scp "${SCP_OPTS[@]}" "${LOCAL_PROJECT}/scratch/.env.remote" "${SSH_USER}@${SERVER_IP}:${REMOTE_DIR}/.env.local"
+rm -f "${LOCAL_PROJECT}/scratch/.env.remote"
+
+echo "==> 4/6 npm install + build"
+ssh_cmd "cd ${REMOTE_DIR} && export NODE_OPTIONS='--max-old-space-size=4096' && npm ci --prefer-offline --no-audit --no-fund && npm run build"
+
+echo "==> 5/6 PM2"
+ssh_cmd "cd ${REMOTE_DIR} && pm2 delete visualdesign-panel 2>/dev/null || true && pm2 start npm --name visualdesign-panel -- start -- -p ${PANEL_PORT} && pm2 save && pm2 list"
+
+echo "==> 6/6 Apache proxy (painel)"
 scp "${SCP_OPTS[@]}" "${LOCAL_PROJECT}/deploy/painel-hetzner-apache.sh" "${SSH_USER}@${SERVER_IP}:/tmp/painel-hetzner-apache.sh"
 ssh_cmd "PANEL_PORT=${PANEL_PORT} bash /tmp/painel-hetzner-apache.sh"
 
