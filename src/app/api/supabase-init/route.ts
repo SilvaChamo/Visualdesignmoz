@@ -139,6 +139,18 @@ export async function POST() {
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
+
+          -- Domain Check Logs for Rate Limiting
+          CREATE TABLE IF NOT EXISTS domain_check_logs (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            domain TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_domain_check_logs_domain_created 
+            ON domain_check_logs (domain, created_at DESC);
+
+          ALTER TABLE domain_check_logs ENABLE ROW LEVEL SECURITY;
         `
       });
     } catch {

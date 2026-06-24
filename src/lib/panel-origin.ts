@@ -258,14 +258,25 @@ export function getSharedAuthCookieDomain(hostname?: string): string | undefined
 export function applySharedAuthCookieOptions(
   options: CookieOptions = {},
   hostname?: string,
+  role: UserRole = 'client',
 ): CookieOptions {
   const domain = getSharedAuthCookieDomain(hostname)
-  if (!domain) return options
-  return {
+
+  const maxAge =
+    role === 'admin'
+      ? 60 * 60 * 6 // 6 hours for admin
+      : 60 * 60 * 1 // 1 hour for others
+
+  const combinedOptions: CookieOptions = {
     ...options,
     domain,
     path: options.path ?? '/',
     secure: options.secure ?? process.env.NODE_ENV === 'production',
     sameSite: options.sameSite ?? 'lax',
+    maxAge,
   }
+
+  if (!domain) delete combinedOptions.domain
+
+  return combinedOptions
 }

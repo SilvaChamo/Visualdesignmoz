@@ -224,6 +224,10 @@ export function ProvisionClienteSection({
     (!hasHostingPackage || accountType !== 'client' || domain.includes('.'));
 
   const handleProvision = async () => {
+    if (isEdit && editUser && username.trim() !== editUser.userName) {
+      setMsg('Erro: A alteração do nome de utilizador não é suportada.');
+      return;
+    }
     if (!canSubmit) return;
     setBusy(true);
     setMsg('');
@@ -463,13 +467,12 @@ export function ProvisionClienteSection({
           <label className="text-xs font-medium text-zinc-500">Utilizador</label>
           <input
             placeholder="ex: provisualc"
-            value={resolvedUsername}
-            readOnly={isEdit}
+            value={username}
             onChange={(e) => {
               setUsernameTouched(true);
               setUsername(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase());
             }}
-            className={`${inputCls} ${isEdit ? 'bg-gray-50 opacity-80' : ''}`}
+            className={inputCls}
           />
         </div>
         <input

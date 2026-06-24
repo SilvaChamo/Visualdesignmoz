@@ -22,20 +22,26 @@ function getKeys() {
 
 export async function checkAvailability(domain: string) {
   const clean = domain.toLowerCase().trim();
-  
-  // Simulação para o Frontend (já que a API real spaceship.dev não está acessível)
-  // Simulamos um pequeno delay de rede
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  // Vamos simular que domínios com a palavra "indisponivel" estão ocupados
-  // Tudo o resto fica livre
-  const isAvailable = !clean.includes('indisponivel');
-  
-  return {
-    available: isAvailable,
-    price: undefined, // Vai usar o preço fallback do DomainSearch.tsx
-    currency: 'USD',
-  };
+  try {
+    const res = await spaceshipFetch(`/domains/${encodeURIComponent(clean)}/available`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        available: false,
+        error: body.detail || body.message || `Erro do registador (${res.status})`,
+      };
+    }
+    return {
+      available: body.result === 'available',
+      price: body.premiumPricing && body.premiumPricing[0]?.registrationPrice,
+      currency: 'USD',
+    };
+  } catch (e: unknown) {
+    return {
+      available: false,
+      error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo',
+    };
+  }
 }
 
 type SpaceshipDomainItem = {
@@ -247,6 +253,93 @@ export const spaceshipAPI = {
         return { success: false, error: body.detail || body.message || `Erro do registador (${res.status})` };
       }
       return { success: true, isEnabled: body.isEnabled ?? isEnabled };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
+    }
+  },
+
+  async createContact(contactData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    address1: string;
+    city: string;
+    country: string;
+    phone: string;
+    postalCode: string;
+    organization?: string;
+    state?: string;
+  }): Promise<{ success: true; contactId: string } | { success: false; error: string }> {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
+    }
+    try {
+      const res = await spaceshipFetch('/contacts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactData),
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorDetail = body.detail || body.message || (body.data && JSON.stringify(body.data)) || `Erro ao criar contacto (${res.status})`;
+        return { success: false, error: errorDetail };
+      }
+
+      if (!body.contactId) {
+        return { success: false, error: 'ID do contacto não retornado pela API' };
+      }
+
+      return { success: true, contactId: body.contactId };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
+    }
+  },
+
+  async registerDomain(
+    domain: string,
+    contactId: string,
+    years = 1,
+    autoRenew = true
+  ): Promise<{ success: true; message: string; operationId?: string; raw?: any } | { success: false; error: string; raw?: any }> {
+    if (!getKeys()) {
+      return { success: false, error: 'Chaves de API do registador não configuradas' };
+    }
+    const clean = domain.toLowerCase().trim();
+    try {
+      const res = await spaceshipFetch(`/domains/${encodeURIComponent(clean)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          years,
+          autoRenew,
+          privacyProtection: {
+            level: 'high',
+            userConsent: true
+          },
+          contacts: {
+            registrant: contactId,
+            admin: contactId,
+            tech: contactId,
+            billing: contactId
+          }
+        })
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorDetail = body.detail || body.message || (body.data && JSON.stringify(body.data)) || `Erro do registador (${res.status})`;
+        return { success: false, error: errorDetail, raw: body };
+      }
+
+      const operationId = res.headers.get('spaceship-async-operationid') || body.operationId || body.id;
+
+      return {
+        success: true,
+        message: `Registo do domínio ${clean} iniciado com sucesso.`,
+        operationId,
+        raw: body
+      };
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar o serviço de registo' };
     }
