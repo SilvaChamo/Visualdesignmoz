@@ -40,7 +40,8 @@ import {
   BackupAutoConfigSection,
   BackupReportSection,
   WordPressInstallSection, WPBackupSection, DomainManagerSection, DeploySection,
-  SMTPConfigSection, AuditSyncSection, NameserverManagementSection
+  SMTPConfigSection, AuditSyncSection, NameserverManagementSection,
+  SecuritySection
 } from './DirectAdminSections'
 import { NewsManagerSection } from './NewsManagerSection'
 import { RenewalsSection } from './RenewalsSection'
@@ -1356,7 +1357,7 @@ function ManageWebsiteSection({
         bgColor="bg-red-50"
       >
         <MenuItem icon="ssl-tls" label="SSL / TLS" onClick={() => setActiveSection('cp-ssl')} />
-        <MenuItem icon="ssl-tls" label="SSL Status" external href={`${getHestiaUrl()}/list/web/?domain=${domain}`} />
+        <MenuItem icon="ssl-tls" label="SSL Status" onClick={() => setActiveSection('cp-ssl')} />
       </SectionCard>
 
       {/* WordPress Section */}
@@ -1939,6 +1940,7 @@ function AdminPageContent() {
             initialUsersScopeFilter="admin"
             isActive={isActive}
             onBootstrapRefresh={() => void loadDirectAdminData(true)}
+            onNavigate={handleNavigate}
           />
         )
       case 'dashboard':
@@ -1980,7 +1982,7 @@ function AdminPageContent() {
       case 'news-manager':
         return <NewsManagerSection />
       case 'clientes':
-        return <CPUsersSection variant="panels" panelScope="client" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+        return <CPUsersSection variant="panels" panelScope="client" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} onNavigate={handleNavigate} />
       case 'utilizadores-revendedores':
       case 'revendedores':
         return (
@@ -2003,6 +2005,7 @@ function AdminPageContent() {
             initialUsersScopeFilter="guest"
             isActive={isActive}
             onBootstrapRefresh={() => void loadDirectAdminData(true)}
+            onNavigate={handleNavigate}
           />
         )
       case 'utilizadores-gestao':
@@ -2013,6 +2016,7 @@ function AdminPageContent() {
             initialUsersScopeFilter="manager"
             isActive={isActive}
             onBootstrapRefresh={() => void loadDirectAdminData(true)}
+            onNavigate={handleNavigate}
           />
         )
       case 'domain-manager':
@@ -2093,7 +2097,7 @@ function AdminPageContent() {
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
       case 'cp-users':
-        return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} />
+        return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} onNavigate={handleNavigate} />
       case 'wp-users':
         return <WordPressUsersSection sites={filteredSites} isActive={isActive} setActiveSection={setActiveSection} />
       case 'cp-reseller':
@@ -2116,7 +2120,7 @@ function AdminPageContent() {
           />
         )
       case 'cp-security':
-        return <SSLSection sites={filteredSites} setActiveSection={setActiveSection} />
+        return <SecuritySection sites={filteredSites} />
       case 'cp-dns-cloudflare':
         return (
           <DNSCentralSection

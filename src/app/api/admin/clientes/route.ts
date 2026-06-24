@@ -574,12 +574,17 @@ export async function PATCH(req: NextRequest) {
       }
 
       const email = body.email !== undefined ? String(body.email).trim() : undefined;
+      const accountType = body.accountType as 'client' | 'reseller' | 'professional' | undefined;
       const packageName =
         body.packageName !== undefined ? String(body.packageName || '').trim() : undefined;
       const primaryDomain =
         body.primaryDomain !== undefined ? String(body.primaryDomain || '').trim().toLowerCase() : undefined;
       const adminEmail =
         body.adminEmail !== undefined ? String(body.adminEmail || '').trim() : undefined;
+      const resellerTier =
+        accountType === 'reseller' && body.resellerTier !== undefined
+          ? normalizeResellerTier(body.resellerTier)
+          : undefined;
       if (email !== undefined && !email.includes('@')) {
         return NextResponse.json({ success: false, error: 'Email inválido' }, { status: 400 });
       }
@@ -593,18 +598,23 @@ export async function PATCH(req: NextRequest) {
       if (email !== undefined) updates.email = email;
       if (body.firstName !== undefined) updates.first_name = String(body.firstName).trim();
       if (body.lastName !== undefined) updates.last_name = String(body.lastName).trim();
-      if (body.websitesLimit !== undefined) {
-        updates.websites_limit = Math.max(0, Number(body.websitesLimit) || 0);
-      }
-      if (body.emailsLimit !== undefined) {
-        updates.emails_limit = Math.max(0, Number(body.emailsLimit) || 0);
+      if (accountType) updates.acl = panelAclForAccountType(accountType);
+
+      const { data: beforeRow } = await sb
+        .from('panel_users')
+        .select('username, email, first_name, last_name, websites_limit, emails_limit, acl, status, auth_user_id')
+        .eq('username', userName)
+        .maybeSingle();
+
+      if (!beforeRow) {
+        return NextResponse.json({ success: false, error: 'Conta não encontrada' }, { status: 404 });
       }
 
       const { data, error } = await sb
         .from('panel_users')
         .update(updates)
         .eq('username', userName)
-        .select('username, email, first_name, last_name, websites_limit, emails_limit, acl, status')
+        .select('username, email, first_name, last_name, websites_limit, emails_limit, acl, status, auth_user_id')
         .maybeSingle();
 
       if (error) {
@@ -614,19 +624,47 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Conta não encontrada' }, { status: 404 });
       }
 
+      if (accountType && data.auth_user_id && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+        const admin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        const panelRole = panelRoleForAccountType(accountType);
+        const displayName =
+          `${String(body.firstName ?? data.first_name ?? '').trim()} ${String(body.lastName ?? data.last_name ?? '').trim()}`.trim() ||
+          String(data.email || '').split('@')[0];
+        await saveProfileForAuthUser(admin, String(data.auth_user_id), {
+          email: (email ?? String(data.email || '')).toLowerCase(),
+          role: panelRole,
+          name: displayName,
+          ...(resellerTier ? { reseller_tier: resellerTier } : {}),
+        });
+        await upsertPanelAuthAccount(admin, {
+          userId: String(data.auth_user_id),
+          email: (email ?? String(data.email || '')).toLowerCase(),
+          role: panelRole,
+          name: displayName,
+          daUsername: userName,
+          resellerTier: resellerTier ?? null,
+        });
+        const { data: authUser } = await admin.auth.admin.getUserById(String(data.auth_user_id));
+        if (authUser?.user) {
+          await admin.auth.admin.updateUserById(String(data.auth_user_id), {
+            user_metadata: {
+              ...(authUser.user.user_metadata || {}),
+              role: panelRole,
+              name: displayName,
+              nome: displayName,
+              site: PANEL_SLUG,
+            },
+          });
+        }
+      }
+
       const pushed = await pushUserEditToServer({
         userName,
         email: email ?? String(data.email || ''),
         firstName: body.firstName !== undefined ? String(body.firstName).trim() : String(data.first_name || ''),
         lastName: body.lastName !== undefined ? String(body.lastName).trim() : String(data.last_name || ''),
-        websitesLimit:
-          body.websitesLimit !== undefined
-            ? Math.max(0, Number(body.websitesLimit) || 0)
-            : Number(data.websites_limit) || 0,
-        emailsLimit:
-          body.emailsLimit !== undefined
-            ? Math.max(0, Number(body.emailsLimit) || 0)
-            : Number(data.emails_limit) || 0,
+        websitesLimit: Number(data.websites_limit) || 0,
+        emailsLimit: Number(data.emails_limit) || 0,
         packageName,
       });
 

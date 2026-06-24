@@ -98,6 +98,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'infrastructure', label: 'Servidor e API' },
       { id: 'git-deploy', label: 'Deploy / GitHub' },
+      { id: 'cp-security', label: 'Segurança' },
       { id: 'cp-reseller-permissions', label: 'Painel do Revendedor' },
     ],
   },
@@ -357,6 +358,7 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'backup-manager': 'nov-wordpress',
   infrastructure: 'nov-sistema',
   'git-deploy': 'nov-sistema',
+  'cp-security': 'nov-sistema',
   'cp-reseller-permissions': 'nov-sistema',
 };
 

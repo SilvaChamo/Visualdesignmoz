@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X, ExternalLink } from 'lucide-react';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/dashboard/ProvisionClienteSection';
+import { consumeHostingAccountEdit } from '@/lib/panel-hosting-edit-nav';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
 import { panelBtnPrimary, panelBtnSecondary, panelField, panelTabList, panelTabBtn } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
@@ -252,6 +253,17 @@ export function ClientesDaSection({
   }, [searchParams, variant]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!isActive || view !== 'list' || users.length === 0) return;
+    const pending = consumeHostingAccountEdit();
+    if (!pending) return;
+    const match = users.find((u) => u.userName.toLowerCase() === pending.toLowerCase());
+    if (!match) return;
+    setEditUser(match);
+    setView('edit');
+    setMsg('');
+  }, [isActive, users, view]);
 
   const goToList = useCallback(() => {
     setView('list');
