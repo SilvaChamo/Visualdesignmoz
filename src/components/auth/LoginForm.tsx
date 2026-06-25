@@ -42,6 +42,11 @@ function LoginFormInner() {
   }, [searchParams])
 
   const goToPanel = (role: Parameters<typeof resolvePostLoginUrl>[0]['role']) => {
+    const redirectTo = searchParams.get('redirect') || searchParams.get('next')
+    if (redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/')) {
+      window.location.assign(redirectTo)
+      return
+    }
     window.location.assign(
       resolvePostLoginUrl({
         origin: window.location.origin,
@@ -93,13 +98,7 @@ function LoginFormInner() {
   return (
     <AuthPageShell>
       <div className={authCardClass}>
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            {t('login.submit')}
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Aceda ao painel VisualDesign
-          </p>
+        <div>
         </div>
 
         {error && <div className={authErrorBoxClass}>{error}</div>}
