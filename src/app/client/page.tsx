@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense, lazy, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { supabase } from '@/lib/supabase-client'
 
@@ -3493,14 +3494,28 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 export default function ClientPage() {
   return (
     <AdminSectionChromeProvider>
-      <ClientPageContent />
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
+          <Loader2 className="w-10 h-10 animate-spin text-red-655 mx-auto" />
+        </div>
+      }>
+        <ClientPageContent />
+      </Suspense>
     </AdminSectionChromeProvider>
   )
 }
 
 function ClientPageContent() {
   const { chrome } = useAdminSectionChrome()
+  const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState('meus-produtos')
+
+  useEffect(() => {
+    const section = searchParams?.get('section')
+    if (section) {
+      setActiveSection(section)
+    }
+  }, [searchParams])
   const [clientReadOnly, setClientReadOnly] = useState(true)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [mailMarketingSearchTerm, setMailMarketingSearchTerm] = useState('')
