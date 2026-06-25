@@ -1,5 +1,6 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../components/auth/AuthProvider'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { AuthPageShell } from '@/components/auth/AuthPageShell'
@@ -14,7 +15,13 @@ import {
   authPrimaryBtnClass,
 } from '@/components/auth/auth-styles'
 
-export default function RegisterPage() {
+function RegisterPageInner() {
+  const searchParams = useSearchParams()
+  const redirectParam = searchParams.get('redirect') || searchParams.get('next')
+  const loginLink = redirectParam 
+    ? `/auth/login?redirect=${encodeURIComponent(redirectParam)}`
+    : '/auth/login'
+
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -81,7 +88,7 @@ export default function RegisterPage() {
             <p className={`mt-4 text-xs ${authMutedTextClass}`}>
               A conta começa como visitante — após a primeira compra passa a cliente.
             </p>
-            <a href="/auth/login" className={`mt-6 inline-block ${authPrimaryBtnClass} px-6`}>
+            <a href={loginLink} className={`mt-6 inline-block ${authPrimaryBtnClass} px-6`}>
               Ir para entrar →
             </a>
           </div>
@@ -189,11 +196,25 @@ export default function RegisterPage() {
 
             <p className={`mt-6 text-center ${authMutedTextClass}`}>
               Já tem conta?{' '}
-              <a href="/auth/login" className={authLinkClass}>Entrar</a>
+              <a href={loginLink} className={authLinkClass}>Entrar</a>
             </p>
           </>
         )}
       </div>
     </AuthPageShell>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <AuthPageShell>
+        <div className="flex items-center justify-center p-8">
+          <p className="text-zinc-500 font-medium">A carregar...</p>
+        </div>
+      </AuthPageShell>
+    }>
+      <RegisterPageInner />
+    </Suspense>
   )
 }

@@ -23,7 +23,7 @@ export function buildPanelLoginUrl(
 ): URL {
   const url = new URL(PUBLIC_LOGIN_ENTRY, base)
   if (preserve) {
-    for (const key of ['error', 'error_description', 'reason', 'reset'] as const) {
+    for (const key of ['error', 'error_description', 'reason', 'reset', 'redirect', 'next'] as const) {
       const value = preserve.get(key)
       if (value) url.searchParams.set(key, value)
     }

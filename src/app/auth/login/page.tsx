@@ -10,7 +10,7 @@ export default async function AuthLoginRedirect({
 }) {
   const params = await searchParams
   const qs = new URLSearchParams()
-  for (const key of ['error', 'error_description', 'reason', 'reset'] as const) {
+  for (const key of ['error', 'error_description', 'reason', 'reset', 'redirect', 'next'] as const) {
     const value = params[key]
     if (typeof value === 'string') qs.set(key, value)
   }

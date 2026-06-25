@@ -25,11 +25,32 @@ export function CartDrawer() {
     setStep('cart');
   };
 
+  const handleAdvanceToAccount = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setStep('payment');
+    } else {
+      setStep('account');
+    }
+  };
+
   const handleCheckout = async () => {
     setCheckoutError('');
     setIsProcessing(true);
 
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (paymentMethod === 'visa') {
+      setIsProcessing(false);
+      setIsCartOpen(false);
+      if (!user) {
+        window.location.href = `/auth/login?redirect=${encodeURIComponent('/checkout')}`;
+      } else {
+        window.location.href = '/checkout';
+      }
+      return;
+    }
+
     if (!user) {
       setIsProcessing(false);
       setCheckoutError('Faça login para concluir a compra.');
@@ -384,7 +405,7 @@ export function CartDrawer() {
             {/* CTAs */}
             {step === 'cart' && (
               <button
-                onClick={() => setStep('account')}
+                onClick={handleAdvanceToAccount}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/30 hover:shadow-red-600/50"
               >
                 Avançar para Pagamento <ChevronRight className="w-5 h-5" />
