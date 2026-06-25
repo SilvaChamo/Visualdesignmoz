@@ -253,7 +253,47 @@ export async function POST(req: NextRequest) {
 
     // ── DEPLOY DO SITE NO SERVIDOR ──
     if (action === 'deploySite') {
-      const { domain = 'your-domain.com' } = body
+      const domain = body.params?.domain || body.domain || 'your-domain.com'
+      
+      if (domain === 'painel.visualdesignmoz.com') {
+        try {
+          const cwd = process.cwd()
+          // 1. git pull
+          const { stdout: pullOut, stderr: pullErr } = await execAsync('git pull origin main', { cwd })
+          // 2. npm ci
+          const { stdout: ciOut, stderr: ciErr } = await execAsync('npm ci --prefer-offline --no-audit --no-fund', { cwd })
+          // 3. npm run build
+          const { stdout: buildOut, stderr: buildErr } = await execAsync('npm run build', {
+            cwd,
+            env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' }
+          })
+          const output = `[Git Pull]\n${pullOut}\n${pullErr}\n\n[NPM Install]\n${ciOut}\n${ciErr}\n\n[NPM Build]\n${buildOut}\n${buildErr}\n\nDEPLOY_COMPLETE`
+          
+          // 4. Agendar reinício do PM2 em background
+          exec('sleep 2 && pm2 restart visualdesign-panel', { cwd })
+          
+          return NextResponse.json({
+            success: true,
+            output,
+            data: {
+              success: true,
+              output,
+            },
+            message: 'Deploy do painel concluído com sucesso no servidor Hetzner!'
+          })
+        } catch (err: any) {
+          return NextResponse.json({
+            success: false,
+            output: err.message || 'Erro durante o deploy do painel.',
+            data: {
+              success: false,
+              output: err.message || 'Erro durante o deploy do painel.',
+            },
+            error: err.message || 'Erro durante o deploy.'
+          }, { status: 500 })
+        }
+      }
+
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html
@@ -265,26 +305,68 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         output: raw, 
         success: raw.includes('DEPLOY_COMPLETE'),
+        data: {
+          output: raw, 
+          success: raw.includes('DEPLOY_COMPLETE')
+        },
         message: raw.includes('DEPLOY_COMPLETE') ? 'Deploy concluído com sucesso!' : 'Erro no deploy'
       })
     }
 
     if (action === 'getDeployStatus') {
-      const { domain = 'your-domain.com' } = body
+      const domain = body.params?.domain || body.domain || 'your-domain.com'
+      if (domain === 'painel.visualdesignmoz.com') {
+        const { stdout: raw } = await execAsync('git log --oneline -5', { cwd: process.cwd() })
+        return NextResponse.json({
+          output: raw,
+          success: true,
+          data: {
+            output: raw,
+            success: true
+          }
+        })
+      }
+
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html && git log --oneline -5 2>&1
       `)
-      return NextResponse.json({ output: raw, success: true })
+      return NextResponse.json({
+        output: raw,
+        success: true,
+        data: {
+          output: raw,
+          success: true
+        }
+      })
     }
 
     if (action === 'getGitLog') {
-      const { domain = 'your-domain.com' } = body
+      const domain = body.params?.domain || body.domain || 'your-domain.com'
+      if (domain === 'painel.visualdesignmoz.com') {
+        const { stdout: raw } = await execAsync('git log --oneline -10', { cwd: process.cwd() })
+        return NextResponse.json({
+          output: raw,
+          success: true,
+          data: {
+            output: raw,
+            success: true
+          }
+        })
+      }
+
       const raw = await execSSH(`
         git config --global --add safe.directory /home/${domain}/public_html 2>/dev/null
         cd /home/${domain}/public_html && git log --oneline -10 2>&1
       `)
-      return NextResponse.json({ output: raw, success: true })
+      return NextResponse.json({
+        output: raw,
+        success: true,
+        data: {
+          output: raw,
+          success: true
+        }
+      })
     }
 
     return NextResponse.json({ success: false, error: 'Acção inválida.' }, { status: 400 })
