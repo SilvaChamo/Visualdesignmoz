@@ -177,52 +177,29 @@ export default function DomainSearch({
   }
 
   const handleRegisterAction = async (domain: string) => {
-    if (isAdmin) {
-      const row = results.find((r) => r.domain === domain)
+    const row = results.find((r) => r.domain === domain)
+    if (row && row.price !== undefined) {
       setActionLoading(domain)
-      try {
-        const res = await fetch('/api/domain-register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            domain,
-            agreeToTerms: true,
-            costPennies: row?.costPennies,
-          }),
-        })
-        const data = await res.json()
-
-        if (data.success) {
-          console.log(`[Registo] Domínio ${domain} registado com sucesso.`)
-          setResults((prev) => prev.map((r) => (r.domain === domain ? { ...r, available: false } : r)))
-        } else {
-          console.error(`[Registo] Erro ao registar: ${data.error}`)
-        }
-      } catch (err) {
-        console.error('[Registo] Erro de ligação:', err)
-      } finally {
+      setTimeout(() => {
         setActionLoading(null)
-      }
-    } else {
-      const row = results.find((r) => r.domain === domain)
-      if (row && row.price !== undefined) {
-        setActionLoading(domain)
-        setTimeout(() => {
-          setActionLoading(null)
-          const finalPrice = Math.round(row.price! * 65 * 1.5 * 1.075)
-          const finalRenewPrice = row.renewPrice ? Math.round(row.renewPrice * 65 * 1.5 * 1.075) : undefined
+        const finalPrice = Math.round(row.price! * 65 * 1.5 * 1.075)
+        const finalRenewPrice = row.renewPrice ? Math.round(row.renewPrice * 65 * 1.5 * 1.075) : undefined
 
-          addItem({
-            id: domain,
-            type: 'domain',
-            name: domain,
-            price: finalPrice,
-            period: 1,
-            renewPrice: finalRenewPrice,
-          })
-        }, 500)
-      }
+        addItem({
+          id: domain,
+          type: 'domain',
+          name: domain,
+          price: finalPrice,
+          period: 1,
+          renewPrice: finalRenewPrice,
+        })
+
+        if (isAdmin) {
+          window.location.href = '/checkout'
+        } else {
+          setIsCartOpen(true)
+        }
+      }, 500)
     }
   }
 

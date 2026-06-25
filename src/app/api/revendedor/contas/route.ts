@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
@@ -8,6 +9,11 @@ import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { sendEmail } from '@/lib/email-service';
 import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { saveProfileForAuthUser } from '@/lib/profile-db';
+import { upsertDownloadableCredentials } from '@/lib/panel-access-credentials';
+import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
+import { PANEL_SLUG } from '@/lib/panel-tenant';
+import { upsertMirrorUser } from '@/lib/panel-mirror-write';
 import {
   belongsToResellerAccount,
   enrichPanelAccounts,
@@ -30,6 +36,9 @@ import {
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
 import type { PanelUser } from '@/lib/directadmin-hosting-api';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 function deriveUsername(domain: string, email: string): string {
   const fromDomain = domain.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
@@ -156,27 +165,173 @@ export async function POST(req: NextRequest) {
     const { ctx } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const body = await req.json();
+    const accountType = String(body.accountType || 'client');
+    const existingUserId = String(body.existingUserId || '').trim();
+    const isExistingUser = Boolean(existingUserId);
     const email = String(body.email || '').trim();
     const password = String(body.password || '');
     const domain = String(body.domain || '').trim().toLowerCase();
-    const packageName = String(body.packageName || 'Default');
+    const packageName = String(body.packageName || '').trim();
+    const simpleAccount = body.simpleAccount === true || !packageName || packageName === '—';
     const adminEmail = String(body.adminEmail || email).trim();
     const userName = String(body.userName || '').trim() || deriveUsername(domain, email);
+    const panelRole = accountType === 'reseller' ? 'reseller' : accountType === 'professional' ? 'manager' : 'client';
 
-    if (!email.includes('@') || password.length < 8) {
+    if (!isExistingUser && (!email.includes('@') || password.length < 8)) {
       return NextResponse.json(
         { success: false, error: 'Email válido e password (mín. 8 caracteres) são obrigatórios.' },
         { status: 400 },
       );
     }
 
-    if (!domain.includes('.')) {
+    if (!simpleAccount && !domain.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'Domínio obrigatório (ex.: exemplo.com).' },
         { status: 400 },
       );
     }
 
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Serviço de contas indisponível.' },
+        { status: 500 },
+      );
+    }
+
+    // 1. Provision Supabase Auth User & Profile immediately
+    const admin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    let authUserId: string;
+    let normalizedEmail = email.toLowerCase();
+    const displayName = `${body.firstName || ''} ${body.lastName || ''}`.trim() || email.split('@')[0] || userName;
+
+    if (isExistingUser) {
+      const { data: existingAuth, error: loadErr } = await admin.auth.admin.getUserById(existingUserId);
+      if (loadErr || !existingAuth?.user) {
+        return NextResponse.json(
+          { success: false, error: 'Utilizador do painel não encontrado.' },
+          { status: 404 },
+        );
+      }
+      authUserId = existingAuth.user.id;
+      normalizedEmail = (existingAuth.user.email || normalizedEmail).toLowerCase();
+
+      await saveProfileForAuthUser(admin, authUserId, {
+        email: normalizedEmail,
+        role: panelRole,
+        name: displayName,
+      });
+
+      await admin.auth.admin.updateUserById(authUserId, {
+        user_metadata: {
+          ...(existingAuth.user.user_metadata || {}),
+          role: panelRole,
+          name: displayName,
+          nome: displayName,
+          site: PANEL_SLUG,
+        },
+      });
+
+      if (password.length >= 8) {
+        await admin.auth.admin.updateUserById(authUserId, { password });
+        await upsertDownloadableCredentials(admin, {
+          email: normalizedEmail,
+          password,
+          userId: authUserId,
+          role: panelRole,
+        });
+      }
+
+      await upsertPanelAuthAccount(admin, {
+        userId: authUserId,
+        email: normalizedEmail,
+        role: panelRole,
+        name: displayName,
+        serverLinked: !simpleAccount,
+        daUsername: simpleAccount ? null : userName,
+        resellerTier: null,
+      });
+    } else {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: panelRole,
+          name: displayName,
+          nome: displayName,
+          site: PANEL_SLUG,
+        },
+      });
+
+      if (createError || !created.user) {
+        const msg = createError?.message || 'Erro ao criar conta';
+        const status = msg.toLowerCase().includes('already') ? 409 : 400;
+        return NextResponse.json({ success: false, error: msg }, { status });
+      }
+
+      authUserId = created.user.id;
+
+      await saveProfileForAuthUser(admin, authUserId, {
+        email: normalizedEmail,
+        role: panelRole,
+        name: displayName,
+      });
+
+      await upsertDownloadableCredentials(admin, {
+        email: normalizedEmail,
+        password,
+        userId: authUserId,
+        role: panelRole,
+      });
+
+      await upsertPanelAuthAccount(admin, {
+        userId: authUserId,
+        email: normalizedEmail,
+        role: panelRole,
+        name: displayName,
+        serverLinked: !simpleAccount,
+        daUsername: simpleAccount ? null : userName,
+        resellerTier: null,
+      });
+    }
+
+    // 2. Flow for Simple Accounts (Bypasses DirectAdmin)
+    if (simpleAccount) {
+      await upsertMirrorUser({
+        username: userName,
+        email: normalizedEmail,
+        first_name: body.firstName || '',
+        last_name: body.lastName || '',
+        acl: 'user',
+        parent_username: ctx.daUsername,
+        auth_user_id: authUserId,
+        status: 'Active',
+      });
+
+      return NextResponse.json({
+        success: true,
+        userName,
+        accountType,
+        provisionMode: 'simple',
+        serverSynced: false,
+        user: {
+          email: normalizedEmail,
+          type: 'user',
+          firstName: body.firstName || '',
+          lastName: body.lastName || '',
+          packageName: '—',
+          quotaLabel: '—',
+          diskUsedLabel: '—',
+          resellerOwner: ctx.daUsername,
+          domainCount: 0,
+          registeredAt: new Date().toISOString(),
+          suspended: false,
+          ownedDomains: [],
+        },
+      });
+    }
+
+    // 3. Flow for Hosting Accounts (DirectAdmin sync)
     const resolvedAuth = resolved as Exclude<typeof resolved, { error: NextResponse }>;
     const quota = await assertResellerHostingQuota({
       userId: resolvedAuth.auth.user.id,
@@ -200,11 +355,19 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       return NextResponse.json(
-        { success: false, error: result.error || 'Falha ao criar conta' },
+        { success: false, error: result.error || 'Falha ao criar conta no servidor' },
         { status: 400 },
       );
     }
 
+    // Save server association to Auth Profile
+    await saveProfileForAuthUser(admin, authUserId, {
+      da_username: userName,
+      da_domain: domain,
+      da_provisioned_at: new Date().toISOString(),
+    });
+
+    // Mirror mutation locally
     await mirrorAfterDaMutation('createUser', {
       userName,
       email: adminEmail,
@@ -213,9 +376,39 @@ export async function POST(req: NextRequest) {
       packageName,
       parent_username: ctx.daUsername,
     });
+
+    // Update mirror auth link
+    const sb = getDaSyncAdmin();
+    if (sb) {
+      await sb
+        .from('panel_users')
+        .update({ auth_user_id: authUserId })
+        .eq('username', userName);
+    }
+
     scheduleDaSync(1500);
 
-    return NextResponse.json({ success: true, userName, accountType: 'client' });
+    return NextResponse.json({
+      success: true,
+      userName,
+      accountType,
+      user: {
+        email: normalizedEmail,
+        type: 'user',
+        firstName: body.firstName || '',
+        lastName: body.lastName || '',
+        packageName,
+        quotaLabel: 'Calculando...',
+        diskUsedLabel: '0 MB',
+        resellerOwner: ctx.daUsername,
+        domainCount: 1,
+        registeredAt: new Date().toISOString(),
+        suspended: false,
+        ownedDomains: [
+          { domain, package: packageName, diskUsage: '0', status: 'Active' },
+        ],
+      },
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro interno';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

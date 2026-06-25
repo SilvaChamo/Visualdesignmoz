@@ -215,7 +215,10 @@ export async function GET(req: NextRequest) {
     try {
       const adminApi = await getAdminDirectAdminAPI();
       const liveAdminPkgs = await adminApi.listPackages();
-      if (liveAdminPkgs.length) packages = liveAdminPkgs;
+      if (liveAdminPkgs.length) {
+        const { mergePackageListByName } = await import('@/lib/panel-list-resolve');
+        packages = mergePackageListByName(packages, liveAdminPkgs);
+      }
     } catch {
       packages = packages.filter((p) => p.packageName !== 'Default');
     }

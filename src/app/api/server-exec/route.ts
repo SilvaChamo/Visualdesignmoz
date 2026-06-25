@@ -90,50 +90,49 @@ const DA_MUTATION_PROXY: Record<
   changePHPVersion: (api, p) => api.changePHPVersion(p),
 };
 
-/** Aplica pacote no DirectAdmin em background (não bloqueia a resposta ao painel). */
-function pushPackageToDaInBackground(
+/** Aplica pacote no DirectAdmin de forma síncrona. */
+async function pushPackageToDa(
   action: string,
   params: Record<string, unknown>,
   daManageCmd: string,
   auth: PanelAuthSuccess,
-): void {
-  void (async () => {
-    try {
-      const pkgName = String(params.packageName || params.package || '').trim();
-      if (!pkgName) return;
-      const { daApi: api } = await resolvePanelDaContext(auth);
-      const role = auth.user.role;
+): Promise<void> {
+  try {
+    const pkgName = String(params.packageName || params.package || '').trim();
+    if (!pkgName) return;
+    const { daApi: api } = await resolvePanelDaContext(auth);
+    const role = auth.user.role;
 
-      if (action === 'deletePackage') {
-        if (role === 'admin') {
-          await daPostViaSsh(daManageCmd, { delete: 'Delete', delete0: pkgName });
-        } else {
-          await DA_MUTATION_PROXY.deletePackage(api, params);
-        }
-        return;
-      }
-
-      const fullForm = params.hostingPackageForm as
-        | import('@/lib/reseller-package-form').ResellerPackageFormState
-        | undefined;
-      if (!fullForm?.limits && !fullForm?.packageName) return;
-
+    if (action === 'deletePackage') {
       if (role === 'admin') {
-        const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
-        const fields = hostingPackageFormToDaFields({
-          ...fullForm,
-          packageName: pkgName || fullForm.packageName,
-        });
-        await daPostViaSsh(daManageCmd, fields);
-        return;
+        await daPostViaSsh(daManageCmd, { delete: 'Delete', delete0: pkgName });
+      } else {
+        await DA_MUTATION_PROXY.deletePackage(api, params);
       }
-
-      const mutator = DA_MUTATION_PROXY[action];
-      if (mutator) await mutator(api, params);
-    } catch (e) {
-      console.error('[server-exec] pushPackageToDaInBackground:', e);
+      return;
     }
-  })();
+
+    const fullForm = params.hostingPackageForm as
+      | import('@/lib/reseller-package-form').ResellerPackageFormState
+      | undefined;
+    if (!fullForm?.limits && !fullForm?.packageName) return;
+
+    if (role === 'admin') {
+      const { hostingPackageFormToDaFields } = await import('@/lib/reseller-package-form');
+      const fields = hostingPackageFormToDaFields({
+        ...fullForm,
+        packageName: pkgName || fullForm.packageName,
+      });
+      await daPostViaSsh(daManageCmd, fields);
+      return;
+    }
+
+    const mutator = DA_MUTATION_PROXY[action];
+    if (mutator) await mutator(api, params);
+  } catch (e) {
+    console.error('[server-exec] pushPackageToDa:', e);
+    throw e;
+  }
 }
 
 const DA_READ_PROXY: Record<
@@ -237,28 +236,10 @@ export async function POST(req: NextRequest) {
               live: async () => liveList,
             });
 
-      const listData = data;
-
-      let responseData = listData;
-      if (
-        action === 'listPackages' &&
-        Array.isArray(responseData) &&
-        auth.user.role === 'reseller' &&
-        mirrorScope.daUsername
-      ) {
-        const sites = await listMirrorWebsites(mirrorScope);
-        const usedNames = new Set(
-          sites.map((s) => s.package).filter((name): name is string => Boolean(name)),
-        );
-        responseData = (responseData as PanelPackage[]).filter((p) =>
-          usedNames.has(p.packageName),
-        );
-      }
-
       const lastSyncedAt = await getMirrorLastSyncAt();
       return NextResponse.json({
         success: true,
-        data: responseData,
+        data,
         meta: { source: 'mirror', lastSyncedAt },
       });
     }
@@ -303,7 +284,7 @@ export async function POST(req: NextRequest) {
           if (!mirrorDel.ok) {
             return NextResponse.json({ success: false, error: mirrorDel.error || 'Falha ao guardar no painel' });
           }
-          pushPackageToDaInBackground(action, paramsRecord, daManageCmd, auth);
+          await pushPackageToDa(action, paramsRecord, daManageCmd, auth);
           scheduleDaSync(2000);
           return NextResponse.json({ success: true, serverSynced: true, data: { savedToMirror: true } });
         }
@@ -324,7 +305,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        pushPackageToDaInBackground(action, paramsRecord, daManageCmd, auth);
+        await pushPackageToDa(action, paramsRecord, daManageCmd, auth);
         scheduleDaSync(2000);
 
         return NextResponse.json({

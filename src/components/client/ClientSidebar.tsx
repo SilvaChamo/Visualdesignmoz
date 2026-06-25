@@ -112,7 +112,7 @@ export function ClientSidebar({
 
   const isFlatActive = (item: FlatItem) => {
     if (item.id === 'domains') {
-      return ['domains', 'domains-new', 'domains-list', 'file-manager', 'cp-file-manager'].includes(
+      return ['domains', 'domains-new', 'domains-list', 'domain-manager', 'file-manager', 'cp-file-manager'].includes(
         activeSection,
       );
     }

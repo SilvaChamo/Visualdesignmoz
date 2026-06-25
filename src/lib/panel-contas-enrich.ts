@@ -44,11 +44,12 @@ export function excludeResellerSelfPackages<T extends { packageName?: string; na
   sites: Array<{ owner?: string; package?: string }>,
   daUsername: string,
 ): T[] {
-  const selfPkgs = getResellerSelfPackageNames(sites, daUsername);
-  if (!selfPkgs.size) return packages;
   return packages.filter((p) => {
-    const name = String(p.packageName || p.name || '');
-    return name && !selfPkgs.has(name);
+    const name = String(p.packageName || p.name || '').toLowerCase();
+    if (name.includes('reseller') || name.includes('revenda') || name === 'osher' || name === 'oshercollective') {
+      return false;
+    }
+    return true;
   });
 }
 

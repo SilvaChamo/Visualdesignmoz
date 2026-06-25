@@ -40,50 +40,13 @@ export function CartDrawer() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (paymentMethod === 'visa') {
-      setIsProcessing(false);
-      setIsCartOpen(false);
-      if (!user) {
-        window.location.href = `/auth/login?redirect=${encodeURIComponent('/checkout')}`;
-      } else {
-        window.location.href = '/checkout';
-      }
-      return;
-    }
-
+    setIsProcessing(false);
+    setIsCartOpen(false);
+    const targetUrl = `/checkout?method=${paymentMethod}`;
     if (!user) {
-      setIsProcessing(false);
-      setCheckoutError('Faça login para concluir a compra.');
-      window.location.href = '/auth/login';
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/checkout/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          items,
-          paymentMethod,
-          phoneNumber,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Falha ao processar pagamento');
-      }
-      setRedirectPath(data.redirectPath || '/client');
-      setIsSuccess(true);
-      setTimeout(() => {
-        clearCart();
-        setIsCartOpen(false);
-        window.location.href = data.redirectPath || '/client';
-      }, 2200);
-    } catch (err: unknown) {
-      setCheckoutError(err instanceof Error ? err.message : 'Erro ao processar pagamento');
-    } finally {
-      setIsProcessing(false);
+      window.location.href = `/auth/login?redirect=${encodeURIComponent(targetUrl)}`;
+    } else {
+      window.location.href = targetUrl;
     }
   };
 

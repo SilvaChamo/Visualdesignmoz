@@ -331,12 +331,7 @@ export async function listMirrorPackages(
     }
   }
 
-  const sites = prefetchedSites ?? (await listMirrorWebsites(scope));
-  const usedNames = new Set(
-    sites.map((s) => s.package).filter((name): name is string => Boolean(name)),
-  );
-  if (!usedNames.size) return [];
-  return all.filter((pkg) => usedNames.has(pkg.packageName));
+  return all;
 }
 
 /** Formulário completo guardado no painel (limites, recursos, funcionalidades). */

@@ -1770,36 +1770,94 @@ export function EmailManagementSection({
     }
     setLoading(true); setMsg('')
     try {
-      // 1. Password no DirectAdmin
-      if (data.password) {
-        await directAdminAPI.changeEmailPassword({ email: data.email, password: data.password })
+      const originalEmail = data.email;
+      const originalUser = originalEmail.split('@')[0];
+      const originalDomain = originalEmail.split('@')[1];
+
+      const newUser = (data.user || originalUser).trim();
+      const newDomain = selectedDomain || originalDomain;
+      const newEmail = `${newUser}@${newDomain}`;
+      const emailChanged = newEmail.toLowerCase() !== originalEmail.toLowerCase();
+
+      const activePassword = data.password;
+
+      if (emailChanged) {
+        if (!activePassword) {
+          throw new Error('Ao alterar o endereço de e-mail, é obrigatório definir uma nova palavra-passe.');
+        }
+
+        // 1. Eliminar no DirectAdmin
+        const delRes = await directAdminAPI.deleteEmail({
+          email: originalEmail,
+          userName: originalUser,
+          domain: originalDomain,
+        });
+        if (delRes?.success === false) {
+          console.warn('[DirectAdmin] Falha ao eliminar email anterior:', delRes.error);
+        }
+
+        // 2. Eliminar no Supabase
+        await fetch(`/api/email-contas?email=${encodeURIComponent(originalEmail)}`, { method: 'DELETE' });
+
+        // 3. Criar no DirectAdmin
+        const createRes = await directAdminAPI.createEmail({
+          domain: newDomain,
+          userName: newUser,
+          password: activePassword,
+          quota: data.quota_mb || 500,
+        });
+        if (createRes?.success === false) {
+          throw new Error(createRes.error || 'Falha ao criar o novo endereço de e-mail no servidor.');
+        }
+      } else {
+        if (activePassword) {
+          const passRes = await directAdminAPI.changeEmailPassword({
+            email: originalEmail,
+            password: activePassword,
+          });
+          if (passRes?.success === false) {
+            throw new Error(passRes.error || 'Falha ao alterar a palavra-passe no servidor.');
+          }
+        }
       }
-      // 2. Metadados e credenciais SMTP no Supabase
-      // Usar API para bypass de RLS
+
+      // 4. Salvar/Atualizar no Supabase
       const updateRes = await fetch('/api/email-contas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: data.email,
-          password: data.password || 'dummy',
-          nome: data.email.split('@')[0],
+          email: newEmail,
+          password: activePassword || 'dummy',
+          nome: newUser,
           tipo: 'webmail',
-          cliente_id: data.cliente_id || null
-        })
-      })
-      const updateData = await updateRes.json()
-      if (!updateData.success) throw new Error(updateData.error || 'Erro ao atualizar')
+          cliente_id: data.cliente_id || null,
+        }),
+      });
+      const updateData = await updateRes.json();
+      if (!updateData.success) throw new Error(updateData.error || 'Erro ao atualizar base de dados.');
 
-      setMsg('Configurações guardadas.'); setMsgType('success')
-      setEmailModal({ ...emailModal, show: false })
-      loadEmails(selectedDomain)
-      if (data.password) {
-        const bundle = buildEmailConfigBundle(data.email, data.password)
-        setEmailConfigModal({ email: data.email, password: data.password, ...bundle })
+      setMsg('Configurações guardadas com sucesso.');
+      setMsgType('success');
+      setEmailModal({ ...emailModal, show: false });
+      loadEmails(selectedDomain === '__ALL__' ? '__ALL__' : newDomain);
+
+      if (activePassword) {
+        const bundle = buildEmailConfigBundle(newEmail, activePassword, data.quota_mb || 500);
+        writeEmailConfigCache(newEmail, {
+          email: newEmail,
+          password: activePassword,
+          ...bundle,
+        });
+        setEmailConfigModal({
+          email: newEmail,
+          password: activePassword,
+          ...bundle,
+        });
       }
     } catch (e: any) {
       setMsg('Erro: ' + e.message); setMsgType('error')
     }
+    setLoading(false)
   }
 
   const handleDelete = async (email: string) => {
@@ -2145,7 +2203,8 @@ export function EmailManagementSection({
             if (action === 'webmail') {
               window.open(getWebmailUrlForDomain(row?.domain || selectedDomain), '_blank', 'noopener,noreferrer')
             } else if (action === 'edit' && row) {
-              setEmailModal({ show: true, mode: 'edit', data: { ...row, password: '' } })
+              setSelectedDomain(row.domain || '')
+              setEmailModal({ show: true, mode: 'edit', data: { ...row, user: row.email.split('@')[0], password: '' } })
             } else if (action === 'download') {
               void openEmailConfigModal(emailRowMenu.email)
             } else if (action === 'delete') {
@@ -2165,11 +2224,11 @@ export function EmailManagementSection({
       {emailModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setEmailModal({ ...emailModal, show: false })} />
-          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="relative bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Mail className="w-5 h-5 " /></div>
-                <div><h2 className="text-sm font-bold text-gray-900 dark:text-white block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
+                <div><h2 className="text-sm font-bold text-gray-900 dark:text-white block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 dark:text-zinc-400 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
               </div>
               <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
             </div>
@@ -2177,14 +2236,14 @@ export function EmailManagementSection({
               <EmailFormSkeleton />
             ) : (
               <div className="p-6 space-y-5">
-                {emailModal.mode === 'create' && (
+                {(emailModal.mode === 'create' || emailModal.mode === 'edit') && (
                   <>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Website / Domínio</label>
                       <select
                         value={selectedDomain}
                         onChange={e => setSelectedDomain(e.target.value)}
-                        className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                       >
                         <option value="">Selecione um website</option>
                         {sites.map(site => (
@@ -2199,7 +2258,7 @@ export function EmailManagementSection({
                           value={emailModal.data.user}
                           onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, user: e.target.value } })}
                           placeholder="admin"
-                          className="flex-1 bg-gray-50 border border-gray-200 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                          className="flex-1 bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
                         />
                         <span className="text-gray-400 text-sm">@{selectedDomain || 'dominio.com'}</span>
                       </div>
@@ -2207,20 +2266,20 @@ export function EmailManagementSection({
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, password: e.target.value } })} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>{emailModal.mode === 'create' && <button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700">Gerar palavra-passe</button>}</div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, confirmPassword: e.target.value } })} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-800 dark:text-zinc-100 border border-gray-200 dark:border-zinc-700 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, password: e.target.value } })} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div><button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-650 hover:text-red-750 mt-1 self-start">Gerar palavra-passe</button></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, confirmPassword: e.target.value } })} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
                 {emailModal.mode === 'edit' && (
-                  <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100">
-                    <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
-                    <button onClick={() => setEmailModal({ ...emailModal, data: { ...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active' } })} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
+                  <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 dark:bg-green-950/30 text-green-600' : 'bg-red-100 dark:bg-red-950/30 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500 dark:text-zinc-400">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
+                    <button onClick={() => setEmailModal({ ...emailModal, data: { ...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active' } })} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300 dark:bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
                   </div>
                 )}
               </div>
             )}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
-              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
-              <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 rounded text-xs font-bold  transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
+            <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-900/50 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-end gap-3">
+              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 bg-transparent border border-gray-300 dark:border-zinc-750 hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl text-xs font-bold transition-all">Cancelar</button>
+              <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-transparent border border-red-500 hover:bg-red-500/10 text-red-500 rounded-xl text-xs font-bold transition-all flex items-center gap-2">{(loading || creating) ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
             </div>
           </div>
         </div>
