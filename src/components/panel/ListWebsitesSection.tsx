@@ -529,7 +529,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       {daLoadError && (
         <div className="px-4 py-3 rounded text-sm bg-red-50 text-red-800 border border-red-200">
           <strong>DirectAdmin:</strong> {daLoadError}
-          {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+          {typeof window !== 'undefined' && 
+           window.location.hostname === 'localhost' && 
+           !daLoadError.toLowerCase().includes('não autorizado') && 
+           !daLoadError.toLowerCase().includes('unauthorized') && 
+           !daLoadError.toLowerCase().includes('acesso negado') && (
             <p className="mt-2 text-red-700/90">
               Em <code>localhost</code> a API do DirectAdmin pode falhar (IP bloqueado ou sem acesso directo). Use o painel em produção{' '}
               (<strong>visualdesignmoz.com/dashboard</strong>), o DirectAdmin em{' '}

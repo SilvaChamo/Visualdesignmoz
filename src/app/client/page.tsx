@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense, lazy, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { supabase } from '@/lib/supabase-client'
 
@@ -3506,6 +3506,7 @@ export default function ClientPage() {
 }
 
 function ClientPageContent() {
+  const router = useRouter()
   const { chrome } = useAdminSectionChrome()
   const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState('meus-produtos')
@@ -3611,6 +3612,15 @@ function ClientPageContent() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados do painel:', error)
+      const message = error instanceof Error ? error.message : ''
+      if (
+        message.includes('Não autorizado') ||
+        message.includes('Unauthorized') ||
+        message.includes('Acesso negado')
+      ) {
+        router.push('/login')
+        return
+      }
     } finally {
       setIsFetchingDirectAdmin(false)
     }

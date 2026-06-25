@@ -3,6 +3,14 @@
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { authShellClass } from '@/components/auth/auth-styles';
 
+/** URL da home page — em localhost vai para '/', em produção para o site principal. */
+function getLogoHomeUrl(): string {
+  if (typeof window === 'undefined') return 'https://visualdesignmoz.com';
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return '/';
+  return 'https://visualdesignmoz.com';
+}
+
 type AuthPageShellProps = {
   children: React.ReactNode;
   /** Largura do cartão — por defeito 420px */
@@ -22,7 +30,7 @@ export function AuthPageShell({ children, wide }: AuthPageShellProps) {
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10">
-        <a href="/" className="mb-3 block">
+        <a href={getLogoHomeUrl()} className="mb-3 block">
           <img
             src="/assets/logotype.png"
             alt="VisualDesign"

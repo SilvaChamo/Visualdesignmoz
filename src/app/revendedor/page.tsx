@@ -1900,6 +1900,7 @@ export default function ResellerPage() {
 }
 
 function ResellerPageContent() {
+  const router = useRouter()
   const { chrome } = useAdminSectionChrome()
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState('dashboard')
@@ -2070,6 +2071,15 @@ function ResellerPageContent() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados do painel:', error)
+      const message = error instanceof Error ? error.message : ''
+      if (
+        message.includes('Não autorizado') ||
+        message.includes('Unauthorized') ||
+        message.includes('Acesso negado')
+      ) {
+        router.push('/login')
+        return
+      }
     } finally {
       setIsFetchingDirectAdmin(false)
     }

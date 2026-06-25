@@ -256,6 +256,35 @@ export async function POST(req: NextRequest) {
       const domain = body.params?.domain || body.domain || 'your-domain.com'
       
       if (domain === 'painel.visualdesignmoz.com') {
+        if (VERCEL_DEPLOY_HOOK) {
+          try {
+            const hookRes = await fetch(VERCEL_DEPLOY_HOOK, { method: 'POST' })
+            if (!hookRes.ok) {
+              throw new Error(`Deploy Hook Vercel falhou com status: ${hookRes.status}`)
+            }
+            const output = 'DEPLOY_COMPLETE_VERCEL'
+            return NextResponse.json({
+              success: true,
+              output,
+              data: {
+                success: true,
+                output,
+              },
+              message: 'Deploy do painel iniciado com sucesso via Vercel Deploy Hook!'
+            })
+          } catch (err: any) {
+            return NextResponse.json({
+              success: false,
+              output: err.message || 'Erro durante o deploy do painel na Vercel.',
+              data: {
+                success: false,
+                output: err.message || 'Erro durante o deploy do painel na Vercel.',
+              },
+              error: err.message || 'Erro durante o deploy.'
+            }, { status: 500 })
+          }
+        }
+
         try {
           const cwd = process.cwd()
           // 1. git pull
