@@ -174,7 +174,8 @@ function CheckoutContent() {
 
       const hasDomain = items.some(item => item.type === 'domain');
       setStatus('success');
-      setTimeout(() => {
+      setTimeout(async () => {
+        await supabase.auth.refreshSession();
         clearCart();
         if (hasDomain) {
           router.replace('/client?section=domain-manager');

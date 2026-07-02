@@ -58,7 +58,7 @@ export function getPanelOrigin(): string {
 export function getPublicSiteOrigin(): string {
   return sanitizeOrigin(
     process.env.NEXT_PUBLIC_PUBLIC_SITE_URL?.trim() ||
-      process.env.NEXT_PUBLIC_SITE_URL?.trim(),
+    process.env.NEXT_PUBLIC_SITE_URL?.trim(),
     DEFAULT_PUBLIC_SITE_ORIGIN,
   )
 }

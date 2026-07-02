@@ -9,11 +9,17 @@ export async function resolveRoleForAuthUser(
   user: User,
 ): Promise<UserRole> {
   const profile = await getProfileForAuthUser(db, user.id);
+  
+  // Also check products to ensure consistency with layout route guards
+  const { fetchUserProductsSummary } = await import('@/lib/user-products');
+  const products = await fetchUserProductsSummary(db, user.id);
+
   return resolveUserRole({
     email: user.email,
     userMetadata: user.user_metadata as Record<string, unknown>,
     appMetadata: user.app_metadata as Record<string, unknown>,
     profileRole: profile?.role ?? null,
     daUsername: profile?.da_username ?? null,
+    hasPaidProducts: products.hasPaidProducts,
   });
 }

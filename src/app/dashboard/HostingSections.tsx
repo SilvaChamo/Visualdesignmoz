@@ -1610,7 +1610,7 @@ export function EmailManagementSection({
       const cpEmails = daEmails.length > 0 ? daEmails : cpGetEmails(domain)
 
       // 2. Carregar metadados do Supabase
-      const { data: sbData } = await supabase.from('email_contas').select('*').eq('id', 'dummy') // bypass RLS via API
+      const { data: sbData } = await supabase.from('email_contas').select('*').eq('domain', domain)
 
       // 3. Cruzar dados
       const merged: DirectAdminEmail[] = cpEmails.map((cpE: any) => {
@@ -1682,7 +1682,8 @@ export function EmailManagementSection({
     if (!isActive) return
     if (selectedDomain === '__ALL__') loadAllEmails()
     else if (selectedDomain) loadEmails(selectedDomain)
-  }, [isActive, selectedDomain, sites])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, selectedDomain])
 
   const [isSyncingGlobal, setIsSyncingGlobal] = useState(false)
 

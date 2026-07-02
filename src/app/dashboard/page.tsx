@@ -1805,14 +1805,6 @@ function AdminPageContent() {
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Erro ao carregar dados'
-      if (
-        message.includes('Não autorizado') ||
-        message.includes('Unauthorized') ||
-        message.includes('Acesso negado')
-      ) {
-        router.push('/login')
-        return
-      }
       setDaLoadError(message)
       console.error(e)
     } finally {

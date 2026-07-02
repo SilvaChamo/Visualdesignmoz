@@ -67,7 +67,8 @@ async function fetchPanelUsersNetwork(): Promise<PanelUsersCachePayload> {
   await waitForAuthSession();
 
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 45_000);
+  const timeout = window.setTimeout(() => controller.abort(), 20_000);
+
 
   try {
     const res = await fetch('/api/admin/panel-users', {

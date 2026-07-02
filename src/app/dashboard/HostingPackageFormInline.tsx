@@ -161,19 +161,13 @@ export function HostingPackageFormInline({ form, onChange, onCancel, onSubmit, b
     [selectedPreset],
   );
 
-  useEffect(() => {
-    if (isEdit) return;
-    if (selectedPreset) return;
-    if (hasInitializedCreateMode.current) return;
-    hasInitializedCreateMode.current = true;
-    onChange(createEmptyResellerPackageForm(form.packageName || ''));
-  }, [form.packageName, isEdit, onChange, selectedPreset]);
 
   useEffect(() => {
     if (selectedPreset) return;
     const inferred = inferHostingPlanPresetId(form);
     if (inferred) setSelectedPreset(inferred);
   }, [form, selectedPreset]);
+
 
   const canSubmit = isEdit
     ? Boolean(form.packageName.trim())

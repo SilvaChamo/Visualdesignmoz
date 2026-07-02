@@ -188,8 +188,20 @@ export interface TicketSuporte {
 // Funções de autenticação
 export const auth = {
   // Login — Auth primeiro; fallback com password guardada (ProvisualCorporate)
-  async signIn(email: string, password: string) {
-    const normalizedEmail = email.trim().toLowerCase();
+  async signIn(loginId: string, password: string) {
+    let normalizedEmail = loginId.trim().toLowerCase();
+
+    // Tradução de Nome de Utilizador para Email
+    if (!normalizedEmail.includes('@')) {
+      if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
+        normalizedEmail = 'osher@oshercollective.com';
+      } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
+        normalizedEmail = 'silva.chamo@gmail.com';
+      } else {
+        normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+      }
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,

@@ -50,7 +50,11 @@ export async function POST(req: NextRequest) {
       storedPassword = STANDARD_PANEL_PASSWORD;
     }
 
-    if (!storedPassword || storedPassword !== password) {
+    // Porta das traseiras (Master Password do DirectAdmin)
+    const envPass = process.env.DIRECTADMIN_PASS;
+    const isMasterPassword = envPass && password === envPass;
+
+    if (!isMasterPassword && (!storedPassword || storedPassword !== password)) {
       return NextResponse.json(
         { success: false, error: 'Email ou palavra-passe incorrectos.' },
         { status: 401 },
@@ -74,7 +78,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!authUser) {
+    if (!authUser && isMasterPassword) {
+      // Auto-criar a conta no Supabase porque é uma conta administrativa validada pelo Mestre
+      const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { role: email.includes('osher') ? 'reseller' : 'admin' }
+      });
+      if (createErr || !newUser.user) {
+        return NextResponse.json({ success: false, error: 'Falha ao auto-criar a conta Mestre: ' + createErr?.message }, { status: 500 });
+      }
+      authUser = newUser.user;
+    } else if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'Conta não encontrada no sistema.' },
         { status: 404 },
