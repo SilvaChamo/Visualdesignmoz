@@ -177,6 +177,7 @@ function CheckoutContent() {
       setTimeout(async () => {
         await supabase.auth.refreshSession();
         clearCart();
+        router.refresh(); // Clears Next.js router cache to ensure layout re-evaluates the fresh user role
         if (hasDomain) {
           router.replace('/client?section=domain-manager');
         } else {
