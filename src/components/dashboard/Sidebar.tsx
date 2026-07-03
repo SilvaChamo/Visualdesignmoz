@@ -132,7 +132,7 @@ export default function DashboardSidebar() {
             >
                 <div className="h-full flex flex-col p-6">
                     {/* Logo */}
-                    <div className="flex items-center gap-3 mb-12 px-2">
+                    <div className="flex items-center gap-3 mb-4 px-2">
                         <div className="w-12 h-12 flex items-center justify-center">
                             <img src="/assets/simbolo.png" alt="Visual Design" className="h-10 object-contain" />
                         </div>

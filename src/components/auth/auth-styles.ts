@@ -4,7 +4,7 @@ export const authShellClass =
   'font-panel relative flex min-h-screen flex-col bg-zinc-50 text-zinc-900 transition-colors duration-300 dark:bg-zinc-950 dark:text-zinc-100';
 
 export const authCardClass =
-  'w-full max-w-[420px] rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900';
+  'w-full max-w-[380px] rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900';
 
 export const authLabelClass =
   'mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300';

@@ -4,19 +4,19 @@ import React, { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/lib/supabase-client';
 import { X, Trash2, ShoppingCart, CreditCard, ChevronRight, Loader2, CheckCircle2, Shield, Server, Trash, Mail, Globe, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, removeItem, total, clearCart, addItem } = useCart();
-  const [step, setStep] = useState<'cart' | 'account' | 'payment'>('cart');
+  const [step, setStep] = useState<'cart' | 'payment'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'emola' | 'visa'>('mpesa');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [checkoutError, setCheckoutError] = useState('');
   const [redirectPath, setRedirectPath] = useState('/client');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isGuest, setIsGuest] = useState(false);
-  const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
 
   if (!isCartOpen) return null;
 
@@ -25,29 +25,12 @@ export function CartDrawer() {
     setStep('cart');
   };
 
-  const handleAdvanceToAccount = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setStep('payment');
-    } else {
-      setStep('account');
-    }
-  };
+
 
   const handleCheckout = async () => {
-    setCheckoutError('');
     setIsProcessing(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    setIsProcessing(false);
     setIsCartOpen(false);
-    const targetUrl = `/checkout?method=${paymentMethod}`;
-    if (!user) {
-      window.location.href = `/auth/login?redirect=${encodeURIComponent(targetUrl)}`;
-    } else {
-      window.location.href = targetUrl;
-    }
+    window.location.href = `/checkout?method=${paymentMethod}`;
   };
 
   const typeLabel: Record<string, string> = { domain: 'Domínio', hosting: 'Alojamento', email: 'Email', ssl: 'SSL' };
@@ -74,7 +57,7 @@ export function CartDrawer() {
             )}
           </h2>
           <div className="flex items-center gap-2">
-            {items.length > 0 && step === 'cart' && (
+            {items.length > 0 && (
               <button
                 onClick={clearCart}
                 className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
@@ -97,13 +80,8 @@ export function CartDrawer() {
               Carrinho
             </span>
             <div className="flex-1 h-px bg-slate-200" />
-            <span className={`flex items-center gap-1 ${step === 'account' ? 'text-red-600' : 'text-slate-400'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'account' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-500'}`}>2</span>
-              Conta
-            </span>
-            <div className="flex-1 h-px bg-slate-200" />
             <span className={`flex items-center gap-1 ${step === 'payment' ? 'text-red-600' : 'text-slate-400'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'payment' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === 'payment' ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-500'}`}>2</span>
               Pagamento
             </span>
           </div>
@@ -131,7 +109,7 @@ export function CartDrawer() {
               <p className="text-xs text-center">Pesquise um domínio ou escolha um plano para começar.</p>
             </div>
 
-          /* STEP 1 — CART */
+          /* CART ITEMS */
           ) : step === 'cart' ? (
             <>
               <div className="space-y-3">
@@ -221,72 +199,7 @@ export function CartDrawer() {
                 )}
               </div>
             </>
-
-          /* STEP 2 — ACCOUNT */
-          ) : step === 'account' ? (
-            <div className="space-y-5">
-              <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-5 h-5 text-red-600" />
-                  <h3 className="font-bold text-slate-800">Criar conta ou continuar</h3>
-                </div>
-                <p className="text-slate-500 text-sm">Crie uma conta para gerir os seus serviços e acompanhar os seus pedidos.</p>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 mb-1 block">Nome completo</label>
-                    <input
-                      type="text" placeholder="João Silva"
-                      value={accountForm.name}
-                      onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 mb-1 block">Email</label>
-                    <input
-                      type="email" placeholder="joao@email.com"
-                      value={accountForm.email}
-                      onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 mb-1 block">Palavra-passe</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'} placeholder="Mínimo 8 caracteres"
-                        value={accountForm.password}
-                        onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none pr-10"
-                      />
-                      <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative flex items-center gap-3 py-2">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-xs text-slate-400 font-medium">ou</span>
-                  <div className="flex-1 h-px bg-slate-200" />
-                </div>
-
-                <button
-                  onClick={() => setIsGuest(true)}
-                  className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-lg text-sm text-slate-500 hover:border-red-300 hover:text-red-600 transition-colors font-medium"
-                >
-                  Continuar sem criar conta (convidado)
-                </button>
-
-                <p className="text-[10px] text-slate-400 text-center">
-                  Ao continuar concorda com os nossos <span className="text-red-600 font-medium cursor-pointer">Termos de Serviço</span> e <span className="text-red-600 font-medium cursor-pointer">Política de Privacidade</span>.
-                </p>
-              </div>
-            </div>
-
-          /* STEP 3 — PAYMENT */
+          /* STEP 2 — PAYMENT */
           ) : (
             <div className="space-y-4">
               {/* Order summary */}
@@ -318,7 +231,7 @@ export function CartDrawer() {
                     <button
                       key={m}
                       onClick={() => setPaymentMethod(m)}
-                      className={`p-3 border-2 rounded-xl flex flex-col items-center gap-1 transition-all text-xs font-black ${paymentMethod === m ? 'border-red-600 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                      className={`p-3 border-2 rounded-lg flex flex-col items-center gap-1 transition-all text-xs font-black ${paymentMethod === m ? 'border-red-600 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
                     >
                       {m === 'mpesa' && <><span className="text-base">M</span>M-Pesa</>}
                       {m === 'emola' && <><span className="text-base">e</span>e-Mola</>}
@@ -343,66 +256,80 @@ export function CartDrawer() {
                 )}
 
                 {paymentMethod === 'visa' && (
-                  <div className="p-3 bg-blue-50 rounded-lg flex items-start gap-2 text-xs text-blue-800 border border-blue-100">
-                    <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    Será redirecionado para a página segura do seu banco para inserir os dados do cartão.
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 block mb-1">
+                        Número do Cartão
+                      </label>
+                      <input
+                        type="text" placeholder="0000 0000 0000 0000"
+                        value={cardNumber}
+                        onChange={e => setCardNumber(e.target.value)}
+                        maxLength={19}
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">
+                          Validade
+                        </label>
+                        <input
+                          type="text" placeholder="MM/AA"
+                          value={expiryDate}
+                          onChange={e => setExpiryDate(e.target.value)}
+                          maxLength={5}
+                          className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">
+                          CVV
+                        </label>
+                        <input
+                          type="password" placeholder="***"
+                          value={cvv}
+                          onChange={e => setCvv(e.target.value)}
+                          maxLength={3}
+                          className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
+
         </div>
 
         {/* Footer */}
         {items.length > 0 && !isSuccess && (
           <div className="p-5 bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] space-y-3">
 
-            {/* Totals */}
-            {step !== 'account' && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 text-sm">Total a pagar</span>
-                <span className="text-2xl font-black text-slate-900">{total} MT</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 text-sm">Total a pagar</span>
+              <span className="text-2xl font-black text-slate-900">{total} MT</span>
+            </div>
 
-            {/* CTAs */}
             {step === 'cart' && (
               <button
-                onClick={handleAdvanceToAccount}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/30 hover:shadow-red-600/50"
+                onClick={() => setStep('payment')}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 transition-all"
               >
-                Avançar para Pagamento <ChevronRight className="w-5 h-5" />
+                Finalizar compra <ChevronRight className="w-5 h-5" />
               </button>
-            )}
-
-            {step === 'account' && (
-              <div className="flex gap-3">
-                <button onClick={() => setStep('cart')} className="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors text-sm">
-                  Voltar
-                </button>
-                <button
-                  onClick={() => setStep('payment')}
-                  disabled={!isGuest && (!accountForm.name || !accountForm.email || accountForm.password.length < 6)}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20"
-                >
-                  Continuar <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {checkoutError && (
-              <p className="text-sm text-red-600 font-medium">{checkoutError}</p>
             )}
 
             {step === 'payment' && (
               <div className="flex gap-3">
-                <button onClick={() => setStep('account')} className="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors text-sm">
+                <button onClick={() => setStep('cart')} className="px-4 py-2.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors text-sm">
                   Voltar
                 </button>
                 <button
                   onClick={handleCheckout}
-                  disabled={isProcessing || ((paymentMethod === 'mpesa' || paymentMethod === 'emola') && phoneNumber.length < 9)}
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/30"
+                  disabled={isProcessing || ((paymentMethod === 'mpesa' || paymentMethod === 'emola') && phoneNumber.length < 9) || (paymentMethod === 'visa' && (!cardNumber || !expiryDate || !cvv))}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 transition-all"
                 >
                   {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> A Processar...</> : <>Confirmar Pagamento</>}
                 </button>

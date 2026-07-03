@@ -175,7 +175,7 @@ export function ClientSidebar({
         )}
       </div>
 
-      <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2.5">
+      <nav className="flex flex-1 flex-col overflow-y-auto px-2 pt-1 pb-2">
         <div className="flex flex-col space-y-0.5">
           {flatItems.slice(0, readOnly ? flatItems.length : 2).map((item) => {
             const Icon = item.icon;

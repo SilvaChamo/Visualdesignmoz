@@ -30,11 +30,14 @@ export function AuthPageShell({ children, wide }: AuthPageShellProps) {
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10">
-        <a href={getLogoHomeUrl()} className="mb-3 block">
+        <a 
+          href={getLogoHomeUrl()} 
+          className="mb-1 block transition-transform duration-300 hover:scale-105 hover:opacity-90 active:scale-95"
+        >
           <img
             src="/assets/logotype.png"
             alt="VisualDesign"
-            className="h-[100px] w-auto object-contain dark:hidden"
+            className="h-[120px] w-auto object-contain dark:hidden"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
@@ -42,7 +45,7 @@ export function AuthPageShell({ children, wide }: AuthPageShellProps) {
           <img
             src="/assets/logotipoII.png"
             alt="VisualDesign"
-            className="hidden h-[100px] w-auto object-contain dark:block dark:brightness-110"
+            className="hidden h-[120px] w-auto object-contain dark:block dark:brightness-110"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}

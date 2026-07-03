@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/lib/supabase-client';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { 
   CreditCard, 
   Shield, 
@@ -16,7 +17,10 @@ import {
   Server, 
   Mail, 
   ArrowLeft,
-  Smartphone
+  Smartphone,
+  User,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 function CheckoutContent() {
@@ -40,6 +44,23 @@ function CheckoutContent() {
   // Phone Number State (M-Pesa / e-Mola)
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // Account Form State (For unauthenticated users)
+  const [accountForm, setAccountForm] = useState({ 
+    name: '', 
+    sobrenome: '', 
+    email: '', 
+    telefone: '', 
+    password: '',
+    empresa: '',
+    endereco: '',
+    endereco2: '',
+    cidade: '',
+    estado: '',
+    codigoPostal: '',
+    pais: 'Mozambique'
+  });
+  const [showPassword, setShowPassword] = useState(false);
+
   // Flow State
   const [status, setStatus] = useState<'idle' | 'validating' | 'processing' | 'registering' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,7 +70,6 @@ function CheckoutContent() {
       const { data: { user: sessionUser } } = await supabase.auth.getUser();
       if (!sessionUser) {
         setIsAuthenticated(false);
-        router.replace(`/auth/login?redirect=${encodeURIComponent('/checkout')}`);
       } else {
         setUser(sessionUser);
         setIsAuthenticated(true);
@@ -138,8 +158,53 @@ function CheckoutContent() {
       }
     }
 
+    // Auth Validation for Guests
+    if (isAuthenticated === false) {
+      if (!accountForm.name || !accountForm.email || accountForm.password.length < 6) {
+        setErrorMessage('Por favor, preencha todos os dados da conta corretamente. A palavra-passe deve ter no mínimo 6 caracteres.');
+        setStatus('error');
+        return;
+      }
+    }
+
     // Fluxo de Simulação de Processamento
     try {
+      if (isAuthenticated === false) {
+        setStatus('registering');
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: accountForm.email,
+            password: accountForm.password,
+            nome: accountForm.name
+          })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+          if (data.error?.includes('Já existe uma conta') || data.error?.includes('already')) {
+             try {
+               await supabase.auth.signInWithPassword({
+                 email: accountForm.email,
+                 password: accountForm.password,
+               });
+             } catch (loginErr) {
+               throw new Error('Esta conta já existe. A palavra-passe está incorreta.');
+             }
+          } else {
+            throw new Error(data.error || 'Erro ao criar a sua conta.');
+          }
+        } else {
+          try {
+            await supabase.auth.signInWithPassword({
+              email: accountForm.email,
+              password: accountForm.password,
+            });
+          } catch (e) {}
+        }
+      }
+
       if (paymentMethod === 'visa') {
         setStatus('validating');
         await new Promise(r => setTimeout(r, 1200));
@@ -202,10 +267,6 @@ function CheckoutContent() {
     );
   }
 
-  if (isAuthenticated === false) {
-    return null;
-  }
-
   const typeLabel: Record<string, string> = { domain: 'Domínio', hosting: 'Alojamento', email: 'Email', ssl: 'SSL' };
   const typeIcon: Record<string, React.ReactNode> = {
     domain: <Globe className="w-4 h-4 text-teal-650 dark:text-teal-400" />,
@@ -215,24 +276,13 @@ function CheckoutContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pt-28 pb-16 transition-colors duration-200">
-      <div className="max-w-5xl mx-auto px-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pt-32 pb-16 transition-colors duration-200">
+      <div className="max-w-7xl mx-auto px-4 mt-4">
         
-        {/* Top secure seal indicator */}
-        <div className="mb-8 flex items-center justify-between">
-          <button 
-            onClick={() => window.history.back()}
-            className="flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-650 dark:hover:text-red-450 transition-colors font-semibold"
-          >
-            <ArrowLeft className="w-4 h-4" /> Voltar
-          </button>
-          <div className="flex items-center gap-2 text-xs font-bold text-green-700 dark:text-green-450 bg-green-50 dark:bg-green-950/20 px-3.5 py-1 rounded-full border border-green-200 dark:border-green-900/40">
-            <Lock className="w-3.5 h-3.5" /> Ligação Segura SSL de 256 bits
-          </div>
-        </div>
+        {/* Header removed */}
 
         {items.length === 0 && status !== 'success' ? (
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-12 text-center max-w-lg mx-auto space-y-6 shadow-sm">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-12 text-center max-w-lg mx-auto space-y-6 shadow-sm">
             <ShoppingCart className="w-16 h-16 text-slate-300 dark:text-zinc-700 mx-auto" />
             <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 font-panel">O seu carrinho está vazio</h2>
             <p className="text-sm text-slate-500 dark:text-zinc-400">
@@ -240,7 +290,7 @@ function CheckoutContent() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-red-650 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-lg shadow-red-600/20"
+              className="bg-red-650 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
             >
               Pesquisar Domínio
             </button>
@@ -249,11 +299,11 @@ function CheckoutContent() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column: Form and loading steps */}
-            <div className="lg:col-span-7 space-y-6">
+            <div className="lg:col-span-8 space-y-5">
               
               {/* SUCCESS STATE */}
               {status === 'success' && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-8 text-center space-y-4 shadow-sm">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-8 text-center space-y-4 shadow-sm">
                   <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto animate-bounce" />
                   <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-50 font-panel">Pagamento Concluído!</h3>
                   <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
@@ -267,7 +317,7 @@ function CheckoutContent() {
 
               {/* PROCESSING TRANSACTIONS STEPS */}
               {(status === 'validating' || status === 'processing' || status === 'registering') && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center space-y-6 shadow-sm">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-6 shadow-sm">
                   <Loader2 className="w-12 h-12 text-red-650 animate-spin mx-auto" />
                   <div className="space-y-2">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
@@ -318,7 +368,7 @@ function CheckoutContent() {
 
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl p-5 flex items-start gap-3">
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-650 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
@@ -335,7 +385,98 @@ function CheckoutContent() {
 
               {/* PAY FORM */}
               {status === 'idle' && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 space-y-6 shadow-sm">
+                <div className="space-y-5">
+                  
+                  {isAuthenticated === false && (
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+                      <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                        <p className="text-sm text-slate-600 dark:text-zinc-400">
+                          Já tem uma conta? <Link href={`/auth/login?redirect=${encodeURIComponent('/checkout')}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
+                        </p>
+                      </div>
+
+                      <div className="space-y-8">
+                        {/* Informação pessoal */}
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-800 dark:text-zinc-50 mb-4">Informação pessoal</h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Nome</label>
+                              <input type="text" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Sobrenome</label>
+                              <input type="text" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">E-mail</label>
+                              <input type="email" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone</label>
+                              <div className="flex border border-slate-200 dark:border-zinc-800 rounded-md bg-slate-50 dark:bg-zinc-950 overflow-hidden focus-within:ring-1 focus-within:ring-blue-500">
+                                <select className="pl-3 pr-8 py-3 bg-slate-100 dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none">
+                                  <option value="+258">🇲🇿 +258</option>
+                                  <option value="+244">🇦🇴 +244</option>
+                                  <option value="+351">🇵🇹 +351</option>
+                                  <option value="+55">🇧🇷 +55</option>
+                                </select>
+                                <input type="tel" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className="flex-1 min-w-0 px-3 py-3 bg-transparent text-slate-800 dark:text-zinc-100 text-sm outline-none" />
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Palavra-passe para a conta (mín. 6 caracteres)</label>
+                              <div className="relative">
+                                <input type={showPassword ? 'text' : 'password'} value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 pr-10" />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300">
+                                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Endereço de cobrança */}
+                        <div className="pt-6 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                          <h3 className="text-xl font-bold text-slate-800 dark:text-zinc-50 mb-4">Endereço de cobrança</h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Empresa (opcional)</label>
+                              <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço</label>
+                              <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço 2</label>
+                              <input type="text" value={accountForm.endereco2} onChange={e => setAccountForm(p => ({ ...p, endereco2: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade</label>
+                              <input type="text" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Estado</label>
+                              <input type="text" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Código Postal</label>
+                              <input type="text" value={accountForm.codigoPostal} onChange={e => setAccountForm(p => ({ ...p, codigoPostal: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">País</label>
+                              <select value={accountForm.pais} onChange={e => setAccountForm(p => ({ ...p, pais: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="Mozambique">Mozambique</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
                   
                   <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">Finalizar Pagamento</h2>
@@ -354,10 +495,10 @@ function CheckoutContent() {
                           setPaymentMethod(m);
                           setErrorMessage('');
                         }}
-                        className={`p-3 border-2 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-black cursor-pointer ${
+                        className={`p-3 border rounded-md flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-black cursor-pointer ${
                           paymentMethod === m 
                             ? 'border-red-655 bg-red-50 dark:bg-red-950/20 text-red-650 dark:text-red-400' 
-                            : 'border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
+                            : 'border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50 dark:bg-zinc-900'
                         }`}
                       >
                         {m === 'visa' && (
@@ -425,7 +566,7 @@ function CheckoutContent() {
                             value={cardholderName}
                             onChange={e => setCardholderName(e.target.value.toUpperCase())}
                             required
-                            className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-650 focus:border-transparent transition-all uppercase"
+                            className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-650 focus:border-transparent transition-all uppercase"
                           />
                         </div>
 
@@ -440,7 +581,7 @@ function CheckoutContent() {
                               value={cardNumber}
                               onChange={handleCardNumberChange}
                               required
-                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono tracking-wider"
+                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono tracking-wider"
                             />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2">
                               <Lock className="w-4 h-4 text-slate-400" />
@@ -459,7 +600,7 @@ function CheckoutContent() {
                               value={expiryDate}
                               onChange={handleExpiryChange}
                               required
-                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
+                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
                             />
                           </div>
                           <div>
@@ -473,17 +614,26 @@ function CheckoutContent() {
                               onChange={handleCvvChange}
                               required
                               maxLength={3}
-                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
+                              className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
                             />
                           </div>
                         </div>
 
-                        <button
-                          type="submit"
-                          className="w-full mt-2 bg-red-650 hover:bg-red-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/30 hover:shadow-red-600/50 cursor-pointer"
-                        >
-                          <Shield className="w-5 h-5 animate-pulse" /> Pagar {total} MT Agora
-                        </button>
+                        <div className="mt-2 flex justify-start gap-3">
+                          <button
+                            type="submit"
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Shield className="w-5 h-5 animate-pulse" /> Confirmar e Pagar {total} MT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => window.history.back()}
+                            className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
                       </form>
                     </div>
                   )}
@@ -491,8 +641,8 @@ function CheckoutContent() {
                   {/* MPESA / EMOLA SECTION */}
                   {(paymentMethod === 'mpesa' || paymentMethod === 'emola') && (
                     <div className="space-y-6 animate-fadeIn">
-                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/60 flex items-start gap-3">
-                        <div className={`p-3 rounded-xl ${paymentMethod === 'mpesa' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'} flex-shrink-0`}>
+                      <div className="p-4 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/60 flex items-start gap-3">
+                        <div className={`p-3 rounded-md ${paymentMethod === 'mpesa' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'} flex-shrink-0`}>
                           <Smartphone className={`w-6 h-6 ${paymentMethod === 'mpesa' ? 'text-red-650 dark:text-red-400' : 'text-orange-550 dark:text-orange-400'}`} />
                         </div>
                         <div>
@@ -516,27 +666,36 @@ function CheckoutContent() {
                             value={phoneNumber}
                             onChange={handlePhoneChange}
                             required
-                            className="w-full bg-white dark:bg-zinc-950 text-slate-850 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-650 focus:border-transparent transition-all font-mono tracking-widest text-center"
+                            className="w-full bg-white dark:bg-zinc-950 text-slate-850 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-650 focus:border-transparent transition-all font-mono tracking-widest text-center"
                           />
                         </div>
 
-                        <button
-                          type="submit"
-                          className="w-full mt-2 bg-green-650 hover:bg-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/30 hover:shadow-green-600/50 cursor-pointer"
-                        >
-                          <Lock className="w-5 h-5 animate-pulse" /> Confirmar e Pagar {total} MT
-                        </button>
+                        <div className="mt-2 flex justify-start gap-3">
+                          <button
+                            type="submit"
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Lock className="w-5 h-5 animate-pulse" /> Confirmar e Pagar {total} MT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => window.history.back()}
+                            className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
                       </form>
                     </div>
                   )}
-
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Right Column: Cart summary */}
-            <div className="lg:col-span-5">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4 shadow-sm sticky top-28">
+            <div className="lg:col-span-4">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-4 shadow-sm sticky top-28">
                 <h3 className="font-bold text-slate-800 dark:text-zinc-50 text-base flex items-center gap-2 border-b border-slate-100 dark:border-zinc-850 pb-3 font-panel">
                   <ShoppingCart className="w-5 h-5 text-red-650" />
                   Resumo da Compra
@@ -579,12 +738,6 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-start gap-2 text-[10px] text-slate-400 leading-normal">
-                  <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>
-                    Ligação segura. Encriptação ponta-a-ponta SSL/AES-256.
-                  </span>
-                </div>
               </div>
             </div>
             
