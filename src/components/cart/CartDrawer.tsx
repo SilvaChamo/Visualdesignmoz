@@ -9,12 +9,13 @@ import { useAuth } from '@/components/auth/AuthProvider';
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, removeItem, total, clearCart, addItem } = useCart();
   const [step, setStep] = useState<'cart' | 'payment'>('cart');
-  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'emola' | 'visa'>('mpesa');
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'emola' | 'visa' | 'paypal' | 'stripe'>('mpesa');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isWaitingPin, setIsWaitingPin] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [redirectPath, setRedirectPath] = useState('/client');
 
@@ -28,7 +29,33 @@ export function CartDrawer() {
 
 
   const handleCheckout = async () => {
-    setIsProcessing(true);
+    if (paymentMethod === 'mpesa' || paymentMethod === 'emola') {
+      setIsWaitingPin(true);
+      // Simula o tempo que o utilizador demora a confirmar no telemóvel (4s)
+      await new Promise(r => setTimeout(r, 4000));
+      setIsWaitingPin(false);
+      
+      sessionStorage.setItem('tempPaymentData', JSON.stringify({
+        method: paymentMethod,
+        phoneNumber,
+        isAuthorized: true
+      }));
+    } else if (paymentMethod === 'visa') {
+      setIsProcessing(true);
+      sessionStorage.setItem('tempPaymentData', JSON.stringify({
+        method: paymentMethod,
+        cardNumber,
+        expiryDate,
+        cvv,
+        isAuthorized: true
+      }));
+    } else {
+      setIsProcessing(true);
+      sessionStorage.setItem('tempPaymentData', JSON.stringify({
+        method: paymentMethod
+      }));
+    }
+
     setIsCartOpen(false);
     window.location.href = `/checkout?method=${paymentMethod}`;
   };
@@ -226,16 +253,18 @@ export function CartDrawer() {
                   <Lock className="w-4 h-4 text-green-600" />
                   Pagamento seguro
                 </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['mpesa', 'emola', 'visa'] as const).map(m => (
+                <div className="grid grid-cols-5 gap-2">
+                  {(['mpesa', 'emola', 'visa', 'paypal', 'stripe'] as const).map(m => (
                     <button
                       key={m}
                       onClick={() => setPaymentMethod(m)}
                       className={`p-3 border-2 rounded-lg flex flex-col items-center gap-1 transition-all text-xs font-black ${paymentMethod === m ? 'border-red-600 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
                     >
-                      {m === 'mpesa' && <><span className="text-base">M</span>M-Pesa</>}
-                      {m === 'emola' && <><span className="text-base">e</span>e-Mola</>}
-                      {m === 'visa' && <><CreditCard className="w-5 h-5" />Cartão</>}
+                      {m === 'mpesa' && <img src="/assets/m-pesas.png" alt="M-Pesa" className="h-7 w-auto object-contain" />}
+                      {m === 'emola' && <img src="/assets/E-MOLA.png" alt="e-Mola" className="h-7 w-auto object-contain rounded-sm" />}
+                      {m === 'visa' && <img src="/assets/visa-classic.jpg" alt="Visa" className="h-7 w-auto object-contain" />}
+                      {m === 'paypal' && <img src="/assets/paypal.svg" alt="PayPal" className="h-7 w-auto object-contain" />}
+                      {m === 'stripe' && <img src="/assets/stripe.svg" alt="Stripe" className="h-7 w-auto object-contain" />}
                     </button>
                   ))}
                 </div>
@@ -249,6 +278,7 @@ export function CartDrawer() {
                       type="tel" placeholder="8X 123 4567"
                       value={phoneNumber}
                       onChange={e => setPhoneNumber(e.target.value)}
+                      autoComplete="tel"
                       className="w-full px-3 py-3 border border-slate-200 rounded-lg text-base font-bold focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none tracking-widest"
                     />
                     <p className="text-[10px] text-slate-400">Receberá uma notificação para confirmar o pagamento.</p>
@@ -266,6 +296,7 @@ export function CartDrawer() {
                         value={cardNumber}
                         onChange={e => setCardNumber(e.target.value)}
                         maxLength={19}
+                        autoComplete="cc-number"
                         className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
                       />
                     </div>
@@ -279,6 +310,7 @@ export function CartDrawer() {
                           value={expiryDate}
                           onChange={e => setExpiryDate(e.target.value)}
                           maxLength={5}
+                          autoComplete="cc-exp"
                           className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
                         />
                       </div>
@@ -291,6 +323,7 @@ export function CartDrawer() {
                           value={cvv}
                           onChange={e => setCvv(e.target.value)}
                           maxLength={3}
+                          autoComplete="cc-csc"
                           className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none tracking-widest font-mono"
                         />
                       </div>
@@ -328,10 +361,16 @@ export function CartDrawer() {
                 </button>
                 <button
                   onClick={handleCheckout}
-                  disabled={isProcessing || ((paymentMethod === 'mpesa' || paymentMethod === 'emola') && phoneNumber.length < 9) || (paymentMethod === 'visa' && (!cardNumber || !expiryDate || !cvv))}
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 transition-all"
+                  disabled={isProcessing || isWaitingPin || ((paymentMethod === 'mpesa' || paymentMethod === 'emola') && phoneNumber.length < 9) || (paymentMethod === 'visa' && (!cardNumber || !expiryDate || !cvv))}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 transition-all"
                 >
-                  {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> A Processar...</> : <>Confirmar Pagamento</>}
+                  {isWaitingPin ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Verifique o seu telemóvel...</>
+                  ) : isProcessing ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> A Processar...</>
+                  ) : (
+                    <>Confirmar Pagamento</>
+                  )}
                 </button>
               </div>
             )}

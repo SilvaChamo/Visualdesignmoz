@@ -32,7 +32,8 @@ function CheckoutContent() {
   const [user, setUser] = useState<any>(null);
   
   // Payment Method
-  const [paymentMethod, setPaymentMethod] = useState<'visa' | 'mpesa' | 'emola'>('visa');
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'emola' | 'visa' | 'paypal' | 'stripe'>('mpesa');
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   // Card Form State
   const [cardholderName, setCardholderName] = useState('');
@@ -78,11 +79,25 @@ function CheckoutContent() {
     checkSession();
   }, [router]);
 
-  // Set initial payment method from URL
+  // Set initial payment method and data from URL or Session Storage
   useEffect(() => {
-    const methodParam = searchParams.get('method');
-    if (methodParam === 'mpesa' || methodParam === 'emola' || methodParam === 'visa') {
-      setPaymentMethod(methodParam);
+    const storedData = sessionStorage.getItem('tempPaymentData');
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData);
+        if (parsed.method) setPaymentMethod(parsed.method);
+        if (parsed.phoneNumber) setPhoneNumber(parsed.phoneNumber);
+        if (parsed.cardNumber) setCardNumber(parsed.cardNumber);
+        if (parsed.expiryDate) setExpiryDate(parsed.expiryDate);
+        if (parsed.cvv) setCvv(parsed.cvv);
+        if (parsed.isAuthorized) setIsAuthorized(parsed.isAuthorized);
+        sessionStorage.removeItem('tempPaymentData'); // Clear after reading
+      } catch (e) {}
+    } else {
+      const methodParam = searchParams.get('method');
+      if (methodParam === 'mpesa' || methodParam === 'emola' || methodParam === 'visa' || methodParam === 'paypal' || methodParam === 'stripe') {
+        setPaymentMethod(methodParam);
+      }
     }
   }, [searchParams]);
 
@@ -130,8 +145,23 @@ function CheckoutContent() {
 
     // Validações locais conforme o método de pagamento
     if (paymentMethod === 'visa') {
-      if (!cardholderName || cardNumber.replace(/\s/g, '').length < 16 || expiryDate.length < 5 || cvv.length < 3) {
-        setErrorMessage('Por favor, preencha todos os campos do cartão de crédito corretamente.');
+      if (!cardholderName.trim()) {
+        setErrorMessage('Por favor, preencha o Nome do Titular do cartão.');
+        setStatus('error');
+        return;
+      }
+      if (cardNumber.replace(/\s/g, '').length < 16) {
+        setErrorMessage('O Número do Cartão está incompleto. Deve conter 16 dígitos.');
+        setStatus('error');
+        return;
+      }
+      if (expiryDate.length < 5) {
+        setErrorMessage('A Data de Validade do cartão está incompleta (formato MM/AA).');
+        setStatus('error');
+        return;
+      }
+      if (cvv.length < 3) {
+        setErrorMessage('O código CVV do cartão deve conter pelo menos 3 dígitos.');
         setStatus('error');
         return;
       }
@@ -160,8 +190,18 @@ function CheckoutContent() {
 
     // Auth Validation for Guests
     if (isAuthenticated === false) {
-      if (!accountForm.name || !accountForm.email || accountForm.password.length < 6) {
-        setErrorMessage('Por favor, preencha todos os dados da conta corretamente. A palavra-passe deve ter no mínimo 6 caracteres.');
+      if (!accountForm.name.trim()) {
+        setErrorMessage('Por favor, preencha o seu Nome Completo para criar a conta.');
+        setStatus('error');
+        return;
+      }
+      if (!accountForm.email.trim()) {
+        setErrorMessage('Por favor, introduza o seu Email para criar a conta.');
+        setStatus('error');
+        return;
+      }
+      if (accountForm.password.length < 6) {
+        setErrorMessage('A Palavra-passe é demasiado curta. Deve ter no mínimo 6 caracteres.');
         setStatus('error');
         return;
       }
@@ -190,7 +230,7 @@ function CheckoutContent() {
                  password: accountForm.password,
                });
              } catch (loginErr) {
-               throw new Error('Esta conta já existe. A palavra-passe está incorreta.');
+               throw new Error('Já existe uma conta com este email. Por favor, faça login para continuar.');
              }
           } else {
             throw new Error(data.error || 'Erro ao criar a sua conta.');
@@ -290,13 +330,13 @@ function CheckoutContent() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-red-650 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
             >
               Pesquisar Domínio
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
             {/* Left Column: Form and loading steps */}
             <div className="lg:col-span-8 space-y-5">
@@ -373,12 +413,18 @@ function CheckoutContent() {
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
                     <p className="text-xs text-red-700 dark:text-red-450 mt-1 leading-normal">{errorMessage}</p>
-                    <button 
-                      onClick={() => setStatus('idle')}
-                      className="mt-4 bg-red-650 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block"
-                    >
-                      Tentar Novamente
-                    </button>
+                    {errorMessage.toLowerCase().includes('login') || errorMessage.toLowerCase().includes('já existe') ? (
+                      <Link href={`/auth/login?redirect=${encodeURIComponent('/checkout')}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
+                        Fazer Login
+                      </Link>
+                    ) : (
+                      <button 
+                        onClick={() => setStatus('idle')}
+                        className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block"
+                      >
+                        Voltar para corrigir
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -415,17 +461,23 @@ function CheckoutContent() {
                             <div>
                               <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone</label>
                               <div className="flex border border-slate-200 dark:border-zinc-800 rounded-md bg-slate-50 dark:bg-zinc-950 overflow-hidden focus-within:ring-1 focus-within:ring-blue-500">
-                                <select className="pl-3 pr-8 py-3 bg-slate-100 dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none">
-                                  <option value="+258">🇲🇿 +258</option>
-                                  <option value="+244">🇦🇴 +244</option>
-                                  <option value="+351">🇵🇹 +351</option>
-                                  <option value="+55">🇧🇷 +55</option>
-                                </select>
+                                <div className="relative flex items-center border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
+                                  <select className="pl-3 pr-8 py-3 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none w-full h-full">
+                                    <option value="+258">🇲🇿 +258</option>
+                                    <option value="+244">🇦🇴 +244</option>
+                                    <option value="+351">🇵🇹 +351</option>
+                                    <option value="+55">🇧🇷 +55</option>
+                                  </select>
+                                  <svg className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
                                 <input type="tel" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className="flex-1 min-w-0 px-3 py-3 bg-transparent text-slate-800 dark:text-zinc-100 text-sm outline-none" />
                               </div>
                             </div>
                             <div className="col-span-2">
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Palavra-passe para a conta (mín. 6 caracteres)</label>
+                              <div className="flex justify-between items-end mb-1.5">
+                                <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block">Palavra-passe para a conta (mín. 6 caracteres)</label>
+                                <button type="button" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Gerar senha segura</button>
+                              </div>
                               <div className="relative">
                                 <input type={showPassword ? 'text' : 'password'} value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className="w-full px-4 py-3 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 pr-10" />
                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300">
@@ -476,7 +528,25 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
+                  {isAuthorized ? (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/60 rounded-lg p-6 shadow-sm flex flex-col items-center justify-center text-center space-y-4 animate-fadeIn">
+                      <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-800/40 rounded-full flex items-center justify-center">
+                        <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <h2 className="text-xl font-bold text-yellow-800 dark:text-yellow-300 font-panel">Aguardando Confirmação</h2>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-400 max-w-sm">
+                        O seu método de pagamento ({paymentMethod === 'mpesa' ? 'M-Pesa' : paymentMethod === 'emola' ? 'e-Mola' : 'Cartão'}) foi registado com sucesso. Por favor, preencha os seus dados acima e clique no botão abaixo para concluir a criação da sua conta e validar a encomenda.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handlePay}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer w-full max-w-xs shadow-md mt-4"
+                      >
+                        <Lock className="w-5 h-5" /> Concluir Encomenda
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
                   
                   <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">Finalizar Pagamento</h2>
@@ -485,9 +555,8 @@ function CheckoutContent() {
                     </p>
                   </div>
 
-                  {/* Payment Method Selector Grid */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {(['visa', 'mpesa', 'emola'] as const).map((m) => (
+                  <div className="grid grid-cols-5 gap-3">
+                    {(['mpesa', 'emola', 'visa', 'paypal', 'stripe'] as const).map((m) => (
                       <button
                         key={m}
                         type="button"
@@ -503,20 +572,32 @@ function CheckoutContent() {
                       >
                         {m === 'visa' && (
                           <>
-                            <CreditCard className="w-5 h-5" />
+                            <img src="/assets/visa-classic.jpg" alt="Visa" className="h-7 w-auto mb-1 object-contain" />
                             <span>Cartão</span>
                           </>
                         )}
                         {m === 'mpesa' && (
                           <>
-                            <Smartphone className="w-5 h-5 text-red-650 dark:text-red-400" />
+                            <img src="/assets/m-pesas.png" alt="M-Pesa" className="h-7 w-auto mb-1 object-contain" />
                             <span>M-Pesa</span>
                           </>
                         )}
                         {m === 'emola' && (
                           <>
-                            <Smartphone className="w-5 h-5 text-orange-550 dark:text-orange-400" />
+                            <img src="/assets/E-MOLA.png" alt="e-Mola" className="h-7 w-auto mb-1 object-contain rounded-sm" />
                             <span>e-Mola</span>
+                          </>
+                        )}
+                        {m === 'paypal' && (
+                          <>
+                            <img src="/assets/paypal.svg" alt="PayPal" className="h-7 w-auto mb-1 object-contain" />
+                            <span>PayPal</span>
+                          </>
+                        )}
+                        {m === 'stripe' && (
+                          <>
+                            <img src="/assets/stripe.svg" alt="Stripe" className="h-7 w-auto mb-1 object-contain" />
+                            <span>Stripe</span>
                           </>
                         )}
                       </button>
@@ -526,34 +607,6 @@ function CheckoutContent() {
                   {/* VISA/MASTERCARD SECTION */}
                   {paymentMethod === 'visa' && (
                     <div className="space-y-6 animate-fadeIn">
-                      {/* Visa/Mastercard live card visualization */}
-                      <div className="w-full max-w-sm mx-auto h-48 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black rounded-2xl p-5 text-white flex flex-col justify-between shadow-xl relative overflow-hidden border border-zinc-700/40">
-                        <div className="absolute top-0 right-0 w-36 h-36 bg-red-650/10 rounded-full blur-3xl -z-10" />
-                        
-                        <div className="flex justify-between items-start">
-                          <div className="bg-gradient-to-br from-yellow-300 to-amber-500 w-11 h-8 rounded-md shadow-inner" />
-                          {cardType === 'visa' && <span className="text-2xl font-black italic text-blue-450">VISA</span>}
-                          {cardType === 'mastercard' && <span className="text-2xl font-black italic text-orange-450">Mastercard</span>}
-                          {cardType === 'generic' && <CreditCard className="w-8 h-8 text-zinc-550" />}
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="text-xl sm:text-2xl font-mono tracking-widest text-center py-1">
-                            {cardNumber || '•••• •••• •••• ••••'}
-                          </div>
-
-                          <div className="flex justify-between items-end text-[10px] font-mono uppercase">
-                            <div className="max-w-[220px]">
-                              <div className="text-[7px] text-zinc-500 tracking-wider">Titular do Cartão</div>
-                              <div className="font-bold truncate text-xs mt-0.5">{cardholderName || 'NOME COMPLETO'}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-[7px] text-zinc-550 tracking-wider">Validade</div>
-                              <div className="font-bold text-xs mt-0.5">{expiryDate || 'MM/YY'}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
 
                       <form onSubmit={handlePay} className="space-y-4">
                         <div>
@@ -566,6 +619,7 @@ function CheckoutContent() {
                             value={cardholderName}
                             onChange={e => setCardholderName(e.target.value.toUpperCase())}
                             required
+                            autoComplete="off"
                             className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-650 focus:border-transparent transition-all uppercase"
                           />
                         </div>
@@ -581,6 +635,7 @@ function CheckoutContent() {
                               value={cardNumber}
                               onChange={handleCardNumberChange}
                               required
+                              autoComplete="off"
                               className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono tracking-wider"
                             />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -600,6 +655,7 @@ function CheckoutContent() {
                               value={expiryDate}
                               onChange={handleExpiryChange}
                               required
+                              autoComplete="off"
                               className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
                             />
                           </div>
@@ -614,6 +670,7 @@ function CheckoutContent() {
                               onChange={handleCvvChange}
                               required
                               maxLength={3}
+                              autoComplete="off"
                               className="w-full bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-150 border border-slate-200 dark:border-zinc-800 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-655 focus:border-transparent transition-all font-mono"
                             />
                           </div>
@@ -688,7 +745,80 @@ function CheckoutContent() {
                       </form>
                     </div>
                   )}
+
+                  {/* PAYPAL SECTION */}
+                  {paymentMethod === 'paypal' && (
+                    <div className="space-y-6 animate-fadeIn">
+                      <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/60 flex items-start gap-3">
+                        <div className="p-3 rounded-md bg-blue-100 dark:bg-blue-800/40 flex-shrink-0">
+                          <img src="/assets/paypal.svg" alt="PayPal" className="w-6 h-6 object-contain" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-blue-800 dark:text-blue-300">
+                            Será redirecionado para o PayPal
+                          </h4>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 leading-relaxed">
+                            Para concluir a sua compra de forma segura, será encaminhado para a plataforma do PayPal. O processamento da sua encomenda começará imediatamente após a confirmação.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex justify-start gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePay}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Lock className="w-5 h-5 animate-pulse" /> Pagar com PayPal {total} MT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.history.back()}
+                          className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STRIPE SECTION */}
+                  {paymentMethod === 'stripe' && (
+                    <div className="space-y-6 animate-fadeIn">
+                      <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/60 flex items-start gap-3">
+                        <div className="p-3 rounded-md bg-indigo-100 dark:bg-indigo-800/40 flex-shrink-0">
+                          <img src="/assets/stripe.svg" alt="Stripe" className="w-6 h-6 object-contain" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-indigo-800 dark:text-indigo-300">
+                            Pagamento Expresso Stripe
+                          </h4>
+                          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 leading-relaxed">
+                            Clique em "Pagar com Stripe" para abrir o terminal seguro. Poderá utilizar qualquer cartão de crédito ou débito.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex justify-start gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePay}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Lock className="w-5 h-5 animate-pulse" /> Pagar com Stripe {total} MT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.history.back()}
+                          className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   </div>
+                )}
                 </div>
               )}
             </div>
