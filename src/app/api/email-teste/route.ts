@@ -15,19 +15,15 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         const body = html || '<p>Teste</p>';
 
-        if (isBrevoApiConfigured()) {
-            const result = await sendBrevoTransactionalEmail({ from, to, subject, html: body });
-            return NextResponse.json({
-                success: true,
-                provider: 'brevo-api',
-                messageId: result.messageId,
-            });
+        // Forçar uso exclusivo da API Brevo
+        if (!isBrevoApiConfigured()) {
+            return NextResponse.json({ success: false, error: 'BREVO_API_KEY não configurada na Vercel.' }, { status: 500 });
         }
 
-        const result = await sendSmtpMail({ from, to, subject, html: body });
+        const result = await sendBrevoTransactionalEmail({ from, to, subject, html: body });
         return NextResponse.json({
             success: true,
-            provider: 'smtp',
+            provider: 'brevo-api',
             messageId: result.messageId,
         });
 
