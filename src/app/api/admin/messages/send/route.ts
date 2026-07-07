@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getDefaultFrom } from '@/lib/smtp-mail';
-import { sendSmtpMail } from '@/lib/smtp-mail';
 import { isBrevoApiConfigured, sendBrevoTransactionalEmail } from '@/lib/brevo-mail';
 
 const supabaseAdmin = createClient(
@@ -18,11 +17,11 @@ async function sendOne(
     html: string,
     replyTo?: string,
 ): Promise<void> {
-    if (isBrevoApiConfigured()) {
-        await sendBrevoTransactionalEmail({ from, to, subject, html });
-        return;
+    // Forçar uso exclusivo da API Brevo
+    if (!isBrevoApiConfigured()) {
+        throw new Error('BREVO_API_KEY não configurada na Vercel. Não é possível enviar campanhas sem acesso à API Brevo.');
     }
-    await sendSmtpMail({ from, to, subject, html, replyTo });
+    await sendBrevoTransactionalEmail({ from, to, subject, html });
 }
 
 export async function POST(req: Request) {
@@ -119,7 +118,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             campaignId,
-            provider: isBrevoApiConfigured() ? 'brevo-api' : 'smtp',
+            provider: 'brevo-api',
             details: {
                 success: totalSent,
                 failed: totalFailed,
