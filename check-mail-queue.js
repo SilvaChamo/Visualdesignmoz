@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 
 try {
-  const sshCommand = `ssh root@109.199.104.22 "mailq && tail -n 50 /var/log/mail.log | grep postfix"`;
+  const sshCommand = `ssh root@37.27.17.25 "mailq && tail -n 50 /var/log/mail.log | grep postfix"`;
   const output = execSync(sshCommand, { encoding: 'utf-8', stdio: 'pipe' });
   console.log(output);
 } catch (e) {
