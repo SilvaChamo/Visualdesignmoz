@@ -2,7 +2,7 @@ const { ImapFlow } = require('imapflow');
 
 async function debugFolder(folderPath) {
     const client = new ImapFlow({
-        host: '109.199.104.22',
+        host: '37.27.17.25',
         port: 993,
         secure: true,
         auth: { user: "admin@visualdesignmoz.com", pass: "Ad.Vd#2425?*" },
