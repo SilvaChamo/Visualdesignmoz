@@ -18,7 +18,7 @@ export const EMAIL_LIMITS = {
   
   // Configuração SMTP principal
   PRIMARY_SMTP: {
-    host: '109.199.104.22',
+    host: '37.27.17.25',
     port: 587,
     secure: false, // STARTTLS
   },
