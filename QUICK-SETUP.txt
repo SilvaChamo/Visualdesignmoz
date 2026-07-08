@@ -1,7 +1,7 @@
 ⚡ CONFIGURAÇÃO RÁPIDA - Copie e cole no terminal
 
 1️⃣ LIGAR AO SERVIDOR:
-ssh ADMIN@109.199.104.22
+ssh ADMIN@37.27.17.25
 (password: Meckito#77?*)
 
 2️⃣ EXECUTAR COMANDOS NO SERVIDOR:
@@ -32,6 +32,6 @@ echo "✅ Configuracao concluida!"
 '
 
 3️⃣ TESTAR:
-telnet 109.199.104.22 587
+telnet 37.27.17.25 587
 
 4️⃣ NO SITE: Enviar email de teste
