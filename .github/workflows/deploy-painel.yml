@@ -1,0 +1,29 @@
+name: Deploy Painel to Hetzner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to Hetzner via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        port: ${{ secrets.SERVER_PORT }}
+        username: root
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          cd /opt/visualdesign-panel
+          git pull origin main
+          npm ci
+          npm run build
+          pm2 restart visualdesign-panel
+          echo "Deploy do painel concluído em $(date)"
