@@ -1,6 +1,3 @@
-cd /Users/mac/Desktop/APP/visualdesign
-
-cat > src/app/api/cron/da-sync/route.ts << 'EOF'
 import { NextRequest, NextResponse } from 'next/server';
 import { runDaFullSyncDeduped } from '@/lib/da-sync-engine';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
@@ -59,8 +56,3 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return GET(req);
 }
-EOF
-
-git add src/app/api/cron/da-sync/route.ts
-git commit -m "fix: circuit breaker no cron da-sync para evitar execuções excessivas"
-git push
