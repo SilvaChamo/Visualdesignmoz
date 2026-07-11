@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 
@@ -167,6 +168,46 @@ function HomePage() {
                     {t('services.view')}
                   </Link>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hosting Features Section */}
+          <div className="bg-white dark:bg-zinc-950 py-12 sm:py-16">
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+              <div className="text-center mb-10 sm:mb-12">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
+                  {t('home.hosting.title')}
+                </h2>
+                <p className="text-sm sm:text-base text-black/60 dark:text-zinc-400 max-w-3xl mx-auto">
+                  {t('home.hosting.subtitle')}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                {[
+                  { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc' },
+                  { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc' },
+                  { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc' },
+                  { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc' },
+                  { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc' },
+                  { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc' },
+                ].map(({ Icon, titleKey, descKey }) => (
+                  <div key={titleKey} className="flex gap-4">
+                    <div className="shrink-0 w-11 h-11 rounded-lg border border-green-600/40 bg-green-600/5 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-green-600" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block">
+                        {t(titleKey)}
+                        <span className="block h-[2px] w-8 bg-green-600 mt-1" />
+                      </h3>
+                      <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">
+                        {t(descKey)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
