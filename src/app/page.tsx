@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
+import { CompactFooter } from '@/components/layout/CompactFooter'
 
 function HomePage() {
   const { t } = useI18n()
@@ -193,7 +194,10 @@ function HomePage() {
                   { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc' },
                   { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc' },
                 ].map(({ Icon, titleKey, descKey }) => (
-                  <div key={titleKey} className="flex gap-4">
+                  <div
+                    key={titleKey}
+                    className="flex gap-4 p-4 rounded-lg transition-colors hover:bg-black/[0.03] dark:hover:bg-white/5"
+                  >
                     <div className="shrink-0 w-11 h-11 rounded-lg border border-green-600/40 bg-green-600/5 flex items-center justify-center">
                       <Icon className="w-5 h-5 text-green-600" strokeWidth={2} />
                     </div>
@@ -213,6 +217,8 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      <CompactFooter />
     </div>
   )
 }
