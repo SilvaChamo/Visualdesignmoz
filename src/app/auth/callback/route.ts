@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { copyAuthCookies, createAppServerClient } from '@/lib/supabase-cookies'
+
+export const dynamic = 'force-dynamic'
 import {
   buildPanelLoginUrl,
   PUBLIC_PANEL_ENTRY,
