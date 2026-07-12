@@ -193,7 +193,7 @@ export default function ServicosWebCarousel() {
         </button>
       </div>
 
-      <div className="flex justify-center gap-2 mt-4">
+      <div className="flex justify-center gap-2 mt-6 sm:mt-8">
         {SERVICOS.map((item, i) => (
           <button
             key={item.id}
