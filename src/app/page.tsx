@@ -120,6 +120,9 @@ function HomePage() {
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
             {/* Design Services */}
             <div className="text-center pt-[40px]">
+              <h2 className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-8">
+                {t('carousel.section.title')}
+              </h2>
               <ServicosWebCarousel />
             </div>
           </div>

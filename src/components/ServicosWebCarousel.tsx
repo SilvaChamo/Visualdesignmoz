@@ -8,8 +8,6 @@ import {
   TrendingUp,
   Share2,
   ShoppingCart,
-  Palette,
-  CalendarDays,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -105,6 +103,7 @@ export default function ServicosWebCarousel() {
   const [withTransition, setWithTransition] = useState(true)
   const [paused, setPaused] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rafRef = useRef<number | null>(null)
 
   const next = useCallback(() => {
     setWithTransition(true)
@@ -135,10 +134,17 @@ export default function ServicosWebCarousel() {
     }
   }
 
+  // Depois de desligar a transição para o salto, volta a ligá-la só depois do
+  // browser ter pintado a posição "saltada" — duplo rAF evita o piscar/flash
+  // que acontece se a transição for reactivada demasiado cedo.
   useEffect(() => {
     if (!withTransition) {
-      const raf = requestAnimationFrame(() => setWithTransition(true))
-      return () => cancelAnimationFrame(raf)
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => setWithTransition(true))
+        rafRef.current = raf2
+      })
+      rafRef.current = raf1
+      return () => cancelAnimationFrame(rafRef.current!)
     }
   }, [withTransition])
 
@@ -209,36 +215,6 @@ export default function ServicosWebCarousel() {
             }`}
           />
         ))}
-      </div>
-
-      <div className="mt-4 mx-2 sm:mx-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Coluna 1: Design Criativo */}
-        <Link
-          href="/servicos"
-          className="group flex items-center gap-4 bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 border border-black/5 rounded-lg p-4 sm:p-5 text-left transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.06]"
-        >
-          <div className="shrink-0 w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center transition-colors group-hover:bg-red-600 group-hover:border-red-600">
-            <Palette className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
-          </div>
-          <div>
-            <h3 className="font-bold text-black dark:text-white mb-1">{t('carousel.design-criativo.title')}</h3>
-            <p className="text-sm text-black/70 dark:text-zinc-300 line-clamp-2">{t('carousel.design-criativo.desc')}</p>
-          </div>
-        </Link>
-
-        {/* Coluna 2: Feiras e Eventos */}
-        <Link
-          href="/servicos"
-          className="group flex items-center gap-4 bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 border border-black/5 rounded-lg p-4 sm:p-5 text-left transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.06]"
-        >
-          <div className="shrink-0 w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center transition-colors group-hover:bg-red-600 group-hover:border-red-600">
-            <CalendarDays className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
-          </div>
-          <div>
-            <h3 className="font-bold text-black dark:text-white mb-1">{t('carousel.feiras-eventos.title')}</h3>
-            <p className="text-sm text-black/70 dark:text-zinc-300 line-clamp-2">{t('carousel.feiras-eventos.desc')}</p>
-          </div>
-        </Link>
       </div>
     </div>
   )
