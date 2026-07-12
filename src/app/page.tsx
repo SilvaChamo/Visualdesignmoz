@@ -119,8 +119,8 @@ function HomePage() {
         <div className="-mt-[16px] relative z-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
             {/* Design Services */}
-            <div className="text-center pt-[40px]">
-              <h2 className="text-2xl sm:text-3xl font-bold text-black dark:text-white mb-8">
+            <div className="text-center pt-[12px]">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
                 {t('carousel.section.title')}
               </h2>
               <ServicosWebCarousel />
@@ -128,7 +128,14 @@ function HomePage() {
           </div>
 
           {/* Hosting Features Section */}
-          <div className="bg-white dark:bg-zinc-950 py-12 sm:py-16">
+          <div
+            className="bg-white dark:bg-zinc-950 py-12 sm:py-16 relative"
+            style={{
+              '--cl': 'max(24px, calc(50% - 616px))',
+              clipPath:
+                'polygon(0% 100%, 100% 100%, 100% 0%, calc(100% - var(--cl)) 0%, calc(100% - var(--cl) - 15px) 16px, calc(var(--cl) + 15px) 16px, var(--cl) 0%, 0% 0%)',
+            } as React.CSSProperties}
+          >
             <div className="container mx-auto max-w-7xl px-4 sm:px-6">
               <div className="text-center mb-10 sm:mb-12">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
