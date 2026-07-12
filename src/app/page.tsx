@@ -31,7 +31,7 @@ function HomePage() {
           aria-hidden
         />
         <div className="absolute inset-0 bg-black/40 dark:bg-black/45" />
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[140px] sm:pt-[120px] md:pt-[140px] lg:pt-[180px] pb-[40px] sm:pb-[50px] flex flex-col justify-between items-center min-h-[380px] sm:min-h-[430px] md:min-h-[480px] relative z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[120px] sm:pt-[100px] md:pt-[120px] lg:pt-[160px] pb-[40px] sm:pb-[50px] flex flex-col justify-between items-center min-h-[380px] sm:min-h-[430px] md:min-h-[480px] relative z-10">
           <div className="w-full max-w-4xl text-center">
             <h1 className="w-full px-2 text-center font-bold leading-[1.15] text-white mb-0 sm:mb-1 text-[clamp(1.375rem,2.8vw+0.75rem,2.25rem)]">
               {t('home.title')}

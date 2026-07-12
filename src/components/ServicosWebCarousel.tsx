@@ -210,33 +210,37 @@ export default function ServicosWebCarousel() {
 
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Coluna 1: Design Gráfico */}
-        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-32 sm:h-40 flex items-center justify-center shadow-sm">
+        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-40 sm:h-48 md:h-56 block border border-white/10 dark:border-white/15">
           <Image
             src="/assets/graphic-design-illustration.png"
-            alt="Design Criativo"
+            alt="Prestação de serviços de design criativo"
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, 50vw"
           />
-          <div className="absolute inset-0 bg-black/60 group-hover:bg-black/50 transition-colors" />
-          <h3 className="relative z-10 text-white font-medium text-center px-4 text-base sm:text-lg">
-            Prestação de serviços de design criativo
-          </h3>
+          <div className="absolute inset-0 bg-black/60 transition-opacity duration-300 group-hover:bg-black/50" />
+          <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+            <h3 className="text-white font-medium text-lg sm:text-xl md:text-2xl drop-shadow-md">
+              Prestação de serviços de design criativo
+            </h3>
+          </div>
         </Link>
 
         {/* Coluna 2: Feiras e Eventos */}
-        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-32 sm:h-40 flex items-center justify-center shadow-sm">
+        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-40 sm:h-48 md:h-56 block border border-white/10 dark:border-white/15">
           <Image
-            src="/assets/feiras-eventos-illustration.png"
-            alt="Feiras e Eventos"
+            src="/assets/events-illustration.png"
+            alt="Prestação de serviços de feiras e eventos"
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, 50vw"
           />
-          <div className="absolute inset-0 bg-black/60 group-hover:bg-black/50 transition-colors" />
-          <h3 className="relative z-10 text-white font-medium text-center px-4 text-base sm:text-lg">
-            Prestação de serviços de feiras e eventos
-          </h3>
+          <div className="absolute inset-0 bg-black/60 transition-opacity duration-300 group-hover:bg-black/50" />
+          <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+            <h3 className="text-white font-medium text-lg sm:text-xl md:text-2xl drop-shadow-md">
+              Prestação de serviços de feiras e eventos
+            </h3>
+          </div>
         </Link>
       </div>
     </div>
