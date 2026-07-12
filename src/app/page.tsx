@@ -25,7 +25,7 @@ function HomePage() {
         style={{
           '--cl': 'max(24px, calc(50% - 616px))',
           clipPath:
-            'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 40px) calc(100% - 22px), calc(var(--cl) + 40px) calc(100% - 22px), var(--cl) 100%, 0% 100%)',
+            'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 3px) calc(100% - 22px), calc(var(--cl) + 3px) calc(100% - 22px), var(--cl) 100%, 0% 100%)',
         } as React.CSSProperties}
       >
         <Image
