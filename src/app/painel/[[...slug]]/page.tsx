@@ -34,7 +34,7 @@ export default async function PainelEntryPage({ params }: Props) {
 
   if (!user) {
     const login = buildPanelLoginUrl(requestUrl)
-    redirect(`${login.pathname}${login.search}`)
+    redirect(login.toString())
   }
 
   const products = await fetchUserProductsSummary(supabase, user.id)

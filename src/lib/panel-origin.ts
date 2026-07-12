@@ -21,7 +21,13 @@ export function buildPanelLoginUrl(
   base: string | URL,
   preserve?: URLSearchParams,
 ): URL {
-  const url = new URL(PUBLIC_LOGIN_ENTRY, base)
+  // Força que o login aconteça sempre no domínio principal (elimina a segunda página de login no painel)
+  let baseUrl = typeof base === 'string' ? new URL(base) : base;
+  if (isPanelHost(baseUrl.hostname)) {
+    baseUrl = new URL(getPublicSiteOrigin());
+  }
+
+  const url = new URL(PUBLIC_LOGIN_ENTRY, baseUrl)
   if (preserve) {
     for (const key of ['error', 'error_description', 'reason', 'reset', 'redirect', 'next'] as const) {
       const value = preserve.get(key)

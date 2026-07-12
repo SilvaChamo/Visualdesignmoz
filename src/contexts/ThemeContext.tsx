@@ -57,13 +57,41 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== STORAGE_KEY) return;
-      if (event.newValue !== 'light' && event.newValue !== 'dark') return;
-      setThemeState(event.newValue);
-      applyTheme(event.newValue);
+      if (event.newValue === 'light' || event.newValue === 'dark') {
+        setThemeState(event.newValue);
+        applyTheme(event.newValue);
+      } else if (!event.newValue) {
+        // Se a storage for limpa, volta ao tema do sistema
+        const sysTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        setThemeState(sysTheme);
+        applyTheme(sysTheme);
+      }
+    };
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemThemeChange = (e: MediaQueryListEvent) => {
+      if (!readStoredTheme()) {
+        const sysTheme = e.matches ? 'dark' : 'light';
+        setThemeState(sysTheme);
+        applyTheme(sysTheme);
+      }
     };
 
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', onSystemThemeChange);
+    } else {
+      mediaQuery.addListener(onSystemThemeChange); // Fallback para browsers antigos
+    }
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', onSystemThemeChange);
+      } else {
+        mediaQuery.removeListener(onSystemThemeChange);
+      }
+    };
   }, []);
 
   const setTheme = useCallback((next: ThemeMode) => {
