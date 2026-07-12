@@ -39,39 +39,9 @@ function getBrowserClient() {
     throw new Error('Supabase browser client só está disponível no browser')
   }
   if (!browserClient) {
-    const opts = resolveBrowserCookieOptions()
-    
-    // Converte opções para o formato de string de cookies do browser
-    const serializeCookieOptions = (options: any) => {
-      let str = ''
-      if (options.domain) str += `; domain=${options.domain}`
-      if (options.path) str += `; path=${options.path}`
-      if (options.sameSite) str += `; samesite=${options.sameSite}`
-      if (options.secure) str += `; secure`
-      if (options.maxAge) str += `; max-age=${options.maxAge}`
-      return str
-    }
-
     browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
       auth: { flowType: 'pkce', detectSessionInUrl: false },
-      cookies: {
-        get(name: string) {
-          if (typeof document === 'undefined') return ''
-          const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-          return match ? decodeURIComponent(match[2]) : ''
-        },
-        set(name: string, value: string, options: any) {
-          if (typeof document === 'undefined') return
-          // Aplica sempre as opções base (domain, path, samesite) 
-          const mergedOptions = { ...opts, ...options }
-          document.cookie = `${name}=${encodeURIComponent(value)}${serializeCookieOptions(mergedOptions)}`
-        },
-        remove(name: string, options: any) {
-          if (typeof document === 'undefined') return
-          const mergedOptions = { ...opts, ...options, maxAge: 0 }
-          document.cookie = `${name}=${serializeCookieOptions(mergedOptions)}`
-        },
-      },
+      cookieOptions: resolveBrowserCookieOptions(),
     })
   }
   return browserClient

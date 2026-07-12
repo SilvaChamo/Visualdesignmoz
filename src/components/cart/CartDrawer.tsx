@@ -130,10 +130,72 @@ export function CartDrawer() {
 
           /* EMPTY */
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-4 py-12">
-              <ShoppingCart className="w-16 h-16 opacity-20" />
-              <p className="font-medium">O seu carrinho está vazio</p>
-              <p className="text-xs text-center">Pesquise um domínio ou escolha um plano para começar.</p>
+            <div className="flex flex-col justify-between min-h-[400px]">
+              <div className="flex flex-col items-center justify-center text-slate-400 space-y-4 py-8">
+                <ShoppingCart className="w-16 h-16 opacity-20" />
+                <p className="font-medium text-slate-800 dark:text-zinc-200">O seu carrinho está vazio</p>
+                <p className="text-xs text-center text-slate-500 max-w-[250px]">Adicione um dos serviços recomendados abaixo ao seu carrinho:</p>
+              </div>
+
+              <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-zinc-800 mt-auto">
+                <h3 className="font-bold text-slate-700 dark:text-zinc-400 text-xs uppercase tracking-wide">Frequentemente adicionados</h3>
+                <div
+                  className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer group"
+                  onClick={() => addItem({ id: 'domain-com', type: 'domain', name: 'Registo de Domínio .com', price: 800, period: 1 })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-teal-50 dark:bg-teal-950/20 flex items-center justify-center flex-shrink-0">
+                      <Globe className="w-4 h-4 text-teal-600 dark:text-teal-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 dark:text-zinc-200 text-sm group-hover:text-teal-600 transition-colors">Registo de Domínio .com</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">meudominio.com · Privacidade Incluída</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-bold text-slate-800 dark:text-zinc-200 text-sm">800 MT<span className="text-[10px] text-slate-400 font-normal">/ano</span></div>
+                    <span className="text-[10px] text-teal-600 dark:text-teal-500 font-bold">+ Adicionar</span>
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:border-red-300 hover:shadow-sm transition-all cursor-pointer group"
+                  onClick={() => addItem({ id: 'hosting-basico', type: 'hosting', name: 'Alojamento Web Básico', price: 680, period: 1 })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/20 flex items-center justify-center flex-shrink-0">
+                      <Server className="w-4 h-4 text-red-600 dark:text-red-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 dark:text-zinc-200 text-sm group-hover:text-red-600 transition-colors">Alojamento Web Básico</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">10GB SSD · DirectAdmin</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-bold text-slate-800 dark:text-zinc-200 text-sm">680 MT<span className="text-[10px] text-slate-400 font-normal">/mês</span></div>
+                    <span className="text-[10px] text-red-600 dark:text-red-500 font-bold">+ Adicionar</span>
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group"
+                  onClick={() => addItem({ id: 'email-pro', type: 'email', name: 'Email Profissional', price: 250, period: 1 })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-4 h-4 text-blue-600 dark:text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 dark:text-zinc-200 text-sm group-hover:text-blue-600 transition-colors">Email Profissional</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">10 contas · Mail Marketing</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-bold text-slate-800 dark:text-zinc-200 text-sm">250 MT<span className="text-[10px] text-slate-400 font-normal">/mês</span></div>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-500 font-bold">+ Adicionar</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
           /* CART ITEMS */
@@ -181,9 +243,28 @@ export function CartDrawer() {
                 ))}
               </div>
 
-              {/* Cross-sells */}
               <div className="space-y-2 pt-2">
                 <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Frequentemente adicionados</h3>
+                {!items.find(i => i.type === 'domain') && (
+                  <div
+                    className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer group"
+                    onClick={() => addItem({ id: 'domain-com', type: 'domain', name: 'Registo de Domínio .com', price: 800, period: 1 })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                        <Globe className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm group-hover:text-teal-600 transition-colors">Registo de Domínio .com</h4>
+                        <p className="text-[10px] text-slate-500">meudominio.com · Privacidade Incluída</p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-bold text-slate-800 text-sm">800 MT<span className="text-[10px] text-slate-400 font-normal">/ano</span></div>
+                      <span className="text-[10px] text-teal-600 font-bold">+ Adicionar</span>
+                    </div>
+                  </div>
+                )}
                 {!items.find(i => i.id === 'hosting-basico') && (
                   <div
                     className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 hover:border-red-300 hover:shadow-sm transition-all cursor-pointer group"

@@ -4,17 +4,19 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
+import { Globe, User, Bell, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, LogOut, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import { cn } from '@/lib/utils'
 import { PANEL_LOGIN_HREF } from '@/lib/panel-origin'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 export function Navbar() {
   const { t } = useI18n()
   const { items, setIsCartOpen } = useCart()
   const router = useRouter()
+  const { user, signOut } = useAuth()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
   const [showTopBar, setShowTopBar] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
@@ -293,10 +295,23 @@ export function Navbar() {
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>
             </button>
 
-            <Link href={PANEL_LOGIN_HREF} className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
-              <User className="w-4 h-4" />
-              <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>
-            </Link>
+            {user ? (
+              <button
+                onClick={async () => {
+                  await signOut()
+                  window.location.href = '/login'
+                }}
+                className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Terminar Sessão</span>
+              </button>
+            ) : (
+              <Link href={PANEL_LOGIN_HREF} className="text-slate-300 hover:text-red-500 transition-colors ml-2 relative group">
+                <User className="w-4 h-4" />
+                <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Minha Conta</span>
+              </Link>
+            )}
 
             <ThemeToggle
               size="sm"

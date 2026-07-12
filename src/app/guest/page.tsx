@@ -27,7 +27,7 @@ export default function GuestPage() {
       userName={name}
       onSignOut={async () => {
         await supabase.auth.signOut();
-        window.location.href = '/auth/login';
+        window.location.href = '/login';
       }}
     />
   );

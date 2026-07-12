@@ -47,15 +47,15 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
 
   const handleAction = (action: string) => {
     if (action === 'shop-domain') {
-      window.location.href = '/precos#dominios';
+      window.location.href = '/servicos/dominios';
       return;
     }
     if (action === 'shop-hosting') {
-      window.location.href = '/precos#hospedagem';
+      window.location.href = '/servicos/hospedagem';
       return;
     }
     if (action === 'shop-email') {
-      window.location.href = '/precos#email';
+      window.location.href = '/servicos/email';
       return;
     }
     setIsCartOpen(true);
@@ -64,10 +64,11 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
   const displayName = userName || userEmail?.split('@')[0] || 'Visitante';
 
   return (
-    <div className="panel-shell font-panel min-h-screen bg-gray-50 dark:bg-zinc-950">
+    <div className="panel-shell font-panel min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col justify-between">
+      {/* Cabeçalho esticado na largura total do painel */}
       <PanelHeader
         title={`Olá, ${displayName}`}
-        description={userEmail || 'Conta visitante'}
+        description="Painel de Acesso Temporário"
         actions={
           <button type="button" onClick={onSignOut} className={panelBtnSecondary}>
             <LogOut className="h-4 w-4" />
@@ -76,62 +77,95 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
         }
       />
 
-      <main className="max-w-5xl mx-auto px-6 py-10 space-y-8">
-        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center">
-              <User className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Ainda não tem produtos activos</h2>
-              <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-                A sua conta está registada como <strong>visitante (guest)</strong>. Após a primeira
-                compra confirmada (domínio, hospedagem ou email), passa automaticamente a{' '}
-                <strong>cliente</strong> com acesso ao painel correspondente.
-              </p>
-            </div>
-          </div>
-        </section>
+      {/* Conteúdo principal fluido alinhado com o painel admin (p-4 lg:p-6) */}
+      <div className="w-full p-4 lg:p-6 flex-grow">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 lg:gap-6">
+          {/* Coluna Esquerda: Conteúdo Principal */}
+          <div className="space-y-4 lg:space-y-6">
+            <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <User className="w-6 h-6 text-amber-600 dark:text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Ainda não tem produtos activos</h2>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1 max-w-2xl">
+                    A sua conta está registada como <strong>visitante (guest)</strong>. Após a primeira
+                    compra confirmada (domínio, hospedagem ou email), passa automaticamente a{' '}
+                    <strong>cliente</strong> com acesso ao painel correspondente.
+                  </p>
+                </div>
+              </div>
+            </section>
 
-        <section>
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
-            O que pretende comprar?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {offers.map((offer) => {
-              const Icon = offer.icon;
-              return (
-                <button
-                  key={offer.id}
-                  type="button"
-                  onClick={() => handleAction(offer.action)}
-                  className={`text-left p-5 rounded-xl border-2 ${offer.color} hover:shadow-md transition-all`}
-                >
-                  <Icon className={`w-8 h-8 mb-3 ${offer.iconColor}`} />
-                  <h3 className="font-bold text-gray-900">{offer.title}</h3>
-                  <p className="text-xs text-gray-600 mt-2 leading-relaxed">{offer.description}</p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+            <section>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {offers.map((offer) => {
+                  const Icon = offer.icon;
+                  return (
+                    <button
+                      key={offer.id}
+                      type="button"
+                      onClick={() => handleAction(offer.action)}
+                      className={`text-left p-5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800/80 hover:shadow-md transition-all ${offer.color}`}
+                    >
+                      <Icon className={`w-8 h-8 mb-3 ${offer.iconColor}`} />
+                      <h3 className="font-bold text-gray-900 dark:text-white">{offer.title}</h3>
+                      <p className="text-xs text-gray-600 dark:text-zinc-400 mt-2 leading-relaxed">{offer.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-        <section className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => setIsCartOpen(true)}
-            className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-red-600 transition-colors"
-          >
-            <ShoppingCart className="w-4 h-4" /> Ver carrinho
-          </button>
-          <a
-            href="/precos"
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-bold hover:border-red-300 hover:text-red-600 transition-colors"
-          >
-            <CreditCard className="w-4 h-4" /> Ver preços
-          </a>
-        </section>
-      </main>
+            <section className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="inline-flex items-center gap-2 bg-black dark:bg-zinc-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-red-600 dark:hover:bg-red-600 transition-colors"
+              >
+                <ShoppingCart className="w-4 h-4" /> Ver carrinho
+              </button>
+              <a
+                href="/precos"
+                className="inline-flex items-center gap-2 border border-zinc-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 px-5 py-2.5 rounded-lg text-sm font-bold hover:border-red-300 dark:hover:border-red-500 hover:text-red-600 dark:hover:text-red-500 transition-colors"
+              >
+                <CreditCard className="w-4 h-4" /> Ver preços
+              </a>
+            </section>
+          </div>
+
+          {/* Coluna Direita: Barra Lateral Compacta (Dados do Visitante) */}
+          <div className="shrink-0">
+            <aside className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800/80 pb-2">
+                Dados da Conta
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-[10px] text-gray-400 dark:text-zinc-500 block uppercase font-bold">Nome</span>
+                  <span className="font-semibold text-gray-800 dark:text-zinc-200">{displayName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 dark:text-zinc-500 block uppercase font-bold">E-mail</span>
+                  <span className="font-semibold text-gray-800 dark:text-zinc-200 break-all">{userEmail || 'Não disponível'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 dark:text-zinc-500 block uppercase font-bold">Estado</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/30 mt-1">
+                    Visitante (Guest)
+                  </span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé Compacto */}
+      <footer className="w-full text-center py-4 border-t border-zinc-200 dark:border-zinc-800 text-[10px] text-gray-400 dark:text-zinc-500">
+        <p>© {new Date().getFullYear()} VisualDesign. Todos os direitos reservados.</p>
+      </footer>
     </div>
   );
 }

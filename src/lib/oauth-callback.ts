@@ -29,7 +29,7 @@ export function getCanonicalBrowserAuthOrigin(): string {
   const host = window.location.hostname.toLowerCase()
 
   if (host === 'localhost' || host === '127.0.0.1') {
-    return readConfiguredSiteOrigin() || normalizeAuthOrigin(window.location.origin)
+    return normalizeAuthOrigin(window.location.origin)
   }
 
   if (host.endsWith('.vercel.app')) {

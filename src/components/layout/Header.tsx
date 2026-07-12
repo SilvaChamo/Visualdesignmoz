@@ -5,13 +5,14 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, X, ChevronDown, User, ShoppingCart } from 'lucide-react'
+import { Menu, X, ChevronDown, User, ShoppingCart, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
 import { PANEL_LOGIN_HREF } from '@/lib/panel-origin'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 const navigation = [
   { id: 'domain', nameKey: 'header.nav.domain', href: '/servicos/dominios', isMega: true, items: [
@@ -56,6 +57,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const [showTopBar, setShowTopBar] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const { items, setIsCartOpen } = useCart()
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -249,13 +251,27 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
               >
                 {otherLangLabel}
               </button>
-              <Link
-                href={PANEL_LOGIN_HREF}
-                className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
-              >
-                <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
-                <span>Login</span>
-              </Link>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await signOut()
+                    window.location.href = '/login'
+                  }}
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
+                >
+                  <LogOut className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>Sair</span>
+                </button>
+              ) : (
+                <Link
+                  href={PANEL_LOGIN_HREF}
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
+                >
+                  <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>Login</span>
+                </Link>
+              )}
               <button
                 onClick={toggleMobileMenu}
                 className={cn(
