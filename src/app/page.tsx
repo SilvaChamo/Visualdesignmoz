@@ -25,7 +25,7 @@ function HomePage() {
         style={{
           '--cl': 'max(24px, calc(50% - 616px))',
           clipPath:
-            'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 10px) calc(100% - 22px), calc(var(--cl) + 10px) calc(100% - 22px), var(--cl) 100%, 0% 100%)',
+            'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 15px) calc(100% - 16px), calc(var(--cl) + 15px) calc(100% - 16px), var(--cl) 100%, 0% 100%)',
         } as React.CSSProperties}
       >
         <Image
@@ -116,7 +116,7 @@ function HomePage() {
 
       {/* Content Section */}
       {!hideServices && (
-        <div className="-mt-[22px] relative z-20">
+        <div className="-mt-[16px] relative z-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
             {/* Design Services */}
             <div className="text-center">
