@@ -108,7 +108,7 @@ function HomePage() {
 
         {/* Diagonal edge effect at the bottom of the banner */}
         <div
-          className="absolute left-0 right-0 bottom-[-1px] h-10 sm:h-14 md:h-16 bg-black/10 dark:bg-black pointer-events-none"
+          className="absolute left-0 right-0 bottom-[-1px] h-10 sm:h-14 md:h-16 bg-[#ececec] dark:bg-black pointer-events-none z-20"
           style={{ clipPath: 'polygon(0 0, 100% 0, 100% 55%, 12% 100%, 0 65%)' }}
           aria-hidden
         />
