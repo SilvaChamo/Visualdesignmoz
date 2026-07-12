@@ -1,0 +1,65 @@
+name: Deploy → Hetzner (Painel)
+
+on:
+  push:
+    branches:
+      - main
+      - preview/grid-servicos-web
+
+jobs:
+  deploy:
+    name: Deploy via SSH para Hetzner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Build Next.js
+        run: CI='' npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Configurar chave SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.HETZNER_SSH_KEY }}
+
+      - name: Adicionar servidor ao known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 2234 -H 37.27.17.25 >> ~/.ssh/known_hosts
+
+      - name: Enviar ficheiros para Hetzner
+        run: |
+          rsync -az --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '*.env*' \
+            --exclude '.DS_Store' \
+            -e "ssh -p 2234" \
+            ./ root@37.27.17.25:/opt/visualdesign-panel/
+
+      - name: Instalar dependências no servidor e reiniciar PM2
+        run: |
+          ssh -p 2234 root@37.27.17.25 '
+            cd /opt/visualdesign-panel &&
+            npm ci --prefer-offline --no-audit --no-fund --omit=dev &&
+            pm2 restart visualdesign-panel --update-env || pm2 start npm --name "visualdesign-panel" -- start
+            pm2 save
+          '
+
+      - name: Deploy concluido
+        run: echo "Deploy para painel.visualdesignmoz.com concluido com sucesso!"
