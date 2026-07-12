@@ -7,7 +7,7 @@
  * Exemplo: node scripts/warmup-emails.js oshercollective.com 10
  */
 
-const API_URL = 'https://109.199.104.22:8090/send-email-api.php';
+const API_URL = 'https://37.27.17.25:8090/send-email-api.php';
 const API_TOKEN = 'vd_api_2024_secure_token';
 
 // Lista de emails de teste para warm-up

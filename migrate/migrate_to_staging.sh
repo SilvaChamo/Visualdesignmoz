@@ -3,7 +3,7 @@
 
 echo "=== MIGRAÇÃO AUTOMÁTICA PARA STAGING CONTABO ==="
 echo "Origem: yknrnlev@za4.mozserver.com"
-echo "Destino: root@109.199.104.22"
+echo "Destino: root@37.27.17.25"
 echo "Data: $(date)"
 echo ""
 
@@ -81,7 +81,7 @@ for site_path in $SITES_TO_MIGRATE; do
         echo "   🚚 Transferindo arquivos..."
         
         # Copiar via SSH direto
-        ssh yknrnlev@za4.mozserver.com "scp /tmp/${site_name}_files_${DATE}.tar.gz root@109.199.104.22:/tmp/" 2>/dev/null
+        ssh yknrnlev@za4.mozserver.com "scp /tmp/${site_name}_files_${DATE}.tar.gz root@37.27.17.25:/tmp/" 2>/dev/null
         
         # Extrair arquivos no Contabo
         curl -X POST http://localhost:3002/api/server-exec \
@@ -102,7 +102,7 @@ for site_path in $SITES_TO_MIGRATE; do
             ssh yknrnlev@za4.mozserver.com "mysqldump -u root -p $db_name | gzip > /tmp/${site_name}_db_${DATE}.sql.gz" 2>/dev/null
             
             # Transferir banco
-            ssh yknrnlev@za4.mozserver.com "scp /tmp/${site_name}_db_${DATE}.sql.gz root@109.199.104.22:/tmp/" 2>/dev/null
+            ssh yknrnlev@za4.mozserver.com "scp /tmp/${site_name}_db_${DATE}.sql.gz root@37.27.17.25:/tmp/" 2>/dev/null
             
             # Importar para staging
             curl -X POST http://localhost:3002/api/server-exec \

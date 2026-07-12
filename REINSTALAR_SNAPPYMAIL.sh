@@ -72,4 +72,4 @@ echo "=== REINICIANDO WEB SERVER ==="
 /usr/local/lsws/bin/lswsctrl restart
 
 echo "✅ Concluído!"
-echo "Teste em: https://109.199.104.22:8090/snappymail/index.php"
+echo "Teste em: https://37.27.17.25:8090/snappymail/index.php"

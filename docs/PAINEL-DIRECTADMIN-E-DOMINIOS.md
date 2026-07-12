@@ -38,7 +38,7 @@ Documento de referência para próximas sessões. Projeto: `visualdesign` (Next.
 
 | Variável | Valor típico |
 |----------|----------------|
-| `DIRECTADMIN_FALLBACK_HOST` ou `NEXT_PUBLIC_DIRECTADMIN_FALLBACK_HOST` | IP do servidor (ex.: `109.199.104.22`) |
+| `DIRECTADMIN_FALLBACK_HOST` ou `NEXT_PUBLIC_DIRECTADMIN_FALLBACK_HOST` | IP do servidor (ex.: `37.27.17.25`) |
 | `DIRECTADMIN_FALLBACK_PORT` ou `NEXT_PUBLIC_DIRECTADMIN_FALLBACK_PORT` | `2222` (ou a porta onde o DA responde no IP) |
 | `DIRECTADMIN_FALLBACK_PROTOCOL` ou `NEXT_PUBLIC_DIRECTADMIN_FALLBACK_PROTOCOL` | `http` se no IP não houver SSL válido; `https` se já existir certificado |
 

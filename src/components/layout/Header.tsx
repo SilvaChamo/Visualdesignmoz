@@ -145,10 +145,9 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                     >
                       <button 
                         type="button"
-                        className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center gap-1 h-full"
+                        className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
                       >
                         {t(item.nameKey)}
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                       
                       {item.isMega ? (

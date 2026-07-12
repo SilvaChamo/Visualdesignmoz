@@ -24,7 +24,7 @@ conn.on('ready', () => {
 }).on('error', (err) => {
   console.error("Connection error:", err.message);
 }).connect({
-  host: '109.199.104.22',
+  host: '37.27.17.25',
   port: 22,
   username: 'root',
   privateKey: privateKey,

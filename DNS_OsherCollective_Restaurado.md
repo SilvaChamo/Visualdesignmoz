@@ -114,7 +114,7 @@ dig default._domainkey.oshercollective.com TXT
 | | Configuração Split (Antiga) | Configuração Padrão (Atual) |
 |---|---|---|
 | **Site** | Mozserver | Mozserver |
-| **Email** | Contabo (109.199.104.22) | Mozserver (160.119.249.43) |
+| **Email** | Contabo (37.27.17.25) | Mozserver (160.119.249.43) |
 | **Vantagem** | Servidores separados | Mais simples, tudo no mesmo lugar |
 
 ---

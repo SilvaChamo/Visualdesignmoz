@@ -5,7 +5,7 @@ echo "🔧 DESATIVANDO LIMITES - VERSÃO DIRECIONADA"
 echo "============================================"
 echo ""
 
-SERVER="109.199.104.22"
+SERVER="37.27.17.25"
 PHP_FILE="/usr/local/CyberCP/public/send-email-api.php"
 
 echo "📋 Etapa 1: Criando backup..."

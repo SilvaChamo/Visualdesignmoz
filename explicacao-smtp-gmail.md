@@ -6,7 +6,7 @@
 
 #### **Email Corporativo (Receber)**
 - `admin@visualdesignmoz.com` - **CONTINUA FUNCIONANDO** para receber
-- Webmail: `https://109.199.104.22:8090/snappymail/` - **CONTINUA FUNCIONANDO**
+- Webmail: `https://37.27.17.25:8090/snappymail/` - **CONTINUA FUNCIONANDO**
 - IMAP (recebimento) - **CONTINUA FUNCIONANDO**
 
 #### **Gmail (Apenas para ENVIAR)**

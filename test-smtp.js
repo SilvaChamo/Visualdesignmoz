@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 
 try {
-  const sshCommand = `ssh root@109.199.104.22 "python3 -c \\"
+  const sshCommand = `ssh root@37.27.17.25 "python3 -c \\"
 import smtplib
 try:
     server = smtplib.SMTP('localhost', 587)

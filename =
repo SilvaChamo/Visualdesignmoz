@@ -1,5 +1,5 @@
 Script started on Fri Mar  6 13:01:49 2026
-command: fpdnsutil add-record visualdesignmoz.com @ TXT 300 'v=spf1 ip4:109.199.104.22 ~all' && pdnsutil add-record visualdesignmoz.com _dmarc TXT 300 'v=DMARC1; p=none; rua=mailto:admin@visualdesignmoz.com' && pdnsutil add-record visualdesignmoz.com default._domainkey TXT 300 '{key}' && pdnsutil rectify-zone visualdesignmoz.com && echo DONE
-script: fpdnsutil add-record visualdesignmoz.com @ TXT 300 'v=spf1 ip4:109.199.104.22 ~all' && pdnsutil add-record visualdesignmoz.com _dmarc TXT 300 'v=DMARC1; p=none; rua=mailto:admin@visualdesignmoz.com' && pdnsutil add-record visualdesignmoz.com default._domainkey TXT 300 '{key}' && pdnsutil rectify-zone visualdesignmoz.com && echo DONE: File name too long
+command: fpdnsutil add-record visualdesignmoz.com @ TXT 300 'v=spf1 ip4:37.27.17.25 ~all' && pdnsutil add-record visualdesignmoz.com _dmarc TXT 300 'v=DMARC1; p=none; rua=mailto:admin@visualdesignmoz.com' && pdnsutil add-record visualdesignmoz.com default._domainkey TXT 300 '{key}' && pdnsutil rectify-zone visualdesignmoz.com && echo DONE
+script: fpdnsutil add-record visualdesignmoz.com @ TXT 300 'v=spf1 ip4:37.27.17.25 ~all' && pdnsutil add-record visualdesignmoz.com _dmarc TXT 300 'v=DMARC1; p=none; rua=mailto:admin@visualdesignmoz.com' && pdnsutil add-record visualdesignmoz.com default._domainkey TXT 300 '{key}' && pdnsutil rectify-zone visualdesignmoz.com && echo DONE: File name too long
 
 Script done on Fri Mar  6 13:01:49 2026

@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 
 try {
-  const sshCommand = `ssh root@109.199.104.22 "journalctl -xeu postfix.service | tail -n 20"`;
+  const sshCommand = `ssh root@37.27.17.25 "journalctl -xeu postfix.service | tail -n 20"`;
   const output = execSync(sshCommand, { encoding: 'utf-8', stdio: 'pipe' });
   console.log(output);
 } catch (e) {

@@ -17,7 +17,7 @@ const CREDENCIAIS = {
   'noreply@visualdesignmoz.com': 'VisualDesign#2026',
 };
 
-const IMAP_HOST = process.env.IMAP_HOST || '109.199.104.22';
+const IMAP_HOST = process.env.IMAP_HOST || '37.27.17.25';
 const IMAP_PORT = 993;
 
 async function listFolders(email, password) {
