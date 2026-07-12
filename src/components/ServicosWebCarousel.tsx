@@ -27,35 +27,35 @@ const SERVICOS: ServiceItem[] = [
     id: 'web-design',
     Icon: MonitorSmartphone,
     title: 'Web Design',
-    description: 'Desenvolvimento de websites modernos, institucionais e landing pages responsivos, aplicativos moveis e sistemas de gestão, adaptadas ao seu negócio',
+    description: 'Sites modernos, institucionais e landing pages responsivos, adaptados ao seu negócio.',
     href: '/servicos/webdesign',
   },
   {
     id: 'sistemas',
     Icon: Settings,
     title: 'Aplicações & Sistemas de Gestão',
-    description: 'Desenvolvimento de aplicações web personalizadas, plataformas SaaS e sistemas para automação de processos internos.',
+    description: 'Aplicações web personalizadas, plataformas SaaS e automação de processos internos.',
     href: '/servicos/webdesign',
   },
   {
     id: 'seo',
     Icon: TrendingUp,
     title: 'Otimização para Buscadores (SEO)',
-    description: 'Engenharia de posicionamento orgânico e auditoria técnica para colocar o seu site no topo dos resultados de pesquisa.',
+    description: 'Posicionamento orgânico e auditoria técnica para colocar o seu site no topo das pesquisas.',
     href: '/servicos/seo',
   },
   {
     id: 'redes-sociais',
     Icon: Share2,
     title: 'Gestão de Redes Sociais',
-    description: 'Fazemos Gestão de tráfego do seu site, fortificamos a sua presença digital e criamos estratégias de engajamento integradas aos canais digitais.',
+    description: 'Gestão de tráfego, presença digital e estratégias de engajamento nos seus canais digitais.',
     href: '/servicos/redes-sociais',
   },
   {
     id: 'loja-online',
     Icon: ShoppingCart,
     title: 'Lojas Online (E-commerce)',
-    description: 'Criação de lojas online completas, com catálogo, pagamentos e gestão de encomendas integrados ao seu site.',
+    description: 'Lojas online completas, com catálogo, pagamentos e gestão de encomendas integrados.',
     href: '/servicos/webdesign',
   },
 ]
@@ -72,7 +72,7 @@ function ServiceCard({ item }: { item: ServiceItem }) {
         <Icon className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
       </div>
       <h4 className="font-bold mb-2 text-black dark:text-white w-full truncate">{item.title}</h4>
-      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[20px] line-clamp-4">{item.description}</p>
+      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[20px] line-clamp-2">{item.description}</p>
       <Link
         href={item.href}
         className="group/link inline-flex items-center gap-1.5 text-black dark:text-white font-medium text-sm hover:text-red-600 dark:hover:text-red-500 transition-colors"

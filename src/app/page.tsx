@@ -119,7 +119,7 @@ function HomePage() {
         <div className="-mt-[16px] relative z-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
             {/* Design Services */}
-            <div className="text-center">
+            <div className="text-center pt-[40px]">
               <ServicosWebCarousel />
             </div>
           </div>
