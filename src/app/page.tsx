@@ -20,7 +20,14 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
       {/* Header Section - Gray 25% */}
-      <div className="bg-[#404040] dark:bg-black relative overflow-hidden">
+      <div
+        className="bg-[#404040] dark:bg-black relative overflow-hidden"
+        style={{
+          '--cl': 'max(24px, calc(50% - 616px))',
+          clipPath:
+            'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 40px) calc(100% - 22px), calc(var(--cl) + 40px) calc(100% - 22px), var(--cl) 100%, 0% 100%)',
+        } as React.CSSProperties}
+      >
         <Image
           src="/assets/BG.jpg"
           alt=""
@@ -105,18 +112,11 @@ function HomePage() {
             </div>
           </div> */}
         </div>
-
-        {/* Diagonal edge effect at the bottom of the banner */}
-        <div
-          className="absolute left-0 right-0 bottom-[-1px] h-10 sm:h-14 md:h-16 bg-[#ececec] dark:bg-black pointer-events-none z-20"
-          style={{ clipPath: 'polygon(0 0, 100% 0, 100% 55%, 12% 100%, 0 65%)' }}
-          aria-hidden
-        />
       </div>
 
       {/* Content Section */}
       {!hideServices && (
-        <div>
+        <div className="-mt-[22px] relative z-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
             {/* Design Services */}
             <div className="text-center">
