@@ -2,23 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import {
   MonitorSmartphone,
   Settings,
   TrendingUp,
   Share2,
   ShoppingCart,
+  Palette,
+  CalendarDays,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 type ServiceItem = {
   id: string
   Icon: typeof MonitorSmartphone
-  title: string
-  description: string
+  titleKey: string
+  descKey: string
   href: string
 }
 
@@ -26,36 +28,36 @@ const SERVICOS: ServiceItem[] = [
   {
     id: 'web-design',
     Icon: MonitorSmartphone,
-    title: 'Web Design',
-    description: 'Sites modernos, institucionais e landing pages responsivos, adaptados ao seu negócio.',
+    titleKey: 'carousel.web-design.title',
+    descKey: 'carousel.web-design.desc',
     href: '/servicos/webdesign',
   },
   {
     id: 'sistemas',
     Icon: Settings,
-    title: 'Aplicações & Sistemas de Gestão',
-    description: 'Aplicações web personalizadas, plataformas SaaS e automação de processos internos.',
+    titleKey: 'carousel.sistemas.title',
+    descKey: 'carousel.sistemas.desc',
     href: '/servicos/webdesign',
   },
   {
     id: 'seo',
     Icon: TrendingUp,
-    title: 'Otimização para Buscadores (SEO)',
-    description: 'Posicionamento orgânico e auditoria técnica para colocar o seu site no topo das pesquisas.',
+    titleKey: 'carousel.seo.title',
+    descKey: 'carousel.seo.desc',
     href: '/servicos/seo',
   },
   {
     id: 'redes-sociais',
     Icon: Share2,
-    title: 'Gestão de Redes Sociais',
-    description: 'Gestão de tráfego, presença digital e estratégias de engajamento nos seus canais digitais.',
+    titleKey: 'carousel.redes-sociais.title',
+    descKey: 'carousel.redes-sociais.desc',
     href: '/servicos/redes-sociais',
   },
   {
     id: 'loja-online',
     Icon: ShoppingCart,
-    title: 'Lojas Online (E-commerce)',
-    description: 'Lojas online completas, com catálogo, pagamentos e gestão de encomendas integrados.',
+    titleKey: 'carousel.loja-online.title',
+    descKey: 'carousel.loja-online.desc',
     href: '/servicos/webdesign',
   },
 ]
@@ -64,27 +66,28 @@ const VISIBLE = 3
 const AUTOPLAY_MS = 4500
 const TRANSITION_MS = 500
 
-function ServiceCard({ item }: { item: ServiceItem }) {
+function ServiceCard({ item, t }: { item: ServiceItem; t: (k: string) => string }) {
   const { Icon } = item
   return (
     <div className="group w-full flex-1 flex flex-col items-center text-center bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 text-black/70 dark:text-zinc-100 p-4 sm:p-5 rounded-lg transition-colors">
       <div className="w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center mb-4 transition-colors group-hover:bg-red-600 group-hover:border-red-600">
         <Icon className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
       </div>
-      <h4 className="font-bold mb-2 text-black dark:text-white w-full truncate">{item.title}</h4>
-      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[20px] line-clamp-2">{item.description}</p>
+      <h4 className="font-bold mb-2 text-black dark:text-white w-full truncate">{t(item.titleKey)}</h4>
+      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[20px] line-clamp-2">{t(item.descKey)}</p>
       <Link
         href={item.href}
-        className="group/link inline-flex items-center gap-1.5 text-black dark:text-white font-medium text-sm hover:text-red-600 dark:hover:text-red-500 transition-colors"
+        className="inline-flex items-center gap-1.5 text-black dark:text-white font-medium text-sm transition-colors group-hover:text-red-600 dark:group-hover:text-red-500"
       >
-        Ver Serviços
-        <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover/link:translate-x-1" />
+        {t('services.view')}
+        <ArrowRight className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-1.5" />
       </Link>
     </div>
   )
 }
 
 export default function ServicosWebCarousel() {
+  const { t } = useI18n()
   const total = SERVICOS.length // 5
 
   // Clones: último item no início, primeiros (VISIBLE-1) no fim — janela de 4 sempre preenchida.
@@ -169,7 +172,7 @@ export default function ServicosWebCarousel() {
                 className="shrink-0 px-1.5 sm:px-2 flex flex-col"
                 style={{ width: `${100 / trackLength}%` }}
               >
-                <ServiceCard item={item} />
+                <ServiceCard item={item} t={t} />
               </div>
             ))}
           </div>
@@ -199,7 +202,7 @@ export default function ServicosWebCarousel() {
           <button
             key={item.id}
             type="button"
-            aria-label={`Ir para ${item.title}`}
+            aria-label={`Ir para ${t(item.titleKey)}`}
             onClick={() => goToReal(i)}
             className={`h-2 rounded-full transition-all ${
               activeDot === i ? 'w-6 bg-red-600' : 'w-2 bg-black/20 dark:bg-white/20'
@@ -208,38 +211,32 @@ export default function ServicosWebCarousel() {
         ))}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Coluna 1: Design Gráfico */}
-        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-40 sm:h-48 md:h-56 block border border-white/10 dark:border-white/15">
-          <Image
-            src="/assets/graphic-design-illustration.png"
-            alt="Prestação de serviços de design criativo"
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, 50vw"
-          />
-          <div className="absolute inset-0 bg-black/60 transition-opacity duration-300 group-hover:bg-black/50" />
-          <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-            <h3 className="text-white font-medium text-lg sm:text-xl md:text-2xl drop-shadow-md">
-              Prestação de serviços de design criativo
-            </h3>
+      <div className="mt-4 mx-2 sm:mx-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Coluna 1: Design Criativo */}
+        <Link
+          href="/servicos"
+          className="group flex items-center gap-4 bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 border border-black/5 rounded-lg p-4 sm:p-5 text-left transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.06]"
+        >
+          <div className="shrink-0 w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center transition-colors group-hover:bg-red-600 group-hover:border-red-600">
+            <Palette className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
+          </div>
+          <div>
+            <h3 className="font-bold text-black dark:text-white mb-1">{t('carousel.design-criativo.title')}</h3>
+            <p className="text-sm text-black/70 dark:text-zinc-300 line-clamp-2">{t('carousel.design-criativo.desc')}</p>
           </div>
         </Link>
 
         {/* Coluna 2: Feiras e Eventos */}
-        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-40 sm:h-48 md:h-56 block border border-white/10 dark:border-white/15">
-          <Image
-            src="/assets/events-illustration.png"
-            alt="Prestação de serviços de feiras e eventos"
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, 50vw"
-          />
-          <div className="absolute inset-0 bg-black/60 transition-opacity duration-300 group-hover:bg-black/50" />
-          <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-            <h3 className="text-white font-medium text-lg sm:text-xl md:text-2xl drop-shadow-md">
-              Prestação de serviços de feiras e eventos
-            </h3>
+        <Link
+          href="/servicos"
+          className="group flex items-center gap-4 bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 border border-black/5 rounded-lg p-4 sm:p-5 text-left transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.06]"
+        >
+          <div className="shrink-0 w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center transition-colors group-hover:bg-red-600 group-hover:border-red-600">
+            <CalendarDays className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
+          </div>
+          <div>
+            <h3 className="font-bold text-black dark:text-white mb-1">{t('carousel.feiras-eventos.title')}</h3>
+            <p className="text-sm text-black/70 dark:text-zinc-300 line-clamp-2">{t('carousel.feiras-eventos.desc')}</p>
           </div>
         </Link>
       </div>
