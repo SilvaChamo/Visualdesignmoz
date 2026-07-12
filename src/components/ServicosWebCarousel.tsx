@@ -208,26 +208,36 @@ export default function ServicosWebCarousel() {
         ))}
       </div>
 
-      <div className="mt-8 overflow-hidden bg-white dark:bg-white/10 dark:border dark:border-white/15 rounded-lg border border-dashed border-black/20">
-        <div className="flex flex-col sm:flex-row items-center">
-          <div className="w-full sm:w-[30%] relative h-40 sm:h-32 bg-zinc-100 dark:bg-zinc-800/50">
-            <Image
-              src="/assets/graphic-design-illustration.png"
-              alt="Design Gráfico e Criativo"
-              fill
-              className="object-cover"
-              sizes="(max-width: 640px) 100vw, 30vw"
-            />
-          </div>
-          <div className="w-full sm:w-[70%] p-4 sm:p-6 text-center sm:text-left flex flex-col justify-center">
-            <p className="text-black/70 dark:text-zinc-300 text-sm sm:text-base">
-              Procura soluções de identidade visual, fotografia ou vídeo?
-            </p>
-            <Link href="/servicos" className="text-red-600 dark:text-red-400 font-medium underline hover:text-red-700 transition-colors mt-2">
-              Aceda à nossa divisão de Design Criativo
-            </Link>
-          </div>
-        </div>
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Coluna 1: Design Gráfico */}
+        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-32 sm:h-40 flex items-center justify-center shadow-sm">
+          <Image
+            src="/assets/graphic-design-illustration.png"
+            alt="Design Criativo"
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, 50vw"
+          />
+          <div className="absolute inset-0 bg-black/60 group-hover:bg-black/50 transition-colors" />
+          <h3 className="relative z-10 text-white font-medium text-center px-4 text-base sm:text-lg">
+            Prestação de serviços de design criativo
+          </h3>
+        </Link>
+
+        {/* Coluna 2: Feiras e Eventos */}
+        <Link href="/servicos" className="relative group overflow-hidden rounded-lg h-32 sm:h-40 flex items-center justify-center shadow-sm">
+          <Image
+            src="/assets/feiras-eventos-illustration.png"
+            alt="Feiras e Eventos"
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, 50vw"
+          />
+          <div className="absolute inset-0 bg-black/60 group-hover:bg-black/50 transition-colors" />
+          <h3 className="relative z-10 text-white font-medium text-center px-4 text-base sm:text-lg">
+            Prestação de serviços de feiras e eventos
+          </h3>
+        </Link>
       </div>
     </div>
   )
