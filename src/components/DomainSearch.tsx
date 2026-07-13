@@ -444,7 +444,7 @@ export default function DomainSearch({
   )
 
   const renderSearchRow = () => (
-    <div className={`flex w-full flex-col gap-2 sm:flex-row ${searchContainerClassName}`}>
+    <div className={`flex w-full flex-col gap-4 sm:flex-row ${searchContainerClassName}`}>
       <div className="relative min-w-0 flex-1">
         <input
           type="text"

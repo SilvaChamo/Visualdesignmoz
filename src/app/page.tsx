@@ -38,17 +38,17 @@ function HomePage() {
           aria-hidden
         />
         <div className="absolute inset-0 bg-black/20 dark:bg-black/25" />
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[100px] pb-[30px] sm:pt-[120px] sm:pb-[35px] md:pt-[140px] md:pb-[40px] flex flex-col justify-center items-center min-h-[390px] sm:min-h-[440px] md:min-h-[490px] relative z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[30px] sm:pt-[160px] sm:pb-[35px] md:pt-[175px] md:pb-[40px] flex flex-col justify-center items-center min-h-[390px] sm:min-h-[440px] md:min-h-[490px] relative z-10">
           <div className="w-full max-w-4xl text-center">
             <h1 className="w-full px-2 text-center font-bold leading-[1.15] text-white mb-0 sm:mb-1 text-[clamp(1.375rem,2.8vw+0.75rem,2.25rem)]">
               {t('home.title')}
             </h1>
-            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white mb-[20px] sm:mb-[25px] md:mb-[30px] font-normal text-center max-w-3xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white mb-[28px] sm:mb-[25px] md:mb-[30px] font-normal text-center max-w-3xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
               {t('home.subtitle')}
             </p>
 
             {/* Domain Search Box */}
-            <div className="flex justify-center mb-[40px] w-full max-w-[830px] mx-auto">
+            <div className="flex justify-center mb-[48px] sm:mb-[40px] w-full max-w-[830px] mx-auto">
               <DomainSearch
                 panelFieldRounding
                 onResultsAction={(results) => setHideServices(results.length > 0)}
@@ -70,7 +70,7 @@ function HomePage() {
                       else if (tabKey === 'home.tabs.email') window.location.href = '/precos/email'
                       else if (tabKey === 'home.tabs.support') window.location.href = '/precos/suporte'
                     }}
-                    className={`px-2 sm:px-3 md:px-4 py-1 rounded-lg font-medium text-xs sm:text-sm transition-all relative flex items-center justify-center text-center ${activeTab === tabKey
+                    className={`px-2 sm:px-3 md:px-4 py-1 rounded-md font-medium text-xs sm:text-sm transition-all relative flex items-center justify-center text-center ${activeTab === tabKey
                       ? 'bg-red-600 text-white'
                       : 'bg-black dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white hover:bg-red-600 dark:hover:bg-zinc-800'
                       }`}
