@@ -138,9 +138,13 @@ function HomePage() {
           >
             <div className="container mx-auto max-w-7xl px-4 sm:px-6">
               <div className="text-center mb-10 sm:mb-12 flex flex-col items-center">
-                <div className="flex flex-col items-center text-red-600 dark:text-red-500 mb-3">
-                  <Server className="w-8 h-8 mb-1.5 animate-pulse" />
-                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                <div className="flex flex-col items-center mb-3">
+                  <img
+                    src="/assets/IMG-VD/managed-server.svg"
+                    alt=""
+                    className="w-12 h-12 mb-1.5"
+                  />
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-red-600 dark:text-red-500">
                     <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
                     {t('home.hosting.pretitle')}
                     <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>

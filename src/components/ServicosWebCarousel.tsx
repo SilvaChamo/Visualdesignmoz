@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Share2,
   ShoppingCart,
-  ArrowRight,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -70,13 +69,29 @@ function ServiceCard({ item, t }: { item: ServiceItem; t: (k: string) => string 
         <Icon className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
       </div>
       <h4 className="font-bold mb-2 text-black dark:text-white w-full truncate">{t(item.titleKey)}</h4>
-      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[20px] line-clamp-2">{t(item.descKey)}</p>
+      <p className="text-black/70 dark:text-zinc-300 text-sm mb-[12px] line-clamp-2">{t(item.descKey)}</p>
       <Link
         href={item.href}
         className="inline-flex items-center gap-1.5 text-black dark:text-white font-medium text-sm transition-colors group-hover:text-red-600 dark:group-hover:text-red-500"
       >
-        {t('services.view')}
-        <ArrowRight className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-1.5" />
+        <span className="relative pb-0.5 after:absolute after:bottom-0 after:left-0 after:h-[1.5px] after:w-full after:origin-bottom-left after:scale-x-0 after:bg-red-600 after:transition-transform after:duration-300 group-hover:after:scale-x-100 dark:after:bg-red-500">
+          {t('services.view')}
+        </span>
+        <svg
+          className="w-6 h-3.5 transition-transform duration-200 group-hover:translate-x-1"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2 12h20M18 9l3 3-3 3"
+          />
+        </svg>
       </Link>
     </div>
   )
