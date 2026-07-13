@@ -194,15 +194,15 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, gray background */}
       {!hideServices && (
         <div
-          className="bg-zinc-100 dark:bg-zinc-900 pt-20 pb-16 sm:pt-28 sm:pb-20 relative -mt-[16px] z-20"
+          className="bg-zinc-100 dark:bg-zinc-900 pt-20 pb-20 sm:pt-28 sm:pb-28 relative -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
-              'polygon(0% 0%, var(--cl) 0%, calc(var(--cl) + 15px) 16px, calc(100% - var(--cl) - 15px) 16px, calc(100% - var(--cl)) 0%, 100% 0%, 100% 100%, 0% 100%)',
+              'polygon(0% 0%, var(--cl) 0%, calc(var(--cl) + 15px) 16px, calc(100% - var(--cl) - 15px) 16px, calc(100% - var(--cl)) 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 15px) calc(100% - 16px), calc(var(--cl) + 15px) calc(100% - 16px), var(--cl) 100%, 0% 100%)',
           } as React.CSSProperties}
         >
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="text-center mb-10 sm:mb-14 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px]">
+            <div className="text-center flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] mb-0">
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-3">
                 <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
                 {t('home.whyus.pretitle')}
@@ -215,30 +215,13 @@ function HomePage() {
                 {t('home.whyus.subtitle')}
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
-              {[
-                { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc' },
-                { Icon: Server, titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc' },
-                { Icon: LifeBuoy, titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc' },
-              ].map(({ Icon, titleKey, descKey }) => (
-                <div key={titleKey} className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
-                    <Icon className="w-8 h-8 text-red-600 dark:text-red-500" />
-                  </div>
-                  <h3 className="text-lg font-bold text-black dark:text-white mb-2">
-                    {t(titleKey)}
-                  </h3>
-                  <p className="text-sm text-black/60 dark:text-zinc-400 max-w-xs">
-                    {t(descKey)}
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
 
-      <CompactFooter />
+      <div className="relative -mt-[16px] z-10">
+        <CompactFooter />
+      </div>
     </div>
   )
 }
