@@ -86,11 +86,11 @@ export default function ServicosWebCarousel() {
   const { t } = useI18n()
   const total = SERVICOS.length // 5
 
-  // Clones: último item no início, primeiros (VISIBLE-1) no fim — janela de 4 sempre preenchida.
+  // Clones: último item no início, primeiros (VISIBLE) no fim — janela de 4 sempre preenchida.
   const track = [
     SERVICOS[total - 1],
     ...SERVICOS,
-    ...SERVICOS.slice(0, VISIBLE - 1),
+    ...SERVICOS.slice(0, VISIBLE),
   ]
   const trackLength = track.length // 1 + 5 + 3 = 9
 

@@ -24,6 +24,7 @@ const dict: Record<Lang, Dict> = {
     'nav.contact': 'Contacto',
 
     'services.web': 'Web Design',
+    'home.hosting.pretitle': 'Alojamento Web',
     'home.hosting.title': 'Nossa hospedagem oferece mais recursos',
     'home.hosting.subtitle': 'Administrar um negócio pode ser um desafio, por isso, para ajudar, oferecemos um construtor de sites gratuito com imagens gratuitas e e-mail gratuito com todos os nomes de domínio.',
     'home.hosting.domain.title': 'Nome de Domínio Gratuito',
@@ -744,6 +745,7 @@ const dict: Record<Lang, Dict> = {
     'nav.contact': 'Contact',
 
     'services.web': 'Web Design',
+    'home.hosting.pretitle': 'Web Hosting',
     'home.hosting.title': 'Our hosting offers more resources',
     'home.hosting.subtitle': 'Running a business can be a challenge, so to help, we offer a free website builder with free images and free e-mail with every domain name.',
     'home.hosting.domain.title': 'Free Domain Name',

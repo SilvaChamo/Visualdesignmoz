@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow } from 'lucide-react'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 import { CompactFooter } from '@/components/layout/CompactFooter'
@@ -137,7 +137,15 @@ function HomePage() {
             } as React.CSSProperties}
           >
             <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-              <div className="text-center mb-10 sm:mb-12">
+              <div className="text-center mb-10 sm:mb-12 flex flex-col items-center">
+                <div className="flex flex-col items-center text-red-600 dark:text-red-500 mb-3">
+                  <Server className="w-8 h-8 mb-1.5 animate-pulse" />
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
+                    {t('home.hosting.pretitle')}
+                    <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
+                  </span>
+                </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
                   {t('home.hosting.title')}
                 </h2>
