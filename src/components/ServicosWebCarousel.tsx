@@ -169,16 +169,32 @@ export default function ServicosWebCarousel() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
+      <style>{`
+        .carousel-track {
+          --visible: 3;
+        }
+        @media (max-width: 639px) {
+          .carousel-track {
+            --visible: 1;
+          }
+        }
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .carousel-track {
+            --visible: 2;
+          }
+        }
+      `}</style>
+
       {/* Wrapper relativo apenas para os cards — garante setas centradas na altura do card */}
       <div className="relative">
         <div className="overflow-hidden">
           <div
-            className="flex"
+            className="flex carousel-track"
             style={{
-              width: `${(trackLength / VISIBLE) * 100}%`,
+              width: `calc((${trackLength} / var(--visible)) * 100%)`,
               transform: `translateX(-${(index * 100) / trackLength}%)`,
               transition: withTransition ? `transform ${TRANSITION_MS}ms ease` : 'none',
-            }}
+            } as React.CSSProperties}
             onTransitionEnd={handleTransitionEnd}
           >
             {track.map((item, i) => (
