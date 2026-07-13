@@ -32,7 +32,7 @@ export function AuthPageShell({ children, wide }: AuthPageShellProps) {
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10">
         <a 
           href={getLogoHomeUrl()} 
-          className="mb-1 block transition-transform duration-300 hover:scale-105 hover:opacity-90 active:scale-95"
+          className="mb-1 flex justify-center items-center transition-transform duration-300 hover:scale-105 hover:opacity-90 active:scale-95"
         >
           <img
             src="/assets/logotype.png"
@@ -52,7 +52,7 @@ export function AuthPageShell({ children, wide }: AuthPageShellProps) {
           />
         </a>
 
-        <div className={wide ? 'w-full max-w-md' : 'w-full max-w-[420px]'}>
+        <div className={`w-full flex flex-col items-center ${wide ? 'max-w-md' : 'max-w-[420px]'}`}>
           {children}
         </div>
       </div>

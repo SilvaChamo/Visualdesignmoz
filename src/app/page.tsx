@@ -21,7 +21,7 @@ function HomePage() {
     <div className="min-h-screen bg-black/10 dark:bg-black">
       {/* Header Section - Gray 25% */}
       <div
-        className="bg-[#404040] dark:bg-black relative overflow-hidden"
+        className="bg-black relative overflow-hidden"
         style={{
           '--cl': 'max(24px, calc(50% - 616px))',
           clipPath:
@@ -29,16 +29,16 @@ function HomePage() {
         } as React.CSSProperties}
       >
         <Image
-          src="/assets/BG.jpg"
+          src="/assets/Melhor-alojamento-web.webp"
           alt=""
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center opacity-20 dark:opacity-25"
+          className="object-cover object-top opacity-30 dark:opacity-35"
           aria-hidden
         />
-        <div className="absolute inset-0 bg-black/40 dark:bg-black/45" />
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[120px] sm:pt-[100px] md:pt-[120px] lg:pt-[160px] pb-[40px] sm:pb-[50px] flex flex-col justify-between items-center min-h-[360px] sm:min-h-[410px] md:min-h-[460px] relative z-10">
+        <div className="absolute inset-0 bg-black/20 dark:bg-black/25" />
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[100px] pb-[30px] sm:pt-[120px] sm:pb-[35px] md:pt-[140px] md:pb-[40px] flex flex-col justify-center items-center min-h-[390px] sm:min-h-[440px] md:min-h-[490px] relative z-10">
           <div className="w-full max-w-4xl text-center">
             <h1 className="w-full px-2 text-center font-bold leading-[1.15] text-white mb-0 sm:mb-1 text-[clamp(1.375rem,2.8vw+0.75rem,2.25rem)]">
               {t('home.title')}
@@ -117,11 +117,11 @@ function HomePage() {
       {/* Content Section */}
       {!hideServices && (
         <div className="-mt-[16px] relative z-20">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
             {/* Design Services */}
-            <div className="text-center pt-[12px]">
+            <div className="text-center pt-[30px]">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
-                {t('carousel.section.title')}
+                <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span> {t('carousel.section.title')} <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
               </h2>
               <ServicosWebCarousel />
             </div>

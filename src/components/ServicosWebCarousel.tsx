@@ -9,8 +9,6 @@ import {
   Share2,
   ShoppingCart,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -110,10 +108,6 @@ export default function ServicosWebCarousel() {
     setIndex((i) => i + 1)
   }, [])
 
-  const prev = useCallback(() => {
-    setWithTransition(true)
-    setIndex((i) => i - 1)
-  }, [])
 
   useEffect(() => {
     if (paused) return
@@ -184,23 +178,7 @@ export default function ServicosWebCarousel() {
           </div>
         </div>
 
-        {/* Setas — top-1/2 agora é relativo só à altura dos cards */}
-        <button
-          type="button"
-          onClick={prev}
-          aria-label="Anterior"
-          className="hidden md:flex absolute left-[-14px] top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-black/10 dark:border-white/15 items-center justify-center shadow hover:bg-red-600 hover:text-white dark:hover:bg-red-600 transition-colors z-10"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button
-          type="button"
-          onClick={next}
-          aria-label="Seguinte"
-          className="hidden md:flex absolute right-[-14px] top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-black/10 dark:border-white/15 items-center justify-center shadow hover:bg-red-600 hover:text-white dark:hover:bg-red-600 transition-colors z-10"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+
       </div>
 
       <div className="flex justify-center gap-2 mt-6 sm:mt-8">
