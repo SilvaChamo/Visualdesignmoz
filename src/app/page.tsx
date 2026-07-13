@@ -26,6 +26,7 @@ function HomePage() {
     { Icon: RefreshCw, titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc' },
     { Icon: Sparkles, titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc' },
   ]
+  const whyUsColumns = [whyUsItems.slice(0, 3), whyUsItems.slice(3, 6)]
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
@@ -231,42 +232,47 @@ function HomePage() {
               </p>
             </div>
 
-            <div className="w-full sm:w-[60%] mx-auto mt-8 sm:mt-10">
-              <div className="flex flex-col gap-3 mx-5">
-                {whyUsItems.map((item, idx) => {
-                  const isOpen = Boolean(openWhyUs[idx])
-                  const { Icon } = item
-                  return (
-                    <div key={item.titleKey} className="flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setOpenWhyUs((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                        className="w-full flex items-stretch text-left bg-white dark:bg-zinc-800 rounded-md overflow-hidden shadow-sm"
-                      >
-                        <span className="shrink-0 w-20 flex items-center justify-center bg-red-600">
-                          <Icon className="w-6 h-6 text-white" />
-                        </span>
-                        <span className="flex-1 flex items-center justify-between gap-3 px-4 py-5">
-                          <span className="text-sm sm:text-base font-bold text-black dark:text-white">
-                            {t(item.titleKey)}
-                          </span>
-                          <span className="shrink-0 w-6 h-6 flex items-center justify-center text-red-600 dark:text-red-500 text-lg font-bold leading-none">
-                            {isOpen ? '−' : '+'}
-                          </span>
-                        </span>
-                      </button>
-                      <div
-                        className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-                      >
-                        <div className="overflow-hidden">
-                          <div className="px-4 py-8 text-sm text-black/70 dark:text-white/70 bg-white dark:bg-zinc-800 rounded-md shadow-sm">
-                            {t(item.descKey)}
+            <div className="mt-8 sm:mt-10 mx-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {whyUsColumns.map((column, colIdx) => (
+                  <div key={colIdx} className="flex flex-col gap-3">
+                    {column.map((item) => {
+                      const idx = colIdx * 3 + column.indexOf(item)
+                      const isOpen = Boolean(openWhyUs[idx])
+                      const { Icon } = item
+                      return (
+                        <div key={item.titleKey} className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOpenWhyUs((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                            className="w-full flex items-stretch text-left bg-white dark:bg-zinc-800 rounded-md overflow-hidden shadow-sm"
+                          >
+                            <span className="shrink-0 w-20 flex items-center justify-center bg-red-600">
+                              <Icon className="w-6 h-6 text-white" />
+                            </span>
+                            <span className="flex-1 flex items-center justify-between gap-3 px-4 py-5">
+                              <span className="text-sm sm:text-base font-bold text-black dark:text-white">
+                                {t(item.titleKey)}
+                              </span>
+                              <span className="shrink-0 w-6 h-6 flex items-center justify-center text-red-600 dark:text-red-500 text-lg font-bold leading-none">
+                                {isOpen ? '−' : '+'}
+                              </span>
+                            </span>
+                          </button>
+                          <div
+                            className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="px-4 py-8 text-sm text-black/70 dark:text-white/70 bg-white dark:bg-zinc-800 rounded-md shadow-sm">
+                                {t(item.descKey)}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                      )
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
