@@ -6,11 +6,12 @@
 // que passam por um caminho e ficam sem automação e outros por outro.
 
 import { daAddDnsRecord } from '@/lib/da-dns-ops';
+import { daPostViaSsh } from '@/lib/da-api-ssh';
 import { resolveDirectAdminCredentials } from '@/lib/directadmin-credentials';
 import { getDefaultEmailDnsRecords, type EmailDnsRecord } from '@/lib/email-dns-defaults';
-import { ensureBrevoDomainAuth, triggerBrevoDomainVerification } from '@/lib/brevo-domain-auth';
+import { ensureBrevoDomainAuth, triggerBrevoDomainVerification, deleteBrevoDomain } from '@/lib/brevo-domain-auth';
 import { getServerHost } from '@/lib/server-config';
-import { upsertMirrorDns } from '@/lib/panel-mirror-write';
+import { upsertMirrorDns, deleteMirrorSite } from '@/lib/panel-mirror-write';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
 
 function sleep(ms: number) {
@@ -142,4 +143,54 @@ export async function provisionEmailAuthForDomain(domain: string): Promise<DnsAu
   }
 
   return { domain: cleanDomain, brevoOk, brevoError, records: results, verified: false };
+}
+
+export type DnsCleanupResult = {
+  domain: string;
+  dnsZoneDeleted: boolean;
+  brevoDeleted: boolean;
+  brevoError?: string;
+};
+
+/**
+ * Faz o inverso do provisionEmailAuthForDomain: remove a zona DNS inteira
+ * do domínio no DirectAdmin e retira o domínio da Brevo. Chamado quando um
+ * domínio (ou a conta inteira dona dele) é eliminado no painel — best
+ * effort, nunca lança erro, para não travar a eliminação principal.
+ */
+export async function cleanupEmailAuthForDomain(domain: string): Promise<DnsCleanupResult> {
+  const cleanDomain = domain.trim().toLowerCase();
+  let dnsZoneDeleted = false;
+  let brevoDeleted = false;
+  let brevoError: string | undefined;
+
+  try {
+    const creds = await resolveDirectAdminCredentials('admin');
+    const zoneResult = await daPostViaSsh(
+      'CMD_API_DNS_CONTROL',
+      { action: 'delete', domain: cleanDomain },
+      creds,
+    );
+    dnsZoneDeleted = zoneResult.ok;
+  } catch (error) {
+    console.error('[email-dns-cleanup] falha a apagar zona DNS', cleanDomain, error);
+  }
+
+  try {
+    const brevo = await deleteBrevoDomain(cleanDomain);
+    brevoDeleted = brevo.ok;
+    brevoError = brevo.error;
+  } catch (error) {
+    brevoError = error instanceof Error ? error.message : 'Erro desconhecido';
+  }
+
+  try {
+    await deleteMirrorSite(cleanDomain);
+  } catch (error) {
+    console.error('[email-dns-cleanup] falha a limpar espelho local', cleanDomain, error);
+  }
+
+  scheduleDaSync(30);
+
+  return { domain: cleanDomain, dnsZoneDeleted, brevoDeleted, brevoError };
 }

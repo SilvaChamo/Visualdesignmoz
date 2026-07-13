@@ -162,3 +162,27 @@ export async function triggerBrevoDomainVerification(domain: string): Promise<{ 
     return { ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
 }
+
+/**
+ * Remove o domínio da lista de domínios autenticados da Brevo. Chamado
+ * quando um domínio (ou a conta inteira dona dele) é eliminado no painel,
+ * para não deixar lixo na conta da Brevo. 404 conta como sucesso (já não
+ * existe lá, que é o resultado desejado).
+ */
+export async function deleteBrevoDomain(domain: string): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = getBrevoApiKey();
+  const domainName = domain.trim().toLowerCase();
+  if (!apiKey || !domainName) return { ok: false, error: 'Config em falta' };
+
+  try {
+    const res = await fetch(`${BREVO_API_BASE}/senders/domains/${encodeURIComponent(domainName)}`, {
+      method: 'DELETE',
+      headers: brevoHeaders(apiKey),
+    });
+    if (res.ok || res.status === 404) return { ok: true };
+    const body = await res.json().catch(() => ({}) as Record<string, unknown>);
+    return { ok: false, error: String((body as { message?: string }).message || `HTTP ${res.status}`) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+  }
+}

@@ -19,7 +19,7 @@ import type {
   HostingCommandResult,
 } from './directadmin-hosting-api';
 import { fetchServerStatsViaSsh, type ServerStats } from '@/lib/server-stats';
-import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
+import { provisionEmailAuthForDomain, cleanupEmailAuthForDomain } from '@/lib/domain-email-auth';
 import { ensureBrevoDomainAuth } from '@/lib/brevo-domain-auth';
 import { after } from 'next/server';
 
@@ -39,6 +39,21 @@ function runEmailDnsAutomation(domain: string) {
     after(task);
   } catch (err) {
     console.error('[email-dns-automation] after() indisponível, a usar fallback:', err);
+    void task();
+  }
+}
+
+/** Mesma lógica de proteção que runEmailDnsAutomation, mas para a limpeza
+ *  (zona DNS + domínio na Brevo) quando um domínio/conta é eliminado. */
+function runEmailDnsCleanup(domain: string) {
+  const task = () =>
+    cleanupEmailAuthForDomain(domain).catch((err) =>
+      console.error('[email-dns-cleanup]', domain, err),
+    );
+  try {
+    after(task);
+  } catch (err) {
+    console.error('[email-dns-cleanup] after() indisponível, a usar fallback:', err);
     void task();
   }
 }
@@ -552,10 +567,21 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
 
     deleteUser: async (p: Record<string, unknown>) => {
       cacheService.clear();
+      const userName = String(p.userName || p.username || '');
+      let domainsOfUser: string[] = [];
+      try {
+        const domainsData = await daGetPlain(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user: userName });
+        domainsOfUser = extractDomainKeys(domainsData);
+      } catch (err) {
+        console.error('[deleteUser] não consegui listar domínios antes de apagar', userName, err);
+      }
       const result = await daPost(credentials, 'CMD_API_SELECT_USERS', {
         delete: 'yes',
-        select0: String(p.userName || p.username || ''),
+        select0: userName,
       });
+      if (result.ok) {
+        for (const d of domainsOfUser) runEmailDnsCleanup(d);
+      }
       return { success: result.ok, error: result.error };
     },
 
@@ -711,8 +737,44 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const sites = await api.listWebsites();
       const site = sites.find((s) => s.domain === domain);
       if (!site?.owner) return { success: false, output: 'Domínio não encontrado' };
-      const result = await daPost(credentials, 'CMD_API_SELECT_USERS', { delete: 'yes', select0: site.owner });
-      return { success: result.ok, output: result.error || 'Apagado' };
+      const owner = site.owner;
+
+      const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user: owner });
+      const primaryDomain = field(userConf, 'domain');
+      const isPrimaryDomain = !primaryDomain || primaryDomain === domain;
+
+      if (isPrimaryDomain) {
+        // Este é o domínio principal da conta — no DirectAdmin não dá para
+        // apagar só ele: apagar implica apagar a conta toda (e por isso
+        // TODOS os domínios dela, tal como esperado — "elimina a conta =
+        // elimina tudo o que está dentro dela").
+        const domainsOfOwner = sites.filter((s) => s.owner === owner).map((s) => s.domain);
+        const result = await daPost(credentials, 'CMD_API_SELECT_USERS', { delete: 'yes', select0: owner });
+        if (result.ok) {
+          for (const d of domainsOfOwner) runEmailDnsCleanup(d);
+        }
+        return {
+          success: result.ok,
+          output: result.ok
+            ? `Conta "${owner}" eliminada (domínio principal) — ${domainsOfOwner.length} domínio(s) removido(s) com ela.`
+            : result.error,
+          error: result.error,
+        };
+      }
+
+      // Domínio adicional dentro da conta — remove só este, conta e
+      // restantes domínios ficam intactos.
+      const creds =
+        credentials.role === 'admin' && owner !== credentials.user
+          ? { ...credentials, user: `${credentials.user}|${owner}` }
+          : credentials;
+      const result = await daPost(creds, 'CMD_API_DOMAIN', {
+        delete: 'yes',
+        confirmed: 'yes',
+        select0: domain,
+      });
+      if (result.ok) runEmailDnsCleanup(domain);
+      return { success: result.ok, output: result.error || 'Domínio eliminado', error: result.error };
     },
 
     modifyWebsite: async (_p: Record<string, unknown>) => ({ success: true }),
