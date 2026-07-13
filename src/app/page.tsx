@@ -129,7 +129,7 @@ function HomePage() {
 
           {/* Hosting Features Section */}
           <div
-            className="bg-white dark:bg-zinc-950 py-12 sm:py-16 relative"
+            className="bg-white dark:bg-zinc-950 pt-16 pb-12 sm:pt-24 sm:pb-16 relative"
             style={{
               '--cl': 'max(24px, calc(50% - 616px))',
               clipPath:
@@ -142,12 +142,12 @@ function HomePage() {
                   <img
                     src="/assets/IMG-VD/managed-server.svg"
                     alt=""
-                    className="w-12 h-12 mb-1.5"
+                    className="w-16 h-16 mb-2"
                   />
                   <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-red-600 dark:text-red-500">
-                    <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
+                    <span className="text-red-600 dark:text-red-500 font-bold text-lg sm:text-xl">—</span>
                     {t('home.hosting.pretitle')}
-                    <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
+                    <span className="text-red-600 dark:text-red-500 font-bold text-lg sm:text-xl">—</span>
                   </span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
