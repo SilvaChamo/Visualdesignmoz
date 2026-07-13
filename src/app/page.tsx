@@ -150,7 +150,7 @@ function HomePage() {
                     <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
                   </span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4 md:whitespace-nowrap">
                   {t('home.hosting.title')}
                 </h2>
                 <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
