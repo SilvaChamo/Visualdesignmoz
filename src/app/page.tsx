@@ -194,7 +194,7 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, gray background */}
       {!hideServices && (
         <div
-          className="bg-zinc-100 dark:bg-zinc-900 pt-12 pb-12 sm:pt-16 sm:pb-16 relative -mt-[16px] z-20"
+          className="bg-zinc-100 dark:bg-zinc-900 py-[50px] relative -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
