@@ -14,8 +14,19 @@ function HomePage() {
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState('home.tabs.domains')
   const [hideServices, setHideServices] = useState(false)
+  const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
 
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
+
+  const whyUsItems = [
+    { titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc' },
+    { titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc' },
+    { titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc' },
+    { titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc' },
+    { titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc' },
+    { titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc' },
+  ]
+  const whyUsColumns = [whyUsItems.slice(0, 3), whyUsItems.slice(3, 6)]
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
@@ -201,15 +212,6 @@ function HomePage() {
               'polygon(0% 16px, var(--cl) 16px, calc(var(--cl) + 15px) 0%, calc(100% - var(--cl) - 15px) 0%, calc(100% - var(--cl)) 16px, 100% 16px, 100% calc(100% - 16px), calc(100% - var(--cl)) calc(100% - 16px), calc(100% - var(--cl) - 15px) 100%, calc(var(--cl) + 15px) 100%, var(--cl) calc(100% - 16px), 0% calc(100% - 16px))',
           } as React.CSSProperties}
         >
-          <Image
-            src="/assets/deploy.88.jpg"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-            aria-hidden
-          />
-          <div className="absolute inset-0 bg-black/60" />
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
             <div className="text-center flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] mb-0">
               <img
@@ -228,6 +230,44 @@ function HomePage() {
               <p className="text-sm text-white/70 mx-auto">
                 {t('home.whyus.subtitle')}
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 sm:mt-10">
+              {whyUsColumns.map((column, colIdx) => (
+                <div key={colIdx} className="flex flex-col gap-3">
+                  {column.map((item) => {
+                    const idx = colIdx * 3 + column.indexOf(item)
+                    const isOpen = Boolean(openWhyUs[idx])
+                    return (
+                      <div key={item.titleKey} className="border border-white/15 rounded-xl overflow-hidden bg-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setOpenWhyUs((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+                        >
+                          <span className="text-sm sm:text-base font-bold text-white">{t(item.titleKey)}</span>
+                          <svg
+                            className={`w-4 h-4 shrink-0 text-white/70 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <div className="px-4 pb-4 text-sm text-white/70">
+                            {t(item.descKey)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
