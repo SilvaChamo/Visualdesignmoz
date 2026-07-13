@@ -131,6 +131,19 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
+  // supabase.auth.getUser() pode renovar a sessão (token expirado) e escrever
+  // os novos cookies em `response`. Se a seguir devolvermos um
+  // NextResponse.redirect(...) diferente, esses cookies novos perdem-se e a
+  // sessão "desaparece" a meio da navegação — por isso todo redirect a
+  // partir daqui usa este helper para os levar consigo.
+  const redirectWithSession = (url: string | URL, status?: number) => {
+    const redirect = status ? NextResponse.redirect(url, status) : NextResponse.redirect(url)
+    response.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie)
+    })
+    return redirect
+  }
+
   const isPanelEntryPath =
     pathname === PUBLIC_PANEL_ENTRY ||
     pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`) ||
@@ -139,7 +152,7 @@ export async function proxy(request: NextRequest) {
   // Entrada: visualdesignmoz.com/painel (site) ou painel.* / (subdomínio)
   if (isPanelEntryPath) {
     if (!user) {
-      return NextResponse.redirect(buildPanelLoginUrl(request.url))
+      return redirectWithSession(buildPanelLoginUrl(request.url))
     }
     const role = resolveUserRole({
       email: user.email,
@@ -152,15 +165,15 @@ export async function proxy(request: NextRequest) {
       inner,
       request.nextUrl.search,
     )
-    return NextResponse.redirect(target)
+    return redirectWithSession(target)
   }
 
   // Site público (Vercel): rotas do painel → Hetzner (ou login)
   if (shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname)) {
     if (!user) {
-      return NextResponse.redirect(buildPanelLoginUrl(request.url))
+      return redirectWithSession(buildPanelLoginUrl(request.url))
     }
-    return NextResponse.redirect(
+    return redirectWithSession(
       resolvePanelInnerRedirect(request.url, pathname, request.nextUrl.search),
     )
   }
@@ -168,7 +181,7 @@ export async function proxy(request: NextRequest) {
   // Local / mesmo host: /dashboard, /client… — API e UI no mesmo `npm run dev`
   if (!shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
-      return NextResponse.redirect(buildPanelLoginUrl(request.url))
+      return redirectWithSession(buildPanelLoginUrl(request.url))
     }
     return response
   }
@@ -201,7 +214,7 @@ export async function proxy(request: NextRequest) {
     return response
   }
   if (!user) {
-    return NextResponse.redirect(buildPanelLoginUrl(request.url))
+    return redirectWithSession(buildPanelLoginUrl(request.url))
   }
 
   const role = resolveUserRole({
@@ -211,19 +224,19 @@ export async function proxy(request: NextRequest) {
   })
 
   if (pathname.startsWith('/client') && role !== 'client') {
-    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
   }
 
   if (pathname.startsWith('/guest') && role !== 'guest') {
-    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
   }
 
   if (pathname.startsWith('/revendedor') && role !== 'reseller' && role !== 'admin') {
-    return NextResponse.redirect(new URL(getRedirectPathForRole(role), request.url))
+    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
   }
 
   if (pathname.startsWith('/dashboard') && role === 'client') {
-    return NextResponse.redirect(new URL('/client', request.url))
+    return redirectWithSession(new URL('/client', request.url))
   }
 
   return response
