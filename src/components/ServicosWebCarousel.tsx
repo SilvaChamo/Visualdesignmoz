@@ -64,7 +64,7 @@ const TRANSITION_MS = 500
 function ServiceCard({ item, t }: { item: ServiceItem; t: (k: string) => string }) {
   const { Icon } = item
   return (
-    <div className="group w-full flex-1 flex flex-col items-center text-center bg-white dark:bg-white/10 dark:backdrop-blur-md dark:border dark:border-white/15 text-black/70 dark:text-zinc-100 p-4 sm:p-5 rounded-lg transition-colors">
+    <div className="group w-full flex-1 flex flex-col items-center text-center bg-white dark:bg-white/10 dark:backdrop-blur-md border border-zinc-200 dark:border-white/15 text-black/70 dark:text-zinc-100 p-4 sm:p-5 rounded-lg transition-all duration-300 hover:border-red-500/40 dark:hover:border-red-500/40">
       <div className="w-12 h-12 rounded-lg border border-red-600/30 bg-red-600/5 flex items-center justify-center mb-4 transition-colors group-hover:bg-red-600 group-hover:border-red-600">
         <Icon className="w-6 h-6 text-red-600 transition-colors group-hover:text-white" strokeWidth={2} />
       </div>

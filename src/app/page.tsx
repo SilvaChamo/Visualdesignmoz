@@ -145,15 +145,15 @@ function HomePage() {
                     className="w-16 h-16 mb-2"
                   />
                   <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-red-600 dark:text-red-500">
-                    <span className="text-red-600 dark:text-red-500 font-bold text-lg sm:text-xl">—</span>
+                    <span className="text-red-600 dark:text-red-500 font-normal">—</span>
                     {t('home.hosting.pretitle')}
-                    <span className="text-red-600 dark:text-red-500 font-bold text-lg sm:text-xl">—</span>
+                    <span className="text-red-600 dark:text-red-500 font-normal">—</span>
                   </span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
                   {t('home.hosting.title')}
                 </h2>
-                <p className="text-sm sm:text-base text-black/60 dark:text-zinc-400 max-w-3xl mx-auto">
+                <p className="text-sm text-black/60 dark:text-zinc-400 max-w-3xl mx-auto">
                   {t('home.hosting.subtitle')}
                 </p>
               </div>
