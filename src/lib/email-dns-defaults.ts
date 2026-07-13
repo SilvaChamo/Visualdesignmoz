@@ -25,7 +25,19 @@ export type EmailDnsRecord = {
   priority?: number;
 };
 
-/** Registos MX+SPF aplicados ao criar conta de email ou domínio novo */
+/**
+ * DMARC recomendado pela Brevo: começa em modo "monitor" (p=none) para não
+ * arriscar bloquear email legítimo logo no dia 1 — dá para apertar para
+ * quarantine/reject mais tarde, depois de confirmado que SPF/DKIM passam.
+ * O endereço rua é o da Brevo (recebem e resumem os relatórios).
+ */
+export function buildDmarcRecord(): string {
+  return 'v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com; fo=1';
+}
+
+/** Registos MX+SPF+DMARC aplicados ao criar conta de email ou domínio novo.
+ *  Não inclui DKIM — esse vem da API da Brevo (ver brevo-domain-auth.ts),
+ *  porque a chave é gerada por domínio do lado da Brevo. */
 export function getDefaultEmailDnsRecords(
   domain: string,
   serverIp?: string,
@@ -43,6 +55,12 @@ export function getDefaultEmailDnsRecords(
       name: '@',
       type: 'TXT' as const,
       value: spf,
+      ttl: 3600,
+    },
+    {
+      name: '_dmarc',
+      type: 'TXT' as const,
+      value: buildDmarcRecord(),
       ttl: 3600,
     },
     {

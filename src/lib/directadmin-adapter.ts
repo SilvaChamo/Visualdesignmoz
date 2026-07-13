@@ -19,6 +19,29 @@ import type {
   HostingCommandResult,
 } from './directadmin-hosting-api';
 import { fetchServerStatsViaSsh, type ServerStats } from '@/lib/server-stats';
+import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
+import { ensureBrevoDomainAuth } from '@/lib/brevo-domain-auth';
+import { after } from 'next/server';
+
+/**
+ * Dispara a automação de SPF/DKIM/DMARC sem bloquear a resposta da criação
+ * do domínio. Tenta usar after() (mantém o processo vivo em serverless até
+ * a tarefa terminar); se after() não puder ser usado neste contexto (ex.
+ * chamado fora de uma rota/pedido HTTP), cai para fire-and-forget simples
+ * em vez de rebentar a criação do domínio.
+ */
+function runEmailDnsAutomation(domain: string) {
+  const task = () =>
+    provisionEmailAuthForDomain(domain).catch((err) =>
+      console.error('[email-dns-automation]', domain, err),
+    );
+  try {
+    after(task);
+  } catch (err) {
+    console.error('[email-dns-automation] after() indisponível, a usar fallback:', err);
+    void task();
+  }
+}
 
 type DaData = Record<string, unknown>;
 
@@ -606,6 +629,9 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
           cgi: 'ON',
           notify: 'no',
         });
+        if (result.ok && p.skipEmailDnsAutomation !== true) {
+          runEmailDnsAutomation(domain);
+        }
         return { success: result.ok, output: result.error || 'Domínio criado', error: result.error };
       }
 
@@ -622,6 +648,9 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         ip: 'shared',
         notify: 'no',
       });
+      if (result.ok && p.skipEmailDnsAutomation !== true) {
+        runEmailDnsAutomation(domain);
+      }
       return { success: result.ok, output: result.error || 'Website criado', error: result.error };
     },
 
@@ -794,15 +823,24 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
     setEmailLimits: async (_p: Record<string, unknown>) => ({ success: true }),
 
     enableDKIM: async (domain: string) => {
+      // O envio real de email é feito via Brevo (ver brevo-mail.ts), por
+      // isso a chave DKIM que interessa é a que a Brevo gera por domínio —
+      // não uma chave local do servidor. Isto pede a chave à Brevo e grava
+      // o registo TXT real no DirectAdmin (antes disto escrevia só um
+      // placeholder de texto, nunca uma chave DKIM válida).
+      const auth = await ensureBrevoDomainAuth(domain);
+      if (!auth.ok || !auth.dkim) {
+        return { success: false, message: auth.error || 'Brevo não devolveu registo DKIM' };
+      }
       const result = await daPost(credentials, 'CMD_API_DNS_CONTROL', {
         action: 'add',
         domain,
         type: 'TXT',
-        name: `default._domainkey.${domain}`,
-        value: 'v=DKIM1; generating...',
-        ttl: '300',
+        name: `${auth.dkim.hostName || 'mail._domainkey'}.${domain}`,
+        value: auth.dkim.value,
+        ttl: '3600',
       });
-      return { success: result.ok, message: result.ok ? 'DKIM activado' : result.error };
+      return { success: result.ok, message: result.ok ? 'DKIM activado (chave real da Brevo)' : result.error };
     },
 
     getDKIMStatus: async (domain: string): Promise<HostingCommandResult> => {
@@ -810,12 +848,18 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       let record = '';
       for (const v of Object.values(data)) {
         const s = String(v);
-        if (s.includes('v=DKIM1')) {
+        if (s.includes('v=DKIM1') || s.includes('k=rsa')) {
           record = s;
           break;
         }
       }
-      return { enabled: Boolean(record), record, selector: 'default', publicKey: record, output: record };
+      return {
+        enabled: Boolean(record) && !record.includes('generating...'),
+        record,
+        selector: 'mail',
+        publicKey: record,
+        output: record,
+      };
     },
 
     issueSSL: async (domain: string, options?: { force?: boolean; renew?: boolean; autoRenewDays?: string }) => {
