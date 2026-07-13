@@ -29,11 +29,11 @@ export const panelCard =
 
 /** Grelha de ferramentas do dashboard — 2 colunas em mobile, mais em ecrãs grandes. */
 export const panelDashboardGrid =
-  'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4';
+  'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4';
 
 /** Variante compacta (ícones pequenos no dashboard tipo cPanel). */
 export const panelDashboardGridCompact =
-  'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3';
+  'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 md:gap-3';
 
 /** Cartão de ferramenta do dashboard — contorno suave visível em fundo branco. */
 export const panelDashboardToolCard =

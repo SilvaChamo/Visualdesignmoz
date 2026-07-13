@@ -209,7 +209,7 @@ function DashboardToolsCarousel({
           <span className="text-sm font-bold text-gray-800 dark:text-zinc-100">Mais ferramentas</span>
           <span className="ml-2 text-xs font-normal text-gray-400">({tools.length})</span>
         </div>
-        <div className={`${panelSectionPadding} grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3`}>
+        <div className={`${panelSectionPadding} grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3 lg:grid-cols-5 xl:grid-cols-6`}>
           {tools.map((tool, i) => (
             <ToolCard key={`${tool.id}-${i}`} tool={tool} onClick={() => onToolClick(tool)} />
           ))}
@@ -291,7 +291,7 @@ function SectionAccordion({
             className={
               twoColumns
                 ? 'grid grid-cols-2 gap-2 md:gap-3'
-                : 'grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4'
+                : 'grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
             }
           >
             {section.tools.map((tool, i) => (
