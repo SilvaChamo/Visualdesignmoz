@@ -14,7 +14,35 @@ const STORAGE_KEY = 'vd-theme';
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/** Domínio do cookie partilhado — mesmo padrão usado para a sessão de login
+ *  (visualdesignmoz.com + painel.visualdesignmoz.com partilham o cookie). */
+function getSharedCookieDomain(): string | undefined {
+  try {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app')) {
+      return undefined;
+    }
+    if (host.endsWith('visualdesignmoz.com')) return '.visualdesignmoz.com';
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readCookieTheme(): ThemeMode | null {
+  try {
+    const match = document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/);
+    return match ? (match[1] as ThemeMode) : null;
+  } catch {
+    return null;
+  }
+}
+
 function readStoredTheme(): ThemeMode | null {
+  // O cookie é a fonte de verdade partilhada entre site e painel — só cai
+  // para localStorage se ainda não houver cookie (ex: antes desta correção).
+  const fromCookie = readCookieTheme();
+  if (fromCookie) return fromCookie;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
@@ -42,6 +70,14 @@ function resolveTheme(): ThemeMode {
 function persistTheme(theme: ThemeMode) {
   try {
     localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const domain = getSharedCookieDomain();
+    const domainPart = domain ? `; domain=${domain}` : '';
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${STORAGE_KEY}=${theme}; path=/; max-age=31536000; SameSite=Lax${domainPart}${secure}`;
   } catch {
     /* ignore */
   }
