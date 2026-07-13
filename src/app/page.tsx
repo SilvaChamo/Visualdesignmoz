@@ -137,28 +137,28 @@ function HomePage() {
             } as React.CSSProperties}
           >
             <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-              <div className="text-center mb-10 sm:mb-12 flex flex-col items-center">
+              <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px]">
                 <div className="flex flex-col items-center mb-3">
                   <img
                     src="/assets/IMG-VD/managed-server.svg"
                     alt=""
                     className="w-16 h-16 mb-2"
                   />
-                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-red-600 dark:text-red-500">
-                    <span className="text-red-600 dark:text-red-500 font-normal">—</span>
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
+                    <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
                     {t('home.hosting.pretitle')}
-                    <span className="text-red-600 dark:text-red-500 font-normal">—</span>
+                    <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
                   </span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
                   {t('home.hosting.title')}
                 </h2>
-                <p className="text-sm text-black/60 dark:text-zinc-400 max-w-3xl mx-auto">
+                <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
                   {t('home.hosting.subtitle')}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                   { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc' },
                   { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc' },
