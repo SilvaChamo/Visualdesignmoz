@@ -643,8 +643,21 @@ async function finishLog(
   }
 }
 
+// Throttle global: evita disparar syncs em background com demasiada frequência.
+// Mutações no painel (DNS, contas, etc.) podem chamar scheduleDaSync várias
+// vezes seguidas — este mecanismo garante apenas 1 sync por janela de 5 min.
+let _lastScheduledAt = 0;
+const SCHEDULE_THROTTLE_MS = 5 * 60 * 1000; // 5 minutos
+
 /** Sync rápido após mutação no painel (não bloqueia UI). */
 export function scheduleDaSync(delayMs = 2000) {
+  const now = Date.now();
+  if (now - _lastScheduledAt < SCHEDULE_THROTTLE_MS) {
+    console.info('[da-sync] scheduleDaSync: throttled (último sync há menos de 5 min).');
+    return;
+  }
+  _lastScheduledAt = now;
+
   if (typeof setImmediate !== 'undefined') {
     setImmediate(() => {
       setTimeout(() => {
