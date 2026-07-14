@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow } from 'lucide-react'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 import { CompactFooter } from '@/components/layout/CompactFooter'
@@ -19,12 +19,12 @@ function HomePage() {
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
   const whyUsItems = [
-    { titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc' },
-    { titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc' },
-    { titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc' },
-    { titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc' },
-    { titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc' },
-    { titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc' },
+    { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc' },
+    { Icon: Server, titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc' },
+    { Icon: LifeBuoy, titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc' },
+    { Icon: ShieldCheck, titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc' },
+    { Icon: RefreshCw, titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc' },
+    { Icon: Sparkles, titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc' },
   ]
   const whyUsColumns = [whyUsItems.slice(0, 3), whyUsItems.slice(3, 6)]
 
@@ -205,7 +205,7 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, image background */}
       {!hideServices && (
         <div
-          className="bg-zinc-900 py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-100 dark:bg-zinc-900 py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -219,55 +219,61 @@ function HomePage() {
                 alt=""
                 className="w-12 h-12 mb-2"
               />
-              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-500 mb-2">
-                <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
                 {t('home.whyus.pretitle')}
-                <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
               </span>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-3">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-3">
                 {t('home.whyus.title')}
               </h2>
-              <p className="text-sm text-white/70 mx-auto">
+              <p className="text-sm text-black/60 dark:text-white/70 mx-auto">
                 {t('home.whyus.subtitle')}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 sm:mt-10">
-              {whyUsColumns.map((column, colIdx) => (
-                <div key={colIdx} className="flex flex-col gap-3">
-                  {column.map((item) => {
-                    const idx = colIdx * 3 + column.indexOf(item)
-                    const isOpen = Boolean(openWhyUs[idx])
-                    return (
-                      <div key={item.titleKey} className="border border-white/15 rounded-xl overflow-hidden bg-white/5">
-                        <button
-                          type="button"
-                          onClick={() => setOpenWhyUs((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
-                        >
-                          <span className="text-sm sm:text-base font-bold text-white">{t(item.titleKey)}</span>
-                          <svg
-                            className={`w-4 h-4 shrink-0 text-white/70 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+            <div className="mt-8 sm:mt-10 mx-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {whyUsColumns.map((column, colIdx) => (
+                  <div key={colIdx} className="flex flex-col gap-3">
+                    {column.map((item) => {
+                      const idx = colIdx * 3 + column.indexOf(item)
+                      const isOpen = Boolean(openWhyUs[idx])
+                      const { Icon } = item
+                      return (
+                        <div key={item.titleKey} className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOpenWhyUs((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                            className="w-full flex items-stretch text-left bg-white dark:bg-zinc-800 rounded-md overflow-hidden shadow-sm"
                           >
-                            <polyline points="6 9 12 15 18 9" />
-                          </svg>
-                        </button>
-                        {isOpen && (
-                          <div className="px-4 pb-4 text-sm text-white/70">
-                            {t(item.descKey)}
+                            <span className="shrink-0 w-20 flex items-center justify-center bg-red-600">
+                              <Icon className="w-6 h-6 text-white" />
+                            </span>
+                            <span className="flex-1 flex items-center justify-between gap-3 px-4 py-5">
+                              <span className="text-sm sm:text-base font-bold text-black dark:text-white">
+                                {t(item.titleKey)}
+                              </span>
+                              <span className="shrink-0 w-6 h-6 flex items-center justify-center text-red-600 dark:text-red-500 text-lg font-bold leading-none">
+                                {isOpen ? '−' : '+'}
+                              </span>
+                            </span>
+                          </button>
+                          <div
+                            className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="px-4 py-8 text-sm text-black/70 dark:text-white/70 bg-white dark:bg-zinc-800 rounded-md shadow-sm">
+                                {t(item.descKey)}
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
