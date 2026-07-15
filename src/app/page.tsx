@@ -357,7 +357,7 @@ function HomePage() {
                 Hospedagem
                 <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
               </span>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-black dark:text-white mb-3">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-3">
                 Planos e preços de hospedagem
               </h2>
               <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
@@ -365,7 +365,7 @@ function HomePage() {
               </p>
               
               <div className="flex items-center justify-center mt-12 gap-3">
-                <span className="h-[1.5px] w-[50px] bg-zinc-450 dark:bg-zinc-600"></span>
+                <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
                 <div
                   className="bg-zinc-400 dark:bg-zinc-600 p-[1px]"
                   style={{
@@ -373,7 +373,7 @@ function HomePage() {
                   }}
                 >
                   <div
-                    className="bg-zinc-100 dark:bg-zinc-900 p-0 flex items-stretch gap-0 h-9"
+                    className="bg-zinc-200 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
                     style={{
                       clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                     }}
