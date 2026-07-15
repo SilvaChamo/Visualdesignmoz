@@ -15,6 +15,15 @@ function HomePage() {
   const [activeTab, setActiveTab] = useState('home.tabs.domains')
   const [hideServices, setHideServices] = useState(false)
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
+  const [subscribed, setSubscribed] = useState(false)
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubscribed(true)
+    setTimeout(() => {
+      setSubscribed(false)
+    }, 5000)
+  }
 
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
@@ -280,6 +289,180 @@ function HomePage() {
                     })}
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hosting Plans & Prices Section */}
+      {!hideServices && (
+        <div
+          className="bg-white dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          style={{
+            '--cl': 'max(24px, calc(50% - 616px))',
+            clipPath:
+              'polygon(0% 0%, var(--cl) 0%, calc(var(--cl) + 15px) 16px, calc(100% - var(--cl) - 15px) 16px, calc(100% - var(--cl)) 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 15px) calc(100% - 16px), calc(var(--cl) + 15px) calc(100% - 16px), var(--cl) 100%, 0% 100%)',
+          } as React.CSSProperties}
+        >
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+            <div className="text-center flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] mb-10 sm:mb-12">
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+                {t('pricing.hosting.title')}
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-3">
+                {t('pricing.hosting.title')}
+              </h2>
+              <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
+                {t('pricing.hosting.subtitle')}
+              </p>
+            </div>
+
+            <div className="mx-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  {
+                    nameKey: 'pricing.hosting.basic',
+                    price: '250',
+                    popular: false,
+                    features: [
+                      '10 GB ' + t('pricing.hosting.storage'),
+                      '100 GB ' + t('pricing.hosting.bandwidth'),
+                      '5 ' + t('pricing.hosting.emails'),
+                      '1 ' + t('pricing.hosting.databases'),
+                      t('pricing.hosting.backup'),
+                    ]
+                  },
+                  {
+                    nameKey: 'pricing.hosting.pro',
+                    price: '500',
+                    popular: true,
+                    features: [
+                      '50 GB ' + t('pricing.hosting.storage'),
+                      '500 GB ' + t('pricing.hosting.bandwidth'),
+                      '20 ' + t('pricing.hosting.emails'),
+                      '5 ' + t('pricing.hosting.databases'),
+                      t('pricing.hosting.backup'),
+                      t('pricing.hosting.ssl'),
+                    ]
+                  },
+                  {
+                    nameKey: 'pricing.hosting.business',
+                    price: '1.000',
+                    popular: false,
+                    features: [
+                      '100 GB ' + t('pricing.hosting.storage') + ' SSD',
+                      '1 TB ' + t('pricing.hosting.bandwidth'),
+                      '50 ' + t('pricing.hosting.emails'),
+                      '10 ' + t('pricing.hosting.databases'),
+                      t('pricing.hosting.backup'),
+                      t('pricing.hosting.ssl'),
+                      t('pricing.hosting.priority'),
+                    ]
+                  },
+                  {
+                    nameKey: 'pricing.hosting.enterprise',
+                    price: '2.500',
+                    popular: false,
+                    features: [
+                      '200 GB ' + t('pricing.hosting.storage') + ' SSD',
+                      '2 TB ' + t('pricing.hosting.bandwidth'),
+                      '100 ' + t('pricing.hosting.emails'),
+                      '20 ' + t('pricing.hosting.databases'),
+                      t('pricing.hosting.backup'),
+                      t('pricing.hosting.ssl'),
+                      t('pricing.hosting.support247'),
+                      t('pricing.hosting.dedicatedIp'),
+                    ]
+                  }
+                ].map((plan) => (
+                  <div
+                    key={plan.nameKey}
+                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg p-6 hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
+                      plan.popular
+                        ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
+                        : 'border-zinc-200/80 dark:border-white/10 hover:border-red-500/40 dark:hover:border-red-500/40'
+                    }`}
+                  >
+                    {plan.popular && (
+                      <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-10">
+                        Popular
+                      </span>
+                    )}
+                    <div>
+                      <h4 className="text-lg font-bold text-black dark:text-white mb-2">{t(plan.nameKey)}</h4>
+                      <div className="text-2xl sm:text-3xl font-extrabold text-red-600 dark:text-red-500 mb-4 flex items-baseline gap-1">
+                        {plan.price} MZN
+                        <span className="text-xs sm:text-sm font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
+                      </div>
+                      <ul className="space-y-2 mb-6">
+                        {plan.features.map((feature, fIdx) => (
+                          <li key={fIdx} className="flex items-start text-xs sm:text-sm text-black/70 dark:text-zinc-300">
+                            <span className="text-red-600 dark:text-red-500 mr-2 font-bold">✓</span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
+                      plan.popular
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-md'
+                        : 'bg-black/5 dark:bg-white/10 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
+                    }`}>
+                      {t('pricing.hosting.hire')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Newsletter Section */}
+      {!hideServices && (
+        <div
+          className="bg-zinc-100 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          style={{
+            '--cl': 'max(24px, calc(50% - 616px))',
+            clipPath:
+              'polygon(0% 16px, var(--cl) 16px, calc(var(--cl) + 15px) 0%, calc(100% - var(--cl) - 15px) 0%, calc(100% - var(--cl)) 16px, 100% 16px, 100% calc(100% - 16px), calc(100% - var(--cl)) calc(100% - 16px), calc(100% - var(--cl) - 15px) 100%, calc(var(--cl) + 15px) 100%, var(--cl) calc(100% - 16px), 0% calc(100% - 16px))',
+          } as React.CSSProperties}
+        >
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+            <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
+              <div className="text-center md:text-left">
+                <h3 className="text-lg sm:text-xl font-bold text-black dark:text-white mb-1">
+                  {t('home.newsletter.title')}
+                </h3>
+                <p className="text-xs sm:text-sm text-black/60 dark:text-white/70">
+                  {t('home.newsletter.subtitle')}
+                </p>
+              </div>
+
+              <div className="w-full md:w-auto max-w-md">
+                {subscribed ? (
+                  <div className="bg-green-600/10 dark:bg-green-500/10 border border-green-600/30 dark:border-green-500/30 text-green-600 dark:text-green-500 px-4 py-2.5 rounded-md text-sm font-medium flex items-center justify-center gap-2">
+                    <span>✓</span> {t('home.newsletter.success')}
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full">
+                    <input
+                      type="email"
+                      placeholder={t('home.newsletter.placeholder')}
+                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[200px]"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      className="px-5 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors whitespace-nowrap shadow-sm"
+                    >
+                      {t('home.newsletter.button')}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>
