@@ -367,38 +367,31 @@ function HomePage() {
               <div className="flex items-center justify-center mt-12 gap-3">
                 <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
                 <div
-                  className="bg-zinc-400 dark:bg-zinc-600 p-[1px]"
+                  className="bg-zinc-200 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
                   style={{
                     clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                   }}
                 >
-                  <div
-                    className="bg-zinc-200 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
-                    style={{
-                      clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
-                    }}
-                  >
-                    {[
-                      { id: 'monthly', label: 'Mensal' },
-                      { id: 'semiannual', label: 'Semestral' },
-                      { id: 'annual', label: 'Anual' }
-                    ].map((cycle) => (
-                      <button
-                        key={cycle.id}
-                        onClick={() => setBillingCycle(cycle.id as any)}
-                        className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
-                          billingCycle === cycle.id
-                            ? 'bg-red-600 text-white shadow-sm'
-                            : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
-                        }`}
-                        style={{
-                          clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
-                        }}
-                      >
-                        {cycle.label}
-                      </button>
-                    ))}
-                  </div>
+                  {[
+                    { id: 'monthly', label: 'Mensal' },
+                    { id: 'semiannual', label: 'Semestral' },
+                    { id: 'annual', label: 'Anual' }
+                  ].map((cycle) => (
+                    <button
+                      key={cycle.id}
+                      onClick={() => setBillingCycle(cycle.id as any)}
+                      className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
+                        billingCycle === cycle.id
+                          ? 'bg-red-600 text-white shadow-sm'
+                          : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
+                      }`}
+                      style={{
+                        clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                      }}
+                    >
+                      {cycle.label}
+                    </button>
+                  ))}
                 </div>
                 <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
               </div>
@@ -569,7 +562,7 @@ function HomePage() {
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
             <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
               <div className="text-center md:text-left">
-                <h3 className="text-lg sm:text-xl font-bold text-black dark:text-white mb-1">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-black dark:text-white mb-1">
                   {t('home.newsletter.title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-black/60 dark:text-white/70">
@@ -577,13 +570,13 @@ function HomePage() {
                 </p>
               </div>
 
-              <div className="w-full md:w-auto max-w-lg md:flex-1 flex justify-end">
+              <div className="w-full md:w-auto max-w-2xl md:flex-1 flex justify-end">
                 {subscribed ? (
                   <div className="bg-green-600/10 dark:bg-green-500/10 border border-green-600/30 dark:border-green-500/30 text-green-600 dark:text-green-500 px-4 py-2.5 rounded-md text-sm font-medium flex items-center justify-center gap-2 w-full max-w-md">
                     <span>✓</span> {t('home.newsletter.success')}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-md md:max-w-lg">
+                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-xl md:max-w-2xl">
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}

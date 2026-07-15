@@ -80,38 +80,31 @@ export default function PrecosHospedagem() {
           <div className="flex items-center justify-center mb-10 gap-3">
             <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
             <div
-              className="bg-zinc-400 dark:bg-zinc-600 p-[1px]"
+              className="bg-zinc-200 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
               style={{
                 clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
               }}
             >
-              <div
-                className="bg-zinc-100 dark:bg-zinc-900 p-0 flex items-stretch gap-0 h-9"
-                style={{
-                  clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
-                }}
-              >
-                {[
-                  { id: 'monthly', label: 'Mensal' },
-                  { id: 'semiannual', label: 'Semestral' },
-                  { id: 'annual', label: 'Anual' }
-                ].map((cycle) => (
-                  <button
-                    key={cycle.id}
-                    onClick={() => setBillingCycle(cycle.id as any)}
-                    className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
-                      billingCycle === cycle.id
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
-                    }`}
-                    style={{
-                      clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
-                    }}
-                  >
-                    {cycle.label}
-                  </button>
-                ))}
-              </div>
+              {[
+                { id: 'monthly', label: 'Mensal' },
+                { id: 'semiannual', label: 'Semestral' },
+                { id: 'annual', label: 'Anual' }
+              ].map((cycle) => (
+                <button
+                  key={cycle.id}
+                  onClick={() => setBillingCycle(cycle.id as any)}
+                  className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
+                    billingCycle === cycle.id
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
+                  }`}
+                  style={{
+                    clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                  }}
+                >
+                  {cycle.label}
+                </button>
+              ))}
             </div>
             <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
           </div>
