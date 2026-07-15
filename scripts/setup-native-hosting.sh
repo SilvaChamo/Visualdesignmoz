@@ -15,7 +15,8 @@
 set -e
 
 NATIVE_DIR="/etc/httpd/conf/native-sites"
-INCLUDE_FILE="/etc/httpd/conf.d/native-sites.conf"
+INCLUDE_FILE="/etc/httpd/conf/extra/native-sites.conf"
+HTTPD_CONF="/etc/httpd/conf/httpd.conf"
 
 echo "==> A criar pasta de configs nativas..."
 mkdir -p "$NATIVE_DIR"
@@ -28,14 +29,23 @@ if [ ! -f "$INCLUDE_FILE" ]; then
 IncludeOptional ${NATIVE_DIR}/*.conf
 EOF
   echo "    Criado: $INCLUDE_FILE"
+fi
+
+# A DirectAdmin usa /etc/httpd/conf/extra/ (não /etc/httpd/conf.d/), por
+# isso o ficheiro acima só é lido se houver um "Include" a apontar para ele
+# no httpd.conf principal.
+if ! grep -q "native-sites.conf" "$HTTPD_CONF"; then
+  echo "Include conf/extra/native-sites.conf" >> "$HTTPD_CONF"
+  echo "    Adicionada linha Include ao $HTTPD_CONF"
 else
-  echo "    Já existia, não mexi: $INCLUDE_FILE"
+  echo "    Include já existia no $HTTPD_CONF, não mexi."
 fi
 
 echo "==> A testar a configuração do Apache..."
 if ! apachectl configtest; then
-  echo "ERRO: a configuração do Apache ficou inválida. A reverter o include..."
+  echo "ERRO: a configuração do Apache ficou inválida. A reverter tudo..."
   rm -f "$INCLUDE_FILE"
+  sed -i '/native-sites\.conf/d' "$HTTPD_CONF"
   exit 1
 fi
 
