@@ -28,20 +28,34 @@ function HomePage() {
   }
 
   const getPlanPrice = (basePrice: number) => {
-    let finalPrice = basePrice
-    let billingText = ''
+    let mainPrice = basePrice
+    let cycleSuffix = `/${t('pricing.hosting.month')}`
+    let monthlyEquivalent = basePrice
+    let savings = 0
+    let savingsText = ''
     
     if (billingCycle === 'semiannual') {
-      finalPrice = Math.round(basePrice * 0.9)
-      billingText = `Cobrado semestralmente: ${formatPrice(finalPrice * 6)} MT`
+      const monthlyDiscounted = Math.round(basePrice * 0.9)
+      mainPrice = monthlyDiscounted * 6
+      cycleSuffix = '/6 meses'
+      monthlyEquivalent = monthlyDiscounted
+      savings = basePrice - monthlyDiscounted
+      savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     } else if (billingCycle === 'annual') {
-      finalPrice = Math.round(basePrice * 0.8)
-      billingText = `Cobrado anualmente: ${formatPrice(finalPrice * 12)} MT`
-    } else {
-      billingText = 'Cobrado mensalmente'
+      const monthlyDiscounted = Math.round(basePrice * 0.8)
+      mainPrice = monthlyDiscounted * 12
+      cycleSuffix = '/12 meses'
+      monthlyEquivalent = monthlyDiscounted
+      savings = basePrice - monthlyDiscounted
+      savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     }
     
-    return { price: formatPrice(finalPrice), billingText }
+    return {
+      price: formatPrice(mainPrice),
+      cycleSuffix,
+      monthlyEquivalent: formatPrice(monthlyEquivalent),
+      savingsText
+    }
   }
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -347,7 +361,12 @@ function HomePage() {
               </p>
               
               <div className="flex justify-center mt-6">
-                <div className="bg-black/5 dark:bg-white/5 p-1 rounded-full border border-zinc-200/60 dark:border-white/5 flex items-center gap-1">
+                <div
+                  className="bg-black/5 dark:bg-white/5 p-1 flex items-center gap-1.5 border border-zinc-200/60 dark:border-white/5"
+                  style={{
+                    clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
+                  }}
+                >
                   {[
                     { id: 'monthly', label: 'Mensal' },
                     { id: 'semiannual', label: 'Semestral' },
@@ -356,11 +375,14 @@ function HomePage() {
                     <button
                       key={cycle.id}
                       onClick={() => setBillingCycle(cycle.id as any)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
                         billingCycle === cycle.id
                           ? 'bg-red-600 text-white shadow-sm'
                           : 'text-black/60 dark:text-zinc-400 hover:text-black dark:hover:text-white'
                       }`}
+                      style={{
+                        clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                      }}
                     >
                       {cycle.label}
                     </button>
@@ -441,7 +463,7 @@ function HomePage() {
                     ]
                   }
                 ].map((plan) => {
-                  const { price: planPrice, billingText } = getPlanPrice(plan.basePrice);
+                  const { price: planPrice, cycleSuffix, monthlyEquivalent, savingsText } = getPlanPrice(plan.basePrice);
                   return (
                     <div
                       key={plan.nameKey}
@@ -452,9 +474,18 @@ function HomePage() {
                       }`}
                     >
                       {plan.popular && (
-                        <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-20">
-                          {t('pricing.hosting.recommended')}
-                        </span>
+                        <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 z-20">
+                          <span className="h-[1.5px] w-5 bg-red-600"></span>
+                          <span
+                            className="bg-red-600 text-white text-[9px] uppercase font-bold px-3 py-1.5 shadow-sm tracking-wider"
+                            style={{
+                              clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                            }}
+                          >
+                            {t('pricing.hosting.recommended')}
+                          </span>
+                          <span className="h-[1.5px] w-5 bg-red-600"></span>
+                        </div>
                       )}
                       <div className={`p-5 text-center rounded-t-lg relative ${
                         plan.popular
@@ -470,23 +501,30 @@ function HomePage() {
                           <span className={`text-2xl sm:text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
                             {planPrice} MT
                           </span>
-                          <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold mt-0.5 ${
-                            plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-500'
-                          }`}>
-                            {t('pricing.hosting.month')}
-                          </span>
-                          {billingCycle !== 'monthly' && (
-                            <span className={`text-[9px] font-bold mt-1 uppercase tracking-wide ${
-                              plan.popular ? 'text-red-400' : 'text-red-600 dark:text-red-400'
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold ${
+                              plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-500'
                             }`}>
-                              {billingText}
+                              {cycleSuffix}
+                            </span>
+                            {savingsText && (
+                              <span className="bg-red-600/10 text-red-600 dark:text-red-400 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+                                {savingsText}
+                              </span>
+                            )}
+                          </div>
+                          {billingCycle !== 'monthly' && (
+                            <span className={`text-[10px] font-medium mt-1.5 opacity-85 ${
+                              plan.popular ? 'text-zinc-300' : 'text-black/60 dark:text-zinc-400'
+                            }`}>
+                              Equivalente a {monthlyEquivalent} MT/mês
                             </span>
                           )}
                         </div>
-                        {/* Divider line that doesn't touch the edges */}
+                        {/* Divider line that doesn't touch the edges (5px thickness) */}
                         <div className="absolute bottom-0 left-6 right-6">
-                          <div className={`h-[1.5px] w-full ${
-                            plan.popular ? 'bg-red-600' : 'bg-black/20 dark:bg-white/20'
+                          <div className={`h-[5px] w-full ${
+                            plan.popular ? 'bg-red-600' : 'bg-black/25 dark:bg-white/20'
                           }`} />
                         </div>
                       </div>
