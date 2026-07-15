@@ -13,25 +13,6 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Instalar dependências
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: Build Next.js
-        run: CI='' npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
       - name: Configurar chave SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -42,24 +23,37 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p 2234 -H 37.27.17.25 >> ~/.ssh/known_hosts
 
-      - name: Enviar ficheiros para Hetzner
-        run: |
-          rsync -az --delete \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '*.env*' \
-            --exclude '.DS_Store' \
-            -e "ssh -p 2234" \
-            ./ root@37.27.17.25:/opt/visualdesign-panel/
-
-      - name: Instalar dependências no servidor e reiniciar PM2
+      - name: Deploy no servidor (git pull real + build + restart)
         run: |
           ssh -p 2234 root@37.27.17.25 '
-            cd /opt/visualdesign-panel &&
-            npm ci --prefer-offline --no-audit --no-fund --omit=dev &&
+            set -e
+            cd /opt/visualdesign-panel
+            git fetch origin
+            git reset --hard "${{ github.sha }}"
+            npm ci --prefer-offline --no-audit --no-fund
+            CI="" npm run build
             pm2 restart visualdesign-panel --update-env || pm2 start npm --name "visualdesign-panel" -- start
             pm2 save
           '
 
-      - name: Deploy concluido
-        run: echo "Deploy para painel.visualdesignmoz.com concluido com sucesso!"
+      - name: Verificar que o servidor ficou no commit certo
+        run: |
+          DEPLOYED_SHA=$(ssh -p 2234 root@37.27.17.25 'cd /opt/visualdesign-panel && git rev-parse HEAD')
+          echo "Commit no servidor: $DEPLOYED_SHA"
+          echo "Commit esperado:    ${{ github.sha }}"
+          if [ "$DEPLOYED_SHA" != "${{ github.sha }}" ]; then
+            echo "❌ ERRO: o servidor NÃO ficou no commit esperado. Deploy falhou de verdade."
+            exit 1
+          fi
+          echo "✅ Commit confirmado no servidor."
+
+      - name: Verificar que o site responde depois do reinício
+        run: |
+          sleep 8
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://painel.visualdesignmoz.com/login)
+          echo "Status de /login depois do deploy: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ ERRO: /login devolveu $STATUS em vez de 200 depois do restart."
+            exit 1
+          fi
+          echo "✅ Site respondeu normalmente depois do deploy."
