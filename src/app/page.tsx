@@ -209,7 +209,7 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, image background */}
       {!hideServices && (
         <div
-          className="bg-zinc-100 dark:bg-zinc-900 py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-100 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
