@@ -75,7 +75,7 @@ export default function PrecosHospedagem() {
       </div>
 
       {/* Pricing Section */}
-      <div className="bg-white dark:bg-zinc-900 py-16">
+      <div className="bg-white dark:bg-zinc-800 py-16">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="flex items-center justify-center mb-10 gap-3">
             <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>

@@ -343,7 +343,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-white dark:bg-zinc-900 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-white dark:bg-zinc-800 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -580,12 +580,12 @@ function HomePage() {
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}
-                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full"
+                      className="px-4 py-3 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full"
                       required
                     />
                     <button
                       type="submit"
-                      className="px-5 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors whitespace-nowrap shadow-sm"
+                      className="px-5 py-3 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors whitespace-nowrap shadow-sm"
                     >
                       {t('home.newsletter.button')}
                     </button>
