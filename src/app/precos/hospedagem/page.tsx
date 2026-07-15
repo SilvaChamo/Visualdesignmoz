@@ -73,9 +73,10 @@ export default function PrecosHospedagem() {
       {/* Pricing Section */}
       <div className="bg-white py-16">
         <div className="container mx-auto max-w-7xl px-6">
-          <div className="flex justify-center mb-10">
+          <div className="flex items-center justify-center mb-10 gap-3">
+            <span className="h-[1.5px] w-[50px] bg-zinc-300 dark:bg-zinc-700"></span>
             <div
-              className="bg-black/5 dark:bg-white/5 p-1 flex items-center gap-1.5 border border-zinc-200/60 dark:border-white/5"
+              className="bg-zinc-200 dark:bg-zinc-800 p-1 flex items-center gap-1.5 border border-zinc-300 dark:border-zinc-700"
               style={{
                 clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
               }}
@@ -101,6 +102,7 @@ export default function PrecosHospedagem() {
                 </button>
               ))}
             </div>
+            <span className="h-[1.5px] w-[50px] bg-zinc-300 dark:bg-zinc-700"></span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -173,7 +175,7 @@ export default function PrecosHospedagem() {
                 ]
               }
             ].map((plan) => {
-              const { price: planPrice, cycleSuffix, monthlyEquivalent, savingsText } = getPlanPrice(plan.basePrice);
+              const { price: planPrice, savingsText } = getPlanPrice(plan.basePrice);
               return (
                 <div
                   key={plan.nameKey}
@@ -182,23 +184,23 @@ export default function PrecosHospedagem() {
                   }`}
                 >
                   {plan.popular && (
-                    <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 z-20">
-                      <span className="h-[1.5px] w-5 bg-red-600"></span>
+                    <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 flex items-center gap-2.5 z-20">
+                      <span className="h-[1.5px] w-[30px] bg-red-600"></span>
                       <span
-                        className="bg-red-600 text-white text-[9px] uppercase font-bold px-3 py-1.5 shadow-sm tracking-wider"
+                        className="bg-red-600 text-white text-[10px] sm:text-xs uppercase font-extrabold px-4 py-1.5 shadow-sm tracking-wider"
                         style={{
-                          clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                          clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                         }}
                       >
                         {t('pricing.hosting.recommended')}
                       </span>
-                      <span className="h-[1.5px] w-5 bg-red-600"></span>
+                      <span className="h-[1.5px] w-[30px] bg-red-600"></span>
                     </div>
                   )}
                   <div className={`p-5 text-center rounded-t-lg relative ${
                     plan.popular
                       ? 'bg-zinc-950 dark:bg-black text-white'
-                      : 'bg-black/[0.07] dark:bg-white/10 text-black dark:text-white'
+                      : 'bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white'
                   }`}>
                     <h4 className={`text-xl font-extrabold uppercase tracking-wide mb-0.5 ${
                       plan.popular ? 'text-white' : 'text-black dark:text-white'
@@ -207,32 +209,18 @@ export default function PrecosHospedagem() {
                       <span className={`text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
                         {planPrice} MT
                       </span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold ${
-                          plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-505'
-                        }`}>
-                          {cycleSuffix}
-                        </span>
-                        {savingsText && (
-                          <span className="bg-red-600/10 text-red-600 dark:text-red-400 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap">
-                            {savingsText}
-                          </span>
-                        )}
-                      </div>
-                      {billingCycle !== 'monthly' && (
-                        <span className={`text-[10px] font-medium mt-1.5 opacity-85 ${
-                          plan.popular ? 'text-zinc-300' : 'text-black/60 dark:text-zinc-400'
-                        }`}>
-                          Equivalente a {monthlyEquivalent} MT/mês
+                      {savingsText && (
+                        <span className="bg-red-600/10 text-red-600 dark:text-red-400 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap mt-1">
+                          {savingsText}
                         </span>
                       )}
                     </div>
-                    {/* Divider line that doesn't touch the edges (5px thickness) */}
-                    <div className="absolute bottom-0 left-6 right-6">
-                      <div className={`h-[5px] w-full ${
-                        plan.popular ? 'bg-red-600' : 'bg-black/25 dark:bg-white/20'
-                      }`} />
-                    </div>
+                  </div>
+                  {/* Divider line that doesn't touch the edges (5px thickness, placed OUTSIDE header) */}
+                  <div className="px-6 w-full mt-0">
+                    <div className={`h-[5px] w-full ${
+                      plan.popular ? 'bg-red-600' : 'bg-zinc-300 dark:bg-zinc-700'
+                    }`} />
                   </div>
                   <div className="p-6 flex-1 flex flex-col justify-between">
                     <ul className="space-y-2.5 mb-6 text-left">
@@ -249,7 +237,7 @@ export default function PrecosHospedagem() {
                     <button className={`w-full py-3 rounded-lg font-medium transition-colors ${
                       plan.popular
                         ? 'bg-zinc-950 dark:bg-black text-white hover:bg-red-600 dark:hover:bg-red-600'
-                        : 'bg-black/[0.07] dark:bg-white/10 text-black dark:text-white hover:bg-red-600 dark:hover:bg-red-600 hover:text-white'
+                        : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
                     }`}>
                       {t('pricing.hosting.hire')}
                     </button>
