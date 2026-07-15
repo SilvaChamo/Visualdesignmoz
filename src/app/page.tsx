@@ -394,7 +394,7 @@ function HomePage() {
                 ].map((plan) => (
                   <div
                     key={plan.nameKey}
-                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg p-6 hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
+                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border overflow-hidden ${
                       plan.popular
                         ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
                         : 'border-zinc-200/80 dark:border-white/10 hover:border-red-500/40 dark:hover:border-red-500/40'
@@ -405,31 +405,33 @@ function HomePage() {
                         Popular
                       </span>
                     )}
-                    <div>
-                      <h4 className="text-lg font-bold text-black dark:text-white mb-2">{t(plan.nameKey)}</h4>
-                      <div className="text-2xl sm:text-3xl font-extrabold text-red-600 dark:text-red-500 mb-4 flex items-baseline gap-1">
-                        {plan.price} MZN
-                        <span className="text-xs sm:text-sm font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
+                    <div className="bg-black/[0.03] dark:bg-white/[0.02] p-5 border-b border-zinc-200/60 dark:border-white/5 text-center">
+                      <h4 className="text-base font-bold text-black dark:text-white mb-1.5">{t(plan.nameKey)}</h4>
+                      <div className="text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-500 flex items-baseline justify-center gap-1">
+                        {plan.price} MT
+                        <span className="text-xs font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
                       </div>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col justify-between">
                       <ul className="space-y-2.5 mb-6 text-left">
                         {plan.features.map((feat, fIdx) => {
                           const FeatIcon = feat.Icon;
                           return (
                             <li key={fIdx} className="flex items-center gap-2.5 text-xs sm:text-sm text-black/70 dark:text-zinc-300">
-                              <FeatIcon className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0" />
+                              <FeatIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                               <span className="line-clamp-1">{feat.text}</span>
                             </li>
                           );
                         })}
                       </ul>
+                      <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
+                        plan.popular
+                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-md'
+                          : 'bg-black/5 dark:bg-white/10 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
+                      }`}>
+                        {t('pricing.hosting.hire')}
+                      </button>
                     </div>
-                    <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
-                      plan.popular
-                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-md'
-                        : 'bg-black/5 dark:bg-white/10 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
-                    }`}>
-                      {t('pricing.hosting.hire')}
-                    </button>
                   </div>
                 ))}
               </div>

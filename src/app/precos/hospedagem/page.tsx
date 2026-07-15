@@ -104,31 +104,33 @@ export default function PrecosHospedagem() {
             ].map((plan) => (
               <div
                 key={plan.nameKey}
-                className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow relative flex flex-col justify-between ${
+                className={`bg-white dark:bg-zinc-900/40 rounded-lg shadow-lg hover:shadow-xl transition-shadow relative flex flex-col justify-between overflow-hidden border border-zinc-150 dark:border-white/5 ${
                   plan.popular ? 'border-2 border-red-500 shadow-red-500/10' : ''
                 }`}
               >
-                <div>
-                  <h4 className="text-xl font-bold text-black mb-4">{t(plan.nameKey)}</h4>
-                  <div className="text-3xl font-bold text-red-600 mb-4">
+                <div className="bg-zinc-50 dark:bg-white/[0.02] p-5 border-b border-zinc-150 dark:border-white/5 text-center">
+                  <h4 className="text-xl font-bold text-black dark:text-white mb-1.5">{t(plan.nameKey)}</h4>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-500 flex items-baseline justify-center gap-1">
                     {plan.price} MT
-                    <span className="text-lg font-normal">/{t('pricing.hosting.month')}</span>
+                    <span className="text-lg font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
                   </div>
+                </div>
+                <div className="p-6 flex-1 flex flex-col justify-between">
                   <ul className="space-y-2.5 mb-6 text-left">
                     {plan.features.map((feat, fIdx) => {
                       const FeatIcon = feat.Icon;
                       return (
-                        <li key={fIdx} className="flex items-center gap-2.5 text-sm text-black/70">
-                          <FeatIcon className="w-4.5 h-4.5 text-red-600 shrink-0" />
+                        <li key={fIdx} className="flex items-center gap-2.5 text-sm text-black/70 dark:text-zinc-350">
+                          <FeatIcon className="w-4.5 h-4.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
                           <span className="line-clamp-1">{feat.text}</span>
                         </li>
                       );
                     })}
                   </ul>
+                  <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
+                    {t('pricing.hosting.hire')}
+                  </button>
                 </div>
-                <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                  {t('pricing.hosting.hire')}
-                </button>
               </div>
             ))}
           </div>
