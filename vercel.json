@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/da-sync",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
