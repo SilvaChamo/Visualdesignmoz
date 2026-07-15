@@ -34,11 +34,11 @@ export default function PrecosHospedagem() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.basic')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">250 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">680 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 GB {t('pricing.hosting.storage')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.bandwidth')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 {t('pricing.hosting.emails')}</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 350 {t('pricing.hosting.emails')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 {t('pricing.hosting.databases')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
               </ul>
@@ -49,7 +49,7 @@ export default function PrecosHospedagem() {
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">500 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">1.040 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 GB {t('pricing.hosting.storage')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 500 GB {t('pricing.hosting.bandwidth')}</li>
@@ -65,7 +65,7 @@ export default function PrecosHospedagem() {
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.business')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">1.000 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">1.360 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.storage')} SSD</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 TB {t('pricing.hosting.bandwidth')}</li>
@@ -82,7 +82,7 @@ export default function PrecosHospedagem() {
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.enterprise')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">2.500 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">2.040 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 200 GB {t('pricing.hosting.storage')} SSD</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 2 TB {t('pricing.hosting.bandwidth')}</li>

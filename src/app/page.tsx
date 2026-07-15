@@ -325,19 +325,19 @@ function HomePage() {
                 {[
                   {
                     nameKey: 'pricing.hosting.basic',
-                    price: '250',
+                    price: '680',
                     popular: false,
                     features: [
                       '10 GB ' + t('pricing.hosting.storage'),
                       '100 GB ' + t('pricing.hosting.bandwidth'),
-                      '5 ' + t('pricing.hosting.emails'),
+                      '350 ' + t('pricing.hosting.emails'),
                       '1 ' + t('pricing.hosting.databases'),
                       t('pricing.hosting.backup'),
                     ]
                   },
                   {
                     nameKey: 'pricing.hosting.pro',
-                    price: '500',
+                    price: '1.040',
                     popular: true,
                     features: [
                       '50 GB ' + t('pricing.hosting.storage'),
@@ -350,7 +350,7 @@ function HomePage() {
                   },
                   {
                     nameKey: 'pricing.hosting.business',
-                    price: '1.000',
+                    price: '1.360',
                     popular: false,
                     features: [
                       '100 GB ' + t('pricing.hosting.storage') + ' SSD',
@@ -364,7 +364,7 @@ function HomePage() {
                   },
                   {
                     nameKey: 'pricing.hosting.enterprise',
-                    price: '2.500',
+                    price: '2.040',
                     popular: false,
                     features: [
                       '200 GB ' + t('pricing.hosting.storage') + ' SSD',

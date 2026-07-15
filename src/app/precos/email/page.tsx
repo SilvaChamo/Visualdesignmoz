@@ -34,7 +34,7 @@ export default function PrecosEmail() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.basic')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">150 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">350 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 GB {t('pricing.hosting.storage')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 {t('pricing.email.features.1')}</li>
@@ -48,7 +48,7 @@ export default function PrecosEmail() {
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">300 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">1.040 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 15 GB {t('pricing.hosting.storage')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 25 {t('pricing.email.features.1')}</li>
@@ -63,7 +63,7 @@ export default function PrecosEmail() {
             
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.enterprise')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">600 MZN<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
+              <div className="text-3xl font-bold text-red-600 mb-4">1.360 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 GB {t('pricing.hosting.storage')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 {t('pricing.email.features.1')}</li>
