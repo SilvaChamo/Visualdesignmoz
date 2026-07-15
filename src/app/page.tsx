@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles } from 'lucide-react'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 import { CompactFooter } from '@/components/layout/CompactFooter'
@@ -19,14 +19,16 @@ function HomePage() {
   const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
   const whyUsItems = [
-    { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc' },
-    { Icon: Server, titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc' },
-    { Icon: LifeBuoy, titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc' },
-    { Icon: ShieldCheck, titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc' },
-    { Icon: RefreshCw, titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc' },
-    { Icon: Sparkles, titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc' },
+    { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc', teaserKey: 'home.whyus.domain.teaser' },
+    { Icon: LayoutDashboard, titleKey: 'home.whyus.panel.title', descKey: 'home.whyus.panel.desc', teaserKey: 'home.whyus.panel.teaser' },
+    { Icon: Server, titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc', teaserKey: 'home.whyus.servers.teaser' },
+    { Icon: LifeBuoy, titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc', teaserKey: 'home.whyus.support.teaser' },
+    { Icon: ShieldCheck, titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc', teaserKey: 'home.whyus.security.teaser' },
+    { Icon: Send, titleKey: 'home.whyus.marketing.title', descKey: 'home.whyus.marketing.desc', teaserKey: 'home.whyus.marketing.teaser' },
+    { Icon: RefreshCw, titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc', teaserKey: 'home.whyus.migration.teaser' },
+    { Icon: Sparkles, titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc', teaserKey: 'home.whyus.custom.teaser' },
   ]
-  const whyUsColumns = [whyUsItems.slice(0, 3), whyUsItems.slice(3, 6)]
+  const whyUsColumns = [whyUsItems.slice(0, 4), whyUsItems.slice(4, 8)]
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
@@ -169,33 +171,35 @@ function HomePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[
-                  { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc' },
-                  { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc' },
-                  { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc' },
-                  { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc' },
-                  { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc' },
-                  { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc' },
-                ].map(({ Icon, titleKey, descKey }) => (
-                  <div
-                    key={titleKey}
-                    className="flex gap-4 p-4 rounded-lg border border-zinc-200/80 dark:border-white/10 transition-all duration-300 hover:bg-black/[0.03] dark:hover:bg-white/5 hover:border-red-500/40 dark:hover:border-red-500/40"
-                  >
-                    <div className="shrink-0 w-11 h-11 rounded-lg border border-green-600/40 bg-green-600/5 flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-green-600" strokeWidth={2} />
+              <div className="mt-8 sm:mt-10 mx-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc' },
+                    { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc' },
+                    { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc' },
+                    { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc' },
+                    { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc' },
+                    { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc' },
+                  ].map(({ Icon, titleKey, descKey }) => (
+                    <div
+                      key={titleKey}
+                      className="flex gap-4 p-4 rounded-lg border border-zinc-200/80 dark:border-white/10 transition-all duration-300 hover:bg-black/[0.03] dark:hover:bg-white/5 hover:border-red-500/40 dark:hover:border-red-500/40"
+                    >
+                      <div className="shrink-0 w-11 h-11 rounded-lg border border-green-600/40 bg-green-600/5 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-green-600" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block">
+                          {t(titleKey)}
+                          <span className="block h-[2px] w-8 bg-green-600 mt-1" />
+                        </h3>
+                        <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">
+                          {t(descKey)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block">
-                        {t(titleKey)}
-                        <span className="block h-[2px] w-8 bg-green-600 mt-1" />
-                      </h3>
-                      <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">
-                        {t(descKey)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -217,7 +221,7 @@ function HomePage() {
               <img
                 src="/assets/IMG-VD/icon-custom-solutions-red.svg"
                 alt=""
-                className="w-12 h-12 mb-2"
+                className="w-16 h-16 mb-2"
               />
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
                 <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
@@ -236,8 +240,8 @@ function HomePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {whyUsColumns.map((column, colIdx) => (
                   <div key={colIdx} className="flex flex-col gap-3">
-                    {column.map((item) => {
-                      const idx = colIdx * 3 + column.indexOf(item)
+                    {column.map((item, itemIdx) => {
+                      const idx = colIdx * column.length + itemIdx
                       const isOpen = Boolean(openWhyUs[idx])
                       const { Icon } = item
                       return (
@@ -250,9 +254,14 @@ function HomePage() {
                             <span className="shrink-0 w-20 flex items-center justify-center bg-red-600">
                               <Icon className="w-6 h-6 text-white" />
                             </span>
-                            <span className="flex-1 flex items-center justify-between gap-3 px-4 py-5">
-                              <span className="text-sm sm:text-base font-bold text-black dark:text-white">
-                                {t(item.titleKey)}
+                            <span className="flex-1 flex items-center justify-between gap-3 px-4 py-4">
+                              <span className="flex flex-col gap-1 min-w-0 flex-1">
+                                <span className="text-base sm:text-lg font-bold text-black dark:text-white leading-tight">
+                                  {t(item.titleKey)}
+                                </span>
+                                <span className="text-xs sm:text-sm text-black/60 dark:text-zinc-400 line-clamp-1 block">
+                                  {t(item.teaserKey)}
+                                </span>
                               </span>
                               <span className="shrink-0 w-6 h-6 flex items-center justify-center text-red-600 dark:text-red-500 text-lg font-bold leading-none">
                                 {isOpen ? '−' : '+'}
