@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send } from 'lucide-react'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send, HardDrive, Megaphone, FolderOpen, Database, Lock, GitBranch } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 import { CompactFooter } from '@/components/layout/CompactFooter'
@@ -328,11 +328,16 @@ function HomePage() {
                     price: '680',
                     popular: false,
                     features: [
-                      '10 GB ' + t('pricing.hosting.storage'),
-                      '100 GB ' + t('pricing.hosting.bandwidth'),
-                      '350 ' + t('pricing.hosting.emails'),
-                      '1 ' + t('pricing.hosting.databases'),
-                      t('pricing.hosting.backup'),
+                      { text: '10 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                      { text: '10 ' + t('pricing.hosting.emails'), Icon: Mail },
+                      { text: '100 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                      { text: t('pricing.hosting.noMailmarketing'), Icon: Megaphone },
+                      { text: t('pricing.hosting.addons.single'), Icon: Globe },
+                      { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                      { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                      { text: '1 ' + t('pricing.hosting.databases'), Icon: Database },
+                      { text: t('pricing.hosting.ssl'), Icon: Lock },
+                      { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
                     ]
                   },
                   {
@@ -340,12 +345,16 @@ function HomePage() {
                     price: '1.040',
                     popular: true,
                     features: [
-                      '50 GB ' + t('pricing.hosting.storage'),
-                      '500 GB ' + t('pricing.hosting.bandwidth'),
-                      '20 ' + t('pricing.hosting.emails'),
-                      '5 ' + t('pricing.hosting.databases'),
-                      t('pricing.hosting.backup'),
-                      t('pricing.hosting.ssl'),
+                      { text: '20 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                      { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                      { text: '200 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                      { text: t('pricing.hosting.mailmarketing.limit').replace('{limit}', '500'), Icon: Megaphone },
+                      { text: t('pricing.hosting.addons.limit').replace('{limit}', '10'), Icon: Globe },
+                      { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                      { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                      { text: '10 ' + t('pricing.hosting.databases'), Icon: Database },
+                      { text: t('pricing.hosting.ssl'), Icon: Lock },
+                      { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
                     ]
                   },
                   {
@@ -353,13 +362,16 @@ function HomePage() {
                     price: '1.360',
                     popular: false,
                     features: [
-                      '100 GB ' + t('pricing.hosting.storage') + ' SSD',
-                      '1 TB ' + t('pricing.hosting.bandwidth'),
-                      '50 ' + t('pricing.hosting.emails'),
-                      '10 ' + t('pricing.hosting.databases'),
-                      t('pricing.hosting.backup'),
-                      t('pricing.hosting.ssl'),
-                      t('pricing.hosting.priority'),
+                      { text: '30 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                      { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                      { text: '300 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                      { text: t('pricing.hosting.mailmarketing.limit').replace('{limit}', '1.000'), Icon: Megaphone },
+                      { text: t('pricing.hosting.addons.unlimited'), Icon: Globe },
+                      { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                      { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                      { text: t('pricing.hosting.databases.unlimited'), Icon: Database },
+                      { text: t('pricing.hosting.ssl'), Icon: Lock },
+                      { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
                     ]
                   },
                   {
@@ -367,14 +379,16 @@ function HomePage() {
                     price: '2.040',
                     popular: false,
                     features: [
-                      '200 GB ' + t('pricing.hosting.storage') + ' SSD',
-                      '2 TB ' + t('pricing.hosting.bandwidth'),
-                      '100 ' + t('pricing.hosting.emails'),
-                      '20 ' + t('pricing.hosting.databases'),
-                      t('pricing.hosting.backup'),
-                      t('pricing.hosting.ssl'),
-                      t('pricing.hosting.support247'),
-                      t('pricing.hosting.dedicatedIp'),
+                      { text: '40 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                      { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                      { text: '300 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                      { text: t('pricing.hosting.mailmarketing.unlimited'), Icon: Megaphone },
+                      { text: t('pricing.hosting.addons.unlimited'), Icon: Globe },
+                      { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                      { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                      { text: t('pricing.hosting.databases.unlimited'), Icon: Database },
+                      { text: t('pricing.hosting.ssl'), Icon: Lock },
+                      { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
                     ]
                   }
                 ].map((plan) => (
@@ -397,13 +411,16 @@ function HomePage() {
                         {plan.price} MZN
                         <span className="text-xs sm:text-sm font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
                       </div>
-                      <ul className="space-y-2 mb-6">
-                        {plan.features.map((feature, fIdx) => (
-                          <li key={fIdx} className="flex items-start text-xs sm:text-sm text-black/70 dark:text-zinc-300">
-                            <span className="text-red-600 dark:text-red-500 mr-2 font-bold">✓</span>
-                            <span>{feature}</span>
-                          </li>
-                        ))}
+                      <ul className="space-y-2.5 mb-6 text-left">
+                        {plan.features.map((feat, fIdx) => {
+                          const FeatIcon = feat.Icon;
+                          return (
+                            <li key={fIdx} className="flex items-center gap-2.5 text-xs sm:text-sm text-black/70 dark:text-zinc-300">
+                              <FeatIcon className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0" />
+                              <span className="line-clamp-1">{feat.text}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                     <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${

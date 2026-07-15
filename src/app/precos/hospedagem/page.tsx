@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, HardDrive, Mail, Send, Megaphone, Globe, GitBranch, FolderOpen, Database, Lock, LifeBuoy } from 'lucide-react'
 
 export default function PrecosHospedagem() {
   const { t } = useI18n()
@@ -32,71 +32,105 @@ export default function PrecosHospedagem() {
       <div className="bg-white py-16">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.basic')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">680 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 GB {t('pricing.hosting.storage')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.bandwidth')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 350 {t('pricing.hosting.emails')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 {t('pricing.hosting.databases')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
-              </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                {t('pricing.hosting.hire')}
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
-              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">1.040 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 GB {t('pricing.hosting.storage')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 500 GB {t('pricing.hosting.bandwidth')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 {t('pricing.hosting.emails')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 5 {t('pricing.hosting.databases')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
-              </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                {t('pricing.hosting.hire')}
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.business')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">1.360 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 GB {t('pricing.hosting.storage')} SSD</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 1 TB {t('pricing.hosting.bandwidth')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 50 {t('pricing.hosting.emails')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 10 {t('pricing.hosting.databases')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.priority')}</li>
-              </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                {t('pricing.hosting.hire')}
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.enterprise')}</h4>
-              <div className="text-3xl font-bold text-red-600 mb-4">2.040 MT<span className="text-lg font-normal">/{t('pricing.hosting.month')}</span></div>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 200 GB {t('pricing.hosting.storage')} SSD</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 2 TB {t('pricing.hosting.bandwidth')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 100 {t('pricing.hosting.emails')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> 20 {t('pricing.hosting.databases')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.backup')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.ssl')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.support247')}</li>
-                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.hosting.dedicatedIp')}</li>
-              </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
-                {t('pricing.hosting.hire')}
-              </button>
-            </div>
+            {[
+              {
+                nameKey: 'pricing.hosting.basic',
+                price: '680',
+                popular: false,
+                features: [
+                  { text: '10 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                  { text: '10 ' + t('pricing.hosting.emails'), Icon: Mail },
+                  { text: '100 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                  { text: t('pricing.hosting.noMailmarketing'), Icon: Megaphone },
+                  { text: t('pricing.hosting.addons.single'), Icon: Globe },
+                  { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                  { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                  { text: '1 ' + t('pricing.hosting.databases'), Icon: Database },
+                  { text: t('pricing.hosting.ssl'), Icon: Lock },
+                  { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
+                ]
+              },
+              {
+                nameKey: 'pricing.hosting.pro',
+                price: '1.040',
+                popular: true,
+                features: [
+                  { text: '20 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                  { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                  { text: '200 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                  { text: t('pricing.hosting.mailmarketing.limit').replace('{limit}', '500'), Icon: Megaphone },
+                  { text: t('pricing.hosting.addons.limit').replace('{limit}', '10'), Icon: Globe },
+                  { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                  { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                  { text: '10 ' + t('pricing.hosting.databases'), Icon: Database },
+                  { text: t('pricing.hosting.ssl'), Icon: Lock },
+                  { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
+                ]
+              },
+              {
+                nameKey: 'pricing.hosting.business',
+                price: '1.360',
+                popular: false,
+                features: [
+                  { text: '30 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                  { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                  { text: '300 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                  { text: t('pricing.hosting.mailmarketing.limit').replace('{limit}', '1.000'), Icon: Megaphone },
+                  { text: t('pricing.hosting.addons.unlimited'), Icon: Globe },
+                  { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                  { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                  { text: t('pricing.hosting.databases.unlimited'), Icon: Database },
+                  { text: t('pricing.hosting.ssl'), Icon: Lock },
+                  { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
+                ]
+              },
+              {
+                nameKey: 'pricing.hosting.enterprise',
+                price: '2.040',
+                popular: false,
+                features: [
+                  { text: '40 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
+                  { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                  { text: '300 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
+                  { text: t('pricing.hosting.mailmarketing.unlimited'), Icon: Megaphone },
+                  { text: t('pricing.hosting.addons.unlimited'), Icon: Globe },
+                  { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
+                  { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
+                  { text: t('pricing.hosting.databases.unlimited'), Icon: Database },
+                  { text: t('pricing.hosting.ssl'), Icon: Lock },
+                  { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
+                ]
+              }
+            ].map((plan) => (
+              <div
+                key={plan.nameKey}
+                className={`bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow relative flex flex-col justify-between ${
+                  plan.popular ? 'border-2 border-red-500 shadow-red-500/10' : ''
+                }`}
+              >
+                <div>
+                  <h4 className="text-xl font-bold text-black mb-4">{t(plan.nameKey)}</h4>
+                  <div className="text-3xl font-bold text-red-600 mb-4">
+                    {plan.price} MT
+                    <span className="text-lg font-normal">/{t('pricing.hosting.month')}</span>
+                  </div>
+                  <ul className="space-y-2.5 mb-6 text-left">
+                    {plan.features.map((feat, fIdx) => {
+                      const FeatIcon = feat.Icon;
+                      return (
+                        <li key={fIdx} className="flex items-center gap-2.5 text-sm text-black/70">
+                          <FeatIcon className="w-4.5 h-4.5 text-red-600 shrink-0" />
+                          <span className="line-clamp-1">{feat.text}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
+                  {t('pricing.hosting.hire')}
+                </button>
+              </div>
+            ))}
           </div>
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
