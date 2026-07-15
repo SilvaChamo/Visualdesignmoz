@@ -49,7 +49,7 @@ import { writeSiteSslCache } from '@/lib/site-ssl-cache'
 import { supabase } from '@/lib/supabase'
 import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomain, cpGetSubdomains, cpSaveDatabase, cpRemoveDatabase, cpGetDatabases, cpSaveFTP, cpRemoveFTP, cpGetFTP, cpSaveEmail, cpRemoveEmail, cpGetEmails } from '@/lib/cp-local-store'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
-import { getServerHost, getHestiaUrl, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getWebmailUrlForDomain } from '@/lib/server-config'
+import { getServerHost, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getWebmailUrlForDomain } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
 import { EmailConfigResultModal, fetchEmailConfigBundle, type EmailConfigBundle } from '@/components/admin/EmailConfigResultModal'
 import { prefetchEmailConfigs, writeEmailConfigCache } from '@/lib/panel-email-config-cache'
@@ -4077,7 +4077,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
-          <a href={`${getHestiaUrl()}/list/php/`} target="_blank" rel="noopener noreferrer"
+          <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer"
             className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center justify-start gap-2 sm:justify-center">
             <ExternalLink className="w-3.5 h-3.5" /> Gerir no DirectAdmin
           </a>
@@ -5721,7 +5721,7 @@ export function APIConfigSection() {
 
           <div className="mt-6 pt-4 border-t">
             <h4 className="text-xs font-bold text-gray-600 uppercase mb-2">Endpoint Base</h4>
-            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded block text-gray-700">{getHestiaUrl()}/api/</code>
+            <code className="text-sm font-mono bg-gray-50 px-3 py-2 rounded block text-gray-700">{getDirectAdminAccessUrl()}/api/</code>
           </div>
         </div>
 

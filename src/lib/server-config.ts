@@ -66,6 +66,11 @@ export function getCPUrl(): string {
   return getWebmailUrl();
 }
 
+/** ⚠️ PLACEHOLDER: a HestiaCP ainda não está instalada em nenhum servidor.
+ *  Isto devolve o URL do Webmail só para nunca rebentar nada que ainda
+ *  chame esta função — mas não aponta para uma HestiaCP real. Os menus que
+ *  usavam isto foram escondidos (ver HostingSections.tsx / dashboard/page.tsx)
+ *  até a HestiaCP ser instalada a sério num servidor próprio. */
 export function getHestiaUrl(): string {
   return getWebmailUrl();
 }

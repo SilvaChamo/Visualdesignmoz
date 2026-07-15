@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
 import {
-  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, FileText, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Calendar, Clock, MoreVertical, Eye, EyeOff
+  LogOut, RefreshCw, ChevronRight, Globe, Lock, Edit, Plus, Search, LockOpen, ExternalLink, Server, Archive, Database, Power, Trash2, Home, Users, Mail, Layout, Shield, ShieldCheck, Settings, Download, Send, Code, FolderOpen, Upload, X, Zap, Cloud, RotateCcw, FileCode, ArrowLeft, CheckCircle, HardDrive, AlertCircle, ChevronDown, Globe2, Plug, Layers, List, ChevronLeft, Bell, PauseCircle, Calendar, Clock, MoreVertical, Eye, EyeOff
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getCPUrl, getSnappyMailUrl, getServerHost, getHestiaUrl, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminAccessUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
+import { getCPUrl, getSnappyMailUrl, getServerHost, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminAccessUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
@@ -24,6 +24,7 @@ import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { CpanelDashboard } from './CpanelDashboard'
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { WebmailSection } from '@/components/dashboard/WebmailSection'
+import { NativeHostingSection } from './NativeHostingSection'
 import {
   DatabasesSection, FTPSection, EmailManagementSection,
   CPUsersSection, SSLSection, SSLViewSection, PHPConfigSection,
@@ -1215,8 +1216,8 @@ function ManageWebsiteSection({
       >
         <MenuItem icon="wordpress" label="WordPress" external href={getDirectAdminWordPressUrl()} badge="DIRECTADMIN" />
         <MenuItem icon="git-version" label="Git Integration" onClick={() => setActiveSection('git-deploy')} />
-        <MenuItem icon={Globe} label="PrestaShop" color="text-pink-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=prestashop`} badge="E-COMMERCE" />
-        <MenuItem icon={Mail} label="Mautic" color="text-purple-600" external href={`${getHestiaUrl()}/list/webapp?domain=${domain}&app=mautic`} />
+        <MenuItem icon={Server} label="Hospedagem Nativa (teste)" color="text-emerald-600" onClick={() => setActiveSection('native-hosting')} badge="NOVO" />
+        {/* PrestaShop/Mautic escondidos: dependiam de uma HestiaCP que ainda não está instalada. Repor quando a Hestia for implementada. */}
       </SectionCard>
 
       {/* Backup Section */}
@@ -1282,7 +1283,7 @@ function ManageWebsiteSection({
         <MenuItem icon="addon-domains" label="Add Domains" onClick={() => setShowDomainModal(true)} />
         <MenuItem icon="addon-domains" label="List Domains" onClick={() => setActiveSection('domains-list')} />
         <MenuItem icon="addon-domains" label="Domain Alias" onClick={() => setActiveSection('cp-list-subdomains')} />
-        <MenuItem icon="cron-jobs" label="Cron Jobs" external href={`${getHestiaUrl()}/list/cron/`} />
+        {/* Cron Jobs escondido: dependia de uma HestiaCP que ainda não está instalada. */}
       </SectionCard>
 
       {/* Email Marketing Section */}
@@ -1314,7 +1315,7 @@ function ManageWebsiteSection({
           icon="email-accounts" 
           label="Webmail" 
           external 
-          href={`${getHestiaUrl()}/list/mail/`} 
+          href={getSnappyMailUrl(domain)}
           bgColor="bg-rose-100" 
           color="text-rose-600" 
         />
@@ -1336,17 +1337,7 @@ function ManageWebsiteSection({
         <MenuItem icon="ftp-accounts" label="Delete FTP" onClick={() => setActiveSection('cp-ftp')} />
       </SectionCard>
 
-      {/* Logs Section */}
-      <SectionCard
-        id="logs"
-        title="LOGS"
-        icon={FileText}
-        color="text-amber-700"
-        bgColor="bg-amber-50"
-      >
-        <MenuItem icon="metrics" label="Access Logs" external href={`${getHestiaUrl()}/list/web-stats/?domain=${domain}`} />
-        <MenuItem icon="metrics" label="Error Logs" external href={`${getHestiaUrl()}/list/web-stats/?domain=${domain}`} />
-      </SectionCard>
+      {/* Logs Section escondida: dependia de uma HestiaCP que ainda não está instalada. Repor quando a Hestia for implementada. */}
 
       {/* Security Section */}
       <SectionCard
@@ -2259,6 +2250,8 @@ function AdminPageContent() {
         )
       case 'git-deploy':
         return <GitDeploySection />
+      case 'native-hosting':
+        return <NativeHostingSection />
       case 'deploy':
         return <DeploySection sites={directAdminSites} />
       case 'packages-list':
