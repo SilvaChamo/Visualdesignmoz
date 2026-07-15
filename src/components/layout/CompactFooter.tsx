@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export function CompactFooter() {
   return (
-    <footer className="bg-black text-white py-[34px]">
+    <footer className="bg-black dark:bg-zinc-900 text-white py-[34px]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <p className="text-xs text-slate-500">
           &copy; {new Date().getFullYear()} VisualDesign. Todos os direitos reservados.
