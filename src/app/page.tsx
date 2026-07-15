@@ -452,7 +452,7 @@ function HomePage() {
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}
-                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[240px] sm:min-w-[300px] md:min-w-[360px]"
+                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[280px] sm:min-w-[360px] md:min-w-[440px]"
                       required
                     />
                     <button
