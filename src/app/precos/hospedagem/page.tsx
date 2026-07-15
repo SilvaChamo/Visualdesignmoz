@@ -104,15 +104,30 @@ export default function PrecosHospedagem() {
             ].map((plan) => (
               <div
                 key={plan.nameKey}
-                className={`bg-white dark:bg-zinc-900/40 rounded-lg shadow-lg hover:shadow-xl transition-shadow relative flex flex-col justify-between overflow-hidden border border-zinc-150 dark:border-white/5 ${
+                className={`bg-white dark:bg-zinc-900/40 rounded-lg shadow-lg hover:shadow-xl transition-shadow relative flex flex-col justify-between border border-zinc-150 dark:border-white/5 ${
                   plan.popular ? 'border-2 border-red-500 shadow-red-500/10' : ''
                 }`}
               >
-                <div className="bg-zinc-50 dark:bg-white/[0.02] p-5 border-b border-zinc-150 dark:border-white/5 text-center">
-                  <h4 className="text-xl font-bold text-black dark:text-white mb-1.5">{t(plan.nameKey)}</h4>
-                  <div className="text-3xl font-bold text-red-600 dark:text-red-500 flex items-baseline justify-center gap-1">
-                    {plan.price} MT
-                    <span className="text-lg font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
+                {plan.popular && (
+                  <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-20">
+                    {t('pricing.hosting.recommended')}
+                  </span>
+                )}
+                <div className={`p-5 border-b text-center rounded-t-lg ${
+                  plan.popular
+                    ? 'bg-zinc-950 dark:bg-black border-b-black text-white'
+                    : 'bg-zinc-50 dark:bg-white/[0.02] border-zinc-150 dark:border-white/5 text-black dark:text-white'
+                }`}>
+                  <h4 className="text-xl font-extrabold uppercase tracking-wide mb-1">{t(plan.nameKey)}</h4>
+                  <div className="flex flex-col items-center justify-center mt-2.5">
+                    <span className={`text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
+                      {plan.price} MT
+                    </span>
+                    <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold mt-1 ${
+                      plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-500'
+                    }`}>
+                      {t('pricing.hosting.month')}
+                    </span>
                   </div>
                 </div>
                 <div className="p-6 flex-1 flex flex-col justify-between">

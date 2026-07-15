@@ -394,22 +394,34 @@ function HomePage() {
                 ].map((plan) => (
                   <div
                     key={plan.nameKey}
-                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border overflow-hidden ${
+                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
                       plan.popular
                         ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
                         : 'border-zinc-200/80 dark:border-white/10 hover:border-red-500/40 dark:hover:border-red-500/40'
                     }`}
                   >
                     {plan.popular && (
-                      <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-10">
-                        Popular
+                      <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-20">
+                        {t('pricing.hosting.recommended')}
                       </span>
                     )}
-                    <div className="bg-black/[0.03] dark:bg-white/[0.02] p-5 border-b border-zinc-200/60 dark:border-white/5 text-center">
-                      <h4 className="text-base font-bold text-black dark:text-white mb-1.5">{t(plan.nameKey)}</h4>
-                      <div className="text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-500 flex items-baseline justify-center gap-1">
-                        {plan.price} MT
-                        <span className="text-xs font-normal text-black/50 dark:text-zinc-500">/{t('pricing.hosting.month')}</span>
+                    <div className={`p-5 border-b text-center rounded-t-lg ${
+                      plan.popular
+                        ? 'bg-zinc-950 dark:bg-black border-b-black text-white'
+                        : 'bg-black/[0.03] dark:bg-white/[0.02] border-zinc-200/60 dark:border-white/5 text-black dark:text-white'
+                    }`}>
+                      <h4 className="text-lg sm:text-xl font-extrabold uppercase tracking-wide mb-1">
+                        {t(plan.nameKey)}
+                      </h4>
+                      <div className="flex flex-col items-center justify-center mt-2.5">
+                        <span className={`text-2xl sm:text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
+                          {plan.price} MT
+                        </span>
+                        <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold mt-1 ${
+                          plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-400'
+                        }`}>
+                          {t('pricing.hosting.month')}
+                        </span>
                       </div>
                     </div>
                     <div className="p-6 flex-1 flex flex-col justify-between">
@@ -461,17 +473,17 @@ function HomePage() {
                 </p>
               </div>
 
-              <div className="w-full md:w-auto max-w-xl flex-1 flex justify-end">
+              <div className="w-full md:w-auto max-w-lg md:flex-1 flex justify-end">
                 {subscribed ? (
                   <div className="bg-green-600/10 dark:bg-green-500/10 border border-green-600/30 dark:border-green-500/30 text-green-600 dark:text-green-500 px-4 py-2.5 rounded-md text-sm font-medium flex items-center justify-center gap-2 w-full max-w-md">
                     <span>✓</span> {t('home.newsletter.success')}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-lg">
+                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-md md:max-w-lg">
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}
-                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[280px] sm:min-w-[360px] md:min-w-[440px]"
+                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full"
                       required
                     />
                     <button
