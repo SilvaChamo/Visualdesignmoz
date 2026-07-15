@@ -298,7 +298,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-white dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-white dark:bg-zinc-900 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -442,17 +442,17 @@ function HomePage() {
                 </p>
               </div>
 
-              <div className="w-full md:w-auto max-w-md">
+              <div className="w-full md:w-auto max-w-xl flex-1 flex justify-end">
                 {subscribed ? (
-                  <div className="bg-green-600/10 dark:bg-green-500/10 border border-green-600/30 dark:border-green-500/30 text-green-600 dark:text-green-500 px-4 py-2.5 rounded-md text-sm font-medium flex items-center justify-center gap-2">
+                  <div className="bg-green-600/10 dark:bg-green-500/10 border border-green-600/30 dark:border-green-500/30 text-green-600 dark:text-green-500 px-4 py-2.5 rounded-md text-sm font-medium flex items-center justify-center gap-2 w-full max-w-md">
                     <span>✓</span> {t('home.newsletter.success')}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full">
+                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-lg">
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}
-                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[200px]"
+                      className="px-4 py-2 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full min-w-[240px] sm:min-w-[300px] md:min-w-[360px]"
                       required
                     />
                     <button
