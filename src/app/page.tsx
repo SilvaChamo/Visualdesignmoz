@@ -34,15 +34,19 @@ function HomePage() {
     let savings = 0
     let savingsText = ''
     
+    const isBasic = basePrice === 680
+    const semiannualRate = isBasic ? 0.9 : 0.95
+    const annualRate = isBasic ? 0.8 : 0.9
+    
     if (billingCycle === 'semiannual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.95)
+      const monthlyDiscounted = Math.round(basePrice * semiannualRate)
       mainPrice = monthlyDiscounted * 6
       cycleSuffix = '/6 meses'
       monthlyEquivalent = monthlyDiscounted
       savings = basePrice - monthlyDiscounted
       savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     } else if (billingCycle === 'annual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.9)
+      const monthlyDiscounted = Math.round(basePrice * annualRate)
       mainPrice = monthlyDiscounted * 12
       cycleSuffix = '/12 meses'
       monthlyEquivalent = monthlyDiscounted
@@ -339,7 +343,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-zinc-200 dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-white dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -350,26 +354,26 @@ function HomePage() {
             <div className="text-center flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] mb-10 sm:mb-12">
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
                 <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-                {t('pricing.hosting.title')}
+                Hospedagem
                 <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
               </span>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-3">
-                {t('pricing.hosting.title')}
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-black dark:text-white mb-3">
+                Planos e preços de hospedagem
               </h2>
               <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
                 {t('pricing.hosting.subtitle')}
               </p>
               
-              <div className="flex items-center justify-center mt-6 gap-3">
-                <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
+              <div className="flex items-center justify-center mt-12 gap-3">
+                <span className="h-[1.5px] w-[50px] bg-zinc-450 dark:bg-zinc-600"></span>
                 <div
-                  className="bg-zinc-950 dark:bg-white p-[2px]"
+                  className="bg-zinc-400 dark:bg-zinc-600 p-[1px]"
                   style={{
                     clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                   }}
                 >
                   <div
-                    className="bg-zinc-300 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
+                    className="bg-zinc-100 dark:bg-zinc-900 p-0 flex items-stretch gap-0 h-9"
                     style={{
                       clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                     }}
@@ -396,7 +400,7 @@ function HomePage() {
                     ))}
                   </div>
                 </div>
-                <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
+                <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
               </div>
             </div>
 

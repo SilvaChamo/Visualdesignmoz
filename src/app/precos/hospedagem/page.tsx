@@ -25,15 +25,19 @@ export default function PrecosHospedagem() {
     let savings = 0
     let savingsText = ''
     
+    const isBasic = basePrice === 680
+    const semiannualRate = isBasic ? 0.9 : 0.95
+    const annualRate = isBasic ? 0.8 : 0.9
+    
     if (billingCycle === 'semiannual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.95)
+      const monthlyDiscounted = Math.round(basePrice * semiannualRate)
       mainPrice = monthlyDiscounted * 6
       cycleSuffix = '/6 meses'
       monthlyEquivalent = monthlyDiscounted
       savings = basePrice - monthlyDiscounted
       savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     } else if (billingCycle === 'annual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.9)
+      const monthlyDiscounted = Math.round(basePrice * annualRate)
       mainPrice = monthlyDiscounted * 12
       cycleSuffix = '/12 meses'
       monthlyEquivalent = monthlyDiscounted
@@ -74,15 +78,15 @@ export default function PrecosHospedagem() {
       <div className="bg-white py-16">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="flex items-center justify-center mb-10 gap-3">
-            <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
+            <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
             <div
-              className="bg-zinc-950 dark:bg-white p-[2px]"
+              className="bg-zinc-400 dark:bg-zinc-600 p-[1px]"
               style={{
                 clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
               }}
             >
               <div
-                className="bg-zinc-300 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
+                className="bg-zinc-100 dark:bg-zinc-900 p-0 flex items-stretch gap-0 h-9"
                 style={{
                   clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                 }}
@@ -109,7 +113,7 @@ export default function PrecosHospedagem() {
                 ))}
               </div>
             </div>
-            <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
+            <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
