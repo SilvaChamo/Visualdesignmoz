@@ -18,5 +18,5 @@ export default async function AuthLoginRedirect({
   const host = headerStore.get('x-forwarded-host') || headerStore.get('host') || 'localhost:3002'
   const proto = headerStore.get('x-forwarded-proto') || 'http'
   const dest = buildPanelLoginUrl(`${proto}://${host}`, qs)
-  redirect(`${dest.pathname}${dest.search}`)
+  redirect(dest.toString())
 }

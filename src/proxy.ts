@@ -77,6 +77,27 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const onPanelHost = isPanelHost(hostname)
+
+  // Subdomínio painel.* — marketing no site principal; raiz = entrada do painel.
+  // Isto tem de correr ANTES dos passthroughs genéricos de /login e /auth/
+  // abaixo — senão esses engolem pedidos como /auth/login no domínio do
+  // painel antes de serem redirecionados para o site principal, e a página
+  // /auth/login tenta renderizar-se sozinha no host errado (rebenta).
+  if (onPanelHost) {
+    if (pathname !== '/' && isPublicMarketingPath(pathname)) {
+      return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin))
+    }
+    if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
+      const login = buildPanelLoginUrl(publicOrigin, request.nextUrl.searchParams)
+      return NextResponse.redirect(login)
+    }
+    if (pathname.startsWith('/auth/')) {
+      const dest = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
+      return NextResponse.redirect(dest)
+    }
+  }
+
   // Login — página estática; limpar ?from= legado (evita loops)
   if (pathname === PUBLIC_LOGIN_ENTRY) {
     if (request.nextUrl.searchParams.has('from')) {
@@ -96,23 +117,6 @@ export async function proxy(request: NextRequest) {
     const legacy = request.nextUrl.clone()
     legacy.pathname = pathname.replace(/^\/admin/, '/dashboard')
     return NextResponse.redirect(legacy, 308)
-  }
-
-  const onPanelHost = isPanelHost(hostname)
-
-  // Subdomínio painel.* — marketing no site principal; raiz = entrada do painel
-  if (onPanelHost) {
-    if (pathname !== '/' && isPublicMarketingPath(pathname)) {
-      return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin))
-    }
-    if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
-      const login = buildPanelLoginUrl(publicOrigin, request.nextUrl.searchParams)
-      return NextResponse.redirect(login)
-    }
-    if (pathname.startsWith('/auth/')) {
-      const dest = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
-      return NextResponse.redirect(dest)
-    }
   }
 
   // Home do site público — não correr auth no proxy (performance)
