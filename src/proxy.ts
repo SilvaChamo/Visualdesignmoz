@@ -119,8 +119,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(legacy, 308)
   }
 
-  // Home do site público — não correr auth no proxy (performance)
-  if (pathname === '/' && !oauthCode && !onPanelHost) {
+  // Páginas públicas de marketing (home, serviços, portfolio, preços, etc.)
+  // — não correr auth no proxy. Isto evita uma chamada de rede à Supabase
+  // em CADA visita anónima a estas páginas, que são as mais visitadas do
+  // site. Antes disto só cobria a home ('/'), o que gastava Fluid Compute
+  // desnecessário em todas as outras páginas públicas.
+  if (isPublicMarketingPath(pathname) && !oauthCode && !onPanelHost) {
     return NextResponse.next()
   }
 
