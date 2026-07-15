@@ -343,7 +343,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-white dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-white dark:bg-zinc-900 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
