@@ -16,6 +16,33 @@ function HomePage() {
   const [hideServices, setHideServices] = useState(false)
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
   const [subscribed, setSubscribed] = useState(false)
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'semiannual' | 'annual'>('monthly')
+
+  const formatPrice = (val: number) => {
+    if (val >= 1000) {
+      const thousands = Math.floor(val / 1000)
+      const remainder = val % 1000
+      return `${thousands}.${remainder.toString().padStart(3, '0')}`
+    }
+    return val.toString()
+  }
+
+  const getPlanPrice = (basePrice: number) => {
+    let finalPrice = basePrice
+    let billingText = ''
+    
+    if (billingCycle === 'semiannual') {
+      finalPrice = Math.round(basePrice * 0.9)
+      billingText = `Cobrado semestralmente: ${formatPrice(finalPrice * 6)} MT`
+    } else if (billingCycle === 'annual') {
+      finalPrice = Math.round(basePrice * 0.8)
+      billingText = `Cobrado anualmente: ${formatPrice(finalPrice * 12)} MT`
+    } else {
+      billingText = 'Cobrado mensalmente'
+    }
+    
+    return { price: formatPrice(finalPrice), billingText }
+  }
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault()
@@ -318,6 +345,28 @@ function HomePage() {
               <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
                 {t('pricing.hosting.subtitle')}
               </p>
+              
+              <div className="flex justify-center mt-6">
+                <div className="bg-black/5 dark:bg-white/5 p-1 rounded-full border border-zinc-200/60 dark:border-white/5 flex items-center gap-1">
+                  {[
+                    { id: 'monthly', label: 'Mensal' },
+                    { id: 'semiannual', label: 'Semestral' },
+                    { id: 'annual', label: 'Anual' }
+                  ].map((cycle) => (
+                    <button
+                      key={cycle.id}
+                      onClick={() => setBillingCycle(cycle.id as any)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                        billingCycle === cycle.id
+                          ? 'bg-red-600 text-white shadow-sm'
+                          : 'text-black/60 dark:text-zinc-400 hover:text-black dark:hover:text-white'
+                      }`}
+                    >
+                      {cycle.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="mx-5">
@@ -325,7 +374,7 @@ function HomePage() {
                 {[
                   {
                     nameKey: 'pricing.hosting.basic',
-                    price: '680',
+                    basePrice: 680,
                     popular: false,
                     features: [
                       { text: '10 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -342,7 +391,7 @@ function HomePage() {
                   },
                   {
                     nameKey: 'pricing.hosting.pro',
-                    price: '1.040',
+                    basePrice: 1040,
                     popular: true,
                     features: [
                       { text: '20 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -359,7 +408,7 @@ function HomePage() {
                   },
                   {
                     nameKey: 'pricing.hosting.business',
-                    price: '1.360',
+                    basePrice: 1360,
                     popular: false,
                     features: [
                       { text: '30 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -376,7 +425,7 @@ function HomePage() {
                   },
                   {
                     nameKey: 'pricing.hosting.enterprise',
-                    price: '2.040',
+                    basePrice: 2040,
                     popular: false,
                     features: [
                       { text: '40 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -391,61 +440,79 @@ function HomePage() {
                       { text: t('pricing.hosting.support24h'), Icon: LifeBuoy }
                     ]
                   }
-                ].map((plan) => (
-                  <div
-                    key={plan.nameKey}
-                    className={`bg-black/[0.02] dark:bg-black/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
-                      plan.popular
-                        ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
-                        : 'border-zinc-200/80 dark:border-white/10 hover:border-red-500/40 dark:hover:border-red-500/40'
-                    }`}
-                  >
-                    {plan.popular && (
-                      <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-20">
-                        {t('pricing.hosting.recommended')}
-                      </span>
-                    )}
-                    <div className={`p-5 border-b text-center rounded-t-lg ${
-                      plan.popular
-                        ? 'bg-zinc-950 dark:bg-black border-b-black text-white'
-                        : 'bg-black/[0.03] dark:bg-white/[0.02] border-zinc-200/60 dark:border-white/5 text-black dark:text-white'
-                    }`}>
-                      <h4 className="text-lg sm:text-xl font-extrabold uppercase tracking-wide mb-1">
-                        {t(plan.nameKey)}
-                      </h4>
-                      <div className="flex flex-col items-center justify-center mt-2.5">
-                        <span className={`text-2xl sm:text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
-                          {plan.price} MT
+                ].map((plan) => {
+                  const { price: planPrice, billingText } = getPlanPrice(plan.basePrice);
+                  return (
+                    <div
+                      key={plan.nameKey}
+                      className={`bg-zinc-50/80 dark:bg-zinc-900/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
+                        plan.popular
+                          ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
+                          : 'border-zinc-200/80 dark:border-white/5 hover:border-red-500/40 dark:hover:border-red-500/40'
+                      }`}
+                    >
+                      {plan.popular && (
+                        <span className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm z-20">
+                          {t('pricing.hosting.recommended')}
                         </span>
-                        <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold mt-1 ${
-                          plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-400'
+                      )}
+                      <div className={`p-5 text-center rounded-t-lg relative ${
+                        plan.popular
+                          ? 'bg-zinc-950 dark:bg-black text-white'
+                          : 'bg-black/[0.07] dark:bg-white/10 text-black dark:text-white'
+                      }`}>
+                        <h4 className={`text-lg sm:text-xl font-extrabold uppercase tracking-wide mb-0.5 ${
+                          plan.popular ? 'text-white' : 'text-black dark:text-white'
                         }`}>
-                          {t('pricing.hosting.month')}
-                        </span>
+                          {t(plan.nameKey)}
+                        </h4>
+                        <div className="flex flex-col items-center justify-center mt-1">
+                          <span className={`text-2xl sm:text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
+                            {planPrice} MT
+                          </span>
+                          <span className={`text-[10px] sm:text-xs uppercase tracking-wider font-bold mt-0.5 ${
+                            plan.popular ? 'text-zinc-400' : 'text-black/45 dark:text-zinc-500'
+                          }`}>
+                            {t('pricing.hosting.month')}
+                          </span>
+                          {billingCycle !== 'monthly' && (
+                            <span className={`text-[9px] font-bold mt-1 uppercase tracking-wide ${
+                              plan.popular ? 'text-red-400' : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {billingText}
+                            </span>
+                          )}
+                        </div>
+                        {/* Divider line that doesn't touch the edges */}
+                        <div className="absolute bottom-0 left-6 right-6">
+                          <div className={`h-[1.5px] w-full ${
+                            plan.popular ? 'bg-red-600' : 'bg-black/20 dark:bg-white/20'
+                          }`} />
+                        </div>
+                      </div>
+                      <div className="p-6 flex-1 flex flex-col justify-between">
+                        <ul className="space-y-2.5 mb-6 text-left">
+                          {plan.features.map((feat, fIdx) => {
+                            const FeatIcon = feat.Icon;
+                            return (
+                              <li key={fIdx} className="flex items-center gap-2.5 text-xs sm:text-sm text-black/70 dark:text-zinc-300">
+                                <FeatIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                                <span className="line-clamp-1">{feat.text}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
+                          plan.popular
+                            ? 'bg-zinc-950 dark:bg-black text-white hover:bg-red-600 dark:hover:bg-red-600 shadow-md'
+                            : 'bg-black/[0.07] dark:bg-white/10 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
+                        }`}>
+                          {t('pricing.hosting.hire')}
+                        </button>
                       </div>
                     </div>
-                    <div className="p-6 flex-1 flex flex-col justify-between">
-                      <ul className="space-y-2.5 mb-6 text-left">
-                        {plan.features.map((feat, fIdx) => {
-                          const FeatIcon = feat.Icon;
-                          return (
-                            <li key={fIdx} className="flex items-center gap-2.5 text-xs sm:text-sm text-black/70 dark:text-zinc-300">
-                              <FeatIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                              <span className="line-clamp-1">{feat.text}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
-                        plan.popular
-                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-md'
-                          : 'bg-black/5 dark:bg-white/10 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
-                      }`}>
-                        {t('pricing.hosting.hire')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
