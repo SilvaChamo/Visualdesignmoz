@@ -20,15 +20,13 @@ function HomePage() {
 
   const whyUsItems = [
     { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc', teaserKey: 'home.whyus.domain.teaser' },
-    { Icon: LayoutDashboard, titleKey: 'home.whyus.panel.title', descKey: 'home.whyus.panel.desc', teaserKey: 'home.whyus.panel.teaser' },
     { Icon: Server, titleKey: 'home.whyus.servers.title', descKey: 'home.whyus.servers.desc', teaserKey: 'home.whyus.servers.teaser' },
     { Icon: LifeBuoy, titleKey: 'home.whyus.support.title', descKey: 'home.whyus.support.desc', teaserKey: 'home.whyus.support.teaser' },
     { Icon: ShieldCheck, titleKey: 'home.whyus.security.title', descKey: 'home.whyus.security.desc', teaserKey: 'home.whyus.security.teaser' },
-    { Icon: Send, titleKey: 'home.whyus.marketing.title', descKey: 'home.whyus.marketing.desc', teaserKey: 'home.whyus.marketing.teaser' },
     { Icon: RefreshCw, titleKey: 'home.whyus.migration.title', descKey: 'home.whyus.migration.desc', teaserKey: 'home.whyus.migration.teaser' },
     { Icon: Sparkles, titleKey: 'home.whyus.custom.title', descKey: 'home.whyus.custom.desc', teaserKey: 'home.whyus.custom.teaser' },
   ]
-  const whyUsColumns = [whyUsItems.slice(0, 4), whyUsItems.slice(4, 8)]
+  const whyUsColumns = [whyUsItems.slice(0, 3), whyUsItems.slice(3, 6)]
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
