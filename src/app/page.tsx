@@ -35,14 +35,14 @@ function HomePage() {
     let savingsText = ''
     
     if (billingCycle === 'semiannual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.9)
+      const monthlyDiscounted = Math.round(basePrice * 0.95)
       mainPrice = monthlyDiscounted * 6
       cycleSuffix = '/6 meses'
       monthlyEquivalent = monthlyDiscounted
       savings = basePrice - monthlyDiscounted
       savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     } else if (billingCycle === 'annual') {
-      const monthlyDiscounted = Math.round(basePrice * 0.8)
+      const monthlyDiscounted = Math.round(basePrice * 0.9)
       mainPrice = monthlyDiscounted * 12
       cycleSuffix = '/12 meses'
       monthlyEquivalent = monthlyDiscounted
@@ -257,7 +257,7 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, image background */}
       {!hideServices && (
         <div
-          className="bg-zinc-100 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-200 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -339,7 +339,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-[#ffffff] dark:bg-zinc-900 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-200 dark:bg-zinc-950 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -361,35 +361,42 @@ function HomePage() {
               </p>
               
               <div className="flex items-center justify-center mt-6 gap-3">
-                <span className="h-[1.5px] w-[50px] bg-zinc-300 dark:bg-zinc-700"></span>
+                <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
                 <div
-                  className="bg-zinc-200 dark:bg-zinc-800 p-1 flex items-center gap-1.5 border border-zinc-300 dark:border-zinc-700"
+                  className="bg-zinc-950 dark:bg-white p-[2px]"
                   style={{
                     clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
                   }}
                 >
-                  {[
-                    { id: 'monthly', label: 'Mensal' },
-                    { id: 'semiannual', label: 'Semestral' },
-                    { id: 'annual', label: 'Anual' }
-                  ].map((cycle) => (
-                    <button
-                      key={cycle.id}
-                      onClick={() => setBillingCycle(cycle.id as any)}
-                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                        billingCycle === cycle.id
-                          ? 'bg-red-600 text-white shadow-sm'
-                          : 'text-black/60 dark:text-zinc-400 hover:text-black dark:hover:text-white'
-                      }`}
-                      style={{
-                        clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
-                      }}
-                    >
-                      {cycle.label}
-                    </button>
-                  ))}
+                  <div
+                    className="bg-zinc-300 dark:bg-zinc-800 p-0 flex items-stretch gap-0 h-9"
+                    style={{
+                      clipPath: 'polygon(0% 50%, 10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%)'
+                    }}
+                  >
+                    {[
+                      { id: 'monthly', label: 'Mensal' },
+                      { id: 'semiannual', label: 'Semestral' },
+                      { id: 'annual', label: 'Anual' }
+                    ].map((cycle) => (
+                      <button
+                        key={cycle.id}
+                        onClick={() => setBillingCycle(cycle.id as any)}
+                        className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
+                          billingCycle === cycle.id
+                            ? 'bg-red-600 text-white shadow-sm'
+                            : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
+                        }`}
+                        style={{
+                          clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
+                        }}
+                      >
+                        {cycle.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <span className="h-[1.5px] w-[50px] bg-zinc-300 dark:bg-zinc-700"></span>
+                <span className="h-[3px] w-[50px] bg-zinc-950 dark:bg-white"></span>
               </div>
             </div>
 
@@ -419,10 +426,10 @@ function HomePage() {
                     popular: true,
                     features: [
                       { text: '20 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
-                      { text: t('pricing.hosting.emails.unlimited'), Icon: Mail },
+                      { text: '20 ' + t('pricing.hosting.emails'), Icon: Mail },
                       { text: '200 ' + t('pricing.hosting.emailsPerDay'), Icon: Send },
                       { text: t('pricing.hosting.mailmarketing.limit').replace('{limit}', '500'), Icon: Megaphone },
-                      { text: t('pricing.hosting.addons.limit').replace('{limit}', '10'), Icon: Globe },
+                      { text: t('pricing.hosting.addons.limit').replace('{limit}', '5'), Icon: Globe },
                       { text: t('pricing.hosting.subdomains.unlimited'), Icon: GitBranch },
                       { text: t('pricing.hosting.ftp.unlimited'), Icon: FolderOpen },
                       { text: '10 ' + t('pricing.hosting.databases'), Icon: Database },
@@ -504,7 +511,7 @@ function HomePage() {
                             {planPrice} MT
                           </span>
                           {savingsText && (
-                            <span className="bg-red-600/10 text-red-600 dark:text-red-400 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap mt-1">
+                            <span className="bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[8px] sm:text-[9px] font-extrabold px-1.5 py-0.5 rounded-sm whitespace-nowrap mt-1">
                               {savingsText}
                             </span>
                           )}
@@ -548,7 +555,7 @@ function HomePage() {
       {/* Newsletter Section */}
       {!hideServices && (
         <div
-          className="bg-zinc-100 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-200 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
