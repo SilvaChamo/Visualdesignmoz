@@ -41,7 +41,7 @@ export function CompactFooter() {
             </div>
 
             {/* Coluna 2: Serviços Criativos */}
-            <div className="flex flex-col space-y-4">
+            <div className="flex flex-col space-y-4 lg:pl-[30px]">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Serviços Criativos
               </h4>
