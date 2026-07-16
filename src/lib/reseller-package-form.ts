@@ -106,9 +106,6 @@ export const FEATURE_SET_OPTIONS: Record<string, string> = {
 };
 
 export type HostingPlanPresetId =
-  | 'email-starter'
-  | 'email-pro'
-  | 'email-business'
   | 'hosting-basico'
   | 'hosting-pro'
   | 'hosting-business'
@@ -256,90 +253,6 @@ function buildPresetForm(overrides: PresetFormOverrides): Omit<ResellerPackageFo
 
 export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
   {
-    id: 'email-starter',
-    label: 'Email Starter',
-    description: 'Plano apenas e-mail para equipas pequenas',
-    defaultPackageName: 'VD-Email-Starter',
-    monthlyPriceMzn: 150,
-    form: buildPresetForm({
-      limits: {
-        quota: { value: '1000', unlimited: false },
-        bandwidth: { value: '10000', unlimited: false },
-        vdomains: { value: '1', unlimited: false },
-        nsubdomains: { value: '0', unlimited: false },
-        nemails: { value: '10', unlimited: false },
-        nemailf: { value: '10', unlimited: false },
-        nemailml: { value: '0', unlimited: false },
-        nemailr: { value: '10', unlimited: false },
-        mysql: { value: '0', unlimited: false },
-        ftp: { value: '0', unlimited: false },
-      },
-      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
-      featureSets: { policy: 'selected', selected: ['email_only'] },
-      resources: {
-        CPUQuota: { value: '100%', unlimited: false },
-        MemoryHigh: { value: '256M', unlimited: false },
-        MemoryMax: { value: '512M', unlimited: false },
-      },
-    }),
-  },
-  {
-    id: 'email-pro',
-    label: 'Email Profissional',
-    description: 'Plano apenas e-mail para equipas em crescimento',
-    defaultPackageName: 'VD-Email-Pro',
-    monthlyPriceMzn: 250,
-    form: buildPresetForm({
-      limits: {
-        quota: { value: '5000', unlimited: false },
-        bandwidth: { value: '20000', unlimited: false },
-        vdomains: { value: '1', unlimited: false },
-        nsubdomains: { value: '0', unlimited: false },
-        nemails: { value: '25', unlimited: false },
-        nemailf: { value: '25', unlimited: false },
-        nemailml: { value: '5', unlimited: false },
-        nemailr: { value: '25', unlimited: false },
-        mysql: { value: '0', unlimited: false },
-        ftp: { value: '0', unlimited: false },
-      },
-      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
-      featureSets: { policy: 'selected', selected: ['email_only'] },
-      resources: {
-        CPUQuota: { value: '100%', unlimited: false },
-        MemoryHigh: { value: '384M', unlimited: false },
-        MemoryMax: { value: '768M', unlimited: false },
-      },
-    }),
-  },
-  {
-    id: 'email-business',
-    label: 'Email Business',
-    description: 'Plano e-mail para volume maior de caixas',
-    defaultPackageName: 'VD-Email-Business',
-    monthlyPriceMzn: 600,
-    form: buildPresetForm({
-      limits: {
-        quota: { value: '15000', unlimited: false },
-        bandwidth: { value: '50000', unlimited: false },
-        vdomains: { value: '1', unlimited: false },
-        nsubdomains: { value: '0', unlimited: false },
-        nemails: { value: '50', unlimited: false },
-        nemailf: { value: '50', unlimited: false },
-        nemailml: { value: '10', unlimited: false },
-        nemailr: { value: '50', unlimited: false },
-        mysql: { value: '0', unlimited: false },
-        ftp: { value: '0', unlimited: false },
-      },
-      features: { wordpress: false, php: false, aftp: false, cron: false, git: false, ssl: true, spam: true },
-      featureSets: { policy: 'selected', selected: ['email_only'] },
-      resources: {
-        CPUQuota: { value: '120%', unlimited: false },
-        MemoryHigh: { value: '512M', unlimited: false },
-        MemoryMax: { value: '1G', unlimited: false },
-      },
-    }),
-  },
-  {
     // Sincronizado com a página pública /precos/hospedagem (4 planos oficiais).
     id: 'hosting-basico',
     label: 'Básico',
@@ -438,7 +351,7 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
   },
   {
     id: 'revenda-starter',
-    label: 'Revenda Starter',
+    label: 'Revenda Básico',
     description: 'Plano revenda para começar com limites definidos',
     defaultPackageName: 'VD-Revenda-S',
     form: buildPresetForm({
