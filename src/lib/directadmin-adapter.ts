@@ -336,34 +336,38 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       if (cached) return cached as PanelWebsite[];
 
       const users = await resolveDaAccountUsers(credentials);
-      const sites: PanelWebsite[] = [];
 
-      for (const user of users) {
-        const domainsData = await daGetPlain(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user });
-        const domains = extractDomainKeys(domainsData);
-        const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user });
-        const usageStats = await fetchDaUserUsageStats(credentials, user).catch(() => null);
+      // Antes isto percorria cada conta de cliente da DirectAdmin uma de
+      // cada vez (em fila); com muitas contas isso demorava muito. Agora
+      // pede-se tudo em paralelo.
+      const sitesByUser = await Promise.all(
+        users.map(async (user) => {
+          const domainsData = await daGetPlain(credentials, 'CMD_API_SHOW_USER_DOMAINS', { user });
+          const domains = extractDomainKeys(domainsData);
+          const userConf = await daGet(credentials, 'CMD_API_SHOW_USER_CONFIG', { user });
+          const usageStats = await fetchDaUserUsageStats(credentials, user).catch(() => null);
 
-        const domainRows = await Promise.all(
-          domains.map(async (domain) => {
-            const sslStatus = await resolveDomainSslStatus(credentials, domain);
-            return {
-              id: `${user}_${domain}`,
-              domain,
-              adminEmail: field(userConf, 'email'),
-              package: field(userConf, 'package') || 'Default',
-              state: field(userConf, 'suspended') === 'yes' ? 'Suspended' : 'Active',
-              owner: user,
-              phpVersion: field(userConf, 'php1_release') || 'PHP 8.3',
-              sslStatus,
-              ssl: sslStatus === 'Secure',
-              diskUsage: '0',
-              bandwidth: usageStats?.bandwidthUsedMb ?? 0,
-            } satisfies PanelWebsite;
-          }),
-        );
-        sites.push(...domainRows);
-      }
+          return Promise.all(
+            domains.map(async (domain) => {
+              const sslStatus = await resolveDomainSslStatus(credentials, domain);
+              return {
+                id: `${user}_${domain}`,
+                domain,
+                adminEmail: field(userConf, 'email'),
+                package: field(userConf, 'package') || 'Default',
+                state: field(userConf, 'suspended') === 'yes' ? 'Suspended' : 'Active',
+                owner: user,
+                phpVersion: field(userConf, 'php1_release') || 'PHP 8.3',
+                sslStatus,
+                ssl: sslStatus === 'Secure',
+                diskUsage: '0',
+                bandwidth: usageStats?.bandwidthUsedMb ?? 0,
+              } satisfies PanelWebsite;
+            }),
+          );
+        }),
+      );
+      const sites: PanelWebsite[] = sitesByUser.flat();
 
       cacheService.set(cacheKey, sites, 30_000);
       return sites;
@@ -387,13 +391,17 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
         }
       }
       const names = [...nameSet];
-      const packages: PanelPackage[] = [];
       const { packageRowFromFields } = await import('@/lib/panel-brand-packages');
 
-      for (const name of names) {
-        const fields = await fetchPackageDetailFields(credentials, name);
-        packages.push(packageRowFromFields(name, fields));
-      }
+      // Antes isto era feito um pacote de cada vez (em fila); agora pede-se
+      // tudo ao mesmo tempo, o que reduz o tempo de carregamento de forma
+      // proporcional ao número de pacotes existentes.
+      const packages: PanelPackage[] = await Promise.all(
+        names.map(async (name) => {
+          const fields = await fetchPackageDetailFields(credentials, name);
+          return packageRowFromFields(name, fields);
+        }),
+      );
 
       let result = packages;
       if (credentials.role === 'admin') {
