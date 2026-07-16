@@ -9,6 +9,24 @@ type NativeSite = {
   owner: string
   php: string
   ssl: boolean
+  packageId: string
+  packageLabel: string
+  quotaMb: number
+  quotaEnforced: boolean
+}
+
+type NativePackage = { id: string; label: string; quotaMb: number }
+
+const FALLBACK_PACKAGES: NativePackage[] = [
+  { id: 'hosting-basico', label: 'Básico', quotaMb: 10000 },
+  { id: 'hosting-pro', label: 'Profissional', quotaMb: 20000 },
+  { id: 'hosting-business', label: 'Business', quotaMb: 30000 },
+  { id: 'hosting-enterprise', label: 'Enterprise', quotaMb: 40000 },
+]
+
+function formatQuota(mb: number): string {
+  if (mb >= 1000) return `${(mb / 1000).toFixed(mb % 1000 === 0 ? 0 : 1)} GB`
+  return `${mb} MB`
 }
 
 /**
@@ -18,11 +36,14 @@ type NativeSite = {
  */
 export function NativeHostingSection() {
   const [sites, setSites] = useState<NativeSite[]>([])
+  const [packages, setPackages] = useState<NativePackage[]>(FALLBACK_PACKAGES)
   const [loading, setLoading] = useState(true)
   const [domain, setDomain] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
+  const [packageId, setPackageId] = useState('hosting-basico')
   const [creating, setCreating] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; message: string; details?: any } | null>(null)
+  const [changingPackageFor, setChangingPackageFor] = useState<string | null>(null)
 
   const loadSites = async () => {
     setLoading(true)
@@ -30,6 +51,7 @@ export function NativeHostingSection() {
       const res = await fetch('/api/site-manager?action=list')
       const data = await res.json()
       setSites(data.sites || [])
+      if (Array.isArray(data.packages) && data.packages.length) setPackages(data.packages)
     } catch {
       setSites([])
     } finally {
@@ -49,11 +71,11 @@ export function NativeHostingSection() {
       const res = await fetch('/api/site-manager', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', domain: domain.trim(), ownerEmail: ownerEmail.trim() }),
+        body: JSON.stringify({ action: 'create', domain: domain.trim(), ownerEmail: ownerEmail.trim(), packageId }),
       })
       const data = await res.json()
       if (data.success) {
-        setResult({ ok: true, message: `Conta criada: ${data.domain} (utilizador ${data.linuxUsername})${data.warning ? ' — ' + data.warning : ''}`, details: data })
+        setResult({ ok: true, message: `Conta criada: ${data.domain} (utilizador ${data.linuxUsername}, pacote ${data.packageLabel})${data.warning ? ' — ' + data.warning : ''}`, details: data })
         setDomain('')
         setOwnerEmail('')
         loadSites()
@@ -64,6 +86,28 @@ export function NativeHostingSection() {
       setResult({ ok: false, message: err?.message || 'Erro de rede' })
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleChangePackage = async (targetDomain: string, newPackageId: string) => {
+    setChangingPackageFor(targetDomain)
+    try {
+      const res = await fetch('/api/site-manager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setPackage', domain: targetDomain, packageId: newPackageId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResult({ ok: true, message: `Pacote de ${targetDomain} atualizado para ${data.packageLabel}.${data.warning ? ' — ' + data.warning : ''}` })
+        loadSites()
+      } else {
+        setResult({ ok: false, message: data.error || 'Falha ao mudar o pacote' })
+      }
+    } catch (err: any) {
+      setResult({ ok: false, message: err?.message || 'Erro de rede' })
+    } finally {
+      setChangingPackageFor(null)
     }
   }
 
@@ -107,6 +151,17 @@ export function NativeHostingSection() {
             placeholder="email do dono (opcional)"
             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
           />
+          <select
+            value={packageId}
+            onChange={(e) => setPackageId(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
+          >
+            {packages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label} ({formatQuota(p.quotaMb)})
+              </option>
+            ))}
+          </select>
           <button
             onClick={handleCreate}
             disabled={creating || !domain.trim()}
@@ -138,6 +193,7 @@ export function NativeHostingSection() {
                 <th className="py-2">Domínio</th>
                 <th className="py-2">Estado</th>
                 <th className="py-2">SSL</th>
+                <th className="py-2">Pacote</th>
                 <th className="py-2 text-right">Ações</th>
               </tr>
             </thead>
@@ -151,6 +207,22 @@ export function NativeHostingSection() {
                     </span>
                   </td>
                   <td className="py-2">{s.ssl ? '✅' : '—'}</td>
+                  <td className="py-2">
+                    <select
+                      value={s.packageId}
+                      disabled={changingPackageFor === s.domain}
+                      onChange={(e) => handleChangePackage(s.domain, e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-xs disabled:opacity-50"
+                      title={s.quotaEnforced ? 'Limite de disco bloqueado a sério' : 'Limite de disco só registado (sem bloqueio real)'}
+                    >
+                      {packages.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} ({formatQuota(p.quotaMb)})
+                        </option>
+                      ))}
+                    </select>
+                    {!s.quotaEnforced && <span className="ml-1 text-amber-600 text-xs" title="Sem bloqueio real de disco">⚠</span>}
+                  </td>
                   <td className="py-2 text-right space-x-2">
                     {s.status === 'active' ? (
                       <button onClick={() => handleAction(s.domain, 'suspend')} className="text-amber-600 hover:text-amber-800" title="Suspender">

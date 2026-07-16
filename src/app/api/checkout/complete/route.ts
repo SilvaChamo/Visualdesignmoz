@@ -16,6 +16,7 @@ const CART_PLAN_TO_PACKAGE: Record<string, string> = {
   'hosting-basico': 'VD-Host-Basico',
   'hosting-pro': 'VD-Host-Pro',
   'hosting-business': 'VD-Host-Business',
+  'hosting-enterprise': 'VD-Host-Enterprise',
   'email-pro': 'VD-Email-Pro',
   'email-starter': 'VD-Email-Starter',
   'email-business': 'VD-Email-Business',

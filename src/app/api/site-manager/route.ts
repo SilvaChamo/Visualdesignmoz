@@ -24,6 +24,22 @@ const NATIVE_VHOST_DIR = '/etc/httpd/conf/native-sites'
 const NATIVE_HOME_BASE = '/home'
 const NATIVE_USER_PREFIX = 'nv_'
 
+/** Os 4 planos oficiais — têm de bater sempre certo com a página pública
+ *  /precos/hospedagem e com os modelos em src/lib/reseller-package-form.ts.
+ *  0 = sem limite de disco (equivalente a "ilimitado"). */
+export const NATIVE_HOSTING_PACKAGES = [
+  { id: 'hosting-basico', label: 'Básico', quotaMb: 10000 },
+  { id: 'hosting-pro', label: 'Profissional', quotaMb: 20000 },
+  { id: 'hosting-business', label: 'Business', quotaMb: 30000 },
+  { id: 'hosting-enterprise', label: 'Enterprise', quotaMb: 40000 },
+] as const
+
+type NativePackageId = (typeof NATIVE_HOSTING_PACKAGES)[number]['id']
+
+function getNativePackage(packageId: string) {
+  return NATIVE_HOSTING_PACKAGES.find((p) => p.id === packageId) || NATIVE_HOSTING_PACKAGES[0]
+}
+
 function execSSH(command: string): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve, reject) => {
     const conn = new Client()
@@ -105,7 +121,7 @@ async function listSites() {
 
   const { data, error } = await admin
     .from('native_sites')
-    .select('domain, status, ssl_enabled, php_version, owner_email, created_at')
+    .select('domain, status, ssl_enabled, php_version, owner_email, package_id, quota_mb, quota_enforced, created_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ success: false, error: error.message, sites: [] })
@@ -116,9 +132,13 @@ async function listSites() {
     owner: s.owner_email || '—',
     php: s.php_version || '8.2',
     ssl: s.ssl_enabled,
+    packageId: s.package_id || 'hosting-basico',
+    packageLabel: getNativePackage(s.package_id || 'hosting-basico').label,
+    quotaMb: s.quota_mb ?? getNativePackage(s.package_id || 'hosting-basico').quotaMb,
+    quotaEnforced: Boolean(s.quota_enforced),
     provider: 'native' as const,
   }))
-  return NextResponse.json({ success: true, sites })
+  return NextResponse.json({ success: true, sites, packages: NATIVE_HOSTING_PACKAGES })
 }
 
 async function getSiteDetails(domain: string) {
@@ -135,7 +155,10 @@ async function getSiteDetails(domain: string) {
       domain: data.domain,
       status: data.status,
       owner: data.owner_email || '—',
-      package: 'native',
+      package: getNativePackage(data.package_id || 'hosting-basico').label,
+      packageId: data.package_id || 'hosting-basico',
+      quotaMb: data.quota_mb ?? getNativePackage(data.package_id || 'hosting-basico').quotaMb,
+      quotaEnforced: Boolean(data.quota_enforced),
       email: data.owner_email || '',
       diskUsage: 'N/A',
       bandwidthUsage: 'N/A',
@@ -167,13 +190,20 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'create':
-        return await createNativeSite(domain, String(body.ownerEmail || ''), String(body.ownerAuthUserId || ''))
+        return await createNativeSite(
+          domain,
+          String(body.ownerEmail || ''),
+          String(body.ownerAuthUserId || ''),
+          String(body.packageId || 'hosting-basico'),
+        )
       case 'suspend':
         return await suspendNativeSite(domain)
       case 'unsuspend':
         return await unsuspendNativeSite(domain)
       case 'delete':
         return await deleteNativeSite(domain, Boolean(body.deleteFiles))
+      case 'setPackage':
+        return await setNativeSitePackage(domain, String(body.packageId || ''))
       default:
         return NextResponse.json({ success: false, error: `Ação desconhecida: ${action}` }, { status: 400 })
     }
@@ -182,7 +212,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUserId: string) {
+async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUserId: string, packageId: string) {
   const admin = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ success: false, error: 'Supabase não configurado' }, { status: 500 })
 
@@ -191,6 +221,7 @@ async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUse
     return NextResponse.json({ success: false, error: 'Este domínio já tem uma conta nativa.' }, { status: 409 })
   }
 
+  const pkg = getNativePackage(packageId)
   const username = domainToLinuxUsername(domain)
   const docRoot = `${NATIVE_HOME_BASE}/${username}/public_html`
   const vhostPath = `${NATIVE_VHOST_DIR}/${domain}.conf`
@@ -217,6 +248,17 @@ async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUse
   }
 
   await run('criar pasta pública', `mkdir -p ${docRoot} && chown -R ${username}:${username} ${NATIVE_HOME_BASE}/${username} && chmod 750 ${NATIVE_HOME_BASE}/${username}`)
+
+  // 1b) Quota de disco — melhor esforço, tal como o SSL mais abaixo. Só
+  //     funciona se o sistema de ficheiros do servidor tiver quotas Linux
+  //     ativadas (usrquota no /etc/fstab). Se não tiver, a conta é criada na
+  //     mesma, sem bloqueio — fica registado no aviso final.
+  const quotaKb = pkg.quotaMb * 1024
+  const quotaStep = await run(
+    'aplicar quota de disco',
+    `setquota -u ${username} ${quotaKb} ${quotaKb} 0 0 / 2>&1 && echo QUOTA_OK || echo QUOTA_FALHOU`,
+  )
+  const quotaEnforced = quotaStep.ok && quotaStep.output.includes('QUOTA_OK')
 
   await run(
     'página inicial provisória',
@@ -267,11 +309,26 @@ async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUse
     doc_root: docRoot,
     status: 'active',
     ssl_enabled: sslOk,
+    package_id: pkg.id,
+    quota_mb: pkg.quotaMb,
+    quota_enforced: quotaEnforced,
     owner_email: ownerEmail || null,
     owner_auth_user_id: ownerAuthUserId || null,
   })
   if (dbError) {
     steps.push({ step: 'gravar no Supabase', ok: false, output: dbError.message })
+  }
+
+  const warnings: string[] = []
+  if (!sslOk) {
+    warnings.push(
+      "SSL não foi ativado agora (normalmente porque o DNS ainda não aponta para este servidor). O site já está no ar em HTTP.",
+    )
+  }
+  if (!quotaEnforced) {
+    warnings.push(
+      `Pacote "${pkg.label}" foi atribuído, mas o limite de ${pkg.quotaMb} MB não está a ser bloqueado a sério pelo servidor (fica só registado). Para bloquear de verdade é preciso ativar quotas Linux no servidor — avisa o Claude se quiseres isso.`,
+    )
   }
 
   return NextResponse.json({
@@ -280,10 +337,50 @@ async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUse
     linuxUsername: username,
     docRoot,
     sslEnabled: sslOk,
+    packageId: pkg.id,
+    packageLabel: pkg.label,
+    quotaMb: pkg.quotaMb,
+    quotaEnforced,
     steps,
-    warning: sslOk
+    warning: warnings.length ? warnings.join(' ') : undefined,
+  })
+}
+
+async function setNativeSitePackage(domain: string, packageId: string) {
+  const admin = getSupabaseAdmin()
+  if (!admin) return NextResponse.json({ success: false, error: 'Supabase não configurado' }, { status: 500 })
+
+  const { data: site } = await admin.from('native_sites').select('linux_username').eq('domain', domain).maybeSingle()
+  if (!site) return NextResponse.json({ success: false, error: 'Domínio não encontrado' }, { status: 404 })
+
+  const pkg = getNativePackage(packageId)
+  const quotaKb = pkg.quotaMb * 1024
+  const quotaStep = await execSSH(
+    `setquota -u ${site.linux_username} ${quotaKb} ${quotaKb} 0 0 / 2>&1 && echo QUOTA_OK || echo QUOTA_FALHOU`,
+  ).catch((err) => ({ ok: false, output: err.message }))
+  const quotaEnforced = quotaStep.ok && quotaStep.output.includes('QUOTA_OK')
+
+  const { error } = await admin
+    .from('native_sites')
+    .update({
+      package_id: pkg.id,
+      quota_mb: pkg.quotaMb,
+      quota_enforced: quotaEnforced,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('domain', domain)
+  if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+  return NextResponse.json({
+    success: true,
+    domain,
+    packageId: pkg.id,
+    packageLabel: pkg.label,
+    quotaMb: pkg.quotaMb,
+    quotaEnforced,
+    warning: quotaEnforced
       ? undefined
-      : 'SSL não foi ativado agora (normalmente porque o DNS ainda não aponta para este servidor). O site já está no ar em HTTP.',
+      : `Pacote atualizado para "${pkg.label}", mas o bloqueio real de disco não foi aplicado (servidor sem quotas Linux ativas). Fica só registado.`,
   })
 }
 
