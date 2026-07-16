@@ -8,7 +8,7 @@ export function CompactFooter() {
       {/* 5 Columns Menu Area (Max-Width Container) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-[60px]">
         <div className="mx-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-x-8 gap-y-5 lg:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-5 lg:gap-8">
 
             {/* Coluna 1: Logo & Contactos */}
             <div className="flex flex-col space-y-1">
@@ -40,21 +40,7 @@ export function CompactFooter() {
               </div>
             </div>
 
-            {/* Coluna 2: Visual Group */}
-            <div className="flex flex-col space-y-4 lg:pl-[30px]">
-              <h4 className="text-base font-extrabold text-zinc-200">
-                Visual Group
-              </h4>
-              <nav className="flex flex-col space-y-2.5 text-sm text-zinc-400">
-                <Link href="/sobre-nos" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Visual Design</Link>
-                <Link href="/portfolio" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Visual Web</Link>
-                <Link href="/cursos" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Visual Eventos</Link>
-                <Link href="/servicos/suporte" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Visual Pro</Link>
-                <Link href="/contacto" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Visual Gifts</Link>
-              </nav>
-            </div>
-
-            {/* Coluna 3: Serviços Criativos */}
+            {/* Coluna 2: Serviços Criativos */}
             <div className="flex flex-col space-y-4">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Serviços Criativos
@@ -68,7 +54,7 @@ export function CompactFooter() {
               </nav>
             </div>
 
-            {/* Coluna 4: Domínios */}
+            {/* Coluna 3: Domínios */}
             <div className="flex flex-col space-y-4">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Domínios
@@ -82,7 +68,7 @@ export function CompactFooter() {
               </nav>
             </div>
 
-            {/* Coluna 5: Hospedagem */}
+            {/* Coluna 4: Hospedagem */}
             <div className="flex flex-col space-y-4">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Hospedagem
@@ -96,7 +82,7 @@ export function CompactFooter() {
               </nav>
             </div>
 
-            {/* Coluna 6: Links Úteis */}
+            {/* Coluna 5: Links Úteis */}
             <div className="flex flex-col space-y-4">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Links Úteis
