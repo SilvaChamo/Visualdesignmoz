@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
         listMirrorPackages(mirrorScope),
       ]);
     } else {
-      const stale = await isMirrorStale(5);
+      const stale = await isMirrorStale(120);
       if (stale) scheduleDaSync(0);
     }
 
@@ -251,7 +251,7 @@ export async function GET(req: NextRequest) {
     }));
 
     const lastSyncedAt = await getMirrorLastSyncAt();
-    const stale = await isMirrorStale(5);
+    const stale = await isMirrorStale(120);
 
     return NextResponse.json({
       success: true,

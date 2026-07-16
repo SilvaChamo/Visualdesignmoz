@@ -3,6 +3,7 @@
    =================================== */
 
 :root {
+  --font-site: 'Exo 2', sans-serif;
   /* CORES - Tema Vermelho e Preto */
   --color-primary: #FF0000;
   --color-primary-dark: #CC0000;

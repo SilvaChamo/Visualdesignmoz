@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     }
 
     const mirrorScope: MirrorScope = { role: auth.user.role, userId: auth.user.id };
-    const stale = await isMirrorStale(15);
+    const stale = await isMirrorStale(120);
     if (stale) scheduleDaSync(0);
 
     let records = await listMirrorDns(domain, mirrorScope);

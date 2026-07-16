@@ -37,7 +37,7 @@ export async function resolveMirrorOrLive<T>(options: {
   if (hasMirror) {
     if (onStale) {
       void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
-        isMirrorStale(5).then((stale) => {
+        isMirrorStale(120).then((stale) => {
           if (stale) onStale();
         }),
       );

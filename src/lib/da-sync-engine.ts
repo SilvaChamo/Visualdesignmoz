@@ -645,9 +645,9 @@ async function finishLog(
 
 // Throttle global: evita disparar syncs em background com demasiada frequência.
 // Mutações no painel (DNS, contas, etc.) podem chamar scheduleDaSync várias
-// vezes seguidas — este mecanismo garante apenas 1 sync por janela de 5 min.
+// vezes seguidas — este mecanismo garante apenas 1 sync por janela de 60 min.
 let _lastScheduledAt = 0;
-const SCHEDULE_THROTTLE_MS = 5 * 60 * 1000; // 5 minutos
+const SCHEDULE_THROTTLE_MS = 60 * 60 * 1000; // 60 minutos (era 5)
 
 /** Sync rápido após mutação no painel (não bloqueia UI). */
 export function scheduleDaSync(delayMs = 2000) {

@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     if (searchParams.get('sync') === '1') {
       scheduleDaSync(0);
     } else {
-      const stale = await isMirrorStale(5);
+      const stale = await isMirrorStale(120);
       if (stale) scheduleDaSync(0);
     }
 
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
     });
 
     const lastSyncedAt = await getMirrorLastSyncAt();
-    const stale = await isMirrorStale(5);
+    const stale = await isMirrorStale(120);
 
     return NextResponse.json({
       success: true,

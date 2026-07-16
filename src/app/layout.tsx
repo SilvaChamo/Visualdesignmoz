@@ -64,6 +64,9 @@ export default function RootLayout({
   return (
     <html lang="pt-MZ" suppressHydrationWarning className={siteFont.variable}>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var m=document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/);var t=m?m[1]:localStorage.getItem('vd-theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
@@ -99,7 +102,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${siteFont.className} antialiased`}>
+      <body className="antialiased">
         <ThemeProvider>
           <AuthProvider>
             <OAuthCodeRedirect />

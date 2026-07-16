@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send, HardDrive, Megaphone, FolderOpen, Database, Lock, GitBranch } from 'lucide-react'
+import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send, HardDrive, Megaphone, FolderOpen, Database, Lock, GitBranch, Users, Gauge, ArrowRight } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
 import { CompactFooter } from '@/components/layout/CompactFooter'
@@ -12,7 +12,6 @@ import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 
 function HomePage() {
   const { t } = useI18n()
-  const [activeTab, setActiveTab] = useState('home.tabs.domains')
   const [hideServices, setHideServices] = useState(false)
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
   const [subscribed, setSubscribed] = useState(false)
@@ -33,11 +32,11 @@ function HomePage() {
     let monthlyEquivalent = basePrice
     let savings = 0
     let savingsText = ''
-    
+
     const isBasic = basePrice === 680
     const semiannualRate = isBasic ? 0.9 : 0.95
     const annualRate = isBasic ? 0.8 : 0.9
-    
+
     if (billingCycle === 'semiannual') {
       const monthlyDiscounted = Math.round(basePrice * semiannualRate)
       mainPrice = monthlyDiscounted * 6
@@ -53,7 +52,7 @@ function HomePage() {
       savings = basePrice - monthlyDiscounted
       savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     }
-    
+
     return {
       price: formatPrice(mainPrice),
       cycleSuffix,
@@ -69,8 +68,6 @@ function HomePage() {
       setSubscribed(false)
     }, 5000)
   }
-
-  const tabs = ['home.tabs.domains', 'home.tabs.hosting', 'home.tabs.ssl', 'home.tabs.email', 'home.tabs.support']
 
   const whyUsItems = [
     { Icon: Globe, titleKey: 'home.whyus.domain.title', descKey: 'home.whyus.domain.desc', teaserKey: 'home.whyus.domain.teaser' },
@@ -103,79 +100,49 @@ function HomePage() {
           aria-hidden
         />
         <div className="absolute inset-0 bg-black/20 dark:bg-black/25" />
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[30px] sm:pt-[160px] sm:pb-[35px] md:pt-[175px] md:pb-[40px] flex flex-col justify-center items-center min-h-[390px] sm:min-h-[440px] md:min-h-[490px] relative z-10">
-          <div className="w-full max-w-4xl text-center">
-            <h1 className="w-full px-2 text-center font-bold leading-[1.15] text-white mb-0 sm:mb-1 text-[clamp(1.375rem,2.8vw+0.75rem,2.25rem)]">
-              {t('home.title')}
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white mb-[28px] sm:mb-[25px] md:mb-[30px] font-normal text-center max-w-3xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
-              {t('home.subtitle')}
-            </p>
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center min-h-[500px] sm:min-h-[550px] md:min-h-[600px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
 
-            {/* Domain Search Box */}
-            <div className="flex justify-center mb-[48px] sm:mb-[40px] w-full max-w-[830px] mx-auto">
-              <DomainSearch
-                panelFieldRounding
-                onResultsAction={(results) => setHideServices(results.length > 0)}
-              />
-            </div>
+            {/* Coluna Esquerda: Texto de Destaque */}
+            <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 pb-[50px]">
+              <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl">
+                Encontre o melhor plano de hospedagem que se adequa ao seu negocio
+              </h1>
+              <p className="text-sm sm:text-base text-zinc-300 max-w-xl leading-relaxed">
+                Foque no crescimento do seu negócio enquanto nós cuidamos da sua presença online. Desenvolvemos soluções integradas de web design, alojamento de alta velocidade e marketing digital para destacar a sua marca
+              </p>
 
-            {/* Tabs */}
-            <div className="flex justify-center pb-0 mb-0">
-              <div className="flex flex-wrap justify-center gap-1 sm:gap-2 mb-0 px-2 sm:px-0">
-                {tabs.map((tabKey) => (
-                  <button
-                    key={tabKey}
-                    onClick={() => {
-                      setActiveTab(tabKey)
-                      // Redirecionar para página específica
-                      if (tabKey === 'home.tabs.domains') window.location.href = '/precos/dominios'
-                      else if (tabKey === 'home.tabs.hosting') window.location.href = '/precos/hospedagem'
-                      else if (tabKey === 'home.tabs.ssl') window.location.href = '/precos/ssl'
-                      else if (tabKey === 'home.tabs.email') window.location.href = '/precos/email'
-                      else if (tabKey === 'home.tabs.support') window.location.href = '/precos/suporte'
-                    }}
-                    className={`px-2 sm:px-3 md:px-4 py-1 rounded-md font-medium text-xs sm:text-sm transition-all relative flex items-center justify-center text-center ${activeTab === tabKey
-                      ? 'bg-red-600 text-white'
-                      : 'bg-black dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white hover:bg-red-600 dark:hover:bg-zinc-800'
-                      }`}
-                  >
-                    {t(tabKey)}
-                  </button>
-                ))}
+              {/* Selos / Badges de Recursos */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-4 py-5 border-y border-white/10 w-full text-zinc-300">
+                <div className="flex items-center space-x-4">
+                  <ShieldCheck className="w-5 h-5 text-red-500" strokeWidth={2} />
+                  <span className="text-xs sm:text-sm font-semibold">30 Dia Garantia</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Users className="w-5 h-5 text-red-500" strokeWidth={2} />
+                  <span className="text-xs sm:text-sm font-semibold">Aprovado por usuários</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Gauge className="w-5 h-5 text-red-500" strokeWidth={2} />
+                  <span className="text-xs sm:text-sm font-semibold">Velocidade</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Lock className="w-5 h-5 text-red-500" strokeWidth={2} />
+                  <span className="text-xs sm:text-sm font-semibold">Seguro</span>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Service Categories - Bottom Center */}
-          {/* <div className="w-full max-w-4xl text-center mt-4">
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/servicos/design-grafico" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Design Gráfico
-              </Link>
-              <Link href="/servicos/webdesign" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Web Design
-              </Link>
-              <Link href="/servicos/marketing-digital" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Marketing Digital
-              </Link>
-              <Link href="/servicos/branding" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Branding
-              </Link>
-              <Link href="/servicos/seo" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                SEO
-              </Link>
-              <Link href="/servicos/redes-sociais" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Redes Sociais
-              </Link>
-              <Link href="/servicos/video-producao" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Produção de Vídeo
-              </Link>
-              <Link href="/servicos/fotografia" className="text-white hover:text-red-500 transition-colors font-medium text-sm">
-                Fotografia
+              {/* Botão de Ação */}
+              <Link href="/precos/hospedagem" className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
+                <span>Comece Agora</span>
+                <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
               </Link>
             </div>
-          </div> */}
+
+            {/* Coluna Direita: Vazia para dar equilíbrio visual como na imagem de referência */}
+            <div className="lg:col-span-5 hidden lg:block" />
+
+          </div>
         </div>
       </div>
 
@@ -194,7 +161,7 @@ function HomePage() {
 
           {/* Hosting Features Section */}
           <div
-            className="bg-white dark:bg-zinc-950 pt-16 pb-12 sm:pt-24 sm:pb-16 relative"
+            className="bg-white dark:bg-zinc-950 pt-16 pb-16 sm:pt-24 sm:pb-24 relative"
             style={{
               '--cl': 'max(24px, calc(50% - 616px))',
               clipPath:
@@ -226,31 +193,43 @@ function HomePage() {
               <div className="mt-8 sm:mt-10 mx-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[
-                    { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc' },
-                    { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc' },
-                    { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc' },
-                    { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc' },
-                    { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc' },
-                    { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc' },
-                  ].map(({ Icon, titleKey, descKey }) => (
-                    <div
-                      key={titleKey}
-                      className="flex gap-4 p-4 rounded-lg border border-zinc-200/80 dark:border-white/10 bg-black/[0.02] dark:bg-black/40 transition-all duration-300 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40"
-                    >
-                      <div className="shrink-0 w-11 h-11 rounded-lg border border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-red-600 dark:text-red-500" strokeWidth={2} />
+                    { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc', href: '/servicos/dominios' },
+                    { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/servicos/email' },
+                    { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/servicos/ssl' },
+                    { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/servicos/suporte' },
+                    { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/servicos/transferencia' },
+                    { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem' },
+                  ].map(({ Icon, titleKey, descKey }, idx) => {
+                    const isLast = idx === 5;
+                    return (
+                      <div
+                        key={titleKey}
+                        className={`group flex gap-4 p-4 rounded-lg border transition-all duration-300 ${isLast
+                          ? "bg-black/[0.05] dark:bg-black/60 border-red-500/40 dark:border-red-500/40"
+                          : "bg-black/[0.02] dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40"
+                          }`}
+                      >
+                        <div className={`shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center transition-all duration-300 ${isLast
+                          ? "bg-red-600 border-red-600"
+                          : "border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 group-hover:bg-red-600 group-hover:border-red-600"
+                          }`}>
+                          <Icon className={`w-5 h-5 transition-colors duration-300 ${isLast
+                            ? "text-white"
+                            : "text-red-600 dark:text-red-500 group-hover:text-white"
+                            }`} strokeWidth={2} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block transition-colors duration-300">
+                            {t(titleKey)}
+                            <span className="block h-[2px] w-8 bg-red-600 dark:bg-red-500 mt-1" />
+                          </h3>
+                          <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">
+                            {t(descKey)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block">
-                          {t(titleKey)}
-                          <span className="block h-[2px] w-8 bg-red-600 dark:bg-red-500 mt-1" />
-                        </h3>
-                        <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">
-                          {t(descKey)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -261,7 +240,7 @@ function HomePage() {
       {/* Why Choose Us Section - after Hosting, image background */}
       {!hideServices && (
         <div
-          className="bg-zinc-200 dark:bg-black py-8 sm:py-10 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-zinc-200 dark:bg-black pt-16 pb-16 sm:pt-24 sm:pb-24 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -343,7 +322,7 @@ function HomePage() {
       {/* Hosting Plans & Prices Section */}
       {!hideServices && (
         <div
-          className="bg-white dark:bg-zinc-800 py-16 sm:py-20 relative overflow-hidden -mt-[16px] z-20"
+          className="bg-white dark:bg-[#FFFFFF1A] pt-16 pb-16 sm:pt-24 sm:pb-24 relative overflow-hidden -mt-[16px] z-20"
           style={{
             '--cl': 'max(24px, calc(50% - 616px))',
             clipPath:
@@ -363,7 +342,7 @@ function HomePage() {
               <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">
                 {t('pricing.hosting.subtitle')}
               </p>
-              
+
               <div className="flex items-center justify-center mt-12 gap-3">
                 <span className="h-[1.5px] w-[50px] bg-zinc-400 dark:bg-zinc-600"></span>
                 <div
@@ -380,11 +359,10 @@ function HomePage() {
                     <button
                       key={cycle.id}
                       onClick={() => setBillingCycle(cycle.id as any)}
-                      className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${
-                        billingCycle === cycle.id
-                          ? 'bg-red-600 text-white shadow-sm'
-                          : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
-                      }`}
+                      className={`px-5 py-0 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center ${billingCycle === cycle.id
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white'
+                        }`}
                       style={{
                         clipPath: 'polygon(0% 50%, 8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%)'
                       }}
@@ -473,11 +451,10 @@ function HomePage() {
                   return (
                     <div
                       key={plan.nameKey}
-                      className={`bg-zinc-50/80 dark:bg-zinc-900/40 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${
-                        plan.popular
-                          ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
-                          : 'border-zinc-200/80 dark:border-white/5 hover:border-red-500/40 dark:hover:border-red-500/40'
-                      }`}
+                      className={`bg-black/[0.02] dark:bg-black/40 hover:bg-black/[0.05] dark:hover:bg-black/60 rounded-lg hover:shadow-lg transition-all duration-300 relative flex flex-col justify-between border ${plan.popular
+                        ? 'border-red-500 dark:border-red-500 shadow-md ring-2 ring-red-500/20'
+                        : 'border-zinc-200/80 dark:border-white/5 hover:border-red-500/40 dark:hover:border-red-500/40'
+                        }`}
                     >
                       {plan.popular && (
                         <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 flex items-center gap-2.5 z-20">
@@ -493,17 +470,20 @@ function HomePage() {
                           <span className="h-[1.5px] w-[30px] bg-red-600"></span>
                         </div>
                       )}
-                      <div className={`p-5 text-center rounded-t-lg relative ${
-                        plan.popular
+                      <div
+                        className={`h-[140px] flex flex-col justify-center items-center text-center rounded-t-lg relative px-5 pb-2 ${plan.popular
                           ? 'bg-zinc-950 dark:bg-black text-white'
                           : 'bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white'
-                      }`}>
-                        <h4 className={`text-lg sm:text-xl font-extrabold uppercase tracking-wide mb-0.5 ${
-                          plan.popular ? 'text-white' : 'text-black dark:text-white'
-                        }`}>
+                          }`}
+                        style={{
+                          clipPath: 'polygon(0% 0%, 100% 0%, 100% calc(100% - 6px), calc(100% - 24px) calc(100% - 6px), calc(100% - 30px) 100%, 30px 100%, 24px calc(100% - 6px), 0% calc(100% - 6px))'
+                        }}
+                      >
+                        <h4 className={`text-lg sm:text-xl font-extrabold uppercase tracking-wide mb-0 ${plan.popular ? 'text-white' : 'text-black dark:text-white'
+                          }`}>
                           {t(plan.nameKey)}
                         </h4>
-                        <div className="flex flex-col items-center justify-center mt-1">
+                        <div className="flex flex-col items-center justify-center mt-0">
                           <span className={`text-2xl sm:text-3xl font-black ${plan.popular ? 'text-red-500' : 'text-red-600 dark:text-red-500'}`}>
                             {planPrice} MT
                           </span>
@@ -513,12 +493,6 @@ function HomePage() {
                             </span>
                           )}
                         </div>
-                      </div>
-                      {/* Divider line that doesn't touch the edges (5px thickness, placed OUTSIDE header) */}
-                      <div className="px-6 w-full mt-0">
-                        <div className={`h-[5px] w-full ${
-                          plan.popular ? 'bg-red-600' : 'bg-zinc-300 dark:bg-zinc-700'
-                        }`} />
                       </div>
                       <div className="p-6 flex-1 flex flex-col justify-between">
                         <ul className="space-y-2.5 mb-6 text-left">
@@ -532,11 +506,10 @@ function HomePage() {
                             );
                           })}
                         </ul>
-                        <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${
-                          plan.popular
-                            ? 'bg-zinc-950 dark:bg-black text-white hover:bg-red-600 dark:hover:bg-red-600 shadow-md'
-                            : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
-                        }`}>
+                        <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${plan.popular
+                          ? 'bg-red-600 text-white hover:bg-red-700 shadow-md'
+                          : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
+                          }`}>
                           {t('pricing.hosting.hire')}
                         </button>
                       </div>
@@ -576,16 +549,16 @@ function HomePage() {
                     <span>✓</span> {t('home.newsletter.success')}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="flex items-center gap-2 w-full max-w-xl md:max-w-2xl">
+                  <form onSubmit={handleSubscribe} className="flex items-center gap-[15px] w-full max-w-xl md:max-w-2xl">
                     <input
                       type="email"
                       placeholder={t('home.newsletter.placeholder')}
-                      className="px-4 py-3 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full"
+                      className="px-4 py-3.5 text-sm rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-red-600 w-full"
                       required
                     />
                     <button
                       type="submit"
-                      className="px-5 py-3 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors whitespace-nowrap shadow-sm"
+                      className="px-5 py-3.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold transition-colors whitespace-nowrap shadow-sm"
                     >
                       {t('home.newsletter.button')}
                     </button>

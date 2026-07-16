@@ -178,7 +178,7 @@ export async function getMirrorLastSyncAt(): Promise<string | null> {
 let staleCache: { at: number; value: boolean } | null = null;
 const STALE_CACHE_MS = 60_000;
 
-export async function isMirrorStale(maxAgeMinutes = 20): Promise<boolean> {
+export async function isMirrorStale(maxAgeMinutes = 120): Promise<boolean> {
   if (staleCache && Date.now() - staleCache.at < STALE_CACHE_MS) {
     return staleCache.value;
   }
@@ -187,7 +187,7 @@ export async function isMirrorStale(maxAgeMinutes = 20): Promise<boolean> {
   return value;
 }
 
-async function isMirrorStaleUncached(maxAgeMinutes = 20): Promise<boolean> {
+async function isMirrorStaleUncached(maxAgeMinutes = 120): Promise<boolean> {
   const admin = getDaSyncAdmin();
   if (!admin) return true;
   const { count } = await admin.from('panel_sites').select('id', { count: 'exact', head: true });

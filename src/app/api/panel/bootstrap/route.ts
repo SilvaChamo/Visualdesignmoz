@@ -133,7 +133,7 @@ export async function GET() {
       scheduleDaSync(0);
     } else {
       void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
-        isMirrorStale(1).then((stale) => {
+        isMirrorStale(120).then((stale) => {
           if (stale) scheduleDaSync(0);
         }),
       );
