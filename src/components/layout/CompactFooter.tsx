@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export function CompactFooter() {
   return (
-    <footer className="bg-zinc-950 dark:bg-[#FFFFFF1A] text-white pt-8 border-t border-white/5 relative z-10">
+    <footer className="bg-zinc-950 dark:bg-[#FFFFFF1A] text-white pt-10 border-t border-white/5 relative z-10">
       {/* 5 Columns Menu Area (Max-Width Container) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="mx-5">
