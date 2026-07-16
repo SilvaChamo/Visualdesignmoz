@@ -11,7 +11,7 @@ export function CompactFooter() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-5 lg:gap-8">
 
             {/* Coluna 1: Logo & Contactos */}
-            <div className="flex flex-col space-y-1 lg:pl-[30px]">
+            <div className="flex flex-col space-y-1">
               <Link href="/" className="inline-block">
                 <img
                   src="/assets/Logo - Branco.png"
