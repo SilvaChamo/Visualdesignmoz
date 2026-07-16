@@ -6,7 +6,7 @@ export function CompactFooter() {
   return (
     <footer className="bg-zinc-950 dark:bg-[#FFFFFF1A] text-white border-t border-white/5 relative z-10">
       {/* 5 Columns Menu Area (Max-Width Container) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-[60px]">
         <div className="mx-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-x-8 gap-y-5 lg:gap-8">
 
