@@ -112,6 +112,7 @@ export type HostingPlanPresetId =
   | 'hosting-basico'
   | 'hosting-pro'
   | 'hosting-business'
+  | 'hosting-enterprise'
   | 'revenda-starter'
   | 'revenda-pro';
 
@@ -339,8 +340,9 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
     }),
   },
   {
+    // Sincronizado com a página pública /precos/hospedagem (4 planos oficiais).
     id: 'hosting-basico',
-    label: 'Webhost Básico',
+    label: 'Básico',
     description: 'Plano inicial para site institucional',
     defaultPackageName: 'VD-Host-Basico',
     monthlyPriceMzn: 680,
@@ -349,10 +351,10 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
         quota: { value: '10000', unlimited: false },
         bandwidth: { value: '100000', unlimited: false },
         vdomains: { value: '1', unlimited: false },
-        nsubdomains: { value: '10', unlimited: false },
+        nsubdomains: { value: '', unlimited: true },
         nemails: { value: '10', unlimited: false },
         mysql: { value: '1', unlimited: false },
-        ftp: { value: '1', unlimited: false },
+        ftp: { value: '', unlimited: true },
       },
       features: { wordpress: true, php: true, aftp: false, cron: true, git: false, ssl: true, spam: true },
       resources: {
@@ -364,19 +366,19 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
   },
   {
     id: 'hosting-pro',
-    label: 'Webhost Pro',
-    description: 'Plano para negócios e lojas com tráfego regular',
+    label: 'Profissional',
+    description: 'Plano recomendado para a maioria dos sites',
     defaultPackageName: 'VD-Host-Pro',
-    monthlyPriceMzn: 1500,
+    monthlyPriceMzn: 1040,
     form: buildPresetForm({
       limits: {
-        quota: { value: '50000', unlimited: false },
-        bandwidth: { value: '500000', unlimited: false },
-        vdomains: { value: '3', unlimited: false },
-        nsubdomains: { value: '20', unlimited: false },
-        nemails: { value: '25', unlimited: false },
-        mysql: { value: '5', unlimited: false },
-        ftp: { value: '3', unlimited: false },
+        quota: { value: '20000', unlimited: false },
+        bandwidth: { value: '200000', unlimited: false },
+        vdomains: { value: '5', unlimited: false },
+        nsubdomains: { value: '', unlimited: true },
+        nemails: { value: '20', unlimited: false },
+        mysql: { value: '10', unlimited: false },
+        ftp: { value: '', unlimited: true },
       },
       features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true },
       resources: {
@@ -388,25 +390,49 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
   },
   {
     id: 'hosting-business',
-    label: 'Webhost Business',
+    label: 'Business',
     description: 'Plano para operação com vários sites activos',
     defaultPackageName: 'VD-Host-Business',
-    monthlyPriceMzn: 2500,
+    monthlyPriceMzn: 1360,
     form: buildPresetForm({
       limits: {
-        quota: { value: '100000', unlimited: false },
-        bandwidth: { value: '1000000', unlimited: false },
-        vdomains: { value: '5', unlimited: false },
-        nsubdomains: { value: '40', unlimited: false },
-        nemails: { value: '50', unlimited: false },
-        mysql: { value: '10', unlimited: false },
-        ftp: { value: '5', unlimited: false },
+        quota: { value: '30000', unlimited: false },
+        bandwidth: { value: '300000', unlimited: false },
+        vdomains: { value: '', unlimited: true },
+        nsubdomains: { value: '', unlimited: true },
+        nemails: { value: '', unlimited: true },
+        mysql: { value: '', unlimited: true },
+        ftp: { value: '', unlimited: true },
       },
       features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true },
       resources: {
         CPUQuota: { value: '300%', unlimited: false },
         MemoryHigh: { value: '1500M', unlimited: false },
         MemoryMax: { value: '2G', unlimited: false },
+      },
+    }),
+  },
+  {
+    id: 'hosting-enterprise',
+    label: 'Enterprise',
+    description: 'Plano de maior capacidade, para operações exigentes',
+    defaultPackageName: 'VD-Host-Enterprise',
+    monthlyPriceMzn: 2040,
+    form: buildPresetForm({
+      limits: {
+        quota: { value: '40000', unlimited: false },
+        bandwidth: { value: '400000', unlimited: false },
+        vdomains: { value: '', unlimited: true },
+        nsubdomains: { value: '', unlimited: true },
+        nemails: { value: '', unlimited: true },
+        mysql: { value: '', unlimited: true },
+        ftp: { value: '', unlimited: true },
+      },
+      features: { wordpress: true, php: true, aftp: true, cron: true, git: true, ssl: true, spam: true },
+      resources: {
+        CPUQuota: { value: '400%', unlimited: false },
+        MemoryHigh: { value: '2G', unlimited: false },
+        MemoryMax: { value: '3G', unlimited: false },
       },
     }),
   },
@@ -587,7 +613,7 @@ export function inferHostingPlanPresetId(form: ResellerPackageFormState): Hostin
   if (byName) return byName.id;
 
   const aliases: Record<string, HostingPlanPresetId> = {
-    osher: 'hosting-pro',
+    osher: 'hosting-business',
     visualdesign: 'hosting-business',
   };
   const alias = aliases[normalizedPackageName];
