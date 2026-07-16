@@ -109,9 +109,7 @@ export type HostingPlanPresetId =
   | 'hosting-basico'
   | 'hosting-pro'
   | 'hosting-business'
-  | 'hosting-enterprise'
-  | 'revenda-starter'
-  | 'revenda-pro';
+  | 'hosting-enterprise';
 
 export type HostingPlanPreset = {
   id: HostingPlanPresetId;
@@ -327,8 +325,8 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
   },
   {
     id: 'hosting-enterprise',
-    label: 'Enterprise',
-    description: 'Plano de maior capacidade, para operações exigentes',
+    label: 'Revenda',
+    description: 'Plano de maior capacidade, com tudo ilimitado — serve também para revenda',
     defaultPackageName: 'VD-Host-Enterprise',
     monthlyPriceMzn: 2040,
     form: buildPresetForm({
@@ -346,54 +344,6 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
         CPUQuota: { value: '400%', unlimited: false },
         MemoryHigh: { value: '2G', unlimited: false },
         MemoryMax: { value: '3G', unlimited: false },
-      },
-    }),
-  },
-  {
-    id: 'revenda-starter',
-    label: 'Revenda Básico',
-    description: 'Plano revenda para começar com limites definidos',
-    defaultPackageName: 'VD-Revenda-S',
-    form: buildPresetForm({
-      limits: {
-        quota: { value: '20000', unlimited: false },
-        bandwidth: { value: '200000', unlimited: false },
-        vdomains: { value: '15', unlimited: false },
-        nsubdomains: { value: '50', unlimited: false },
-        nemails: { value: '100', unlimited: false },
-        mysql: { value: '20', unlimited: false },
-        ftp: { value: '20', unlimited: false },
-        nusers: { value: '10', unlimited: false },
-      },
-      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true, oversell: true },
-      resources: {
-        CPUQuota: { value: '400%', unlimited: false },
-        MemoryHigh: { value: '2G', unlimited: false },
-        MemoryMax: { value: '3G', unlimited: false },
-      },
-    }),
-  },
-  {
-    id: 'revenda-pro',
-    label: 'Revenda Pro',
-    description: 'Plano revenda para carteira maior de clientes',
-    defaultPackageName: 'VD-Revenda-M',
-    form: buildPresetForm({
-      limits: {
-        quota: { value: '50000', unlimited: false },
-        bandwidth: { value: '500000', unlimited: false },
-        vdomains: { value: '40', unlimited: false },
-        nsubdomains: { value: '150', unlimited: false },
-        nemails: { value: '250', unlimited: false },
-        mysql: { value: '50', unlimited: false },
-        ftp: { value: '50', unlimited: false },
-        nusers: { value: '25', unlimited: false },
-      },
-      features: { wordpress: true, php: true, aftp: false, cron: true, git: true, ssl: true, spam: true, oversell: true },
-      resources: {
-        CPUQuota: { value: '600%', unlimited: false },
-        MemoryHigh: { value: '3G', unlimited: false },
-        MemoryMax: { value: '4G', unlimited: false },
       },
     }),
   },
