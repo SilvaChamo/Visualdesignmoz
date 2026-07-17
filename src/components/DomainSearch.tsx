@@ -138,8 +138,11 @@ export default function DomainSearch({
     // comportamento anterior. A confirmação real de disponibilidade de
     // cada uma vai-se preenchendo sozinha a seguir, uma de cada vez,
     // porque a Porkbun só permite 1 verificação real a cada ~10s por conta.
-    const otherTlds = TLDS.map((row) => row.value).filter((v) => v !== selectedTLD)
-    const tldsToShow = [selectedTLD, ...otherTlds].slice(0, 10)
+    // Lista fixa das extensões mais pedidas — a escolhida no selector vem
+    // sempre primeiro, seguida destas (sem repetir).
+    const CURATED_TLDS = ['.com', '.org', '.net', '.co', '.online', '.site', '.me', '.farm']
+    const otherTlds = CURATED_TLDS.filter((v) => v !== selectedTLD)
+    const tldsToShow = [selectedTLD, ...otherTlds]
 
     const baseName = searchQuery.trim().replace(/^www\./, '').split('.')[0]
     const initialResults: SearchResult[] = tldsToShow.map((tld) => {
