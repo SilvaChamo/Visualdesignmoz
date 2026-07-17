@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { spaceshipAPI } from '@/lib/spaceship-adapter';
-import { porkbunAPI } from '@/lib/porkbun-adapter';
 
-type Registrar = 'spaceship' | 'porkbun';
-
-/** Descobre a que registador um domínio pertence, tentando os dois. */
-async function resolveRegistrar(domain: string): Promise<Registrar | null> {
-  const [spaceshipResult, porkbunResult] = await Promise.all([
-    spaceshipAPI.getDomainDetails(domain),
-    porkbunAPI.getDomainDetails(domain),
-  ]);
-  if (spaceshipResult.success) return 'spaceship';
-  if (porkbunResult.success) return 'porkbun';
-  return null;
-}
-
-/** Detalhes e acções de gestão de domínio no registador (Spaceship ou Porkbun). */
+/** Detalhes e acções de gestão de domínio no registador (Spaceship). */
 export async function GET(request: NextRequest) {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
@@ -26,13 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Domínio obrigatório' }, { status: 400 });
   }
 
-  const registrar = await resolveRegistrar(domain);
-  if (!registrar) {
-    return NextResponse.json({ success: false, error: 'Domínio não encontrado em nenhum registador ligado.' }, { status: 400 });
-  }
-
-  const api = registrar === 'spaceship' ? spaceshipAPI : porkbunAPI;
-  const result = await api.getDomainDetails(domain);
+  const result = await spaceshipAPI.getDomainDetails(domain);
   if (!result.success) {
     return NextResponse.json({ success: false, error: result.error }, { status: 400 });
   }
@@ -40,7 +20,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     domain,
-    registrar,
     isLocked: result.isLocked,
     autoRenew: result.autoRenew,
     expireDate: result.expireDate,
@@ -66,14 +45,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Domínio e acção obrigatórios' }, { status: 400 });
   }
 
-  const registrar = await resolveRegistrar(domain);
-  if (!registrar) {
-    return NextResponse.json({ success: false, error: 'Domínio não encontrado em nenhum registador ligado.' }, { status: 400 });
-  }
-  const api = registrar === 'spaceship' ? spaceshipAPI : porkbunAPI;
-
   if (action === 'unlock') {
-    const result = await api.setTransferLock(domain, false);
+    const result = await spaceshipAPI.setTransferLock(domain, false);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
@@ -81,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'auth-code') {
-    const result = await api.getTransferAuthCode(domain);
+    const result = await spaceshipAPI.getTransferAuthCode(domain);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
@@ -97,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (typeof body.isEnabled !== 'boolean') {
       return NextResponse.json({ success: false, error: 'isEnabled obrigatório' }, { status: 400 });
     }
-    const result = await api.setAutoRenew(domain, body.isEnabled);
+    const result = await spaceshipAPI.setAutoRenew(domain, body.isEnabled);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
