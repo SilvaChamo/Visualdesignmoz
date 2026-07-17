@@ -88,8 +88,6 @@ export default function DomainSearch({
     </div>
   )
 
-  const [checkingTlds, setCheckingTlds] = useState<Set<string>>(new Set())
-
   const fetchSingleTldResult = async (tld: string): Promise<SearchResult> => {
     try {
       const controller = new AbortController()
@@ -125,30 +123,6 @@ export default function DomainSearch({
         error: 'Erro de verificação',
       }
     }
-  }
-
-  /** Verifica uma extensão adicional só quando o utilizador clica nela
-   *  (em vez de pesquisar tudo automaticamente, o que ultrapassava o
-   *  limite de 1 pesquisa/10s da Porkbun). */
-  const handleCheckExtraTld = async (tld: string) => {
-    if (checkingTlds.has(tld) || results.some((r) => r.domain.endsWith(tld))) return
-    setCheckingTlds((prev) => new Set(prev).add(tld))
-    const result = await fetchSingleTldResult(tld)
-    setResults((prev) => {
-      const next = [...prev, result]
-      next.sort((a, b) => {
-        if (a.domain.endsWith(selectedTLD)) return -1
-        if (b.domain.endsWith(selectedTLD)) return 1
-        return 0
-      })
-      if (onResultsAction) onResultsAction(next)
-      return next
-    })
-    setCheckingTlds((prev) => {
-      const next = new Set(prev)
-      next.delete(tld)
-      return next
-    })
   }
 
   const handleSearch = async () => {
@@ -297,30 +271,6 @@ export default function DomainSearch({
           </div>
         </div>
       ))}
-
-      <div className="mt-1 flex flex-wrap items-center gap-2 pt-2">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          Ver também:
-        </span>
-        {TLDS.filter(
-          (row) => !results.some((r) => r.domain.endsWith(row.value)),
-        )
-          .slice(0, 8)
-          .map((row) => (
-            <button
-              key={row.value}
-              type="button"
-              disabled={checkingTlds.has(row.value)}
-              onClick={() => void handleCheckExtraTld(row.value)}
-              className="flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-700 transition-colors hover:border-red-400 hover:text-red-600 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-            >
-              {checkingTlds.has(row.value) ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : null}
-              {row.value}
-            </button>
-          ))}
-      </div>
     </div>
   )
 
