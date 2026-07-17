@@ -144,35 +144,22 @@ export default function DomainSearch({
     const otherTlds = CURATED_TLDS.filter((v) => v !== selectedTLD)
     const tldsToShow = [selectedTLD, ...otherTlds]
 
-    const baseName = searchQuery.trim().replace(/^www\./, '').split('.')[0]
-    const initialResults: SearchResult[] = tldsToShow.map((tld) => {
-      const tldData = TLDS.find((row) => row.value === tld)
-      return {
-        domain: `${baseName}${tld}`,
-        available: false,
-        loading: true,
-        price: tldData ? tldData.price : 8.88,
-        renewPrice: tldData ? tldData.renewPrice : 8.88,
-        currency: 'USD',
-      }
-    })
-
-    setResults(initialResults)
-    if (onResultsAction) onResultsAction(initialResults)
-    setLoading(false)
-    if (onLoadingAction) onLoadingAction(false)
+    setResults([])
+    if (onResultsAction) onResultsAction([])
 
     try {
+      const collected: SearchResult[] = []
       for (const tld of tldsToShow) {
         const resolved = await fetchSingleTldResult(tld)
-        setResults((prev) => {
-          const next = prev.map((r) => (r.domain === `${baseName}${tld}` ? { ...resolved, loading: false } : r))
-          if (onResultsAction) onResultsAction(next)
-          return next
-        })
+        collected.push(resolved)
       }
+      setResults(collected)
+      if (onResultsAction) onResultsAction(collected)
     } catch (error: unknown) {
       console.error('Search error:', error)
+    } finally {
+      setLoading(false)
+      if (onLoadingAction) onLoadingAction(false)
     }
   }
 
@@ -544,6 +531,17 @@ export default function DomainSearch({
       )}
 
       {showAdminCarousel ? <div className="mt-5 w-full min-w-0">{renderPricingCards()}</div> : null}
+
+      {hasSearched && loading && results.length === 0 ? (
+        <div className="mt-6 flex w-full flex-col items-center gap-2 rounded border border-zinc-200 bg-white py-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <Loader2 className="h-6 w-6 animate-spin text-red-600" />
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            A verificar disponibilidade real de {[selectedTLD, '.com', '.org', '.net', '.co', '.online', '.site', '.me', '.farm']
+              .filter((v, i, arr) => arr.indexOf(v) === i).length} extensões…
+          </p>
+          <p className="text-xs text-zinc-400">Pode demorar até cerca de 1 a 2 minutos.</p>
+        </div>
+      ) : null}
 
       {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
 
