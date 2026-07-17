@@ -132,30 +132,44 @@ export default function DomainSearch({
     setHasSearched(true)
     setResultsTab('domains')
     if (onLoadingAction) onLoadingAction(true)
-    setResults([])
-    if (onResultsAction) onResultsAction([])
+
+    // Mostra já 10 opções com preço (tabela própria, sem depender da
+    // Porkbun), para o utilizador ver logo várias hipóteses — igual ao
+    // comportamento anterior. A confirmação real de disponibilidade de
+    // cada uma vai-se preenchendo sozinha a seguir, uma de cada vez,
+    // porque a Porkbun só permite 1 verificação real a cada ~10s por conta.
+    const otherTlds = TLDS.map((row) => row.value).filter((v) => v !== selectedTLD)
+    const tldsToShow = [selectedTLD, ...otherTlds].slice(0, 10)
+
+    const baseName = searchQuery.trim().replace(/^www\./, '').split('.')[0]
+    const initialResults: SearchResult[] = tldsToShow.map((tld) => {
+      const tldData = TLDS.find((row) => row.value === tld)
+      return {
+        domain: `${baseName}${tld}`,
+        available: false,
+        loading: true,
+        price: tldData ? tldData.price : 8.88,
+        renewPrice: tldData ? tldData.renewPrice : 8.88,
+        currency: 'USD',
+      }
+    })
+
+    setResults(initialResults)
+    if (onResultsAction) onResultsAction(initialResults)
+    setLoading(false)
+    if (onLoadingAction) onLoadingAction(false)
 
     try {
-      // Pesquisa apenas o TLD escolhido, de imediato — as restantes
-      // extensões ficam disponíveis como opção, verificadas só quando o
-      // utilizador clicar nelas (a Porkbun limita a 1 pesquisa/10s por
-      // conta, por isso pesquisar tudo automaticamente causava erros).
-      const result = await fetchSingleTldResult(selectedTLD)
-      const allResults = [result]
-      setResults(allResults)
-      if (onResultsAction) onResultsAction(allResults)
+      for (const tld of tldsToShow) {
+        const resolved = await fetchSingleTldResult(tld)
+        setResults((prev) => {
+          const next = prev.map((r) => (r.domain === `${baseName}${tld}` ? { ...resolved, loading: false } : r))
+          if (onResultsAction) onResultsAction(next)
+          return next
+        })
+      }
     } catch (error: unknown) {
       console.error('Search error:', error)
-      const errorResult = {
-        domain: searchQuery.trim() + selectedTLD,
-        available: false,
-        error: 'Erro ao verificar disponibilidade.',
-      }
-      setResults([errorResult])
-      if (onResultsAction) onResultsAction([errorResult])
-    } finally {
-      setLoading(false)
-      if (onLoadingAction) onLoadingAction(false)
     }
   }
 
@@ -225,7 +239,16 @@ export default function DomainSearch({
           </div>
 
           <div className="flex w-full flex-col items-start gap-1 sm:items-end sm:pr-4">
-            {result.error && !result.available ? (
+            {result.loading ? (
+              <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-lg font-bold text-zinc-400 dark:text-zinc-500">
+                  a partir de {calculatePrice(result.price ?? 8.88)} MT
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-400">
+                  <Loader2 className="h-3 w-3 animate-spin" /> a verificar…
+                </span>
+              </div>
+            ) : result.error && !result.available ? (
               <span className="text-left text-xs font-medium text-red-500 sm:text-right">{result.error}</span>
             ) : result.price !== undefined ? (
               <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
@@ -242,7 +265,15 @@ export default function DomainSearch({
           </div>
 
           <div className="flex w-full items-start justify-start sm:items-center sm:justify-end">
-            {result.available ? (
+            {result.loading ? (
+              <button
+                type="button"
+                disabled
+                className="w-auto cursor-not-allowed rounded bg-zinc-200 px-5 py-2 text-left text-sm font-bold text-zinc-500 sm:min-w-[130px] dark:bg-zinc-800 dark:text-zinc-400"
+              >
+                A verificar…
+              </button>
+            ) : result.available ? (
               <button
                 type="button"
                 onClick={() => void handleRegisterAction(result.domain)}
