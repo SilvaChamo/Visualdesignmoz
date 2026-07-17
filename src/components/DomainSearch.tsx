@@ -532,17 +532,6 @@ export default function DomainSearch({
 
       {showAdminCarousel ? <div className="mt-5 w-full min-w-0">{renderPricingCards()}</div> : null}
 
-      {hasSearched && loading && results.length === 0 ? (
-        <div className="mt-6 flex w-full flex-col items-center gap-2 rounded border border-zinc-200 bg-white py-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-          <Loader2 className="h-6 w-6 animate-spin text-red-600" />
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-            A verificar disponibilidade real de {[selectedTLD, '.com', '.org', '.net', '.co', '.online', '.site', '.me', '.farm']
-              .filter((v, i, arr) => arr.indexOf(v) === i).length} extensões…
-          </p>
-          <p className="text-xs text-zinc-400">Pode demorar até cerca de 1 a 2 minutos.</p>
-        </div>
-      ) : null}
-
       {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
 
       {!isAdmin && !hideResultsInternal && hasSearched && results.length > 0 ? (
