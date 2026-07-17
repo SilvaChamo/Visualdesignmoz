@@ -15,6 +15,33 @@
 
 const PORKBUN_API_URL = 'https://api.porkbun.com/api/json/v3';
 
+/**
+ * A Porkbun limita a 1 pedido de checkDomain a cada 10 segundos, POR CONTA
+ * (não por pedido individual). Como o site pesquisa vários TLDs ao mesmo
+ * tempo quando alguém procura um nome, é fácil ultrapassar esse limite e a
+ * maioria dos pedidos falhar. Esta fila garante que os pedidos ao
+ * checkDomain são sempre espaçados o suficiente, processando-os um a um em
+ * vez de todos ao mesmo tempo. Funciona porque o painel corre numa única
+ * instância do processo (PM2 em modo "fork", não "cluster").
+ */
+let porkbunQueue: Promise<unknown> = Promise.resolve();
+let lastCheckDomainCallAt = 0;
+const MIN_GAP_MS = 10500; // 10.5s de margem sobre o limite de 10s da Porkbun
+
+function queueCheckDomainCall<T>(fn: () => Promise<T>): Promise<T> {
+  const run = porkbunQueue.then(async () => {
+    const wait = MIN_GAP_MS - (Date.now() - lastCheckDomainCallAt);
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+    lastCheckDomainCallAt = Date.now();
+    return fn();
+  });
+  // Mantém a fila viva mesmo que este pedido falhe, para não bloquear os seguintes.
+  porkbunQueue = run.catch(() => undefined);
+  return run;
+}
+
 function getKeys() {
   const apiKey = process.env.PORKBUN_API_KEY;
   const secretKey = process.env.PORKBUN_SECRET_KEY;
@@ -48,7 +75,9 @@ export type PorkbunDomainRow = {
 export async function checkAvailability(domain: string) {
   const clean = domain.toLowerCase().trim();
   try {
-    const res = await porkbunFetch(`/domain/checkDomain/${encodeURIComponent(clean)}`);
+    const res = await queueCheckDomainCall(() =>
+      porkbunFetch(`/domain/checkDomain/${encodeURIComponent(clean)}`),
+    );
     const body = await res.json().catch(() => ({}));
 
     if (!res.ok || body.status !== 'SUCCESS') {

@@ -99,14 +99,22 @@ export default function DomainSearch({
     if (onResultsAction) onResultsAction([])
 
     try {
-      // Otimização: Pesquisa apenas o TLD selecionado e os TLDs mais populares para reduzir latência e evitar 429
-      const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
+      // A Porkbun limita a 1 pesquisa a cada ~10s por conta (aplicado no
+      // servidor). Por isso pesquisamos os TLDs um a um (não em paralelo) e
+      // vamos mostrando cada resultado assim que chega, em vez de esperar
+      // por todos de uma vez — evita erros por timeout nos últimos da lista.
+      const POPULAR_TLDS = ['.com', '.net', '.org']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
-      
-      const fetchPromises = tldsToSearch.map(async (tld) => {
+
+      const collected: SearchResult[] = []
+
+      for (const tld of tldsToSearch) {
         try {
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 15000)
+          // Margem generosa: cada pesquisa pode ficar em fila no servidor
+          // à espera da vez (limite da Porkbun), por isso o tempo limite
+          // tem de ser maior do que uma chamada direta normal.
+          const timeoutId = setTimeout(() => controller.abort(), 25000)
 
           const res = await fetch('/api/domain-check', {
             method: 'POST',
@@ -119,7 +127,7 @@ export default function DomainSearch({
           const data = await res.json()
           const tldData = TLDS.find((row) => row.value === tld)
 
-          return {
+          collected.push({
             domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
             available: data.available,
             price:
@@ -130,17 +138,27 @@ export default function DomainSearch({
             currency: data.currency || 'USD',
             error: data.error,
             costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
-          } as SearchResult
+          })
         } catch {
-          return {
+          collected.push({
             domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
             available: false,
             error: 'Erro de verificação',
-          } as SearchResult
+          })
         }
-      })
 
-      const allResults = await Promise.all(fetchPromises)
+        // Mostra os resultados obtidos até agora, para o utilizador ver o
+        // progresso em vez de esperar tudo de uma vez.
+        const sortedSoFar = [...collected].sort((a, b) => {
+          if (a.domain.endsWith(selectedTLD)) return -1
+          if (b.domain.endsWith(selectedTLD)) return 1
+          return 0
+        })
+        setResults(sortedSoFar)
+        if (onResultsAction) onResultsAction(sortedSoFar)
+      }
+
+      const allResults = collected
 
       allResults.sort((a, b) => {
         if (a.domain.endsWith(selectedTLD)) return -1
