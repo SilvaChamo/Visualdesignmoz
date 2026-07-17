@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { checkAvailability } from '@/lib/porkbun-adapter';
+import { checkAvailability } from '@/lib/spaceship-adapter';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(req: Request) {
   try {
     const { domain, tld } = await req.json();
-    console.log(`[API] Verificando domínio: ${domain} com TLD: ${tld} (via Porkbun)`);
+    console.log(`[API] Verificando domínio: ${domain} com TLD: ${tld} (via Spaceship)`);
     
     if (!domain) {
       return NextResponse.json({ status: 'ERROR', message: 'Domínio não fornecido' }, { status: 400 });

@@ -88,43 +88,6 @@ export default function DomainSearch({
     </div>
   )
 
-  const fetchSingleTldResult = async (tld: string): Promise<SearchResult> => {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-      const res = await fetch('/api/domain-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: searchQuery.trim(), tld }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      const data = await res.json()
-      const tldData = TLDS.find((row) => row.value === tld)
-
-      return {
-        domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-        available: data.available,
-        price:
-          typeof data.price === 'number'
-            ? data.price
-            : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 8.88),
-        renewPrice: tldData ? tldData.renewPrice : 8.88,
-        currency: data.currency || 'USD',
-        error: data.error,
-        costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
-      }
-    } catch {
-      return {
-        domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
-        available: false,
-        error: 'Erro de verificação',
-      }
-    }
-  }
-
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
 
@@ -132,31 +95,70 @@ export default function DomainSearch({
     setHasSearched(true)
     setResultsTab('domains')
     if (onLoadingAction) onLoadingAction(true)
-
-    // Mostra já 10 opções com preço (tabela própria, sem depender da
-    // Porkbun), para o utilizador ver logo várias hipóteses — igual ao
-    // comportamento anterior. A confirmação real de disponibilidade de
-    // cada uma vai-se preenchendo sozinha a seguir, uma de cada vez,
-    // porque a Porkbun só permite 1 verificação real a cada ~10s por conta.
-    // Lista fixa das extensões mais pedidas — a escolhida no selector vem
-    // sempre primeiro, seguida destas (sem repetir).
-    const CURATED_TLDS = ['.com', '.net', '.org']
-    const otherTlds = CURATED_TLDS.filter((v) => v !== selectedTLD)
-    const tldsToShow = [selectedTLD, ...otherTlds]
-
     setResults([])
     if (onResultsAction) onResultsAction([])
 
     try {
-      const collected: SearchResult[] = []
-      for (const tld of tldsToShow) {
-        const resolved = await fetchSingleTldResult(tld)
-        collected.push(resolved)
-      }
-      setResults(collected)
-      if (onResultsAction) onResultsAction(collected)
+      // Otimização: Pesquisa apenas o TLD selecionado e os TLDs mais populares para reduzir latência e evitar 429
+      const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
+      const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
+      
+      const fetchPromises = tldsToSearch.map(async (tld) => {
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+          const res = await fetch('/api/domain-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: searchQuery.trim(), tld }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
+
+          const data = await res.json()
+          const tldData = TLDS.find((row) => row.value === tld)
+
+          return {
+            domain: data.domain || `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+            available: data.available,
+            price:
+              typeof data.price === 'number'
+                ? data.price
+                : parseFloat(String(data.price || '')) || (tldData ? tldData.price : 8.88),
+            renewPrice: tldData ? tldData.renewPrice : 8.88,
+            currency: data.currency || 'USD',
+            error: data.error,
+            costPennies: typeof data.costPennies === 'number' ? data.costPennies : undefined,
+          } as SearchResult
+        } catch {
+          return {
+            domain: `${searchQuery.trim().replace(/^www\./, '').split('.')[0]}${tld}`,
+            available: false,
+            error: 'Erro de verificação',
+          } as SearchResult
+        }
+      })
+
+      const allResults = await Promise.all(fetchPromises)
+
+      allResults.sort((a, b) => {
+        if (a.domain.endsWith(selectedTLD)) return -1
+        if (b.domain.endsWith(selectedTLD)) return 1
+        return 0
+      })
+
+      setResults(allResults)
+      if (onResultsAction) onResultsAction(allResults)
     } catch (error: unknown) {
       console.error('Search error:', error)
+      const errorResult = {
+        domain: searchQuery.trim() + selectedTLD,
+        available: false,
+        error: 'Erro ao verificar disponibilidade.',
+      }
+      setResults([errorResult])
+      if (onResultsAction) onResultsAction([errorResult])
     } finally {
       setLoading(false)
       if (onLoadingAction) onLoadingAction(false)
@@ -229,16 +231,9 @@ export default function DomainSearch({
           </div>
 
           <div className="flex w-full flex-col items-start gap-1 sm:items-end sm:pr-4">
-            {result.loading ? (
-              <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-lg font-bold text-zinc-400 dark:text-zinc-500">
-                  a partir de {calculatePrice(result.price ?? 8.88)} MT
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-400">
-                  <Loader2 className="h-3 w-3 animate-spin" /> a verificar…
-                </span>
-              </div>
-            ) : result.error && !result.available ? null : result.price !== undefined ? (
+            {result.error && !result.available ? (
+              <span className="text-left text-xs font-medium text-red-500 sm:text-right">{result.error}</span>
+            ) : result.price !== undefined ? (
               <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-lg font-bold text-zinc-700 dark:text-zinc-200">
                   {calculatePrice(result.price)} MT
@@ -253,15 +248,7 @@ export default function DomainSearch({
           </div>
 
           <div className="flex w-full items-start justify-start sm:items-center sm:justify-end">
-            {result.loading ? (
-              <button
-                type="button"
-                disabled
-                className="w-auto cursor-not-allowed rounded bg-zinc-200 px-5 py-2 text-left text-sm font-bold text-zinc-500 sm:min-w-[130px] dark:bg-zinc-800 dark:text-zinc-400"
-              >
-                A verificar…
-              </button>
-            ) : result.available ? (
+            {result.available ? (
               <button
                 type="button"
                 onClick={() => void handleRegisterAction(result.domain)}
