@@ -3,6 +3,12 @@ import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { getRedirectPathForRole } from '@/lib/user-roles';
 import { fetchUserProductsSummary } from '@/lib/user-products';
+import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+
+// NOTA: este endpoint já não é chamado pelo checkout de cartão (que usa
+// /api/checkout/create-session + webhook Stripe, a única fonte fiável de que
+// o pagamento foi confirmado). Fica apenas como fallback manual para
+// admin/revendedor activarem uma compra à mão (ex.: pagamento fora do site).
 
 type CartItem = {
   id: string;
@@ -29,6 +35,9 @@ function addYears(date: Date, years: number) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminOrReseller();
+  if ('error' in auth) return auth.error;
+
   try {
     const supabase = await createClient();
     const {

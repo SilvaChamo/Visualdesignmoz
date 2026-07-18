@@ -1,6 +1,5 @@
 'use client'
 
-import { CompactFooter } from '@/components/layout/CompactFooter'
 
 export default function PrivacyPage() {
   return (
@@ -76,8 +75,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </div>
-
-      <CompactFooter />
     </div>
   )
 }

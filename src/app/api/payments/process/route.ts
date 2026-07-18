@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { getStripe, isStripeConfigured } from '@/lib/stripe'
 
 // Processar pagamento de renovação
 export async function POST(request: NextRequest) {
@@ -61,10 +62,6 @@ export async function POST(request: NextRequest) {
     let gatewayResult
     
     switch (paymentMethod.type) {
-      case 'mpesa':
-      case 'emola':
-        gatewayResult = await processMozPayment(payment, paymentMethod, renewal)
-        break
       case 'cartao':
         gatewayResult = await processCardPayment(payment, paymentMethod, renewal)
         break
@@ -125,72 +122,39 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Funções de processamento (Integração MozPayment)
-async function processMozPayment(payment: any, method: any, renewal: any) {
-  // Integração com API MozPayment (M-Pesa e eMola)
-  try {
-    const endpoint = method.type === 'emola'
-      ? 'https://mozpayment.co.mz/api/1.1/wf/pagamentorotativoemola'
-      : 'https://mozpayment.co.mz/api/1.1/wf/pagamentorotativompesa'
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        carteira: process.env.MOZPAYMENT_CARTEIRA || '',
-        numero: method.account_number,
-        cliente: payment.user_id || 'Cliente',
-        valor: payment.amount.toString()
-      })
-    })
-
-    // O servidor sempre retorna HTTP 200, então precisamos ler o JSON
-    const result = await response.json()
-
-    // cod: 200 para sucesso, cod: 409 para falha
-    // Note: O teste real mostrou que os campos podem vir dentro de um objeto 'response'
-    const cod = result.cod || result.response?.cod
-    const isSuccess = cod === 200 || cod === "200"
-
-    return {
-      success: isSuccess,
-      transaction_id: result.transacao || result.response?.transacao || null,
-      response: result,
-      receipt_url: null,
-      message: isSuccess 
-        ? (result.mensagem || result.response?.mensagem || 'Pagamento processado') 
-        : (result.mensagem || result.response?.mensagem || result.response?.carteira_invalida || 'Pagamento falhou ou foi rejeitado')
-    }
-  } catch (error: any) {
-    console.error('Erro MozPayment:', error)
+async function processCardPayment(payment: any, method: any, renewal: any) {
+  if (!isStripeConfigured()) {
     return {
       success: false,
       transaction_id: null,
-      response: { error: error?.message || 'Erro desconhecido' },
+      response: {},
       receipt_url: null,
-      message: 'Erro ao processar pagamento via MozPayment'
+      message: 'Pagamento por cartão ainda não está configurado.'
     }
   }
-}
 
-async function processCardPayment(payment: any, method: any, renewal: any) {
-  // Integração com Stripe
+  // Renovação por cartão exige um cartão previamente guardado na Stripe (SetupIntent) —
+  // essa UI de "adicionar cartão" ainda não existe no painel do cliente. Sem
+  // stripe_customer_id/stripe_payment_method_id reais, falhamos de forma clara em vez
+  // de fingir sucesso (como acontecia antes com o mock).
+  if (!method.metadata?.stripe_customer_id || !method.metadata?.stripe_payment_method_id) {
+    return {
+      success: false,
+      transaction_id: null,
+      response: {},
+      receipt_url: null,
+      message: 'Nenhum cartão guardado para renovação automática. Use o checkout para comprar/renovar por agora.'
+    }
+  }
+
   try {
-    // Temporary mock to pass build until stripe package is installed
-    const stripe = { paymentIntents: { create: async (_args: any) => ({ 
-      status: 'succeeded', 
-      id: 'mock_' + Date.now(),
-      charges: { data: [{ receipt_url: null }] },
-      last_payment_error: null
-    }) } }
-
+    const stripe = getStripe()
     const charge = await stripe.paymentIntents.create({
       amount: Math.round(payment.amount * 100), // Stripe usa centavos
       currency: payment.currency.toLowerCase(),
-      customer: method.metadata?.stripe_customer_id,
-      payment_method: method.metadata?.stripe_payment_method_id,
+      customer: method.metadata.stripe_customer_id,
+      payment_method: method.metadata.stripe_payment_method_id,
+      off_session: true,
       confirm: true,
       description: `Renovação ${renewal.domain_name}`,
       metadata: {
@@ -204,7 +168,7 @@ async function processCardPayment(payment: any, method: any, renewal: any) {
       success: charge.status === 'succeeded',
       transaction_id: charge.id,
       response: charge,
-      receipt_url: charge.charges?.data[0]?.receipt_url || null,
+      receipt_url: null,
       message: charge.status === 'succeeded' ? 'Pagamento confirmado' : 'Erro no pagamento'
     }
   } catch (error: any) {

@@ -40,6 +40,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { type, provider, account_number, account_name, is_default, metadata } = body
 
+    // Cartões só podem ser adicionados através do fluxo Stripe SetupIntent
+    // (/api/payments/setup-intent + /api/payments/confirm-card), que verifica o
+    // cartão junto da Stripe antes de gravar. Isto impede que alguém insira
+    // metadata (stripe_customer_id/stripe_payment_method_id) inventada e passe
+    // a "pagar" com um cartão que não foi validado.
+    if (type === 'cartao') {
+      return NextResponse.json(
+        { error: 'Use o fluxo de adicionar cartão em /pagamento/metodos.' },
+        { status: 400 },
+      )
+    }
+
     // Se for default, remove default dos outros
     if (is_default) {
       await supabase

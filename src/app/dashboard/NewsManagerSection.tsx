@@ -40,6 +40,7 @@ export function NewsManagerSection() {
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [editingItem, setEditingItem] = useState<NewsForm | null>(null)
@@ -116,10 +117,12 @@ export function NewsManagerSection() {
   }
 
   const handleDelete = async (id: string) => {
+    if (deletingId) return // Evita duplo-clique a apagar duas vezes
     if (!confirm('Eliminar esta notícia do AAMIHE?')) return
 
     setError('')
     setSuccess('')
+    setDeletingId(id)
     try {
       const res = await fetch(`/api/admin/news?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       const data = await res.json()
@@ -128,6 +131,8 @@ export function NewsManagerSection() {
       await loadNews()
     } catch (err: any) {
       setError(err.message || 'Erro ao eliminar notícia')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -285,7 +290,7 @@ export function NewsManagerSection() {
                     <button onClick={() => startEdit(item)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-600 transition-colors">
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button onClick={() => void handleDelete(item.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors">
+                    <button onClick={() => void handleDelete(item.id)} disabled={deletingId === item.id} className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>

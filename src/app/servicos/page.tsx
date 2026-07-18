@@ -2,7 +2,8 @@
 
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
-import { Monitor, Palette, Megaphone, Shield, Server, Mail, HeadphonesIcon, Tent } from 'lucide-react'
+import { Monitor, Palette, Megaphone, Shield, Server, Mail, HeadphonesIcon, Tent, ArrowRight } from 'lucide-react'
+import { SERVICE_BRANDS } from '@/lib/services-catalog'
 
 export default function ServicesPage() {
   const { t } = useI18n()
@@ -33,6 +34,33 @@ export default function ServicesPage() {
             <p className="text-base text-white font-normal max-w-2xl mx-auto">
               Soluções digitais completas para impulsionar o seu negócio
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Marcas VisualDesign */}
+      <div className="py-16 bg-white">
+        <div className="container mx-auto max-w-7xl px-6">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">As nossas marcas</h2>
+          <p className="text-slate-500 text-center mb-10 max-w-2xl mx-auto text-sm">
+            Cinco áreas de negócio especializadas, todas sob o mesmo grupo VisualDesign.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {SERVICE_BRANDS.map((brand) => (
+              <Link
+                key={brand.slug}
+                href={`/${brand.slug}`}
+                className="bg-slate-50 hover:bg-slate-900 hover:text-white p-5 rounded-2xl transition-colors group flex flex-col justify-between min-h-[150px]"
+              >
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-white mb-1.5">{brand.name}</h3>
+                  <p className="text-xs text-slate-500 group-hover:text-white/70 leading-relaxed">{brand.tagline}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 group-hover:text-white mt-4">
+                  Explorar <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>

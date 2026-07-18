@@ -46,6 +46,7 @@ export function DirectAdminEmailsSection() {
 
   // Change password
   const [changingPassFor, setChangingPassFor] = useState<string | null>(null)
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null)
   const [changePass, setChangePass] = useState('')
   const [changingPass, setChangingPass] = useState(false)
 
@@ -94,9 +95,11 @@ export function DirectAdminEmailsSection() {
   }
 
   const handleDelete = async (email: string) => {
+    if (deletingEmail) return // Evita duplo-clique a apagar duas vezes
     const username = email.split('@')[0]
     if (!confirm(`Eliminar ${email}? Esta acção é irreversível.`)) return
     setMsg(null)
+    setDeletingEmail(email)
     try {
       const res = await fetch('/api/da-emails', {
         method: 'DELETE',
@@ -108,6 +111,8 @@ export function DirectAdminEmailsSection() {
       if (data.success) loadEmails(selectedDomain)
     } catch (e: any) {
       setMsg({ text: e.message, ok: false })
+    } finally {
+      setDeletingEmail(null)
     }
   }
 
@@ -366,7 +371,8 @@ export function DirectAdminEmailsSection() {
                         </button>
                         <button
                           onClick={() => handleDelete(acc.email)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 border border-red-200 text-red-500 rounded-[8px] text-xs font-bold hover:bg-red-100 transition-all"
+                          disabled={deletingEmail === acc.email}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 border border-red-200 text-red-500 rounded-[8px] text-xs font-bold hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>

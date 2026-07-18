@@ -5,6 +5,7 @@ import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { OAuthCodeRedirect } from "@/components/auth/OAuthCodeRedirect";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
+import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CartProvider } from "@/contexts/CartContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
@@ -112,6 +113,7 @@ export default function RootLayout({
                 <main className="site-content min-h-screen bg-background text-foreground">
                   {children}
                 </main>
+                <ConditionalFooter />
                 <CartDrawer />
                 <PWAInstallPrompt />
               </I18nProvider>

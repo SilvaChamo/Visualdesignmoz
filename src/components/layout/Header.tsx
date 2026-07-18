@@ -24,6 +24,14 @@ const navigation = [
       { nameKey: 'header.nav.domain.privacy', descKey: 'header.nav.domain.privacy.desc', href: '/servicos/privacidade', icon: 'shield' }
     ]
   },
+  { id: 'brands', nameKey: 'header.nav.brands', href: '/servicos', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'tag' }
+    ]
+  },
   { id: 'hosting', nameKey: 'header.nav.hosting', href: '/servicos/hospedagem', dropdown: [
       { nameKey: 'header.nav.hosting.web', href: '/servicos/hospedagem', icon: 'monitor' },
       { nameKey: 'header.nav.hosting.prices', href: '/precos/hospedagem', icon: 'tag' }

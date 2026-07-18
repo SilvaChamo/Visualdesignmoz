@@ -2,7 +2,6 @@
 
 import { useI18n } from '@/lib/i18n'
 import Image from 'next/image'
-import { CompactFooter } from '@/components/layout/CompactFooter'
 
 export default function AboutPage() {
   const { t } = useI18n()
@@ -77,7 +76,6 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
-      <CompactFooter />
     </div>
   )
 }

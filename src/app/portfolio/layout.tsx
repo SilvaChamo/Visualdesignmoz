@@ -1,19 +1,14 @@
 import type { Metadata } from "next";
-import { InternalFooter } from "@/components/layout/InternalFooter";
 
 export const metadata: Metadata = {
     title: "Portfólio",
 };
 
+// Rodapé agora é único e global (ver ConditionalFooter em src/app/layout.tsx).
 export default function PortfolioLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return (
-        <>
-            {children}
-            <InternalFooter />
-        </>
-    );
+    return <>{children}</>;
 }

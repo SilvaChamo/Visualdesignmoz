@@ -54,12 +54,25 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.user?.id) {
-      const { saveProfileForAuthUser } = await import('@/lib/profile-db');
-      await saveProfileForAuthUser(admin, data.user.id, {
-        email: normalizedEmail,
-        role: 'guest',
-        name: String(nome).trim() || normalizedEmail.split('@')[0],
-      });
+      try {
+        const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+        await saveProfileForAuthUser(admin, data.user.id, {
+          email: normalizedEmail,
+          role: 'guest',
+          name: String(nome).trim() || normalizedEmail.split('@')[0],
+        });
+      } catch (profileError) {
+        // Reverte o utilizador de Auth já criado para não deixar uma "conta fantasma"
+        // (existe no Auth mas sem perfil, e uma nova tentativa falharia com "já existe").
+        console.error('[auth/register] falha ao criar perfil, a reverter utilizador:', profileError);
+        await admin.auth.admin.deleteUser(data.user.id).catch((cleanupError) => {
+          console.error('[auth/register] falha ao reverter utilizador órfão:', cleanupError);
+        });
+        return NextResponse.json(
+          { error: 'Não foi possível concluir o registo. Tente novamente.' },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json({

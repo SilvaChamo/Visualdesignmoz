@@ -1,6 +1,5 @@
 'use client'
 
-import { CompactFooter } from '@/components/layout/CompactFooter'
 
 export default function TermsPage() {
   return (
@@ -76,8 +75,6 @@ export default function TermsPage() {
           </div>
         </div>
       </div>
-
-      <CompactFooter />
     </div>
   )
 }

@@ -7,7 +7,6 @@ import Image from 'next/image'
 import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, LayoutDashboard, Send, HardDrive, Megaphone, FolderOpen, Database, Lock, GitBranch, Users, Gauge, ArrowRight } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import DomainSearch from '@/components/DomainSearch'
-import { CompactFooter } from '@/components/layout/CompactFooter'
 import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 
 function HomePage() {
@@ -570,9 +569,6 @@ function HomePage() {
         </div>
       )}
 
-      <div className="relative -mt-[16px] z-10">
-        <CompactFooter />
-      </div>
     </div>
   )
 }
