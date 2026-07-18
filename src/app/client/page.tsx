@@ -3142,8 +3142,6 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     return state || 'Active'
   }
   const [expandedSite, setExpandedSite] = useState<string | null>(null)
-  const [editingField, setEditingField] = useState<{ domain: string, field: string } | null>(null)
-  const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
@@ -3175,108 +3173,17 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     }
   }, [paginatedSites])
 
-  const handleDelete = async (domain: string) => {
-    if (!confirm(`⚠️ Apagar "${domain}"?\n\nEsta acção é IRREVERSÍVEL — o site e todos os seus ficheiros serão eliminados do servidor!`)) return
-    setLoading(domain)
-    try {
-      const res = await fetch('/api/da', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteWebsite', params: { domain } })
-      })
-      const data = await res.json()
-      if (data.success) {
-        await onRefresh()
-      } else {
-        alert('Erro ao apagar:\n\n' + (data.data?.output || data.error || 'Erro desconhecido'))
-      }
-    } catch (e: any) {
-      alert('Erro de ligação: ' + e.message)
-    }
-    setLoading(null)
-  }
+  // Apagar/suspender site é uma acção técnica de servidor — não disponível no
+  // painel do cliente (ver src/lib/panel-role-capabilities.ts). Removido de propósito.
 
-  const handleSuspend = async (domain: string, state: string) => {
-    setLoading(domain)
-    const action = state === 'Active' ? 'suspendWebsite' : 'unsuspendWebsite'
-    await fetch('/api/da', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, params: { domain } })
-    })
-    await onRefresh()
-    setLoading(null)
-  }
 
-  const handleSaveField = async (domain: string, field: string, value: string) => {
-    setLoading(domain)
-    let command = ''
-
-    if (field === 'php') {
-      command = `directadmin changePHP --domainName ${domain} --phpVersion "${value}" 2>&1`
-    } else if (field === 'package') {
-      command = `directadmin changePackage --domainName ${domain} --packageName "${value}" 2>&1`
-    } else {
-      // Para outros campos, usa modifyWebsite
-      await fetch('/api/da', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'modifyWebsite', params: { domain, [field]: value } })
-      })
-      setEditingField(null)
-      await onRefresh()
-      setLoading(null)
-      return
-    }
-
-    const res = await fetch('/api/da', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'execCommand', params: { command } })
-    })
-    const data = await res.json()
-    if (!data.success) {
-      alert('Erro: ' + (data.data?.output || data.error || 'desconhecido'))
-    }
-    setEditingField(null)
-    await onRefresh()
-    setLoading(null)
-  }
-
-  const EditableField = ({ domain, field, value, label }: { domain: string, field: string, value: string, label: string }) => {
-    const isEditing = editingField?.domain === domain && editingField?.field === field
+  // Só leitura: o painel do cliente não configura servidor (PHP, pacote, estado
+  // do site) — isso é gerido pela VisualDesign. Ver src/lib/panel-role-capabilities.ts.
+  const EditableField = ({ value, label }: { domain: string, field: string, value: string, label: string }) => {
     return (
       <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
         <p className="text-xs font-bold text-gray-400 uppercase mb-1">{label}</p>
-        {isEditing ? (
-          <div className="flex items-center gap-2">
-            {field === 'php' ? (
-              <select value={editValue} onChange={e => setEditValue(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1">
-                <option>PHP 7.4</option><option>PHP 8.0</option>
-                <option>PHP 8.1</option><option>PHP 8.2</option><option>PHP 8.3</option>
-              </select>
-            ) : field === 'package' ? (
-              <select value={editValue} onChange={e => setEditValue(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1">
-                <option>Default</option>
-                {packages.map(p => <option key={p.packageName}>{p.packageName}</option>)}
-              </select>
-            ) : (
-              <input value={editValue} onChange={e => setEditValue(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 flex-1" />
-            )}
-            <button onClick={() => handleSaveField(domain, field, editValue)}
-              className="text-xs bg-black text-white px-2 py-1 rounded font-bold">✓</button>
-            <button onClick={() => setEditingField(null)}
-              className="text-xs bg-gray-200 px-2 py-1 rounded">✕</button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-gray-900">{value || '-'}</p>
-            <button onClick={() => { setEditingField({ domain, field }); setEditValue(value) }}
-              className="text-gray-400 hover:text-blue-500 ml-2">
-              <Edit className="w-3 h-3" />
-            </button>
-          </div>
-        )}
+        <p className="text-sm font-bold text-gray-900">{value || '-'}</p>
       </div>
     )
   }

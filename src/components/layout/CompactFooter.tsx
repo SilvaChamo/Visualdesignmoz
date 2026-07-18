@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SERVICE_BRANDS } from '@/lib/services-catalog'
 
 export function CompactFooter() {
   return (
@@ -40,17 +41,21 @@ export function CompactFooter() {
               </div>
             </div>
 
-            {/* Coluna 2: Serviços Criativos */}
+            {/* Coluna 2: Serviços Criativos (marcas) */}
             <div className="flex flex-col space-y-4 lg:pl-[30px]">
               <h4 className="text-base font-extrabold text-zinc-200">
                 Serviços Criativos
               </h4>
               <nav className="flex flex-col space-y-2.5 text-sm text-zinc-400">
-                <Link href="/servicos/webdesign" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Web Design</Link>
-                <Link href="/servicos/design-grafico" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Design Gráfico</Link>
-                <Link href="/servicos/feiras-eventos" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Eventos</Link>
-                <Link href="/servicos/video-producao" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Produção de Vídeo</Link>
-                <Link href="/servicos/design-grafico" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Uniformes e presentes</Link>
+                {SERVICE_BRANDS.map((brand) => (
+                  <Link
+                    key={brand.slug}
+                    href={`/${brand.slug}`}
+                    className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block"
+                  >
+                    {brand.name}
+                  </Link>
+                ))}
               </nav>
             </div>
 

@@ -57,7 +57,15 @@ export const SERVICE_BRANDS: ServiceBrand[] = [
       { slug: 'katring', title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/servicos/katring' },
       { slug: 'aluguer', title: 'Aluguer de Equipamento', desc: 'Aluguer de material técnico e mobiliário para eventos.', href: '/servicos/aluguer' },
       { slug: 'organizacao', title: 'Organização de Eventos', desc: 'Planeamento e execução de eventos de ponta a ponta.', href: '/servicos/organizacao' },
-      { slug: 'video-producao', title: 'Produção de Vídeo', desc: 'Vídeos institucionais, publicitários e de eventos.', href: '/servicos/video-producao' },
+    ],
+  },
+  {
+    slug: 'visualpro',
+    name: 'VisualPro',
+    tagline: 'Produção de vídeo profissional',
+    color: 'violet',
+    services: [
+      { slug: 'video-producao', title: 'Produção de Vídeo', desc: 'Vídeos institucionais, publicitários, de eventos e para redes sociais.', href: '/servicos/video-producao' },
     ],
   },
   {

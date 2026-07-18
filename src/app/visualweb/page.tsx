@@ -1,6 +1,9 @@
-import { BrandPage } from '@/components/BrandPage'
-import { getServiceBrand } from '@/lib/services-catalog'
+import VisualWebLanding from '@/components/brands/VisualWebLanding'
 
 export default function VisualWebPage() {
-  return <BrandPage brand={getServiceBrand('visualweb')!} />
+  return (
+    <div className="min-h-screen bg-black/10 dark:bg-black">
+      <VisualWebLanding />
+    </div>
+  )
 }

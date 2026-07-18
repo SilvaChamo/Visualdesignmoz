@@ -16,8 +16,11 @@ export function ConditionalFooter() {
 
   if (isExcluded) return null
 
-  // Mesmo efeito de sobreposição (-mt) que a home já usava para o rodapé "encaixar"
-  // no fim da última secção — mantido igual em todas as páginas para ficar consistente.
+  // Sobreposição -mt confirmada no histórico do git como o padrão original
+  // (sempre presente antes de qualquer alteração desta sessão) — o rodapé
+  // (rectângulo sólido, sem recorte próprio) encaixa por cima do "dente" da
+  // última secção (Newsletter, forma 'mid'), criando o efeito pretendido:
+  // preto a aparecer nas pontas, cor da secção a aparecer no meio.
   return (
     <div className="relative -mt-[16px] z-10">
       <CompactFooter />
