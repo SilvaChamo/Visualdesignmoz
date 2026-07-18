@@ -19,28 +19,33 @@ export function BrandHero({ data }: { data: BrandLandingContent }) {
         />
       )}
       <div className="absolute inset-0 bg-black/20 dark:bg-black/25" />
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center min-h-[460px] sm:min-h-[500px]">
-        <div className="max-w-2xl flex flex-col items-start text-left space-y-6">
-          <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)]">
-            {data.hero.title}
-          </h1>
-          <p className="text-sm sm:text-base text-zinc-300 max-w-xl leading-relaxed">
-            {data.hero.subtitle}
-          </p>
-          {data.hero.badges.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 py-4 border-y border-white/10 w-full text-zinc-300">
-              {data.hero.badges.map((badge) => (
-                <span key={badge} className="text-xs sm:text-sm font-semibold">{badge}</span>
-              ))}
-            </div>
-          )}
-          <Link
-            href={data.hero.ctaHref}
-            className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
-          >
-            <span>{data.hero.ctaLabel}</span>
-            <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
-          </Link>
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center h-[560px] sm:h-[640px] md:h-[760px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
+          <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 pb-[50px]">
+            <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl">
+              {data.hero.title}
+            </h1>
+            <p className="text-sm sm:text-base text-zinc-300 max-w-xl leading-relaxed">
+              {data.hero.subtitle}
+            </p>
+            {data.hero.badges.length > 0 && (
+              <div className="flex flex-wrap sm:flex-nowrap items-stretch mr-0 sm:mr-[30px] border border-white/15 rounded-md divide-y sm:divide-y-0 sm:divide-x divide-white/15 text-zinc-300 bg-transparent">
+                {data.hero.badges.map((badge) => (
+                  <div key={badge} className="flex items-center gap-3 px-5 py-4 flex-1">
+                    <span className="text-xs sm:text-sm font-semibold">{badge}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link
+              href={data.hero.ctaHref}
+              className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
+            >
+              <span>{data.hero.ctaLabel}</span>
+              <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
+            </Link>
+          </div>
+          <div className="lg:col-span-5 hidden lg:block" />
         </div>
       </div>
     </NotchSection>
@@ -61,32 +66,44 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
 
   return (
     <>
-      {/* Serviços */}
-      <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-3xl mx-auto">
-            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
-              <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-              {data.servicesPretitle}
-              <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-            </span>
+      {/* Introdução + Serviços */}
+      <div className="-mt-[16px] relative z-20">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
+          <div className="text-center pt-[30px] max-w-3xl mx-auto">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
-              {data.servicesTitle}
+              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span> {data.intro.title} <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
             </h2>
-            <p className="text-sm text-black/60 dark:text-zinc-400">{data.servicesSubtitle}</p>
+            <p className="text-sm sm:text-base text-black/60 dark:text-zinc-400 leading-relaxed">
+              {data.intro.text}
+            </p>
           </div>
+        </div>
 
-          <div className="mt-8 sm:mt-10 mx-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {data.services.map(({ Icon, title, desc, href }) => (
-                <Link
-                  key={title}
-                  href={href}
-                  className="group flex gap-4 p-4 rounded-lg border bg-black/[0.02] dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40 transition-all duration-300"
-                >
-                  <div className="w-11 h-11 rounded-lg bg-red-50 dark:bg-red-950/20 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-500">
-                    <Icon className="w-5 h-5" />
-                  </div>
+        <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-3xl mx-auto">
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
+                <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+                {data.servicesPretitle}
+                <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
+                {data.servicesTitle}
+              </h2>
+              <p className="text-sm text-black/60 dark:text-zinc-400">{data.servicesSubtitle}</p>
+            </div>
+
+            <div className="mt-8 sm:mt-10 mx-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {data.services.map(({ Icon, title, desc, href }) => (
+                  <Link
+                    key={title}
+                    href={href}
+                    className="group flex gap-4 p-4 rounded-lg border bg-black/[0.02] dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40 transition-all duration-300"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-red-50 dark:bg-red-950/20 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-500">
+                      <Icon className="w-5 h-5" />
+                    </div>
                   <div>
                     <h3 className="font-bold text-black dark:text-white text-sm mb-1 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">
                       {title}
@@ -98,7 +115,8 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
             </div>
           </div>
         </div>
-      </NotchSection>
+        </NotchSection>
+      </div>
 
       {/* Porquê nós */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">

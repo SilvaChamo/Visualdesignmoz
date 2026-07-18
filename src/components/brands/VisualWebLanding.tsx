@@ -22,7 +22,7 @@ export function VisualWebHero() {
         aria-hidden
       />
       <div className="absolute inset-0 bg-black/20 dark:bg-black/25" />
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center min-h-[500px] sm:min-h-[550px] md:min-h-[600px]">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center h-[560px] sm:h-[640px] md:h-[760px]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
           <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 pb-[50px]">
             <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl">
@@ -32,21 +32,21 @@ export function VisualWebHero() {
               Foque no crescimento do seu negócio enquanto nós cuidamos da sua presença online. Desenvolvemos soluções integradas de web design, alojamento de alta velocidade e marketing digital para destacar a sua marca
             </p>
 
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-4 py-5 border-y border-white/10 w-full text-zinc-300">
-              <div className="flex items-center space-x-4">
-                <ShieldCheck className="w-5 h-5 text-red-500" strokeWidth={2} />
+            <div className="flex flex-wrap sm:flex-nowrap items-stretch mr-0 sm:mr-[30px] border border-white/15 rounded-md divide-y sm:divide-y-0 sm:divide-x divide-white/15 text-zinc-300 bg-transparent">
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <ShieldCheck className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
                 <span className="text-xs sm:text-sm font-semibold">30 Dia Garantia</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <Users className="w-5 h-5 text-red-500" strokeWidth={2} />
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <Users className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
                 <span className="text-xs sm:text-sm font-semibold">Aprovado por usuários</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <Gauge className="w-5 h-5 text-red-500" strokeWidth={2} />
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <Gauge className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
                 <span className="text-xs sm:text-sm font-semibold">Velocidade</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <Lock className="w-5 h-5 text-red-500" strokeWidth={2} />
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <Lock className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
                 <span className="text-xs sm:text-sm font-semibold">Seguro</span>
               </div>
             </div>
@@ -124,70 +124,70 @@ export function VisualWebBody() {
 
   return (
     <>
-      {/* Design Services + Hosting Features */}
+      {/* Hosting Features + Design Services (ordem trocada — fundos mantidos no mesmo sítio) */}
       <div className="-mt-[16px] relative z-20">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
-          <div className="text-center pt-[30px]">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
-              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span> {t('carousel.section.title')} <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
+          <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] pt-[30px]">
+            <div className="flex flex-col items-center mb-3">
+              <img src="/assets/IMG-VD/managed-server.svg" alt="" className="w-16 h-16 mb-2" />
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+                {t('home.hosting.pretitle')}
+                <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              </span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4 md:whitespace-nowrap">
+              {t('home.hosting.title')}
             </h2>
-            <ServicosWebCarousel />
+            <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">{t('home.hosting.subtitle')}</p>
+          </div>
+
+          <div className="mt-8 sm:mt-10 mx-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc', href: '/servicos/dominios' },
+                { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem', highlight: true },
+                { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/servicos/email' },
+                { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/servicos/ssl' },
+                { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/servicos/suporte' },
+                { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/servicos/transferencia' },
+              ].map(({ Icon, titleKey, descKey, highlight }) => {
+                const isLast = Boolean(highlight)
+                return (
+                  <div
+                    key={titleKey}
+                    className={`group flex gap-4 p-4 rounded-lg border transition-all duration-300 ${isLast
+                      ? 'bg-white dark:bg-black/60 border-red-500/40 dark:border-red-500/40'
+                      : 'bg-white dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40'
+                      }`}
+                  >
+                    <div className={`shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center transition-all duration-300 ${isLast
+                      ? 'bg-red-600 border-red-600'
+                      : 'border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 group-hover:bg-red-600 group-hover:border-red-600'
+                      }`}>
+                      <Icon className={`w-5 h-5 transition-colors duration-300 ${isLast ? 'text-white' : 'text-red-600 dark:text-red-500 group-hover:text-white'}`} strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block transition-colors duration-300">
+                        {t(titleKey)}
+                        <span className="block h-[2px] w-8 bg-red-600 dark:bg-red-500 mt-1" />
+                      </h3>
+                      <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">{t(descKey)}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
         <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px]">
-              <div className="flex flex-col items-center mb-3">
-                <img src="/assets/IMG-VD/managed-server.svg" alt="" className="w-16 h-16 mb-2" />
-                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
-                  <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-                  {t('home.hosting.pretitle')}
-                  <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-                </span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4 md:whitespace-nowrap">
-                {t('home.hosting.title')}
+            <div className="text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
+                <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span> {t('carousel.section.title')} <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
               </h2>
-              <p className="text-sm text-black/60 dark:text-zinc-400 mx-auto">{t('home.hosting.subtitle')}</p>
-            </div>
-
-            <div className="mt-8 sm:mt-10 mx-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[
-                  { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc', href: '/servicos/dominios' },
-                  { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/servicos/email' },
-                  { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/servicos/ssl' },
-                  { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/servicos/suporte' },
-                  { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/servicos/transferencia' },
-                  { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem' },
-                ].map(({ Icon, titleKey, descKey }, idx) => {
-                  const isLast = idx === 5
-                  return (
-                    <div
-                      key={titleKey}
-                      className={`group flex gap-4 p-4 rounded-lg border transition-all duration-300 ${isLast
-                        ? 'bg-black/[0.05] dark:bg-black/60 border-red-500/40 dark:border-red-500/40'
-                        : 'bg-black/[0.02] dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40'
-                        }`}
-                    >
-                      <div className={`shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center transition-all duration-300 ${isLast
-                        ? 'bg-red-600 border-red-600'
-                        : 'border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 group-hover:bg-red-600 group-hover:border-red-600'
-                        }`}>
-                        <Icon className={`w-5 h-5 transition-colors duration-300 ${isLast ? 'text-white' : 'text-red-600 dark:text-red-500 group-hover:text-white'}`} strokeWidth={2} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block transition-colors duration-300">
-                          {t(titleKey)}
-                          <span className="block h-[2px] w-8 bg-red-600 dark:bg-red-500 mt-1" />
-                        </h3>
-                        <p className="text-sm text-black/60 dark:text-zinc-400 mt-2">{t(descKey)}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <ServicosWebCarousel />
             </div>
           </div>
         </NotchSection>

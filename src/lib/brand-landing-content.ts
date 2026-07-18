@@ -33,6 +33,10 @@ export type BrandLandingContent = {
     /** Se vazio, usa fundo escuro liso (BG.jpg) em vez de foto temática. */
     imageSrc?: string;
   };
+  intro: {
+    title: string;
+    text: string;
+  };
   servicesPretitle: string;
   servicesTitle: string;
   servicesSubtitle: string;
@@ -60,6 +64,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       ctaLabel: 'Pedir Orçamento',
       ctaHref: '/contacto',
       imageSrc: '/assets/graphic-design-illustration.png',
+    },
+    intro: {
+      title: 'A marca certa muda tudo',
+      text: 'A VisualDesign cuida da imagem da sua empresa do primeiro rascunho à entrega final — identidade visual, branding e fotografia profissional, sempre alinhados com quem é a sua marca.',
     },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Design, marca e imagem',
@@ -97,6 +105,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       ctaHref: '/contacto',
       imageSrc: '/assets/feiras-eventos-illustration.png',
     },
+    intro: {
+      title: 'Eventos que ficam na memória',
+      text: 'A VisualEventos trata de tudo o que o seu evento precisa — do conceito e do stand ao catering e ao aluguer de equipamento — para que só precise de aparecer no dia.',
+    },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Tudo para o seu evento',
     servicesSubtitle: 'De uma feira corporativa a um evento privado — cobrimos todas as etapas.',
@@ -133,6 +145,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       ctaLabel: 'Pedir Orçamento',
       ctaHref: '/contacto',
     },
+    intro: {
+      title: 'Vídeo que conta a história certa',
+      text: 'A VisualPro produz vídeo profissional para a sua marca — institucional, publicitário ou para redes sociais — da pré-produção à entrega final.',
+    },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Produção de vídeo',
     servicesSubtitle: 'Conteúdo em vídeo pensado para o objectivo certo — institucional, publicitário ou social.',
@@ -165,6 +181,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       badges: ['Envelopamento de frota', 'Transferes', 'Logística'],
       ctaLabel: 'Pedir Orçamento',
       ctaHref: '/contacto',
+    },
+    intro: {
+      title: 'A sua marca em cada deslocação',
+      text: 'A VisualTransporte cobre o envelopamento da sua frota e os serviços de mobilidade que o seu negócio precisa, com fiabilidade do início ao fim.',
     },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Envelopamento e mobilidade',
@@ -199,6 +219,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       badges: ['Merchandising', 'Fardamento', 'Kits corporativos'],
       ctaLabel: 'Pedir Orçamento',
       ctaHref: '/contacto',
+    },
+    intro: {
+      title: 'Brindes que representam bem a sua marca',
+      text: 'A VisualGifts cria merchandising, têxteis e kits corporativos personalizados, prontos para o seu evento, campanha ou onboarding.',
     },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Merchandising e brindes corporativos',
