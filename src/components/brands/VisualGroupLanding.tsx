@@ -143,7 +143,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Portfolio Showcase Carousel */}
-        <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+        <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
             <div className="text-center">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
