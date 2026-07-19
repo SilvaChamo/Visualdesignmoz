@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server, LifeBuoy, Sparkles, Send, HardDrive, Megaphone, FolderOpen, Database, Lock, GitBranch, Users, Gauge, ArrowRight } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { useCart } from '@/contexts/CartContext'
 import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 import { NotchSection } from '@/components/home/NotchSection'
 
@@ -32,22 +33,20 @@ export function VisualWebHero() {
               Foque no crescimento do seu negócio enquanto nós cuidamos da sua presença online. Desenvolvemos soluções integradas de web design, alojamento de alta velocidade e marketing digital para destacar a sua marca
             </p>
 
-            <div className="flex flex-wrap sm:flex-nowrap items-stretch mr-0 sm:mr-[30px] border border-white/15 rounded-md divide-y sm:divide-y-0 sm:divide-x divide-white/15 text-zinc-300 bg-transparent">
-              <div className="flex items-center gap-3 px-5 py-4 flex-1">
-                <ShieldCheck className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
-                <span className="text-xs sm:text-sm font-semibold">30 Dia Garantia</span>
+            <div className="flex items-start flex-nowrap mr-0 sm:mr-[30px] text-zinc-300 bg-transparent">
+              <div className="flex items-start gap-2.5 pr-4 flex-1 min-w-0">
+                <ShieldCheck className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
+                <span className="text-sm sm:text-base font-bold leading-snug">30 dias de garantia para reclamar</span>
               </div>
-              <div className="flex items-center gap-3 px-5 py-4 flex-1">
-                <Users className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
-                <span className="text-xs sm:text-sm font-semibold">Aprovado por usuários</span>
+              <span className="w-px h-10 bg-white/20 shrink-0" />
+              <div className="flex items-start gap-2.5 px-4 flex-1 min-w-0">
+                <Users className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
+                <span className="text-sm sm:text-base font-bold leading-snug">Aprovado por milhares de clientes</span>
               </div>
-              <div className="flex items-center gap-3 px-5 py-4 flex-1">
-                <Gauge className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
-                <span className="text-xs sm:text-sm font-semibold">Velocidade</span>
-              </div>
-              <div className="flex items-center gap-3 px-5 py-4 flex-1">
-                <Lock className="w-5 h-5 text-red-500 shrink-0" strokeWidth={2} />
-                <span className="text-xs sm:text-sm font-semibold">Seguro</span>
+              <span className="w-px h-10 bg-white/20 shrink-0" />
+              <div className="flex items-start gap-2.5 pl-4 flex-1 min-w-0">
+                <Gauge className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
+                <span className="text-sm sm:text-base font-bold leading-snug">Velocidade e segurança</span>
               </div>
             </div>
 
@@ -66,6 +65,7 @@ export function VisualWebHero() {
 /** Resto das secções da VisualWeb (tudo o que fica abaixo do banner). */
 export function VisualWebBody() {
   const { t } = useI18n()
+  const { addItem, setIsCartOpen } = useCart()
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
   const [subscribed, setSubscribed] = useState(false)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'semiannual' | 'annual'>('monthly')
@@ -103,7 +103,7 @@ export function VisualWebBody() {
       savingsText = `Poupe ${formatPrice(savings)} MT/mês!`
     }
 
-    return { price: formatPrice(mainPrice), monthlyEquivalent: formatPrice(monthlyEquivalent), savingsText }
+    return { price: formatPrice(mainPrice), rawPrice: mainPrice, monthlyEquivalent: formatPrice(monthlyEquivalent), savingsText }
   }
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -126,8 +126,8 @@ export function VisualWebBody() {
     <>
       {/* Hosting Features + Design Services (ordem trocada — fundos mantidos no mesmo sítio) */}
       <div className="-mt-[16px] relative z-20">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
-          <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px] pt-[30px]">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-[70px] pb-[70px]">
+          <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-[100px]">
             <div className="flex flex-col items-center mb-3">
               <img src="/assets/IMG-VD/managed-server.svg" alt="" className="w-16 h-16 mb-2" />
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
@@ -146,26 +146,19 @@ export function VisualWebBody() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc', href: '/servicos/dominios' },
-                { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem', highlight: true },
+                { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem' },
                 { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/servicos/email' },
                 { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/servicos/ssl' },
                 { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/servicos/suporte' },
                 { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/servicos/transferencia' },
-              ].map(({ Icon, titleKey, descKey, highlight }) => {
-                const isLast = Boolean(highlight)
+              ].map(({ Icon, titleKey, descKey }) => {
                 return (
                   <div
                     key={titleKey}
-                    className={`group flex gap-4 p-4 rounded-lg border transition-all duration-300 ${isLast
-                      ? 'bg-white dark:bg-black/60 border-red-500/40 dark:border-red-500/40'
-                      : 'bg-white dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40'
-                      }`}
+                    className="group flex gap-4 p-4 rounded-lg border transition-all duration-300 bg-white dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-red-50 dark:hover:bg-black/60 hover:border-red-300 dark:hover:border-red-500/40"
                   >
-                    <div className={`shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center transition-all duration-300 ${isLast
-                      ? 'bg-red-600 border-red-600'
-                      : 'border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 group-hover:bg-red-600 group-hover:border-red-600'
-                      }`}>
-                      <Icon className={`w-5 h-5 transition-colors duration-300 ${isLast ? 'text-white' : 'text-red-600 dark:text-red-500 group-hover:text-white'}`} strokeWidth={2} />
+                    <div className="shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center transition-all duration-300 border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 group-hover:bg-red-600 group-hover:border-red-600">
+                      <Icon className="w-5 h-5 transition-colors duration-300 text-red-600 dark:text-red-500 group-hover:text-white" strokeWidth={2} />
                     </div>
                     <div>
                       <h3 className="font-bold text-black dark:text-white mb-1 relative inline-block transition-colors duration-300">
@@ -304,6 +297,7 @@ export function VisualWebBody() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
                 {
+                  id: 'hosting-basico',
                   nameKey: 'pricing.hosting.basic', basePrice: 680, popular: false,
                   features: [
                     { text: '10 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -319,6 +313,7 @@ export function VisualWebBody() {
                   ]
                 },
                 {
+                  id: 'hosting-pro',
                   nameKey: 'pricing.hosting.pro', basePrice: 1040, popular: true,
                   features: [
                     { text: '20 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -334,6 +329,7 @@ export function VisualWebBody() {
                   ]
                 },
                 {
+                  id: 'hosting-business',
                   nameKey: 'pricing.hosting.business', basePrice: 1360, popular: false,
                   features: [
                     { text: '30 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -349,6 +345,7 @@ export function VisualWebBody() {
                   ]
                 },
                 {
+                  id: 'hosting-enterprise',
                   nameKey: 'pricing.hosting.enterprise', basePrice: 2040, popular: false,
                   features: [
                     { text: '40 GB ' + t('pricing.hosting.storage'), Icon: HardDrive },
@@ -364,7 +361,7 @@ export function VisualWebBody() {
                   ]
                 }
               ].map((plan) => {
-                const { price: planPrice, savingsText } = getPlanPrice(plan.basePrice)
+                const { price: planPrice, rawPrice, savingsText } = getPlanPrice(plan.basePrice)
                 return (
                   <div
                     key={plan.nameKey}
@@ -415,7 +412,12 @@ export function VisualWebBody() {
                           )
                         })}
                       </ul>
-                      <button className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${plan.popular
+                      <button
+                        onClick={() => {
+                          addItem({ id: plan.id, type: 'hosting', name: `Alojamento Web ${t(plan.nameKey)}`, price: rawPrice, period: 1 })
+                          setIsCartOpen(true)
+                        }}
+                        className={`w-full py-2.5 rounded-md font-semibold text-sm transition-all ${plan.popular
                         ? 'bg-red-600 text-white hover:bg-red-700 shadow-md'
                         : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'
                         }`}>

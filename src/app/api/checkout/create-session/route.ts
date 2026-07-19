@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getStripe, isStripeConfigured, mznToUsdCents } from '@/lib/stripe';
 import { resolveCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 
@@ -40,7 +41,13 @@ export async function POST(request: NextRequest) {
 
     const totalMt = resolved.reduce((sum, r) => sum + r.priceMt, 0);
 
-    const { data: session, error: insertError } = await supabase
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      console.error('[checkout/create-session] Supabase service role não configurado.');
+      return NextResponse.json({ error: 'Pagamento por cartão ainda não está configurado. Tente novamente mais tarde.' }, { status: 503 });
+    }
+
+    const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
       .insert({
         user_id: user.id,
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/checkout`,
     });
 
-    await supabase
+    await admin
       .from('checkout_sessions')
       .update({ stripe_session_id: stripeSession.id })
       .eq('id', session.id);

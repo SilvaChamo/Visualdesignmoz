@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
+import { useCart } from '@/contexts/CartContext'
 import { ArrowLeft, HardDrive, Mail, Send, Megaphone, Globe, GitBranch, FolderOpen, Database, Lock, LifeBuoy } from 'lucide-react'
 
 export default function PrecosHospedagem() {
   const { t } = useI18n()
+  const { addItem, setIsCartOpen } = useCart()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'semiannual' | 'annual'>('monthly')
 
   const formatPrice = (val: number) => {
@@ -47,6 +49,7 @@ export default function PrecosHospedagem() {
     
     return {
       price: formatPrice(mainPrice),
+      rawPrice: mainPrice,
       cycleSuffix,
       monthlyEquivalent: formatPrice(monthlyEquivalent),
       savingsText
@@ -111,6 +114,7 @@ export default function PrecosHospedagem() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
+                id: 'hosting-basico',
                 nameKey: 'pricing.hosting.basic',
                 basePrice: 680,
                 popular: false,
@@ -128,6 +132,7 @@ export default function PrecosHospedagem() {
                 ]
               },
               {
+                id: 'hosting-pro',
                 nameKey: 'pricing.hosting.pro',
                 basePrice: 1040,
                 popular: true,
@@ -145,6 +150,7 @@ export default function PrecosHospedagem() {
                 ]
               },
               {
+                id: 'hosting-business',
                 nameKey: 'pricing.hosting.business',
                 basePrice: 1360,
                 popular: false,
@@ -162,6 +168,7 @@ export default function PrecosHospedagem() {
                 ]
               },
               {
+                id: 'hosting-enterprise',
                 nameKey: 'pricing.hosting.enterprise',
                 basePrice: 2040,
                 popular: false,
@@ -179,7 +186,7 @@ export default function PrecosHospedagem() {
                 ]
               }
             ].map((plan) => {
-              const { price: planPrice, savingsText } = getPlanPrice(plan.basePrice);
+              const { price: planPrice, rawPrice, savingsText } = getPlanPrice(plan.basePrice);
               return (
                 <div
                   key={plan.nameKey}
@@ -237,7 +244,12 @@ export default function PrecosHospedagem() {
                         );
                       })}
                     </ul>
-                    <button className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                    <button
+                      onClick={() => {
+                        addItem({ id: plan.id, type: 'hosting', name: `Alojamento Web ${t(plan.nameKey)}`, price: rawPrice, period: 1 })
+                        setIsCartOpen(true)
+                      }}
+                      className={`w-full py-3 rounded-lg font-medium transition-colors ${
                       plan.popular
                         ? 'bg-red-600 text-white hover:bg-red-700'
                         : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-red-600 dark:hover:bg-red-600 text-black dark:text-white hover:text-white'

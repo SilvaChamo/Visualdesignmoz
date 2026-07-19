@@ -29,10 +29,11 @@ export function BrandHero({ data }: { data: BrandLandingContent }) {
               {data.hero.subtitle}
             </p>
             {data.hero.badges.length > 0 && (
-              <div className="flex flex-wrap sm:flex-nowrap items-stretch mr-0 sm:mr-[30px] border border-white/15 rounded-md divide-y sm:divide-y-0 sm:divide-x divide-white/15 text-zinc-300 bg-transparent">
-                {data.hero.badges.map((badge) => (
-                  <div key={badge} className="flex items-center gap-3 px-5 py-4 flex-1">
-                    <span className="text-xs sm:text-sm font-semibold">{badge}</span>
+              <div className="flex items-start flex-nowrap mr-0 sm:mr-[30px] text-zinc-300 bg-transparent">
+                {data.hero.badges.map((badge, idx) => (
+                  <div key={badge} className="contents">
+                    {idx > 0 && <span className="w-px h-10 bg-white/20 shrink-0" />}
+                    <span className={`text-sm sm:text-base font-bold leading-snug flex-1 min-w-0 ${idx === 0 ? 'pr-4' : idx === data.hero.badges.length - 1 ? 'pl-4' : 'px-4'}`}>{badge}</span>
                   </div>
                 ))}
               </div>

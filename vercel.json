@@ -3,11 +3,5 @@
   "buildCommand": "CI='' npm run build",
   "installCommand": "npm ci --prefer-offline --no-audit --no-fund",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "crons": [
-    {
-      "path": "/api/cron/da-sync",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  "regions": ["iad1"]
 }

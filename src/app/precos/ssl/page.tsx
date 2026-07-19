@@ -2,10 +2,12 @@
 
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
+import { useCart } from '@/contexts/CartContext'
 import { ArrowLeft } from 'lucide-react'
 
 export default function PrecosSSL() {
   const { t } = useI18n()
+  const { addItem, setIsCartOpen } = useCart()
 
   return (
     <div className="min-h-screen bg-white">
@@ -41,11 +43,16 @@ export default function PrecosSSL() {
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Browser Trust</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> $10.000 Seguro</li>
               </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
+              <button
+                onClick={() => {
+                  addItem({ id: 'ssl-dv', type: 'ssl', name: `SSL ${t('pricing.ssl.dv')}`, price: 800, period: 1 })
+                  setIsCartOpen(true)
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
                 {t('pricing.hosting.hire')}
               </button>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow border-2 border-red-500">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.hosting.pro')}</h4>
               <div className="text-3xl font-bold text-red-600 mb-4">1.500 MZN<span className="text-lg font-normal">/ano</span></div>
@@ -56,11 +63,16 @@ export default function PrecosSSL() {
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> $250.000 Seguro</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.features.2')}</li>
               </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
+              <button
+                onClick={() => {
+                  addItem({ id: 'ssl-ov', type: 'ssl', name: `SSL ${t('pricing.ssl.ov')}`, price: 1500, period: 1 })
+                  setIsCartOpen(true)
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
                 {t('pricing.hosting.hire')}
               </button>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
               <h4 className="text-xl font-bold text-black mb-4">{t('pricing.ssl.ev')}</h4>
               <div className="text-3xl font-bold text-red-600 mb-4">3.000 MZN<span className="text-lg font-normal">/ano</span></div>
@@ -72,7 +84,12 @@ export default function PrecosSSL() {
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> {t('pricing.ssl.features.2')}</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Mostrar Endereço</li>
               </ul>
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
+              <button
+                onClick={() => {
+                  addItem({ id: 'ssl-ev', type: 'ssl', name: `SSL ${t('pricing.ssl.ev')}`, price: 3000, period: 1 })
+                  setIsCartOpen(true)
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors">
                 {t('pricing.hosting.hire')}
               </button>
             </div>

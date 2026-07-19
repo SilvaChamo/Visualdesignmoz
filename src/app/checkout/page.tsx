@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/lib/supabase-client';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -23,8 +24,9 @@ import {
 function CheckoutContent() {
   const { items, total, clearCart } = useCart();
   const router = useRouter();
+  const { user: authUser, loading: authLoading } = useAuth();
+  const isAuthenticated = authLoading ? null : !!authUser;
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Account Form State (For unauthenticated users)
@@ -47,14 +49,6 @@ function CheckoutContent() {
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-
-  useEffect(() => {
-    async function checkSession() {
-      const { data: { user: sessionUser } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!sessionUser);
-    }
-    checkSession();
-  }, [router]);
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
