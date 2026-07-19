@@ -42,9 +42,9 @@ export const SERVICE_BRANDS: ServiceBrand[] = [
     tagline: 'Identidade visual, marca e imagem',
     color: 'red',
     services: [
-      { slug: 'design-grafico', title: 'Design Gráfico', desc: 'Identidade visual e materiais promocionais.', href: '/visualdesign' },
-      { slug: 'branding', title: 'Branding', desc: 'Estratégia e construção de marca de ponta a ponta.', href: '/visualdesign' },
-      { slug: 'envelopamento', title: 'Envelopamento', desc: 'Branding e envelopamento de viaturas para a sua frota.', href: '/visualdesign/envelopamento' },
+      { slug: 'design-grafico', title: 'Design Gráfico', desc: 'Identidade visual e materiais promocionais.', href: '/#design' },
+      { slug: 'branding', title: 'Branding', desc: 'Estratégia e construção de marca de ponta a ponta.', href: '/#design' },
+      { slug: 'envelopamento', title: 'Envelopamento', desc: 'Branding e envelopamento de viaturas para a sua frota.', href: '/#envelopamento' },
     ],
   },
   {

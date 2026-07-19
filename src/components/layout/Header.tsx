@@ -16,6 +16,15 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { useAuth } from '@/components/auth/AuthProvider'
 
 const webNavigation = [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
   { id: 'domain', nameKey: 'header.nav.domain', href: '/servicos/dominios', isMega: true, items: [
       { nameKey: 'header.nav.domain.register', descKey: 'header.nav.domain.register.desc', href: '/servicos/dominios', icon: 'globe' },
       { nameKey: 'header.nav.domain.prices', descKey: 'header.nav.domain.prices.desc', href: '/precos/dominios', icon: 'tag' },
@@ -34,15 +43,6 @@ const webNavigation = [
       { nameKey: 'header.nav.server.vps', href: '/servicos/servidor', icon: 'monitor' }
     ]
   },
-  { id: 'services', nameKey: 'header.nav.services', href: '/servicos', isMega: true, items: [
-      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
-      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
-      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
-      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
-      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
-    ]
-  },
   { id: 'support', nameKey: 'header.nav.support', href: '/servicos/suporte', dropdown: [
       { nameKey: 'header.nav.support.technical', href: '/servicos/suporte', icon: 'help-circle' },
       { nameKey: 'header.nav.support.faq', href: '/faq', icon: 'help-circle' }
@@ -51,85 +51,90 @@ const webNavigation = [
 ]
 
 const designNavigation = [
-  { id: 'design-grafico', nameKey: 'Design Gráfico', href: '/visualdesign' },
-  { id: 'branding', nameKey: 'Branding & Marca', href: '/visualdesign' },
-  { id: 'envelopamento', nameKey: 'Envelopamento', href: '/visualdesign/envelopamento' },
-  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
       { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
     ]
   },
+  { id: 'design-grafico', nameKey: 'Design Gráfico', href: '/#design' },
+  { id: 'branding', nameKey: 'Branding & Marca', href: '/#design' },
+  { id: 'envelopamento', nameKey: 'Envelopamento', href: '/#envelopamento' },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
 const eventosNavigation = [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
   { id: 'stands', nameKey: 'Stands & Feiras', href: '/visualeventos/feiras' },
   { id: 'catering', nameKey: 'Catering Premium', href: '/visualeventos/catering' },
   { id: 'aluguer', nameKey: 'Aluguer de Material', href: '/visualeventos' },
   { id: 'organizacao', nameKey: 'Organização', href: '/visualeventos' },
-  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
-      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
-      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
-      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
-      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
-    ]
-  },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
 const proNavigation = [
-  { id: 'video', nameKey: 'Produção de Vídeo', href: '/visualpro' },
-  { id: 'fotografia', nameKey: 'Fotografia', href: '/visualpro/fotografia' },
-  { id: 'eventos', nameKey: 'Cobertura de Eventos', href: '/visualpro/eventos' },
-  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
       { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
     ]
   },
+  { id: 'video', nameKey: 'Produção de Vídeo', href: '/visualpro' },
+  { id: 'fotografia', nameKey: 'Fotografia', href: '/visualpro/fotografia' },
+  { id: 'eventos', nameKey: 'Cobertura de Eventos', href: '/visualpro/eventos' },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
 const transporteNavigation = [
-  { id: 'mobilidade', nameKey: 'Serviços de Mobilidade', href: '/visualtransporte' },
-  { id: 'aluguer-viaturas', nameKey: 'Aluguer de Viaturas', href: '/visualtransporte' },
-  { id: 'logistica-eventos', nameKey: 'Logística de Eventos', href: '/visualtransporte' },
-  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
       { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
     ]
   },
+  { id: 'mobilidade', nameKey: 'Serviços de Mobilidade', href: '/visualtransporte' },
+  { id: 'aluguer-viaturas', nameKey: 'Aluguer de Viaturas', href: '/visualtransporte' },
+  { id: 'logistica-eventos', nameKey: 'Logística de Eventos', href: '/visualtransporte' },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
 const giftsNavigation = [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
   { id: 'merchandising', nameKey: 'Merchandising', href: '/visualgifts' },
   { id: 'texteis', nameKey: 'Têxteis & Fardamento', href: '/visualgifts/texteis' },
   { id: 'kits', nameKey: 'Kits Onboarding', href: '/visualgifts/kits' },
-  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
-      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
-      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
-      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
-      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' }
-    ]
-  },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
 const groupNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },

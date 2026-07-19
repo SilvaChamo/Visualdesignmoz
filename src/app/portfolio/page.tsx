@@ -41,6 +41,9 @@ export default function PortfolioPage() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
           <div className="text-center">
+            <div className="text-xs sm:text-sm text-zinc-400 font-bold uppercase tracking-widest mb-2">
+              Início / Portefólio
+            </div>
             <h1 className="text-3xl font-bold text-white mb-2">{t('portfolio.title')}</h1>
             <p className="text-base text-white font-normal max-w-2xl mx-auto">
               {t('portfolio.subtitle')}

@@ -35,8 +35,8 @@ export function Navbar() {
     // Serviços - Design e Criativo
     { href: '/servicos', icon: Package, title: 'Todos os Serviços', desc: 'Lista completa de serviços disponíveis', bg: 'bg-red-50', text: 'text-red-600', tags: 'serviços lista completa', requiresLogin: false },
     { href: '/visualweb', icon: Monitor, title: 'Web Design', desc: 'Criação de sites e lojas online profissionais', bg: 'bg-cyan-50', text: 'text-cyan-600', tags: 'site website loja online ecommerce desenvolvimento serviços', requiresLogin: false },
-    { href: '/visualdesign', icon: Palette, title: 'Design Gráfico', desc: 'Identidade visual, logótipos e materiais gráficos', bg: 'bg-rose-50', text: 'text-rose-600', tags: 'logo logótipo cartão visita flyer poster banner serviços', requiresLogin: false },
-    { href: '/visualdesign', icon: PenTool, title: 'Branding', desc: 'Construção e gestão de marca', bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', tags: 'marca identidade visual rebranding serviços', requiresLogin: false },
+    { href: '/#design', icon: Palette, title: 'Design Gráfico', desc: 'Identidade visual, logótipos e materiais gráficos', bg: 'bg-rose-50', text: 'text-rose-600', tags: 'logo logótipo cartão visita flyer poster banner serviços', requiresLogin: false },
+    { href: '/#design', icon: PenTool, title: 'Branding', desc: 'Construção e gestão de marca', bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', tags: 'marca identidade visual rebranding serviços', requiresLogin: false },
     { href: '/visualpro/fotografia', icon: Camera, title: 'Fotografia', desc: 'Fotografia profissional e edição', bg: 'bg-amber-50', text: 'text-amber-600', tags: 'fotos sessão fotográfica produto serviços', requiresLogin: false },
     { href: '/visualpro', icon: Film, title: 'Vídeo e Produção', desc: 'Produção audiovisual e edição de vídeo', bg: 'bg-red-50', text: 'text-red-600', tags: 'vídeo filmagem edição produção audiovisual serviços', requiresLogin: false },
 

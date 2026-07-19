@@ -73,9 +73,9 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Design, marca e imagem',
     servicesSubtitle: 'Tudo o que a sua marca precisa para ter uma imagem consistente e profissional.',
     services: [
-      { Icon: Palette, title: 'Design Gráfico', desc: 'Identidade de marca, logótipos e manuais de normas.', href: '/visualdesign' },
-      { Icon: Sparkles, title: 'Branding', desc: 'Estratégia e construção de marca de ponta a ponta.', href: '/visualdesign' },
-      { Icon: Car, title: 'Envelopamento', desc: 'Branding móvel e envelopamento de viaturas para a sua frota.', href: '/visualdesign/envelopamento' },
+      { Icon: Palette, title: 'Design Gráfico', desc: 'Identidade de marca, logótipos e manuais de normas.', href: '/#design' },
+      { Icon: Sparkles, title: 'Branding', desc: 'Estratégia e construção de marca de ponta a ponta.', href: '/#design' },
+      { Icon: Car, title: 'Envelopamento', desc: 'Branding móvel e envelopamento de viaturas para a sua frota.', href: '/#envelopamento' },
     ],
     whyUsPretitle: 'Porquê a VisualDesign',
     whyUsTitle: 'Um único parceiro para toda a sua imagem',
