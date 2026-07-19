@@ -76,7 +76,7 @@ export default function ContactPage() {
               <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-8">
                 Preencha o formulário abaixo e entraremos em contacto o mais breve possível.
               </p>
-              <ContactFormComponent />
+              <ContactFormComponent hideServiceSelect={true} />
             </div>
 
           </div>

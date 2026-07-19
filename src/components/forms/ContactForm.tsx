@@ -7,7 +7,11 @@ import { contactService, ContactForm } from '@/lib/services/contact'
 import { useI18n } from '@/lib/i18n'
 import { SERVICE_BRANDS } from '@/lib/services-catalog'
 
-function ContactFormInner() {
+interface ContactFormProps {
+  hideServiceSelect?: boolean
+}
+
+function ContactFormInner({ hideServiceSelect = false }: ContactFormProps) {
   const { t } = useI18n()
   const searchParams = useSearchParams()
   const serviceParam = searchParams.get('servico') || ''
@@ -24,10 +28,10 @@ function ContactFormInner() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (serviceParam) {
+    if (serviceParam && !hideServiceSelect) {
       setFormData(prev => ({ ...prev, service: serviceParam }))
     }
-  }, [serviceParam])
+  }, [serviceParam, hideServiceSelect])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,27 +110,29 @@ function ContactFormInner() {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {t('contact.service') || 'Serviço de Interesse'}
-        </label>
-        <select
-          value={formData.service}
-          onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-        >
-          <option value="">{t('contact.selectService') || 'Selecione um serviço'}</option>
-          {SERVICE_BRANDS.map((brand) => (
-            <optgroup key={brand.slug} label={brand.name} className="font-bold text-zinc-700 dark:text-zinc-300">
-              {brand.services.map((service) => (
-                <option key={service.slug} value={service.slug} className="font-normal">
-                  {service.title}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </div>
+      {!hideServiceSelect && (
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            {t('contact.service') || 'Serviço de Interesse'}
+          </label>
+          <select
+            value={formData.service}
+            onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          >
+            <option value="">{t('contact.selectService') || 'Selecione um serviço'}</option>
+            {SERVICE_BRANDS.map((brand) => (
+              <optgroup key={brand.slug} label={brand.name} className="font-bold text-zinc-700 dark:text-zinc-300">
+                {brand.services.map((service) => (
+                  <option key={service.slug} value={service.slug} className="font-normal">
+                    {service.title}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -158,10 +164,10 @@ function ContactFormInner() {
   )
 }
 
-export function ContactFormComponent() {
+export function ContactFormComponent({ hideServiceSelect = false }: ContactFormProps) {
   return (
     <Suspense fallback={<div className="text-zinc-500 text-sm">A carregar formulário...</div>}>
-      <ContactFormInner />
+      <ContactFormInner hideServiceSelect={hideServiceSelect} />
     </Suspense>
   )
 }
