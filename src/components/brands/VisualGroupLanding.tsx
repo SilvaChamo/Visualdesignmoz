@@ -17,7 +17,7 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
   return (
     <NotchSection shape="start" bg="bg-black" first>
       <Image
-        src="/assets/Melhor-alojamento-web.webp"
+        src="/assets/IMG-VD/Design/design_grafico.jpg"
         alt="VisualDesign Grupo Corporativo"
         fill
         priority
@@ -36,7 +36,7 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
               Foque no crescimento do seu negócio enquanto nós cuidamos de toda a imagem, presença digital e logística da sua marca. A VisualDesign oferece suporte corporativo completo sob o mesmo teto.
             </p>
 
-            <div className="flex items-start flex-nowrap mr-0 sm:mr-[30px] text-zinc-300 bg-transparent">
+            <div className="flex items-start flex-nowrap mr-0 sm:mr-[30px] text-zinc-300 bg-transparent my-6 sm:my-8">
               <div className="flex items-start gap-2.5 pr-4 flex-1 min-w-0">
                 <ShieldCheck className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
                 <span className="text-sm sm:text-base font-bold leading-snug">Garantia de Excelência e Rigor</span>
