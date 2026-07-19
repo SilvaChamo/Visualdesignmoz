@@ -94,33 +94,82 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
               <p className="text-sm text-black/60 dark:text-zinc-400">{data.servicesSubtitle}</p>
             </div>
 
-            <div className="mt-8 sm:mt-10 mx-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {data.services.map(({ Icon, title, desc, href }) => (
-                  <Link
-                    key={title}
-                    href={href}
-                    className="group flex gap-4 p-4 rounded-lg border bg-black/[0.02] dark:bg-black/40 border-zinc-200/80 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-black/60 hover:border-red-500/40 dark:hover:border-red-500/40 transition-all duration-300"
-                  >
-                    <div className="w-11 h-11 rounded-lg bg-red-50 dark:bg-red-950/20 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-500">
-                      <Icon className="w-5 h-5" />
+            <div className="mt-12 sm:mt-16 mx-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 sm:gap-12">
+                {data.services.map(({ Icon, title, desc, href }) => {
+                  const hasSubPage = href !== '#' && href !== '' && href !== '/visualdesign' && href !== '/visualeventos' && href !== '/visualpro' && href !== '/visualtransporte' && href !== '/visualgifts' && href !== '/visualweb'
+                  return (
+                    <div key={title} className="flex flex-col items-start text-left space-y-4">
+                      <div className="text-red-600 dark:text-red-500 flex items-center justify-center shrink-0">
+                        <Icon className="w-8 h-8" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-black dark:text-white text-lg mb-2">
+                          {title}
+                        </h3>
+                        <p className="text-sm text-black/60 dark:text-zinc-400 leading-relaxed mb-3">
+                          {desc}
+                        </p>
+                        {hasSubPage && (
+                          <Link
+                            href={href}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-500 hover:underline transition-all"
+                          >
+                            <span>Saber Mais</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  <div>
-                    <h3 className="font-bold text-black dark:text-white text-sm mb-1 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">
-                      {title}
-                    </h3>
-                    <p className="text-xs text-black/60 dark:text-zinc-400 leading-relaxed">{desc}</p>
-                  </div>
-                </Link>
-              ))}
+                  )
+                })}
+              </div>
             </div>
-          </div>
         </div>
         </NotchSection>
       </div>
 
-      {/* Porquê nós */}
+      {/* Como Trabalhamos */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-12">
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
+              <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              Processo
+              <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+            </span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-3">
+              Como Trabalhamos
+            </h2>
+            <p className="text-sm text-black/60 dark:text-white/70">
+              Do primeiro contacto à entrega final, seguimos um processo claro e transparente para garantir resultados que superam as expectativas.
+            </p>
+          </div>
+
+          <div className="mt-8 sm:mt-10 mx-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { step: '1', title: 'Briefing & Diagnóstico', desc: 'Ouvimos atentamente as suas necessidades, estudamos o mercado e o contexto da sua marca para definir os objetivos do projeto.' },
+                { step: '2', title: 'Criação & Revisão', desc: 'Desenvolvemos conceitos criativos, apresentamos propostas e refinamos iterativamente até chegar à solução que melhor representa a sua marca.' },
+                { step: '3', title: 'Entrega & Suporte', desc: 'Entregamos todos os ficheiros nos formatos corretos, com acompanhamento pós-entrega para garantir a correta implementação.' },
+              ].map(({ step, title, desc }) => (
+                <div key={step} className="flex gap-4 p-4 rounded-lg border bg-white dark:bg-zinc-800 border-zinc-200/80 dark:border-white/10">
+                  <span className="shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 font-extrabold text-red-600 dark:text-red-500 text-lg">
+                    {step}
+                  </span>
+                  <div>
+                    <h3 className="font-bold text-black dark:text-white mb-1">{title}</h3>
+                    <p className="text-sm text-black/60 dark:text-zinc-400 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </NotchSection>
+
+      {/* Porquê nós */}
+      <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-0">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
@@ -184,7 +233,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
       </NotchSection>
 
       {/* CTA */}
-      <NotchSection shape="mid-alt" bg="bg-white dark:bg-[#FFFFFF1A]" className="py-16 sm:py-20">
+      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="py-16 sm:py-20">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="text-center flex flex-col items-center max-w-2xl mx-auto gap-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white">
@@ -202,7 +251,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
       </NotchSection>
 
       {/* Newsletter */}
-      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="py-8 sm:py-10">
+      <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="py-8 sm:py-10">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
             <div className="text-center md:text-left">

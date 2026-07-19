@@ -1,10 +1,11 @@
 'use client'
 // Force re-render to fix hydration mismatch after logo size change
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { Menu, X, ChevronDown, User, ShoppingCart, LogOut, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -14,7 +15,7 @@ import { PANEL_LOGIN_HREF, PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { useAuth } from '@/components/auth/AuthProvider'
 
-const navigation = [
+const webNavigation = [
   { id: 'domain', nameKey: 'header.nav.domain', href: '/servicos/dominios', isMega: true, items: [
       { nameKey: 'header.nav.domain.register', descKey: 'header.nav.domain.register.desc', href: '/servicos/dominios', icon: 'globe' },
       { nameKey: 'header.nav.domain.prices', descKey: 'header.nav.domain.prices.desc', href: '/precos/dominios', icon: 'tag' },
@@ -34,12 +35,12 @@ const navigation = [
     ]
   },
   { id: 'services', nameKey: 'header.nav.services', href: '/servicos', isMega: true, items: [
-      { nameKey: 'header.nav.services.webdesign', descKey: 'header.nav.services.webdesign.desc', href: '/servicos/webdesign', icon: 'monitor' },
-      { nameKey: 'header.nav.services.graphic', descKey: 'header.nav.services.graphic.desc', href: '/servicos/design-grafico', icon: 'palette' },
-      { nameKey: 'header.nav.services.marketing', descKey: 'header.nav.services.marketing.desc', href: '/servicos/marketing-digital', icon: 'trending-up' },
-      { nameKey: 'header.nav.services.events', descKey: 'header.nav.services.events.desc', href: '/servicos/feiras-eventos', icon: 'calendar' },
-      { nameKey: 'header.nav.services.catering', descKey: 'header.nav.services.catering.desc', href: '/servicos/catering', icon: 'coffee' },
-      { nameKey: 'header.nav.services.rental', descKey: 'header.nav.services.rental.desc', href: '/servicos/aluguer', icon: 'truck' }
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
     ]
   },
   { id: 'support', nameKey: 'header.nav.support', href: '/servicos/suporte', dropdown: [
@@ -47,6 +48,97 @@ const navigation = [
       { nameKey: 'header.nav.support.faq', href: '/faq', icon: 'help-circle' }
     ]
   }
+]
+
+const designNavigation = [
+  { id: 'design-grafico', nameKey: 'Design Gráfico', href: '/visualdesign' },
+  { id: 'branding', nameKey: 'Branding & Marca', href: '/visualdesign' },
+  { id: 'envelopamento', nameKey: 'Envelopamento', href: '/visualdesign/envelopamento' },
+  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
+  { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
+]
+
+const eventosNavigation = [
+  { id: 'stands', nameKey: 'Stands & Feiras', href: '/visualeventos/feiras' },
+  { id: 'catering', nameKey: 'Catering Premium', href: '/visualeventos/catering' },
+  { id: 'aluguer', nameKey: 'Aluguer de Material', href: '/visualeventos' },
+  { id: 'organizacao', nameKey: 'Organização', href: '/visualeventos' },
+  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
+  { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
+]
+
+const proNavigation = [
+  { id: 'video', nameKey: 'Produção de Vídeo', href: '/visualpro' },
+  { id: 'fotografia', nameKey: 'Fotografia', href: '/visualpro/fotografia' },
+  { id: 'eventos', nameKey: 'Cobertura de Eventos', href: '/visualpro/eventos' },
+  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
+  { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
+]
+
+const transporteNavigation = [
+  { id: 'mobilidade', nameKey: 'Serviços de Mobilidade', href: '/visualtransporte' },
+  { id: 'aluguer-viaturas', nameKey: 'Aluguer de Viaturas', href: '/visualtransporte' },
+  { id: 'logistica-eventos', nameKey: 'Logística de Eventos', href: '/visualtransporte' },
+  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
+  { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
+]
+
+const giftsNavigation = [
+  { id: 'merchandising', nameKey: 'Merchandising', href: '/visualgifts' },
+  { id: 'texteis', nameKey: 'Têxteis & Fardamento', href: '/visualgifts/texteis' },
+  { id: 'kits', nameKey: 'Kits Onboarding', href: '/visualgifts/kits' },
+  { id: 'brands', nameKey: 'Outras Marcas', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' }
+    ]
+  },
+  { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
+]
+
+const groupNavigation = [
+  { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
+      { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/visualdesign', icon: 'palette' },
+      { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
+      { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
+      { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
+      { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/visualgifts', icon: 'gift' }
+    ]
+  },
+  { id: 'sobre-nos', nameKey: 'nav.about', href: '/sobre-nos' },
+  { id: 'portfolio', nameKey: 'nav.portfolio', href: '/portfolio' },
+  { id: 'contacto', nameKey: 'nav.contact', href: '/contacto' }
 ]
 
 export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
@@ -58,6 +150,18 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   const [lastScrollY, setLastScrollY] = useState(0)
   const { items, setIsCartOpen } = useCart()
   const { user, signOut } = useAuth()
+
+  const pathname = usePathname()
+
+  const navigation = useMemo(() => {
+    if (pathname.startsWith('/visualdesign')) return designNavigation
+    if (pathname.startsWith('/visualeventos')) return eventosNavigation
+    if (pathname.startsWith('/visualpro')) return proNavigation
+    if (pathname.startsWith('/visualtransporte')) return transporteNavigation
+    if (pathname.startsWith('/visualgifts')) return giftsNavigation
+    if (pathname.startsWith('/visualweb') || pathname.startsWith('/precos') || pathname.startsWith('/servicos')) return webNavigation
+    return groupNavigation
+  }, [pathname])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -145,14 +249,23 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                       onMouseEnter={() => setActiveDropdown(item.id)}
                       onMouseLeave={() => setActiveDropdown(null)}
                     >
-                      <button 
-                        type="button"
-                        className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
-                      >
-                        {t(item.nameKey)}
-                      </button>
+                      {item.href && !item.isMega && !(item as any).dropdown ? (
+                        <Link 
+                          href={item.href}
+                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
+                        >
+                          {t(item.nameKey)}
+                        </Link>
+                      ) : (
+                        <button 
+                          type="button"
+                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
+                        >
+                          {t(item.nameKey)}
+                        </button>
+                      )}
                       
-                      {item.isMega ? (
+                      {item.isMega && (
                         <div className={cn(
                           "absolute top-full left-1/2 -translate-x-1/2 pt-1 w-[900px] z-[70]",
                           activeDropdown === item.id ? 'visible' : 'invisible'
@@ -187,6 +300,8 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                                   {subItem.icon === 'coffee' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 20h16a1 1 0 001-1v-3a4 4 0 00-4-4H7a4 4 0 00-4 4v3a1 1 0 001 1z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 018 0v4M12 3v2" /></svg>}
                                   {subItem.icon === 'truck' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4-4m-4 4l4 4" /></svg>}
                                   {subItem.icon === 'help-circle' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                  {subItem.icon === 'film' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3zm0 4h12M6 17h12M6 12h12M6 3v18M18 3v18" /></svg>}
+                                  {subItem.icon === 'gift' && <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V6a2 2 0 10-2 2h2zm-8 4h16M5 8h14a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1V9a1 1 0 011-1z" /></svg>}
                                 </div>
                                 <div>
                                   <h4 className="text-base font-bold text-slate-900 group-hover/item:text-red-600 dark:text-white dark:group-hover/item:text-red-500 transition-colors">{t(subItem.nameKey)}</h4>
@@ -197,7 +312,9 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                           </div>
                           </div>
                         </div>
-                      ) : (
+                      )}
+                      
+                      {!item.isMega && (item as any).dropdown && (
                         <div className={cn(
                           "absolute top-full left-0 pt-1 z-[70]",
                           activeDropdown === item.id ? 'visible' : 'invisible'
@@ -206,7 +323,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                             "bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-max transition-all duration-300 dark:bg-black dark:border-white/25",
                             activeDropdown === item.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
                           )}>
-                          {item.dropdown?.map((subItem) => (
+                          {(item as any).dropdown?.map((subItem: any) => (
                             <Link
                               key={subItem.nameKey}
                               href={subItem.href}
@@ -314,41 +431,56 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
         )}
       >
         <div className="py-1">
-          {navigation.map((item, index) => (
-            <div key={item.id} className={index === navigation.length - 1 ? 'pb-5' : undefined}>
-              <div>
-                <button
-                  onClick={(e) => handleDropdownClick(e, item.id)}
-                  className="flex items-center justify-between w-full text-left text-slate-800 dark:text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-1.5 !pl-[20px] pr-4"
-                >
-                  <span>{t(item.nameKey)}</span>
-                  <ChevronDown className={cn(
-                    'w-4 h-4 transition-transform shrink-0 mr-4',
-                    activeDropdown === item.id ? 'rotate-180' : ''
-                  )} />
-                </button>
-                <div
-                  className={cn(
-                    'overflow-hidden transition-all duration-200 ease-in-out',
-                    activeDropdown === item.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          {navigation.map((item, index) => {
+            const hasSub = !!((item as any).dropdown || item.items)
+            return (
+              <div key={item.id} className={index === navigation.length - 1 ? 'pb-5' : undefined}>
+                <div>
+                  {hasSub ? (
+                    <button
+                      onClick={(e) => handleDropdownClick(e, item.id)}
+                      className="flex items-center justify-between w-full text-left text-slate-800 dark:text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-1.5 !pl-[20px] pr-4"
+                    >
+                      <span>{t(item.nameKey)}</span>
+                      <ChevronDown className={cn(
+                        'w-4 h-4 transition-transform shrink-0 mr-4',
+                        activeDropdown === item.id ? 'rotate-180' : ''
+                      )} />
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href || '#'}
+                      className="block w-full text-left text-slate-800 dark:text-white hover:text-white hover:bg-red-600 font-medium transition-colors py-1.5 !pl-[20px] pr-4"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      {t(item.nameKey)}
+                    </Link>
                   )}
-                >
-                  <div className="space-y-0 bg-slate-100 dark:bg-zinc-800 border-y border-slate-200 dark:border-white/10">
-                    {(item.dropdown || item.items)?.map((dropdownItem) => (
-                      <Link
-                        key={dropdownItem.nameKey}
-                        href={dropdownItem.href}
-                        className="block w-full !pl-[20px] pr-4 py-1.5 text-slate-800 dark:text-white hover:text-white hover:bg-red-600 transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        {t(dropdownItem.nameKey)}
-                      </Link>
-                    ))}
-                  </div>
+                  {hasSub && (
+                    <div
+                      className={cn(
+                        'overflow-hidden transition-all duration-200 ease-in-out',
+                        activeDropdown === item.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                      )}
+                    >
+                      <div className="space-y-0 bg-slate-100 dark:bg-zinc-800 border-y border-slate-200 dark:border-white/10">
+                        {((item as any).dropdown || item.items)?.map((dropdownItem: any) => (
+                          <Link
+                            key={dropdownItem.nameKey}
+                            href={dropdownItem.href}
+                            className="block w-full !pl-[20px] pr-4 py-1.5 text-slate-800 dark:text-white hover:text-white hover:bg-red-600 transition-colors"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            {t(dropdownItem.nameKey)}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           <div className="flex border-t border-slate-200 dark:border-white/25">
             <button
