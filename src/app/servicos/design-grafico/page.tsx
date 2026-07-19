@@ -9,13 +9,36 @@ import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
 export default function DesignGrafico() {
   const { t } = useI18n()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState(0)
 
   const servicosDesign = [
-    { icone: <Palette className="w-8 h-8" />, tituloKey: 'services.design.identity', descKey: 'services.design.identity.desc', servicos: [t('services.list.design.1'), t('services.list.design.2'), t('services.list.design.3'), t('services.list.design.4')] },
-    { icone: <PenTool className="w-8 h-8" />, tituloKey: 'services.design.materials', descKey: 'services.design.materials.desc', servicos: [t('services.list.design.5'), t('services.list.design.6'), t('services.list.design.7'), t('services.list.design.8')] },
-    { icone: <Layers className="w-8 h-8" />, tituloKey: 'services.design.social', descKey: 'services.design.social.desc', servicos: [t('services.list.design.9'), t('services.list.design.10'), t('services.list.design.11'), t('services.list.design.12')] },
-    { icone: <Download className="w-8 h-8" />, tituloKey: 'services.design.print', descKey: 'services.design.print.desc', servicos: [t('services.list.design.13'), t('services.list.design.14'), t('services.list.design.15'), t('services.list.design.16')] }
+    { 
+      icone: <Palette className="w-10 h-10" />, 
+      tituloKey: 'services.design.identity', 
+      descKey: 'services.design.identity.desc', 
+      servicos: [t('services.list.design.1'), t('services.list.design.2'), t('services.list.design.3'), t('services.list.design.4')] 
+    },
+    { 
+      icone: <PenTool className="w-10 h-10" />, 
+      tituloKey: 'services.design.materials', 
+      descKey: 'services.design.materials.desc', 
+      servicos: [t('services.list.design.5'), t('services.list.design.6'), t('services.list.design.7'), t('services.list.design.8')] 
+    },
+    { 
+      icone: <Layers className="w-10 h-10" />, 
+      tituloKey: 'services.design.social', 
+      descKey: 'services.design.social.desc', 
+      servicos: [t('services.list.design.9'), t('services.list.design.10'), t('services.list.design.11'), t('services.list.design.12')] 
+    },
+    { 
+      icone: <Download className="w-10 h-10" />, 
+      tituloKey: 'services.design.print', 
+      descKey: 'services.design.print.desc', 
+      servicos: [t('services.list.design.13'), t('services.list.design.14'), t('services.list.design.15'), t('services.list.design.16')] 
+    }
   ]
+
+  const activeService = servicosDesign[activeTab]
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-foreground">
@@ -32,34 +55,72 @@ export default function DesignGrafico() {
         </div>
       </NotchSection>
 
-      {/* Main Content */}
+      {/* Main Content with Tabs inside NotchSection */}
       <NotchSection shape="end" bg="bg-zinc-50 dark:bg-zinc-950">
         <div className="py-20">
           <div className="container mx-auto max-w-7xl px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {servicosDesign.map((servico, index) => (
-                <div key={index} className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center mb-4">
-                      <div className="text-red-500 mr-3">{servico.icone}</div>
-                      <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t(servico.tituloKey)}</h3>
-                    </div>
-                    <p className="text-zinc-600 dark:text-zinc-400 mb-6 text-sm leading-relaxed">{t(servico.descKey)}</p>
-                    <div>
-                      <h4 className="font-semibold text-zinc-700 dark:text-zinc-300 mb-3 text-sm">{t('services.design.included') || 'Incluído:'}</h4>
-                      <ul className="space-y-2">
-                        {servico.servicos.map((item, idx) => (
-                          <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mr-2 mt-0.5" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            
+            {/* Tabs Navigation */}
+            <div className="flex justify-center mb-12">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-2 rounded-[2rem] flex flex-wrap justify-center gap-2 shadow-sm max-w-full">
+                {servicosDesign.map((tab, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveTab(idx)}
+                    className={`px-6 py-3 rounded-2xl text-xs sm:text-sm font-black transition-all duration-300 cursor-pointer ${
+                      activeTab === idx
+                        ? 'bg-red-600 text-white shadow-md'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                    }`}
+                  >
+                    {t(tab.tituloKey)}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Active Tab Panel */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-8 md:p-12 rounded-[2.5rem] shadow-lg grid grid-cols-1 md:grid-cols-12 gap-8 items-start transition-all duration-500">
+              
+              {/* Left Column - Details */}
+              <div className="md:col-span-7 space-y-6">
+                <div className="text-red-500 bg-red-50 dark:bg-red-950/20 p-4 rounded-3xl w-fit">
+                  {activeService.icone}
+                </div>
+                <h2 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                  {t(activeService.tituloKey)}
+                </h2>
+                <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed font-sans">
+                  {t(activeService.descKey)}
+                </p>
+                <div className="pt-4">
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
+                  >
+                    <span>Solicitar Orçamento</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column - Included Checklist */}
+              <div className="md:col-span-5 bg-zinc-50 dark:bg-zinc-950/50 p-6 md:p-8 rounded-[2rem] border border-zinc-100 dark:border-zinc-800/80">
+                <h4 className="font-extrabold text-zinc-800 dark:text-zinc-200 mb-4 text-sm tracking-wide uppercase border-b border-zinc-100 dark:border-zinc-850 pb-2">
+                  {t('services.design.included') || 'O que oferecemos:'}
+                </h4>
+                <ul className="space-y-3">
+                  {activeService.servicos.map((item, idx) => (
+                    <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-red-500 shrink-0 mr-3 mt-0.5" />
+                      <span className="font-semibold leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+            </div>
+
           </div>
         </div>
       </NotchSection>
