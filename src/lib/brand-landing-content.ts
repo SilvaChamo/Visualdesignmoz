@@ -114,7 +114,7 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesSubtitle: 'De uma feira corporativa a um evento privado — cobrimos todas as etapas.',
     services: [
       { Icon: Tent, title: 'Feiras e Eventos', desc: 'Design de stands e cobertura completa de eventos.', href: '/servicos/feiras-eventos' },
-      { Icon: Coffee, title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/servicos/katring' },
+      { Icon: Coffee, title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/servicos/catering' },
       { Icon: TruckIcon, title: 'Aluguer de Equipamento', desc: 'Aluguer de material técnico e mobiliário para eventos.', href: '/servicos/aluguer' },
       { Icon: Users, title: 'Organização de Eventos', desc: 'Planeamento e execução de eventos de ponta a ponta.', href: '/servicos/organizacao' },
     ],

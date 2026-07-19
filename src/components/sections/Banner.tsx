@@ -73,13 +73,13 @@ export function Banner() {
               <div
                 className="flex flex-col sm:flex-row gap-4 justify-center text-gray-300"
               >
-                <a href="tel:+258821234567" className="flex items-center space-x-2 hover:text-white transition-colors">
+                <a href="tel:+258825288318" className="flex items-center space-x-2 hover:text-white transition-colors">
                   <Phone className="w-4 h-4" />
-                  <span>+258 821 234 567</span>
+                  <span>+258 82 52 88 318</span>
                 </a>
-                <a href="mailto:info@Portal Digital.co.mz" className="flex items-center space-x-2 hover:text-white transition-colors">
+                <a href="mailto:info@visualdesignmoz.com" className="flex items-center space-x-2 hover:text-white transition-colors">
                   <Mail className="w-4 h-4" />
-                  <span>info@Portal Digital.co.mz</span>
+                  <span>info@visualdesignmoz.com</span>
                 </a>
               </div>
             </div>

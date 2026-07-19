@@ -31,11 +31,11 @@ export function CompactFooter() {
                   </a>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <a href="mailto:info@visualdesign.co.mz" className="text-zinc-300 hover:text-white transition-colors">
-                    info@visualdesign.co.mz
+                  <a href="mailto:info@visualdesignmoz.com" className="text-zinc-300 hover:text-white transition-colors">
+                    info@visualdesignmoz.com
                   </a>
-                  <a href="mailto:suporte@visualdesign.co.mz" className="text-zinc-300 hover:text-white transition-colors">
-                    suporte@visualdesign.co.mz
+                  <a href="mailto:suporte@visualdesignmoz.com" className="text-zinc-300 hover:text-white transition-colors">
+                    suporte@visualdesignmoz.com
                   </a>
                 </div>
               </div>

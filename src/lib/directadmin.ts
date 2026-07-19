@@ -181,6 +181,19 @@ export async function daRequest(
   roleOrCreds: DirectAdminRole | DirectAdminCredentials = 'admin',
   context?: DirectAdminAuthContext,
 ): Promise<DaResponse> {
+  // Vercel não tem acesso SSH/rede ao servidor DirectAdmin — nunca deveria
+  // chegar aqui (o proxy manda /dashboard e /client para o Hetzner), mas se
+  // uma sessão antiga ou o PWA em cache chamar isto na Vercel, falhar já
+  // evita esperar até 30s pelo timeout de rede em vez de nada.
+  if (process.env.VERCEL) {
+    console.error('[DirectAdmin API]', endpoint, 'bloqueado na Vercel — só disponível no painel (Hetzner).');
+    return {
+      error: true,
+      text: 'Indisponível na Vercel',
+      details: 'Esta funcionalidade só está disponível no painel (Hetzner).',
+    };
+  }
+
   try {
     const credentials: DirectAdminCredentials =
       typeof roleOrCreds === 'object' && 'password' in roleOrCreds

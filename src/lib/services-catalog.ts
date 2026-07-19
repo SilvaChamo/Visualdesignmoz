@@ -54,7 +54,7 @@ export const SERVICE_BRANDS: ServiceBrand[] = [
     color: 'amber',
     services: [
       { slug: 'feiras-eventos', title: 'Feiras e Eventos', desc: 'Design de stands e cobertura completa de eventos.', href: '/servicos/feiras-eventos' },
-      { slug: 'katring', title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/servicos/katring' },
+      { slug: 'catering', title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/servicos/catering' },
       { slug: 'aluguer', title: 'Aluguer de Equipamento', desc: 'Aluguer de material técnico e mobiliário para eventos.', href: '/servicos/aluguer' },
       { slug: 'organizacao', title: 'Organização de Eventos', desc: 'Planeamento e execução de eventos de ponta a ponta.', href: '/servicos/organizacao' },
     ],

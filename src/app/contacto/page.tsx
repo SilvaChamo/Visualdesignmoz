@@ -8,18 +8,18 @@ export default function ContactPage() {
   const { t } = useI18n()
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-zinc-50 dark:bg-black text-foreground">
       {/* Hero Section Standardized */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <div className="bg-[#09090b] relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
         />
-        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-black/55" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white mb-2">{t('contact.page.title')}</h1>
-            <p className="text-base text-white font-normal max-w-2xl mx-auto">
+            <p className="text-base text-zinc-300 font-normal max-w-2xl mx-auto">
               {t('contact.page.subtitle')}
             </p>
           </div>
@@ -34,46 +34,46 @@ export default function ContactPage() {
             {/* Left Column: Contact Info Cards (Stacked) */}
             <div className="lg:col-span-1 space-y-6">
               
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
+              <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
                   <Phone className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">{t('contact.page.phone')}</h3>
-                  <p className="text-slate-600 text-sm">+258 821 234 567</p>
-                  <p className="text-slate-600 text-sm">+258 841 234 567</p>
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">{t('contact.page.phone')}</h3>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm">+258 825 288 318</p>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm">+258 841 234 567</p>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
+              <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
                   <Mail className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">{t('contact.page.email')}</h3>
-                  <p className="text-slate-600 text-sm">info@visualdesign.co.mz</p>
-                  <p className="text-slate-600 text-sm">suporte@visualdesign.co.mz</p>
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">{t('contact.page.email')}</h3>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm">info@visualdesignmoz.com</p>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm">suporte@visualdesignmoz.com</p>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
+              <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">{t('contact.page.location')}</h3>
-                  <p className="text-slate-600 text-sm">{t('contact.page.locationValue')}</p>
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">{t('contact.page.location')}</h3>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm">{t('contact.page.locationValue')}</p>
                 </div>
               </div>
 
             </div>
 
             {/* Right Column: Contact Form */}
-            <div className="lg:col-span-2 bg-white p-8 lg:p-10 rounded-2xl shadow-sm border border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-8 lg:p-10 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800">
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                 {t('contact.page.formTitle')}
               </h2>
-              <p className="text-slate-500 text-sm mb-8">
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-8">
                 Preencha o formulário abaixo e entraremos em contacto o mais breve possível.
               </p>
               <ContactFormComponent />

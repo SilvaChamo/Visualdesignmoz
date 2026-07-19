@@ -2,47 +2,35 @@
 
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
-import { Monitor, Smartphone, Globe, Code, Palette, Zap, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Coffee, ArrowRight, CheckCircle2, Award, Sparkles, ChefHat } from 'lucide-react'
 
-export default function WebDesign() {
+export default function Catering() {
   const { t } = useI18n()
 
-  const servicosWebDesign = [
+  const cateringFeatures = [
     {
-      icone: <Monitor className="w-8 h-8" />,
-      tituloKey: 'services.web.title',
-      descKey: 'services.web.desc',
-      servicos: [t('services.list.web.1'), t('services.list.web.2'), t('services.list.web.3'), t('services.list.web.4')]
+      icone: <ChefHat className="w-8 h-8" />,
+      titulo: "Menus Personalizados",
+      descricao: "Elaboramos propostas gastronómicas adaptadas às necessidades do seu evento e restrições alimentares.",
+      itens: ["Pratos quentes e frios", "Opções vegetarianas/veganas", "Sobremesas artesanais", "Bebidas e cocktails"]
     },
     {
-      icone: <Smartphone className="w-8 h-8" />,
-      tituloKey: 'services.web.responsive',
-      descKey: 'services.web.responsive.desc',
-      servicos: [t('services.list.web.5'), t('services.list.web.6'), t('services.list.web.7'), t('services.list.web.8')]
+      icone: <Coffee className="w-8 h-8" />,
+      titulo: "Coffee Breaks & Brunch",
+      descricao: "Serviço ideal para reuniões corporativas, conferências ou eventos matinais informais.",
+      itens: ["Pastelaria fina", "Salgados tradicionais", "Cafés e sumos naturais", "Montagem elegante"]
     },
     {
-      icone: <Globe className="w-8 h-8" />,
-      tituloKey: 'services.web.ecommerce',
-      descKey: 'services.web.ecommerce.desc',
-      servicos: [t('services.list.web.9'), t('services.list.web.10'), t('services.list.web.11'), t('services.list.web.12')]
+      icone: <Award className="w-8 h-8" />,
+      titulo: "Banquetes & Gala",
+      descricao: "Serviço de alta gastronomia com empratamento cuidado e equipa de sala profissional.",
+      itens: ["Jantares de gala", "Casamentos e baptizados", "Serviço de mesa completo", "Decoração incluída"]
     },
     {
-      icone: <Code className="w-8 h-8" />,
-      tituloKey: 'services.web.custom',
-      descKey: 'services.web.custom.desc',
-      servicos: [t('services.list.web.13'), t('services.list.web.14'), t('services.list.web.15'), t('services.list.web.16')]
-    },
-    {
-      icone: <Palette className="w-8 h-8" />,
-      tituloKey: 'services.web.uiux',
-      descKey: 'services.web.uiux.desc',
-      servicos: [t('services.list.web.17'), t('services.list.web.18'), t('services.list.web.19'), t('services.list.web.20')]
-    },
-    {
-      icone: <Zap className="w-8 h-8" />,
-      tituloKey: 'services.web.performance',
-      descKey: 'services.web.performance.desc',
-      servicos: [t('services.list.web.21'), t('services.list.web.22'), t('services.list.web.23'), t('services.list.web.24')]
+      icone: <Sparkles className="w-8 h-8" />,
+      titulo: "Cocktails & Finger Food",
+      descricao: "Alimentação ligeira e sofisticada, perfeita para networking e eventos corporativos dinâmicos.",
+      itens: ["Canapés gourmet", "Miniaturas salgadas", "Show cooking", "Serviço volante"]
     }
   ]
 
@@ -57,9 +45,9 @@ export default function WebDesign() {
         <div className="absolute inset-0 bg-black/55" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">{t('services.web.pageTitle')}</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Serviço de Catering Profissional</h1>
             <p className="text-base text-zinc-300 font-normal">
-              {t('services.web.pageSubtitle')}
+              Catering completo e personalizado para os seus eventos corporativos e sociais
             </p>
           </div>
         </div>
@@ -68,26 +56,26 @@ export default function WebDesign() {
       {/* Main Content */}
       <div className="py-16">
         <div className="container mx-auto max-w-7xl px-6">
-          {/* Services Grid (Without individual quote buttons) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {servicosWebDesign.map((servico, index) => (
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {cateringFeatures.map((servico, index) => (
               <div key={index} className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="flex items-center mb-4">
                     <div className="text-red-500 mr-3">
                       {servico.icone}
                     </div>
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t(servico.tituloKey)}</h3>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{servico.titulo}</h3>
                   </div>
                   
                   <p className="text-zinc-600 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
-                    {t(servico.descKey)}
+                    {servico.descricao}
                   </p>
                   
                   <div>
-                    <h4 className="font-semibold text-zinc-700 dark:text-zinc-300 mb-3 text-sm">{t('common.included')}</h4>
+                    <h4 className="font-semibold text-zinc-700 dark:text-zinc-300 mb-3 text-sm">O que oferecemos:</h4>
                     <ul className="space-y-2">
-                      {servico.servicos.map((item, idx) => (
+                      {servico.itens.map((item, idx) => (
                         <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
                           <CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mr-2 mt-0.5" />
                           <span>{item}</span>
@@ -100,36 +88,36 @@ export default function WebDesign() {
             ))}
           </div>
 
-          {/* Methodology */}
+          {/* Process Section */}
           <div className="mt-20 text-center">
-            <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-10">{t('services.web.methodology')}</h3>
+            <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-10">O Nosso Processo</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-2xl">
                 <span className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-extrabold text-lg flex items-center justify-center mx-auto mb-4">1</span>
-                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">{t('services.web.step1.title')}</h4>
-                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">{t('services.web.step1.desc')}</p>
+                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">Definição do Menu</h4>
+                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">Alinhamos os gostos, o tipo de público e o formato do evento para desenhar o menu perfeito.</p>
               </div>
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-2xl">
                 <span className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-extrabold text-lg flex items-center justify-center mx-auto mb-4">2</span>
-                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">{t('services.web.step2.title')}</h4>
-                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">{t('services.web.step2.desc')}</p>
+                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">Preparação e Logística</h4>
+                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">Cuidamos da frescura dos ingredientes e da logística para que tudo chegue impecável.</p>
               </div>
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-2xl">
                 <span className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-extrabold text-lg flex items-center justify-center mx-auto mb-4">3</span>
-                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">{t('services.web.step3.title')}</h4>
-                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">{t('services.web.step3.desc')}</p>
+                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 mb-3">Serviço no Local</h4>
+                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">A nossa equipa garante uma montagem primorosa e serviço profissional durante todo o evento.</p>
               </div>
             </div>
           </div>
 
           {/* Unified CTA Banner at the bottom */}
           <div className="bg-red-600 dark:bg-red-700 text-white py-16 mt-20 rounded-3xl text-center space-y-6 shadow-xl shadow-red-600/10">
-            <h2 className="text-3xl font-extrabold">Pronto para criar o seu site?</h2>
+            <h2 className="text-3xl font-extrabold">Quer proporcionar uma experiência gastronómica memorável?</h2>
             <p className="text-lg text-red-100 max-w-xl mx-auto">
-              Desenvolvemos soluções integradas de web design, alojamento e otimização para colocar o seu negócio online hoje mesmo.
+              Seja um evento corporativo de grande escala ou uma comemoração privada, a nossa equipa entrega excelência e requinte.
             </p>
             <Link
-              href="/contacto?servico=webdesign"
+              href="/contacto?servico=catering"
               className="inline-flex items-center gap-2 bg-white text-red-600 font-bold px-10 py-4 rounded-xl shadow-lg hover:bg-zinc-100 transition-all transform hover:-translate-y-0.5"
             >
               <span>Pedir Orçamento Gratuito</span>

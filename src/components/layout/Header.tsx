@@ -38,7 +38,7 @@ const navigation = [
       { nameKey: 'header.nav.services.graphic', descKey: 'header.nav.services.graphic.desc', href: '/servicos/design-grafico', icon: 'palette' },
       { nameKey: 'header.nav.services.marketing', descKey: 'header.nav.services.marketing.desc', href: '/servicos/marketing-digital', icon: 'trending-up' },
       { nameKey: 'header.nav.services.events', descKey: 'header.nav.services.events.desc', href: '/servicos/feiras-eventos', icon: 'calendar' },
-      { nameKey: 'header.nav.services.catering', descKey: 'header.nav.services.catering.desc', href: '/servicos/katring', icon: 'coffee' },
+      { nameKey: 'header.nav.services.catering', descKey: 'header.nav.services.catering.desc', href: '/servicos/catering', icon: 'coffee' },
       { nameKey: 'header.nav.services.rental', descKey: 'header.nav.services.rental.desc', href: '/servicos/aluguer', icon: 'truck' }
     ]
   },

@@ -159,7 +159,7 @@ const dict: Record<Lang, Dict> = {
     'header.nav.services.marketing.desc': 'Gestão de redes sociais e tráfego pago para crescer online.',
     'header.nav.services.events': 'Feiras e Eventos',
     'header.nav.services.events.desc': 'Organização completa, stands e logística para eventos.',
-    'header.nav.services.catering': 'Katring',
+    'header.nav.services.catering': 'Catering',
     'header.nav.services.catering.desc': 'Serviço de catering completo para eventos corporativos e sociais.',
     'header.nav.services.rental': 'Aluguer de Material',
     'header.nav.services.rental.desc': 'Equipamentos de som, luz, tendas e mobiliário para eventos.',
