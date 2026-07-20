@@ -26,7 +26,7 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
         aria-hidden
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/30 to-transparent" />
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center h-[560px] sm:h-[640px] md:h-[760px]">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-start lg:items-center min-h-[560px] sm:min-h-[640px] md:min-h-[760px] lg:h-[760px]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
           <div className="lg:col-span-7 flex flex-col items-start text-left pb-[50px]">
             <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl mb-8">
@@ -162,11 +162,11 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         
         {/* Serviço 1: Design Gráfico */}
         <div className="static lg:sticky lg:top-[125px] z-10 w-full">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+45px)] flex items-center">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+45px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
-                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
                     src="/assets/design_grafico_branding.jpg"
                     alt="Design Gráfico & Comunicação Visual"
@@ -218,12 +218,12 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 2: Estratégia de Branding */}
-        <div className="static lg:sticky lg:top-[140px] z-20 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+30px)] flex items-center">
+        <div className="static lg:sticky lg:top-[140px] lg:-mt-[30px] z-20 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+30px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
-                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
                     src="/assets/branding_estrategia.png"
                     alt="Estratégia de Branding e Naming"
@@ -275,14 +275,14 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 3: Redes Sociais */}
-        <div className="static lg:sticky lg:top-[155px] z-30 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+15px)] flex items-center">
+        <div className="static lg:sticky lg:top-[155px] lg:-mt-[30px] z-30 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+15px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
-                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
-                    src="/assets/redes_sociais_design.png"
+                    src="/assets/IMG-VD/Redes-sociais.jpeg"
                     alt="Design para Redes Sociais"
                     className="w-full h-full object-cover"
                   />
@@ -332,12 +332,12 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 4: Envelopamento */}
-        <div className="static lg:sticky lg:top-[170px] z-40 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[75vh] flex items-center">
+        <div className="static lg:sticky lg:top-[170px] lg:-mt-[30px] z-40 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[75vh] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
-                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
                     src="/assets/envelopamento_viatura.jpg"
                     alt="Envelopamento de Viaturas Corporativas"
