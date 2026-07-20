@@ -21,7 +21,7 @@ export function BrandHero({ data }: { data: BrandLandingContent }) {
   }
 
   return (
-    <NotchSection shape="start" bg="bg-black" first>
+    <NotchSection shape="start" bg="bg-black" first className="z-30">
       {data.hero.imageSrc && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -84,7 +84,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
   return (
     <>
       {/* Introdução + Serviços */}
-      <div className="-mt-[16px] relative z-20">
+      <div className="-mt-[16px] relative z-20 bg-zinc-200 dark:bg-zinc-900">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
           <div className="text-center pt-[30px] max-w-3xl mx-auto">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
@@ -95,8 +95,9 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
             </p>
           </div>
         </div>
+      </div>
 
-        <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+      <NotchSection shape="end" bg="bg-white dark:bg-zinc-950" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
             <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-3xl mx-auto">
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
@@ -141,9 +142,8 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
                 })}
               </div>
             </div>
-        </div>
+          </div>
         </NotchSection>
-      </div>
 
       {/* Como Trabalhamos */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">

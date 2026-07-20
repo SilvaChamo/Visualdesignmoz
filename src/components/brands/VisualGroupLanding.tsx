@@ -15,7 +15,7 @@ import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
 
 export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
   return (
-    <NotchSection shape="start" bg="bg-black" first>
+    <NotchSection shape="start" bg="bg-black" first className="z-30">
       <Image
         src="/assets/IMG-VD/Design/design_grafico.jpg"
         alt="VisualDesign Grupo Corporativo"
@@ -100,7 +100,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
   return (
     <>
       {/* Brands List Section */}
-      <div className="-mt-[16px] relative z-20">
+      <div className="-mt-[16px] relative z-20 bg-zinc-200 dark:bg-zinc-900">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-[70px] pb-[70px]">
           <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-4xl mx-auto px-4 space-y-6">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
@@ -141,8 +141,9 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Portfolio Showcase Carousel */}
+      {/* Portfolio Showcase Carousel */}
         <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
             <div className="text-center">
@@ -153,7 +154,6 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </div>
           </div>
         </NotchSection>
-      </div>
 
       {/* Secção Design Gráfico & Branding (com Sticky Scroll) */}
       <div className="relative w-full z-10">
@@ -161,10 +161,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div id="envelopamento" />
         
         {/* Serviço 1: Design Gráfico */}
-        <div className="sticky top-[310px] z-10 w-full border border-black dark:border-zinc-700">
-          <NotchSection shape="mid" bg="bg-transparent" first className="py-8 min-h-[75vh] flex items-center">
+        <div className="sticky top-[125px] z-10 w-full">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+45px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
                   <img
@@ -218,10 +218,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 2: Estratégia de Branding */}
-        <div className="sticky top-[340px] z-20 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
+        <div className="sticky top-[140px] z-20 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+30px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
                   <img
@@ -275,10 +275,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 3: Redes Sociais */}
-        <div className="sticky top-[370px] z-30 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
+        <div className="sticky top-[155px] z-30 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+15px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
                   <img
@@ -332,16 +332,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 4: Envelopamento */}
-        <div className="sticky top-[400px] z-40 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <div 
-            className="bg-zinc-200 dark:bg-black py-8 min-h-[75vh] flex items-center relative overflow-hidden"
-            style={{
-              '--cl': 'max(24px, calc(50% - 616px))',
-              clipPath: 'polygon(0% 16px, var(--cl) 16px, calc(var(--cl) + 15px) 0%, calc(100% - var(--cl) - 15px) 0%, calc(100% - var(--cl)) 16px, 100% 16px, 100% 100%, 0% 100%)'
-            } as React.CSSProperties}
-          >
+        <div className="sticky top-[170px] z-40 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
                   <img
@@ -391,8 +385,9 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                 </div>
               </div>
             </div>
-          </div>
+          </NotchSection>
         </div>
+        <div aria-hidden className="h-[120px]" />
       </div>
 
       {/* Secção A Nossa Metodologia / Processo de Trabalho */}
@@ -409,7 +404,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left mx-5">
             {[
               {
                 step: '1',
@@ -447,7 +442,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
       {/* Why Choose Us Section - Matching cards layout from visualweb, restored original 2-column layout */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mx-5">
             <div className="lg:col-span-5 text-left pt-2 space-y-6">
               <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center">
                 <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
