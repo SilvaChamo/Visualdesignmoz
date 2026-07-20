@@ -161,8 +161,8 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div id="envelopamento" />
         
         {/* Serviço 1: Design Gráfico */}
-        <div className="sticky top-[125px] z-10 w-full">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+45px)] flex items-center">
+        <div className="static lg:sticky lg:top-[125px] z-10 w-full">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+45px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
@@ -218,8 +218,8 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 2: Estratégia de Branding */}
-        <div className="sticky top-[140px] z-20 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+30px)] flex items-center">
+        <div className="static lg:sticky lg:top-[140px] z-20 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+30px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
@@ -275,8 +275,8 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 3: Redes Sociais */}
-        <div className="sticky top-[155px] z-30 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[calc(75vh+15px)] flex items-center">
+        <div className="static lg:sticky lg:top-[155px] z-30 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[calc(75vh+15px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
@@ -332,8 +332,8 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Serviço 4: Envelopamento */}
-        <div className="sticky top-[170px] z-40 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
-          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
+        <div className="static lg:sticky lg:top-[170px] z-40 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="pt-12 pb-8 lg:py-8 lg:min-h-[75vh] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full mx-5">
                 {/* Imagem esquerda */}
@@ -387,7 +387,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </div>
           </NotchSection>
         </div>
-        <div aria-hidden className="h-[120px]" />
+        <div aria-hidden className="hidden lg:block lg:h-[120px]" />
       </div>
 
       {/* Secção A Nossa Metodologia / Processo de Trabalho */}
