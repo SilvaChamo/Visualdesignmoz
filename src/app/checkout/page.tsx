@@ -138,7 +138,7 @@ function CheckoutContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
         <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-red-650 mx-auto" />
+          <Loader2 className="w-10 h-10 animate-spin text-red-600 mx-auto" />
           <p className="text-sm font-semibold text-slate-500 dark:text-zinc-400">A validar sessão segura...</p>
         </div>
       </div>
@@ -148,7 +148,7 @@ function CheckoutContent() {
   const typeLabel: Record<string, string> = { domain: 'Domínio', hosting: 'Alojamento', email: 'Email', ssl: 'SSL' };
   const typeIcon: Record<string, React.ReactNode> = {
     domain: <Globe className="w-4 h-4 text-teal-650 dark:text-teal-400" />,
-    hosting: <Server className="w-4 h-4 text-red-650 dark:text-red-400" />,
+    hosting: <Server className="w-4 h-4 text-red-600 dark:text-red-400" />,
     email: <Mail className="w-4 h-4 text-blue-650 dark:text-blue-400" />,
     ssl: <Shield className="w-4 h-4 text-green-650 dark:text-green-400" />,
   };
@@ -180,7 +180,7 @@ function CheckoutContent() {
               {/* PROCESSING STEPS */}
               {(status === 'registering' || status === 'redirecting') && (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
-                  <Loader2 className="w-12 h-12 text-red-650 animate-spin mx-auto" />
+                  <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto" />
                   <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
                     {status === 'registering' ? 'A criar a sua conta...' : 'A abrir o pagamento seguro da Stripe...'}
                   </h3>
@@ -190,10 +190,10 @@ function CheckoutContent() {
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
                 <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-650 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
-                    <p className="text-xs text-red-700 dark:text-red-450 mt-1 leading-normal">{errorMessage}</p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-1 leading-normal">{errorMessage}</p>
                     {errorMessage.toLowerCase().includes('login') || errorMessage.toLowerCase().includes('já existe') ? (
                       <Link href={`/auth/login?redirect=${encodeURIComponent('/checkout')}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
                         Fazer Login
@@ -358,7 +358,7 @@ function CheckoutContent() {
             <div className="lg:col-span-4">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-4 shadow-sm sticky top-28">
                 <h3 className="font-bold text-slate-800 dark:text-zinc-50 text-base flex items-center gap-2 border-b border-slate-100 dark:border-zinc-850 pb-3 font-panel">
-                  <ShoppingCart className="w-5 h-5 text-red-650" />
+                  <ShoppingCart className="w-5 h-5 text-red-600" />
                   Resumo da Compra
                 </h3>
 
@@ -395,7 +395,7 @@ function CheckoutContent() {
                   </div>
                   <div className="pt-3 border-t border-dashed border-slate-200 dark:border-zinc-800 flex justify-between items-center">
                     <span className="font-black text-slate-800 dark:text-zinc-200 text-sm font-panel">Total</span>
-                    <span className="font-black text-xl text-red-650 dark:text-red-400">{total} MT</span>
+                    <span className="font-black text-xl text-red-600 dark:text-red-400">{total} MT</span>
                   </div>
                 </div>
 
@@ -413,7 +413,7 @@ export default function CheckoutPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
-        <Loader2 className="w-10 h-10 animate-spin text-red-650" />
+        <Loader2 className="w-10 h-10 animate-spin text-red-600" />
       </div>
     }>
       <CheckoutContent />

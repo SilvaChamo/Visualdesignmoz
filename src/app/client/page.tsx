@@ -3403,7 +3403,7 @@ export default function ClientPage() {
     <AdminSectionChromeProvider>
       <Suspense fallback={
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
-          <Loader2 className="w-10 h-10 animate-spin text-red-655 mx-auto" />
+          <Loader2 className="w-10 h-10 animate-spin text-red-600 mx-auto" />
         </div>
       }>
         <ClientPageContent />

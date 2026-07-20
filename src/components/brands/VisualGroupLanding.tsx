@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
@@ -143,7 +143,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
 
         {/* Portfolio Showcase Carousel */}
-        <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+        <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6">
             <div className="text-center">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-8">
@@ -155,85 +155,297 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </NotchSection>
       </div>
 
-      {/* Secção Design Gráfico & Branding */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-        <div id="design" className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="mx-5">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-start">
-              <div className="md:col-span-7 space-y-6 text-left">
-                <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center">
-                  <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
-                  Criatividade & Identidade
+      {/* Secção Design Gráfico & Branding (com Sticky Scroll) */}
+      <div className="relative w-full z-10">
+        <div id="design" />
+        <div id="envelopamento" />
+        
+        {/* Serviço 1: Design Gráfico */}
+        <div className="sticky top-[310px] z-10 w-full border border-black dark:border-zinc-700">
+          <NotchSection shape="mid" bg="bg-transparent" first className="py-8 min-h-[75vh] flex items-center">
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+                {/* Imagem esquerda */}
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                  <img
+                    src="/assets/design_grafico_branding.jpg"
+                    alt="Design Gráfico & Comunicação Visual"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight">
-                  Design Gráfico & Branding de Alto Impacto
-                </h2>
-                <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed max-w-2xl">
-                  A imagem da sua marca é o seu principal ativo. Desenvolvemos identidades visuais marcantes, logótipos memoráveis e estacionários completos para posicionar a sua empresa no mercado com elegância.
-                </p>
-                <button
-                  onClick={onCtaClick}
-                  className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
-                >
-                  <span>Orçamento para Design & Branding</span>
-                  <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
-                </button>
-              </div>
 
-              <div className="md:col-span-5 bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-white/10 p-10 rounded-2xl text-left shadow-sm">
-                <h3 className="font-extrabold text-zinc-900 dark:text-white text-lg mb-6 border-b border-zinc-100 dark:border-white/5 pb-3">
-                  O que Desenvolvemos
-                </h3>
-                <ul className="space-y-4">
-                  {[
-                    'Criação de Logótipos & Manuais de Normas',
-                    'Estacionário Corporativo & Cartões de Visita',
-                    'Design de Catálogos, Brochuras & Flyers',
-                    'Estratégia de Branding & Rebranding de Marca',
-                    'Criativos Digitais & Design para Redes Sociais'
-                  ].map((item, idx) => (
-                    <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
-                      <div className="shrink-0 w-5 h-5 rounded-full border border-red-500/20 bg-red-500/5 flex items-center justify-center mr-3.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-                      </div>
-                      <span className="font-semibold leading-relaxed">{item}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Conteúdo direito */}
+                <div className="lg:col-span-6 space-y-4 text-left pt-2">
+                  <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center mb-1">
+                    <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
+                    Criatividade & Identidade
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight mt-0">
+                    Design Gráfico & Identidade Visual
+                  </h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed max-w-2xl">
+                    A imagem da sua marca é o seu principal ativo. Desenvolvemos identidades visuais marcantes, logótipos memoráveis e estacionários completos para posicionar a sua empresa no mercado com elegância.
+                  </p>
+                  <ul className="space-y-3 pl-5 pt-2">
+                    {[
+                      'Criação de Logótipos & Manuais de Normas',
+                      'Estacionário Corporativo & Cartões de Visita',
+                      'Design de Catálogos, Brochuras & Flyers',
+                      'Tipografia e paleta de cores corporativa',
+                      'Produção gráfica e supervisão de impressão',
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
+                        <div className="shrink-0 w-5 h-5 rounded-full border border-red-500/20 bg-red-500/5 flex items-center justify-center mr-3.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        </div>
+                        <span className="font-semibold leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pt-4">
+                    <button
+                      onClick={onCtaClick}
+                      className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
+                    >
+                      <span>Orçamento para Design</span>
+                      <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </NotchSection>
+        </div>
+
+        {/* Serviço 2: Estratégia de Branding */}
+        <div className="sticky top-[340px] z-20 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+                {/* Imagem esquerda */}
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                  <img
+                    src="/assets/branding_estrategia.png"
+                    alt="Estratégia de Branding e Naming"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Conteúdo direito */}
+                <div className="lg:col-span-6 space-y-4 text-left pt-2">
+                  <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center mb-1">
+                    <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
+                    Estratégia & Posicionamento
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight mt-0">
+                    Branding & Estratégia de Marca
+                  </h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed max-w-2xl">
+                    Vamos além do design. Construímos o posicionamento da sua marca no mercado, definindo a sua voz, valores e propósito para criar conexões verdadeiras com o seu público-alvo.
+                  </p>
+                  <ul className="space-y-3 pl-5 pt-2">
+                    {[
+                      'Estratégia de Posicionamento de Marca',
+                      'Naming (Criação de Nomes) e Slogans',
+                      'Rebranding e Modernização de Marcas',
+                      'Design de Experiência da Marca (Brand Experience)',
+                      'Definição de Persona e Brand Voice',
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
+                        <div className="shrink-0 w-5 h-5 rounded-full border border-red-500/20 bg-red-500/5 flex items-center justify-center mr-3.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        </div>
+                        <span className="font-semibold leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pt-4">
+                    <button
+                      onClick={onCtaClick}
+                      className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
+                    >
+                      <span>Consultoria de Branding</span>
+                      <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </NotchSection>
+        </div>
+
+        {/* Serviço 3: Redes Sociais */}
+        <div className="sticky top-[370px] z-30 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" first className="py-8 min-h-[75vh] flex items-center">
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+                {/* Imagem esquerda */}
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                  <img
+                    src="/assets/redes_sociais_design.png"
+                    alt="Design para Redes Sociais"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Conteúdo direito */}
+                <div className="lg:col-span-6 space-y-4 text-left pt-2">
+                  <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center mb-1">
+                    <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
+                    Comunicação Digital
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight mt-0">
+                    Design para Redes Sociais
+                  </h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed max-w-2xl">
+                    Destaque-se no feed com criativos digitais de alta conversão. Criamos layouts envolventes para Instagram, Facebook, LinkedIn e TikTok que aumentam o engajamento e as vendas.
+                  </p>
+                  <ul className="space-y-3 pl-5 pt-2">
+                    {[
+                      'Templates para Posts e Stories',
+                      'Capas de Perfil e Banners',
+                      'Criativos para Campanhas Publicitárias (Ads)',
+                      'Animações curtas e Motion Graphics',
+                      'Pacotes de Conteúdo Visual Mensal',
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
+                        <div className="shrink-0 w-5 h-5 rounded-full border border-red-500/20 bg-red-500/5 flex items-center justify-center mr-3.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        </div>
+                        <span className="font-semibold leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pt-4">
+                    <button
+                      onClick={onCtaClick}
+                      className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
+                    >
+                      <span>Orçamento Digital</span>
+                      <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </NotchSection>
+        </div>
+
+        {/* Serviço 4: Envelopamento */}
+        <div className="sticky top-[400px] z-40 w-full drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
+          <div 
+            className="bg-zinc-200 dark:bg-black py-8 min-h-[75vh] flex items-center relative overflow-hidden"
+            style={{
+              '--cl': 'max(24px, calc(50% - 616px))',
+              clipPath: 'polygon(0% 16px, var(--cl) 16px, calc(var(--cl) + 15px) 0%, calc(100% - var(--cl) - 15px) 0%, calc(100% - var(--cl)) 16px, 100% 16px, 100% 100%, 0% 100%)'
+            } as React.CSSProperties}
+          >
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center w-full">
+                {/* Imagem esquerda */}
+                <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[500px]">
+                  <img
+                    src="/assets/envelopamento_viatura.jpg"
+                    alt="Envelopamento de Viaturas Corporativas"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Conteúdo direito */}
+                <div className="lg:col-span-6 space-y-4 text-left pt-2">
+                  <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center mb-1">
+                    <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
+                    Branding em Movimento
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight mt-0">
+                    Envelopamento de Viaturas
+                  </h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 text-base leading-relaxed max-w-2xl">
+                    Transforme a frota da sua empresa num canal de publicidade móvel e dinâmico de altíssimo impacto. Aplicamos películas premium que protegem o seu veículo e destacam a sua marca pelas ruas.
+                  </p>
+                  <ul className="space-y-3 pl-5 pt-2">
+                    {[
+                      'Design e adaptação ao modelo da viatura',
+                      'Películas de vinil fundido de alta performance',
+                      'Envelopamento parcial ou total da viatura',
+                      'Garantia de aplicação contra bolhas e descolagem',
+                      'Aplicação limpa realizada por técnicos experientes',
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-start text-zinc-600 dark:text-zinc-400 text-sm">
+                        <div className="shrink-0 w-5 h-5 rounded-full border border-red-500/20 bg-red-500/5 flex items-center justify-center mr-3.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        </div>
+                        <span className="font-semibold leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pt-4">
+                    <button
+                      onClick={onCtaClick}
+                      className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
+                    >
+                      <span>Orçamento para Envelopamento</span>
+                      <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </NotchSection>
+      </div>
 
-      {/* Secção Envelopamento de Viaturas */}
-      <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-        <div id="envelopamento" className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="text-center flex flex-col items-center max-w-4xl mx-auto space-y-6 px-4">
+      {/* Secção A Nossa Metodologia / Processo de Trabalho */}
+      <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+        <div id="metodologia" className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+          <div className="text-center flex flex-col items-center max-w-4xl mx-auto space-y-6 mb-12">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500">
               <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-              Branding em Movimento
+              Como Trabalhamos
               <span className="text-red-600 dark:text-red-500 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight">
-              Envelopamento de Viaturas Corporativas
+              A Nossa Metodologia
             </h2>
-            <p className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-4xl">
-              Transforme a frota da sua empresa num canal de publicidade móvel e dinâmico de altíssimo impacto. Aplicamos películas premium que protegem o seu veículo e destacam a sua marca pelas ruas.
-            </p>
-            <button
-              onClick={onCtaClick}
-              className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
-            >
-              <span>Orçamento para Envelopamento</span>
-              <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
-            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
+            {[
+              {
+                step: '1',
+                title: 'Briefing',
+                desc: 'Ouvimos as suas necessidades, entendemos o mercado e definimos os objetivos do projeto.'
+              },
+              {
+                step: '2',
+                title: 'Criação e Revisão',
+                desc: 'Desenvolvemos conceitos, apresentamos mockups e refinamos até à aprovação final.'
+              },
+              {
+                step: '3',
+                title: 'Entrega',
+                desc: 'Fornecemos todos os ficheiros nos formatos adequados, prontos para uso digital e impressão.'
+              }
+            ].map(({ step, title, desc }) => (
+              <div 
+                key={step} 
+                className="flex items-start gap-4 p-6 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 border-l-4 border-l-red-600 dark:border-l-red-500 rounded-lg shadow-sm"
+              >
+                <span className="shrink-0 w-10 h-10 rounded-lg border flex items-center justify-center border-red-600/20 dark:border-red-500/20 bg-red-600/5 dark:bg-red-500/5 font-extrabold text-red-600 dark:text-red-500 text-lg">
+                  {step}
+                </span>
+                <div>
+                  <h4 className="font-bold text-zinc-900 dark:text-white text-base mb-1">{title}</h4>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </NotchSection>
 
       {/* Why Choose Us Section - Matching cards layout from visualweb, restored original 2-column layout */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
+      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             <div className="lg:col-span-5 text-left pt-2 space-y-6">
@@ -293,7 +505,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
       </NotchSection>
 
       {/* CTA Final */}
-      <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="py-24 sm:py-32">
+      <NotchSection shape="mid-alt" bg="bg-white dark:bg-zinc-950" className="py-24 sm:py-32">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="text-center flex flex-col items-center max-w-[832px] mx-auto space-y-6">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white">
@@ -313,7 +525,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
       </NotchSection>
 
       {/* Newsletter */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-200 dark:bg-black" className="py-8 sm:py-10">
+      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="py-8 sm:py-10">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
             <div className="text-center md:text-left space-y-6">

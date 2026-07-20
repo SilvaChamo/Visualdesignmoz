@@ -124,18 +124,28 @@ export async function fulfillCheckout(
     const admin = createAdminClient(supabaseUrl, serviceKey);
     const { data: authUser } = await admin.auth.admin.getUserById(userId);
     const currentMetadata = authUser?.user?.user_metadata || {};
-    await admin.auth.admin.updateUserById(userId, {
-      user_metadata: {
-        ...currentMetadata,
-        role: 'client',
-        nome: currentMetadata.nome || currentMetadata.full_name || authUser?.user?.email?.split('@')[0],
-      },
-    });
-    const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+    const email = authUser?.user?.email;
+    const displayName = currentMetadata.nome || currentMetadata.full_name || email?.split('@')[0];
+
+    const { getProfileForAuthUser, saveProfileForAuthUser } = await import('@/lib/profile-db');
+    const existingProfile = await getProfileForAuthUser(admin, userId, email);
+
+    // Só promove guest -> client. Nunca despromove uma conta já elevada (admin/manager/reseller)
+    // que, por exemplo, esteja apenas a testar uma compra.
+    const ELEVATED_ROLES = ['admin', 'manager', 'reseller'];
+    const isElevated =
+      ELEVATED_ROLES.includes(existingProfile?.role || '') || ELEVATED_ROLES.includes(currentMetadata.role);
+
+    if (!isElevated) {
+      await admin.auth.admin.updateUserById(userId, {
+        user_metadata: { ...currentMetadata, role: 'client', nome: displayName },
+      });
+    }
+
     await saveProfileForAuthUser(admin, userId, {
-      email: authUser?.user?.email,
-      role: 'client',
-      name: currentMetadata.nome || currentMetadata.full_name || authUser?.user?.email?.split('@')[0],
+      email,
+      role: isElevated ? undefined : 'client',
+      name: displayName,
     });
   }
 

@@ -74,7 +74,7 @@ function CheckoutSucessoContent() {
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm max-w-md w-full">
         {state === 'waiting' && (
           <>
-            <Loader2 className="w-14 h-14 text-red-650 animate-spin mx-auto" />
+            <Loader2 className="w-14 h-14 text-red-600 animate-spin mx-auto" />
             <h1 className="text-xl font-bold text-slate-800 dark:text-zinc-100 font-panel">
               A confirmar o seu pagamento...
             </h1>
@@ -122,7 +122,7 @@ export default function CheckoutSucessoPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
-          <Loader2 className="w-10 h-10 animate-spin text-red-650" />
+          <Loader2 className="w-10 h-10 animate-spin text-red-600" />
         </div>
       }
     >

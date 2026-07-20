@@ -32,6 +32,7 @@ export function profileName(
 export async function getProfileForAuthUser(
   admin: SupabaseClient,
   authUserId: string,
+  email?: string | null,
 ): Promise<ProfileRow | null> {
   const { data: byUserId } = await admin
     .from('profiles')
@@ -45,7 +46,20 @@ export async function getProfileForAuthUser(
     .select(PROFILE_COLUMNS)
     .eq('id', authUserId)
     .maybeSingle();
-  return (byId as ProfileRow) ?? null;
+  if (byId) return byId as ProfileRow;
+
+  // Fallback: perfis antigos/duplicados podem ter user_id/id desalinhados com o auth.users
+  // actual — sem isto, o insert seguinte viola profiles_email_key em vez de actualizar a linha certa.
+  if (email) {
+    const { data: byEmail } = await admin
+      .from('profiles')
+      .select(PROFILE_COLUMNS)
+      .eq('email', email)
+      .maybeSingle();
+    if (byEmail) return byEmail as ProfileRow;
+  }
+
+  return null;
 }
 
 export async function saveProfileForAuthUser(
@@ -65,7 +79,7 @@ export async function saveProfileForAuthUser(
   },
 ): Promise<void> {
   const displayName = fields.name ?? fields.nome ?? undefined;
-  const existing = await getProfileForAuthUser(admin, authUserId);
+  const existing = await getProfileForAuthUser(admin, authUserId, fields.email);
   const payload: Record<string, unknown> = { user_id: authUserId };
 
   if (fields.email !== undefined) payload.email = fields.email;
