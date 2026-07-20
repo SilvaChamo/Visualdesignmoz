@@ -7,6 +7,7 @@ import { Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow, Server,
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
 import ServicosWebCarousel from '@/components/ServicosWebCarousel'
+import DomainSearch from '@/components/DomainSearch'
 import { NotchSection } from '@/components/home/NotchSection'
 
 /** Banner (hero) da VisualWeb — usado tanto na home como em /visualweb. */
@@ -127,6 +128,15 @@ export function VisualWebBody() {
 
   return (
     <>
+      {/* Motor de Busca de Domínios */}
+      <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="py-[30px]">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto">
+            <DomainSearch panelFieldRounding lightSection spacious />
+          </div>
+        </div>
+      </NotchSection>
+
       {/* Hosting Features + Design Services (ordem trocada — fundos mantidos no mesmo sítio) */}
       <div className="-mt-[16px] relative z-20">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-[70px] pb-[70px]">

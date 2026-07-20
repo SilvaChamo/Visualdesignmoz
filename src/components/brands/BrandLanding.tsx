@@ -7,7 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
 import type { BrandLandingContent } from '@/lib/brand-landing-content'
 
-export function BrandHero({ data }: { data: BrandLandingContent }) {
+export function BrandHero({ data, breadcrumb }: { data: BrandLandingContent; breadcrumb?: string }) {
   const pathname = usePathname()
 
   const getBrandSegment = () => {
@@ -36,7 +36,7 @@ export function BrandHero({ data }: { data: BrandLandingContent }) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
           <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 pb-[50px]">
             <div className="text-xs sm:text-sm text-zinc-400 font-bold uppercase tracking-widest mb-1">
-              Início / Marcas / {getBrandSegment()}
+              {breadcrumb ?? `Início / Marcas / ${getBrandSegment()}`}
             </div>
             <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl">
               {data.hero.title}

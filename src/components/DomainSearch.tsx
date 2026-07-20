@@ -26,6 +26,10 @@ interface DomainSearchProps {
   isAdmin?: boolean
   /** Mesmo arredondamento `rounded` dos campos no painel admin (sem alterar cores). */
   panelFieldRounding?: boolean
+  /** Texto escuro (com variante dark:) em vez de branco, para usar sobre secções de fundo claro. */
+  lightSection?: boolean
+  /** Padding vertical ligeiramente maior nos campos e no botão de busca. */
+  spacious?: boolean
   searchContainerClassName?: string
 }
 
@@ -41,6 +45,8 @@ export default function DomainSearch({
   hideResultsInternal = false,
   isAdmin = false,
   panelFieldRounding = false,
+  lightSection = false,
+  spacious = false,
   searchContainerClassName = '',
 }: DomainSearchProps) {
   const { t } = useI18n()
@@ -55,11 +61,12 @@ export default function DomainSearch({
   const [billingCycle, setBillingCycle] = useState<'mensal' | 'anual'>('anual')
 
   const searchRound = isAdmin || panelFieldRounding ? 'rounded' : 'rounded-lg'
+  const fieldPaddingY = spacious ? 'py-2.5' : 'py-2'
   const fieldClass = isAdmin
-    ? `w-full px-4 py-2 ${searchRound} bg-white text-zinc-900 border border-zinc-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium shadow-sm`
-    : `w-full px-4 py-2 ${searchRound} bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 border border-slate-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium`
-  const mutedText = isAdmin ? 'text-zinc-600 dark:text-zinc-400' : 'text-slate-500'
-  const headingText = isAdmin ? 'text-zinc-900 dark:text-zinc-100' : 'text-white'
+    ? `w-full px-4 ${fieldPaddingY} ${searchRound} bg-white text-zinc-900 border border-zinc-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium shadow-sm`
+    : `w-full px-4 ${fieldPaddingY} ${searchRound} bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 border border-slate-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium`
+  const mutedText = isAdmin ? 'text-zinc-600 dark:text-zinc-400' : lightSection ? 'text-slate-500 dark:text-zinc-400' : 'text-slate-500'
+  const headingText = isAdmin ? 'text-zinc-900 dark:text-zinc-100' : lightSection ? 'text-zinc-900 dark:text-white' : 'text-white'
 
   const renderPricingCards = () => <DomainPricingCarousel items={TLDS} />
 
@@ -482,7 +489,7 @@ export default function DomainSearch({
         onClick={() => void handleSearch()}
         disabled={loading}
         aria-disabled={loading || !searchQuery.trim()}
-        className={`flex w-full shrink-0 items-center justify-start gap-2 ${searchRound} bg-red-600 px-8 py-2 font-bold text-white shadow-md transition-colors hover:bg-red-700 sm:w-auto sm:justify-center ${
+        className={`flex w-full shrink-0 items-center justify-start gap-2 ${searchRound} bg-red-600 px-8 ${fieldPaddingY} font-bold text-white shadow-md transition-colors hover:bg-red-700 sm:w-auto sm:justify-center ${
           loading ? 'cursor-not-allowed opacity-50' : !searchQuery.trim() ? 'cursor-not-allowed opacity-100' : 'cursor-pointer'
         }`}
       >

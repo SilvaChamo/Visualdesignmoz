@@ -90,7 +90,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
 
   const brands = [
     { Icon: Monitor, name: 'VisualWeb', desc: 'Sites corporativos, e-commerce, alojamento, domínios e marketing digital.', href: '/visualweb' },
-    { Icon: Palette, name: 'VisualDesign', desc: 'Identidade de marca, design de logotipos, materiais gráficos e envelopamento.', href: '/#design' },
+    { Icon: Palette, name: 'VisualDesign', desc: 'Identidade de marca, design de logotipos, materiais gráficos e envelopamento.', href: '/' },
     { Icon: Calendar, name: 'VisualEventos', desc: 'Stands para exposições, catering completo, aluguer e organização.', href: '/visualeventos' },
     { Icon: Film, name: 'VisualPro', desc: 'Vídeo institucional, fotografia profissional e cobertura multimedia.', href: '/visualpro' },
     { Icon: Truck, name: 'VisualTransporte', desc: 'Serviços de mobilidade, transferes executivos e logística integrada.', href: '/visualtransporte' },

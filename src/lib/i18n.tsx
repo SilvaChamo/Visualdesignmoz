@@ -176,7 +176,7 @@ const dict: Record<Lang, Dict> = {
     'header.nav.brands.transporte.desc': 'Serviços de mobilidade e logística corporativa.',
     'header.nav.brands.gifts': 'VisualGifts',
     'header.nav.brands.gifts.desc': 'Merchandising, têxteis e kits onboarding.',
-    'header.nav.support': 'Apoio, suporte',
+    'header.nav.support': 'Suporte',
     'header.nav.support.technical': 'Suporte Técnico',
     'header.nav.support.faq': 'FAQ',
 

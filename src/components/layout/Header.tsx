@@ -18,7 +18,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 const webNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -53,7 +53,7 @@ const webNavigation = [
 const designNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -69,7 +69,7 @@ const designNavigation = [
 const eventosNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -86,7 +86,7 @@ const eventosNavigation = [
 const proNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -102,7 +102,7 @@ const proNavigation = [
 const transporteNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -118,7 +118,7 @@ const transporteNavigation = [
 const giftsNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -134,7 +134,7 @@ const giftsNavigation = [
 const groupNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/visualweb', icon: 'monitor' },
-      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/#design', icon: 'palette' },
+      { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
       { nameKey: 'header.nav.brands.eventos', descKey: 'header.nav.brands.eventos.desc', href: '/visualeventos', icon: 'calendar' },
       { nameKey: 'header.nav.brands.pro', descKey: 'header.nav.brands.pro.desc', href: '/visualpro', icon: 'film' },
       { nameKey: 'header.nav.brands.transporte', descKey: 'header.nav.brands.transporte.desc', href: '/visualtransporte', icon: 'truck' },
@@ -143,6 +143,8 @@ const groupNavigation = [
   },
   { id: 'sobre-nos', nameKey: 'nav.about', href: '/sobre-nos' },
   { id: 'portfolio', nameKey: 'nav.portfolio', href: '/portfolio' },
+  { id: 'diferencial', nameKey: 'Diferencial', href: '/diferencial' },
+  { id: 'consultoria-cursos', nameKey: 'Cursos', href: '/cursos' },
   { id: 'contacto', nameKey: 'nav.contact', href: '/contacto' }
 ]
 
@@ -255,16 +257,16 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                       onMouseLeave={() => setActiveDropdown(null)}
                     >
                       {item.href && !item.isMega && !(item as any).dropdown ? (
-                        <Link 
+                        <Link
                           href={item.href}
-                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
+                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full whitespace-nowrap"
                         >
                           {t(item.nameKey)}
                         </Link>
                       ) : (
-                        <button 
+                        <button
                           type="button"
-                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full"
+                          className="text-slate-800 dark:text-zinc-100 text-base font-medium hover:text-red-600 dark:hover:text-white transition-colors flex items-center h-full whitespace-nowrap"
                         >
                           {t(item.nameKey)}
                         </button>
