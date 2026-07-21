@@ -70,12 +70,6 @@ function PrecosContent() {
   const isSelected = (categoriaId: string, produto: string) =>
     selected.some((s) => s.categoriaId === categoriaId && s.produto === produto)
 
-  const selectedCountForCategory = (categoriaId: string) =>
-    selected.filter((s) => s.categoriaId === categoriaId).length
-
-  const selectedCountForBrand = (brandId: string) =>
-    selected.filter((s) => categoriesForBrand(brandId).some((c) => c.id === s.categoriaId)).length
-
   const toggleItem = (categoriaId: string, produto: string, categoriaLabel: string) => {
     setSelected((prev) => {
       if (prev.some((s) => s.categoriaId === categoriaId && s.produto === produto)) {
@@ -133,7 +127,6 @@ function PrecosContent() {
                   const brandCategories = categoriesForBrand(brand.id)
                   const isOpen = expandedBrand === brand.id
                   if (brandCategories.length === 0) return null
-                  const brandSelectedCount = selectedCountForBrand(brand.id)
                   const isFlattened = FLATTENED_BRANDS.has(brand.id)
                   return (
                     <div key={brand.id}>
@@ -147,14 +140,7 @@ function PrecosContent() {
                         }`}
                       >
                         <span className={`inline-block transition-transform duration-300 ${isOpen ? '' : 'group-hover:translate-x-1.5'}`}>{brand.label}</span>
-                        <span className="flex items-center gap-2 shrink-0">
-                          {brandSelectedCount > 0 && (
-                            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
-                              {brandSelectedCount}
-                            </span>
-                          )}
-                          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-                        </span>
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
                       <div
                         className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
@@ -168,32 +154,21 @@ function PrecosContent() {
                                 className="group w-full flex items-center justify-between gap-2 px-5 py-2.5 text-sm transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold cursor-default"
                               >
                                 <span>Serviços</span>
-                                {brandSelectedCount > 0 && (
-                                  <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
-                                    {brandSelectedCount}
-                                  </span>
-                                )}
                               </button>
                             ) : (
                               brandCategories.map((cat, idx) => {
-                                const catSelectedCount = selectedCountForCategory(cat.id)
                                 return (
                                   <div key={cat.id}>
                                     <button
                                       type="button"
                                       onClick={() => setActiveId(cat.id)}
-                                      className={`group w-full flex items-center justify-between gap-2 px-5 py-2.5 text-sm transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 ${
+                                      className={`group w-full text-left px-5 py-2.5 text-sm transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 ${
                                         activeId === cat.id
                                           ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold cursor-default'
                                           : 'bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 cursor-pointer hover:text-red-600 dark:hover:text-red-500'
                                       }`}
                                     >
                                       <span className={`inline-block transition-transform duration-300 ${activeId === cat.id ? '' : 'group-hover:translate-x-1.5'}`}>{cat.label}</span>
-                                      {catSelectedCount > 0 && (
-                                        <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
-                                          {catSelectedCount}
-                                        </span>
-                                      )}
                                     </button>
                                     {idx < brandCategories.length - 1 && (
                                       <div className="mx-4 border-b border-zinc-200 dark:border-zinc-700" />

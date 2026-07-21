@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/lib/supabase-client';
-import { BRANDS, CATEGORIES, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog';
+import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog';
 import { NotchSection } from '@/components/home/NotchSection';
 import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package } from 'lucide-react';
 
@@ -63,10 +63,19 @@ function CotacaoContent() {
   const [quantidade, setQuantidade] = useState(1);
   const [dataLimite, setDataLimite] = useState('');
   const [notas, setNotas] = useState('');
+  const [extraSelectedItems, setExtraSelectedItems] = useState<SelectedCatalogItem[]>([]);
+  const [quantidades, setQuantidades] = useState<Record<string, number>>({});
+
+  const itemKey = (categoriaIdArg: string, produtoArg: string) => `${categoriaIdArg}::${produtoArg}`;
+  const getQty = (categoriaIdArg: string, produtoArg: string) => quantidades[itemKey(categoriaIdArg, produtoArg)] ?? 1;
+  const setQty = (categoriaIdArg: string, produtoArg: string, value: number) => {
+    setQuantidades((prev) => ({ ...prev, [itemKey(categoriaIdArg, produtoArg)]: value }));
+  };
 
   // Selecção feita por checkboxes em /precos (vários serviços, possivelmente de
-  // categorias diferentes) — usa o primeiro como serviço principal da cotação
-  // e lista os restantes em notas, para não perder o que o cliente escolheu.
+  // categorias diferentes) — o primeiro fica como serviço "principal" (também
+  // seleccionável pelos dropdowns), os restantes ficam à parte; quando há mais
+  // do que um serviço, mostramos todos juntos com quantidade própria para cada um.
   useEffect(() => {
     const raw = sessionStorage.getItem(SELECAO_STORAGE_KEY);
     if (!raw) return;
@@ -80,14 +89,20 @@ function CotacaoContent() {
         setProduto(primeiro.produto);
       }
       if (resto.length > 0) {
-        const lista = resto.map((i) => `${i.produto} (${i.categoriaLabel})`).join(', ');
-        setNotas((prev) => prev || `Serviços adicionais também solicitados: ${lista}.`);
+        setExtraSelectedItems(resto);
       }
     } catch (e) {
       console.error('Erro ao ler selecção de /precos:', e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Lista unificada (principal + adicionais) só usada quando há múltipla selecção.
+  const allSelectedItems: SelectedCatalogItem[] =
+    extraSelectedItems.length > 0
+      ? [{ categoriaId, produto, categoriaLabel: category.label }, ...extraSelectedItems]
+      : [];
+  const isMultiItem = allSelectedItems.length > 0;
 
   const handleCategoriaChange = (id: string) => {
     setCategoriaId(id);
@@ -100,6 +115,19 @@ function CotacaoContent() {
   const total = selectedItem && !isSobConsulta ? selectedItem.price * quantidade : 0;
   const minDate = minDeliveryDate();
   const dataLimiteCedoDemais = dataLimite !== '' && dataLimite < minDate;
+
+  // Preços agregados quando há múltiplos serviços seleccionados — cada item
+  // com preço fixo entra no total pela sua própria quantidade; itens Sob
+  // Consulta ficam de fora do total (o valor é definido depois, por contacto).
+  const multiItemsPriced = allSelectedItems.map((item) => {
+    const found = findItem(item.categoriaId, item.produto);
+    const qty = getQty(item.categoriaId, item.produto);
+    const sobConsultaItem = Boolean(found?.item.sobConsulta);
+    const subtotal = found && !sobConsultaItem ? found.item.price * qty : 0;
+    return { item, qty, precoUnitario: found?.item.price ?? 0, sobConsultaItem, subtotal };
+  });
+  const multiTotal = multiItemsPriced.reduce((sum, i) => sum + i.subtotal, 0);
+  const hasSobConsultaItem = multiItemsPriced.some((i) => i.sobConsultaItem);
 
   if (isAuthenticated === null) {
     return (
@@ -139,7 +167,11 @@ function CotacaoContent() {
       if (password.length < 6) return 'A palavra-passe deve ter no mínimo 6 caracteres.';
     }
     if (key === 'servico') {
-      if (!selectedItem || quantidade <= 0) return 'Escolha o produto e a quantidade.';
+      if (isMultiItem) {
+        if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
+      } else if (!selectedItem || quantidade <= 0) {
+        return 'Escolha o produto e a quantidade.';
+      }
       if (!dataLimite) return 'Escolha a data-limite de entrega.';
     }
     return null;
@@ -212,6 +244,14 @@ function CotacaoContent() {
       const finalTelefoneResponsavel = tipoCliente === 'individual' ? telefoneInstitucional : telefoneResponsavel;
       const finalEmailResponsavel = tipoCliente === 'individual' ? emailInstitucional : emailResponsavel;
 
+      const itens = isMultiItem
+        ? allSelectedItems.map((item) => ({
+            categoriaId: item.categoriaId,
+            produto: item.produto,
+            quantidade: getQty(item.categoriaId, item.produto),
+          }))
+        : [{ categoriaId, produto, quantidade }];
+
       setStatus('submitting');
       const res = await fetch('/api/cotacoes', {
         method: 'POST',
@@ -227,9 +267,7 @@ function CotacaoContent() {
           cargo: finalCargo,
           telefone: finalTelefoneResponsavel,
           email: isAuthenticated ? finalEmailResponsavel || authUser?.email : finalEmailResponsavel,
-          categoriaId,
-          produto,
-          quantidade,
+          itens,
           dataLimiteEntrega: dataLimite,
           notas,
         }),
@@ -425,44 +463,78 @@ function CotacaoContent() {
             {stepKey === 'servico' && (
               <>
                 <h2 className={sectionTitleClass}>Serviço</h2>
+
+                {isMultiItem ? (
+                  <div className="space-y-3 mb-4">
+                    {multiItemsPriced.map(({ item, qty, sobConsultaItem }) => (
+                      <div
+                        key={itemKey(item.categoriaId, item.produto)}
+                        className="flex items-center gap-4 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.categoriaLabel}</p>
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                            {item.produto}{sobConsultaItem ? ' (Sob Consulta)' : ''}
+                          </p>
+                        </div>
+                        <div className="w-24 shrink-0">
+                          <label className={labelClass}>Quantidade</label>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            className={inputClass}
+                            value={qty}
+                            onChange={(e) => setQty(item.categoriaId, item.produto, Math.max(1, Math.round(Number(e.target.value))))}
+                            required
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className={labelClass}>Categoria</label>
+                      <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
+                        {BRANDS.map((brand) => {
+                          const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                          if (brandCategories.length === 0) return null;
+                          return (
+                            <optgroup key={brand.id} label={brand.label}>
+                              {brandCategories.map((c) => (
+                                <option key={c.id} value={c.id}>{c.label}</option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Selecione o tipo de produto</label>
+                      <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
+                        {category.items.map((item) => (
+                          <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Quantidade</label>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        className={inputClass}
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(Math.max(1, Math.round(Number(e.target.value))))}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>Categoria</label>
-                    <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
-                      {BRANDS.map((brand) => {
-                        const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
-                        if (brandCategories.length === 0) return null;
-                        return (
-                          <optgroup key={brand.id} label={brand.label}>
-                            {brandCategories.map((c) => (
-                              <option key={c.id} value={c.id}>{c.label}</option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Selecione o tipo de produto</label>
-                    <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
-                      {category.items.map((item) => (
-                        <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Quantidade</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      className={inputClass}
-                      value={quantidade}
-                      onChange={(e) => setQuantidade(Math.max(1, Math.round(Number(e.target.value))))}
-                      required
-                    />
-                  </div>
-                  <div>
+                  <div className={isMultiItem ? 'sm:col-span-2' : ''}>
                     <label className={labelClass}>Data-Limite de Entrega Pretendida</label>
                     <input
                       type="date"
@@ -507,7 +579,11 @@ function CotacaoContent() {
                   <span className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 shrink-0" />
                   <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
                     A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
-                    {isSobConsulta
+                    {isMultiItem
+                      ? (multiTotal > 0
+                          ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                          : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.')
+                      : isSobConsulta
                       ? 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'
                       : `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(total * 0.7)} MT.`}
                   </p>
@@ -572,13 +648,52 @@ function CotacaoContent() {
                   </div>
                 )}
 
-                <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
-                  <p className="text-zinc-500 dark:text-zinc-400">{category.label}</p>
-                  <p className="font-semibold text-zinc-800 dark:text-zinc-200">{produto || '—'}</p>
-                </div>
+                {isMultiItem ? (
+                  <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
+                    {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario, subtotal }) => (
+                      <div key={itemKey(item.categoriaId, item.produto)} className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
+                          <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                            Qtd. {qty}{!sobConsultaItem && ` × ${formatMt(precoUnitario)} MT`}
+                          </p>
+                        </div>
+                        <span className="font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
+                          {sobConsultaItem ? 'Sob Consulta' : `${formatMt(subtotal)} MT`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
+                    <p className="font-semibold text-zinc-900 dark:text-white">{category.label}</p>
+                    <p className="text-zinc-500 dark:text-zinc-400">{produto || '—'}</p>
+                  </div>
+                )}
 
                 <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1.5 text-sm">
-                  {isSobConsulta ? (
+                  {isMultiItem ? (
+                    <>
+                      {multiTotal > 0 && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
+                            <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal - multiTotal / 1.16)} MT</span>
+                          </div>
+                          <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
+                            <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
+                            <span className="font-bold text-zinc-900 dark:text-white">{formatMt(multiTotal)} MT</span>
+                          </div>
+                        </>
+                      )}
+                      {hasSobConsultaItem && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 italic pt-1">
+                          Os serviços Sob Consulta não entram neste total — entraremos em contacto para confirmar o valor.
+                        </p>
+                      )}
+                    </>
+                  ) : isSobConsulta ? (
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-zinc-900 dark:text-white">Valor</span>
                       <span className="font-bold text-red-600 dark:text-red-500">Sob Consulta</span>

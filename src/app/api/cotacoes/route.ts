@@ -63,9 +63,7 @@ export async function POST(request: NextRequest) {
       cargo,
       telefone,
       email,
-      categoriaId,
-      produto,
-      quantidade,
+      itens,
       dataLimiteEntrega,
       notas,
     } = body ?? {};
@@ -77,16 +75,11 @@ export async function POST(request: NextRequest) {
       !responsavel ||
       !telefone ||
       !email ||
-      !categoriaId ||
-      !produto ||
+      !Array.isArray(itens) ||
+      itens.length === 0 ||
       !dataLimiteEntrega
     ) {
       return NextResponse.json({ error: 'Preencha todos os campos obrigatórios.' }, { status: 400 });
-    }
-
-    const quantidadeNum = Math.round(Number(quantidade));
-    if (!Number.isFinite(quantidadeNum) || quantidadeNum <= 0) {
-      return NextResponse.json({ error: 'Quantidade inválida.' }, { status: 400 });
     }
 
     const dataLimite = new Date(dataLimiteEntrega);
@@ -99,15 +92,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A data-limite de entrega não pode ser no passado.' }, { status: 400 });
     }
 
-    const found = findItem(categoriaId, produto);
-    if (!found) {
-      return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
+    // Cada serviço seleccionado (possivelmente vários, de /precos) vira a sua
+    // própria linha em quotation_requests — cada um com a sua quantidade e
+    // preço, mas a partilhar os dados da empresa/responsável.
+    const validatedItems: { found: NonNullable<ReturnType<typeof findItem>>; quantidadeNum: number; sobConsulta: boolean; totalMt: number }[] = [];
+    for (const raw of itens) {
+      const found = findItem(raw?.categoriaId, raw?.produto);
+      if (!found) {
+        return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
+      }
+      const quantidadeNum = Math.round(Number(raw?.quantidade));
+      if (!Number.isFinite(quantidadeNum) || quantidadeNum <= 0) {
+        return NextResponse.json({ error: 'Quantidade inválida.' }, { status: 400 });
+      }
+      // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
+      // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
+      const sobConsulta = Boolean(found.item.sobConsulta);
+      const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
+      validatedItems.push({ found, quantidadeNum, sobConsulta, totalMt });
     }
-
-    // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
-    // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
-    const sobConsulta = Boolean(found.item.sobConsulta);
-    const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -115,48 +118,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível gerar a cotação. Tente novamente mais tarde.' }, { status: 503 });
     }
 
-    const { data: quotation, error: insertError } = await admin
-      .from('quotation_requests')
-      .insert({
-        user_id: user.id,
-        empresa,
-        nif: nif || null,
-        endereco: endereco || null,
-        telefone_institucional: telefoneInstitucional,
-        email_institucional: emailInstitucional,
-        website: website || null,
-        responsavel,
-        cargo: cargo || null,
-        telefone,
-        email,
-        categoria_id: found.category.id,
-        categoria_label: found.category.label,
-        produto: found.item.name,
-        preco_unitario_mt: found.item.price,
-        quantidade: quantidadeNum,
-        data_limite_entrega: dataLimiteEntrega,
-        total_mt: totalMt,
-        sob_consulta: sobConsulta,
-        notas: notas || null,
-        status: 'pending',
-      })
-      .select()
-      .single();
+    const rows = validatedItems.map(({ found, quantidadeNum, sobConsulta, totalMt }) => ({
+      user_id: user.id,
+      empresa,
+      nif: nif || null,
+      endereco: endereco || null,
+      telefone_institucional: telefoneInstitucional,
+      email_institucional: emailInstitucional,
+      website: website || null,
+      responsavel,
+      cargo: cargo || null,
+      telefone,
+      email,
+      categoria_id: found.category.id,
+      categoria_label: found.category.label,
+      produto: found.item.name,
+      preco_unitario_mt: found.item.price,
+      quantidade: quantidadeNum,
+      data_limite_entrega: dataLimiteEntrega,
+      total_mt: totalMt,
+      sob_consulta: sobConsulta,
+      notas: notas || null,
+      status: 'pending',
+    }));
 
-    if (insertError || !quotation) {
+    const { data: quotations, error: insertError } = await admin
+      .from('quotation_requests')
+      .insert(rows)
+      .select();
+
+    if (insertError || !quotations || quotations.length !== rows.length) {
       console.error('[cotacoes] insert error:', insertError);
       return NextResponse.json({ error: 'Não foi possível gerar a cotação.' }, { status: 500 });
     }
 
+    const resumo = validatedItems
+      .map(({ found, quantidadeNum, sobConsulta, totalMt }) =>
+        `"${found.item.name}" (${found.category.label}) x${quantidadeNum}${sobConsulta ? ' — Sob Consulta' : ` — ${formatMt(totalMt)} MT`}`
+      )
+      .join('; ');
+
     await notifyQuoteTeam({
-      title: 'Nova cotação recebida',
-      message: `${empresa} (${responsavel}) pediu uma cotação de "${found.item.name}" — ${found.category.label}, quantidade ${quantidadeNum}. ${
-        sobConsulta ? 'Sob Consulta.' : `Total estimado: ${formatMt(totalMt)} MT.`
-      } Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.`,
+      title: validatedItems.length > 1 ? `Nova cotação recebida (${validatedItems.length} serviços)` : 'Nova cotação recebida',
+      message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
     });
 
-    return NextResponse.json({ success: true, id: quotation.id });
+    return NextResponse.json({ success: true, id: quotations[0].id, ids: quotations.map((q) => q.id) });
   } catch (error: unknown) {
     console.error('[cotacoes] error:', error);
     const message = error instanceof Error ? error.message : 'Erro interno';
