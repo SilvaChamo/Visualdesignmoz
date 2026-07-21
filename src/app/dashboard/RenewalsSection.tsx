@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Calendar, 
-  Globe, 
-  Server, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Calendar,
+  Globe,
+  Server,
+  AlertTriangle,
+  CheckCircle,
   Clock,
   CreditCard,
   Plus,
@@ -18,17 +18,9 @@ import {
   Users,
   TrendingUp,
   DollarSign,
-  Search,
-  Palette,
-  Eye,
-  Save,
-  Variable,
-  Mail,
-  MessageSquare,
-  Undo2
+  Search
 } from 'lucide-react'
 import { panelTabList, panelTabBtn } from '@/lib/panel-ui'
-import { getAllTemplates, RenewalTemplate, processTemplate, TemplateVariables } from '@/lib/renewal-templates'
 
 interface Renewal {
   id: string
@@ -53,7 +45,7 @@ interface Stats {
 }
 
 interface RenewalsSectionProps {
-  initialTab?: 'overview' | 'domains' | 'hosting' | 'add' | 'templates'
+  initialTab?: 'overview' | 'domains' | 'hosting' | 'add'
   hideTabs?: boolean
 }
 
@@ -69,23 +61,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
     totalRevenue: 0
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'domains' | 'hosting' | 'add' | 'templates'>(initialTab)
-  
-  // Templates editor states
-  const [templates, setTemplates] = useState<RenewalTemplate[]>(getAllTemplates())
-  const [selectedTemplate, setSelectedTemplate] = useState<RenewalTemplate | null>(null)
-  const [editingTemplate, setEditingTemplate] = useState<RenewalTemplate | null>(null)
-  const [previewVariables, setPreviewVariables] = useState<TemplateVariables>({
-    clientName: 'Silva Chamo',
-    serviceName: 'meusite.com',
-    expirationDate: '15/06/2025',
-    daysRemaining: 60,
-    renewalPrice: '2,500.00 MT',
-    renewalLink: 'https://visualdesignmoz.com/renovar',
-    companyName: 'VisualDesign',
-    supportEmail: 'suporte@visualdesignmoz.com',
-    supportPhone: '+258 85 242 5525'
-  })
+  const [activeTab, setActiveTab] = useState<'overview' | 'domains' | 'hosting' | 'add'>(initialTab)
   const [searchQuery, setSearchQuery] = useState('')
   const [runningCheck, setRunningCheck] = useState(false)
   const [checkResult, setCheckResult] = useState<any>(null)
@@ -94,15 +70,62 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
   const [formType, setFormType] = useState<'domain' | 'hosting'>('domain')
   const [formUserEmail, setFormUserEmail] = useState('')
   const [formDomain, setFormDomain] = useState('')
+  const [formRegistrationDate, setFormRegistrationDate] = useState('')
   const [formExpiration, setFormExpiration] = useState('')
+  const [formPackage, setFormPackage] = useState('')
   const [formPrice, setFormPrice] = useState('')
   const [formAutoRenew, setFormAutoRenew] = useState(false)
   const [formNotes, setFormNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [packageOptions, setPackageOptions] = useState<Array<{ packageName: string; allowedDomains: number | string }>>([])
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupHint, setLookupHint] = useState('')
 
   useEffect(() => {
     loadRenewals()
+    fetch('/api/admin/packages')
+      .then(res => res.json())
+      .then(data => { if (data.success) setPackageOptions(data.packages) })
+      .catch(() => {})
   }, [])
+
+  const lookupDomain = async () => {
+    const domain = formDomain.trim().toLowerCase()
+    if (!domain) return
+    setLookupLoading(true)
+    setLookupHint('')
+    try {
+      const res = await fetch(`/api/admin/renewals/domain-lookup?domain=${encodeURIComponent(domain)}`)
+      const data = await res.json()
+      if (data.found) {
+        if (data.registrationDate) {
+          setFormRegistrationDate(data.registrationDate)
+          // Sugere vencimento a 1 ano da data de registo, sem sobrepor uma data já escolhida manualmente
+          if (!formExpiration) {
+            const suggested = new Date(data.registrationDate)
+            suggested.setFullYear(suggested.getFullYear() + 1)
+            setFormExpiration(suggested.toISOString().split('T')[0])
+          }
+        }
+        if (data.suggestedPackage && formType === 'hosting') {
+          setFormPackage(data.suggestedPackage)
+        }
+        setLookupHint(
+          data.registrationDate
+            ? (data.dateSource === 'directadmin'
+                ? '✓ Data de registo confirmada via DirectAdmin'
+                : '≈ Data estimada (última sincronização) — confirme se necessário')
+            : ''
+        )
+      } else {
+        setLookupHint('Domínio não encontrado no DirectAdmin — preencha manualmente')
+      }
+    } catch (error) {
+      console.error('Erro na busca de domínio:', error)
+    } finally {
+      setLookupLoading(false)
+    }
+  }
 
   const loadRenewals = async () => {
     setLoading(true)
@@ -159,8 +182,10 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
           type: formType,
           userId: userData.user.id,
           domainName: formDomain,
+          registrationDate: formRegistrationDate || undefined,
           expirationDate: formExpiration,
-          renewalPrice: parseFloat(formPrice) || (formType === 'domain' ? 2500 : 5000),
+          packageName: formType === 'hosting' ? (formPackage || undefined) : undefined,
+          renewalPrice: parseFloat(formPrice),
           autoRenew: formAutoRenew,
           notes: formNotes
         })
@@ -169,11 +194,17 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
       if (res.ok) {
         alert('✅ Cadastrado com sucesso!')
         setFormDomain('')
+        setFormRegistrationDate('')
         setFormExpiration('')
+        setFormPackage('')
         setFormPrice('')
         setFormNotes('')
+        setLookupHint('')
         loadRenewals()
         setActiveTab('overview')
+      } else {
+        const errBody = await res.json().catch(() => ({}))
+        alert(`❌ ${errBody.error || 'Erro ao cadastrar'}`)
       }
     } catch (error) {
       console.error('Erro:', error)
@@ -472,13 +503,31 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                   type="text"
                   value={formDomain}
                   onChange={(e) => setFormDomain(e.target.value)}
+                  onBlur={lookupDomain}
                   placeholder="exemplo.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded"
                   required
                 />
+                {lookupLoading && (
+                  <p className="text-xs text-gray-500 mt-1">A procurar no DirectAdmin...</p>
+                )}
+                {!lookupLoading && lookupHint && (
+                  <p className={`text-xs mt-1 ${lookupHint.startsWith('✓') ? 'text-emerald-600' : lookupHint.startsWith('≈') ? 'text-amber-600' : 'text-gray-500'}`}>
+                    {lookupHint}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Registo</label>
+                  <input
+                    type="date"
+                    value={formRegistrationDate}
+                    onChange={(e) => setFormRegistrationDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data de Vencimento</label>
                   <input
@@ -489,6 +538,26 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                     required
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {formType === 'hosting' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pacote</label>
+                    <select
+                      value={formPackage}
+                      onChange={(e) => setFormPackage(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                    >
+                      <option value="">Selecione um pacote...</option>
+                      {packageOptions.map(pkg => (
+                        <option key={pkg.packageName} value={pkg.packageName}>
+                          {pkg.packageName} ({pkg.allowedDomains === '-' ? 'domínios ilimitados' : `${pkg.allowedDomains} domínio(s)`})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Renovação (MT)</label>
                   <input
@@ -496,8 +565,9 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                     step="0.01"
                     value={formPrice}
                     onChange={(e) => setFormPrice(e.target.value)}
-                    placeholder={formType === 'domain' ? '2500.00' : '5000.00'}
+                    placeholder="Ex: 5000.00"
                     className="w-full px-3 py-2 border border-gray-300 rounded"
+                    required
                   />
                 </div>
               </div>
@@ -536,367 +606,6 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
             </form>
           )}
 
-          {/* Templates Editor */}
-          {activeTab === 'templates' && (
-            <div className="space-y-6">
-              {/* Header do Editor */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-purple-600" />
-                    Editor de Templates de Notificação
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Personalize as mensagens de renovação enviadas aos clientes
-                  </p>
-                </div>
-                {editingTemplate && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? editingTemplate : t))
-                        setEditingTemplate(null)
-                        alert('✅ Template salvo!')
-                      }}
-                      className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded font-bold hover:bg-emerald-100 hover:text-emerald-700 flex items-center gap-2 transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                      Salvar Alterações
-                    </button>
-                    <button
-                      onClick={() => setEditingTemplate(null)}
-                      className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-600 font-bold rounded hover:bg-gray-100 hover:text-gray-700 transition-colors flex items-center gap-2"
-                    >
-                      <Undo2 className="w-4 h-4" />
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Lista de Templates */}
-                <div className="lg:col-span-1 space-y-3">
-                  <h4 className="font-medium text-gray-700 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Templates Disponíveis ({templates.length})
-                  </h4>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {templates.map(template => (
-                      <div
-                        key={template.id}
-                        onClick={() => {
-                          setSelectedTemplate(template)
-                          setEditingTemplate({ ...template })
-                        }}
-                        className={`p-3 rounded border cursor-pointer transition-colors ${
-                          editingTemplate?.id === template.id
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${
-                            template.urgency === 'critical' ? 'bg-red-500' :
-                            template.urgency === 'high' ? 'bg-orange-500' :
-                            template.urgency === 'medium' ? 'bg-yellow-500' :
-                            'bg-blue-500'
-                          }`} />
-                          <span className="font-medium text-sm">{template.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                          <span className="px-2 py-0.5 bg-gray-100 rounded">
-                            {template.daysBefore === 0 ? 'Confirmação' : `${template.daysBefore} dias`}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded ${
-                            template.type === 'error' ? 'bg-red-100 text-red-700' :
-                            template.type === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-                            template.type === 'success' ? 'bg-green-100 text-green-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
-                            {template.type}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Variáveis Disponíveis */}
-                  <div className="mt-6 p-4 bg-blue-50 rounded border border-blue-200">
-                    <h4 className="font-medium text-blue-900 flex items-center gap-2 mb-3">
-                      <Variable className="w-4 h-4" />
-                      Variáveis Disponíveis
-                    </h4>
-                    <p className="text-xs text-blue-700 mb-2">
-                      Use estas variáveis nos templates:
-                    </p>
-                    <div className="space-y-1 text-xs font-mono">
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{clientName}}'}</code>
-                        <span className="text-blue-600">Nome do cliente</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{serviceName}}'}</code>
-                        <span className="text-blue-600">Domínio/Serviço</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{expirationDate}}'}</code>
-                        <span className="text-blue-600">Data de vencimento</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{daysRemaining}}'}</code>
-                        <span className="text-blue-600">Dias restantes</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{renewalPrice}}'}</code>
-                        <span className="text-blue-600">Preço</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{renewalLink}}'}</code>
-                        <span className="text-blue-600">Link de renovação</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{companyName}}'}</code>
-                        <span className="text-blue-600">VisualDesign</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{supportEmail}}'}</code>
-                        <span className="text-blue-600">Email suporte</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <code className="text-blue-800">{'{{supportPhone}}'}</code>
-                        <span className="text-blue-600">Telefone</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Editor e Preview */}
-                <div className="lg:col-span-2 space-y-6">
-                  {editingTemplate ? (
-                    <>
-                      {/* Editor */}
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Nome do Template
-                            </label>
-                            <input
-                              type="text"
-                              value={editingTemplate.name}
-                              onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Dias antes do vencimento
-                            </label>
-                            <input
-                              type="number"
-                              value={editingTemplate.daysBefore}
-                              onChange={(e) => setEditingTemplate({ ...editingTemplate, daysBefore: parseInt(e.target.value) })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Tipo
-                            </label>
-                            <select
-                              value={editingTemplate.type}
-                              onChange={(e) => setEditingTemplate({ ...editingTemplate, type: e.target.value as any })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded"
-                            >
-                              <option value="info">ℹ️ Informativo</option>
-                              <option value="success">✅ Sucesso</option>
-                              <option value="warning">⚠️ Aviso</option>
-                              <option value="error">❌ Erro/Urgente</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Urgência
-                            </label>
-                            <select
-                              value={editingTemplate.urgency}
-                              onChange={(e) => setEditingTemplate({ ...editingTemplate, urgency: e.target.value as any })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded"
-                            >
-                              <option value="low">🟢 Baixa</option>
-                              <option value="medium">🟡 Média</option>
-                              <option value="high">🟠 Alta</option>
-                              <option value="critical">🔴 Crítica</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" />
-                            Título da Notificação (Dashboard)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingTemplate.title}
-                            onChange={(e) => setEditingTemplate({ ...editingTemplate, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" />
-                            Mensagem Curta (Preview)
-                          </label>
-                          <textarea
-                            value={editingTemplate.message}
-                            onChange={(e) => setEditingTemplate({ ...editingTemplate, message: e.target.value })}
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded resize-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                            <Mail className="w-4 h-4" />
-                            Assunto do Email
-                          </label>
-                          <input
-                            type="text"
-                            value={editingTemplate.emailSubject}
-                            onChange={(e) => setEditingTemplate({ ...editingTemplate, emailSubject: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                            <Mail className="w-4 h-4" />
-                            Corpo do Email (suporta HTML)
-                          </label>
-                          <textarea
-                            value={editingTemplate.emailBody}
-                            onChange={(e) => setEditingTemplate({ ...editingTemplate, emailBody: e.target.value })}
-                            rows={12}
-                            className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Preview */}
-                      <div className="border-t border-gray-200 pt-6">
-                        <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-4">
-                          <Eye className="w-5 h-5" />
-                          Preview ao Vivo
-                        </h4>
-                        
-                        {/* Preview Dashboard */}
-                        <div className={`p-4 rounded border-l-4 mb-4 ${
-                          editingTemplate.type === 'error' ? 'bg-red-50 border-red-400' :
-                          editingTemplate.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                          editingTemplate.type === 'success' ? 'bg-green-50 border-green-400' :
-                          'bg-blue-50 border-blue-400'
-                        }`}>
-                          <p className="font-medium">
-                            {processTemplate(editingTemplate, previewVariables).title}
-                          </p>
-                          <p className="text-sm mt-1 opacity-80">
-                            {processTemplate(editingTemplate, previewVariables).message}
-                          </p>
-                        </div>
-
-                        {/* Preview Email */}
-                        <div className="border border-gray-200 rounded overflow-hidden">
-                          <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
-                            <p className="text-sm font-medium text-gray-700">
-                              Assunto: {processTemplate(editingTemplate, previewVariables).emailSubject}
-                            </p>
-                          </div>
-                          <div 
-                            className="p-4 bg-white prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ 
-                              __html: processTemplate(editingTemplate, previewVariables).emailBody 
-                            }}
-                          />
-                        </div>
-
-                        {/* Editar Variáveis de Preview - Dados Simulados do Cliente */}
-                        <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                              <Variable className="w-4 h-4" />
-                              Dados Simulados do Cliente (Preview)
-                            </p>
-                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                              Na notificação real, estes valores vêm do registo do cliente
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <label className="block text-xs font-medium text-blue-700 mb-1">Nome do Cliente</label>
-                              <input
-                                type="text"
-                                value={previewVariables.clientName}
-                                onChange={(e) => setPreviewVariables({ ...previewVariables, clientName: e.target.value })}
-                                placeholder="Ex: João Silva"
-                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-blue-700 mb-1">Serviço (Domínio/Website)</label>
-                              <input
-                                type="text"
-                                value={previewVariables.serviceName}
-                                onChange={(e) => setPreviewVariables({ ...previewVariables, serviceName: e.target.value })}
-                                placeholder="Ex: meusite.com"
-                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-blue-700 mb-1">Data de Vencimento</label>
-                              <input
-                                type="text"
-                                value={previewVariables.expirationDate}
-                                onChange={(e) => setPreviewVariables({ ...previewVariables, expirationDate: e.target.value })}
-                                placeholder="Ex: 31/12/2025"
-                                className="w-full px-3 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-blue-700 mb-1">
-                                Valor da Renovação <span className="text-red-500">*</span>
-                                <span className="text-gray-400 font-normal">(editável)</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={previewVariables.renewalPrice}
-                                onChange={(e) => setPreviewVariables({ ...previewVariables, renewalPrice: e.target.value })}
-                                placeholder="Ex: 2,500.00 MT"
-                                className="w-full px-3 py-2 border border-red-200 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent font-medium"
-                              />
-                            </div>
-                          </div>
-                          <p className="text-xs text-blue-600 mt-3">
-                            <strong>Nota:</strong> O valor pode ser editado manualmente para cada renovação. Na notificação real, os dados são automaticamente preenchidos com base no registo do cliente no sistema.
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded border-2 border-dashed border-gray-200">
-                      <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">Selecione um template à esquerda para editar</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
           </div>
         </div>
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 export async function POST(request: NextRequest) {
@@ -75,8 +76,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Autentica já aqui (rota do servidor, com acesso a cookies) em vez de
+    // deixar o browser fazer signInWithPassword a seguir — isso criava uma
+    // corrida (o cookie de sessão demorava a propagar, e o pedido seguinte
+    // ainda apanhava "sem sessão"). Ao vir já autenticado nesta resposta,
+    // o próximo pedido do browser já tem sessão válida, sem espera nem sondagem.
+    let sessionReady = false;
+    try {
+      const serverClient = await createServerClient();
+      const { error: signInError } = await serverClient.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: String(password),
+      });
+      sessionReady = !signInError;
+    } catch (signInErr) {
+      console.error('[auth/register] falha ao iniciar sessão após registo:', signInErr);
+    }
+
     return NextResponse.json({
       success: true,
+      sessionReady,
       message:
         'Conta criada com sucesso. Já pode entrar com email e password — não precisa confirmar email.',
       email: normalizedEmail,

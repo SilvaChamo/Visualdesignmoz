@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import {
-  getTemplateByDays,
   processTemplate,
   TemplateVariables,
-  getActiveReminderDays
+  getServerRenewalTemplates
 } from '@/lib/renewal-templates'
 import { sendEmail } from '@/lib/email-service'
 
@@ -34,8 +33,17 @@ export async function GET(request: NextRequest) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
     const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
 
+    // Templates reais (com quaisquer edições guardadas em renewal_templates),
+    // carregados uma única vez — getTemplateByDays/getActiveReminderDays não
+    // servem aqui porque assumem `window` (browser) e no servidor caem sempre
+    // no conteúdo padrão, ignorando edições feitas em Templates de Renovação.
+    const templates = await getServerRenewalTemplates(supabaseAdmin)
+
     // Buscar dias de lembrete ativos
-    const reminderDays = getActiveReminderDays()
+    const reminderDays = templates
+      .filter(t => t.daysBefore > 0)
+      .map(t => t.daysBefore)
+      .sort((a, b) => b - a)
     
     const results = {
       processed: 0,
@@ -61,7 +69,7 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        const template = getTemplateByDays(days)
+        const template = templates.find(t => t.daysBefore === days)
         if (!template) {
           results.errors.push(`Template não encontrado para ${days} dias`)
           continue
@@ -84,13 +92,13 @@ export async function GET(request: NextRequest) {
             const variables: TemplateVariables = {
               clientName,
               serviceName: renewal.service_name,
-              expirationDate: new Date(renewal.expiration_date).toLocaleDateString('pt-PT'),
+              expirationDate: new Date(renewal.expiration_date).toLocaleDateString('pt-MZ'),
               daysRemaining: renewal.days_remaining,
-              renewalPrice: `${renewal.renewal_price || 0} €`,
-              renewalLink: `https://visualdesignmoz.com/dashboard/renewals?service=${renewal.service_id}`,
+              renewalPrice: `${(renewal.renewal_price || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MT`,
+              renewalLink: `https://visualdesignmoz.com/dashboard?section=renewals`,
               companyName: 'VisualDesign',
               supportEmail: 'suporte@visualdesignmoz.com',
-              supportPhone: '+351 XXX XXX XXX'
+              supportPhone: '+258 85 242 5525'
             }
 
             // Processar template

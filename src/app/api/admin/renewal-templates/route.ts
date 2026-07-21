@@ -9,11 +9,27 @@ const getServiceClient = () => {
   return createServiceClient(supabaseUrl, supabaseServiceKey)
 }
 
+// Estes templates viram o conteúdo real enviado por email a clientes —
+// sem esta verificação, qualquer pedido não autenticado poderia reescrever
+// o que é enviado (incluindo links/HTML arbitrário).
+async function checkIsAdmin(): Promise<boolean> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
+  return adminEmails.includes(user.email || '') || user.user_metadata?.role === 'admin'
+}
+
 // GET - Carregar todos os templates
 export async function GET() {
   try {
+    if (!(await checkIsAdmin())) {
+      return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 })
+    }
+
     const supabase = await createClient()
-    
+
     const { data: templates, error } = await supabase
       .from('renewal_templates')
       .select('*')
@@ -57,6 +73,10 @@ export async function GET() {
 // POST - Salvar/atualizar templates
 export async function POST(request: Request) {
   try {
+    if (!(await checkIsAdmin())) {
+      return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 })
+    }
+
     const supabase = getServiceClient()
     const body = await request.json()
     const { templates } = body
@@ -126,6 +146,10 @@ export async function POST(request: Request) {
 // DELETE - Resetar para padrão (desativar customizados)
 export async function DELETE() {
   try {
+    if (!(await checkIsAdmin())) {
+      return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 })
+    }
+
     const supabase = getServiceClient()
     
     // Desativar todos os templates customizados

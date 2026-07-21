@@ -19,7 +19,7 @@
 // Cores: Vermelho #dc2626, Cinza #374151, Preto #000000
 
 // URL base do site - usa variável de ambiente ou fallback para o domínio de produção
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://provisualcorporate.co.mz'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com'
 const LOGO_URL = `${SITE_URL}/assets/logotipoII.png`
 
 export const emailHeader = (clientName: string, companyName: string) => `
@@ -166,30 +166,39 @@ export const defaultRenewalTemplates: RenewalTemplate[] = [
     message: 'Olá {{clientName}}, faltam apenas 30 dias para o vencimento de {{serviceName}}. Não deixe expirar!',
     emailSubject: '⚠️ Atenção: {{serviceName}} expira em 30 dias - Ação Necessária',
     emailBody: `
-Olá {{clientName}},
+<p>Olá {{clientName}},</p>
 
-<strong>Atenção importante!</strong>
+<p><strong>Atenção importante!</strong> Seu serviço <strong>{{serviceName}}</strong> expira em exatamente <strong>30 dias</strong> ({{expirationDate}}).</p>
 
-Seu serviço <strong>{{serviceName}}</strong> expira em exatamente <strong>30 dias</strong> ({{expirationDate}}).
+<div style="background: #fef9c3; border: 2px solid #ca8a04; padding: 15px; margin: 20px 0;">
+  <p style="margin: 0 0 10px 0; font-weight: bold; color: #854d0e;">⏳ Após esta data, o serviço poderá ser suspenso, causando:</p>
+  <ul style="margin: 0; padding-left: 20px; color: #854d0e;">
+    <li>Indisponibilidade do site/email</li>
+    <li>Perda de dados (se não houver backup)</li>
+    <li>Taxas adicionais de reativação</li>
+  </ul>
+</div>
 
-⏳ Após esta data, o serviço poderá ser suspenso, causando:
-• Indisponibilidade do site/email
-• Perda de dados (se não houver backup)
-• Taxas adicionais de reativação
+<div style="background:#f8fafc;border-left:4px solid #ca8a04;padding:20px;margin:25px 0;">
+  <h3 style="margin:0 0 15px 0;color:#1e293b;font-size:16px;">📊 Resumo</h3>
+  <p style="margin:8px 0;"><strong>Serviço:</strong> {{serviceName}}</p>
+  <p style="margin:8px 0;"><strong>Vencimento:</strong> {{expirationDate}}</p>
+  <p style="margin:8px 0;"><strong>Investimento:</strong> {{renewalPrice}}</p>
+</div>
 
-🛡️ Proteja seu serviço renovando agora:
-{{renewalLink}}
+<div style="text-align:center;margin:30px 0;">
+  <a href="{{renewalLink}}" style="display:inline-block;background:#ca8a04;color:white;padding:15px 40px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">🛡️ PROTEJA SEU SERVIÇO AGORA →</a>
+</div>
 
-📊 Resumo:
-• Serviço: {{serviceName}}
-• Vencimento: {{expirationDate}}
-• Investimento: {{renewalPrice}}
+<p>
+  Dúvidas? Estamos aqui para ajudar!<br>
+  📧 {{supportEmail}} | 📞 {{supportPhone}}
+</p>
 
-Dúvidas? Estamos aqui para ajudar!
-{{supportEmail}} | {{supportPhone}}
-
-Atenciosamente,
-Equipe {{companyName}}
+<p>
+  Atenciosamente,<br>
+  Equipe {{companyName}}
+</p>
     `.trim(),
     type: 'warning',
     urgency: 'medium'
@@ -223,9 +232,9 @@ Olá {{clientName}},
 </ul>
 
 <div style="background: #dbeafe; border: 2px solid #2563eb; padding: 15px; margin: 20px 0; text-align: center;">
-  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">�️ PROTEJA SEU SERVIÇO AGORA</p>
+  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">🛡️ PROTEJA SEU SERVIÇO AGORA</p>
   <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-    RENOVER AGORA →
+    RENOVAR AGORA →
   </a>
   <p style="margin: 10px 0 0 0; font-size: 14px; color: #1e40af;">
     Investimento: {{renewalPrice}}
@@ -260,34 +269,46 @@ Equipe {{companyName}}
     message: '🚨 URGENTE: Seu {{serviceName}} expira em apenas 7 dias ({{expirationDate}})! Renove IMEDIATAMENTE para evitar suspensão do serviço.',
     emailSubject: '🚨 URGENTE: {{serviceName}} expira em 7 dias - Risco de Suspensão',
     emailBody: `
-Olá {{clientName}},
+<p>Olá {{clientName}},</p>
 
-<strong style="color: #dc2626;">⚠️ SITUAÇÃO URGENTE ⚠️</strong>
+<div style="background: #fee2e2; border: 2px solid #dc2626; padding: 15px; margin: 10px 0;">
+  <strong style="color: #dc2626; font-size: 18px;">⚠️ SITUAÇÃO URGENTE ⚠️</strong>
+  <p style="margin: 10px 0; color: #991b1b;">
+    Seu serviço <strong>{{serviceName}}</strong> expira em apenas <strong>7 DIAS</strong> ({{expirationDate}}).
+  </p>
+</div>
 
-Seu serviço <strong>{{serviceName}}</strong> expira em apenas <strong>7 DIAS</strong> ({{expirationDate}}).
+<h3 style="color: #dc2626;">🚨 SE NÃO RENOVAR:</h3>
+<ul style="color: #7f1d1d;">
+  <li>Serviço será suspenso na data de vencimento</li>
+  <li>Site ficará inacessível</li>
+  <li>Emails pararão de funcionar</li>
+  <li>Perda de dados pode ocorrer</li>
+  <li>Taxas de reativação serão aplicadas</li>
+</ul>
 
-🚨 <strong>SE NÃO RENOVAR:</strong>
-• Serviço será suspenso na data de vencimento
-• Site ficará inacessível
-• Emails pararão de funcionar
-• Perda de dados pode ocorrer
-• Taxas de reativação serão aplicadas
+<div style="background: #dbeafe; border: 2px solid #2563eb; padding: 15px; margin: 20px 0; text-align: center;">
+  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">⏰ AÇÃO IMEDIATA NECESSÁRIA!</p>
+  <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+    RENOVAR AGORA →
+  </a>
+  <p style="margin: 10px 0 0 0; font-size: 14px; color: #1e40af;">
+    Investimento: {{renewalPrice}}
+  </p>
+</div>
 
-⏰ <strong>AÇÃO IMEDIATA NECESSÁRIA!</strong>
+<p>
+  Dúvidas urgentes?<br>
+  📧 {{supportEmail}}<br>
+  📞 {{supportPhone}}
+</p>
 
-👉 <strong>CLIQUE AQUI PARA RENOVAR AGORA:</strong>
-{{renewalLink}}
+<p style="color: #991b1b; font-weight: bold;">Não ignore este aviso. Renove hoje mesmo!</p>
 
-💰 Valor: {{renewalPrice}}
-
-Dúvidas urgentes?
-📧 {{supportEmail}}
-📞 {{supportPhone}}
-
-<strong>Não ignore este aviso. Renove hoje mesmo!</strong>
-
-Atenciosamente,
-Equipe {{companyName}}
+<p>
+  Atenciosamente,<br>
+  Equipe {{companyName}}
+</p>
     `.trim(),
     type: 'error',
     urgency: 'high'
@@ -323,7 +344,7 @@ Olá {{clientName}},
 <div style="background: #dbeafe; border: 2px solid #2563eb; padding: 15px; margin: 20px 0; text-align: center;">
   <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">🛡️ PROTEJA SEU SERVIÇO AGORA</p>
   <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-    RENOVER AGORA →
+    RENOVAR AGORA →
   </a>
   <p style="margin: 10px 0 0 0; font-size: 14px; color: #1e40af;">
     Investimento: {{renewalPrice}}
@@ -388,7 +409,7 @@ Equipe {{companyName}}
 
 <div style="text-align: center; margin: 30px 0;">
   <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    🛡️ RENOVER AGORA →
+    🛡️ RENOVAR AGORA →
   </a>
   <p style="margin-top: 15px; font-size: 16px;">
     <strong>{{renewalPrice}}</strong> | Vencimento: <strong>{{expirationDate}}</strong>
@@ -638,9 +659,11 @@ export async function loadTemplatesFromServer(): Promise<RenewalTemplate[]> {
     }
     const data = await response.json()
     
-    if (data.success && data.templates) {
-      // Converter do formato do banco para o formato da aplicação
-      return data.templates.map((t: any) => ({
+    if (data.success && Array.isArray(data.templates) && data.templates.length > 0) {
+      // Converter do formato do banco para o formato da aplicação, mantendo
+      // os templates padrão para qualquer dia que ainda não tenha sido
+      // customizado na base de dados (mesma lógica de merge do loadCustomTemplates).
+      const fromDb: RenewalTemplate[] = data.templates.map((t: any) => ({
         id: t.template_id,
         name: t.name,
         daysBefore: t.days_before,
@@ -651,6 +674,7 @@ export async function loadTemplatesFromServer(): Promise<RenewalTemplate[]> {
         type: t.type,
         urgency: t.urgency
       }))
+      return defaultRenewalTemplates.map(defaultT => fromDb.find(t => t.id === defaultT.id) || defaultT)
     }
     return defaultRenewalTemplates
   } catch (error) {
@@ -705,6 +729,45 @@ export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promi
       console.error('Erro ao salvar no localStorage:', e)
     }
     return false
+  }
+}
+
+// ============================================
+// CARREGAR TEMPLATES NO SERVIDOR (CRON — SEM fetch)
+// ============================================
+
+// Usado pelo cron (server-side): consulta a tabela diretamente com o client
+// admin já disponível, em vez de chamar a própria API por HTTP. loadCustomTemplates()
+// não serve aqui porque `typeof window === 'undefined'` no servidor faz sempre
+// cair nos templates padrão, ignorando qualquer edição guardada em renewal_templates.
+export async function getServerRenewalTemplates(
+  admin: import('@supabase/supabase-js').SupabaseClient
+): Promise<RenewalTemplate[]> {
+  try {
+    const { data, error } = await admin
+      .from('renewal_templates')
+      .select('*')
+      .eq('is_active', true)
+
+    if (error || !data || data.length === 0) {
+      return defaultRenewalTemplates
+    }
+
+    const fromDb: RenewalTemplate[] = data.map((t: any) => ({
+      id: t.template_id,
+      name: t.name,
+      daysBefore: t.days_before,
+      title: t.title,
+      message: t.message,
+      emailSubject: t.email_subject,
+      emailBody: t.email_body,
+      type: t.type,
+      urgency: t.urgency
+    }))
+    return defaultRenewalTemplates.map(defaultT => fromDb.find(t => t.id === defaultT.id) || defaultT)
+  } catch (error) {
+    console.error('[renewal-templates] Erro ao carregar do servidor:', error)
+    return defaultRenewalTemplates
   }
 }
 

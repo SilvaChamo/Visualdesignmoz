@@ -116,18 +116,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 })
     }
 
-    const { 
+    const {
       type, // 'domain' ou 'hosting'
       userId,
       domainName,
       expirationDate,
       renewalPrice,
+      registrationDate,
+      packageName,
       autoRenew = false,
       notes = ''
     } = await request.json()
 
     if (!type || !userId || !domainName || !expirationDate) {
       return NextResponse.json({ error: 'Campos obrigatórios: type, userId, domainName, expirationDate' }, { status: 400 })
+    }
+
+    const price = Number(renewalPrice)
+    if (!price || price <= 0) {
+      return NextResponse.json({ error: 'Preço de renovação obrigatório e deve ser maior que zero' }, { status: 400 })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -142,8 +149,9 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: userId,
           domain_name: domainName,
+          registration_date: registrationDate || null,
           expiration_date: expirationDate,
-          renewal_price: renewalPrice || 15.00,
+          renewal_price: price,
           auto_renew: autoRenew,
           notes
         })
@@ -158,8 +166,10 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: userId,
           domain_name: domainName,
+          package_name: packageName || null,
+          start_date: registrationDate || null,
           expiration_date: expirationDate,
-          renewal_price: renewalPrice || 50.00,
+          renewal_price: price,
           auto_renew: autoRenew,
           notes
         })
