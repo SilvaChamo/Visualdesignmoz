@@ -2,21 +2,47 @@
 
 import { useState, useRef, useLayoutEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, Info, ChevronDown, ShoppingCart } from 'lucide-react'
+import { ArrowRight, ChevronDown, ShoppingCart } from 'lucide-react'
 import { BRANDS, CATEGORIES, categoriesForBrand, findCategory, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog'
 import { Loader2 } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
+
+// Marcas cujas categorias são todas serviços "Sob Consulta" de item único —
+// em vez de várias subcategorias na barra lateral (cada uma com 1 opção),
+// mostram uma única entrada "Serviços" e listam todas as opções juntas na
+// coluna direita, para escolha múltipla.
+const FLATTENED_BRANDS = new Set(['visualweb', 'visualtransporte'])
+const isFlatId = (id: string) => id.startsWith('flat:')
+const flatBrandOf = (id: string) => id.slice('flat:'.length)
 
 function PrecosContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialCategory = findCategory(searchParams.get('categoria') || '')
+  const initialBrandId = initialCategory?.brand ?? BRANDS[0].id
+  const initialActiveId = initialCategory
+    ? (FLATTENED_BRANDS.has(initialCategory.brand) ? `flat:${initialCategory.brand}` : initialCategory.id)
+    : (FLATTENED_BRANDS.has(initialBrandId) ? `flat:${initialBrandId}` : categoriesForBrand(initialBrandId)[0].id)
 
-  const [expandedBrand, setExpandedBrand] = useState(initialCategory?.brand ?? BRANDS[0].id)
-  const [activeId, setActiveId] = useState(initialCategory?.id ?? categoriesForBrand(BRANDS[0].id)[0].id)
+  const [expandedBrand, setExpandedBrand] = useState(initialBrandId)
+  const [activeId, setActiveId] = useState(initialActiveId)
   const [selected, setSelected] = useState<SelectedCatalogItem[]>([])
 
-  const active = CATEGORIES.find((c) => c.id === activeId) ?? CATEGORIES[0]
+  const activeIsFlat = isFlatId(activeId)
+  const activeFlatBrandId = activeIsFlat ? flatBrandOf(activeId) : null
+  const active = activeIsFlat ? undefined : (CATEGORIES.find((c) => c.id === activeId) ?? CATEGORIES[0])
+
+  // Lista unificada de itens a mostrar na coluna direita — cada item já traz
+  // consigo a sua categoria real (categoriaId/categoriaLabel), quer estejamos
+  // numa categoria normal quer numa marca "achatada" com várias categorias juntas.
+  const displayItems = activeIsFlat && activeFlatBrandId
+    ? categoriesForBrand(activeFlatBrandId).flatMap((c) => c.items.map((item) => ({ ...item, categoriaId: c.id, categoriaLabel: c.label })))
+    : (active ? active.items.map((item) => ({ ...item, categoriaId: active.id, categoriaLabel: active.label })) : [])
+
+  const flatBrandLabel = activeFlatBrandId ? BRANDS.find((b) => b.id === activeFlatBrandId)?.label ?? '' : ''
+  const headerTitle = activeIsFlat ? 'Serviços' : active?.label ?? ''
+  const headerSubtitle = activeIsFlat ? `Escolha um ou mais serviços de ${flatBrandLabel}.` : active?.subtitle ?? ''
+  const headerMinQty = activeIsFlat ? '' : active?.minQty ?? ''
 
   // A janela de itens não deve encolher em relação ao tamanho da primeira
   // subcategoria mostrada — só medimos essa altura uma vez, e ela passa a
@@ -33,12 +59,22 @@ function PrecosContent() {
   const toggleBrand = (brandId: string) => {
     if (expandedBrand === brandId) return
     setExpandedBrand(brandId)
-    const firstCategory = categoriesForBrand(brandId)[0]
-    if (firstCategory) setActiveId(firstCategory.id)
+    if (FLATTENED_BRANDS.has(brandId)) {
+      setActiveId(`flat:${brandId}`)
+    } else {
+      const firstCategory = categoriesForBrand(brandId)[0]
+      if (firstCategory) setActiveId(firstCategory.id)
+    }
   }
 
   const isSelected = (categoriaId: string, produto: string) =>
     selected.some((s) => s.categoriaId === categoriaId && s.produto === produto)
+
+  const selectedCountForCategory = (categoriaId: string) =>
+    selected.filter((s) => s.categoriaId === categoriaId).length
+
+  const selectedCountForBrand = (brandId: string) =>
+    selected.filter((s) => categoriesForBrand(brandId).some((c) => c.id === s.categoriaId)).length
 
   const toggleItem = (categoriaId: string, produto: string, categoriaLabel: string) => {
     setSelected((prev) => {
@@ -54,7 +90,8 @@ function PrecosContent() {
       sessionStorage.setItem(SELECAO_STORAGE_KEY, JSON.stringify(selected))
       router.push(`/cotacao?categoria=${selected[0].categoriaId}`)
     } else {
-      router.push(`/cotacao?categoria=${active.id}`)
+      const fallbackId = displayItems[0]?.categoriaId ?? CATEGORIES[0].id
+      router.push(`/cotacao?categoria=${fallbackId}`)
     }
   }
 
@@ -66,7 +103,7 @@ function PrecosContent() {
         <div className="absolute top-0 left-[10%] w-[450px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
         <div className="absolute top-0 right-[10%] w-[450px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
-        <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10 text-center">
+        <div className="container mx-auto max-w-7xl px-[20px] pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10 text-center">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Tabela de Preços</h1>
             <p className="text-base sm:text-lg text-zinc-300 font-normal max-w-2xl mx-auto leading-relaxed">
@@ -82,57 +119,89 @@ function PrecosContent() {
 
       {/* Sidebar + Detalhe */}
       <div className="py-16">
-        <div className="container mx-auto max-w-7xl px-6">
-          <div className="flex flex-col lg:flex-row gap-8 items-start">
+        <div className="container mx-auto max-w-7xl px-[40px]">
+          <div className="flex flex-col lg:flex-row gap-[24px] items-start">
 
             {/* Barra lateral unificada — marcas + categorias */}
             <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
               <nav className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-y divide-zinc-200 dark:divide-zinc-800">
                 <div className="px-6 py-4 bg-zinc-100 dark:bg-zinc-800">
-                  <h3 className="text-2xl font-bold uppercase tracking-wide text-zinc-900 dark:text-white">Categorias de Serviços</h3>
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Categorias de Serviços</h3>
                   <p className="text-xs text-black dark:text-zinc-400 mt-1">Escolha uma marca para ver os serviços disponíveis.</p>
                 </div>
                 {BRANDS.map((brand) => {
                   const brandCategories = categoriesForBrand(brand.id)
                   const isOpen = expandedBrand === brand.id
                   if (brandCategories.length === 0) return null
+                  const brandSelectedCount = selectedCountForBrand(brand.id)
+                  const isFlattened = FLATTENED_BRANDS.has(brand.id)
                   return (
                     <div key={brand.id}>
                       <button
                         type="button"
                         onClick={() => toggleBrand(brand.id)}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left text-base transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 border-l-[3px] border-transparent ${
+                        className={`group w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-base transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 ${
                           isOpen
                             ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-extrabold cursor-default'
-                            : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-bold cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-red-600 dark:hover:text-red-500 hover:translate-x-1.5 hover:border-red-600'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-bold cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-red-600 dark:hover:text-red-500'
                         }`}
                       >
-                        <span>{brand.label}</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                        <span className={`inline-block transition-transform duration-300 ${isOpen ? '' : 'group-hover:translate-x-1.5'}`}>{brand.label}</span>
+                        <span className="flex items-center gap-2 shrink-0">
+                          {brandSelectedCount > 0 && (
+                            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
+                              {brandSelectedCount}
+                            </span>
+                          )}
+                          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                        </span>
                       </button>
                       <div
                         className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
                       >
                         <div className="overflow-hidden">
                           <div>
-                            {brandCategories.map((cat, idx) => (
-                              <div key={cat.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveId(cat.id)}
-                                  className={`w-full text-left px-5 py-2.5 text-sm transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 border-r-[3px] border-l-[3px] ${
-                                    activeId === cat.id
-                                      ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold border-r-red-600 border-l-transparent cursor-default'
-                                      : 'bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 border-transparent cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-500 hover:translate-x-1.5 hover:border-l-red-600'
-                                  }`}
-                                >
-                                  {cat.label}
-                                </button>
-                                {idx < brandCategories.length - 1 && (
-                                  <div className="mx-4 border-b border-zinc-200 dark:border-zinc-700" />
+                            {isFlattened ? (
+                              <button
+                                type="button"
+                                onClick={() => setActiveId(`flat:${brand.id}`)}
+                                className="group w-full flex items-center justify-between gap-2 px-5 py-2.5 text-sm transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold cursor-default"
+                              >
+                                <span>Serviços</span>
+                                {brandSelectedCount > 0 && (
+                                  <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
+                                    {brandSelectedCount}
+                                  </span>
                                 )}
-                              </div>
-                            ))}
+                              </button>
+                            ) : (
+                              brandCategories.map((cat, idx) => {
+                                const catSelectedCount = selectedCountForCategory(cat.id)
+                                return (
+                                  <div key={cat.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveId(cat.id)}
+                                      className={`group w-full flex items-center justify-between gap-2 px-5 py-2.5 text-sm transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 ${
+                                        activeId === cat.id
+                                          ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold cursor-default'
+                                          : 'bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 cursor-pointer hover:text-red-600 dark:hover:text-red-500'
+                                      }`}
+                                    >
+                                      <span className={`inline-block transition-transform duration-300 ${activeId === cat.id ? '' : 'group-hover:translate-x-1.5'}`}>{cat.label}</span>
+                                      {catSelectedCount > 0 && (
+                                        <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-bold">
+                                          {catSelectedCount}
+                                        </span>
+                                      )}
+                                    </button>
+                                    {idx < brandCategories.length - 1 && (
+                                      <div className="mx-4 border-b border-zinc-200 dark:border-zinc-700" />
+                                    )}
+                                  </div>
+                                )
+                              })
+                            )}
                           </div>
                         </div>
                       </div>
@@ -146,17 +215,17 @@ function PrecosContent() {
             <div className="flex-1 w-full min-w-0">
               <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-hidden">
                 <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/40">
-                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-1">{active.label}</h2>
-                  <p className="text-sm text-black dark:text-zinc-400">{active.subtitle}</p>
-                  {active.minQty && (
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{active.minQty}</p>
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{headerTitle}</h2>
+                  <p className="text-sm text-black dark:text-zinc-400">{headerSubtitle}</p>
+                  {headerMinQty && (
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{headerMinQty}</p>
                   )}
                 </div>
 
                 <div ref={itemsListRef} className="divide-y divide-zinc-100 dark:divide-zinc-800" style={{ minHeight: minListHeight }}>
-                  {active.items.map((item, idx) => (
+                  {displayItems.map((item, idx) => (
                     <label
-                      key={item.name}
+                      key={`${item.categoriaId}:${item.name}`}
                       className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
                         idx % 2 === 0
                           ? 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -165,8 +234,8 @@ function PrecosContent() {
                     >
                       <input
                         type="checkbox"
-                        checked={isSelected(active.id, item.name)}
-                        onChange={() => toggleItem(active.id, item.name, active.label)}
+                        checked={isSelected(item.categoriaId, item.name)}
+                        onChange={() => toggleItem(item.categoriaId, item.name, item.categoriaLabel)}
                         className="w-4 h-4 text-red-600 rounded border-zinc-300 dark:border-zinc-600 shrink-0"
                       />
                       <span className="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
@@ -178,16 +247,11 @@ function PrecosContent() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-start gap-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-                <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                <p>Preços com IVA incluído, quando aplicável. Inclui o rascunho do projecto (layout).</p>
-              </div>
-
               <div className="mt-8 flex items-center gap-4">
                 <button
                   type="button"
                   onClick={handlePedirCotacao}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md transition-all transform hover:-translate-y-0.5 shadow-lg shadow-red-600/20"
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded-md transition-all transform hover:-translate-y-0.5 shadow-lg shadow-red-600/20"
                 >
                   <span>{selected.length > 0 ? `Pedir Cotação (${selected.length})` : 'Pedir Cotação'}</span>
                   <ArrowRight className="w-4 h-4" />

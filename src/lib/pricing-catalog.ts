@@ -188,7 +188,10 @@ export const CATEGORIES: Category[] = [
     subtitle: 'Aplicações web personalizadas, plataformas SaaS e automação de processos internos.',
     minQty: '',
     brand: 'visualweb',
-    items: [{ name: 'Aplicação Web / Sistema de Gestão à Medida', price: 0, sobConsulta: true }],
+    items: [
+      { name: 'Aplicação Web', price: 0, sobConsulta: true },
+      { name: 'Sistema de Gestão', price: 0, sobConsulta: true },
+    ],
   },
   {
     id: 'seo',
