@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/lib/supabase-client';
-import { CATEGORIES, formatMt } from '@/lib/pricing-catalog';
+import { BRANDS, CATEGORIES, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog';
 import { NotchSection } from '@/components/home/NotchSection';
 import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package } from 'lucide-react';
 
@@ -62,6 +62,32 @@ function CotacaoContent() {
   const [produto, setProduto] = useState(category.items[0]?.name ?? '');
   const [quantidade, setQuantidade] = useState(1);
   const [dataLimite, setDataLimite] = useState('');
+  const [notas, setNotas] = useState('');
+
+  // Selecção feita por checkboxes em /precos (vários serviços, possivelmente de
+  // categorias diferentes) — usa o primeiro como serviço principal da cotação
+  // e lista os restantes em notas, para não perder o que o cliente escolheu.
+  useEffect(() => {
+    const raw = sessionStorage.getItem(SELECAO_STORAGE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(SELECAO_STORAGE_KEY);
+    try {
+      const items: SelectedCatalogItem[] = JSON.parse(raw);
+      if (!items.length) return;
+      const [primeiro, ...resto] = items;
+      if (CATEGORIES.some((c) => c.id === primeiro.categoriaId)) {
+        setCategoriaId(primeiro.categoriaId);
+        setProduto(primeiro.produto);
+      }
+      if (resto.length > 0) {
+        const lista = resto.map((i) => `${i.produto} (${i.categoriaLabel})`).join(', ');
+        setNotas((prev) => prev || `Serviços adicionais também solicitados: ${lista}.`);
+      }
+    } catch (e) {
+      console.error('Erro ao ler selecção de /precos:', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCategoriaChange = (id: string) => {
     setCategoriaId(id);
@@ -70,7 +96,8 @@ function CotacaoContent() {
   };
 
   const selectedItem = category.items.find((i) => i.name === produto);
-  const total = selectedItem ? selectedItem.price * quantidade : 0;
+  const isSobConsulta = Boolean(selectedItem?.sobConsulta);
+  const total = selectedItem && !isSobConsulta ? selectedItem.price * quantidade : 0;
   const minDate = minDeliveryDate();
   const dataLimiteCedoDemais = dataLimite !== '' && dataLimite < minDate;
 
@@ -204,6 +231,7 @@ function CotacaoContent() {
           produto,
           quantidade,
           dataLimiteEntrega: dataLimite,
+          notas,
         }),
       });
       const data = await res.json();
@@ -401,16 +429,24 @@ function CotacaoContent() {
                   <div>
                     <label className={labelClass}>Categoria</label>
                     <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
-                      {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>{c.label}</option>
-                      ))}
+                      {BRANDS.map((brand) => {
+                        const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                        if (brandCategories.length === 0) return null;
+                        return (
+                          <optgroup key={brand.id} label={brand.label}>
+                            {brandCategories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.label}</option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
                     </select>
                   </div>
                   <div>
                     <label className={labelClass}>Selecione o tipo de produto</label>
                     <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
                       {category.items.map((item) => (
-                        <option key={item.name} value={item.name}>{item.name}</option>
+                        <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
                       ))}
                     </select>
                   </div>
@@ -440,6 +476,16 @@ function CotacaoContent() {
                       Prazo mínimo de execução: 7 dias úteis a partir de hoje.
                     </p>
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelClass}>Notas (opcional)</label>
+                    <textarea
+                      className={inputClass}
+                      rows={3}
+                      value={notas}
+                      onChange={(e) => setNotas(e.target.value)}
+                      placeholder="Detalhes adicionais sobre o serviço pretendido..."
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -460,7 +506,10 @@ function CotacaoContent() {
                   )}
                   <span className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 shrink-0" />
                   <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
-                    A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis. Para dar início à produção, é necessário adiantar 70% do valor total da fatura: {formatMt(total * 0.7)} MT.
+                    A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
+                    {isSobConsulta
+                      ? 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'
+                      : `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(total * 0.7)} MT.`}
                   </p>
                 </div>
               ) : (
@@ -474,7 +523,15 @@ function CotacaoContent() {
                       <ArrowLeft className="w-4 h-4" />
                       <span>Voltar</span>
                     </button>
-                  ) : <span />}
+                  ) : (
+                    <Link
+                      href="/precos"
+                      className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400 font-bold text-sm hover:text-zinc-900 dark:hover:text-white transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Voltar</span>
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={goNext}
@@ -521,22 +578,31 @@ function CotacaoContent() {
                 </div>
 
                 <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1.5 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Valor Unitário</span>
-                    <span className="text-zinc-800 dark:text-zinc-200">{formatMt(selectedItem?.price ?? 0)} MT</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Quantidade</span>
-                    <span className="text-zinc-800 dark:text-zinc-200">{quantidade}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
-                    <span className="text-zinc-800 dark:text-zinc-200">{formatMt(total - total / 1.16)} MT</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
-                    <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
-                    <span className="font-bold text-zinc-900 dark:text-white">{formatMt(total)} MT</span>
-                  </div>
+                  {isSobConsulta ? (
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-zinc-900 dark:text-white">Valor</span>
+                      <span className="font-bold text-red-600 dark:text-red-500">Sob Consulta</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Valor Unitário</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(selectedItem?.price ?? 0)} MT</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Quantidade</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{quantidade}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(total - total / 1.16)} MT</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
+                        <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
+                        <span className="font-bold text-zinc-900 dark:text-white">{formatMt(total)} MT</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {isLastStep && (

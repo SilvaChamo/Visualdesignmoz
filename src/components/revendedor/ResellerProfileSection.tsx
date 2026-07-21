@@ -59,7 +59,7 @@ export function ResellerProfileSection() {
       });
 
       if (error) throw error;
-      setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
+      setMessage({ type: 'success', text: 'Perfil actualizado com sucesso!' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message });
     } finally {
@@ -192,7 +192,7 @@ export function ResellerProfileSection() {
                   disabled={isChangingPassword || !passwords.new}
                   className="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2 rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2"
                 >
-                  {isChangingPassword ? 'A atualizar...' : <><Lock size={16} /> Atualizar Senha</>}
+                  {isChangingPassword ? 'A actualizar...' : <><Lock size={16} /> Actualizar Senha</>}
                 </button>
               </div>
             </form>

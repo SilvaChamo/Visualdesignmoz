@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Método de pagamento não suportado' }, { status: 400 })
     }
 
-    // 5. Atualizar status do pagamento
+    // 5. Actualizar status do pagamento
     const { data: updatedPayment, error: updateError } = await supabase
       .from('renewal_payments')
       .update({
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError
 
-    // 6. Se pagamento bem-sucedido, atualizar renovação
+    // 6. Se pagamento bem-sucedido, actualizar renovação
     if (gatewayResult.success) {
       await supabase
         .from(tableName)

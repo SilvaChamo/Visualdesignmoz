@@ -51,7 +51,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, packages });
     }
 
-    return NextResponse.json({ success: false, error: 'Ação inválida' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Acção inválida' }, { status: 400 });
 
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

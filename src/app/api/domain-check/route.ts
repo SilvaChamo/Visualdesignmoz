@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'ERROR', message: 'Domínio não fornecido' }, { status: 400 });
     }
 
-    // Formata o domínio e o TLD corretamente
+    // Formata o domínio e o TLD correctamente
     let fullDomain = domain.toLowerCase().trim();
     
     // Se o user enviar apenas o nome sem TLD e um TLD no campo tld

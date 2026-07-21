@@ -150,13 +150,13 @@ export function EmailWebmailSection({
     return mapa[pasta] || pasta
   }
 
-  // Configurar email e senha automaticamente quando abre o compositor (APENAS se não houver email selecionado)
+  // Configurar email e senha automaticamente quando abre o compositor (APENAS se não houver email seleccionado)
   useEffect(() => {
     if (mostrarCompose) {
       const configurarEmailAutomatico = async () => {
-        // SÓ configura automaticamente se NÃO houver email já selecionado
+        // SÓ configura automaticamente se NÃO houver email já seleccionado
         if (emailOrigem) {
-          // Já tem email selecionado - só garantir que temos a senha
+          // Já tem email seleccionado - só garantir que temos a senha
           if (!emailOrigemPassword) {
             // 🚀 Buscar senha dinamicamente da API segura
             const senhaDinamica = await buscarSenhaDinamica(emailOrigem)
@@ -169,7 +169,7 @@ export function EmailWebmailSection({
           return
         }
         
-        // Se não tem email selecionado, usar propEmailOrigem ou o primeiro da lista
+        // Se não tem email seleccionado, usar propEmailOrigem ou o primeiro da lista
         if (propEmailOrigem) {
           setEmailOrigem(propEmailOrigem)
           // 🚀 Buscar senha dinamicamente da API segura
@@ -448,7 +448,7 @@ export function EmailWebmailSection({
       console.log(`📧 [Contacts] Total contactos carregados: ${allEmails.length}`)
       setEmailsOrigem(allEmails)
       
-      // Selecionar o email automaticamente (preferência para silva.chamo@visualdesignmoz.com)
+      // Seleccionar o email automaticamente (preferência para silva.chamo@visualdesignmoz.com)
       if (allEmails.length > 0 && !emailOrigem) {
         const silvaAccount = allEmails.find(a => a.email === 'silva.chamo@visualdesignmoz.com')
         const defaultAccount = silvaAccount || allEmails[0]
@@ -475,7 +475,7 @@ export function EmailWebmailSection({
 
   // Carregar emails da pasta activa
   useEffect(() => {
-    // Se "Todas as Contas" estiver ativo, carregamos apenas a pasta equivalente nas contas todas
+    // Se "Todas as Contas" estiver activo, carregamos apenas a pasta equivalente nas contas todas
     const payloadFolders = [pastaParaIMAP(pastaActiva)]
 
     const carregar = async () => {
@@ -574,13 +574,13 @@ export function EmailWebmailSection({
     }
     return {}
   })
-  // Ref para acessar valor atual sem causar re-render
+  // Ref para acessar valor actual sem causar re-render
   const assinaturasPorEmailRef = useRef(assinaturasPorEmail)
   useEffect(() => {
     assinaturasPorEmailRef.current = assinaturasPorEmail
   }, [assinaturasPorEmail])
 
-  // Assinaturas da conta atual - inicia vazio, carrega do localStorage por email
+  // Assinaturas da conta actual - inicia vazio, carrega do localStorage por email
   // Usar estado externo quando disponível (quando usado inline no WebmailSection)
   const [assinaturasInternal, setAssinaturasInternal] = useState<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>([])
   const [assinaturaAtivaInternal, setAssinaturaAtivaInternal] = useState(0)
@@ -659,7 +659,7 @@ export function EmailWebmailSection({
       setTimeout(() => {
         if (!editorRef.current) return
         
-        // Verificar se há uma assinatura ativa para a conta atual
+        // Verificar se há uma assinatura activa para a conta actual
         const assinaturaAtivaObj = assinaturas.find((a, i) => i === assinaturaAtiva && (a.texto || a.imagemUrl))
         
         if (assinaturaAtivaObj) {
@@ -879,7 +879,7 @@ export function EmailWebmailSection({
     const creds = await resolveActionCredentials()
 
     if (!emailId || !creds) {
-      alert('Por favor, selecione uma conta específica para realizar ações')
+      alert('Por favor, selecione uma conta específica para realizar acções')
       return
     }
 
@@ -950,7 +950,7 @@ export function EmailWebmailSection({
     const creds = await resolveActionCredentials()
 
     if (!emailId || !creds) {
-      alert('Por favor, selecione uma conta específica para realizar ações')
+      alert('Por favor, selecione uma conta específica para realizar acções')
       return
     }
 
@@ -986,7 +986,7 @@ export function EmailWebmailSection({
     const creds = await resolveActionCredentials()
 
     if (!emailId || !creds) {
-      alert('Por favor, selecione uma conta específica para realizar ações')
+      alert('Por favor, selecione uma conta específica para realizar acções')
       return
     }
 
@@ -1194,7 +1194,7 @@ export function EmailWebmailSection({
         </div>
       )}
 
-      {/* TOOLBAR PRINCIPAL - Escondida quando compose está ativo ou hideSidebar=true */}
+      {/* TOOLBAR PRINCIPAL - Escondida quando compose está activo ou hideSidebar=true */}
       <div className={`bg-gray-100 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-gray-200 ${(mostrarCompose || hideSidebar) ? 'hidden' : ''}`}>
         <button onClick={() => {
           setMostrarCompose(true)
@@ -1266,7 +1266,7 @@ export function EmailWebmailSection({
           <div className="flex-1">
             <p className="text-sm font-medium text-red-800">{erroEmail}</p>
             <p className="text-xs text-red-600 mt-0.5">
-              Verifique se a senha da conta está correta ou tente novamente mais tarde. <button className="text-sm underline font-semibold" onClick={() => setMostrarAlterarSenhaModal(true)}>senha</button>
+              Verifique se a senha da conta está correcta ou tente novamente mais tarde. <button className="text-sm underline font-semibold" onClick={() => setMostrarAlterarSenhaModal(true)}>senha</button>
             </p>
           </div>
           <button 
@@ -1280,7 +1280,7 @@ export function EmailWebmailSection({
 
       {/* LISTA DE EMAILS */}
       <div className="flex-1 flex overflow-hidden bg-white relative">
-        {/* SIDEBAR DE CONTAS - Escondida quando compose está ativo ou hideSidebar=true */}
+        {/* SIDEBAR DE CONTAS - Escondida quando compose está activo ou hideSidebar=true */}
         <div className={`shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto h-[750px] ${(mostrarCompose || hideSidebar) ? 'hidden' : 'w-72'}`}>
           <div className="px-3 py-2 border-b border-gray-200"><p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contas</p></div>
           {/* ✅ "TODAS AS CONTAS" - No topo, expandível */}
@@ -1897,7 +1897,7 @@ export function EmailWebmailSection({
                           </div>
                         </div>
 
-                        {/* Ações ao passar mouse */}
+                        {/* Acções ao passar mouse */}
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                           <button
                             onClick={(ev) => { ev.stopPropagation(); handleArchiveEmail(e.id); }}
@@ -2040,7 +2040,7 @@ export function EmailWebmailSection({
                     const data = await res.json()
                     if (data.success) {
                       alert('Senha alterada com sucesso!')
-                      // Atualizar local: buscar nova senha encriptada no supabase via endpoint
+                      // Actualizar local: buscar nova senha encriptada no supabase via endpoint
                       setMostrarAlterarSenhaModal(false)
                       setNovaSenha('')
                       setConfirmNovaSenha('')
@@ -2052,7 +2052,7 @@ export function EmailWebmailSection({
                     console.error('Erro ao alterar senha:', e)
                     alert('Erro ao alterar senha: ' + (e.message || e))
                   } finally { setAlterandoSenha(false) }
-                }} className="px-4 py-2 bg-green-600  rounded-md">Atualizar Senha</button>
+                }} className="px-4 py-2 bg-green-600  rounded-md">Actualizar Senha</button>
               </div>
             </div>
           </div>
@@ -2572,7 +2572,7 @@ export function EmailWebmailSection({
 
                 {/* Assinatura predefinida */}
                 <div>
-                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? '' : 'text-gray-800'}`}>Selecionar assinatura predefinida:</h3>
+                  <h3 className={`text-sm font-bold mb-3 transition-colors ${modoEscuroAssinatura ? '' : 'text-gray-800'}`}>Seleccionar assinatura predefinida:</h3>
                   <div className={`rounded-lg border p-4 space-y-3 transition-colors ${modoEscuroAssinatura ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                     {/* Conta - Dropdown com todas as contas */}
                     <div className="flex items-center gap-4">
@@ -2625,12 +2625,12 @@ export function EmailWebmailSection({
                         onChange={e => {
                           const idx = parseInt(e.target.value)
                           setAssinaturaAtiva(idx)
-                          // Marcar como ativa (padrão)
+                          // Marcar como activa (padrão)
                           setAssinaturas(prev => prev.map((a, i) => ({
                             ...a,
                             activa: i === idx
                           })))
-                          // Aplicar imediatamente - usar callback para obter valor atual
+                          // Aplicar imediatamente - usar callback para obter valor actual
                           setAssinatura(prev => assinaturas[idx]?.texto || '')
                         }}
                         className={`flex-1 text-sm px-3 py-2 rounded-lg outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 ${modoEscuroAssinatura ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'}`}
@@ -2652,7 +2652,7 @@ export function EmailWebmailSection({
                         onChange={e => {
                           const idx = parseInt(e.target.value)
                           setAssinaturaAtiva(idx)
-                          // Marcar como ativa (padrão)
+                          // Marcar como activa (padrão)
                           setAssinaturas(prev => prev.map((a, i) => ({
                             ...a,
                             activa: i === idx
@@ -2675,7 +2675,7 @@ export function EmailWebmailSection({
 
                 <div className="flex justify-end gap-3">
                   <button onClick={() => {
-                    // Salvar assinaturas da conta atual antes de fechar
+                    // Salvar assinaturas da conta actual antes de fechar
                     if (emailOrigem) {
                       const config = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
                       const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
@@ -2840,7 +2840,7 @@ export function EmailWebmailSection({
               {/* Footer */}
               <div className={`border-t px-5 py-3 flex justify-end gap-3 transition-colors ${modoEscuroAssinatura ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                 <button onClick={() => {
-                  // Salvar assinaturas da conta atual antes de voltar
+                  // Salvar assinaturas da conta actual antes de voltar
                   if (emailOrigem) {
                     const config = { assinaturas, assinaturaAtiva, assinaturaPadrao: assinatura }
                     const novoEstado = { ...assinaturasPorEmailRef.current, [emailOrigem]: config }
@@ -2940,7 +2940,7 @@ export function EmailWebmailSection({
                 }, ...prev]
                 return next
               })
-              // Selecionar a conta recém-adicionada
+              // Seleccionar a conta recém-adicionada
               setTimeout(() => {
                 setEmailOrigem(account.email)
                 setPastaActiva('Caixa de Entrada')

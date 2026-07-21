@@ -276,7 +276,7 @@ export const auth = {
     console.log('supabase-client auth.resetPassword: Email sent successfully')
   },
 
-  // Obter usuário atual
+  // Obter usuário actual
   async getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser()
     return user
@@ -320,7 +320,7 @@ export const auth = {
     return getRedirectPathForRole(role)
   },
 
-  // Obter sessão atual
+  // Obter sessão actual
   async getSession() {
     const { data: { session } } = await supabase.auth.getSession()
     return session

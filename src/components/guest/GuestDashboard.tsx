@@ -20,6 +20,7 @@ type Quotation = {
   produto: string;
   quantidade: number;
   total_mt: number;
+  sob_consulta: boolean;
   status: string;
   data_limite_entrega: string;
   created_at: string;
@@ -145,7 +146,7 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
                           </div>
                           <div className="min-w-0">
                             <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{q.categoria_label} — {q.produto}</p>
-                            <p className="text-xs text-gray-500 dark:text-zinc-400">Qtd: {q.quantidade} · {formatMt(q.total_mt)} MT</p>
+                            <p className="text-xs text-gray-500 dark:text-zinc-400">Qtd: {q.quantidade} · {q.sob_consulta ? 'Sob Consulta' : `${formatMt(q.total_mt)} MT`}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">

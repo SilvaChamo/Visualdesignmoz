@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserRole(null)
         window.location.href = `/login?reason=${reason}`
       } catch (err) {
-        console.error('Erro ao efetuar logout por inatividade:', err)
+        console.error('Erro ao efectuar logout por inatividade:', err)
         window.location.href = `/login?reason=${reason}`
       }
     }

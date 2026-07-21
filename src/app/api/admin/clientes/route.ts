@@ -764,7 +764,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ success: true, data: { sentTo: email } });
       }
       default:
-        return NextResponse.json({ success: false, error: 'Ação inválida' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Acção inválida' }, { status: 400 });
     }
 
     const ok = mutationSucceeded(data);

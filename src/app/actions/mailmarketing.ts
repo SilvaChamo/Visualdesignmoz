@@ -270,7 +270,7 @@ export async function adminAdicionarSubscritor(dados: { email: string, full_name
             console.error('[adminAdicionarSubscritor] Erro ao verificar duplicado:', checkError.message);
         }
         
-        // Se já existe neste domínio → ATUALIZAR
+        // Se já existe neste domínio → ACTUALIZAR
         if (existingInDomain) {
             console.log('[adminAdicionarSubscritor] Email exists in this domain, updating...');
             
@@ -290,7 +290,7 @@ export async function adminAdicionarSubscritor(dados: { email: string, full_name
             
             if (updateError) {
                 console.error('ERRO SUPABASE UPDATE:', updateError.message);
-                throw new Error('Erro ao atualizar contacto existente.');
+                throw new Error('Erro ao actualizar contacto existente.');
             }
             
             return { success: true, updated: true, data: updated, isRoleBased: validation.error === 'ROLE_BASED' };

@@ -97,7 +97,7 @@ export default function FeirasEventosSubPage() {
           <div className="container mx-auto max-w-7xl px-6 text-center">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 text-red-600 dark:text-red-500 mb-3">
               <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-              Fluxo do Projeto
+              Fluxo do Projecto
               <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
             </span>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 mb-12">
@@ -107,7 +107,7 @@ export default function FeirasEventosSubPage() {
               {[
                 { step: '1', title: 'Conceito & Maquete 3D', desc: 'Apresentamos um estudo detalhado em 3D do stand para aprovação do espaço e circulação.' },
                 { step: '2', title: 'Produção & Logística', desc: 'Fabricamos os componentes e impressões gráficas e transportamos para o local do evento.' },
-                { step: '3', title: 'Montagem & Entrega', desc: 'Nossa equipa de técnicos monta e verifica todos os pontos (elétrico, luz, som) antes da abertura.' }
+                { step: '3', title: 'Montagem & Entrega', desc: 'Nossa equipa de técnicos monta e verifica todos os pontos (eléctrico, luz, som) antes da abertura.' }
               ].map(({ step, title, desc }) => (
                 <div key={step} className="flex gap-4 p-6 rounded-lg border bg-white dark:bg-zinc-800 border-zinc-200/80 dark:border-white/10 text-left">
                   <span className="shrink-0 w-10 h-10 rounded-lg border flex items-center justify-center border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 font-extrabold text-red-600 dark:text-red-500 text-lg">
@@ -131,7 +131,7 @@ export default function FeirasEventosSubPage() {
             <div className="bg-red-600 dark:bg-red-700 text-white py-16 rounded-lg text-center space-y-6 shadow-xl shadow-red-600/10 relative overflow-hidden">
               <h2 className="text-3xl font-extrabold">Tem uma feira ou exposição brevemente?</h2>
               <p className="text-lg text-red-100 max-w-xl mx-auto">
-                Partilhe connosco a data e as medidas do espaço. A nossa equipa criará um layout à medida dos seus objetivos comerciais.
+                Partilhe connosco a data e as medidas do espaço. A nossa equipa criará um layout à medida dos seus objectivos comerciais.
               </p>
               <button
                 onClick={() => setIsModalOpen(true)}

@@ -159,7 +159,7 @@ export function DirectAdminEmailsSection() {
             className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-200 text-gray-600 rounded-[10px] text-xs font-bold hover:bg-gray-200 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
+            Actualizar
           </button>
           <button
             onClick={() => setShowCreate(!showCreate)}
@@ -341,7 +341,7 @@ export function DirectAdminEmailsSection() {
                 <th className="px-5 py-3">Email</th>
                 <th className="px-5 py-3">Quota</th>
                 <th className="px-5 py-3">Uso</th>
-                <th className="px-5 py-3 w-48">Ações</th>
+                <th className="px-5 py-3 w-48">Acções</th>
               </tr>
             </thead>
             <tbody>

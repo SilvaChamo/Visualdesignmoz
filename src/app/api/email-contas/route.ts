@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
 
   const clienteId = searchParams.get('cliente_id') || session.user.id
 
-  // Proteção: utilizador só vê o seu próprio ID, a menos que seja admin
+  // Protecção: utilizador só vê o seu próprio ID, a menos que seja admin
   const isBootstrap = isBootstrapAdmin(session.user?.email);
   if (clienteId !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isBootstrap) {
     return NextResponse.json({ error: 'Acesso proibido a dados de terceiros' }, { status: 403 });
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     
     let allEmails: any[] = [];
     
-    // �🚀 ADMIN: Buscar TODAS as contas ativas
+    // �🚀 ADMIN: Buscar TODAS as contas activas
     if (isAdmin) {
       console.log(`📧 [API] Modo ADMIN - Buscando todas as contas`);
       const { data: allContas, error } = await supabaseAdmin
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'E-mail e senha são obrigatórios.' }, { status: 400 });
     }
 
-    // Proteção: não deixar criar conta para outro cliente ID se não for admin
+    // Protecção: não deixar criar conta para outro cliente ID se não for admin
     const isAdmin = isBootstrapAdmin(session.user?.email) || session.user?.user_metadata?.role === 'admin';
     if (cliente_id !== session.user.id && !isAdmin) {
       return NextResponse.json({ error: 'Operação não autorizada' }, { status: 403 });
@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 🆕 PUT: Atualizar/Sincronizar conta existente (para contas criadas directamente no servidor)
+// 🆕 PUT: Actualizar/Sincronizar conta existente (para contas criadas directamente no servidor)
 export async function PUT(req: NextRequest) {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession();
@@ -415,7 +415,7 @@ export async function PUT(req: NextRequest) {
       console.error('Erro na criação do usuário Auth (PUT):', authError)
     }
 
-    // Upsert no Supabase (atualizar ou criar) - usando apenas colunas existentes
+    // Upsert no Supabase (actualizar ou criar) - usando apenas colunas existentes
     const { data, error } = await supabaseAdmin
       .from('email_contas')
       .upsert({

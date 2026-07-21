@@ -10,7 +10,7 @@ export function ResellerSettingsSection({ onLogoChange }: { onLogoChange?: (logo
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Carregar o logo atual do localStorage (simulando base de dados)
+    // Carregar o logo actual do localStorage (simulando base de dados)
     const savedLogo = localStorage.getItem('reseller_custom_logo');
     const defaultLogo = '/assets/simbolo.png';
     
@@ -45,7 +45,7 @@ export function ResellerSettingsSection({ onLogoChange }: { onLogoChange?: (logo
         localStorage.setItem('reseller_custom_logo', preview);
         setLogoUrl(preview);
         if (onLogoChange) onLogoChange(preview);
-        setMessage('Logótipo atualizado com sucesso!');
+        setMessage('Logótipo actualizado com sucesso!');
       }
       setIsSaving(false);
     }, 800);
@@ -63,7 +63,7 @@ export function ResellerSettingsSection({ onLogoChange }: { onLogoChange?: (logo
 
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Logótipo Atual</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Logótipo Actual</label>
             <div className="flex items-center gap-6">
               <div className="w-40 h-24 bg-gray-50 border border-gray-200 border-dashed rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
                 {preview ? (

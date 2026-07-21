@@ -59,7 +59,7 @@ export default function ResetPasswordPage() {
       await supabase.auth.signOut()
       setTimeout(() => router.push('/auth/login?reset=success'), 3000)
     } catch (err: unknown) {
-      setError((err as Error).message || 'Erro ao atualizar a password.')
+      setError((err as Error).message || 'Erro ao actualizar a password.')
     } finally {
       setLoading(false)
     }
@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
         {sucesso ? (
           <div className="py-6 text-center">
             <p className="text-4xl mb-4">🎉</p>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Password atualizada</p>
+            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Password actualizada</p>
             <p className={`text-sm ${authMutedTextClass}`}>A redirecionar para o login...</p>
           </div>
         ) : (
@@ -131,7 +131,7 @@ export default function ResetPasswordPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading} className={`w-full ${authPrimaryBtnClass}`}>
-                {loading ? 'A atualizar...' : 'Atualizar password'}
+                {loading ? 'A actualizar...' : 'Actualizar password'}
               </button>
             </form>
           </>

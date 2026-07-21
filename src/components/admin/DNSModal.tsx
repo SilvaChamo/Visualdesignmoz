@@ -195,7 +195,7 @@ export function DNSModal({ domain, isOpen, onClose, onAddRecord, onDeleteRecord,
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Valor</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Prioridade</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">TTL</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Ações</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Acções</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -1,5 +1,5 @@
 /**
- * Sistema de Limites de Email - Proteção contra bloqueio
+ * Sistema de Limites de Email - Protecção contra bloqueio
  * 
  * REGRAS:
  * 1. Email principal do servidor: servidor@visualdesignmoz.com
@@ -52,7 +52,7 @@ export function isValidSender(email: string): boolean {
 }
 
 /**
- * Obtém o sender correto (sempre servidor próprio)
+ * Obtém o sender correcto (sempre servidor próprio)
  */
 export function getPrimarySender(): { email: string; password: string } {
   return {
@@ -62,7 +62,7 @@ export function getPrimarySender(): { email: string; password: string } {
 }
 
 /**
- * Obtém configuração SMTP correta
+ * Obtém configuração SMTP correcta
  */
 export function getPrimarySMTPConfig() {
   return {

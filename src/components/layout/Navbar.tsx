@@ -27,7 +27,7 @@ export function Navbar() {
     { href: '/client/domains', icon: Globe, title: 'Gestor de Domínios', desc: 'Gerir os seus domínios', bg: 'bg-teal-50', text: 'text-teal-600', tags: 'domínios gerir', requiresLogin: false },
     { href: '/servicos/hospedagem', icon: Server, title: 'Gestor de Alojamento', desc: 'Hospedagem CPanel', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'hosting alojamento', requiresLogin: false },
     { href: '/client/domains', icon: Shield, title: 'DNS Avançado', desc: 'Registos e Zonas', bg: 'bg-purple-50', text: 'text-purple-600', tags: 'dns registos zonas', requiresLogin: false },
-    { href: '/notificacoes', icon: CreditCard, title: 'Faturas e Pagamentos', desc: 'Histórico e Pendentes', bg: 'bg-orange-50', text: 'text-orange-600', tags: 'faturas pagamentos', requiresLogin: false },
+    { href: '/notificacoes', icon: CreditCard, title: 'Facturas e Pagamentos', desc: 'Histórico e Pendentes', bg: 'bg-orange-50', text: 'text-orange-600', tags: 'facturas pagamentos', requiresLogin: false },
   ]
 
   // Índice completo para pesquisa

@@ -67,8 +67,8 @@ export interface Pagamento {
   referencia?: string
   descricao?: string
   notas?: string
-  fatura_gerada: boolean
-  fatura_enviada: boolean
+  factura_gerada: boolean
+  factura_enviada: boolean
   recibo_gerado: boolean
   created_at: string
   updated_at: string
@@ -283,7 +283,7 @@ export async function criarTicket(dados: Partial<TicketSuporte>) {
 
 export async function responderTicket(ticketId: string, resposta: Partial<TicketResposta>) {
   try {
-    // Atualizar status do ticket
+    // Actualizar status do ticket
     await supabase
       .from('tickets_suporte')
       .update({ 
@@ -416,7 +416,7 @@ export async function atualizarUltimoAcesso(clienteId: string) {
     if (error) throw error
     return true
   } catch (error) {
-    console.error('Erro ao atualizar último acesso:', error)
+    console.error('Erro ao actualizar último acesso:', error)
     throw error
   }
 }

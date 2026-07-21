@@ -68,7 +68,7 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
     void fetchDomains();
   }, [sites, isActive]);
 
-  // Capturar domínio pré-selecionado (ex: quando vem de um card do website)
+  // Capturar domínio pré-seleccionado (ex: quando vem de um card do website)
   useEffect(() => {
     if (!isActive || domains.length === 0) return;
 
@@ -86,7 +86,7 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
     }
   }, [domains, isActive]);
 
-  // Carregar utilizadores do domínio selecionado
+  // Carregar utilizadores do domínio seleccionado
   const loadUsers = async (domain: string) => {
     if (!domain) {
       setUsers([]);
@@ -317,7 +317,7 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
                 <th className="px-4 py-3">Login</th>
                 <th className="px-4 py-3 text-center">Registado</th>
                 <th className="px-4 py-3">Funções</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+                <th className="px-4 py-3 text-right">Acções</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -417,7 +417,7 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
           domain={selectedDomain}
           user={editingUser}
           onSave={() => {
-            setMsg({ ok: true, text: `Utilizador ${editingUser ? 'atualizado' : 'criado'} com sucesso!` });
+            setMsg({ ok: true, text: `Utilizador ${editingUser ? 'actualizado' : 'criado'} com sucesso!` });
             setIsCreating(false);
             setEditingUser(null);
             

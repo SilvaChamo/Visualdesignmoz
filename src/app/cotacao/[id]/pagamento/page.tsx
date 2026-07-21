@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase-client';
 import { NotchSection } from '@/components/home/NotchSection';
 import { Loader2, AlertCircle, CheckCircle2, Smartphone, Landmark } from 'lucide-react';
 
@@ -19,6 +20,15 @@ export default function CotacaoPagamentoPage() {
   const [metodo, setMetodo] = useState<'mpesa' | 'transferencia' | null>(null);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [sobConsulta, setSobConsulta] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      const { data } = await supabase.from('quotation_requests').select('sob_consulta').eq('id', id).single();
+      setSobConsulta(Boolean(data?.sob_consulta));
+    })();
+  }, [id]);
 
   const handleConfirm = async () => {
     if (!metodo) return;
@@ -69,7 +79,25 @@ export default function CotacaoPagamentoPage() {
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="py-12">
       <div className="max-w-lg mx-auto px-4">
 
-        {status === 'done' ? (
+        {sobConsulta === null ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+          </div>
+        ) : sobConsulta ? (
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-8 text-center space-y-4">
+            <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Este serviço é Sob Consulta</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Ainda não há um valor fixo para pagar. A nossa equipa vai contactá-lo para confirmar o valor antes de avançar para o pagamento.
+            </p>
+            <Link
+              href={`/cotacao/${id}`}
+              className="inline-block mt-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2.5 rounded-md text-sm transition-colors"
+            >
+              Voltar à Cotação
+            </Link>
+          </div>
+        ) : status === 'done' ? (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-8 text-center space-y-4">
             <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Método registado!</h2>

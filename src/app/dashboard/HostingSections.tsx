@@ -124,7 +124,7 @@ const EmailFormSkeleton = () => (
   </div>
 )
 
-const BulkActionBar = ({ count, onAction, onClear, label = "itens selecionados" }: { count: number, onAction: (action: string) => void, onClear: () => void, label?: string }) => {
+const BulkActionBar = ({ count, onAction, onClear, label = "itens seleccionados" }: { count: number, onAction: (action: string) => void, onClear: () => void, label?: string }) => {
   if (count === 0) return null
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 duration-300">
@@ -296,7 +296,7 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
           <div className="py-12 text-center text-gray-400"><Layers className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum subdomínio encontrado.</p></div>
         ) : !loading && subdomains.length > 0 ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomínio</th><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Ações</th></tr></thead>
+            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomínio</th><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
             <tbody>
               {subdomains.map((s, i) => (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
@@ -395,14 +395,14 @@ export function WebsitePreviewSection({ sites }: { sites: DirectAdminWebsite[] }
               className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded-[10px] hover:bg-red-100 hover:text-red-700 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-sm font-bold shadow-sm"
             >
               <RefreshCw size={16} className={screenshotLoading ? 'animate-spin' : ''} />
-              Atualizar
+              Actualizar
             </button>
           </div>
 
           {selectedDomain && (
             <div className="bg-white border border-gray-200 rounded-[10px] shadow-sm p-4">
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Ações Rápidas
+                Acções Rápidas
               </label>
               <a
                 href={`https://${selectedDomain}`}
@@ -464,7 +464,7 @@ export function WebsitePreviewSection({ sites }: { sites: DirectAdminWebsite[] }
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Escolha um Website</h3>
                 <p className="text-gray-500 max-w-xs mx-auto">
-                  Selecione um dos seus domínios no menu lateral para visualizar o estado visual atual.
+                  Selecione um dos seus domínios no menu lateral para visualizar o estado visual actual.
                 </p>
               </div>
             )}
@@ -1493,7 +1493,7 @@ export function FTPSection({ sites }: { sites: DirectAdminWebsite[] }) {
         {loading && <TableSkeleton columns={3} rows={5} />}
         {!loading && accounts.length > 0 && (
           <table className="w-full text-sm mt-6">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Utilizador</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Ações</th></tr></thead>
+            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Utilizador</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
             <tbody>
               {accounts.map((a, i) => (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
@@ -1822,7 +1822,7 @@ export function EmailManagementSection({
         }
       }
 
-      // 4. Salvar/Atualizar no Supabase
+      // 4. Salvar/Actualizar no Supabase
       const updateRes = await fetch('/api/email-contas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1835,7 +1835,7 @@ export function EmailManagementSection({
         }),
       });
       const updateData = await updateRes.json();
-      if (!updateData.success) throw new Error(updateData.error || 'Erro ao atualizar base de dados.');
+      if (!updateData.success) throw new Error(updateData.error || 'Erro ao actualizar base de dados.');
 
       setMsg('Configurações guardadas com sucesso.');
       setMsgType('success');
@@ -1865,7 +1865,7 @@ export function EmailManagementSection({
     setConfirm({
       show: true,
       title: 'Eliminar Conta',
-      message: `Tens a certeza que desejas eliminar a conta ${email}? Esta ação não pode ser desfeita.`,
+      message: `Tens a certeza que desejas eliminar a conta ${email}? Esta acção não pode ser desfeita.`,
       isDanger: true,
       onConfirm: async () => {
         setDeleting(email)
@@ -1898,7 +1898,7 @@ export function EmailManagementSection({
       setConfirm({
         show: true,
         title: `Eliminar ${count} Contas`,
-        message: `Estás prestes a eliminar permanentemente ${count} contas selecionadas. Desejas continuar?`,
+        message: `Estás prestes a eliminar permanentemente ${count} contas seleccionadas. Desejas continuar?`,
         isDanger: true,
         onConfirm: async () => {
           setLoading(true)
@@ -1923,7 +1923,7 @@ export function EmailManagementSection({
       setConfirm({
         show: true,
         title: `Suspender ${count} Contas`,
-        message: `Desejas suspender o acesso de ${count} contas selecionadas?`,
+        message: `Desejas suspender o acesso de ${count} contas seleccionadas?`,
         isDanger: false,
         onConfirm: async () => {
           setLoading(true)
@@ -1944,19 +1944,19 @@ export function EmailManagementSection({
   const handleUpdateAccount = async (formData: any) => {
     setLoading(true)
     try {
-      // 1. Atualizar DirectAdmin se houver nova password
+      // 1. Actualizar DirectAdmin se houver nova password
       if (formData.password) {
         await directAdminAPI.changeEmailPassword({ email: formData.email, password: formData.password })
       }
 
-      // 2. Atualizar suspensão no DirectAdmin quando suportado
+      // 2. Actualizar suspensão no DirectAdmin quando suportado
       if (formData.status === 'active') {
         await directAdminAPI.unsuspendEmail(formData.email)
       } else {
         await directAdminAPI.suspendEmail(formData.email)
       }
 
-      // 3. Atualizar Supabase (Mestre da verdade para Proprietário e Estado)
+      // 3. Actualizar Supabase (Mestre da verdade para Proprietário e Estado)
       const updateRes = await fetch('/api/email-contas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1969,14 +1969,14 @@ export function EmailManagementSection({
         })
       })
       const updateData = await updateRes.json()
-      if (!updateData.success) throw new Error(updateData.error || 'Erro ao atualizar')
+      if (!updateData.success) throw new Error(updateData.error || 'Erro ao actualizar')
 
-      setMsg('Conta atualizada com sucesso.')
+      setMsg('Conta actualizada com sucesso.')
       setMsgType('success')
       setEmailModal({ show: false, mode: 'create', data: {} })
       loadEmails(selectedDomain)
     } catch (e: any) {
-      setMsg('Erro ao atualizar: ' + e.message)
+      setMsg('Erro ao actualizar: ' + e.message)
       setMsgType('error')
     }
     setLoading(false)
@@ -2118,7 +2118,7 @@ export function EmailManagementSection({
           <div>Conta</div>
           <div>Estado</div>
           <div>Armazenamento</div>
-          <div className="text-right">Ações</div>
+          <div className="text-right">Acções</div>
         </div>
 
         {/* Loading Skeleton */}
@@ -2160,7 +2160,7 @@ export function EmailManagementSection({
 
               <div className="flex items-center">
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight ${email.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {email.status === 'active' ? 'Ativo' : 'Suspenso'}
+                  {email.status === 'active' ? 'Activo' : 'Suspenso'}
                 </span>
               </div>
 
@@ -2272,7 +2272,7 @@ export function EmailManagementSection({
                 </div>
                 {emailModal.mode === 'edit' && (
                   <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800">
-                    <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 dark:bg-green-950/30 text-green-600' : 'bg-red-100 dark:bg-red-950/30 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500 dark:text-zinc-400">{emailModal.data.status === 'active' ? 'Ativa' : 'Suspensa'}</p></div></div>
+                    <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 dark:bg-green-950/30 text-green-600' : 'bg-red-100 dark:bg-red-950/30 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500 dark:text-zinc-400">{emailModal.data.status === 'active' ? 'Activa' : 'Suspensa'}</p></div></div>
                     <button onClick={() => setEmailModal({ ...emailModal, data: { ...emailModal.data, status: emailModal.data.status === 'active' ? 'suspended' : 'active' } })} className={`relative w-12 h-6 rounded-full transition-colors ${emailModal.data.status === 'active' ? 'bg-green-500' : 'bg-gray-300 dark:bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailModal.data.status === 'active' ? 'translate-x-6' : ''}`} /></button>
                   </div>
                 )}
@@ -3273,7 +3273,7 @@ export function CPUsersSection({
     setConfirm({
       show: true,
       title: 'Eliminar Utilizador',
-      message: `Tens a certeza que desejas eliminar o utilizador ${userName}? Esta ação removerá permanentemente o utilizador do DirectAdmin e da base de dados.`,
+      message: `Tens a certeza que desejas eliminar o utilizador ${userName}? Esta acção removerá permanentemente o utilizador do DirectAdmin e da base de dados.`,
       isDanger: true,
       onConfirm: async () => {
         setLoading(true)
@@ -3299,7 +3299,7 @@ export function CPUsersSection({
       setConfirm({
         show: true,
         title: `Eliminar ${count} Utilizadores`,
-        message: `Desejas eliminar permanentemente os ${count} utilizadores selecionados?`,
+        message: `Desejas eliminar permanentemente os ${count} utilizadores seleccionados?`,
         isDanger: true,
         onConfirm: async () => {
           setLoading(true)
@@ -3317,7 +3317,7 @@ export function CPUsersSection({
       setConfirm({
         show: true,
         title: `Suspender ${count} Utilizadores`,
-        message: `Desejas suspender o acesso dos ${count} utilizadores selecionados?`,
+        message: `Desejas suspender o acesso dos ${count} utilizadores seleccionados?`,
         isDanger: false,
         onConfirm: async () => {
           setLoading(true)
@@ -3360,7 +3360,7 @@ export function CPUsersSection({
         emailsLimit: data.emailsLimit,
         status: data.state
       })
-      setMsg('Utilizador atualizado com sucesso!')
+      setMsg('Utilizador actualizado com sucesso!')
       setUserModal({ ...userModal, show: false })
       loadUsers()
     } catch (e: any) {
@@ -3426,7 +3426,7 @@ export function CPUsersSection({
           )}
           {!isPanelsMode && (
             <>
-              <button onClick={loadUsers} className="font-semibold px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm transition-all disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
+              <button onClick={loadUsers} className="font-semibold px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm transition-all disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Actualizar</button>
               <button
                 onClick={() => setUserModal({ show: true, mode: 'create', data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 0, acl: 'user', securityLevel: 'HIGH' } })}
                 className="px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:text-black dark:hover:text-white rounded text-sm font-bold transition-all disabled:opacity-50"
@@ -3828,7 +3828,7 @@ export function CPUsersSection({
               </div>
               {userModal.mode === 'edit' && !isPanelAuthForm && (
                 <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-800/50 rounded border border-gray-100 dark:border-zinc-700">
-                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Ativo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
+                  <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${userModal.data.state !== 'Suspended' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900">Estado da Conta</p><p className="text-[10px] text-gray-500">{userModal.data.state !== 'Suspended' ? 'Activo - Acesso total' : 'Suspenso - Acesso bloqueado'}</p></div></div>
                   <button onClick={() => setUserModal({ ...userModal, data: { ...userModal.data, state: userModal.data.state === 'Suspended' ? 'Active' : 'Suspended' } })} className={`relative w-12 h-6 rounded-full transition-colors ${userModal.data.state !== 'Suspended' ? 'bg-green-500' : 'bg-gray-300'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${userModal.data.state !== 'Suspended' ? 'translate-x-6' : ''}`} /></button>
                 </div>
               )}
@@ -6952,7 +6952,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
           setMsg('Não foi possível gerar chaves. Tente novamente.');
         }
       } else {
-        // Não auto-gerar ao selecionar - deixar usuário clicar no botão
+        // Não auto-gerar ao seleccionar - deixar usuário clicar no botão
         setDkim(null);
       }
     } catch (err: any) {
@@ -7035,7 +7035,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
       {/* Seletor de Domínio */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <label className="text-xs font-bold text-gray-600 uppercase block mb-2">Selecionar Website</label>
+        <label className="text-xs font-bold text-gray-600 uppercase block mb-2">Seleccionar Website</label>
         <select
           value={selectedDomain}
           onChange={(e) => { setSelectedDomain(e.target.value); loadDKIM(e.target.value, false) }}
@@ -7200,7 +7200,7 @@ export function DKIMManagerSection({ sites }: { sites: DirectAdminWebsite[] }) {
         </div>
       )}
 
-      {/* Estado sem domínio selecionado */}
+      {/* Estado sem domínio seleccionado */}
       {!selectedDomain && !loading && (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
           <Shield className="w-16 h-16 mx-auto mb-4 text-gray-200" />
@@ -8589,7 +8589,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                         const file = selectedFiles[i];
 
                         if (files.some(f => f.name === file.name)) {
-                          alert(`O ficheiro "${file.name}" já existe na pasta atual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
+                          alert(`O ficheiro "${file.name}" já existe na pasta actual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
                           continue;
                         }
 
@@ -9245,7 +9245,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
                   onChange={(e) => setForm({ ...form, enableMultisite: e.target.checked })}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded"
                 />
-                <span className="text-sm text-gray-700">Ativar Multisite (WPMU)</span>
+                <span className="text-sm text-gray-700">Activar Multisite (WPMU)</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -9420,7 +9420,7 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
               </div>
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-semibold text-gray-800">Wordfence Security</span>
-                <p className="text-xs text-gray-500 mt-0.5">Firewall e proteção contra malware e ataques</p>
+                <p className="text-xs text-gray-500 mt-0.5">Firewall e protecção contra malware e ataques</p>
               </div>
             </label>
 
@@ -9611,7 +9611,7 @@ export function WPBackupSection({ sites }: { sites: DirectAdminWebsite[] }) {
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Selecionar Website</label>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1.5">Seleccionar Website</label>
               <select
                 value={selectedSite}
                 onChange={(e) => setSelectedSite(e.target.value)}
@@ -9964,7 +9964,7 @@ export function DomainManagerSection({
   const [autoRenew, setAutoRenew] = useState<boolean | null>(null)
   const [registrarExpire, setRegistrarExpire] = useState('')
 
-  // Formulário criar domínio - atualizado para igual ao DirectAdmin
+  // Formulário criar domínio - actualizado para igual ao DirectAdmin
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
   const [newDomain, setNewDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
@@ -10020,8 +10020,8 @@ export function DomainManagerSection({
     } catch {
       /* fallback abaixo */
     }
-    onNavigate?.('faturas')
-    showMsg('Renovação não encontrada para este domínio. Verifique em Faturas.', 'error')
+    onNavigate?.('facturas')
+    showMsg('Renovação não encontrada para este domínio. Verifique em Facturas.', 'error')
   }
 
   useEffect(() => {
@@ -10428,7 +10428,7 @@ export function DomainManagerSection({
         onClose={() => setEmailModal({ show: false, domain: '' })}
         onSuccess={() => {
           setEmailModal({ show: false, domain: '' })
-          // Permanece na página atual - não redireciona
+          // Permanece na página actual - não redireciona
         }}
       />
 
@@ -11059,7 +11059,7 @@ function DomainCreateModal({
         setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg))
       }
     } catch (e: any) {
-      console.error('[DomainCreateModal] Exceção:', e)
+      console.error('[DomainCreateModal] Excepção:', e)
       if (e.name === 'AbortError') {
         setError('Timeout: O servidor demorou muito para responder. Tente novamente.')
       } else {
@@ -11538,7 +11538,7 @@ export function EmailImportSection({ sites }: { sites: DirectAdminWebsite[] }) {
           <h3 className="font-bold text-gray-900 mb-4">Progresso da Importação</h3>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Pasta atual:</span>
+              <span className="text-gray-600">Pasta actual:</span>
               <span className="font-medium">{progress.currentFolder || 'Preparando...'}</span>
             </div>
             <div className="flex justify-between text-sm">
@@ -11926,7 +11926,7 @@ export function WatchdogSection() {
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${status.loading ? 'animate-spin' : ''}`} />
-          Atualizar
+          Actualizar
         </button>
       </div>
 
@@ -12059,7 +12059,7 @@ export function WatchdogSection() {
         <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
           <li>Verifica a cada <strong>2 minutos</strong> se OpenDKIM e Postfix estão rodando</li>
           <li>Reinicia automaticamente qualquer serviço que estiver parado</li>
-          <li>Registra todas as ações em <code>/var/log/watchdog.log</code></li>
+          <li>Registra todas as acções em <code>/var/log/watchdog.log</code></li>
           <li>Essencial para garantir entrega de emails 24/7</li>
         </ul>
       </div>

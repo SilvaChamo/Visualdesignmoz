@@ -1,5 +1,5 @@
 /**
- * DNS por defeito para email — receção via Brevo (sem porta 25 inbound Hetzner).
+ * DNS por defeito para email — recepção via Brevo (sem porta 25 inbound Hetzner).
  * Envio: Exim smarthost Brevo (já no servidor).
  */
 

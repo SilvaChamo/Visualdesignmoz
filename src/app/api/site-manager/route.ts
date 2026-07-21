@@ -7,7 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
  * Motor de hospedagem NATIVO — cria contas diretamente no servidor
  * (utilizador Linux isolado + vhost Apache + SSL Let's Encrypt), sem passar
  * pela DirectAdmin. Existe para não ficarmos limitados às 2 contas da
- * licença DA atual.
+ * licença DA actual.
  *
  * Importante: isto NUNCA mexe nos ficheiros de configuração que a própria
  * DirectAdmin gere — usa uma pasta própria (NATIVE_VHOST_DIR) que é incluída
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
       case 'setPackage':
         return await setNativeSitePackage(domain, String(body.packageId || ''))
       default:
-        return NextResponse.json({ success: false, error: `Ação desconhecida: ${action}` }, { status: 400 })
+        return NextResponse.json({ success: false, error: `Acção desconhecida: ${action}` }, { status: 400 })
     }
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -327,7 +327,7 @@ async function createNativeSite(domain: string, ownerEmail: string, ownerAuthUse
   }
   if (!quotaEnforced) {
     warnings.push(
-      `Pacote "${pkg.label}" foi atribuído, mas o limite de ${pkg.quotaMb} MB não está a ser bloqueado a sério pelo servidor (fica só registado). Para bloquear de verdade é preciso ativar quotas Linux no servidor — avisa o Claude se quiseres isso.`,
+      `Pacote "${pkg.label}" foi atribuído, mas o limite de ${pkg.quotaMb} MB não está a ser bloqueado a sério pelo servidor (fica só registado). Para bloquear de verdade é preciso activar quotas Linux no servidor — avisa o Claude se quiseres isso.`,
     )
   }
 
@@ -380,7 +380,7 @@ async function setNativeSitePackage(domain: string, packageId: string) {
     quotaEnforced,
     warning: quotaEnforced
       ? undefined
-      : `Pacote atualizado para "${pkg.label}", mas o bloqueio real de disco não foi aplicado (servidor sem quotas Linux ativas). Fica só registado.`,
+      : `Pacote actualizado para "${pkg.label}", mas o bloqueio real de disco não foi aplicado (servidor sem quotas Linux activas). Fica só registado.`,
   })
 }
 

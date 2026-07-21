@@ -782,7 +782,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               <th className="px-5 py-3 font-medium text-gray-500">Contacto</th>
               <th className="px-5 py-3 font-medium text-gray-500">Domínio</th>
               <th className="px-5 py-3 font-medium text-gray-500">Lista</th>
-              <th className="px-5 py-3 font-medium text-gray-500 text-right">Ações</th>
+              <th className="px-5 py-3 font-medium text-gray-500 text-right">Acções</th>
             </tr>
           </thead>
           <tbody className="divide-y">

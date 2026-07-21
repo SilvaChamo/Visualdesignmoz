@@ -74,7 +74,7 @@ export const CLIENT_SECTION_LABELS: Record<string, string> = {
   webmail: 'Webmail',
   mailmarketing: 'Mailmarketing',
   tickets: 'Suporte',
-  faturas: 'Faturas',
+  facturas: 'Facturas',
   conta: 'Conta',
   'emails-new': 'E-mail',
 };

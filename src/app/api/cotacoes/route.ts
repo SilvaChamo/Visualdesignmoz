@@ -23,7 +23,7 @@ export async function GET() {
 
     const { data: quotations, error } = await admin
       .from('quotation_requests')
-      .select('id, categoria_label, produto, quantidade, total_mt, status, data_limite_entrega, created_at')
+      .select('id, categoria_label, produto, quantidade, total_mt, sob_consulta, status, data_limite_entrega, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       produto,
       quantidade,
       dataLimiteEntrega,
+      notas,
     } = body ?? {};
 
     if (
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
     }
 
-    const totalMt = Math.round(found.item.price * quantidadeNum * 100) / 100;
+    // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
+    // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
+    const sobConsulta = Boolean(found.item.sobConsulta);
+    const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -131,6 +135,8 @@ export async function POST(request: NextRequest) {
         quantidade: quantidadeNum,
         data_limite_entrega: dataLimiteEntrega,
         total_mt: totalMt,
+        sob_consulta: sobConsulta,
+        notas: notas || null,
         status: 'pending',
       })
       .select()

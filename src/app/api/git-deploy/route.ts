@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         steps,
-        message: 'Deploy iniciado! GitHub atualizado e site online sendo atualizado em ~1-2 minutos.',
+        message: 'Deploy iniciado! GitHub actualizado e site online sendo actualizado em ~1-2 minutos.',
         vercelDashboard: VERCEL_DEPLOY_HOOK ? `https://vercel.com/silvachamo/${GITHUB_REPO.toLowerCase()}/deployments` : null,
       })
     }

@@ -204,7 +204,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection }: {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-xs font-medium ${parseState(site.state) === 'Active' ? 'text-green-600' : 'text-red-500'}`}>
-                      ● {parseState(site.state) === 'Active' ? 'Ativo' : 'Suspenso'}
+                      ● {parseState(site.state) === 'Active' ? 'Activo' : 'Suspenso'}
                     </span>
                     <span className="text-gray-300">·</span>
                     <span className="text-xs text-gray-400">Exp: {getExpirationDate(site.domain)}</span>
@@ -1299,7 +1299,7 @@ function ManageWebsiteSection({
       const isExpanding = !prev.includes(id)
       const newState = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
 
-      // Se estiver expandindo, manter scroll na posição atual (não auto-scroll)
+      // Se estiver expandindo, manter scroll na posição actual (não auto-scroll)
       if (isExpanding) {
         // Não fazer nada - página mantém-se fixa
       }
@@ -2662,14 +2662,14 @@ function ResellerPageContent() {
 
   // Função para navegar com domínio padrão para emails
   const handleNavigate = (section: string) => {
-    // Intercetar ação de criar email
+    // Intercetar acção de criar email
     if (section === 'criar-email') {
       setEmailForm({ user: '', password: '', quota: '500' })
       setEmailMsg('')
       setShowEmailModal(true)
       return
     }
-    // Intercetar ação de cadastrar renovação - abrir popup
+    // Intercetar acção de cadastrar renovação - abrir popup
     if (section === 'cadastrar-renovacao') {
       setCadastroForm({
         type: 'domain',
@@ -3081,7 +3081,7 @@ function AuditFormResellerDemo() {
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-lg max-w-4xl mx-auto space-y-6 shadow-sm">
       <div className="border-b pb-4">
-        <h2 className="text-lg font-bold text-gray-900">Demonstração: Formulário de Configuração de Pacote de Revenda (Inativo)</h2>
+        <h2 className="text-lg font-bold text-gray-900">Demonstração: Formulário de Configuração de Pacote de Revenda (Inactivo)</h2>
         <p className="text-xs text-gray-500">
           Este formulário (ResellerProvisionForm) permitia configurar detalhadamente limites de recursos no DirectAdmin para novos revendedores.
         </p>

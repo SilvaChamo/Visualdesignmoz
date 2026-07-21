@@ -81,7 +81,7 @@ export function TemplatesSection() {
       setHistoryIndex(newIndex)
       const newContent = history[newIndex]
       setEditingTemplate({ ...editingTemplate, emailBody: newContent })
-      // Atualizar diretamente o editor visual
+      // Actualizar diretamente o editor visual
       if (editorRef.current && editorMode === 'visual') {
         editorRef.current.innerHTML = newContent
       }
@@ -95,7 +95,7 @@ export function TemplatesSection() {
       setHistoryIndex(newIndex)
       const newContent = history[newIndex]
       setEditingTemplate({ ...editingTemplate, emailBody: newContent })
-      // Atualizar diretamente o editor visual
+      // Actualizar diretamente o editor visual
       if (editorRef.current && editorMode === 'visual') {
         editorRef.current.innerHTML = newContent
       }

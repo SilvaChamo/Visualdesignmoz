@@ -40,7 +40,7 @@ function readCookieTheme(): ThemeMode | null {
 
 function readStoredTheme(): ThemeMode | null {
   // O cookie é a fonte de verdade partilhada entre site e painel — só cai
-  // para localStorage se ainda não houver cookie (ex: antes desta correção).
+  // para localStorage se ainda não houver cookie (ex: antes desta correcção).
   const fromCookie = readCookieTheme();
   if (fromCookie) return fromCookie;
   try {

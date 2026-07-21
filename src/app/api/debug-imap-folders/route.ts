@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'Falha na autenticação IMAP',
         details: connectError.message,
-        suggestion: 'Verifique se a senha está correta e se o servidor IMAP está acessível'
+        suggestion: 'Verifique se a senha está correcta e se o servidor IMAP está acessível'
       }, { status: 401 })
     }
 
@@ -126,7 +126,7 @@ function getFolderVariations(folder: string): string[] {
   return variations
 }
 
-// Helper para sugerir mapeamento correto
+// Helper para sugerir mapeamento correcto
 function getRecommendedMapping(folderList: any[]): Record<string, string> {
   const mapping: Record<string, string> = {}
   const paths = folderList.map(f => f.path.toLowerCase())

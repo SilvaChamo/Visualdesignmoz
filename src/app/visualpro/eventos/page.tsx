@@ -107,7 +107,7 @@ export default function EventosAudioVisualPage() {
               {[
                 { step: '1', title: 'Briefing do Evento', desc: 'Mapeamos o cronograma do evento, momentos-chave que precisam de ser gravados e entrevistas a realizar.' },
                 { step: '2', title: 'Captação no Local', desc: 'Nossos técnicos chegam antes para montagem e realizam a captação discreta e profissional.' },
-                { step: '3', title: 'Pós-Produção Rápida', desc: 'Montagem, correção de cor, sonorização e entrega rápida das fotos e do vídeo resumo final.' }
+                { step: '3', title: 'Pós-Produção Rápida', desc: 'Montagem, correcção de cor, sonorização e entrega rápida das fotos e do vídeo resumo final.' }
               ].map(({ step, title, desc }) => (
                 <div key={step} className="flex gap-4 p-6 rounded-lg border bg-white dark:bg-zinc-800 border-zinc-200/80 dark:border-white/10 text-left">
                   <span className="shrink-0 w-10 h-10 rounded-lg border flex items-center justify-center border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 font-extrabold text-red-600 dark:text-red-500 text-lg">

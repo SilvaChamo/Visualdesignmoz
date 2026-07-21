@@ -11,7 +11,7 @@ export default function FAQPage() {
     },
     {
       question: "Que métodos de pagamento aceitam?",
-      answer: "Aceitamos pagamentos via M-Pesa, e-Mola, Cartão Visa/Mastercard e Transferência Bancária. Para pagamentos locais (M-Pesa/e-Mola), a ativação é automática."
+      answer: "Aceitamos pagamentos via M-Pesa, e-Mola, Cartão Visa/Mastercard e Transferência Bancária. Para pagamentos locais (M-Pesa/e-Mola), a activação é automática."
     },
     {
       question: "O alojamento inclui certificados SSL grátis?",
@@ -19,7 +19,7 @@ export default function FAQPage() {
     },
     {
       question: "Posso transferir o meu site para a VisualDesign?",
-      answer: "Absolutamente! Oferecemos migração gratuita do seu site e emails atuais se vier de outro provedor cPanel."
+      answer: "Absolutamente! Oferecemos migração gratuita do seu site e emails actuais se vier de outro provedor cPanel."
     }
   ]
 

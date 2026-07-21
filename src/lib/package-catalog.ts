@@ -15,7 +15,7 @@ function usdToMt(usd: number): number {
 
 /**
  * Planos de hospedagem/email vendidos hoje através do carrinho (DomainSearch, CartDrawer).
- * Preços em MT, para os dois ciclos de faturação usados na UI.
+ * Preços em MT, para os dois ciclos de facturação usados na UI.
  */
 const HOSTING_EMAIL_CATALOG: Record<string, { name: string; monthly: number; annual: number }> = {
   'hosting-basico': { name: 'Alojamento Web Básico', monthly: 680, annual: 7344 },

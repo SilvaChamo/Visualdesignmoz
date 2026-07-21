@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         const destFolder = folderMapping[gmailFolder]
 
         try {
-          // Selecionar pasta no Gmail
+          // Seleccionar pasta no Gmail
           await gmailClient.mailboxOpen(gmailFolder)
           const messages = await gmailClient.search({ seen: false })
           
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
               // Pasta pode já existir
             }
 
-            // Selecionar pasta no servidor
+            // Seleccionar pasta no servidor
             await destClient.mailboxOpen(destFolder)
 
             // Copiar cada mensagem

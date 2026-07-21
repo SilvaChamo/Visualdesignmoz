@@ -165,9 +165,9 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
           <div className="mt-8 sm:mt-10 mx-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { step: '1', title: 'Briefing & Diagnóstico', desc: 'Ouvimos atentamente as suas necessidades, estudamos o mercado e o contexto da sua marca para definir os objetivos do projeto.' },
+                { step: '1', title: 'Briefing & Diagnóstico', desc: 'Ouvimos atentamente as suas necessidades, estudamos o mercado e o contexto da sua marca para definir os objectivos do projecto.' },
                 { step: '2', title: 'Criação & Revisão', desc: 'Desenvolvemos conceitos criativos, apresentamos propostas e refinamos iterativamente até chegar à solução que melhor representa a sua marca.' },
-                { step: '3', title: 'Entrega & Suporte', desc: 'Entregamos todos os ficheiros nos formatos corretos, com acompanhamento pós-entrega para garantir a correta implementação.' },
+                { step: '3', title: 'Entrega & Suporte', desc: 'Entregamos todos os ficheiros nos formatos corretos, com acompanhamento pós-entrega para garantir a correcta implementação.' },
               ].map(({ step, title, desc }) => (
                 <div key={step} className="flex gap-4 p-4 rounded-lg border bg-white dark:bg-zinc-800 border-zinc-200/80 dark:border-white/10">
                   <span className="shrink-0 w-11 h-11 rounded-lg border flex items-center justify-center border-red-600/40 dark:border-red-500/40 bg-red-600/5 dark:bg-red-500/5 font-extrabold text-red-600 dark:text-red-500 text-lg">

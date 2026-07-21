@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
 
       default:
         return NextResponse.json(
-          { success: false, error: `Ação "${action}" não suportada.`, supported: false },
+          { success: false, error: `Acção "${action}" não suportada.`, supported: false },
           { status: 400 },
         );
     }

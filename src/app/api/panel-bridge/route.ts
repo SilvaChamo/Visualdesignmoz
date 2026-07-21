@@ -36,7 +36,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       default:
         return NextResponse.json(
-          { success: false, error: `Ação "${action}" não suportada pela bridge DirectAdmin` },
+          { success: false, error: `Acção "${action}" não suportada pela bridge DirectAdmin` },
           { status: 400 }
         );
     }

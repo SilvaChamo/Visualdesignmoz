@@ -179,7 +179,7 @@ ${body}
       return NextResponse.json({ success: true, output, running });
     }
 
-    // Ações de manutenção avançada
+    // Acções de manutenção avançada
     if (action === 'killProcesses') {
       // Matar todos os processos postfix travados
       const output = await execSSH(`
@@ -239,7 +239,7 @@ ${body}
       return NextResponse.json({ success: !hasErrors, output });
     }
 
-    // NOVAS AÇÕES: Correção de problemas específicos
+    // NOVAS ACÇÕES: Correcção de problemas específicos
     
     if (action === 'fixSASL') {
       // Corrigir configuração SASL para autenticação funcionar
@@ -253,7 +253,7 @@ ${body}
         postconf -# mua_sender_restrictions 2>/dev/null || true
         postconf -# dovecot_destination_recipient_limit 2>/dev/null || true
         
-        # Configurar SASL corretamente
+        # Configurar SASL correctamente
         postconf -e 'smtpd_sasl_auth_enable = yes'
         postconf -e 'smtpd_sasl_type = dovecot'
         postconf -e 'smtpd_sasl_path = private/auth'
@@ -641,7 +641,7 @@ ${body}
         netstat -tlnp | grep :25 || ss -tlnp | grep :25 || echo "Porta 25 não está ouvindo"
         echo ""
         
-        echo "=== Correção concluída ==="
+        echo "=== Correcção concluída ==="
       `);
       return NextResponse.json({ success: true, output });
     }
@@ -728,7 +728,7 @@ ${body}
       });
     }
 
-    return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
+    return NextResponse.json({ error: 'Acção desconhecida' }, { status: 400 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro interno';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

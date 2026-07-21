@@ -54,7 +54,7 @@ const FLAT_ITEMS: FlatItem[] = [
   { id: 'webmail', label: 'Webmail', icon: Mail },
   { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
   { id: 'tickets', label: 'Suporte', icon: Users },
-  { id: 'faturas', label: 'Faturas', icon: FileText },
+  { id: 'facturas', label: 'Facturas', icon: FileText },
   { id: 'conta', label: 'Conta', icon: Settings },
 ];
 

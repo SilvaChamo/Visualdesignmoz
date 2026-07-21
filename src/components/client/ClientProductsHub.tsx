@@ -99,7 +99,7 @@ export function ClientProductsHub({ onNavigate }: Props) {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => onNavigate?.('faturas')}
+                      onClick={() => onNavigate?.('facturas')}
                       className="text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                     >
                       Renovar
@@ -160,7 +160,7 @@ export function ClientProductsHub({ onNavigate }: Props) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => onNavigate?.('faturas')}
+                      onClick={() => onNavigate?.('facturas')}
                       className="text-xs font-bold bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
                     >
                       Renovar

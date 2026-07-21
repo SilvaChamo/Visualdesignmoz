@@ -57,7 +57,7 @@ export function NotificationsPanel({ userEmail }: NotificationsPanelProps) {
 
   useEffect(() => {
     fetchNotifications()
-    // Atualizar a cada 30 segundos
+    // Actualizar a cada 30 segundos
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [fetchNotifications])

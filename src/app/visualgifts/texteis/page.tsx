@@ -71,7 +71,7 @@ export default function TexteisSubPage() {
                 <ul className="space-y-3">
                   {[
                     'Polos e T-Shirts promocionais e corporativos',
-                    'Camisas de alta gama para escritório ou receção',
+                    'Camisas de alta gama para escritório ou recepção',
                     'Coletes de alta visibilidade e calças técnicas',
                     'Bordados de alta precisão e durabilidade',
                     'Serigrafia, sublimação e estampagem têxtil'

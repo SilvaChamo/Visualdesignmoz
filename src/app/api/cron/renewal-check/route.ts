@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // no conteúdo padrão, ignorando edições feitas em Templates de Renovação.
     const templates = await getServerRenewalTemplates(supabaseAdmin)
 
-    // Buscar dias de lembrete ativos
+    // Buscar dias de lembrete activos
     const reminderDays = templates
       .filter(t => t.daysBefore > 0)
       .map(t => t.daysBefore)

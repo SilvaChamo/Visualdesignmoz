@@ -50,13 +50,13 @@ O sistema pode bloquear temporariamente envios se:
 - Reputação do domínio cair abaixo de 50/100
 
 5. RESPONSABILIDADES DO CLIENTE
-- Manter lista de contactos limpa e atualizada
+- Manter lista de contactos limpa e actualizada
 - Não enviar spam ou conteúdo não solicitado
 - Respeitar limites diários impostos pelo sistema
 - Não tentar burlar o sistema de warm-up
 
 6. BENEFÍCIOS DO SISTEMA
-- Proteção automática contra blacklists
+- Protecção automática contra blacklists
 - Melhor taxa de entrega para inbox
 - Reputação protegida do domínio
 - Monitoramento contínuo 24/7
@@ -400,7 +400,7 @@ export function generateTermsHTML(): string {
         <li><span class="highlight">PREMIUM (30+ dias):</span> 2000 emails/dia</li>
     </ul>
     
-    <h2>🛡️ Proteções Automáticas</h2>
+    <h2>🛡️ Protecções Automáticas</h2>
     <div class="warning">
         <strong>⚠️ Bloqueios Automáticos:</strong>
         <ul style="margin: 10px 0;">
@@ -413,7 +413,7 @@ export function generateTermsHTML(): string {
     
     <h2>✓ Compromissos do Cliente</h2>
     <ul>
-        <li>Manter lista de contactos atualizada e válida</li>
+        <li>Manter lista de contactos actualizada e válida</li>
         <li>Não enviar spam ou conteúdo não solicitado</li>
         <li>Respeitar os limites impostos pelo sistema</li>
         <li>Seguir boas práticas de email marketing</li>
@@ -421,7 +421,7 @@ export function generateTermsHTML(): string {
     
     <h2>📈 Benefícios</h2>
     <ul>
-        <li>✓ Proteção automática contra blacklists</li>
+        <li>✓ Protecção automática contra blacklists</li>
         <li>✓ Melhor taxa de entrega (inbox vs spam)</li>
         <li>✓ Reputação do domínio protegida</li>
         <li>✓ Monitoramento contínuo 24/7</li>

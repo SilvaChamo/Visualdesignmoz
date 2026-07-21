@@ -50,26 +50,26 @@ export default function PrivacyPage() {
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white">4. Partilha com Terceiros</h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                Não vendemos ou alugamos dados pessoais a terceiros. As informações apenas poderão ser partilhadas com parceiros de confiança estritamente necessários para a execução dos serviços contratados (como operadoras de pagamento eletrónico M-Pesa, E-Mola, processadores de cartão de crédito e entidades oficiais de registo de domínios).
+                Não vendemos ou alugamos dados pessoais a terceiros. As informações apenas poderão ser partilhadas com parceiros de confiança estritamente necessários para a execução dos serviços contratados (como operadoras de pagamento electrónico M-Pesa, E-Mola, processadores de cartão de crédito e entidades oficiais de registo de domínios).
               </p>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white">5. Direitos do Utilizador</h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                O utilizador tem o direito de aceder, retificar, atualizar ou solicitar a eliminação dos seus dados pessoais armazenados nos nossos sistemas. Para exercer estes direitos, poderá aceder à sua área de cliente ou enviar um pedido por escrito ao nosso suporte através do formulário de contacto.
+                O utilizador tem o direito de aceder, retificar, actualizar ou solicitar a eliminação dos seus dados pessoais armazenados nos nossos sistemas. Para exercer estes direitos, poderá aceder à sua área de cliente ou enviar um pedido por escrito ao nosso suporte através do formulário de contacto.
               </p>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white">6. Alterações à Política de Privacidade</h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                A VisualDesign reserva-se o direito de atualizar esta política a qualquer momento para refletir melhorias técnicas ou alterações regulatórias. Recomendamos a consulta periódica desta página para estar a par de qualquer atualização.
+                A VisualDesign reserva-se o direito de actualizar esta política a qualquer momento para refletir melhorias técnicas ou alterações regulatórias. Recomendamos a consulta periódica desta página para estar a par de qualquer actualização.
               </p>
             </section>
 
             <div className="pt-6 border-t border-zinc-100 dark:border-white/5 text-xs text-zinc-400 text-center">
-              Última atualização: Julho de 2026.
+              Última actualização: Julho de 2026.
             </div>
 
           </div>

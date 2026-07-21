@@ -70,7 +70,7 @@ export async function GET() {
   }
 }
 
-// POST - Salvar/atualizar templates
+// POST - Salvar/actualizar templates
 export async function POST(request: Request) {
   try {
     if (!(await checkIsAdmin())) {
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     }))
     
-    // Usar upsert para inserir ou atualizar
+    // Usar upsert para inserir ou actualizar
     const { data, error } = await supabase
       .from('renewal_templates')
       .upsert(dbTemplates, { 
@@ -156,7 +156,7 @@ export async function DELETE() {
     const { error } = await supabase
       .from('renewal_templates')
       .update({ is_active: false })
-      .neq('template_id', 'placeholder') // condição para atualizar todos
+      .neq('template_id', 'placeholder') // condição para actualizar todos
     
     if (error) {
       console.error('Erro ao resetar templates:', error)

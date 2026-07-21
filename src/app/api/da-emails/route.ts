@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, domain, emails });
     }
 
-    return NextResponse.json({ success: false, error: 'Ação ou domínio em falta' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Acção ou domínio em falta' }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: false, error: 'Ação inválida' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Acção inválida' }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }

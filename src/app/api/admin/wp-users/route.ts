@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, output: result.output });
     }
 
-    return NextResponse.json({ success: false, error: 'Ação desconhecida' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Acção desconhecida' }, { status: 400 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro na operação';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

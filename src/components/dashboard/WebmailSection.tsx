@@ -193,13 +193,13 @@ export function WebmailSection({
     }
     return {}
   })
-  // Ref para acessar valor atual sem causar re-render
+  // Ref para acessar valor actual sem causar re-render
   const assinaturasPorEmailRef = useRef(assinaturasPorEmail)
   useEffect(() => {
     assinaturasPorEmailRef.current = assinaturasPorEmail
   }, [assinaturasPorEmail])
 
-  // Assinaturas da conta atual - inicia vazio, carrega do localStorage por email
+  // Assinaturas da conta actual - inicia vazio, carrega do localStorage por email
   const [assinaturas, setAssinaturas] = useState<{ nome: string, activa: boolean, texto: string, imagemUrl: string }[]>([])
   const [assinaturaAtiva, setAssinaturaAtiva] = useState(0)
   
@@ -848,11 +848,11 @@ export function WebmailSection({
       if (data.success && data.folderTotals) {
         folderCountsLoadedRef.current = true
         setFolderCounts(data.folderTotals)
-        // Cache desativado - não atualizar
+        // Cache desativado - não actualizar
       }
     } catch (e: any) {
       if (e?.name !== 'AbortError') {
-        console.error('Erro ao atualizar contagens:', e)
+        console.error('Erro ao actualizar contagens:', e)
       }
     } finally {
       if (loadCountsAbortControllerRef.current === controller) {
@@ -1060,7 +1060,7 @@ export function WebmailSection({
 
     const account = accounts.find(a => a.email === selectedAccount)
     if (!account) {
-      alert('Erro: Conta de email não selecionada')
+      alert('Erro: Conta de email não seleccionada')
       return
     }
 
@@ -1344,7 +1344,7 @@ export function WebmailSection({
               {folders.map(folder => {
                 const Icon = folder.icon
                 const isActive = activeFolder === folder.id
-                // Usar contagem real da pasta, não da pasta ativa
+                // Usar contagem real da pasta, não da pasta activa
                 const count = folderCounts[folder.id] || 0
 
                 return (
@@ -1454,7 +1454,7 @@ export function WebmailSection({
                   </span>
                   {selectedEmails.size > 0 && (
                     <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded whitespace-nowrap">
-                      {selectedEmails.size} selecionado(s)
+                      {selectedEmails.size} seleccionado(s)
                     </span>
                   )}
                   {syncingEmails && (
@@ -1541,7 +1541,7 @@ export function WebmailSection({
               </div>
               
               <div className="flex-1 flex overflow-hidden">
-                {/* Lista de emails - escondida quando um email está selecionado */}
+                {/* Lista de emails - escondida quando um email está seleccionado */}
                 <div className={`w-full border-r border-gray-100 flex flex-col bg-white shrink-0 ${selectedEmail ? 'hidden' : 'flex'}`}>
                   <div className="flex-1 overflow-y-auto">
                     {loadingEmails && emails.length === 0 ? (
@@ -1686,7 +1686,7 @@ export function WebmailSection({
                             </p>
                           </div>
                           
-                          {/* Ações ao passar mouse */}
+                          {/* Acções ao passar mouse */}
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                             <button
                               onClick={(ev) => {
@@ -1718,7 +1718,7 @@ export function WebmailSection({
                   </div>
                 </div>
 
-                {/* Conteúdo do email - ocupa tela inteira quando selecionado */}
+                {/* Conteúdo do email - ocupa tela inteira quando seleccionado */}
                 {selectedEmail ? (
                   <div className="flex-1 flex flex-col w-full bg-white">
                     <div className="p-6 border-b border-gray-100">
@@ -2170,7 +2170,7 @@ export function WebmailSection({
                           />
                         ) : (
                           <p className={`text-sm ${modoEscuroAssinatura ? 'text-slate-500' : 'text-gray-400'} italic`}>
-                            Nenhuma assinatura selecionada
+                            Nenhuma assinatura seleccionada
                           </p>
                         )}
                       </div>
@@ -2179,9 +2179,9 @@ export function WebmailSection({
                 </div>
               </div>
 
-              {/* Seção: Selecionar assinatura predefinida */}
+              {/* Seção: Seleccionar assinatura predefinida */}
               <div>
-                <h4 className={`text-sm font-semibold mb-3 ${modoEscuroAssinatura ? 'text-slate-300' : 'text-gray-700'}`}>Selecionar assinatura predefinida:</h4>
+                <h4 className={`text-sm font-semibold mb-3 ${modoEscuroAssinatura ? 'text-slate-300' : 'text-gray-700'}`}>Seleccionar assinatura predefinida:</h4>
                 <div className={`rounded border ${modoEscuroAssinatura ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'} p-4 space-y-3`}>
                   <div className="grid grid-cols-[100px_1fr] items-center gap-3">
                     <label className={`text-sm ${modoEscuroAssinatura ? 'text-slate-400' : 'text-gray-600'}`}>Conta:</label>
@@ -2487,11 +2487,11 @@ export function WebmailSection({
                       </li>
                       <li className="flex gap-2">
                         <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">3</span>
-                        <span>Em "Selecionar app", escolha "Email"</span>
+                        <span>Em "Seleccionar app", escolha "Email"</span>
                       </li>
                       <li className="flex gap-2">
                         <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">4</span>
-                        <span>Em "Selecionar dispositivo", escolha "Outro"</span>
+                        <span>Em "Seleccionar dispositivo", escolha "Outro"</span>
                       </li>
                       <li className="flex gap-2">
                         <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">5</span>

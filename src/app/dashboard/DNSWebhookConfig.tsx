@@ -280,7 +280,7 @@ export function DNSWebhookConfig() {
           <li>Aceder ao painel de revenda da Mozserver</li>
           <li>Ir a Configurações → Webhooks/API</li>
           <li>Adicionar URL do webhook: <code className="bg-yellow-100 px-1 py-0.5 rounded">{WEBHOOK_URL}</code></li>
-          <li>Selecionar eventos: <code className="bg-yellow-100 px-1 py-0.5 rounded">domain.registered</code>, <code className="bg-yellow-100 px-1 py-0.5 rounded">domain.transferred</code></li>
+          <li>Seleccionar eventos: <code className="bg-yellow-100 px-1 py-0.5 rounded">domain.registered</code>, <code className="bg-yellow-100 px-1 py-0.5 rounded">domain.transferred</code></li>
           <li>Guardar configuração</li>
         </ol>
       </div>

@@ -57,7 +57,7 @@ export default function TermsPage() {
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white">5. Limitação de Responsabilidade</h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                Em nenhuma circunstância a VisualDesign será responsável por danos indiretos, incidentais ou consequenciais decorrentes da interrupção temporária de serviços de alojamento, falhas de rede de terceiros ou atualizações técnicas necessárias para a segurança e estabilidade dos sistemas.
+                Em nenhuma circunstância a VisualDesign será responsável por danos indiretos, incidentais ou consequenciais decorrentes da interrupção temporária de serviços de alojamento, falhas de rede de terceiros ou actualizações técnicas necessárias para a segurança e estabilidade dos sistemas.
               </p>
             </section>
 
@@ -69,7 +69,7 @@ export default function TermsPage() {
             </section>
 
             <div className="pt-6 border-t border-zinc-100 dark:border-white/5 text-xs text-zinc-400 text-center">
-              Última atualização: Julho de 2026.
+              Última actualização: Julho de 2026.
             </div>
 
           </div>

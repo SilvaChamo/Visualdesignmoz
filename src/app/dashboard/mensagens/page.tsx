@@ -102,7 +102,7 @@ export default function AdminMessagesPage() {
             }
 
             if (allRecipients.length === 0) {
-                toast.error("Nenhum destinatário encontrado para os grupos selecionados.");
+                toast.error("Nenhum destinatário encontrado para os grupos seleccionados.");
                 setIsSending(false);
                 return;
             }
@@ -131,7 +131,7 @@ export default function AdminMessagesPage() {
                 throw new Error(result.error || "Erro ao enviar mensagem");
             }
             
-            // 🐛 CORREÇÃO: Verificar se realmente enviou
+            // 🐛 CORRECÇÃO: Verificar se realmente enviou
             const sentCount = result?.details?.success ?? 0;
             const failedCount = result?.details?.failed ?? 0;
             
@@ -262,7 +262,7 @@ export default function AdminMessagesPage() {
                             />
                         </div>
                         <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
-                            O endereço selecionado será usado para as respostas.
+                            O endereço seleccionado será usado para as respostas.
                         </p>
                     </div>
 

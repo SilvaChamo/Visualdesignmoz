@@ -150,7 +150,7 @@ export default function SubscritoresPage() {
                 <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscritor</th>
                 <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
-                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acções</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -173,7 +173,7 @@ export default function SubscritoresPage() {
                         <div className="flex flex-col"><span className="font-bold text-slate-900 text-sm">{sub.email}</span><span className="text-xs text-slate-400 font-medium">{sub.full_name || 'Particular'}</span></div>
                     </div></td>
                     <td className="px-5 py-3"><span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${sub.status === 'subscribed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${sub.status === 'subscribed' ? 'bg-emerald-500' : 'bg-rose-500'}`} />{sub.status === 'subscribed' ? 'Subscrito' : 'Inativo'}
+                        <div className={`w-1.5 h-1.5 rounded-full ${sub.status === 'subscribed' ? 'bg-emerald-500' : 'bg-rose-500'}`} />{sub.status === 'subscribed' ? 'Subscrito' : 'Inactivo'}
                     </span></td>
                     <td className="px-5 py-3 text-xs font-bold text-slate-500">{new Date(sub.created_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                     <td className="px-5 py-3 text-right"><button onClick={() => handleDelete(sub.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all group-hover:opacity-100 md:opacity-0"><Trash2 size={16} /></button></td>

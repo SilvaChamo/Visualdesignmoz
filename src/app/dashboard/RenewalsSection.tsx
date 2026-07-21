@@ -252,7 +252,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
           <div className="flex items-center gap-3">
             <CheckCircle className="w-8 h-8 text-emerald-400" />
             <div>
-              <p className="text-sm text-emerald-600 font-medium">Ativos</p>
+              <p className="text-sm text-emerald-600 font-medium">Activos</p>
               <p className="text-2xl font-bold">{stats.active}</p>
             </div>
           </div>

@@ -32,7 +32,7 @@ export const WARMUP_PHASES = [
   { phase: 'PHASE_2', days: 2, limit: 50, description: 'Fase 2: 50 emails/dia (Dias 2-3)' },
   { phase: 'PHASE_3', days: 4, limit: 100, description: 'Fase 3: 100 emails/dia (Dias 4-7)' },
   { phase: 'PHASE_4', days: 8, limit: 250, description: 'Fase 4: 250 emails/dia (Dias 8-14)' },
-  { phase: 'ACTIVE', days: 15, limit: 500, description: 'Fase Ativa: 500 emails/dia (Após 15 dias)' },
+  { phase: 'ACTIVE', days: 15, limit: 500, description: 'Fase Activa: 500 emails/dia (Após 15 dias)' },
 ] as const;
 
 export type WarmupPhase = typeof WARMUP_PHASES[number]['phase'];

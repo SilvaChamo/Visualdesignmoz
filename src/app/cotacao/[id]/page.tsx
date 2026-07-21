@@ -26,6 +26,8 @@ type QuotationRow = {
   quantidade: number;
   data_limite_entrega: string;
   total_mt: number;
+  sob_consulta: boolean;
+  notas: string | null;
   status: string;
   created_at: string;
 };
@@ -207,17 +209,25 @@ function CotacaoDocumentContent() {
                   <span className="text-zinc-500">{quotation.produto}</span>
                 </td>
                 <td className="py-3 text-right">{quotation.quantidade}</td>
-                <td className="py-3 text-right">{formatMt(quotation.preco_unitario_mt)} MT</td>
-                <td className="py-3 text-right font-bold">{formatMt(quotation.total_mt)} MT</td>
+                <td className="py-3 text-right">{quotation.sob_consulta ? 'Sob Consulta' : `${formatMt(quotation.preco_unitario_mt)} MT`}</td>
+                <td className="py-3 text-right font-bold">{quotation.sob_consulta ? 'Sob Consulta' : `${formatMt(quotation.total_mt)} MT`}</td>
               </tr>
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} className="pt-4 text-right font-bold text-zinc-900">Total</td>
-                <td className="pt-4 text-right font-bold text-zinc-900">{formatMt(quotation.total_mt)} MT</td>
-              </tr>
-            </tfoot>
+            {!quotation.sob_consulta && (
+              <tfoot>
+                <tr>
+                  <td colSpan={3} className="pt-4 text-right font-bold text-zinc-900">Total</td>
+                  <td className="pt-4 text-right font-bold text-zinc-900">{formatMt(quotation.total_mt)} MT</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
+
+          {quotation.notas && (
+            <div className="bg-zinc-50 border border-zinc-200 rounded-md p-4 mb-4 text-sm">
+              <p className="text-zinc-700"><span className="font-bold">Notas:</span> {quotation.notas}</p>
+            </div>
+          )}
 
           {/* Prazo */}
           <div className="bg-zinc-50 border border-zinc-200 rounded-md p-4 mb-4 text-sm">
@@ -227,11 +237,19 @@ function CotacaoDocumentContent() {
 
           {/* Pagamento */}
           <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm">
-            <p className="text-zinc-800">
-              <span className="font-bold">Condições de pagamento:</span> 70% de adiantamento na aprovação da cotação
-              ({formatMt(adiantamento)} MT), restante na entrega.
-            </p>
-            <p className="text-xs text-zinc-600 mt-1">Adiantamento via M-Pesa: {MPESA_NUMBER}</p>
+            {quotation.sob_consulta ? (
+              <p className="text-zinc-800">
+                <span className="font-bold">Condições de pagamento:</span> serviço Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.
+              </p>
+            ) : (
+              <>
+                <p className="text-zinc-800">
+                  <span className="font-bold">Condições de pagamento:</span> 70% de adiantamento na aprovação da cotação
+                  ({formatMt(adiantamento)} MT), restante na entrega.
+                </p>
+                <p className="text-xs text-zinc-600 mt-1">Adiantamento via M-Pesa: {MPESA_NUMBER}</p>
+              </>
+            )}
           </div>
 
           <p className="text-[11px] text-zinc-400 mt-8 text-center">

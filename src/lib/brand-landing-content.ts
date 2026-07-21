@@ -152,7 +152,7 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     },
     servicesPretitle: 'O que fazemos',
     servicesTitle: 'Produção Audiovisual',
-    servicesSubtitle: 'Conteúdo profissional em foto e vídeo adaptado ao seu mercado e objetivos.',
+    servicesSubtitle: 'Conteúdo profissional em foto e vídeo adaptado ao seu mercado e objectivos.',
     services: [
       { Icon: Video, title: 'Produção de Vídeo', desc: 'Vídeos institucionais, spot TV e conteúdos publicitários.', href: '/visualpro' },
       { Icon: Camera, title: 'Fotografia Profissional', desc: 'Sessões de produto, retrato corporate e instalações.', href: '/visualpro/fotografia' },
@@ -163,7 +163,7 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     whyUsSubtitle: 'Da captação no local à edição final.',
     whyUs: [
       { Icon: Video, title: 'Equipamento topo de gama', teaser: 'Imagem e som de alta fidelidade.', desc: 'Trabalhamos com câmaras de cinema digital, sistemas de iluminação e som dedicados a produções profissionais.' },
-      { Icon: Users, title: 'Equipa dedicada', teaser: 'Fotógrafos, videógrafos e editores experientes.', desc: 'Uma equipa sintonizada que acompanha o projeto do guião até à entrega da nuvem de ficheiros.' },
+      { Icon: Users, title: 'Equipa dedicada', teaser: 'Fotógrafos, videógrafos e editores experientes.', desc: 'Uma equipa sintonizada que acompanha o projecto do guião até à entrega da nuvem de ficheiros.' },
       { Icon: Clock, title: 'Prazos definidos', teaser: 'Acompanhamento e datas realistas.', desc: 'Sabe exatamente quando receberá os seus conteúdos, com tempo garantido para revisões e ajustes.' },
       { Icon: Smile, title: 'Formatos otimizados', teaser: 'Formatos certos para cada canal.', desc: 'Entregamos versões otimizadas para redes sociais (vertical), apresentações corporativas ou spot de televisão.' },
     ],
@@ -243,11 +243,11 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
       { Icon: Sparkles, title: 'Fidelidade de Cores', teaser: 'Logótipo impresso com máxima fidelidade.', desc: 'Garantimos que a impressão, sublimação ou bordagem segue a paleta exata da sua identidade de marca.' },
       { Icon: Award, title: 'Materiais de Confiança', teaser: 'Qualidade que os seus parceiros vão notar.', desc: 'Selecionamos os melhores tecidos e artigos promocionais para garantir a valorização da sua marca.' },
       { Icon: PackageOpen, title: 'Preço por Quantidade', teaser: 'Condições escaláveis para grandes volumes.', desc: 'Preços altamente competitivos para encomendas volumosas ou campanhas de escala nacional.' },
-      { Icon: Clock, title: 'Entrega Pronta', teaser: 'Prazo garantido para o seu evento.', desc: 'Coordenamos o fabrico e transporte para garantir que os brindes chegam a tempo do seu evento ou ação de formação.' },
+      { Icon: Clock, title: 'Entrega Pronta', teaser: 'Prazo garantido para o seu evento.', desc: 'Coordenamos o fabrico e transporte para garantir que os brindes chegam a tempo do seu evento ou acção de formação.' },
     ],
     cta: {
       title: 'Deseja criar brindes personalizados?',
-      subtitle: 'Partilhe o seu orçamento e objetivos e criaremos uma proposta à medida.',
+      subtitle: 'Partilhe o seu orçamento e objectivos e criaremos uma proposta à medida.',
       buttonLabel: 'Pedir Orçamento',
       buttonHref: '/contacto',
     },

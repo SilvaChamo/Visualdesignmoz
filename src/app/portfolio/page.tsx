@@ -85,7 +85,7 @@ export default function PortfolioPage() {
                 
                 <div className="p-6 pt-0">
                   <button className="w-fit bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors self-start">
-                    Ver Projeto
+                    Ver Projecto
                   </button>
                 </div>
               </div>

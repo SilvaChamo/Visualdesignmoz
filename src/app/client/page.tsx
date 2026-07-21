@@ -118,11 +118,11 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
   const fetchAdditionalData = async () => {
     setLocalLoading(true)
     try {
-      // Buscar apenas faturas e tickets - usuário e sites vêm do pai
+      // Buscar apenas facturas e tickets - usuário e sites vêm do pai
       const { data: { user } } = await createClientInstance.auth.getUser()
       if (!user) return
 
-      // 1. Carregar Faturas (apenas se tabela existir) - com delay entre chamadas
+      // 1. Carregar Facturas (apenas se tabela existir) - com delay entre chamadas
       try {
         await new Promise(resolve => setTimeout(resolve, 100))
         const { data: inv, error: invError } = await createClientInstance
@@ -132,7 +132,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
           .eq('status', 'pending')
 
         if (invError) {
-          console.warn('Erro ao carregar faturas:', invError.message)
+          console.warn('Erro ao carregar facturas:', invError.message)
         } else {
           if (inv) setFaturasPendentes(inv)
         }
@@ -173,7 +173,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
   const faturasAtrasadas = faturasPendentes.filter(f => new Date(f.vencimento) < hoje).length
   const totalSites = directAdminSites.length
 
-  // Encontrar a fatura mais próxima
+  // Encontrar a factura mais próxima
   const proximaFatura = faturasPendentes.length > 0
     ? faturasPendentes.sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime())[0]
     : null
@@ -186,7 +186,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
         {/* Saudação */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Olá, {cliente.nome}!</h1>
-          <p className="text-gray-500 mt-1">Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e faturas.</p>
+          <p className="text-gray-500 mt-1">Bem-vindo ao teu portal de gestão. Aqui podes gerir os teus serviços e facturas.</p>
         </div>
 
         {/* Cards de Resumo */}
@@ -204,7 +204,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
             <div>
               <p className="text-sm text-gray-500">Domínios Activos</p>
               <p className="text-2xl font-bold text-gray-900">{totalSites}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Expira: Ver faturas</p>
+              <p className="text-xs text-gray-400 mt-0.5">Expira: Ver facturas</p>
             </div>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex items-start gap-4">
@@ -215,7 +215,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
                 {proximaFatura ? new Date(proximaFatura.vencimento).toLocaleDateString() : 'N/A'}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {proximaFatura ? `${proximaFatura.valor} MZN` : 'Sem faturas pendentes'}
+                {proximaFatura ? `${proximaFatura.valor} MZN` : 'Sem facturas pendentes'}
               </p>
             </div>
           </div>
@@ -234,10 +234,10 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
             <div className="p-2 bg-yellow-100 rounded-lg text-yellow-700"><FileText className="w-5 h-5" /></div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-sm font-bold text-yellow-800">⚠️ Fatura pendente</h2>
+                <h2 className="text-sm font-bold text-yellow-800">⚠️ Factura pendente</h2>
                 <button className="!bg-yellow-500 hover:!bg-red-600 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-lg !opacity-100 transition-all">Pagar Agora</button>
               </div>
-              <p className="text-xs text-yellow-700">A tua fatura para o serviço <strong>{proximaFatura.domain || 'Digital Service'}</strong> vence em <strong>{new Date(proximaFatura.vencimento).toLocaleDateString()}</strong>.</p>
+              <p className="text-xs text-yellow-700">A tua factura para o serviço <strong>{proximaFatura.domain || 'Digital Service'}</strong> vence em <strong>{new Date(proximaFatura.vencimento).toLocaleDateString()}</strong>.</p>
             </div>
           </div>
         )}
@@ -281,7 +281,7 @@ function ClienteDashboardHome({ clienteProp, sitesProp, isLoading }: { clientePr
                 <Globe className="w-4 h-4 text-green-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">Domínio Ativo</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">Domínio Activo</p>
                 <p className="text-xs text-gray-500 mt-0.5">visualdesignmoz.com foi ativado com sucesso</p>
                 <p className="text-[10px] text-gray-400 mt-1">Ontem, 09:15</p>
               </div>
@@ -540,7 +540,7 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
                   value={contactForm.assunto}
                   onChange={e => setContactForm({ ...contactForm, assunto: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none"
-                  placeholder="Ex: Dúvida sobre faturação"
+                  placeholder="Ex: Dúvida sobre facturação"
                   required
                 />
               </div>
@@ -679,7 +679,7 @@ function MailMarketingSection({ sites, currentUserEmail, activeTab, setActiveTab
   const [selectedSite, setSelectedSite] = useState(getDefaultDomain());
   const [campaignToResend, setCampaignToResend] = useState<any>(null);
 
-  // 🔄 Atualizar selectedSite quando não está definido
+  // 🔄 Actualizar selectedSite quando não está definido
   useEffect(() => {
     if (!selectedSite) {
       const defaultDomain = getDefaultDomain();
@@ -731,11 +731,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
   const [domainReputation, setDomainReputation] = useState<any>(null);
   const [loadingReputation, setLoadingReputation] = useState(false);
 
-  // 🚀 Emails disponíveis do domínio selecionado
+  // 🚀 Emails disponíveis do domínio seleccionado
   const [domainEmails, setDomainEmails] = useState<string[]>([]);
   const [loadingDomainEmails, setLoadingDomainEmails] = useState(false);
 
-  // Email do utilizador é adicionado no fetchDomainEmails se pertencer ao domínio selecionado
+  // Email do utilizador é adicionado no fetchDomainEmails se pertencer ao domínio seleccionado
 
   // Obter dados do usuário logado
   useEffect(() => {
@@ -878,7 +878,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         const uniqueEmails = [...new Set(domainEmailsList)];
         setDomainEmails(uniqueEmails);
 
-        // Se o senderEmail atual não está na lista, selecionar o primeiro (principal)
+        // Se o senderEmail actual não está na lista, seleccionar o primeiro (principal)
         if (uniqueEmails.length > 0 && !uniqueEmails.includes(senderEmail)) {
           setSenderEmail(uniqueEmails[0]);
         }
@@ -917,13 +917,13 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
-  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email selecionado
+  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email seleccionado
   // Isso permite que clientes SEM site (apenas email corporativo) enviem campanhas
   const allowedDomains = new Set(
     (sites || [])
       .map((s: any) => normalizeDomain(s?.domain))
       .filter(Boolean)
-      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio selecionado
+      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio seleccionado
   );
 
   const isPlatformDomain = (domain: string) =>
@@ -986,10 +986,10 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
       // Modified for multi-tenant contact fetch
       if (selectedPlans.length > 0) {
         console.log("BUSCANDO SUBSCRITORES PARA:", selectedSite);
-        console.log("PLANOS SELECIONADOS:", selectedPlans);
+        console.log("PLANOS SELECCIONADOS:", selectedPlans);
 
         let data = await listarSubscritores(selectedSite);
-        // Fallback: se o domínio ativo não tiver contactos, usa todas as listas do cliente.
+        // Fallback: se o domínio activo não tiver contactos, usa todas as listas do cliente.
         if ((!data || data.length === 0) && selectedSite) {
           data = await listarSubscritores();
         }
@@ -1000,7 +1000,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             const contactDomain = normalizeDomain(s?.metadata?.domain);
             const listName = s.metadata?.list || 'Contactos';
 
-            // 1. Verificar se a lista está selecionada
+            // 1. Verificar se a lista está seleccionada
             if (!selectedPlans.includes(listName)) return false;
 
             // 2. Se não tem domínio ou é domínio da plataforma, permitir (são contactos genéricos do cliente)
@@ -1107,7 +1107,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
 
-      // 🐛 CORREÇÃO: Verificar se realmente enviou algo
+      // 🐛 CORRECÇÃO: Verificar se realmente enviou algo
       const sentCount = result?.details?.success ?? 0;
       const failedCount = result?.details?.failed ?? emailList.length;
 
@@ -1300,7 +1300,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
             </div>
             <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100/50 flex items-start gap-3">
               <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio selecionado.</p>
+              <p className="text-[10px] text-blue-800 font-medium leading-relaxed">Mensagens enviadas apenas para os contactos do domínio seleccionado.</p>
             </div>
 
             {/* 🚀 STATUS DE REPUTAÇÃO - SIMPLIFICADO */}
@@ -1350,7 +1350,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
                     {/* Linha 6: Info adicional */}
                     <div className="flex justify-between text-[9px] text-slate-400 pt-2 border-t border-slate-200/50">
-                      <span>Dias ativos: {domainReputation.daysActive || 0}</span>
+                      <span>Dias activos: {domainReputation.daysActive || 0}</span>
                       <span>Total enviado: {domainReputation.sentTotal || 0}</span>
                     </div>
                   </div>
@@ -1424,7 +1424,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
               <Check className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Campanha Enviada!</h3>
-            <p className="text-sm text-slate-500 font-medium mb-6">A sua mensagem foi enviada com sucesso para a lista selecionada.</p>
+            <p className="text-sm text-slate-500 font-medium mb-6">A sua mensagem foi enviada com sucesso para a lista seleccionada.</p>
             <button
               onClick={() => {
                 setShowSuccessDialog(false);
@@ -1546,7 +1546,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
               <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
                 <p className="text-xs text-amber-800">
-                  <strong>💡 Dica:</strong> Mantenha a sua lista de contactos limpa e atualizada para evitar bounces e manter a reputação alta.
+                  <strong>💡 Dica:</strong> Mantenha a sua lista de contactos limpa e actualizada para evitar bounces e manter a reputação alta.
                 </p>
               </div>
             </div>
@@ -1587,13 +1587,13 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       .replace(/^mail\./, '')
       .replace(/\/.*$/, '');
 
-  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email selecionado
+  // 🎯 Domínios permitidos: sites do DirectAdmin OU domínio do email seleccionado
   // Isso permite que clientes SEM site (apenas email corporativo) vejam seus contactos
   const allowedDomains = new Set(
     (sites || [])
       .map((s: any) => normalizeDomain(s?.domain))
       .filter(Boolean)
-      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio selecionado
+      .concat(selectedSite ? [normalizeDomain(selectedSite)] : []) // Adicionar domínio seleccionado
   );
 
   const isPlatformDomain = (domain: string) =>
@@ -1623,7 +1623,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     !searchTerm || s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calcular itens para página atual
+  // Calcular itens para página actual
   const totalPages = Math.ceil(filteredSubscribers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -1649,7 +1649,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
     try {
       setLoading(true);
       let data = await listarSubscritores(selectedSite);
-      // Fallback: evita ecrã vazio quando domínio selecionado não coincide com contactos legados.
+      // Fallback: evita ecrã vazio quando domínio seleccionado não coincide com contactos legados.
       if ((!data || data.length === 0) && selectedSite) {
         data = await listarSubscritores();
       }
@@ -1776,7 +1776,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
         if (newEmail?.trim().toLowerCase() !== email) {
           toast.success(`Email corrigido automaticamente para ${email}`);
         }
-        toast.success(editingSub ? "Contacto atualizado com sucesso!" : "Contacto adicionado com sucesso!");
+        toast.success(editingSub ? "Contacto actualizado com sucesso!" : "Contacto adicionado com sucesso!");
         setNewEmail('');
         setNewName('');
         setNewDomainLabel(selectedSite || '');
@@ -1819,7 +1819,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
 
   const handleDeleteSelected = async () => {
     if (selectedSubscriberIds.length === 0) return;
-    if (!confirm(`Remover ${selectedSubscriberIds.length} contacto(s) selecionado(s)?`)) return;
+    if (!confirm(`Remover ${selectedSubscriberIds.length} contacto(s) seleccionado(s)?`)) return;
     try {
       const selectedMap = new Set(selectedSubscriberIds);
       const selectedRows = subscribers.filter((s: any) => selectedMap.has(s.id));
@@ -1828,7 +1828,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
       setSelectedSubscriberIds([]);
       fetchSubs();
     } catch (error) {
-      toast.error("Erro ao remover contactos selecionados");
+      toast.error("Erro ao remover contactos seleccionados");
     }
   };
 
@@ -1883,7 +1883,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
               onClick={handleDeleteSelected}
               className="!bg-red-600 hover:!bg-red-700 text-white px-5 h-10 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg transition-all border-none !opacity-100"
             >
-              <Trash2 size={14} className="mr-1" /> Eliminar Selecionados ({selectedSubscriberIds.length})
+              <Trash2 size={14} className="mr-1" /> Eliminar Seleccionados ({selectedSubscriberIds.length})
             </Button>
           ) : (
             <>
@@ -2054,7 +2054,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                     checked={currentItems.length > 0 && currentItems.every((sub: any) => selectedSubscriberIds.includes(sub.id))}
                     onChange={toggleSelectAllCurrentItems}
                     className="accent-orange-600"
-                    aria-label="Selecionar todos os contactos visíveis"
+                    aria-label="Seleccionar todos os contactos visíveis"
                   />
                 </th>
                 <th className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
@@ -2077,7 +2077,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                       checked={selectedSubscriberIds.includes(sub.id)}
                       onChange={() => toggleSelectSubscriber(sub.id)}
                       className="accent-orange-600"
-                      aria-label={`Selecionar ${sub.email}`}
+                      aria-label={`Seleccionar ${sub.email}`}
                     />
                   </td>
                   <td className="px-5 py-[5px]">
@@ -2202,7 +2202,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   onChange={(e) => setNewListLabel(e.target.value)}
                   className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
                 >
-                  <option value="" disabled>Selecionar lista</option>
+                  <option value="" disabled>Seleccionar lista</option>
                   {listas.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
@@ -2212,7 +2212,7 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   onChange={(e) => setNewDomainLabel(e.target.value)}
                   className="w-full rounded-lg h-10 border-slate-200 focus:ring-red-500 bg-slate-50 text-sm outline-none px-3 border shadow-sm cursor-pointer font-bold text-slate-700 hover:bg-white transition-colors"
                 >
-                  <option value="" disabled>Selecionar dominio</option>
+                  <option value="" disabled>Seleccionar dominio</option>
                   {sites.map((site: any) => (
                     <option key={site.domain} value={site.domain}>{site.domain}</option>
                   ))}
@@ -2613,7 +2613,7 @@ function FacturacaoSection() {
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-gray-900">Facturação</h1><p className="text-gray-500 mt-1">Faturas, pagamentos e histórico financeiro.</p></div>
+      <div><h1 className="text-2xl font-bold text-gray-900">Facturação</h1><p className="text-gray-500 mt-1">Facturas, pagamentos e histórico financeiro.</p></div>
 
       {/* Resumo */}
       <div className="grid grid-cols-3 gap-4">
@@ -2624,7 +2624,7 @@ function FacturacaoSection() {
           </p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Faturas Pendentes</p>
+          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Facturas Pendentes</p>
           <p className="text-2xl font-bold text-red-600">{faturasPendentes.length}</p>
           <p className="text-xs text-gray-500 mt-1">Valor: {new Intl.NumberFormat('pt-MZ').format(faturasPendentes.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN</p>
         </div>
@@ -2636,11 +2636,11 @@ function FacturacaoSection() {
         </div>
       </div>
 
-      {/* Faturas Pendentes */}
+      {/* Facturas Pendentes */}
       {faturasPendentes.length > 0 && (
         <div className="bg-yellow-50 rounded-lg border border-yellow-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-yellow-200">
-            <h2 className="text-sm font-bold text-yellow-800">⚠️ Faturas Pendentes</h2>
+            <h2 className="text-sm font-bold text-yellow-800">⚠️ Facturas Pendentes</h2>
           </div>
           {faturasPendentes.map(f => (
             <div key={f.id} className="p-5">
@@ -3444,7 +3444,7 @@ function ClientPageContent() {
   const [mostrarAdicionarConta, setMostrarAdicionarConta] = useState(false)
   const [modalAdicionarPasso, setModalAdicionarPasso] = useState<'escolher' | 'webmail' | 'google' | 'hotmail'>('escolher')
 
-  // Estado para controlar visibilidade do header quando compose está ativo
+  // Estado para controlar visibilidade do header quando compose está activo
   const [isComposeActive, setIsComposeActive] = useState(false)
 
   // Obter sessão e perfil do usuário
@@ -3646,7 +3646,7 @@ function ClientPageContent() {
             />
           </Suspense>
         )
-      case 'faturas':
+      case 'facturas':
         return <FacturacaoSection />
       case 'conta':
         return <ContaSection />

@@ -389,7 +389,7 @@ export function WpUserForm({ domain, user, onSave, onCancel }: WpUserFormProps) 
         <div className="wp-form-actions pt-6">
           <button type="submit" className="wp-btn wp-btn-primary !bg-emerald-600 !border-emerald-600 hover:!bg-emerald-700 hover:!border-emerald-700" disabled={saving}>
             {saving && <Loader2 size={16} className="spin mr-2 animate-spin" />}
-            {isEditing ? 'Atualizar utilizador' : 'Adicionar novo utilizador'}
+            {isEditing ? 'Actualizar utilizador' : 'Adicionar novo utilizador'}
           </button>
           <button type="button" onClick={onCancel} className="wp-btn dark:!bg-zinc-800 dark:!border-zinc-700 dark:!text-zinc-300 hover:dark:!bg-zinc-700">
             Cancelar

@@ -24,7 +24,7 @@ export default function Dominios() {
     {
       icone: <Zap className="w-8 h-8" />,
       titulo: "Renovar",
-      descricao: "Mantenha seu domínio ativo e evite que outros o registem.",
+      descricao: "Mantenha seu domínio activo e evite que outros o registem.",
       href: "/servicos/dominios"
     },
     {

@@ -82,8 +82,8 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Erro ao atualizar notificação:', error)
-      return NextResponse.json({ error: 'Erro ao atualizar notificação' }, { status: 500 })
+      console.error('Erro ao actualizar notificação:', error)
+      return NextResponse.json({ error: 'Erro ao actualizar notificação' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -118,7 +118,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Erro ao marcar todas como lidas:', error)
-      return NextResponse.json({ error: 'Erro ao atualizar notificações' }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao actualizar notificações' }, { status: 500 })
     }
 
     return NextResponse.json({

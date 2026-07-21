@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // Por enquanto, retornamos um status básico
     return NextResponse.json({
       success: true,
-      message: 'Sistema de notificações ativo',
+      message: 'Sistema de notificações activo',
       data: {
         lastCheck: new Date().toISOString(),
         nextCheck: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas depois

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Atualizar método de pagamento
+// Actualizar método de pagamento
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -117,7 +117,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true, method: data })
   } catch (error) {
-    console.error('Erro ao atualizar método de pagamento:', error)
+    console.error('Erro ao actualizar método de pagamento:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

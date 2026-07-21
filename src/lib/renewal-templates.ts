@@ -164,7 +164,7 @@ export const defaultRenewalTemplates: RenewalTemplate[] = [
     daysBefore: 30,
     title: '⚠️ Atenção: Renovação em 30 Dias - {{serviceName}}',
     message: 'Olá {{clientName}}, faltam apenas 30 dias para o vencimento de {{serviceName}}. Não deixe expirar!',
-    emailSubject: '⚠️ Atenção: {{serviceName}} expira em 30 dias - Ação Necessária',
+    emailSubject: '⚠️ Atenção: {{serviceName}} expira em 30 dias - Acção Necessária',
     emailBody: `
 <p>Olá {{clientName}},</p>
 
@@ -288,7 +288,7 @@ Equipe {{companyName}}
 </ul>
 
 <div style="background: #dbeafe; border: 2px solid #2563eb; padding: 15px; margin: 20px 0; text-align: center;">
-  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">⏰ AÇÃO IMEDIATA NECESSÁRIA!</p>
+  <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">⏰ ACÇÃO IMEDIATA NECESSÁRIA!</p>
   <a href="{{renewalLink}}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
     RENOVAR AGORA →
   </a>
@@ -444,7 +444,7 @@ Equipe {{companyName}}
     name: 'Renovação Confirmada',
     daysBefore: 0,
     title: '✅ Renovação Confirmada - {{serviceName}}',
-    message: 'Ótimo, {{clientName}}! Sua renovação de {{serviceName}} foi confirmada. Serviço garantido até {{expirationDate}}.',
+    message: 'Óptimo, {{clientName}}! Sua renovação de {{serviceName}} foi confirmada. Serviço garantido até {{expirationDate}}.',
     emailSubject: '✅ Renovação Confirmada: {{serviceName}} está garantido!',
     emailBody: `
 <div style="background: #d1fae5; border: 2px solid #10b981; padding: 20px; text-align: center; margin-bottom: 20px;">
@@ -467,7 +467,7 @@ Equipe {{companyName}}
     <li>✅ Serviço: <strong>{{serviceName}}</strong></li>
     <li>✅ Valor Pago: <strong>{{renewalPrice}}</strong></li>
     <li>✅ Nova Data de Vencimento: <strong>{{expirationDate}}</strong></li>
-    <li>✅ Status: <strong>ATIVO</strong></li>
+    <li>✅ Status: <strong>ACTIVO</strong></li>
   </ul>
 </div>
 

@@ -99,7 +99,7 @@ export function NativeHostingSection() {
       })
       const data = await res.json()
       if (data.success) {
-        setResult({ ok: true, message: `Pacote de ${targetDomain} atualizado para ${data.packageLabel}.${data.warning ? ' — ' + data.warning : ''}` })
+        setResult({ ok: true, message: `Pacote de ${targetDomain} actualizado para ${data.packageLabel}.${data.warning ? ' — ' + data.warning : ''}` })
         loadSites()
       } else {
         setResult({ ok: false, message: data.error || 'Falha ao mudar o pacote' })
@@ -194,7 +194,7 @@ export function NativeHostingSection() {
                 <th className="py-2">Estado</th>
                 <th className="py-2">SSL</th>
                 <th className="py-2">Pacote</th>
-                <th className="py-2 text-right">Ações</th>
+                <th className="py-2 text-right">Acções</th>
               </tr>
             </thead>
             <tbody>

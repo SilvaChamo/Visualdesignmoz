@@ -66,7 +66,7 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
 
         setEmails(list);
 
-        // Se não houver valor selecionado e tivermos opções, selecionar a primeira
+        // Se não houver valor seleccionado e tivermos opções, seleccionar a primeira
         if (!value && list.length > 0) {
             onChange(list[0]);
         }

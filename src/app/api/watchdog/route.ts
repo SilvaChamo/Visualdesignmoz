@@ -179,7 +179,7 @@ EOF`);
       }
 
       default:
-        return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
+        return NextResponse.json({ error: 'Acção desconhecida' }, { status: 400 });
     }
   } catch (error: any) {
     console.error('[Watchdog API Error]:', error);

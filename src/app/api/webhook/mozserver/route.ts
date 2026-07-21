@@ -147,14 +147,14 @@ async function createHostingWebsite(
 }
 
 /**
- * 4. ATUALIZAR NAMESERVERS NA MOZSERVER (se API permitir)
+ * 4. ACTUALIZAR NAMESERVERS NA MOZSERVER (se API permitir)
  */
 async function updateMozserverNameservers(
   domain: string, 
   tld: string,
   nameservers: string[]
 ): Promise<{ success: boolean; message: string }> {
-  // Esta função depende da API da Mozserver suportar atualização de NS
+  // Esta função depende da API da Mozserver suportar actualização de NS
   // Por enquanto, retorna instruções manuais
   return {
     success: true,
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
       case 'domain.transferred':
         console.log(`📝 Processando ${payload.event} para ${fullDomain}`);
         
-        // AÇÃO 1: Criar Zona DNS
+        // ACÇÃO 1: Criar Zona DNS
         actions.push('1. Criar zona DNS no painel');
         const zoneResult = await createHostingDNSZone(fullDomain);
         details.zoneCreation = zoneResult;
@@ -254,12 +254,12 @@ export async function POST(request: NextRequest) {
           console.log('Zona pode já existir, continuando...');
         }
 
-        // AÇÃO 2: Adicionar Registros Padrão
+        // ACÇÃO 2: Adicionar Registros Padrão
         actions.push('2. Adicionar registros DNS padrão');
         const recordsResult = await addDefaultDNSRecords(fullDomain);
         details.recordsCreation = recordsResult;
 
-        // AÇÃO 3: Criar Website (se não existir)
+        // ACÇÃO 3: Criar Website (se não existir)
         actions.push('3. Verificar/criar website no painel');
         const websiteResult = await createHostingWebsite(
           fullDomain, 
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
         );
         details.websiteCreation = websiteResult;
 
-        // AÇÃO 4: Atualizar Nameservers (instruções)
+        // ACÇÃO 4: Actualizar Nameservers (instruções)
         actions.push('4. Configurar nameservers na Mozserver');
         const nsResult = await updateMozserverNameservers(
           payload.domain,
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
         );
         details.nameserversUpdate = nsResult;
 
-        // AÇÃO 5: Salvar Log
+        // ACÇÃO 5: Salvar Log
         actions.push('5. Salvar log de sincronização');
         await saveSyncLog(
           fullDomain,
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
           details
         );
 
-        // AÇÃO 6: Notificar (se tiver email)
+        // ACÇÃO 6: Notificar (se tiver email)
         if (payload.clientEmail) {
           actions.push('6. Enviar notificação ao cliente');
           await notifyClient(
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
         });
 
       case 'domain.renewed':
-        // Apenas log, não precisa de ação DNS
+        // Apenas log, não precisa de acção DNS
         await saveSyncLog(fullDomain, payload.event, true, ['Domínio renovado - sem alterações DNS'], {});
         
         return NextResponse.json({
@@ -330,8 +330,8 @@ export async function POST(request: NextRequest) {
         });
 
       case 'domain.updated':
-        // Atualização de dados (nameservers, contactos)
-        actions.push('Processando atualização de domínio');
+        // Actualização de dados (nameservers, contactos)
+        actions.push('Processando actualização de domínio');
         
         if (payload.nameservers && payload.previousNameservers) {
           // Nameservers foram alterados
@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          message: `Atualização de ${fullDomain} processada`,
+          message: `Actualização de ${fullDomain} processada`,
           actions
         });
 

@@ -43,7 +43,7 @@ function runEmailDnsAutomation(domain: string) {
   }
 }
 
-/** Mesma lógica de proteção que runEmailDnsAutomation, mas para a limpeza
+/** Mesma lógica de protecção que runEmailDnsAutomation, mas para a limpeza
  *  (zona DNS + domínio na Brevo) quando um domínio/conta é eliminado. */
 function runEmailDnsCleanup(domain: string) {
   const task = () =>

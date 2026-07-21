@@ -53,7 +53,7 @@ export function EditSiteModal({ site, packages, isOpen, onClose, onSave, onDelet
   }
 
   const handleDelete = async () => {
-    if (!confirm(`Tem certeza que deseja apagar o site ${site.domain}? Esta ação é irreversível!`)) return
+    if (!confirm(`Tem certeza que deseja apagar o site ${site.domain}? Esta acção é irreversível!`)) return
     
     setIsDeleting(true)
     try {

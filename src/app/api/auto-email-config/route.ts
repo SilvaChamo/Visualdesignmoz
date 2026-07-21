@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">SSL:</td>
-                    <td style="padding: 8px 0; color: #111827;">Ativo (SSL/TLS)</td>
+                    <td style="padding: 8px 0; color: #111827;">Activo (SSL/TLS)</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Usuário:</td>
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">SSL:</td>
-                    <td style="padding: 8px 0; color: #111827;">Ativo (SSL/TLS)</td>
+                    <td style="padding: 8px 0; color: #111827;">Activo (SSL/TLS)</td>
                 </tr>
             </table>
         </div>

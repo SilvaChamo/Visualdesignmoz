@@ -139,8 +139,8 @@ Cargo / Função: ${role || 'Não especificado'}
 Contacto Preferencial: ${contactPref}
 Horário Preferencial: ${preferredTime || 'Qualquer horário'}
 
-Sub-serviços Selecionados:
-${selectedSubServices.length > 0 ? selectedSubServices.map(s => `- ${s}`).join('\n') : '- Nenhum sub-serviço selecionado'}
+Sub-serviços Seleccionados:
+${selectedSubServices.length > 0 ? selectedSubServices.map(s => `- ${s}`).join('\n') : '- Nenhum sub-serviço seleccionado'}
 
 Detalhes da Solicitação:
 ${details}`
@@ -300,7 +300,7 @@ ${details}`
                   </label>
                   <input 
                     type="text" 
-                    placeholder="Ex: Diretor de Comunicação"
+                    placeholder="Ex: Director de Comunicação"
                     value={role}
                     onChange={e => setRole(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm text-zinc-900 dark:text-white font-sans"
@@ -377,7 +377,7 @@ ${details}`
                 {/* Sub-services selection checkboxes */}
                 <div className="mt-3">
                   <label className="block text-[10px] font-extrabold uppercase text-zinc-500 dark:text-zinc-400 mb-2 tracking-wider">
-                    Selecione as opções pretendidas (Múltipla Seleção)
+                    Selecione as opções pretendidas (Múltipla Selecção)
                   </label>
                   <div className="grid grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-2 scrollbar-thin">
                     {currentSubServices.map((sub, idx) => {
@@ -427,7 +427,7 @@ ${details}`
                   <textarea 
                     required
                     rows={3}
-                    placeholder="Descreva o projeto, prazos, objetivos e qualquer informação relevante."
+                    placeholder="Descreva o projecto, prazos, objectivos e qualquer informação relevante."
                     value={details}
                     onChange={e => setDetails(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm text-zinc-900 dark:text-white font-sans resize-none scrollbar-thin"

@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, alertId, userId } = body;
 
-    // Aqui você pode implementar ações como:
+    // Aqui você pode implementar acções como:
     // - Marcar alerta como lido
     // - Enviar notificação manual
-    // - Atualizar status da renovação
+    // - Actualizar status da renovação
 
     switch (action) {
       case 'markAsRead':
@@ -65,16 +65,16 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({
           success: false,
-          message: 'Ação não reconhecida'
+          message: 'Acção não reconhecida'
         }, { status: 400 });
     }
 
   } catch (error) {
-    console.error('Erro ao processar ação de alerta:', error);
+    console.error('Erro ao processar acção de alerta:', error);
     
     return NextResponse.json({
       success: false,
-      message: 'Erro ao processar ação'
+      message: 'Erro ao processar acção'
     }, { status: 500 });
   }
 }

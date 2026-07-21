@@ -31,7 +31,7 @@ export const SERVICE_BRANDS: ServiceBrand[] = [
       { slug: 'seo', title: 'SEO', desc: 'Otimização para motores de busca e visibilidade orgânica.', href: '/visualweb' },
       { slug: 'dominios', title: 'Domínios', desc: 'Registo e gestão de domínios .com, .co.mz e mais.', href: '/precos/dominios' },
       { slug: 'hospedagem', title: 'Hospedagem', desc: 'Alojamento web rápido, seguro e com suporte 24/7.', href: '/precos/hospedagem' },
-      { slug: 'servidor', title: 'Servidor', desc: 'VPS e servidores dedicados para projetos exigentes.', href: '/visualweb' },
+      { slug: 'servidor', title: 'Servidor', desc: 'VPS e servidores dedicados para projectos exigentes.', href: '/visualweb' },
       { slug: 'ssl', title: 'SSL', desc: 'Certificados de segurança para o seu website.', href: '/precos/ssl' },
       { slug: 'email', title: 'Email Profissional', desc: 'Contas de email com o seu próprio domínio.', href: '/precos/email' },
     ],

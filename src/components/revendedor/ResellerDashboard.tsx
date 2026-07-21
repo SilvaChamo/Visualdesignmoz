@@ -231,7 +231,7 @@ export function ResellerDashboard({
               <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
                 {nextRenewal ? formatExpirationLabel(nextRenewal.date) : 'N/A'}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver faturas</p>
+              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
             </div>
           </div>
         </div>
@@ -291,7 +291,7 @@ export function ResellerDashboard({
                           type="button"
                           className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded transition-colors"
                         >
-                          PAGAR FATURA
+                          PAGAR FACTURA
                         </button>
                       ) : null}
 
@@ -310,7 +310,7 @@ export function ResellerDashboard({
                             : 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400'
                         }`}
                       >
-                        {isActive ? 'ATIVO' : 'SUSPENSO'}
+                        {isActive ? 'ACTIVO' : 'SUSPENSO'}
                       </span>
                     </div>
                   </div>

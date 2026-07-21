@@ -106,7 +106,7 @@ export default function DomainSearch({
     if (onResultsAction) onResultsAction([])
 
     try {
-      // Otimização: Pesquisa apenas o TLD selecionado e os TLDs mais populares para reduzir latência e evitar 429
+      // Otimização: Pesquisa apenas o TLD seleccionado e os TLDs mais populares para reduzir latência e evitar 429
       const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
       

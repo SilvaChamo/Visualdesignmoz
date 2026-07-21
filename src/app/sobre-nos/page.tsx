@@ -84,7 +84,7 @@ export default function AboutPage() {
   const values = [
     {
       title: 'Consistência de Marca',
-      desc: 'Para nós, uma marca é uma narrativa consistente que exige proteção e coerência operacional em cada ponto de contacto.',
+      desc: 'Para nós, uma marca é uma narrativa consistente que exige protecção e coerência operacional em cada ponto de contacto.',
       icon: HeartHandshake,
       badge: 'Marca'
     },

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         step: 4,
         title: 'Migrar Conteúdo',
         description: preserveContent
-          ? 'Fazer backup do conteúdo atual e migrar para novo servidor'
+          ? 'Fazer backup do conteúdo actual e migrar para novo servidor'
           : 'Configurar novo site do zero'
       }
     ]

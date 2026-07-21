@@ -196,7 +196,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Atualizar
+          Actualizar
         </button>
       </div>
 
@@ -208,7 +208,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-emerald-100">Domínios Ativos</p>
+              <p className="text-xs text-emerald-100">Domínios Activos</p>
               <p className="text-2xl font-bold">{sites?.length || 0}</p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
                           ? 'bg-emerald-100 text-emerald-700' 
                           : 'bg-red-100 text-red-700'
                       }`}>
-                        {site.status === 'active' ? 'Ativo' : 'Suspenso'}
+                        {site.status === 'active' ? 'Activo' : 'Suspenso'}
                       </span>
                     </td>
                   </tr>

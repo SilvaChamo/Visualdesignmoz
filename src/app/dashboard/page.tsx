@@ -310,7 +310,7 @@ function ListDomainsSection({ sites, onRefresh, setActiveSection, setFileManager
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-xs font-medium ${parseState(site.state) === 'Active' ? 'text-green-600' : 'text-red-500'}`}>
-                      ● {parseState(site.state) === 'Active' ? 'Ativo' : 'Suspenso'}
+                      ● {parseState(site.state) === 'Active' ? 'Activo' : 'Suspenso'}
                     </span>
                     <span className="text-gray-300">·</span>
                     <span className="text-xs text-gray-400">Exp: {getExpirationDate(site.domain)}</span>
@@ -962,7 +962,7 @@ function ManageWebsiteSection({
       const isExpanding = !prev.includes(id)
       const newState = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
 
-      // Se estiver expandindo, manter scroll na posição atual (não auto-scroll)
+      // Se estiver expandindo, manter scroll na posição actual (não auto-scroll)
       if (isExpanding) {
         // Não fazer nada - página mantém-se fixa
       }
@@ -2421,14 +2421,14 @@ function AdminPageContent() {
     if (section === 'hospedagem-contas') {
       setContasListResetToken((t) => t + 1)
     }
-    // Intercetar ação de criar email
+    // Intercetar acção de criar email
     if (section === 'criar-email') {
       setEmailForm({ user: '', password: '', quota: '500' })
       setEmailMsg('')
       setShowEmailModal(true)
       return
     }
-    // Intercetar ação de cadastrar renovação - abrir popup
+    // Intercetar acção de cadastrar renovação - abrir popup
     if (section === 'cadastrar-renovacao') {
       setCadastroForm({
         type: 'domain',
