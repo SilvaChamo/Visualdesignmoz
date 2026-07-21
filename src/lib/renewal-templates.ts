@@ -43,17 +43,17 @@ export const emailHeader = (clientName: string, companyName: string) => `
 </table>
 <![endif]-->
 
-<div style="padding: 12px 20px; background: #f3f4f6; border-bottom: 1px solid #d1d5db;">
-  <p style="margin: 0; font-size: 14px; color: #1f2937;">
+<div style="padding: 12px 20px; background: #f3f4f6; border-bottom: 1px solid #d1d5db; font-family: 'Exo 2', sans-serif;">
+  <p style="margin: 0; font-size: 14px; color: #1f2937; font-weight: normal; font-family: 'Exo 2', sans-serif;">
     <strong style="color: #000000;">Prezado(a) Sr(a). ${clientName}</strong>,
   </p>
 </div>
 `.trim()
 
 export const emailFooter = (supportEmail: string, supportPhone: string, companyName: string) => `
-<div style="padding: 20px; background: linear-gradient(135deg, #1a1a1a 0%, #000000 50%, #1a1a1a 100%); text-align: center; border-top: 2px solid #dc2626;">
-  <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: bold; letter-spacing: 1px;">${companyName.toUpperCase()}</p>
-  <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 10px;">
+<div style="padding: 20px; background: #374151; text-align: center; font-family: 'Exo 2', sans-serif;">
+  <p style="margin: 0; color: #f3f4f6; font-size: 13px; font-weight: 600; letter-spacing: 1px; font-family: 'Exo 2', sans-serif;">${companyName.toUpperCase()}</p>
+  <p style="margin: 8px 0 0 0; color: #d1d5db; font-size: 10px; font-family: 'Exo 2', sans-serif;">
     © ${new Date().getFullYear()} Todos os direitos reservados
   </p>
 </div>
@@ -81,9 +81,9 @@ export const getUrgencyColor = (urgency: string): string => {
 export const wrapContentInFrame = (content: string, urgency: string) => {
   const borderColor = getUrgencyColor(urgency)
   return `
-<div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin: 20px 0;">
+<div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin: 20px 0; font-family: 'Exo 2', sans-serif;">
   <div style="height: 4px; background: ${borderColor};"></div>
-  <div style="padding: 20px; background: #ffffff;">
+  <div style="padding: 20px; background: #ffffff; font-family: 'Exo 2', sans-serif; font-weight: normal;">
     ${content}
   </div>
 </div>
@@ -570,10 +570,10 @@ export function processTemplate(
   <title>${processed.emailSubject}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: 'Exo 2', sans-serif;">
     <tr>
-      <td align="center" style="padding: 10px 0; background: #f3f4f6;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <td align="center" style="padding: 10px 0; background: #f3f4f6; font-family: 'Exo 2', sans-serif;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Exo 2', sans-serif;">
           <tr>
             <td>
               ${header}

@@ -1,14 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { sendEmail as sendTransactionalEmail } from '@/lib/email-service'
+import { emailHeader, emailFooter, wrapContentInFrame } from '@/lib/renewal-templates'
 
 // Verificar se é admin
 async function isAdmin(supabase: any): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
-  
+
   const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
   return adminEmails.includes(user.email || '') || user.user_metadata?.role === 'admin'
+}
+
+const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com'
+const SUPPORT_PHONE = '+258 85 242 5525'
+const COMPANY_NAME = 'VisualDesign'
+
+// Tipo de notificação -> cor da barra do quadro no email
+function urgencyForType(type: string): string {
+  switch (type) {
+    case 'error': return 'critical'
+    case 'warning': return 'medium'
+    case 'success':
+    case 'info':
+    default: return 'low'
+  }
+}
+
+function buildNotificationEmailHtml(params: {
+  clientName: string
+  title: string
+  message: string
+  link?: string
+  linkText?: string
+  type: string
+}): string {
+  const { clientName, title, message, link, linkText, type } = params
+
+  const body = `
+    <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px; font-family: 'Exo 2', sans-serif; font-weight: 600;">${title}</h2>
+    <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-line; font-family: 'Exo 2', sans-serif; font-weight: normal;">${message}</p>
+    ${link ? `<p style="margin: 20px 0 0 0;"><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-family: 'Exo 2', sans-serif;">${linkText || 'Ver mais'}</a></p>` : ''}
+  `
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: 'Exo 2', sans-serif;">
+    <tr>
+      <td align="center" style="padding: 10px 0; background: #f3f4f6; font-family: 'Exo 2', sans-serif;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Exo 2', sans-serif;">
+          <tr><td>${emailHeader(clientName, COMPANY_NAME)}</td></tr>
+          <tr><td style="padding: 20px;">${wrapContentInFrame(body, urgencyForType(type))}</td></tr>
+          <tr><td>${emailFooter(SUPPORT_EMAIL, SUPPORT_PHONE, COMPANY_NAME)}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim()
 }
 
 // Criar notificação para usuário específico ou todos
@@ -45,7 +103,7 @@ export async function POST(request: NextRequest) {
     if (sendToAll) {
       // Enviar para todos os usuários
       const { data: users } = await supabaseAdmin.auth.admin.listUsers()
-      
+
       if (!users?.users?.length) {
         return NextResponse.json({ error: 'Nenhum usuário encontrado' }, { status: 404 })
       }
@@ -58,7 +116,7 @@ export async function POST(request: NextRequest) {
         category,
         link,
         link_text: linkText,
-        email_sent: sendEmail
+        email_sent: false
       }))
 
       const { data, error } = await supabaseAdmin
@@ -73,17 +131,48 @@ export async function POST(request: NextRequest) {
 
       notifications = data
 
-      // Se solicitado, enviar emails
+      let emailsSent = 0
+      let emailsFailed = 0
+
+      // Se solicitado, enviar emails (um por usuário, sem derrubar o lote todo em caso de falha pontual)
       if (sendEmail) {
-        // Aqui integraríamos com o sistema de email
-        // Por enquanto, apenas registramos que deveria enviar
-        console.log(`📧 Deveria enviar ${users.users.length} emails de notificação`)
+        const sentNotificationIds: string[] = []
+
+        for (let i = 0; i < users.users.length; i++) {
+          const user = users.users[i]
+          const notification = notifications?.[i]
+          if (!user.email || !notification) continue
+
+          try {
+            const clientName = user.user_metadata?.full_name || user.email.split('@')[0] || 'Cliente'
+            await sendTransactionalEmail({
+              to: user.email,
+              subject: title,
+              html: buildNotificationEmailHtml({ clientName, title, message, link, linkText, type }),
+              category: 'transactional'
+            })
+            emailsSent++
+            sentNotificationIds.push(notification.id)
+          } catch (emailError) {
+            emailsFailed++
+            console.error(`❌ Falha ao enviar email de notificação para ${user.email}:`, emailError)
+          }
+        }
+
+        if (sentNotificationIds.length > 0) {
+          await supabaseAdmin
+            .from('notifications')
+            .update({ email_sent: true })
+            .in('id', sentNotificationIds)
+        }
       }
 
       return NextResponse.json({
         success: true,
         message: `Notificação enviada para ${users.users.length} usuários`,
         count: users.users.length,
+        emailsSent,
+        emailsFailed,
         notifications
       })
     } else if (userId) {
@@ -98,7 +187,7 @@ export async function POST(request: NextRequest) {
           category,
           link,
           link_text: linkText,
-          email_sent: sendEmail
+          email_sent: false
         })
         .select()
         .single()
@@ -108,10 +197,38 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Erro ao criar notificação' }, { status: 500 })
       }
 
+      let emailSent = false
+      let emailError: string | undefined
+
+      if (sendEmail) {
+        const { data: { user: targetUser } } = await supabaseAdmin.auth.admin.getUserById(userId)
+
+        if (!targetUser?.email) {
+          emailError = 'Usuário sem email cadastrado'
+        } else {
+          try {
+            const clientName = targetUser.user_metadata?.full_name || targetUser.email.split('@')[0] || 'Cliente'
+            await sendTransactionalEmail({
+              to: targetUser.email,
+              subject: title,
+              html: buildNotificationEmailHtml({ clientName, title, message, link, linkText, type }),
+              category: 'transactional'
+            })
+            emailSent = true
+            await supabaseAdmin.from('notifications').update({ email_sent: true }).eq('id', data.id)
+          } catch (err) {
+            emailError = err instanceof Error ? err.message : 'Erro desconhecido'
+            console.error(`❌ Falha ao enviar email de notificação para ${targetUser.email}:`, err)
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Notificação criada com sucesso',
-        notification: data
+        notification: { ...data, email_sent: emailSent },
+        emailSent,
+        emailError
       })
     } else {
       return NextResponse.json({ error: 'userId ou sendToAll obrigatório' }, { status: 400 })

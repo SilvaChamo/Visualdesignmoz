@@ -117,8 +117,13 @@ export function NotificationsSection() {
       const data = await res.json()
 
       if (data.success) {
-        alert(`✅ Notificação enviada com sucesso!\n${sendToAll ? `Enviado para ${data.count} usuários` : 'Enviado para 1 usuário'}`)
-        
+        const emailSummary = sendEmail
+          ? (sendToAll
+              ? `\n📧 Emails: ${data.emailsSent} enviados${data.emailsFailed ? `, ${data.emailsFailed} falharam` : ''}`
+              : `\n📧 Email: ${data.emailSent ? 'enviado' : `falhou (${data.emailError || 'erro desconhecido'})`}`)
+          : ''
+        alert(`✅ Notificação enviada com sucesso!\n${sendToAll ? `Enviado para ${data.count} usuários` : 'Enviado para 1 usuário'}${emailSummary}`)
+
         // Limpar formulário
         setTitle('')
         setMessage('')
@@ -361,7 +366,7 @@ export function NotificationsSection() {
               />
               <label htmlFor="sendEmail" className="flex items-center gap-2 text-sm text-yellow-800 cursor-pointer">
                 <Mail className="w-4 h-4" />
-                Também enviar por email (quando o sistema de email estiver funcionando)
+                Também enviar por email
               </label>
             </div>
 
