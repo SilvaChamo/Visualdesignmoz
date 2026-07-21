@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { 
-  getTemplateByDays, 
-  processTemplate, 
+import {
+  getTemplateByDays,
+  processTemplate,
   TemplateVariables,
-  getActiveReminderDays 
+  getActiveReminderDays
 } from '@/lib/renewal-templates'
+import { sendEmail } from '@/lib/email-service'
 
 // Cron secret para segurança
 const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-production'
@@ -116,6 +117,35 @@ export async function GET(request: NextRequest) {
               continue
             }
 
+            // Enviar o email a sério. Isto fica no seu próprio try/catch,
+            // separado do catch geral do item: se caísse no catch geral, o
+            // `continue` saltaria o record_renewal_reminder abaixo, e o
+            // próximo cron voltaria a considerar este serviço "por avisar",
+            // criando uma notificação duplicada. O lembrete tem de ficar
+            // sempre registado, envie o email ou não.
+            let emailSent = false
+            if (!userData.email) {
+              results.errors.push(`Sem email para envio de renovação (user ${renewal.user_id})`)
+            } else {
+              try {
+                await sendEmail({
+                  to: userData.email,
+                  subject: processedTemplate.emailSubject,
+                  html: processedTemplate.emailBody,
+                  category: 'transactional'
+                })
+                emailSent = true
+                results.emails++
+              } catch (emailError: any) {
+                console.error(`Falha ao enviar email de renovação (${renewal.service_name}):`, emailError)
+                results.errors.push(`Email não enviado (${renewal.service_name}, ${userData.email}): ${emailError.message}`)
+              }
+            }
+
+            if (emailSent) {
+              await supabaseAdmin.from('notifications').update({ email_sent: true }).eq('id', notification.id)
+            }
+
             // Registrar lembrete
             await supabaseAdmin.rpc('record_renewal_reminder', {
               p_user_id: renewal.user_id,
@@ -125,7 +155,7 @@ export async function GET(request: NextRequest) {
               p_expiration_date: renewal.expiration_date,
               p_reminder_days: days,
               p_notification_id: notification.id,
-              p_email_sent: false
+              p_email_sent: emailSent
             })
 
             results.notifications++
@@ -133,11 +163,9 @@ export async function GET(request: NextRequest) {
               service: renewal.service_name,
               days,
               user: clientName,
-              notificationId: notification.id
+              notificationId: notification.id,
+              emailSent
             })
-
-            // Aqui enviaria email quando o sistema de email estiver pronto
-            // sendRenewalEmail(userData.email, processedTemplate.emailSubject, processedTemplate.emailBody)
 
           } catch (itemError: any) {
             results.errors.push(`Erro ao processar ${renewal.service_name}: ${itemError.message}`)
