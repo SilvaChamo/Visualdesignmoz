@@ -1,11 +1,21 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { SERVICE_BRANDS } from '@/lib/services-catalog'
+import { CLIP_PATHS } from '@/components/home/NotchSection'
 
 export function CompactFooter() {
   return (
-    <footer className="bg-zinc-950 text-white border-t border-white/5 relative z-10">
+    <footer
+      className="bg-black text-white border-t border-white/5 relative z-10 overflow-hidden"
+      style={
+        {
+          '--cl': 'max(24px, calc(50% - 616px))',
+          clipPath: CLIP_PATHS.end,
+        } as CSSProperties
+      }
+    >
       {/* 5 Columns Menu Area (Max-Width Container) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-[60px]">
         <div className="mx-5">

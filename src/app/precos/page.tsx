@@ -1,17 +1,34 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useLayoutEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Info, ChevronDown, ShoppingCart } from 'lucide-react'
-import { BRANDS, CATEGORIES, categoriesForBrand, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog'
+import { BRANDS, CATEGORIES, categoriesForBrand, findCategory, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog'
+import { Loader2 } from 'lucide-react'
+import { NotchSection } from '@/components/home/NotchSection'
 
-export default function PrecosPage() {
+function PrecosContent() {
   const router = useRouter()
-  const [expandedBrand, setExpandedBrand] = useState(BRANDS[0].id)
-  const [activeId, setActiveId] = useState(categoriesForBrand(BRANDS[0].id)[0].id)
+  const searchParams = useSearchParams()
+  const initialCategory = findCategory(searchParams.get('categoria') || '')
+
+  const [expandedBrand, setExpandedBrand] = useState(initialCategory?.brand ?? BRANDS[0].id)
+  const [activeId, setActiveId] = useState(initialCategory?.id ?? categoriesForBrand(BRANDS[0].id)[0].id)
   const [selected, setSelected] = useState<SelectedCatalogItem[]>([])
 
   const active = CATEGORIES.find((c) => c.id === activeId) ?? CATEGORIES[0]
+
+  // A janela de itens não deve encolher em relação ao tamanho da primeira
+  // subcategoria mostrada — só medimos essa altura uma vez, e ela passa a
+  // servir de altura mínima; categorias com mais itens continuam a crescer.
+  const itemsListRef = useRef<HTMLDivElement>(null)
+  const [minListHeight, setMinListHeight] = useState<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (minListHeight === undefined && itemsListRef.current) {
+      setMinListHeight(itemsListRef.current.offsetHeight)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggleBrand = (brandId: string) => {
     if (expandedBrand === brandId) return
@@ -42,14 +59,13 @@ export default function PrecosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black text-foreground">
-      {/* Hero */}
-      <div className="bg-[#404040] relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
-          style={{ backgroundImage: "url('/assets/BG.jpg')" }}
-        />
-        <div className="absolute inset-0 bg-black/50" />
+    <div className="min-h-screen bg-zinc-200 dark:bg-zinc-950 text-foreground">
+      {/* Hero — mesmo estilo do banner de /cotacao, sem imagem, com o brilho
+          vermelho espalhado por todo o banner (não só ao centro) e suave. */}
+      <NotchSection shape="start" bg="bg-gradient-to-br from-black via-zinc-900 to-zinc-950" first>
+        <div className="absolute top-0 left-[10%] w-[450px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute top-0 right-[10%] w-[450px] h-[300px] bg-red-600/5 rounded-full blur-[130px] pointer-events-none" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10 text-center">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Tabela de Preços</h1>
@@ -58,7 +74,11 @@ export default function PrecosPage() {
             </p>
           </div>
         </div>
-      </div>
+        <div className="absolute bottom-0 left-0 right-0">
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent" />
+          <div className="h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent" />
+        </div>
+      </NotchSection>
 
       {/* Sidebar + Detalhe */}
       <div className="py-16">
@@ -68,6 +88,10 @@ export default function PrecosPage() {
             {/* Barra lateral unificada — marcas + categorias */}
             <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
               <nav className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-y divide-zinc-200 dark:divide-zinc-800">
+                <div className="px-6 py-4 bg-zinc-100 dark:bg-zinc-800">
+                  <h3 className="text-2xl font-bold uppercase tracking-wide text-zinc-900 dark:text-white">Categorias de Serviços</h3>
+                  <p className="text-xs text-black dark:text-zinc-400 mt-1">Escolha uma marca para ver os serviços disponíveis.</p>
+                </div>
                 {BRANDS.map((brand) => {
                   const brandCategories = categoriesForBrand(brand.id)
                   const isOpen = expandedBrand === brand.id
@@ -77,33 +101,41 @@ export default function PrecosPage() {
                       <button
                         type="button"
                         onClick={() => toggleBrand(brand.id)}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm font-bold transition-colors ${
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left text-base transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 border-l-[3px] border-transparent ${
                           isOpen
-                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
-                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                            ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-extrabold cursor-default'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-bold cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-red-600 dark:hover:text-red-500 hover:translate-x-1.5 hover:border-red-600'
                         }`}
                       >
                         <span>{brand.label}</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
-                      {isOpen && (
-                        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                          {brandCategories.map((cat) => (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => setActiveId(cat.id)}
-                              className={`w-full text-left px-5 py-2.5 text-sm transition-colors ${
-                                activeId === cat.id
-                                  ? 'bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-500 font-bold'
-                                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                              }`}
-                            >
-                              {cat.label}
-                            </button>
-                          ))}
+                      <div
+                        className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                      >
+                        <div className="overflow-hidden">
+                          <div>
+                            {brandCategories.map((cat, idx) => (
+                              <div key={cat.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveId(cat.id)}
+                                  className={`w-full text-left px-5 py-2.5 text-sm transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 border-r-[3px] border-l-[3px] ${
+                                    activeId === cat.id
+                                      ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-500 font-bold border-r-red-600 border-l-transparent cursor-default'
+                                      : 'bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 border-transparent cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-500 hover:translate-x-1.5 hover:border-l-red-600'
+                                  }`}
+                                >
+                                  {cat.label}
+                                </button>
+                                {idx < brandCategories.length - 1 && (
+                                  <div className="mx-4 border-b border-zinc-200 dark:border-zinc-700" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )
                 })}
@@ -112,32 +144,38 @@ export default function PrecosPage() {
 
             {/* Detalhe */}
             <div className="flex-1 w-full min-w-0">
-              <div className="mb-6 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg px-5 py-4">
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-1">{active.label}</h2>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{active.subtitle}</p>
-                {active.minQty && (
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{active.minQty}</p>
-                )}
-              </div>
+              <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-hidden">
+                <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/40">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-1">{active.label}</h2>
+                  <p className="text-sm text-black dark:text-zinc-400">{active.subtitle}</p>
+                  {active.minQty && (
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{active.minQty}</p>
+                  )}
+                </div>
 
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
-                {active.items.map((item) => (
-                  <label
-                    key={item.name}
-                    className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected(active.id, item.name)}
-                      onChange={() => toggleItem(active.id, item.name, active.label)}
-                      className="w-4 h-4 text-red-600 rounded border-zinc-300 dark:border-zinc-600 shrink-0"
-                    />
-                    <span className="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
-                    <span className="text-sm font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
-                      {item.sobConsulta ? 'Sob Consulta' : `${formatMt(item.price)} MT`}
-                    </span>
-                  </label>
-                ))}
+                <div ref={itemsListRef} className="divide-y divide-zinc-100 dark:divide-zinc-800" style={{ minHeight: minListHeight }}>
+                  {active.items.map((item, idx) => (
+                    <label
+                      key={item.name}
+                      className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
+                        idx % 2 === 0
+                          ? 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          : 'bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected(active.id, item.name)}
+                        onChange={() => toggleItem(active.id, item.name, active.label)}
+                        className="w-4 h-4 text-red-600 rounded border-zinc-300 dark:border-zinc-600 shrink-0"
+                      />
+                      <span className="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
+                      <span className="text-sm font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
+                        {item.sobConsulta ? 'Sob Consulta' : `${formatMt(item.price)} MT`}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-4 flex items-start gap-2.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -167,5 +205,19 @@ export default function PrecosPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PrecosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-zinc-100 dark:bg-zinc-950">
+          <Loader2 className="w-10 h-10 animate-spin text-red-600" />
+        </div>
+      }
+    >
+      <PrecosContent />
+    </Suspense>
   )
 }

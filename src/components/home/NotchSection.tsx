@@ -19,7 +19,7 @@ export type NotchShape = 'start' | 'start-alt' | 'end' | 'mid' | 'mid-alt';
  *   por isso, entre duas secções 'mid'/'mid' consecutivas, a do meio tem de ser 'mid-alt'
  *   para o encaixe ficar sem buracos (ver Why-Us → Preços → Newsletter na home).
  */
-const CLIP_PATHS: Record<NotchShape, string> = {
+export const CLIP_PATHS: Record<NotchShape, string> = {
   start:
     'polygon(0% 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 15px) calc(100% - 16px), calc(var(--cl) + 15px) calc(100% - 16px), var(--cl) 100%, 0% 100%)',
   'start-alt':

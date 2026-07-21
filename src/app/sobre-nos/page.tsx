@@ -1,15 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { NotchSection } from '@/components/home/NotchSection'
-import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
-import { 
-  Award, 
-  Users, 
-  Sparkles, 
-  Target, 
-  ShieldCheck, 
+import {
+  Award,
+  Users,
+  Sparkles,
+  Target,
+  ShieldCheck,
   ArrowRight,
   TrendingUp,
   HeartHandshake,
@@ -18,7 +18,7 @@ import {
 
 export default function AboutPage() {
   const { t } = useI18n()
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
 
   const stats = [
     { value: '14 Anos', label: 'Inovação Contínua', desc: 'Desde 2012 no mercado', icon: Award },
@@ -350,7 +350,7 @@ export default function AboutPage() {
                 Fale connosco hoje mesmo e solicite um orçamento detalhado ajustado às necessidades de branding e desenvolvimento da sua empresa.
               </p>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/precos')}
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-4 rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm tracking-wider uppercase"
               >
                 <span>Pedir Orçamento Gratuito</span>
@@ -360,13 +360,6 @@ export default function AboutPage() {
           </div>
         </div>
       </NotchSection>
-
-      {/* Budget Modal */}
-      <BudgetRequestModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialService="design-grafico"
-      />
 
     </div>
   )

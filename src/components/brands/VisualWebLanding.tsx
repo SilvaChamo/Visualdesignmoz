@@ -27,9 +27,6 @@ export function VisualWebHero() {
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 pt-[145px] pb-[50px] sm:pt-[160px] sm:pb-[60px] md:pt-[180px] md:pb-[70px] relative z-10 flex items-center h-[560px] sm:h-[640px] md:h-[760px]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
           <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6 pb-[50px]">
-            <div className="text-xs sm:text-sm text-zinc-400 font-bold uppercase tracking-widest mb-1">
-              Início / Marcas / VisualWeb
-            </div>
             <h1 className="font-bold leading-[1.15] text-white text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] max-w-2xl">
               Encontre o melhor plano de hospedagem que se adequa ao seu negocio
             </h1>

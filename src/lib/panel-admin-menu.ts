@@ -80,6 +80,11 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     ],
   },
   {
+    id: 'cotacoes',
+    label: 'Cotações',
+    isNewMenu: true,
+  },
+  {
     id: 'nov-wordpress',
     label: 'WordPress',
     isNewMenu: true,

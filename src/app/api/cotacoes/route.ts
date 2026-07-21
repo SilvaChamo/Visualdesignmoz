@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { findItem } from '@/lib/pricing-catalog';
+import { findItem, formatMt } from '@/lib/pricing-catalog';
+import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 
 // Lista as cotações do próprio utilizador autenticado — usada no painel da
 // conta para mostrar o que já foi submetido, sem expor cotações de outros clientes.
@@ -146,6 +147,14 @@ export async function POST(request: NextRequest) {
       console.error('[cotacoes] insert error:', insertError);
       return NextResponse.json({ error: 'Não foi possível gerar a cotação.' }, { status: 500 });
     }
+
+    await notifyQuoteTeam({
+      title: 'Nova cotação recebida',
+      message: `${empresa} (${responsavel}) pediu uma cotação de "${found.item.name}" — ${found.category.label}, quantidade ${quantidadeNum}. ${
+        sobConsulta ? 'Sob Consulta.' : `Total estimado: ${formatMt(totalMt)} MT.`
+      } Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+    });
 
     return NextResponse.json({ success: true, id: quotation.id });
   } catch (error: unknown) {

@@ -20,12 +20,12 @@ export type Brand = {
 }
 
 export const BRANDS: Brand[] = [
-  { id: 'visualdesign', label: 'VisualDesign' },
-  { id: 'visualweb', label: 'VisualWeb' },
-  { id: 'visualtransporte', label: 'VisualTransporte' },
-  { id: 'visualeventos', label: 'VisualEventos' },
-  { id: 'visualgifts', label: 'VisualGifts' },
-  { id: 'visualpro', label: 'VisualPro' },
+  { id: 'visualdesign', label: 'Design Gráfico' },
+  { id: 'visualweb', label: 'Web Design' },
+  { id: 'visualtransporte', label: 'Transporte' },
+  { id: 'visualeventos', label: 'Eventos' },
+  { id: 'visualgifts', label: 'Brindes Corporativos' },
+  { id: 'visualpro', label: 'Produção Audiovisual' },
 ]
 
 export const CATEGORIES: Category[] = [
@@ -122,27 +122,52 @@ export const CATEGORIES: Category[] = [
     ],
   },
   {
-    id: 'video',
-    label: 'Produção de Vídeo',
-    subtitle: 'Filmagem e edição para eventos e publicidade.',
+    id: 'design-identidade',
+    label: 'Design Gráfico & Identidade Visual',
+    subtitle: 'Logótipos, manuais de marca e estacionário corporativo.',
     minQty: '',
     brand: 'visualdesign',
     items: [
-      { name: 'Filmagem de Evento, Festa ou Aniversário (1 dia)', price: 17550 },
-      { name: 'Filmagem de Casamento (1 dia)', price: 9945 },
-      { name: 'Filmagem de Documentário, Duas Câmaras', price: 40950 },
-      { name: 'Filmagem e Edição de Spot Publicitário (15 a 30seg)', price: 32760 },
+      { name: 'Criação de Logótipo & Manual de Normas', price: 0, sobConsulta: true },
+      { name: 'Estacionário Corporativo (Cartões, Papel Timbrado)', price: 0, sobConsulta: true },
+      { name: 'Design de Catálogos, Brochuras & Flyers', price: 0, sobConsulta: true },
     ],
   },
   {
-    id: 'fotografia',
-    label: 'Fotografia',
-    subtitle: 'Entrega digital ou impressa.',
+    id: 'branding-estrategia',
+    label: 'Consultoria em Estratégia de Marca',
+    subtitle: 'Posicionamento, naming e rebranding para a sua marca.',
     minQty: '',
     brand: 'visualdesign',
     items: [
-      { name: 'Imagens Digitais, entrega em flash (por postal)', price: 35.10 },
-      { name: 'Imagens Impressão, Tamanho Normal (2 postais)', price: 100.62 },
+      { name: 'Estratégia de Posicionamento de Marca', price: 0, sobConsulta: true },
+      { name: 'Naming (Criação de Nomes) e Slogans', price: 0, sobConsulta: true },
+      { name: 'Rebranding e Modernização de Marcas', price: 0, sobConsulta: true },
+      { name: 'Guidelines e Brandbook Completo', price: 0, sobConsulta: true },
+    ],
+  },
+  {
+    id: 'design-digital',
+    label: 'Design para Redes Sociais',
+    subtitle: 'Criativos digitais para Instagram, Facebook, LinkedIn e TikTok.',
+    minQty: '',
+    brand: 'visualdesign',
+    items: [
+      { name: 'Templates para Posts e Stories', price: 0, sobConsulta: true },
+      { name: 'Criativos para Campanhas Publicitárias (Ads)', price: 0, sobConsulta: true },
+      { name: 'Animações Curtas e Motion Graphics', price: 0, sobConsulta: true },
+      { name: 'Pacote de Conteúdo Visual Mensal', price: 0, sobConsulta: true },
+    ],
+  },
+  {
+    id: 'envelopamento-viaturas',
+    label: 'Envelopamento de Viaturas',
+    subtitle: 'Branding móvel para a frota da sua empresa.',
+    minQty: '',
+    brand: 'visualdesign',
+    items: [
+      { name: 'Envelopamento Parcial da Viatura', price: 0, sobConsulta: true },
+      { name: 'Envelopamento Total da Viatura', price: 0, sobConsulta: true },
     ],
   },
 

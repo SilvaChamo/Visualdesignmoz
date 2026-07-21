@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { Tent, Award, Clock, Users, CheckCircle2, ArrowRight } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
-import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
 
 export default function FeirasEventosSubPage() {
   const { t } = useI18n()
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-foreground">
@@ -33,7 +33,7 @@ export default function FeirasEventosSubPage() {
             </p>
             <div className="mt-8">
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/cotacao?categoria=feiras-eventos')}
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-3.5 rounded-md shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
               >
                 <span>Pedir Orçamento Gratuito</span>
@@ -134,7 +134,7 @@ export default function FeirasEventosSubPage() {
                 Partilhe connosco a data e as medidas do espaço. A nossa equipa criará um layout à medida dos seus objectivos comerciais.
               </p>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/cotacao?categoria=feiras-eventos')}
                 className="inline-flex items-center gap-2 bg-white hover:bg-zinc-100 text-red-600 font-extrabold px-10 py-4 rounded-md shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
                 <span>Solicitar Proposta Comercial</span>
@@ -144,13 +144,6 @@ export default function FeirasEventosSubPage() {
           </div>
         </div>
       </NotchSection>
-
-      {/* Budget Modal */}
-      <BudgetRequestModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialService="feiras-eventos"
-      />
 
     </div>
   )

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings,
+  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings, FileText,
 } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
 import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
@@ -55,6 +55,7 @@ const MENU_ICONS: Record<string, React.ElementType> = {
   'nov-email': Mail,
   'nov-dominios': Globe,
   'nov-notificacoes': Bell,
+  cotacoes: FileText,
   newsletter: Layout,
   'nov-wordpress': WordPressMenuIcon,
   'nov-sistema': Settings,

@@ -46,6 +46,7 @@ import {
 } from './DirectAdminSections'
 import { NewsManagerSection } from './NewsManagerSection'
 import { RenewalsSection } from './RenewalsSection'
+import { CotacoesSection } from './CotacoesSection'
 import { TemplatesSection } from './TemplatesSection'
 import { DNSCentralSection } from './DNSCentralSection'
 import { DomainTransferSection } from './DomainTransferSection'
@@ -2087,6 +2088,8 @@ function AdminPageContent() {
         return <TemplatesSection />
       case 'cadastrar-renovacao':
         return <RenewalsSection initialTab="add" hideTabs={true} />
+      case 'cotacoes':
+        return <CotacoesSection />
       case 'cp-users':
         return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} onNavigate={handleNavigate} />
       case 'wp-users':

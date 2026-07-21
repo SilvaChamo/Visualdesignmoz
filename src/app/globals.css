@@ -440,3 +440,32 @@ samp {
   color: #f4f4f5 !important;
 }
 
+/* Impressão da cotação (/cotacao/[id]) — mostra só o documento, sem menu/rodapé. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #quote-print-area,
+  #quote-print-area * {
+    visibility: visible;
+  }
+  #quote-print-area {
+    position: absolute;
+    inset: 0;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  /* A secção com o efeito de recorte à volta de #quote-print-area não pode
+     cortar a própria factura ao imprimir. */
+  .notch-print-safe {
+    clip-path: none !important;
+    overflow: visible !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 12mm;
+  }
+}
+

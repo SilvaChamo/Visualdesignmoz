@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { PackageOpen, ShieldCheck, Clock, Award, CheckCircle2, ArrowRight } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
-import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
 
 export default function KitsOnboardingSubPage() {
   const { t } = useI18n()
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-foreground">
@@ -33,7 +33,7 @@ export default function KitsOnboardingSubPage() {
             </p>
             <div className="mt-8">
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/cotacao?categoria=kits-onboarding')}
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-3.5 rounded-md shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
               >
                 <span>Pedir Orçamento Gratuito</span>
@@ -134,7 +134,7 @@ export default function KitsOnboardingSubPage() {
                 Diga-nos o perfil dos colaboradores e a quantidade média mensal. Desenharemos opções de kit únicas.
               </p>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/cotacao?categoria=kits-onboarding')}
                 className="inline-flex items-center gap-2 bg-white hover:bg-zinc-100 text-red-600 font-extrabold px-10 py-4 rounded-md shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
                 <span>Solicitar Proposta de Welcome Kits</span>
@@ -144,13 +144,6 @@ export default function KitsOnboardingSubPage() {
           </div>
         </div>
       </NotchSection>
-
-      {/* Budget Modal */}
-      <BudgetRequestModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialService="kits-onboarding"
-      />
 
     </div>
   )

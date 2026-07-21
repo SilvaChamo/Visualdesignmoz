@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { formatMt } from '@/lib/pricing-catalog';
+import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
 
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { data: quotation, error: fetchError } = await admin
       .from('quotation_requests')
-      .select('id, user_id')
+      .select('id, user_id, empresa, produto, categoria_label, total_mt, sob_consulta')
       .eq('id', id)
       .single();
 
@@ -56,6 +58,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error('[cotacoes/pagamento] update error:', updateError);
       return NextResponse.json({ error: 'Não foi possível actualizar a cotação.' }, { status: 500 });
     }
+
+    const metodoLabel = metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária';
+    await notifyQuoteTeam({
+      title: 'Cliente escolheu método de pagamento',
+      message: `${quotation.empresa} escolheu ${metodoLabel} para a cotação de "${quotation.produto}" (${quotation.categoria_label}). ${
+        quotation.sob_consulta ? 'Valor sob consulta — confirmar com o cliente.' : `Valor: ${formatMt(quotation.total_mt)} MT.`
+      }`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

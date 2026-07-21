@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { 
-  Globe, ShieldCheck, Users, Gauge, ArrowRight,
+import {
+  Globe, ShieldCheck, Users, Gauge, ArrowRight, ChevronRight,
   Monitor, Palette, Calendar, Film, Truck, Gift,
   CheckCircle2, ChevronDown, Check, Award, Sparkles
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 import { NotchSection } from '@/components/home/NotchSection'
-import { BudgetRequestModal } from '@/components/forms/BudgetRequestModal'
 
 export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
   return (
@@ -44,22 +44,25 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
               <span className="w-px h-10 bg-white/20 shrink-0" />
               <div className="flex items-start gap-2.5 px-4 flex-1 min-w-0">
                 <Users className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
-                <span className="text-sm sm:text-base font-bold leading-snug">Parceiro de Grandes Marcas</span>
+                <span className="text-sm sm:text-base font-bold leading-snug">O parceiro ideal para o seu negócio</span>
               </div>
               <span className="w-px h-10 bg-white/20 shrink-0" />
               <div className="flex items-start gap-2.5 pl-4 flex-1 min-w-0">
                 <Gauge className="w-5 h-5 text-red-500 shrink-0 mt-0.5" strokeWidth={2} />
-                <span className="text-sm sm:text-base font-bold leading-snug">Rapidez e Suporte Local</span>
+                <span className="text-sm sm:text-base font-bold leading-snug">Rapidez e Suporte Personalizado</span>
               </div>
             </div>
  
-            <button 
-              onClick={onCtaClick}
-              className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-3.5 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer"
+            <Link
+              href="/precos"
+              className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-10 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer"
             >
-              <span>Pedir Orçamento Gratuito</span>
-              <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
-            </button>
+              <span>Ver Lista de Preços</span>
+              <span className="inline-flex items-center">
+                <span className="h-px w-0 bg-white transition-all duration-300 group-hover/btn:w-5" />
+                <ChevronRight className="w-4 h-4 shrink-0" />
+              </span>
+            </Link>
           </div>
           <div className="lg:col-span-5 hidden lg:block" />
         </div>
@@ -70,6 +73,7 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
 
 export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
   const { t } = useI18n()
+  const router = useRouter()
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
   const [subscribed, setSubscribed] = useState(false)
 
@@ -204,7 +208,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                   </ul>
                   <div className="pt-4">
                     <button
-                      onClick={onCtaClick}
+                      onClick={() => router.push('/precos?categoria=design-identidade')}
                       className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
                     >
                       <span>Orçamento para Design</span>
@@ -235,7 +239,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                 <div className="lg:col-span-6 space-y-4 text-left pt-2">
                   <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center mb-1">
                     <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
-                    Estratégia & Posicionamento
+                    Consultoria em Branding
                   </div>
                   <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white leading-tight mt-0">
                     Branding & Estratégia de Marca
@@ -261,10 +265,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                   </ul>
                   <div className="pt-4">
                     <button
-                      onClick={onCtaClick}
+                      onClick={() => router.push('/precos?categoria=branding-estrategia')}
                       className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
                     >
-                      <span>Consultoria de Branding</span>
+                      <span>Pedir Orçamento</span>
                       <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
                     </button>
                   </div>
@@ -318,10 +322,10 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                   </ul>
                   <div className="pt-4">
                     <button
-                      onClick={onCtaClick}
+                      onClick={() => router.push('/precos?categoria=design-digital')}
                       className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
                     >
-                      <span>Orçamento Digital</span>
+                      <span>Orçamento para Design Digital</span>
                       <ArrowRight className="w-4 h-4 transition-all duration-300 transform translate-x-[-4px] opacity-0 group-hover/btn:translate-x-0 group-hover/btn:opacity-100" />
                     </button>
                   </div>
@@ -375,7 +379,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
                   </ul>
                   <div className="pt-4">
                     <button
-                      onClick={onCtaClick}
+                      onClick={() => router.push('/precos?categoria=envelopamento-viaturas')}
                       className="group/btn inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-md shadow-md transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
                     >
                       <span>Orçamento para Envelopamento</span>
@@ -556,17 +560,13 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
 }
 
 export default function VisualGroupLanding() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
+  const goToPrecos = () => router.push('/precos')
 
   return (
     <>
-      <VisualGroupHero onCtaClick={() => setIsModalOpen(true)} />
-      <VisualGroupBody onCtaClick={() => setIsModalOpen(true)} />
-      <BudgetRequestModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialService="design-grafico"
-      />
+      <VisualGroupHero onCtaClick={goToPrecos} />
+      <VisualGroupBody onCtaClick={goToPrecos} />
     </>
   )
 }
