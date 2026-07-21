@@ -19,6 +19,37 @@ function addYears(date: Date, years: number) {
 }
 
 /**
+ * Regista uma notificação para um admin quando uma escrita de tracking de
+ * renovação falha. Sem isto, uma falha aqui fica só num console.warn que
+ * ninguém vê — foi assim que hosting_renewals ficou meses sem existir sem
+ * ninguém notar. Nunca deve poder bloquear o checkout em si.
+ */
+async function alertAdminOfTrackingFailure(context: string, message: string) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!serviceKey || !supabaseUrl) return;
+  try {
+    const admin = createAdminClient(supabaseUrl, serviceKey);
+    const { data: adminProfile } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+      .limit(1)
+      .maybeSingle();
+    if (!adminProfile?.id) return;
+    await admin.from('notifications').insert({
+      user_id: adminProfile.id,
+      title: 'Falha ao registar renovação',
+      message: `[checkout-fulfillment] ${context}: ${message}`,
+      type: 'error',
+      category: 'system',
+    });
+  } catch {
+    /* um alerta falhado nunca deve impedir o checkout de terminar */
+  }
+}
+
+/**
  * Activa os produtos comprados (domínio/hospedagem/email) e promove a conta guest -> client.
  * Só deve ser chamada depois de o pagamento estar confirmado (webhook Stripe), nunca a partir
  * de um pedido directo do browser.
@@ -64,7 +95,10 @@ export async function fulfillCheckout(
           status: 'active',
           registrar: 'VisualDesign',
         });
-        if (insErr) console.warn('[checkout-fulfillment] domain_renewals:', insErr.message);
+        if (insErr) {
+          console.warn('[checkout-fulfillment] domain_renewals:', insErr.message);
+          await alertAdminOfTrackingFailure('domain_renewals', insErr.message);
+        }
       }
       created.push(`domínio:${domainName}`);
     }
@@ -84,7 +118,10 @@ export async function fulfillCheckout(
         server: 'DirectAdmin',
         notes: `Compra carrinho (${paymentMethod})`,
       });
-      if (insErr) console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
+      if (insErr) {
+        console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
+        await alertAdminOfTrackingFailure('hosting_renewals', insErr.message);
+      }
       created.push(`hospedagem:${domainName}`);
     }
 
@@ -103,7 +140,10 @@ export async function fulfillCheckout(
         server: 'Mail',
         notes: `Plano de e-mail (${paymentMethod})`,
       });
-      if (insErr) console.warn('[checkout-fulfillment] email plano:', insErr.message);
+      if (insErr) {
+        console.warn('[checkout-fulfillment] email plano:', insErr.message);
+        await alertAdminOfTrackingFailure('hosting_renewals (email)', insErr.message);
+      }
       created.push(`email:${serviceName}`);
     }
   }
