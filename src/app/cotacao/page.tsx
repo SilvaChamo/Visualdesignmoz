@@ -316,7 +316,7 @@ function CotacaoContent() {
         </div>
       </NotchSection>
 
-      <NotchSection shape="end" bg="bg-zinc-200 dark:bg-black">
+      <div className="bg-zinc-200 dark:bg-black">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-12">
         <div className="mx-5">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -512,7 +512,7 @@ function CotacaoContent() {
                 {extraSelectedItems.length > 0 && (
                   <div className="mb-4">
                     <label className={labelClass}>Serviços adicionais seleccionados</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-3">
                       {extraSelectedItems.map((item) => {
                         const found = findItem(item.categoriaId, item.produto);
                         const sobConsultaItem = Boolean(found?.item.sobConsulta);
@@ -779,7 +779,7 @@ function CotacaoContent() {
           </div>
         </div>
         </div>
-      </NotchSection>
+      </div>
     </div>
   );
 }
