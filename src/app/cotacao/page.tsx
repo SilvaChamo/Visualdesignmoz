@@ -624,7 +624,7 @@ function CotacaoContent() {
                 <p className="text-sm text-red-800 dark:text-red-300 font-medium leading-relaxed">
                   A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
                   {multiTotal > 0
-                    ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                    ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 1.16 * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
                     : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
                 </p>
               </div>
@@ -679,7 +679,7 @@ function CotacaoContent() {
           </div>
 
           {/* Barra lateral — pré-visualização */}
-          <div className="lg:col-span-1 lg:sticky lg:top-6 self-start">
+          <div className="lg:col-span-1 lg:sticky lg:top-[105px] self-start">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
               <div className="bg-zinc-900 dark:bg-black px-6 py-4 border-b border-zinc-800">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-white">Pré-visualização da Cotação</h3>
@@ -714,12 +714,12 @@ function CotacaoContent() {
                       ) : (
                         <>
                           <div className="flex items-center justify-between mt-0.5">
-                            <span className="text-xs text-zinc-400 dark:text-zinc-500">Quantidade</span>
-                            <span className="text-xs text-zinc-600 dark:text-zinc-300">{qty}</span>
+                            <span className="text-zinc-500 dark:text-zinc-400">Quantidade</span>
+                            <span className="text-zinc-800 dark:text-zinc-200">{qty}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-zinc-400 dark:text-zinc-500">V. Unitário</span>
-                            <span className="text-xs text-zinc-600 dark:text-zinc-300">{formatMt(precoUnitario)} MT</span>
+                            <span className="text-zinc-500 dark:text-zinc-400">V. Unitário</span>
+                            <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatMt(precoUnitario)} MT</span>
                           </div>
                         </>
                       )}
@@ -732,15 +732,15 @@ function CotacaoContent() {
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal / 1.16)} MT</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal)} MT</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal - multiTotal / 1.16)} MT</span>
+                        <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, acrescido)</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal * 0.16)} MT</span>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
                         <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
-                        <span className="font-bold text-zinc-900 dark:text-white">{formatMt(multiTotal)} MT</span>
+                        <span className="font-bold text-red-600 dark:text-red-500">{formatMt(multiTotal * 1.16)} MT</span>
                       </div>
                     </>
                   )}
