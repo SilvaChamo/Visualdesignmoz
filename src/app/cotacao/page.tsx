@@ -7,7 +7,14 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/lib/supabase-client';
 import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog';
 import { NotchSection } from '@/components/home/NotchSection';
-import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2 } from 'lucide-react';
+
+interface OrderLineItem {
+  id: string;
+  categoriaId: string;
+  produto: string;
+  quantidade: number;
+}
 
 function minDeliveryDate() {
   const d = new Date();
@@ -70,29 +77,43 @@ function CotacaoContent() {
     if (!accountEmail && emailResponsavel) setAccountEmail(emailResponsavel);
   };
 
-  // Serviço
-  const initialCategoria = searchParams.get('categoria') || CATEGORIES[0].id;
-  const [categoriaId, setCategoriaId] = useState(
-    CATEGORIES.some((c) => c.id === initialCategoria) ? initialCategoria : CATEGORIES[0].id
-  );
-  const category = CATEGORIES.find((c) => c.id === categoriaId) ?? CATEGORIES[0];
-  const [produto, setProduto] = useState(category.items[0]?.name ?? '');
-  const [quantidade, setQuantidade] = useState(1);
+  // Serviço — lista única de linhas de encomenda; a primeira existe sempre,
+  // mesmo com um só serviço, para que o cartão e a pré-visualização usem
+  // sempre o mesmo formato (não há "principal" vs "adicionais").
+  const categoryFor = (categoriaId: string) => CATEGORIES.find((c) => c.id === categoriaId) ?? CATEGORIES[0];
+  const initialCategoriaId = (() => {
+    const fromQuery = searchParams.get('categoria');
+    return fromQuery && CATEGORIES.some((c) => c.id === fromQuery) ? fromQuery : CATEGORIES[0].id;
+  })();
+  const [lineItems, setLineItems] = useState<OrderLineItem[]>(() => {
+    const cat = categoryFor(initialCategoriaId);
+    return [{ id: crypto.randomUUID(), categoriaId: initialCategoriaId, produto: cat.items[0]?.name ?? '', quantidade: 1 }];
+  });
   const [dataLimite, setDataLimite] = useState('');
   const [notas, setNotas] = useState('');
-  const [extraSelectedItems, setExtraSelectedItems] = useState<SelectedCatalogItem[]>([]);
-  const [quantidades, setQuantidades] = useState<Record<string, number>>({});
 
-  const itemKey = (categoriaIdArg: string, produtoArg: string) => `${categoriaIdArg}::${produtoArg}`;
-  const getQty = (categoriaIdArg: string, produtoArg: string) => quantidades[itemKey(categoriaIdArg, produtoArg)] ?? 1;
-  const setQty = (categoriaIdArg: string, produtoArg: string, value: number) => {
-    setQuantidades((prev) => ({ ...prev, [itemKey(categoriaIdArg, produtoArg)]: value }));
+  const updateLineItemCategoria = (id: string, categoriaId: string) => {
+    setLineItems((prev) =>
+      prev.map((li) => {
+        if (li.id !== id) return li;
+        const cat = categoryFor(categoriaId);
+        return { ...li, categoriaId, produto: cat.items[0]?.name ?? '' };
+      })
+    );
+  };
+  const updateLineItemProduto = (id: string, produto: string) => {
+    setLineItems((prev) => prev.map((li) => (li.id === id ? { ...li, produto } : li)));
+  };
+  const updateLineItemQuantidade = (id: string, quantidade: number) => {
+    setLineItems((prev) => prev.map((li) => (li.id === id ? { ...li, quantidade } : li)));
+  };
+  const removeLineItem = (id: string) => {
+    setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.id !== id)));
   };
 
-  // Selecção feita por checkboxes em /precos (vários serviços, possivelmente de
-  // categorias diferentes) — o primeiro fica como serviço "principal" (também
-  // seleccionável pelos dropdowns), os restantes ficam à parte; quando há mais
-  // do que um serviço, mostramos todos juntos com quantidade própria para cada um.
+  // Selecção feita por checkboxes em /precos (vários serviços, possivelmente
+  // de categorias diferentes) — cada um vira a sua própria linha, todas no
+  // mesmo formato de cartão.
   useEffect(() => {
     const raw = sessionStorage.getItem(SELECAO_STORAGE_KEY);
     if (!raw) return;
@@ -100,49 +121,38 @@ function CotacaoContent() {
     try {
       const items: SelectedCatalogItem[] = JSON.parse(raw);
       if (!items.length) return;
-      const [primeiro, ...resto] = items;
-      if (CATEGORIES.some((c) => c.id === primeiro.categoriaId)) {
-        setCategoriaId(primeiro.categoriaId);
-        setProduto(primeiro.produto);
-      }
-      if (resto.length > 0) {
-        setExtraSelectedItems(resto);
-      }
+      setLineItems(
+        items.map((item) => ({
+          id: crypto.randomUUID(),
+          categoriaId: CATEGORIES.some((c) => c.id === item.categoriaId) ? item.categoriaId : CATEGORIES[0].id,
+          produto: item.produto,
+          quantidade: 1,
+        }))
+      );
     } catch (e) {
       console.error('Erro ao ler selecção de /precos:', e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lista unificada (principal + adicionais) — o item principal entra sempre,
-  // mesmo quando é o único, para que a pré-visualização use sempre o mesmo
-  // formato de apresentação (single ou múltiplo item).
-  const allSelectedItems: SelectedCatalogItem[] = [
-    { categoriaId, produto, categoriaLabel: category.label },
-    ...extraSelectedItems,
-  ];
-
-  const handleCategoriaChange = (id: string) => {
-    setCategoriaId(id);
-    const nextCategory = CATEGORIES.find((c) => c.id === id);
-    setProduto(nextCategory?.items[0]?.name ?? '');
-  };
-
-  const selectedItem = category.items.find((i) => i.name === produto);
   const minDate = minDeliveryDate();
   const dataLimiteCedoDemais = dataLimite !== '' && dataLimite < minDate;
 
-  // Preços agregados quando há múltiplos serviços seleccionados — cada item
-  // com preço fixo entra no total pela sua própria quantidade; itens Sob
-  // Consulta ficam de fora do total (o valor é definido depois, por contacto).
-  const multiItemsPriced = allSelectedItems.map((item, idx) => {
-    const found = findItem(item.categoriaId, item.produto);
-    // O primeiro item é sempre o "principal" (categoria/produto/quantidade do
-    // topo do formulário); os restantes têm a sua própria quantidade no mapa.
-    const qty = idx === 0 ? quantidade : getQty(item.categoriaId, item.produto);
+  // Preços agregados — cada item com preço fixo entra no total pela sua
+  // própria quantidade; itens Sob Consulta ficam de fora do total (o valor
+  // é definido depois, por contacto).
+  const multiItemsPriced = lineItems.map((li) => {
+    const found = findItem(li.categoriaId, li.produto);
     const sobConsultaItem = Boolean(found?.item.sobConsulta);
-    const subtotal = found && !sobConsultaItem ? found.item.price * qty : 0;
-    return { item, qty, precoUnitario: found?.item.price ?? 0, sobConsultaItem, subtotal };
+    const subtotal = found && !sobConsultaItem ? found.item.price * li.quantidade : 0;
+    return {
+      li,
+      categoriaLabel: categoryFor(li.categoriaId).label,
+      qty: li.quantidade,
+      precoUnitario: found?.item.price ?? 0,
+      sobConsultaItem,
+      subtotal,
+    };
   });
   const multiTotal = multiItemsPriced.reduce((sum, i) => sum + i.subtotal, 0);
   const hasSobConsultaItem = multiItemsPriced.some((i) => i.sobConsultaItem);
@@ -189,7 +199,7 @@ function CotacaoContent() {
       if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
     }
     if (key === 'servico') {
-      if (!selectedItem) return 'Escolha o produto e a quantidade.';
+      if (lineItems.some((li) => !findItem(li.categoriaId, li.produto))) return 'Escolha o produto e a quantidade.';
       if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
       if (!dataLimite) return 'Escolha a data-limite de entrega.';
     }
@@ -263,10 +273,10 @@ function CotacaoContent() {
       const finalTelefoneResponsavel = tipoCliente === 'individual' ? telefoneInstitucional : telefoneResponsavel;
       const finalEmailResponsavel = tipoCliente === 'individual' ? emailInstitucional : emailResponsavel;
 
-      const itens = allSelectedItems.map((item, idx) => ({
-        categoriaId: item.categoriaId,
-        produto: item.produto,
-        quantidade: idx === 0 ? quantidade : getQty(item.categoriaId, item.produto),
+      const itens = lineItems.map((li) => ({
+        categoriaId: li.categoriaId,
+        produto: li.produto,
+        quantidade: li.quantidade,
       }));
 
       setStatus('submitting');
@@ -504,90 +514,81 @@ function CotacaoContent() {
               <>
                 <h2 className={sectionTitleClass}>Serviço</h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className={labelClass}>Categoria</label>
-                    <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
-                      {BRANDS.map((brand) => {
-                        const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
-                        if (brandCategories.length === 0) return null;
-                        return (
-                          <optgroup key={brand.id} label={brand.label}>
-                            {brandCategories.map((c) => (
-                              <option key={c.id} value={c.id}>{c.label}</option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Selecione o tipo de produto</label>
-                    <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
-                      {category.items.map((item) => (
-                        <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Quantidade</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      className={inputClass}
-                      value={quantidade === 0 ? '' : quantidade}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setQuantidade(raw === '' ? 0 : Math.round(Number(raw)));
-                      }}
-                      onBlur={() => setQuantidade((q) => (q > 0 ? q : 1))}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {extraSelectedItems.length > 0 && (
-                  <div className="mb-4">
-                    <label className={labelClass}>Serviços adicionais seleccionados</label>
-                    <div className="flex flex-col gap-3">
-                      {extraSelectedItems.map((item) => {
-                        const found = findItem(item.categoriaId, item.produto);
-                        const sobConsultaItem = Boolean(found?.item.sobConsulta);
-                        const qty = getQty(item.categoriaId, item.produto);
-                        return (
-                          <div
-                            key={itemKey(item.categoriaId, item.produto)}
-                            className="flex items-center gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.categoriaLabel}</p>
-                              <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
-                                {item.produto}{sobConsultaItem ? ' (Sob Consulta)' : ''}
-                              </p>
+                <div className="mb-4">
+                  <label className={labelClass}>Serviços seleccionados</label>
+                  <div className="flex flex-col gap-3">
+                    {lineItems.map((li) => {
+                      const cat = categoryFor(li.categoriaId);
+                      return (
+                        <div
+                          key={li.id}
+                          className="flex items-center gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                        >
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <div className="inline-flex items-center gap-1 max-w-full">
+                              <select
+                                value={li.categoriaId}
+                                onChange={(e) => updateLineItemCategoria(li.id, e.target.value)}
+                                className="appearance-none bg-transparent text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer focus:outline-none truncate max-w-full"
+                              >
+                                {BRANDS.map((brand) => {
+                                  const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                                  if (brandCategories.length === 0) return null;
+                                  return (
+                                    <optgroup key={brand.id} label={brand.label}>
+                                      {brandCategories.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.label}</option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                              </select>
+                              <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
                             </div>
-                            <div className="w-20 shrink-0">
-                              <label className={labelClass}>Qtd.</label>
-                              <input
-                                type="number"
-                                min={1}
-                                step={1}
-                                className={inputClass}
-                                value={qty === 0 ? '' : qty}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  setQty(item.categoriaId, item.produto, raw === '' ? 0 : Math.round(Number(raw)));
-                                }}
-                                onBlur={() => setQty(item.categoriaId, item.produto, getQty(item.categoriaId, item.produto) > 0 ? getQty(item.categoriaId, item.produto) : 1)}
-                                required
-                              />
+                            <div className="inline-flex items-center gap-1 max-w-full">
+                              <select
+                                value={li.produto}
+                                onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
+                                className="appearance-none bg-transparent text-sm font-semibold text-zinc-900 dark:text-white cursor-pointer focus:outline-none truncate max-w-full"
+                              >
+                                {cat.items.map((p) => (
+                                  <option key={p.name} value={p.name}>{p.name}{p.sobConsulta ? ' (Sob Consulta)' : ''}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="w-20 shrink-0">
+                            <label className={labelClass}>Qtd.</label>
+                            <input
+                              type="number"
+                              min={1}
+                              step={1}
+                              className={inputClass}
+                              value={li.quantidade === 0 ? '' : li.quantidade}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                updateLineItemQuantidade(li.id, raw === '' ? 0 : Math.round(Number(raw)));
+                              }}
+                              onBlur={() => updateLineItemQuantidade(li.id, li.quantidade > 0 ? li.quantidade : 1)}
+                              required
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLineItem(li.id)}
+                            disabled={lineItems.length <= 1}
+                            className="shrink-0 p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Remover serviço"
+                            title={lineItems.length <= 1 ? 'Tem de manter pelo menos um serviço' : 'Remover este serviço'}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -687,28 +688,30 @@ function CotacaoContent() {
               </div>
 
               <div className="p-6 space-y-4">
-                <div className="space-y-1 text-sm">
-                  <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa || (tipoCliente === 'individual' ? 'O seu nome' : 'Nome da empresa')}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco || 'Província da empresa'}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional || 'Contacto institucional'}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional || 'Email institucional'}</span></p>
-                  {nif && <p className="text-zinc-500 dark:text-zinc-400">NIF: {nif}</p>}
-                  {website && <p className="text-zinc-500 dark:text-zinc-400">{website}</p>}
-                </div>
+                {(empresa || endereco || telefoneInstitucional || emailInstitucional || nif || website) && (
+                  <div className="space-y-1 text-sm">
+                    {empresa && <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa}</span></p>}
+                    {endereco && <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco}</span></p>}
+                    {telefoneInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>}
+                    {emailInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional}</span></p>}
+                    {nif && <p><span className="font-bold text-zinc-900 dark:text-white">Nuit: </span><span className="text-zinc-600 dark:text-zinc-300">{nif}</span></p>}
+                    {website && <p><span className="font-bold text-zinc-900 dark:text-white">Website: </span><span className="text-zinc-600 dark:text-zinc-300">{website}</span></p>}
+                  </div>
+                )}
 
-                {tipoCliente === 'empresa' && (
+                {tipoCliente === 'empresa' && (responsavel || telefoneResponsavel || emailResponsavel) && (
                   <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
-                    <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel || 'Responsável a contactar'}{cargo ? ` — ${cargo}` : ''}</span></p>
-                    <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel || 'Contacto do responsável'}</span></p>
-                    <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel || 'Email do responsável'}</span></p>
+                    {responsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel}{cargo ? ` — ${cargo}` : ''}</span></p>}
+                    {telefoneResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel}</span></p>}
+                    {emailResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel}</span></p>}
                   </div>
                 )}
 
                 <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
-                  {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario }) => (
-                    <div key={itemKey(item.categoriaId, item.produto)}>
-                      <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
-                      <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
+                  {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, precoUnitario }) => (
+                    <div key={li.id}>
+                      <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
+                      <p className="text-zinc-500 dark:text-zinc-400">{li.produto}</p>
                       {sobConsultaItem ? (
                         <p className="text-sm font-bold text-red-600 dark:text-red-500 mt-0.5">Sob Consulta</p>
                       ) : (
