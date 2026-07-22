@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { notifyQuoteClientStatusChange } from '@/lib/notify-quote-client';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -13,7 +14,7 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
-const VALID_STATUS = ['pending', 'payment_selected', 'done', 'cancelled'];
+const VALID_STATUS = ['pending', 'payment_selected', 'approved', 'rejected', 'done', 'cancelled'];
 
 // Lista todos os pedidos de cotação recebidos, para a equipa acompanhar no dashboard.
 export async function GET(request: Request) {
@@ -50,7 +51,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, status } = body || {};
+    const { id, status, rejectionReason } = body || {};
 
     if (!id || !status) {
       return NextResponse.json({ success: false, error: 'id e status são obrigatórios.' }, { status: 400 });
@@ -60,14 +61,29 @@ export async function PATCH(request: Request) {
     }
 
     const supabase = getSupabaseAdmin();
+    const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+    if (status === 'rejected') {
+      update.rejection_reason = rejectionReason || null;
+    }
+
     const { data, error } = await supabase
       .from('quotation_requests')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(update)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
+
+    if (status === 'approved' || status === 'rejected') {
+      await notifyQuoteClientStatusChange({
+        to: data.email,
+        clientName: data.responsavel || data.empresa,
+        produto: data.produto,
+        status,
+        rejectionReason: data.rejection_reason,
+      });
+    }
 
     return NextResponse.json({ success: true, cotacao: data });
   } catch (error: any) {

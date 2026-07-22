@@ -21,14 +21,17 @@ interface QuotationRequest {
   total_mt: number
   sob_consulta: boolean
   metodo_pagamento: string | null
-  status: 'pending' | 'payment_selected' | 'done' | 'cancelled'
+  status: 'pending' | 'payment_selected' | 'approved' | 'rejected' | 'done' | 'cancelled'
   notas: string | null
+  rejection_reason: string | null
   created_at: string
 }
 
 const STATUS_OPTIONS: { value: QuotationRequest['status']; label: string; badge: string }[] = [
   { value: 'pending', label: 'Pendente', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' },
   { value: 'payment_selected', label: 'Pagamento Escolhido', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
+  { value: 'approved', label: 'Aprovada', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400' },
+  { value: 'rejected', label: 'Rejeitada', badge: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400' },
   { value: 'done', label: 'Concluída', badge: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
   { value: 'cancelled', label: 'Cancelada', badge: 'bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400' },
 ]
@@ -65,16 +68,22 @@ export function CotacoesSection() {
   }, [fetchCotacoes])
 
   const updateStatus = async (id: string, status: QuotationRequest['status']) => {
+    let rejectionReason: string | null = null
+    if (status === 'rejected') {
+      rejectionReason = window.prompt('Motivo da rejeição (enviado ao cliente por email):', '')
+      if (rejectionReason === null) return
+    }
+
     setUpdatingId(id)
     try {
       const res = await fetch('/api/admin/cotacoes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ id, status, rejectionReason }),
       })
       const data = await res.json()
       if (data.success) {
-        setCotacoes((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)))
+        setCotacoes((prev) => prev.map((c) => (c.id === id ? { ...c, status, rejection_reason: rejectionReason } : c)))
       }
     } catch (error) {
       console.error('Erro ao actualizar cotação:', error)
@@ -167,6 +176,9 @@ export function CotacoesSection() {
                       </p>
                       <p className="text-gray-500 dark:text-zinc-400">Método: {metodoLabel(c.metodo_pagamento)}</p>
                       {c.notas && <p className="text-gray-500 dark:text-zinc-400 italic">"{c.notas}"</p>}
+                      {c.rejection_reason && (
+                        <p className="text-rose-600 dark:text-rose-400">Motivo da rejeição: {c.rejection_reason}</p>
+                      )}
                     </div>
 
                     <div className="md:col-span-2 flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-zinc-800">
