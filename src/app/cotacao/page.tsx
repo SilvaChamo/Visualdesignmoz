@@ -705,17 +705,23 @@ function CotacaoContent() {
                 )}
 
                 <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
-                  {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario, subtotal }) => (
+                  {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario }) => (
                     <div key={itemKey(item.categoriaId, item.produto)}>
                       <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
                       <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
                       {sobConsultaItem ? (
                         <p className="text-sm font-bold text-red-600 dark:text-red-500 mt-0.5">Sob Consulta</p>
                       ) : (
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">Qtd. {qty} × {formatMt(precoUnitario)} MT</span>
-                          <span className="text-sm font-bold text-red-600 dark:text-red-500">{formatMt(subtotal)} MT</span>
-                        </div>
+                        <>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500">Quantidade</span>
+                            <span className="text-xs text-zinc-600 dark:text-zinc-300">{qty}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500">V. Unitário</span>
+                            <span className="text-xs text-zinc-600 dark:text-zinc-300">{formatMt(precoUnitario)} MT</span>
+                          </div>
+                        </>
                       )}
                     </div>
                   ))}
