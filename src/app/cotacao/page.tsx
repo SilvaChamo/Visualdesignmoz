@@ -119,9 +119,11 @@ function CotacaoContent() {
   // Preços agregados quando há múltiplos serviços seleccionados — cada item
   // com preço fixo entra no total pela sua própria quantidade; itens Sob
   // Consulta ficam de fora do total (o valor é definido depois, por contacto).
-  const multiItemsPriced = allSelectedItems.map((item) => {
+  const multiItemsPriced = allSelectedItems.map((item, idx) => {
     const found = findItem(item.categoriaId, item.produto);
-    const qty = getQty(item.categoriaId, item.produto);
+    // O primeiro item é sempre o "principal" (categoria/produto/quantidade do
+    // topo do formulário); os restantes têm a sua própria quantidade no mapa.
+    const qty = idx === 0 ? quantidade : getQty(item.categoriaId, item.produto);
     const sobConsultaItem = Boolean(found?.item.sobConsulta);
     const subtotal = found && !sobConsultaItem ? found.item.price * qty : 0;
     return { item, qty, precoUnitario: found?.item.price ?? 0, sobConsultaItem, subtotal };
@@ -245,10 +247,10 @@ function CotacaoContent() {
       const finalEmailResponsavel = tipoCliente === 'individual' ? emailInstitucional : emailResponsavel;
 
       const itens = isMultiItem
-        ? allSelectedItems.map((item) => ({
+        ? allSelectedItems.map((item, idx) => ({
             categoriaId: item.categoriaId,
             produto: item.produto,
-            quantidade: getQty(item.categoriaId, item.produto),
+            quantidade: idx === 0 ? quantidade : getQty(item.categoriaId, item.produto),
           }))
         : [{ categoriaId, produto, quantidade }];
 
@@ -464,77 +466,93 @@ function CotacaoContent() {
               <>
                 <h2 className={sectionTitleClass}>Serviço</h2>
 
-                {isMultiItem ? (
-                  <div className="space-y-3 mb-4">
-                    {multiItemsPriced.map(({ item, qty, sobConsultaItem }) => (
-                      <div
-                        key={itemKey(item.categoriaId, item.produto)}
-                        className="flex items-center gap-4 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.categoriaLabel}</p>
-                          <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
-                            {item.produto}{sobConsultaItem ? ' (Sob Consulta)' : ''}
-                          </p>
-                        </div>
-                        <div className="w-24 shrink-0">
-                          <label className={labelClass}>Quantidade</label>
-                          <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            className={inputClass}
-                            value={qty}
-                            onChange={(e) => setQty(item.categoriaId, item.produto, Math.max(1, Math.round(Number(e.target.value))))}
-                            required
-                          />
-                        </div>
-                      </div>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className={labelClass}>Categoria</label>
+                    <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
+                      {BRANDS.map((brand) => {
+                        const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                        if (brandCategories.length === 0) return null;
+                        return (
+                          <optgroup key={brand.id} label={brand.label}>
+                            {brandCategories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.label}</option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className={labelClass}>Categoria</label>
-                      <select className={inputClass} value={categoriaId} onChange={(e) => handleCategoriaChange(e.target.value)}>
-                        {BRANDS.map((brand) => {
-                          const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
-                          if (brandCategories.length === 0) return null;
-                          return (
-                            <optgroup key={brand.id} label={brand.label}>
-                              {brandCategories.map((c) => (
-                                <option key={c.id} value={c.id}>{c.label}</option>
-                              ))}
-                            </optgroup>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Selecione o tipo de produto</label>
-                      <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
-                        {category.items.map((item) => (
-                          <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Quantidade</label>
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        className={inputClass}
-                        value={quantidade}
-                        onChange={(e) => setQuantidade(Math.max(1, Math.round(Number(e.target.value))))}
-                        required
-                      />
+                  <div>
+                    <label className={labelClass}>Selecione o tipo de produto</label>
+                    <select className={inputClass} value={produto} onChange={(e) => setProduto(e.target.value)}>
+                      {category.items.map((item) => (
+                        <option key={item.name} value={item.name}>{item.name}{item.sobConsulta ? ' (Sob Consulta)' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Quantidade</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      className={inputClass}
+                      value={quantidade === 0 ? '' : quantidade}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setQuantidade(raw === '' ? 0 : Math.round(Number(raw)));
+                      }}
+                      onBlur={() => setQuantidade((q) => (q > 0 ? q : 1))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {extraSelectedItems.length > 0 && (
+                  <div className="mb-4">
+                    <label className={labelClass}>Serviços adicionais seleccionados</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {extraSelectedItems.map((item) => {
+                        const found = findItem(item.categoriaId, item.produto);
+                        const sobConsultaItem = Boolean(found?.item.sobConsulta);
+                        const qty = getQty(item.categoriaId, item.produto);
+                        return (
+                          <div
+                            key={itemKey(item.categoriaId, item.produto)}
+                            className="flex items-center gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.categoriaLabel}</p>
+                              <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                {item.produto}{sobConsultaItem ? ' (Sob Consulta)' : ''}
+                              </p>
+                            </div>
+                            <div className="w-20 shrink-0">
+                              <label className={labelClass}>Qtd.</label>
+                              <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                className={inputClass}
+                                value={qty === 0 ? '' : qty}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  setQty(item.categoriaId, item.produto, raw === '' ? 0 : Math.round(Number(raw)));
+                                }}
+                                onBlur={() => setQty(item.categoriaId, item.produto, getQty(item.categoriaId, item.produto) > 0 ? getQty(item.categoriaId, item.produto) : 1)}
+                                required
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className={isMultiItem ? 'sm:col-span-2' : ''}>
+                  <div>
                     <label className={labelClass}>Data-Limite de Entrega Pretendida</label>
                     <input
                       type="date"
