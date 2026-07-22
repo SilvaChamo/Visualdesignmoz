@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { findItem, formatMt } from '@/lib/pricing-catalog';
+import { findItem, formatMt, CUSTOM_CATEGORIA_ID } from '@/lib/pricing-catalog';
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 
 // Lista as cotações do próprio utilizador autenticado — usada no painel da
@@ -95,21 +95,60 @@ export async function POST(request: NextRequest) {
     // Cada serviço seleccionado (possivelmente vários, de /precos) vira a sua
     // própria linha em quotation_requests — cada um com a sua quantidade e
     // preço, mas a partilhar os dados da empresa/responsável.
-    const validatedItems: { found: NonNullable<ReturnType<typeof findItem>>; quantidadeNum: number; sobConsulta: boolean; totalMt: number }[] = [];
+    const validatedItems: {
+      categoriaId: string;
+      categoriaLabel: string;
+      produto: string;
+      precoUnitario: number;
+      quantidadeNum: number;
+      sobConsulta: boolean;
+      totalMt: number;
+    }[] = [];
     for (const raw of itens) {
-      const found = findItem(raw?.categoriaId, raw?.produto);
-      if (!found) {
-        return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
-      }
       const quantidadeNum = Math.round(Number(raw?.quantidade));
       if (!Number.isFinite(quantidadeNum) || quantidadeNum <= 0) {
         return NextResponse.json({ error: 'Quantidade inválida.' }, { status: 400 });
+      }
+
+      // Pedido personalizado — não está no catálogo, o "produto" é a
+      // descrição livre escrita pelo cliente; preço sempre por contacto.
+      if (raw?.categoriaId === CUSTOM_CATEGORIA_ID) {
+        const descricao = String(raw?.produto || '').trim();
+        if (!descricao) {
+          return NextResponse.json({ error: 'Descreva o pedido personalizado.' }, { status: 400 });
+        }
+        if (descricao.length > 255) {
+          return NextResponse.json({ error: 'A descrição do pedido personalizado é demasiado longa (máx. 255 caracteres).' }, { status: 400 });
+        }
+        validatedItems.push({
+          categoriaId: CUSTOM_CATEGORIA_ID,
+          categoriaLabel: 'Pedido Personalizado',
+          produto: descricao,
+          precoUnitario: 0,
+          quantidadeNum,
+          sobConsulta: true,
+          totalMt: 0,
+        });
+        continue;
+      }
+
+      const found = findItem(raw?.categoriaId, raw?.produto);
+      if (!found) {
+        return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
       }
       // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
       // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
       const sobConsulta = Boolean(found.item.sobConsulta);
       const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
-      validatedItems.push({ found, quantidadeNum, sobConsulta, totalMt });
+      validatedItems.push({
+        categoriaId: found.category.id,
+        categoriaLabel: found.category.label,
+        produto: found.item.name,
+        precoUnitario: found.item.price,
+        quantidadeNum,
+        sobConsulta,
+        totalMt,
+      });
     }
 
     const admin = getSupabaseAdmin();
@@ -118,7 +157,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível gerar a cotação. Tente novamente mais tarde.' }, { status: 503 });
     }
 
-    const rows = validatedItems.map(({ found, quantidadeNum, sobConsulta, totalMt }) => ({
+    const rows = validatedItems.map(({ categoriaId, categoriaLabel, produto, precoUnitario, quantidadeNum, sobConsulta, totalMt }) => ({
       user_id: user.id,
       empresa,
       nif: nif || null,
@@ -130,10 +169,10 @@ export async function POST(request: NextRequest) {
       cargo: cargo || null,
       telefone,
       email,
-      categoria_id: found.category.id,
-      categoria_label: found.category.label,
-      produto: found.item.name,
-      preco_unitario_mt: found.item.price,
+      categoria_id: categoriaId,
+      categoria_label: categoriaLabel,
+      produto,
+      preco_unitario_mt: precoUnitario,
       quantidade: quantidadeNum,
       data_limite_entrega: dataLimiteEntrega,
       total_mt: totalMt,
@@ -153,8 +192,8 @@ export async function POST(request: NextRequest) {
     }
 
     const resumo = validatedItems
-      .map(({ found, quantidadeNum, sobConsulta, totalMt }) =>
-        `"${found.item.name}" (${found.category.label}) x${quantidadeNum}${sobConsulta ? ' — Sob Consulta' : ` — ${formatMt(totalMt)} MT`}`
+      .map(({ categoriaLabel, produto, quantidadeNum, sobConsulta, totalMt }) =>
+        `"${produto}" (${categoriaLabel}) x${quantidadeNum}${sobConsulta ? ' — Sob Consulta' : ` — ${formatMt(totalMt)} MT`}`
       )
       .join('; ');
 

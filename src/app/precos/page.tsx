@@ -2,8 +2,8 @@
 
 import { useState, useRef, useLayoutEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, ChevronDown, ShoppingCart } from 'lucide-react'
-import { BRANDS, CATEGORIES, categoriesForBrand, findCategory, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog'
+import { ArrowRight, ChevronDown, ShoppingCart, Sparkles } from 'lucide-react'
+import { BRANDS, CATEGORIES, categoriesForBrand, findCategory, formatMt, SELECAO_STORAGE_KEY, CUSTOM_CATEGORIA_ID, type SelectedCatalogItem } from '@/lib/pricing-catalog'
 import { Loader2 } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
 
@@ -27,6 +27,23 @@ function PrecosContent() {
   const [expandedBrand, setExpandedBrand] = useState(initialBrandId)
   const [activeId, setActiveId] = useState(initialActiveId)
   const [selected, setSelected] = useState<SelectedCatalogItem[]>([])
+  const [customDescription, setCustomDescription] = useState('')
+
+  const isCustomActive = activeId === CUSTOM_CATEGORIA_ID
+
+  // Sem botão próprio de "adicionar" — escrever aqui entra logo na selecção
+  // (tal como marcar um checkbox), para o botão "Pedir Cotação" ser o único
+  // e mesmo botão dinâmico em qualquer separador, incluindo este.
+  const handleCustomDescriptionChange = (texto: string) => {
+    setCustomDescription(texto)
+    setSelected((prev) => {
+      const semPersonalizado = prev.filter((s) => s.categoriaId !== CUSTOM_CATEGORIA_ID)
+      const trimmed = texto.trim()
+      return trimmed
+        ? [...semPersonalizado, { categoriaId: CUSTOM_CATEGORIA_ID, produto: trimmed, categoriaLabel: 'Pedido Personalizado' }]
+        : semPersonalizado
+    })
+  }
 
   const activeIsFlat = isFlatId(activeId)
   const activeFlatBrandId = activeIsFlat ? flatBrandOf(activeId) : null
@@ -183,43 +200,81 @@ function PrecosContent() {
                     </div>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={() => setActiveId(CUSTOM_CATEGORIA_ID)}
+                  className={`group w-full flex items-center gap-2 px-4 py-3 text-left text-base transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/40 ${
+                    isCustomActive
+                      ? 'bg-zinc-100 dark:bg-zinc-800 text-red-600 dark:text-red-500 font-extrabold cursor-default'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-bold cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-red-600 dark:hover:text-red-500'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span className={`inline-block transition-transform duration-300 ${isCustomActive ? '' : 'group-hover:translate-x-1.5'}`}>Pedido Personalizado</span>
+                </button>
               </nav>
             </div>
 
             {/* Detalhe */}
             <div className="flex-1 w-full min-w-0">
               <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-hidden">
-                <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/40">
-                  <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{headerTitle}</h2>
-                  <p className="text-sm text-black dark:text-zinc-400">{headerSubtitle}</p>
-                  {headerMinQty && (
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{headerMinQty}</p>
-                  )}
-                </div>
-
-                <div ref={itemsListRef} className="divide-y divide-zinc-100 dark:divide-zinc-800" style={{ minHeight: minListHeight }}>
-                  {displayItems.map((item, idx) => (
-                    <label
-                      key={`${item.categoriaId}:${item.name}`}
-                      className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
-                        idx % 2 === 0
-                          ? 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                          : 'bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected(item.categoriaId, item.name)}
-                        onChange={() => toggleItem(item.categoriaId, item.name, item.categoriaLabel)}
-                        className="w-4 h-4 text-red-600 rounded border-zinc-300 dark:border-zinc-600 shrink-0"
+                {isCustomActive ? (
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0" />
+                      <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Pedido Personalizado</h2>
+                    </div>
+                    <p className="text-sm text-black dark:text-zinc-400">
+                      Não encontrou o que precisa na lista? Descreva aqui o que pretende — entraremos em contacto para confirmar os detalhes e o valor.
+                    </p>
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1.5 block">
+                        Descreva o que precisa
+                      </label>
+                      <textarea
+                        value={customDescription}
+                        onChange={(e) => handleCustomDescriptionChange(e.target.value)}
+                        rows={5}
+                        className="w-full px-4 py-2.5 rounded-md bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all text-sm"
+                        placeholder="Ex: Preciso de um vídeo promocional de 30 segundos para redes sociais, com voz off em português..."
                       />
-                      <span className="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
-                      <span className="text-sm font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
-                        {item.sobConsulta ? 'Sob Consulta' : `${formatMt(item.price)} MT`}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/40">
+                      <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{headerTitle}</h2>
+                      <p className="text-sm text-black dark:text-zinc-400">{headerSubtitle}</p>
+                      {headerMinQty && (
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{headerMinQty}</p>
+                      )}
+                    </div>
+
+                    <div ref={itemsListRef} className="divide-y divide-zinc-100 dark:divide-zinc-800" style={{ minHeight: minListHeight }}>
+                      {displayItems.map((item, idx) => (
+                        <label
+                          key={`${item.categoriaId}:${item.name}`}
+                          className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
+                            idx % 2 === 0
+                              ? 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                              : 'bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected(item.categoriaId, item.name)}
+                            onChange={() => toggleItem(item.categoriaId, item.name, item.categoriaLabel)}
+                            className="w-4 h-4 text-red-600 rounded border-zinc-300 dark:border-zinc-600 shrink-0"
+                          />
+                          <span className="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
+                          <span className="text-sm font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
+                            {item.sobConsulta ? 'Sob Consulta' : `${formatMt(item.price)} MT`}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="mt-8 flex items-center gap-4">

@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/lib/supabase-client';
-import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, type SelectedCatalogItem } from '@/lib/pricing-catalog';
+import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, CUSTOM_CATEGORIA_ID, type SelectedCatalogItem } from '@/lib/pricing-catalog';
 import { NotchSection } from '@/components/home/NotchSection';
-import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2, Plus, Sparkles } from 'lucide-react';
 
 interface OrderLineItem {
   id: string;
@@ -110,6 +110,13 @@ function CotacaoContent() {
   const removeLineItem = (id: string) => {
     setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.id !== id)));
   };
+  const addLineItem = () => {
+    const cat = CATEGORIES[0];
+    setLineItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), categoriaId: cat.id, produto: '', quantidade: 1 },
+    ]);
+  };
 
   // Selecção feita por checkboxes em /precos (vários serviços, possivelmente
   // de categorias diferentes) — cada um vira a sua própria linha, todas no
@@ -124,7 +131,10 @@ function CotacaoContent() {
       setLineItems(
         items.map((item) => ({
           id: crypto.randomUUID(),
-          categoriaId: CATEGORIES.some((c) => c.id === item.categoriaId) ? item.categoriaId : CATEGORIES[0].id,
+          categoriaId:
+            item.categoriaId === CUSTOM_CATEGORIA_ID || CATEGORIES.some((c) => c.id === item.categoriaId)
+              ? item.categoriaId
+              : CATEGORIES[0].id,
           produto: item.produto,
           quantidade: 1,
         }))
@@ -142,12 +152,14 @@ function CotacaoContent() {
   // própria quantidade; itens Sob Consulta ficam de fora do total (o valor
   // é definido depois, por contacto).
   const multiItemsPriced = lineItems.map((li) => {
-    const found = findItem(li.categoriaId, li.produto);
-    const sobConsultaItem = Boolean(found?.item.sobConsulta);
+    const isCustom = li.categoriaId === CUSTOM_CATEGORIA_ID;
+    const found = isCustom ? undefined : findItem(li.categoriaId, li.produto);
+    const sobConsultaItem = isCustom || Boolean(found?.item.sobConsulta);
     const subtotal = found && !sobConsultaItem ? found.item.price * li.quantidade : 0;
     return {
       li,
-      categoriaLabel: categoryFor(li.categoriaId).label,
+      isCustom,
+      categoriaLabel: isCustom ? 'Pedido Personalizado' : categoryFor(li.categoriaId).label,
       qty: li.quantidade,
       precoUnitario: found?.item.price ?? 0,
       sobConsultaItem,
@@ -157,9 +169,17 @@ function CotacaoContent() {
   const multiTotal = multiItemsPriced.reduce((sum, i) => sum + i.subtotal, 0);
   const hasSobConsultaItem = multiItemsPriced.some((i) => i.sobConsultaItem);
 
+  // Separadores da pré-visualização: cada linha só aparece depois de a secção
+  // imediatamente anterior ter mesmo conteúdo preenchido — nunca ficam duas
+  // linhas seguidas sem nada entre elas.
+  const entidadeTemDados = Boolean(empresa || endereco || telefoneInstitucional || emailInstitucional || nif || website);
+  const mostrarSeccaoResponsavel = tipoCliente === 'empresa' && currentStep >= 1;
+  const responsavelTemDados = Boolean(responsavel || telefoneResponsavel || emailResponsavel);
+  const mostrarLinhaAntesServicos = mostrarSeccaoResponsavel ? responsavelTemDados : entidadeTemDados;
+
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <Loader2 className="w-10 h-10 animate-spin text-red-600" />
       </div>
     );
@@ -199,7 +219,9 @@ function CotacaoContent() {
       if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
     }
     if (key === 'servico') {
-      if (lineItems.some((li) => !findItem(li.categoriaId, li.produto))) return 'Escolha o produto e a quantidade.';
+      if (lineItems.some((li) => (li.categoriaId === CUSTOM_CATEGORIA_ID ? !li.produto.trim() : !findItem(li.categoriaId, li.produto)))) {
+        return 'Escolha o produto e a quantidade — ou descreva o pedido personalizado.';
+      }
       if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
       if (!dataLimite) return 'Escolha a data-limite de entrega.';
     }
@@ -318,7 +340,7 @@ function CotacaoContent() {
   const sectionTitleClass = 'text-lg font-bold text-zinc-900 dark:text-white mb-4';
 
   return (
-    <div className="min-h-screen bg-zinc-200 dark:bg-black">
+    <div className="min-h-screen bg-zinc-200 dark:bg-zinc-950">
       {/* Banner */}
       <NotchSection shape="start" bg="bg-gradient-to-br from-black via-zinc-900 to-zinc-950" first>
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
@@ -341,8 +363,8 @@ function CotacaoContent() {
         </div>
       </NotchSection>
 
-      <div className="bg-zinc-200 dark:bg-black">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-12">
+      <div className="bg-zinc-200 dark:bg-zinc-950">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16">
         <div className="mx-5">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
@@ -512,12 +534,54 @@ function CotacaoContent() {
 
             {stepKey === 'servico' && (
               <>
-                <h2 className={sectionTitleClass}>Serviço</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className={`${sectionTitleClass} mb-0`}>Serviço</h2>
+                  <button
+                    type="button"
+                    onClick={addLineItem}
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar serviço</span>
+                  </button>
+                </div>
 
                 <div className="mb-4">
                   <label className={labelClass}>Serviços seleccionados</label>
                   <div className="flex flex-col gap-3">
                     {lineItems.map((li) => {
+                      if (li.categoriaId === CUSTOM_CATEGORIA_ID) {
+                        return (
+                          <div
+                            key={li.id}
+                            className="flex items-start gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Sparkles className="w-3.5 h-3.5 text-red-600 dark:text-red-500 shrink-0" />
+                                <span className="text-sm font-semibold text-zinc-900 dark:text-white">Pedido Personalizado</span>
+                              </div>
+                              <textarea
+                                value={li.produto}
+                                onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
+                                rows={2}
+                                className="w-full bg-transparent text-xs text-zinc-500 dark:text-zinc-400 focus:outline-none resize-none border-0 p-0"
+                                placeholder="Descreva o que precisa..."
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeLineItem(li.id)}
+                              disabled={lineItems.length <= 1}
+                              className="shrink-0 text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              aria-label="Remover serviço"
+                              title={lineItems.length <= 1 ? 'Tem de manter pelo menos um serviço' : 'Remover este serviço'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      }
                       const cat = categoryFor(li.categoriaId);
                       return (
                         <div
@@ -525,11 +589,11 @@ function CotacaoContent() {
                           className="flex items-center gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
                         >
                           <div className="flex-1 min-w-0 space-y-0.5">
-                            <div className="inline-flex items-center gap-1 max-w-full">
+                            <div className="relative inline-block max-w-full">
                               <select
                                 value={li.categoriaId}
                                 onChange={(e) => updateLineItemCategoria(li.id, e.target.value)}
-                                className="appearance-none bg-transparent text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer focus:outline-none truncate max-w-full"
+                                className="appearance-none bg-transparent text-sm font-semibold text-zinc-900 dark:text-white cursor-pointer focus:outline-none truncate max-w-full pr-4"
                               >
                                 {BRANDS.map((brand) => {
                                   const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
@@ -543,23 +607,36 @@ function CotacaoContent() {
                                   );
                                 })}
                               </select>
-                              <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
+                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
-                            <div className="inline-flex items-center gap-1 max-w-full">
+                            <div className="relative inline-block max-w-full">
                               <select
                                 value={li.produto}
                                 onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
-                                className="appearance-none bg-transparent text-sm font-semibold text-zinc-900 dark:text-white cursor-pointer focus:outline-none truncate max-w-full"
+                                className={`appearance-none bg-transparent text-xs cursor-pointer focus:outline-none truncate max-w-full pr-4 ${li.produto ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
                               >
+                                {!li.produto && <option value="">Seleccionar serviço</option>}
                                 {cat.items.map((p) => (
                                   <option key={p.name} value={p.name}>{p.name}{p.sobConsulta ? ' (Sob Consulta)' : ''}</option>
                                 ))}
                               </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                              <ChevronDown className="w-3 h-3 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
                           </div>
                           <div className="w-20 shrink-0">
-                            <label className={labelClass}>Qtd.</label>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Qtd.</label>
+                              <button
+                                type="button"
+                                onClick={() => removeLineItem(li.id)}
+                                disabled={lineItems.length <= 1}
+                                className="shrink-0 text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                aria-label="Remover serviço"
+                                title={lineItems.length <= 1 ? 'Tem de manter pelo menos um serviço' : 'Remover este serviço'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                             <input
                               type="number"
                               min={1}
@@ -574,16 +651,6 @@ function CotacaoContent() {
                               required
                             />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeLineItem(li.id)}
-                            disabled={lineItems.length <= 1}
-                            className="shrink-0 p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                            aria-label="Remover serviço"
-                            title={lineItems.length <= 1 ? 'Tem de manter pelo menos um serviço' : 'Remover este serviço'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       );
                     })}
@@ -682,32 +749,32 @@ function CotacaoContent() {
           {/* Barra lateral — pré-visualização */}
           <div className="lg:col-span-1 lg:sticky lg:top-[105px] self-start">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-              <div className="bg-zinc-900 dark:bg-black px-6 py-4 border-b border-zinc-800">
+              <div className="bg-zinc-900 dark:bg-black px-6 py-4 border-b-2 border-red-600">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-white">Pré-visualização da Cotação</h3>
                 <p className="text-xs text-zinc-400 mt-1">Assim ficará a sua cotação depois de submetida.</p>
               </div>
 
               <div className="p-6 space-y-4">
-                {(empresa || endereco || telefoneInstitucional || emailInstitucional || nif || website) && (
-                  <div className="space-y-1 text-sm">
-                    {empresa && <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa}</span></p>}
-                    {endereco && <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco}</span></p>}
-                    {telefoneInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>}
-                    {emailInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional}</span></p>}
-                    {nif && <p><span className="font-bold text-zinc-900 dark:text-white">Nuit: </span><span className="text-zinc-600 dark:text-zinc-300">{nif}</span></p>}
-                    {website && <p><span className="font-bold text-zinc-900 dark:text-white">Website: </span><span className="text-zinc-600 dark:text-zinc-300">{website}</span></p>}
-                  </div>
-                )}
+                <div className="space-y-1 text-sm">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pb-1.5 mb-1.5 border-b border-zinc-300 dark:border-zinc-600">Entidade</h4>
+                  {empresa && <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa}</span></p>}
+                  {endereco && <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco}</span></p>}
+                  {telefoneInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>}
+                  {emailInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional}</span></p>}
+                  {nif && <p><span className="font-bold text-zinc-900 dark:text-white">Nuit: </span><span className="text-zinc-600 dark:text-zinc-300">{nif}</span></p>}
+                  {website && <p><span className="font-bold text-zinc-900 dark:text-white">Website: </span><span className="text-zinc-600 dark:text-zinc-300">{website}</span></p>}
+                </div>
 
-                {tipoCliente === 'empresa' && (responsavel || telefoneResponsavel || emailResponsavel) && (
-                  <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
+                {mostrarSeccaoResponsavel && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pb-1.5 mb-1.5 border-b border-zinc-300 dark:border-zinc-600">Responsável</h4>
                     {responsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel}{cargo ? ` — ${cargo}` : ''}</span></p>}
                     {telefoneResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel}</span></p>}
                     {emailResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel}</span></p>}
                   </div>
                 )}
 
-                <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
+                <div className={`space-y-3 text-sm ${mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
                   {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, precoUnitario }) => (
                     <div key={li.id}>
                       <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
@@ -795,7 +862,7 @@ export default function CotacaoPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
           <Loader2 className="w-10 h-10 animate-spin text-red-600" />
         </div>
       }

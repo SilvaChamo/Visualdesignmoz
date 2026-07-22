@@ -373,13 +373,17 @@ export const CATEGORIES: Category[] = [
   },
 ]
 
+// Implementado à mão (em vez de toLocaleString) porque o ICU do Node em
+// produção não agrupa milhares para pt-PT/pt-MZ, e o site precisa do
+// separador (espaço) mesmo quando corre em ambientes com dados de locale
+// incompletos.
 export function formatMt(value: number) {
   const rounded = Math.round(value * 100) / 100
   const isWhole = Number.isInteger(rounded)
-  return rounded.toLocaleString('pt-PT', {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })
+  const fixed = rounded.toFixed(isWhole ? 0 : 2)
+  const [intPart, decPart] = fixed.split('.')
+  const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  return decPart ? `${withThousands},${decPart}` : withThousands
 }
 
 export function findCategory(categoryId: string): Category | undefined {
@@ -401,6 +405,12 @@ export function categoriesForBrand(brandId: string): Category[] {
 // Chave usada para transportar a selecção de checkboxes de /precos para /cotacao
 // (sessionStorage, leitura única — ver src/app/cotacao/page.tsx).
 export const SELECAO_STORAGE_KEY = 'visualdesign_precos_selecao'
+
+// categoriaId sentinela para um pedido personalizado (fora do catálogo) — não
+// corresponde a nenhuma Category real; findItem() devolve sempre undefined
+// para este id, e /cotacao trata isso como sinal para mostrar o cartão de
+// descrição livre em vez dos selectores de categoria/produto.
+export const CUSTOM_CATEGORIA_ID = 'personalizado'
 
 export type SelectedCatalogItem = {
   categoriaId: string
