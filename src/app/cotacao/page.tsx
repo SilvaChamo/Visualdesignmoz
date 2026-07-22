@@ -316,7 +316,7 @@ function CotacaoContent() {
         </div>
       </NotchSection>
 
-      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black">
+      <NotchSection shape="end" bg="bg-zinc-200 dark:bg-black">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-12">
         <div className="mx-5">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -580,8 +580,24 @@ function CotacaoContent() {
               </>
             )}
 
+            {isLastStep && (
+              <div className="mt-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800 dark:text-red-300 font-medium leading-relaxed">
+                  A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
+                  {isMultiItem
+                    ? (multiTotal > 0
+                        ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                        : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.')
+                    : isSobConsulta
+                    ? 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'
+                    : `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(total * 0.7)} MT.`}
+                </p>
+              </div>
+            )}
+
             {/* Navegação entre etapas */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
               {isLastStep ? (
                 <div className="flex items-center gap-3">
                   {currentStep > 0 && (
@@ -594,17 +610,6 @@ function CotacaoContent() {
                       <span>Voltar</span>
                     </button>
                   )}
-                  <span className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 shrink-0" />
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
-                    A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
-                    {isMultiItem
-                      ? (multiTotal > 0
-                          ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
-                          : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.')
-                      : isSobConsulta
-                      ? 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'
-                      : `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(total * 0.7)} MT.`}
-                  </p>
                 </div>
               ) : (
                 <>
@@ -649,37 +654,35 @@ function CotacaoContent() {
 
               <div className="p-6 space-y-4">
                 <div className="space-y-1 text-sm">
-                  <p className="font-bold text-zinc-900 dark:text-white">{empresa || (tipoCliente === 'individual' ? 'O seu nome' : 'Nome da empresa')}</p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa || (tipoCliente === 'individual' ? 'O seu nome' : 'Nome da empresa')}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco || '—'}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional || '—'}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional || '—'}</span></p>
                   {nif && <p className="text-zinc-500 dark:text-zinc-400">NIF: {nif}</p>}
-                  {endereco && <p className="text-zinc-500 dark:text-zinc-400">{endereco}</p>}
-                  {(telefoneInstitucional || emailInstitucional) && (
-                    <p className="text-zinc-500 dark:text-zinc-400">{telefoneInstitucional}{telefoneInstitucional && emailInstitucional ? ' · ' : ''}{emailInstitucional}</p>
-                  )}
                   {website && <p className="text-zinc-500 dark:text-zinc-400">{website}</p>}
                 </div>
 
                 {tipoCliente === 'empresa' && (
                   <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
-                    <p className="font-semibold text-zinc-800 dark:text-zinc-200">{responsavel || 'Responsável a contactar'}{cargo ? ` — ${cargo}` : ''}</p>
-                    {telefoneResponsavel && <p className="text-zinc-500 dark:text-zinc-400">{telefoneResponsavel}</p>}
-                    {emailResponsavel && <p className="text-zinc-500 dark:text-zinc-400">{emailResponsavel}</p>}
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel || 'Responsável a contactar'}{cargo ? ` — ${cargo}` : ''}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel || '—'}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel || '—'}</span></p>
                   </div>
                 )}
 
                 {isMultiItem ? (
                   <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
                     {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario, subtotal }) => (
-                      <div key={itemKey(item.categoriaId, item.produto)} className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
-                          <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                            Qtd. {qty}{!sobConsultaItem && ` × ${formatMt(precoUnitario)} MT`}
-                          </p>
-                        </div>
-                        <span className="font-bold text-red-600 dark:text-red-500 whitespace-nowrap">
-                          {sobConsultaItem ? 'Sob Consulta' : `${formatMt(subtotal)} MT`}
-                        </span>
+                      <div key={itemKey(item.categoriaId, item.produto)}>
+                        <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
+                        <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                          {sobConsultaItem ? (
+                            <span className="text-sm font-bold text-red-600 dark:text-red-500">Sob Consulta</span>
+                          ) : (
+                            <>Qtd. {qty} × {formatMt(precoUnitario)} MT = <span className="text-sm font-bold text-red-600 dark:text-red-500">{formatMt(subtotal)} MT</span></>
+                          )}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -695,6 +698,10 @@ function CotacaoContent() {
                     <>
                       {multiTotal > 0 && (
                         <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
+                            <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal / 1.16)} MT</span>
+                          </div>
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
                             <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal - multiTotal / 1.16)} MT</span>
@@ -725,6 +732,10 @@ function CotacaoContent() {
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-500 dark:text-zinc-400">Quantidade</span>
                         <span className="text-zinc-800 dark:text-zinc-200">{quantidade}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(total / 1.16)} MT</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
