@@ -5,7 +5,13 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, nome } = await request.json();
+    const { email, password, nome, honeypot } = await request.json();
+
+    // Campo-armadilha: só bots que preenchem todos os campos do formulário
+    // (incluindo os escondidos) chegam a mandar isto preenchido.
+    if (honeypot) {
+      return NextResponse.json({ error: 'Não foi possível concluir o registo.' }, { status: 400 });
+    }
 
     if (!email || !password || !nome) {
       return NextResponse.json({ error: 'Preencha nome, email e password.' }, { status: 400 });

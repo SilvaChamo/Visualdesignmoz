@@ -15,6 +15,14 @@ function minDeliveryDate() {
   return d.toISOString().split('T')[0];
 }
 
+// Aceita rede móvel moçambicana (82/83 Tmcel, 84/85 Vodacom, 86/87 Movitel),
+// com ou sem o indicativo +258, com ou sem espaços/traços.
+function isValidMzPhone(raw: string): boolean {
+  const digits = raw.replace(/\D/g, '');
+  const local = digits.startsWith('258') ? digits.slice(3) : digits;
+  return /^8[2-7]\d{7}$/.test(local);
+}
+
 function CotacaoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +53,15 @@ function CotacaoContent() {
   const [nome, setNome] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Segurança contra bots no registo: campo-armadilha invisível (só bots que
+  // preenchem tudo o caem aqui) + um desafio simples de soma.
+  const [honeypot, setHoneypot] = useState('');
+  const [captcha] = useState(() => ({
+    a: 1 + Math.floor(Math.random() * 8),
+    b: 1 + Math.floor(Math.random() * 8),
+  }));
+  const [captchaResposta, setCaptchaResposta] = useState('');
 
   const handleResponsavelBlur = () => {
     if (!nome && responsavel) setNome(responsavel);
@@ -97,12 +114,13 @@ function CotacaoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lista unificada (principal + adicionais) só usada quando há múltipla selecção.
-  const allSelectedItems: SelectedCatalogItem[] =
-    extraSelectedItems.length > 0
-      ? [{ categoriaId, produto, categoriaLabel: category.label }, ...extraSelectedItems]
-      : [];
-  const isMultiItem = allSelectedItems.length > 0;
+  // Lista unificada (principal + adicionais) — o item principal entra sempre,
+  // mesmo quando é o único, para que a pré-visualização use sempre o mesmo
+  // formato de apresentação (single ou múltiplo item).
+  const allSelectedItems: SelectedCatalogItem[] = [
+    { categoriaId, produto, categoriaLabel: category.label },
+    ...extraSelectedItems,
+  ];
 
   const handleCategoriaChange = (id: string) => {
     setCategoriaId(id);
@@ -111,8 +129,6 @@ function CotacaoContent() {
   };
 
   const selectedItem = category.items.find((i) => i.name === produto);
-  const isSobConsulta = Boolean(selectedItem?.sobConsulta);
-  const total = selectedItem && !isSobConsulta ? selectedItem.price * quantidade : 0;
   const minDate = minDeliveryDate();
   const dataLimiteCedoDemais = dataLimite !== '' && dataLimite < minDate;
 
@@ -156,24 +172,25 @@ function CotacaoContent() {
     if (key === 'empresa') {
       if (!empresa.trim()) return tipoCliente === 'individual' ? 'Preencha o seu nome completo.' : 'Preencha o nome da empresa.';
       if (!telefoneInstitucional.trim()) return 'Preencha o contacto.';
+      if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
       if (!emailInstitucional.trim()) return 'Preencha o email.';
     }
     if (key === 'responsavel') {
       if (!responsavel.trim()) return 'Preencha o nome do responsável.';
       if (!telefoneResponsavel.trim()) return 'Preencha o telefone do responsável.';
+      if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
       if (!emailResponsavel.trim()) return 'Preencha o email do responsável.';
     }
     if (key === 'conta') {
       if (!nome.trim()) return 'Preencha o seu nome completo.';
       if (!accountEmail.trim()) return 'Preencha o seu email.';
       if (password.length < 6) return 'A palavra-passe deve ter no mínimo 6 caracteres.';
+      if (honeypot.trim()) return 'Não foi possível validar o formulário.';
+      if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
     }
     if (key === 'servico') {
-      if (isMultiItem) {
-        if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
-      } else if (!selectedItem || quantidade <= 0) {
-        return 'Escolha o produto e a quantidade.';
-      }
+      if (!selectedItem) return 'Escolha o produto e a quantidade.';
+      if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
       if (!dataLimite) return 'Escolha a data-limite de entrega.';
     }
     return null;
@@ -215,7 +232,7 @@ function CotacaoContent() {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: accountEmail, password, nome }),
+          body: JSON.stringify({ email: accountEmail, password, nome, honeypot }),
         });
         const data = await res.json();
 
@@ -246,13 +263,11 @@ function CotacaoContent() {
       const finalTelefoneResponsavel = tipoCliente === 'individual' ? telefoneInstitucional : telefoneResponsavel;
       const finalEmailResponsavel = tipoCliente === 'individual' ? emailInstitucional : emailResponsavel;
 
-      const itens = isMultiItem
-        ? allSelectedItems.map((item, idx) => ({
-            categoriaId: item.categoriaId,
-            produto: item.produto,
-            quantidade: idx === 0 ? quantidade : getQty(item.categoriaId, item.produto),
-          }))
-        : [{ categoriaId, produto, quantidade }];
+      const itens = allSelectedItems.map((item, idx) => ({
+        categoriaId: item.categoriaId,
+        produto: item.produto,
+        quantidade: idx === 0 ? quantidade : getQty(item.categoriaId, item.produto),
+      }));
 
       setStatus('submitting');
       const res = await fetch('/api/cotacoes', {
@@ -293,7 +308,7 @@ function CotacaoContent() {
   const sectionTitleClass = 'text-lg font-bold text-zinc-900 dark:text-white mb-4';
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen bg-zinc-200 dark:bg-black">
       {/* Banner */}
       <NotchSection shape="start" bg="bg-gradient-to-br from-black via-zinc-900 to-zinc-950" first>
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
@@ -458,6 +473,29 @@ function CotacaoContent() {
                     <label className={labelClass}>Palavra-passe</label>
                     <input type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelClass}>Verificação de segurança — quanto é {captcha.a} + {captcha.b}?</label>
+                    <input
+                      type="number"
+                      className={inputClass}
+                      value={captchaResposta}
+                      onChange={(e) => setCaptchaResposta(e.target.value)}
+                      required
+                    />
+                  </div>
+                  {/* Campo-armadilha: invisível para pessoas, mas bots que preenchem
+                      todos os campos do formulário costumam preenchê-lo também. */}
+                  <div className="absolute -left-[9999px] w-px h-px overflow-hidden" aria-hidden="true">
+                    <label htmlFor="hp_confirmar">Não preencher este campo</label>
+                    <input
+                      id="hp_confirmar"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -585,13 +623,9 @@ function CotacaoContent() {
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-800 dark:text-red-300 font-medium leading-relaxed">
                   A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
-                  {isMultiItem
-                    ? (multiTotal > 0
-                        ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
-                        : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.')
-                    : isSobConsulta
-                    ? 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'
-                    : `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(total * 0.7)} MT.`}
+                  {multiTotal > 0
+                    ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                    : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
                 </p>
               </div>
             )}
@@ -655,9 +689,9 @@ function CotacaoContent() {
               <div className="p-6 space-y-4">
                 <div className="space-y-1 text-sm">
                   <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa || (tipoCliente === 'individual' ? 'O seu nome' : 'Nome da empresa')}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco || '—'}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional || '—'}</span></p>
-                  <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional || '—'}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco || 'Província da empresa'}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional || 'Contacto institucional'}</span></p>
+                  <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional || 'Email institucional'}</span></p>
                   {nif && <p className="text-zinc-500 dark:text-zinc-400">NIF: {nif}</p>}
                   {website && <p className="text-zinc-500 dark:text-zinc-400">{website}</p>}
                 </div>
@@ -665,87 +699,51 @@ function CotacaoContent() {
                 {tipoCliente === 'empresa' && (
                   <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
                     <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel || 'Responsável a contactar'}{cargo ? ` — ${cargo}` : ''}</span></p>
-                    <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel || '—'}</span></p>
-                    <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel || '—'}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel || 'Contacto do responsável'}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel || 'Email do responsável'}</span></p>
                   </div>
                 )}
 
-                {isMultiItem ? (
-                  <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
-                    {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario, subtotal }) => (
-                      <div key={itemKey(item.categoriaId, item.produto)}>
-                        <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
-                        <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                          {sobConsultaItem ? (
-                            <span className="text-sm font-bold text-red-600 dark:text-red-500">Sob Consulta</span>
-                          ) : (
-                            <>Qtd. {qty} × {formatMt(precoUnitario)} MT = <span className="text-sm font-bold text-red-600 dark:text-red-500">{formatMt(subtotal)} MT</span></>
-                          )}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1 text-sm">
-                    <p className="font-semibold text-zinc-900 dark:text-white">{category.label}</p>
-                    <p className="text-zinc-500 dark:text-zinc-400">{produto || '—'}</p>
-                  </div>
-                )}
+                <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-3 text-sm">
+                  {multiItemsPriced.map(({ item, qty, sobConsultaItem, precoUnitario, subtotal }) => (
+                    <div key={itemKey(item.categoriaId, item.produto)}>
+                      <p className="font-semibold text-zinc-900 dark:text-white">{item.categoriaLabel}</p>
+                      <p className="text-zinc-500 dark:text-zinc-400">{item.produto}</p>
+                      {sobConsultaItem ? (
+                        <p className="text-sm font-bold text-red-600 dark:text-red-500 mt-0.5">Sob Consulta</p>
+                      ) : (
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="text-xs text-zinc-400 dark:text-zinc-500">Qtd. {qty} × {formatMt(precoUnitario)} MT</span>
+                          <span className="text-sm font-bold text-red-600 dark:text-red-500">{formatMt(subtotal)} MT</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 <div className="border-t border-zinc-300 dark:border-zinc-600 pt-4 space-y-1.5 text-sm">
-                  {isMultiItem ? (
+                  {multiTotal > 0 && (
                     <>
-                      {multiTotal > 0 && (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
-                            <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal / 1.16)} MT</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
-                            <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal - multiTotal / 1.16)} MT</span>
-                          </div>
-                          <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
-                            <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
-                            <span className="font-bold text-zinc-900 dark:text-white">{formatMt(multiTotal)} MT</span>
-                          </div>
-                        </>
-                      )}
-                      {hasSobConsultaItem && (
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 italic pt-1">
-                          Os serviços Sob Consulta não entram neste total — entraremos em contacto para confirmar o valor.
-                        </p>
-                      )}
-                    </>
-                  ) : isSobConsulta ? (
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-zinc-900 dark:text-white">Valor</span>
-                      <span className="font-bold text-red-600 dark:text-red-500">Sob Consulta</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Valor Unitário</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(selectedItem?.price ?? 0)} MT</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Quantidade</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{quantidade}</span>
-                      </div>
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-500 dark:text-zinc-400">Subtotal</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(total / 1.16)} MT</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal / 1.16)} MT</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-500 dark:text-zinc-400">IVA (16%, incluído)</span>
-                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(total - total / 1.16)} MT</span>
+                        <span className="text-zinc-800 dark:text-zinc-200">{formatMt(multiTotal - multiTotal / 1.16)} MT</span>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-zinc-300 dark:border-zinc-600">
                         <span className="font-bold text-zinc-900 dark:text-white">Valor Total</span>
-                        <span className="font-bold text-zinc-900 dark:text-white">{formatMt(total)} MT</span>
+                        <span className="font-bold text-zinc-900 dark:text-white">{formatMt(multiTotal)} MT</span>
                       </div>
                     </>
+                  )}
+                  {hasSobConsultaItem && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 italic pt-1">
+                      {multiTotal > 0
+                        ? 'Os serviços Sob Consulta não entram neste total — entraremos em contacto para confirmar o valor.'
+                        : 'Este serviço é Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
+                    </p>
                   )}
                 </div>
 
