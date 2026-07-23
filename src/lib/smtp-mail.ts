@@ -151,6 +151,12 @@ export async function sendTransactionalSmtpMail(input: SendSmtpMailInput) {
     );
   }
   const transport = createBrevoTransport();
+  // O socket SMTP por vezes emite um 'error' tardio (ex.: timeout durante o
+  // fecho da ligação) depois de sendMail() já ter resolvido/rejeitado — sem
+  // este listener, esse evento não tem quem o apanhe e derruba o processo
+  // Node inteiro (uncaughtException), levando o site abaixo para todos os
+  // utilizadores a meio de outros pedidos.
+  transport.on('error', (err) => console.error('[smtp] erro tardio no transporte (Brevo):', err));
   return transport.sendMail(input);
 }
 
@@ -212,5 +218,8 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
   }
 
   const transport = createSmtpTransport();
+  // Ver comentário equivalente em sendTransactionalSmtpMail — protege contra
+  // o mesmo crash do processo por erro tardio no socket SMTP.
+  transport.on('error', (err) => console.error('[smtp] erro tardio no transporte:', err));
   return transport.sendMail(input);
 }

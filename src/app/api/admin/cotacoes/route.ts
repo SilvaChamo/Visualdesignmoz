@@ -75,14 +75,16 @@ export async function PATCH(request: Request) {
 
     if (error) throw error;
 
+    // Não aguardar o envio do email (ver /api/cotacoes) — a actualização de
+    // estado já ficou gravada, não pode falhar por causa de um SMTP lento.
     if (status === 'approved' || status === 'rejected') {
-      await notifyQuoteClientStatusChange({
+      notifyQuoteClientStatusChange({
         to: data.email,
         clientName: data.responsavel || data.empresa,
         produto: data.produto,
         status,
         rejectionReason: data.rejection_reason,
-      });
+      }).catch((err) => console.error('[admin/cotacoes] falha ao notificar cliente:', err));
     }
 
     return NextResponse.json({ success: true, cotacao: data });

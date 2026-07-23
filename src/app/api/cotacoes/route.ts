@@ -197,11 +197,14 @@ export async function POST(request: NextRequest) {
       )
       .join('; ');
 
-    await notifyQuoteTeam({
+    // Não aguardar o envio do email — a notificação à equipa é um efeito
+    // secundário; se o SMTP estiver lento/em baixo, o cliente não deve ficar
+    // à espera nem arriscar ver o pedido falhar por causa disso.
+    notifyQuoteTeam({
       title: validatedItems.length > 1 ? `Nova cotação recebida (${validatedItems.length} serviços)` : 'Nova cotação recebida',
       message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
-    });
+    }).catch((err) => console.error('[cotacoes] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true, id: quotations[0].id, ids: quotations.map((q) => q.id) });
   } catch (error: unknown) {

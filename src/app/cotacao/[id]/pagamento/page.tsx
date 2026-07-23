@@ -106,10 +106,10 @@ export default function CotacaoPagamentoPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.push('/client')}
+              onClick={() => router.push('/encomendas')}
               className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2.5 rounded-md text-sm transition-colors"
             >
-              Ir para a área de cliente
+              Ir para as Minhas Encomendas
             </button>
           </div>
         ) : (

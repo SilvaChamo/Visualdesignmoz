@@ -59,14 +59,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Não foi possível actualizar a cotação.' }, { status: 500 });
     }
 
+    // Não aguardar o envio do email (ver /api/cotacoes) — o cliente já
+    // confirmou o método de pagamento, isso não pode falhar por causa de um
+    // SMTP lento.
     const metodoLabel = metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária';
-    await notifyQuoteTeam({
+    notifyQuoteTeam({
       title: 'Cliente escolheu método de pagamento',
       message: `${quotation.empresa} escolheu ${metodoLabel} para a cotação de "${quotation.produto}" (${quotation.categoria_label}). ${
         quotation.sob_consulta ? 'Valor sob consulta — confirmar com o cliente.' : `Valor: ${formatMt(quotation.total_mt)} MT.`
       }`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
-    });
+    }).catch((err) => console.error('[cotacoes/pagamento] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
