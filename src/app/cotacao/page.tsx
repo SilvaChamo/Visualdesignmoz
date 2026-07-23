@@ -57,14 +57,14 @@ function CotacaoContent() {
   const [empresa, setEmpresa] = useState('');
   const [nif, setNif] = useState('');
   const [endereco, setEndereco] = useState('');
-  const [telefoneInstitucional, setTelefoneInstitucional] = useState('');
+  const [telefoneInstitucional, setTelefoneInstitucional] = useState('+258 ');
   const [emailInstitucional, setEmailInstitucional] = useState('');
-  const [website, setWebsite] = useState('');
+  const [website, setWebsite] = useState('https://');
 
   // Responsável a Contactar
   const [responsavel, setResponsavel] = useState('');
   const [cargo, setCargo] = useState('');
-  const [telefoneResponsavel, setTelefoneResponsavel] = useState('');
+  const [telefoneResponsavel, setTelefoneResponsavel] = useState('+258 ');
   const [emailResponsavel, setEmailResponsavel] = useState('');
 
   // Criar Conta (só para visitantes sem sessão) — auto-preenchido a partir do responsável
@@ -185,12 +185,18 @@ function CotacaoContent() {
   const multiTotal = multiItemsPriced.reduce((sum, i) => sum + i.subtotal, 0);
   const hasSobConsultaItem = multiItemsPriced.some((i) => i.sobConsultaItem);
 
+  // Telefone e website vêm pré-preenchidos com o prefixo (+258 / https://)
+  // — só contam como "preenchidos" quando há mesmo algo a seguir ao prefixo.
+  const telefoneInstitucionalPreenchido = telefoneInstitucional.trim() !== '+258';
+  const telefoneResponsavelPreenchido = telefoneResponsavel.trim() !== '+258';
+  const websitePreenchido = website.trim() !== '' && website.trim() !== 'https://';
+
   // Separadores da pré-visualização: cada linha só aparece depois de a secção
   // imediatamente anterior ter mesmo conteúdo preenchido — nunca ficam duas
   // linhas seguidas sem nada entre elas.
-  const entidadeTemDados = Boolean(empresa || endereco || telefoneInstitucional || emailInstitucional || nif || website);
+  const entidadeTemDados = Boolean(empresa || endereco || telefoneInstitucionalPreenchido || emailInstitucional || nif || websitePreenchido);
   const mostrarSeccaoResponsavel = tipoCliente === 'empresa' && currentStep >= 1;
-  const responsavelTemDados = Boolean(responsavel || telefoneResponsavel || emailResponsavel);
+  const responsavelTemDados = Boolean(responsavel || telefoneResponsavelPreenchido || emailResponsavel);
   const mostrarLinhaAntesServicos = mostrarSeccaoResponsavel ? responsavelTemDados : entidadeTemDados;
 
   if (isAuthenticated === null) {
@@ -327,7 +333,7 @@ function CotacaoContent() {
           endereco,
           telefoneInstitucional,
           emailInstitucional,
-          website,
+          website: websitePreenchido ? website.trim() : '',
           responsavel: finalResponsavel,
           cargo: finalCargo,
           telefone: finalTelefoneResponsavel,
@@ -777,17 +783,17 @@ function CotacaoContent() {
                   <h4 className="text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pb-1.5 mb-1.5 border-b border-zinc-300 dark:border-zinc-600">Entidade</h4>
                   {empresa && <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa}</span></p>}
                   {endereco && <p><span className="font-bold text-zinc-900 dark:text-white">Província: </span><span className="text-zinc-600 dark:text-zinc-300">{endereco}</span></p>}
-                  {telefoneInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>}
+                  {telefoneInstitucionalPreenchido && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>}
                   {emailInstitucional && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional}</span></p>}
                   {nif && <p><span className="font-bold text-zinc-900 dark:text-white">Nuit: </span><span className="text-zinc-600 dark:text-zinc-300">{nif}</span></p>}
-                  {website && <p><span className="font-bold text-zinc-900 dark:text-white">Website: </span><span className="text-zinc-600 dark:text-zinc-300">{website}</span></p>}
+                  {websitePreenchido && <p><span className="font-bold text-zinc-900 dark:text-white">Website: </span><span className="text-zinc-600 dark:text-zinc-300">{website}</span></p>}
                 </div>
 
                 {mostrarSeccaoResponsavel && (
                   <div className="space-y-1 text-sm">
                     <h4 className="text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 pb-1.5 mb-1.5 border-b border-zinc-300 dark:border-zinc-600">Responsável</h4>
                     {responsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Ponto focal: </span><span className="text-zinc-600 dark:text-zinc-300">{responsavel}{cargo ? ` — ${cargo}` : ''}</span></p>}
-                    {telefoneResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel}</span></p>}
+                    {telefoneResponsavelPreenchido && <p><span className="font-bold text-zinc-900 dark:text-white">Contacto: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneResponsavel}</span></p>}
                     {emailResponsavel && <p><span className="font-bold text-zinc-900 dark:text-white">E-mail: </span><span className="text-zinc-600 dark:text-zinc-300">{emailResponsavel}</span></p>}
                   </div>
                 )}
