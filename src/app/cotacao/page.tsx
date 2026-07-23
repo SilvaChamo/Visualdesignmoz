@@ -96,41 +96,49 @@ function CotacaoContent() {
   // Serviço — lista única de linhas de encomenda; a primeira existe sempre,
   // mesmo com um só serviço, para que o cartão e a pré-visualização usem
   // sempre o mesmo formato (não há "principal" vs "adicionais").
-  const categoryFor = (categoriaId: string) => CATEGORIES.find((c) => c.id === categoriaId) ?? CATEGORIES[0];
+  const categoryFor = (categoriaId: string) => CATEGORIES.find((c) => c.id === categoriaId);
   const initialCategoriaId = (() => {
     const fromQuery = searchParams.get('categoria');
     return fromQuery && CATEGORIES.some((c) => c.id === fromQuery) ? fromQuery : CATEGORIES[0].id;
   })();
   const [lineItems, setLineItems] = useState<OrderLineItem[]>(() => {
     const cat = categoryFor(initialCategoriaId);
-    return [{ id: crypto.randomUUID(), categoriaId: initialCategoriaId, produto: cat.items[0]?.name ?? '', quantidade: 1 }];
+    return [{ id: crypto.randomUUID(), categoriaId: initialCategoriaId, produto: cat?.items[0]?.name ?? '', quantidade: 1 }];
   });
   const [dataLimite, setDataLimite] = useState(() => minDeliveryDate());
   const [notas, setNotas] = useState('');
 
+  const clearError = () => {
+    setErrorMessage('');
+    setStatus('idle');
+  };
+
   const updateLineItemCategoria = (id: string, categoriaId: string) => {
+    clearError();
     setLineItems((prev) =>
       prev.map((li) => {
         if (li.id !== id) return li;
-        const cat = categoryFor(categoriaId);
-        return { ...li, categoriaId, produto: cat.items[0]?.name ?? '' };
+        return { ...li, categoriaId, produto: '' };
       })
     );
   };
   const updateLineItemProduto = (id: string, produto: string) => {
+    clearError();
     setLineItems((prev) => prev.map((li) => (li.id === id ? { ...li, produto } : li)));
   };
   const updateLineItemQuantidade = (id: string, quantidade: number) => {
+    clearError();
     setLineItems((prev) => prev.map((li) => (li.id === id ? { ...li, quantidade } : li)));
   };
   const removeLineItem = (id: string) => {
+    clearError();
     setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.id !== id)));
   };
   const addLineItem = () => {
-    const cat = CATEGORIES[0];
+    clearError();
     setLineItems((prev) => [
+      { id: crypto.randomUUID(), categoriaId: '', produto: '', quantidade: 1 },
       ...prev,
-      { id: crypto.randomUUID(), categoriaId: cat.id, produto: '', quantidade: 1 },
     ]);
   };
 
@@ -175,7 +183,7 @@ function CotacaoContent() {
     return {
       li,
       isCustom,
-      categoriaLabel: isCustom ? 'Pedido Personalizado' : categoryFor(li.categoriaId).label,
+      categoriaLabel: isCustom ? 'Pedido Personalizado' : (categoryFor(li.categoriaId)?.label ?? 'Seleccionar serviço'),
       qty: li.quantidade,
       precoUnitario: found?.item.price ?? 0,
       sobConsultaItem,
@@ -241,8 +249,11 @@ function CotacaoContent() {
       if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
     }
     if (key === 'servico') {
-      if (lineItems.some((li) => (li.categoriaId === CUSTOM_CATEGORIA_ID ? !li.produto.trim() : !findItem(li.categoriaId, li.produto)))) {
-        return 'Escolha o produto e a quantidade — ou descreva o pedido personalizado.';
+      if (lineItems.some((li) => {
+        if (li.categoriaId === CUSTOM_CATEGORIA_ID) return !li.produto.trim();
+        return !li.categoriaId || !li.produto || !findItem(li.categoriaId, li.produto);
+      })) {
+        return 'Por favor, seleccione o serviço e a especificação em todos os cartões antes de submeter o pedido.';
       }
       if (multiItemsPriced.some((i) => i.qty <= 0)) return 'Indique a quantidade de todos os serviços seleccionados.';
       if (!dataLimite) return 'Escolha a data-limite de entrega.';
@@ -610,15 +621,17 @@ function CotacaoContent() {
                       return (
                         <div
                           key={li.id}
-                          className="flex items-center gap-3 p-3 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm"
                         >
-                          <div className="flex-1 min-w-0 space-y-0.5">
-                            <div className="relative inline-block max-w-full">
+                          <div className="flex-1 min-w-0 space-y-1 sm:mr-[200px] mr-4">
+                            {/* Nome do Serviço / Categoria (ex: Cartões de Visita - em destaque, visível e negrito no topo) */}
+                            <div className="relative flex items-center max-w-full">
                               <select
                                 value={li.categoriaId}
                                 onChange={(e) => updateLineItemCategoria(li.id, e.target.value)}
-                                className="appearance-none bg-transparent text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer focus:outline-none truncate max-w-full pr-4"
+                                className={`w-full appearance-none bg-transparent text-sm cursor-pointer focus:outline-none truncate pr-6 ${li.categoriaId ? 'font-bold text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 italic font-medium'}`}
                               >
+                                {!li.categoriaId && <option value="">Seleccionar serviço</option>}
                                 {BRANDS.map((brand) => {
                                   const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
                                   if (brandCategories.length === 0) return null;
@@ -631,20 +644,22 @@ function CotacaoContent() {
                                   );
                                 })}
                               </select>
-                              <ChevronDown className="w-3 h-3 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <ChevronDown className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
-                            <div className="relative inline-block max-w-full">
+
+                            {/* Descrição / Tipo de Papel / Especificação (letras pequenas em baixo) */}
+                            <div className="relative flex items-center max-w-full">
                               <select
                                 value={li.produto}
                                 onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
-                                className={`appearance-none bg-transparent text-sm cursor-pointer focus:outline-none truncate max-w-full pr-4 ${li.produto ? 'font-semibold text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
+                                className={`w-full appearance-none bg-transparent text-xs cursor-pointer focus:outline-none truncate pr-6 ${li.produto ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
                               >
-                                {!li.produto && <option value="">Seleccionar serviço</option>}
-                                {cat.items.map((p) => (
+                                {!li.produto && <option value="">Seleccionar especificação</option>}
+                                {(cat?.items ?? []).map((p) => (
                                   <option key={p.name} value={p.name}>{p.name}{p.sobConsulta ? ' (Sob Consulta)' : ''}</option>
                                 ))}
                               </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
                           </div>
                           <div className="w-20 shrink-0">
@@ -705,21 +720,20 @@ function CotacaoContent() {
                       onChange={(e) => setNotas(e.target.value)}
                       placeholder="Detalhes adicionais sobre o serviço pretendido..."
                     />
+                    {isLastStep && (
+                      <div className="flex items-start gap-1.5 mt-2">
+                        <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-600 dark:text-red-500 italic leading-relaxed">
+                          A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
+                          {multiTotal > 0
+                            ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 1.16 * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                            : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
-            )}
-
-            {isLastStep && (
-              <div className="mt-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800 dark:text-red-300 font-medium leading-relaxed">
-                  A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
-                  {multiTotal > 0
-                    ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 1.16 * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
-                    : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
-                </p>
-              </div>
             )}
 
             {/* Navegação entre etapas */}
