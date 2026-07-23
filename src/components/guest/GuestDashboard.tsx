@@ -29,6 +29,10 @@ type Quotation = {
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: 'Aguarda contacto', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/30' },
   payment_selected: { label: 'Aguarda pagamento', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/30' },
+  approved: { label: 'Aprovada — em produção', color: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900/30' },
+  rejected: { label: 'Não aprovada', color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/30' },
+  done: { label: 'Concluída', color: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/30' },
+  cancelled: { label: 'Cancelada', color: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700' },
 };
 
 const offers = [

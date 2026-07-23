@@ -205,8 +205,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, id: quotations[0].id, ids: quotations.map((q) => q.id) });
   } catch (error: unknown) {
+    // Nunca expor a mensagem interna (ex.: "fetch failed" de uma falha de rede
+    // a chegar ao Supabase) — o cliente só precisa de saber que falhou e que
+    // pode tentar de novo.
     console.error('[cotacoes] error:', error);
-    const message = error instanceof Error ? error.message : 'Erro interno';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Não foi possível submeter o pedido. Tente novamente em instantes.' },
+      { status: 500 },
+    );
   }
 }

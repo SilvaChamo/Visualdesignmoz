@@ -16,10 +16,21 @@ interface OrderLineItem {
   quantidade: number;
 }
 
+// Soma dias úteis (ignora sábados e domingos) — usado para pré-preencher a
+// data-limite de entrega com a margem mínima proposta, a partir de hoje.
+function addBusinessDays(start: Date, days: number): Date {
+  const d = new Date(start);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added += 1;
+  }
+  return d;
+}
+
 function minDeliveryDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().split('T')[0];
+  return addBusinessDays(new Date(), 7).toISOString().split('T')[0];
 }
 
 // Aceita rede móvel moçambicana (82/83 Tmcel, 84/85 Vodacom, 86/87 Movitel),
@@ -33,7 +44,7 @@ function isValidMzPhone(raw: string): boolean {
 function CotacaoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: authUser, loading: authLoading, getRedirectPath } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const isAuthenticated = authLoading ? null : !!authUser;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -76,6 +87,11 @@ function CotacaoContent() {
   const handleEmailResponsavelBlur = () => {
     if (!accountEmail && emailResponsavel) setAccountEmail(emailResponsavel);
   };
+  // Pré-preenche o email do responsável com o email institucional — poupa
+  // reescrever o mesmo email quando é a mesma pessoa — mas fica editável.
+  const handleEmailInstitucionalBlur = () => {
+    if (!emailResponsavel && emailInstitucional) setEmailResponsavel(emailInstitucional);
+  };
 
   // Serviço — lista única de linhas de encomenda; a primeira existe sempre,
   // mesmo com um só serviço, para que o cartão e a pré-visualização usem
@@ -89,7 +105,7 @@ function CotacaoContent() {
     const cat = categoryFor(initialCategoriaId);
     return [{ id: crypto.randomUUID(), categoriaId: initialCategoriaId, produto: cat.items[0]?.name ?? '', quantidade: 1 }];
   });
-  const [dataLimite, setDataLimite] = useState('');
+  const [dataLimite, setDataLimite] = useState(() => minDeliveryDate());
   const [notas, setNotas] = useState('');
 
   const updateLineItemCategoria = (id: string, categoriaId: string) => {
@@ -325,8 +341,10 @@ function CotacaoContent() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Não foi possível gerar a cotação.');
       }
-      const redirectPath = await getRedirectPath();
-      router.push(redirectPath || '/guest');
+      // Vai sempre para /guest — é onde a encomenda fica visível para
+      // acompanhamento (estado, aprovação, etc.), mesmo para quem já é
+      // cliente com hospedagem activa (o /client ainda não mostra cotações).
+      router.push('/guest');
     } catch (err: any) {
       setErrorMessage(err.message || 'Falha ao comunicar com o servidor.');
       setStatus('error');
@@ -453,7 +471,7 @@ function CotacaoContent() {
                   </div>
                   <div>
                     <label className={labelClass}>{tipoCliente === 'individual' ? 'Email' : 'Email Institucional'}</label>
-                    <input type="email" className={inputClass} value={emailInstitucional} onChange={(e) => setEmailInstitucional(e.target.value)} required />
+                    <input type="email" className={inputClass} value={emailInstitucional} onChange={(e) => setEmailInstitucional(e.target.value)} onBlur={handleEmailInstitucionalBlur} required />
                   </div>
                   {tipoCliente === 'empresa' && (
                     <div className="sm:col-span-2">
@@ -775,11 +793,11 @@ function CotacaoContent() {
                 )}
 
                 <div className={`space-y-3 text-sm ${mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
-                  {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, precoUnitario }) => (
+                  {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, isCustom, precoUnitario }) => (
                     <div key={li.id}>
                       <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
                       <p className="text-zinc-500 dark:text-zinc-400">{li.produto}</p>
-                      {sobConsultaItem ? (
+                      {isCustom ? null : sobConsultaItem ? (
                         <p className="text-sm font-bold text-red-600 dark:text-red-500 mt-0.5">Sob Consulta</p>
                       ) : (
                         <>
