@@ -358,10 +358,9 @@ function CotacaoContent() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Não foi possível gerar a cotação.');
       }
-      // Vai sempre para /guest — é onde a encomenda fica visível para
-      // acompanhamento (estado, aprovação, etc.), mesmo para quem já é
-      // cliente com hospedagem activa (o /client ainda não mostra cotações).
-      router.push('/guest');
+      // Painel próprio da VisualDesign (design), separado da hospedagem —
+      // é onde a encomenda fica visível para acompanhamento e aprovação.
+      router.push('/encomendas');
     } catch (err: any) {
       setErrorMessage(err.message || 'Falha ao comunicar com o servidor.');
       setStatus('error');
@@ -597,10 +596,27 @@ function CotacaoContent() {
                                 <span className="text-sm font-semibold text-zinc-900 dark:text-white">Pedido Personalizado</span>
                               </div>
                               <textarea
+                                ref={(el) => {
+                                  // Ajusta a altura ao conteúdo actual mesmo quando o texto chega
+                                  // por outra via que não seja digitação (ex.: restaurado de /precos),
+                                  // não só ao digitar/focar.
+                                  if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = `${el.scrollHeight}px`;
+                                  }
+                                }}
                                 value={li.produto}
-                                onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
+                                onChange={(e) => {
+                                  updateLineItemProduto(li.id, e.target.value);
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onFocus={(e) => {
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
                                 rows={2}
-                                className="w-full bg-transparent text-xs text-zinc-500 dark:text-zinc-400 focus:outline-none resize-none border-0 p-0"
+                                className="w-full bg-transparent text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none resize-y min-h-[60px] p-2 border border-zinc-200 dark:border-zinc-800 rounded-md transition-all"
                                 placeholder="Descreva o que precisa..."
                               />
                             </div>

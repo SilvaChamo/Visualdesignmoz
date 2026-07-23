@@ -39,6 +39,9 @@ function CotacaoDocumentContent() {
   const searchParams = useSearchParams();
   const id = params?.id as string;
   const autoPrint = searchParams.get('print') === '1';
+  // Modo embutido — usado dentro de /encomendas (iframe): esconde o cabeçalho
+  // do site e a navegação, mostra só o documento e o botão de transferir.
+  const embed = searchParams.get('embed') === '1';
 
   const [quotation, setQuotation] = useState<QuotationRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,56 +104,7 @@ function CotacaoDocumentContent() {
   const adiantamento = Math.round(quotation.total_mt * 0.7 * 100) / 100;
   const numeroCotacao = quotation.id.split('-')[0].toUpperCase();
 
-  return (
-    <div className="min-h-screen bg-zinc-200 dark:bg-black">
-      <NotchSection shape="start" bg="bg-gradient-to-br from-black via-zinc-900 to-zinc-950" first className="no-print">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="container mx-auto max-w-7xl px-6 pt-[170px] pb-[70px] relative z-10 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">A Sua Cotação</h1>
-          <p className="text-base text-zinc-300 max-w-2xl mx-auto leading-relaxed mb-4">
-            Reveja os dados abaixo, descarregue em PDF, e siga para o pagamento quando estiver pronto.
-          </p>
-          <nav className="text-xs text-zinc-400">
-            <Link href="/" className="hover:text-white transition-colors">Início</Link>
-            <span className="mx-2">/</span>
-            <Link href="/precos" className="hover:text-white transition-colors">Preços</Link>
-            <span className="mx-2">/</span>
-            <span className="text-zinc-300">Cotação Nº {numeroCotacao}</span>
-          </nav>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0">
-          <div className="h-[2px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent" />
-          <div className="h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent" />
-        </div>
-      </NotchSection>
-
-      <div className="no-print -mt-[16px] relative z-20 bg-zinc-200 dark:bg-black pt-12 pb-2">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Cotação Nº {numeroCotacao}</p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold px-5 py-2.5 rounded-md text-sm hover:opacity-90 transition-opacity"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Descarregar PDF</span>
-              </button>
-              <Link
-                href={`/cotacao/${quotation.id}/pagamento`}
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-md text-sm transition-colors"
-              >
-                <span>Continuar para Pagamento</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="notch-print-safe pb-12">
-      <div className="max-w-3xl mx-auto px-4">
+  const documentCard = (
         <div id="quote-print-area" className="bg-white dark:bg-white text-zinc-900 rounded-lg shadow-sm border border-zinc-200 p-8 sm:p-12">
 
           {/* Cabeçalho */}
@@ -256,7 +210,80 @@ function CotacaoDocumentContent() {
             Cotação válida por 30 dias a partir da data de emissão. Os valores incluem IVA.
           </p>
         </div>
+  );
+
+  // Embutido dentro de /encomendas (iframe) — só o documento e o botão de
+  // transferir, sem o cabeçalho do site nem a navegação.
+  if (embed) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="no-print max-w-3xl mx-auto px-4 pt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 bg-zinc-900 text-white font-bold px-4 py-2 rounded-md text-xs hover:opacity-90 transition-opacity"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Transferir PDF</span>
+          </button>
+        </div>
+        <div className="max-w-3xl mx-auto px-4 py-4">{documentCard}</div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-200 dark:bg-black">
+      <NotchSection shape="start" bg="bg-gradient-to-br from-black via-zinc-900 to-zinc-950" first className="no-print">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="container mx-auto max-w-7xl px-6 pt-[170px] pb-[70px] relative z-10 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">A Sua Cotação</h1>
+          <p className="text-base text-zinc-300 max-w-2xl mx-auto leading-relaxed mb-4">
+            Reveja os dados abaixo, descarregue em PDF, e siga para o pagamento quando estiver pronto.
+          </p>
+          <nav className="text-xs text-zinc-400">
+            <Link href="/" className="hover:text-white transition-colors">Início</Link>
+            <span className="mx-2">/</span>
+            <Link href="/precos" className="hover:text-white transition-colors">Preços</Link>
+            <span className="mx-2">/</span>
+            <span className="text-zinc-300">Cotação Nº {numeroCotacao}</span>
+          </nav>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0">
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent" />
+          <div className="h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent" />
+        </div>
+      </NotchSection>
+
+      <div className="no-print -mt-[16px] relative z-20 bg-zinc-200 dark:bg-black pt-12 pb-2">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Cotação Nº {numeroCotacao}</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold px-5 py-2.5 rounded-md text-sm hover:opacity-90 transition-opacity"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Descarregar PDF</span>
+              </button>
+              <Link
+                href={`/cotacao/${quotation.id}/pagamento`}
+                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-md text-sm transition-colors"
+              >
+                <span>Continuar para Pagamento</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="notch-print-safe pb-12">
+        <div className="max-w-3xl mx-auto px-4">
+          {documentCard}
+        </div>
       </NotchSection>
     </div>
   );
