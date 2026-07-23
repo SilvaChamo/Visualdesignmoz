@@ -14,31 +14,16 @@ import {
 } from 'lucide-react';
 import type { ClientProductTier, UserProductsSummary } from '@/lib/user-products';
 import { useCart } from '@/contexts/CartContext';
-import { formatMt } from '@/lib/pricing-catalog';
 
 type Props = {
   onNavigate?: (section: string) => void;
 };
 
+// Só a contagem interessa aqui — a lista/estado detalhado de cada encomenda
+// vive no painel próprio da VisualDesign (/encomendas), não neste painel de
+// hospedagem, para não misturar as duas marcas.
 type Quotation = {
   id: string;
-  categoria_label: string;
-  produto: string;
-  quantidade: number;
-  total_mt: number;
-  sob_consulta: boolean;
-  status: string;
-  data_limite_entrega: string;
-  created_at: string;
-};
-
-const QUOTATION_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Aguarda contacto', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  payment_selected: { label: 'Aguarda pagamento', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  approved: { label: 'Aprovada — em produção', color: 'bg-teal-50 text-teal-700 border-teal-200' },
-  rejected: { label: 'Não aprovada', color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  done: { label: 'Concluída', color: 'bg-green-50 text-green-700 border-green-200' },
-  cancelled: { label: 'Cancelada', color: 'bg-gray-100 text-gray-600 border-gray-200' },
 };
 
 export function ClientProductsHub({ onNavigate }: Props) {
@@ -103,37 +88,23 @@ export function ClientProductsHub({ onNavigate }: Props) {
       </div>
 
       {quotations.length > 0 && (
-        <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-red-600" />
-            <h2 className="font-bold text-gray-900">As Suas Encomendas</h2>
+        <a
+          href="/encomendas"
+          className="flex items-center justify-between gap-4 bg-white border border-gray-200 rounded-xl p-5 hover:border-red-300 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center flex-shrink-0">
+              <FileText className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-bold text-gray-900">Encomendas VisualDesign</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Tem {quotations.length} {quotations.length === 1 ? 'encomenda' : 'encomendas'} de design gráfico — acompanhe no painel próprio.
+              </p>
+            </div>
           </div>
-          <div className="p-5 space-y-3">
-            {quotations.map((q) => {
-              const statusInfo = QUOTATION_STATUS_LABELS[q.status] || { label: q.status, color: 'bg-gray-50 text-gray-700 border-gray-200' };
-              return (
-                <a
-                  key={q.id}
-                  href={`/cotacao/${q.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-red-300 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-gray-900 truncate">{q.categoria_label} — {q.produto}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Qtd: {q.quantidade} · {q.sob_consulta ? 'Sob Consulta' : `${formatMt(q.total_mt)} MT`}</p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusInfo.color}`}>
-                      {statusInfo.label}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-gray-400" />
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </section>
+          <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        </a>
       )}
 
       {showDomainPanel && (

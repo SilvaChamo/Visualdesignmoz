@@ -6,7 +6,6 @@ import { Globe, Server, Mail, ShoppingCart, CreditCard, LogOut, User, FileText, 
 import { useCart } from '@/contexts/CartContext';
 import { PanelHeader } from '@/components/panel/PanelHeader';
 import { panelBtnSecondary } from '@/lib/panel-ui';
-import { formatMt } from '@/lib/pricing-catalog';
 
 type Props = {
   userEmail?: string | null;
@@ -14,25 +13,11 @@ type Props = {
   onSignOut: () => void;
 };
 
+// Só a contagem interessa aqui — a lista/estado detalhado de cada encomenda
+// vive no painel próprio da VisualDesign (/encomendas), não neste painel de
+// hospedagem, para não misturar as duas marcas.
 type Quotation = {
   id: string;
-  categoria_label: string;
-  produto: string;
-  quantidade: number;
-  total_mt: number;
-  sob_consulta: boolean;
-  status: string;
-  data_limite_entrega: string;
-  created_at: string;
-};
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Aguarda contacto', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/30' },
-  payment_selected: { label: 'Aguarda pagamento', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/30' },
-  approved: { label: 'Aprovada — em produção', color: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900/30' },
-  rejected: { label: 'Não aprovada', color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/30' },
-  done: { label: 'Concluída', color: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/30' },
-  cancelled: { label: 'Cancelada', color: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700' },
 };
 
 const offers = [
@@ -130,40 +115,23 @@ export function GuestDashboard({ userEmail, userName, onSignOut }: Props) {
             </section>
 
             {quotations.length > 0 && (
-              <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1">As Suas Cotações</h3>
-                <p className="text-xs text-gray-500 dark:text-zinc-400 mb-4">
-                  Contacte-nos por telefone ou email para dar seguimento, ou avance directamente para o pagamento do adiantamento.
-                </p>
-                <div className="space-y-3">
-                  {quotations.map((q) => {
-                    const statusInfo = STATUS_LABELS[q.status] || { label: q.status, color: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700' };
-                    return (
-                      <Link
-                        key={q.id}
-                        href={`/cotacao/${q.id}`}
-                        className="flex items-center justify-between gap-4 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-red-300 dark:hover:border-red-500 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-5 h-5 text-red-600 dark:text-red-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{q.categoria_label} — {q.produto}</p>
-                            <p className="text-xs text-gray-500 dark:text-zinc-400">Qtd: {q.quantidade} · {q.sob_consulta ? 'Sob Consulta' : `${formatMt(q.total_mt)} MT`}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusInfo.color}`}>
-                            {statusInfo.label}
-                          </span>
-                          <ArrowRight className="w-4 h-4 text-gray-400 dark:text-zinc-500" />
-                        </div>
-                      </Link>
-                    );
-                  })}
+              <Link
+                href="/encomendas"
+                className="flex items-center justify-between gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm hover:border-red-300 dark:hover:border-red-500 transition-all"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-red-600 dark:text-red-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white">Encomendas VisualDesign</h3>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                      Tem {quotations.length} {quotations.length === 1 ? 'encomenda' : 'encomendas'} de design gráfico — acompanhe no painel próprio.
+                    </p>
+                  </div>
                 </div>
-              </section>
+                <ArrowRight className="w-4 h-4 text-gray-400 dark:text-zinc-500 flex-shrink-0" />
+              </Link>
             )}
 
             <section>
