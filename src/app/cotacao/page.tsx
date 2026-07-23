@@ -617,7 +617,7 @@ function CotacaoContent() {
                               <select
                                 value={li.categoriaId}
                                 onChange={(e) => updateLineItemCategoria(li.id, e.target.value)}
-                                className="appearance-none bg-transparent text-sm font-semibold text-zinc-900 dark:text-white cursor-pointer focus:outline-none truncate max-w-full pr-4"
+                                className="appearance-none bg-transparent text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer focus:outline-none truncate max-w-full pr-4"
                               >
                                 {BRANDS.map((brand) => {
                                   const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
@@ -631,20 +631,20 @@ function CotacaoContent() {
                                   );
                                 })}
                               </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <ChevronDown className="w-3 h-3 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
                             <div className="relative inline-block max-w-full">
                               <select
                                 value={li.produto}
                                 onChange={(e) => updateLineItemProduto(li.id, e.target.value)}
-                                className={`appearance-none bg-transparent text-xs cursor-pointer focus:outline-none truncate max-w-full pr-4 ${li.produto ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
+                                className={`appearance-none bg-transparent text-sm cursor-pointer focus:outline-none truncate max-w-full pr-4 ${li.produto ? 'font-semibold text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
                               >
                                 {!li.produto && <option value="">Seleccionar serviço</option>}
                                 {cat.items.map((p) => (
                                   <option key={p.name} value={p.name}>{p.name}{p.sobConsulta ? ' (Sob Consulta)' : ''}</option>
                                 ))}
                               </select>
-                              <ChevronDown className="w-3 h-3 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
                           </div>
                           <div className="w-20 shrink-0">
@@ -801,8 +801,17 @@ function CotacaoContent() {
                 <div className={`space-y-3 text-sm ${mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
                   {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, isCustom, precoUnitario }) => (
                     <div key={li.id}>
-                      <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
-                      <p className="text-zinc-500 dark:text-zinc-400">{li.produto}</p>
+                      {isCustom ? (
+                        <>
+                          <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
+                          <p className="text-zinc-500 dark:text-zinc-400">{li.produto}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{categoriaLabel}</p>
+                          <p className="font-semibold text-zinc-900 dark:text-white">{li.produto}</p>
+                        </>
+                      )}
                       {isCustom ? null : sobConsultaItem ? (
                         <p className="text-sm font-bold text-red-600 dark:text-red-500 mt-0.5">Sob Consulta</p>
                       ) : (
