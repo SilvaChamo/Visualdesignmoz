@@ -18,10 +18,21 @@ function readConfiguredSiteOrigin(): string | null {
   return raw ? normalizeAuthOrigin(raw) : null
 }
 
-/** Origem canónica para auth no browser (dev → sempre localhost:3002 do .env). */
+/**
+ * Origem canónica para auth no browser.
+ *
+ * Se o site estiver configurado em .env.local, usa esse valor em vez da porta
+ * actual do localhost. Isso evita que um cache/aba antiga em localhost:3003
+ * force o callback OAuth para o porto errado.
+ */
 export function getCanonicalBrowserAuthOrigin(): string {
+  const configuredOrigin = readConfiguredSiteOrigin()
+  if (configuredOrigin) {
+    return configuredOrigin
+  }
+
   if (typeof window === 'undefined') {
-    return readConfiguredSiteOrigin() || 'http://localhost:3002'
+    return 'http://localhost:3002'
   }
 
   const host = window.location.hostname.toLowerCase()
@@ -34,7 +45,7 @@ export function getCanonicalBrowserAuthOrigin(): string {
     return normalizeAuthOrigin(window.location.origin)
   }
 
-  return readConfiguredSiteOrigin() || normalizeAuthOrigin(window.location.origin)
+  return normalizeAuthOrigin(window.location.origin)
 }
 
 /** URL completa do callback OAuth — uma rota para local e produção. */
