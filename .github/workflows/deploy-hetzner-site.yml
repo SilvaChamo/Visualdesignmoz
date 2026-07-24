@@ -1,14 +1,13 @@
-name: Deploy → Hetzner (Painel)
+name: Deploy → Hetzner (Site de teste)
 
 on:
   push:
     branches:
       - main
-      - preview/grid-servicos-web
 
 jobs:
   deploy:
-    name: Deploy via SSH para Hetzner
+    name: Deploy via SSH para Hetzner (site)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -27,18 +26,18 @@ jobs:
         run: |
           ssh -p 2234 root@37.27.17.25 '
             set -e
-            cd /opt/visualdesign-panel
+            cd /opt/visualdesign-site
             git fetch origin
             git reset --hard "${{ github.sha }}"
             npm ci --prefer-offline --no-audit --no-fund
             CI="" npm run build
-            pm2 restart visualdesign-panel --update-env || pm2 start npm --name "visualdesign-panel" -- start -- -p 3002
+            pm2 restart visualdesign-site --update-env || pm2 start npm --name "visualdesign-site" -- start -- -p 3003
             pm2 save
           '
 
       - name: Verificar que o servidor ficou no commit certo
         run: |
-          DEPLOYED_SHA=$(ssh -p 2234 root@37.27.17.25 'cd /opt/visualdesign-panel && git rev-parse HEAD')
+          DEPLOYED_SHA=$(ssh -p 2234 root@37.27.17.25 'cd /opt/visualdesign-site && git rev-parse HEAD')
           echo "Commit no servidor: $DEPLOYED_SHA"
           echo "Commit esperado:    ${{ github.sha }}"
           if [ "$DEPLOYED_SHA" != "${{ github.sha }}" ]; then
@@ -47,13 +46,11 @@ jobs:
           fi
           echo "✅ Commit confirmado no servidor."
 
+      # Site de teste ainda pode não ter DNS/SSL prontos — não bloquear o
+      # workflow por isso, só reportar o estado.
       - name: Verificar que o site responde depois do reinício
+        continue-on-error: true
         run: |
           sleep 8
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://painel.visualdesignmoz.com/login)
-          echo "Status de /login depois do deploy: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ ERRO: /login devolveu $STATUS em vez de 200 depois do restart."
-            exit 1
-          fi
-          echo "✅ Site respondeu normalmente depois do deploy."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://site.visualdesignmoz.com/)
+          echo "Status de / depois do deploy: $STATUS"

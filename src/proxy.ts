@@ -124,6 +124,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Rotas de API: cada uma já se autentica sozinha (assinatura de webhook,
+  // CRON_SECRET, ou o seu próprio cliente Supabase). O resultado de
+  // supabase.auth.getUser() nunca é usado para /api/* — só gastava uma
+  // chamada de rede à Supabase em CADA pedido de API (checkout, webhooks,
+  // cron, painel admin), sem nenhum benefício.
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -205,11 +214,6 @@ export async function proxy(request: NextRequest) {
   const pathsToHide = ['/autenticacao']
   if (pathsToHide.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     return NextResponse.rewrite(new URL('/404-obfuscated', request.url))
-  }
-
-  // APIs do painel — refrescar sessão; não bloquear sem user
-  if (pathname.startsWith('/api/')) {
-    return response
   }
 
   // Public routes
