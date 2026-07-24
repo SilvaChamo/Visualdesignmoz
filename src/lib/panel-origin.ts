@@ -74,17 +74,25 @@ export function panelRouteFromPublicEntry(pathname: string): string | null {
   return inner.startsWith('/') ? inner : `/${inner}`
 }
 
+function isPanelPathAllowedForRole(pathname: string, role: UserRole): boolean {
+  const normalizedPath = pathname.split('?')[0].split('#')[0]
+  const roleBase = getRedirectPathForRole(role)
+  return normalizedPath === roleBase || normalizedPath.startsWith(`${roleBase}/`)
+}
+
 export function resolveInnerPanelPath(
   from: string | null | undefined,
   role: UserRole,
 ): string {
   const fromPainel = from ? panelRouteFromPublicEntry(from) : null
-  if (fromPainel && PANEL_PATHS.some((b) => fromPainel === b || fromPainel.startsWith(`${b}/`))) {
-    return fromPainel
+  const candidate = fromPainel ?? from
+
+  if (candidate && PANEL_PATHS.some((b) => candidate === b || candidate.startsWith(`${b}/`))) {
+    return isPanelPathAllowedForRole(candidate, role)
+      ? candidate
+      : getRedirectPathForRole(role)
   }
-  if (from && from.startsWith('/') && PANEL_PATHS.some((b) => from === b || from.startsWith(`${b}/`))) {
-    return from
-  }
+
   return getRedirectPathForRole(role)
 }
 

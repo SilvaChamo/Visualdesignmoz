@@ -1,6 +1,8 @@
 /** Rota única de retorno do Google — o utilizador nunca escolhe URL. */
 export const OAUTH_CALLBACK_PATH = '/auth/callback'
 
+const DEFAULT_AUTH_ORIGIN = 'https://visualdesignmoz.com'
+
 function normalizeAuthOrigin(raw: string): string {
   try {
     const url = new URL(raw.includes('://') ? raw : `https://${raw}`)
@@ -9,43 +11,64 @@ function normalizeAuthOrigin(raw: string): string {
     if (host === 'www.visualdesignmoz.com') url.hostname = 'visualdesignmoz.com'
     return url.origin
   } catch {
-    return 'http://localhost:3002'
+    return defaultAuthOrigin()
   }
 }
 
+function defaultAuthOrigin(): string {
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+    return DEFAULT_AUTH_ORIGIN
+  }
+  return 'http://localhost:3002'
+}
+
 function readConfiguredSiteOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  return raw ? normalizeAuthOrigin(raw) : null
+  const rawSite = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (rawSite) return normalizeAuthOrigin(rawSite)
+
+  const rawApp = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (!rawApp) return null
+
+  const normalizedApp = normalizeAuthOrigin(rawApp)
+  const appHost = normalizedApp.toLowerCase()
+  if (
+    (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') &&
+    (appHost.startsWith('http://localhost') || appHost.startsWith('http://127.0.0.1'))
+  ) {
+    return null
+  }
+
+  return normalizedApp
 }
 
 /**
  * Origem canónica para auth no browser.
  *
- * Se o site estiver configurado em .env.local, usa esse valor em vez da porta
- * actual do localhost. Isso evita que um cache/aba antiga em localhost:3003
- * force o callback OAuth para o porto errado.
+ * Se `NEXT_PUBLIC_SITE_URL` ou `NEXT_PUBLIC_APP_URL` estiver configurado, usa
+ * esse valor em vez da porta actual do localhost. Isso evita que um cache/aba
+ * antiga em localhost:3003 force o callback OAuth para o porto errado.
  */
 export function getCanonicalBrowserAuthOrigin(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase()
+
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return normalizeAuthOrigin(window.location.origin)
+    }
+
+    if (host.endsWith('.vercel.app')) {
+      return normalizeAuthOrigin(window.location.origin)
+    }
+  }
+
   const configuredOrigin = readConfiguredSiteOrigin()
   if (configuredOrigin) {
     return configuredOrigin
   }
 
-  if (typeof window === 'undefined') {
-    return 'http://localhost:3002'
-  }
-
-  const host = window.location.hostname.toLowerCase()
-
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return normalizeAuthOrigin(window.location.origin)
-  }
-
-  if (host.endsWith('.vercel.app')) {
-    return normalizeAuthOrigin(window.location.origin)
-  }
-
-  return normalizeAuthOrigin(window.location.origin)
+  return typeof window !== 'undefined'
+    ? normalizeAuthOrigin(window.location.origin)
+    : defaultAuthOrigin()
 }
 
 /** URL completa do callback OAuth — uma rota para local e produção. */

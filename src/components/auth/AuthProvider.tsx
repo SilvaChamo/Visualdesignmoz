@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async (fromPath?: string | null) => {
     try {
-      setPanelFromCookie()
+      setPanelFromCookie(fromPath || PUBLIC_PANEL_ENTRY)
 
       await startGoogleOAuth()
     } catch (error) {

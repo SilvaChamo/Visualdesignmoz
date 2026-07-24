@@ -1,13 +1,10 @@
-import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-
 export const PANEL_FROM_COOKIE = 'vd_panel_from'
 
-/** Guardar destino pós-login (sempre /painel). */
-export function setPanelFromCookie(): void {
+/** Guardar destino pós-login. */
+export function setPanelFromCookie(value: string): void {
   if (typeof document === 'undefined') return
-  const value = encodeURIComponent(PUBLIC_PANEL_ENTRY)
   const secure = window.location.protocol === 'https:'
-  document.cookie = `${PANEL_FROM_COOKIE}=${value}; path=/; max-age=600; SameSite=Lax${
+  document.cookie = `${PANEL_FROM_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=600; SameSite=Lax${
     secure ? '; Secure' : ''
   }`
 }
