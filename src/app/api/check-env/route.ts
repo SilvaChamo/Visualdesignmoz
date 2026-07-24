@@ -7,8 +7,6 @@ export async function GET() {
       supabaseConfigured: Boolean(supabaseUrl && anonKey),
       isHetzner: supabaseUrl.includes('supabase.visualdesignmoz.com'),
       isCloud: supabaseUrl.includes('supabase.co'),
-      panelUrl: process.env.NEXT_PUBLIC_PANEL_URL || '(empty)',
-      publicSiteUrl: process.env.NEXT_PUBLIC_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '(empty)',
       siteUrl: process.env.NEXT_PUBLIC_SITE_URL || '(empty)',
       passwordResetSmtp: process.env.PASSWORD_RESET_USE_SITE_SMTP || '(unset)',
       smtpHost: process.env.SMTP_HOST || '(empty)',

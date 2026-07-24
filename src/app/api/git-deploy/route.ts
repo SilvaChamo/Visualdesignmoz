@@ -5,6 +5,17 @@ import { getServerHost, getHestiaUrl } from '@/lib/server-config'
 
 const execAsync = promisify(exec)
 
+// Domínio do próprio processo (site + painel consolidados na mesma instância)
+// — usado para saber quando um deploy é "local" (esta instância) em vez de
+// SSH para outro domínio hospedado.
+function getSelfDomain(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL || '').hostname
+  } catch {
+    return ''
+  }
+}
+
 // Função para executar comandos SSH no servidor
 async function execSSH(command: string): Promise<string> {
   const { exec } = require('child_process')
@@ -255,7 +266,7 @@ export async function POST(req: NextRequest) {
     if (action === 'deploySite') {
       const domain = body.params?.domain || body.domain || 'your-domain.com'
       
-      if (domain === 'painel.visualdesignmoz.com') {
+      if (domain === getSelfDomain()) {
         if (VERCEL_DEPLOY_HOOK) {
           try {
             const hookRes = await fetch(VERCEL_DEPLOY_HOOK, { method: 'POST' })
@@ -299,7 +310,7 @@ export async function POST(req: NextRequest) {
           const output = `[Git Pull]\n${pullOut}\n${pullErr}\n\n[NPM Install]\n${ciOut}\n${ciErr}\n\n[NPM Build]\n${buildOut}\n${buildErr}\n\nDEPLOY_COMPLETE`
           
           // 4. Agendar reinício do PM2 em background
-          exec('sleep 2 && pm2 restart visualdesign-panel', { cwd })
+          exec('sleep 2 && pm2 restart visualdesign-site', { cwd })
           
           return NextResponse.json({
             success: true,
@@ -344,7 +355,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'getDeployStatus') {
       const domain = body.params?.domain || body.domain || 'your-domain.com'
-      if (domain === 'painel.visualdesignmoz.com') {
+      if (domain === getSelfDomain()) {
         const { stdout: raw } = await execAsync('git log --oneline -5', { cwd: process.cwd() })
         return NextResponse.json({
           output: raw,
@@ -372,7 +383,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'getGitLog') {
       const domain = body.params?.domain || body.domain || 'your-domain.com'
-      if (domain === 'painel.visualdesignmoz.com') {
+      if (domain === getSelfDomain()) {
         const { stdout: raw } = await execAsync('git log --oneline -10', { cwd: process.cwd() })
         return NextResponse.json({
           output: raw,

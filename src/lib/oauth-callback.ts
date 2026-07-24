@@ -14,9 +14,7 @@ function normalizeAuthOrigin(raw: string): string {
 }
 
 function readConfiguredSiteOrigin(): string | null {
-  const raw =
-    process.env.NEXT_PUBLIC_PUBLIC_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   return raw ? normalizeAuthOrigin(raw) : null
 }
 

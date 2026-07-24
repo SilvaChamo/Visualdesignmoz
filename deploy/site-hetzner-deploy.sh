@@ -46,16 +46,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   export "$key=$val" 2>/dev/null || true
 done < "$ENV_FILE"
 
-# Mesma base de env do painel-hetzner-deploy.sh, mas identidade de site público
-# (não painel) e a apontar para o painel real já em produção — não duplicamos
-# o painel nesta instância de teste.
+# Origem única: painel e site público vivem na mesma instância/host.
 ENV_CONTENT="NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://supabase.visualdesignmoz.com}
 NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY:-${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}}
 SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
 NEXT_PUBLIC_SITE_URL=https://${SITE_HOST}
-NEXT_PUBLIC_PUBLIC_SITE_URL=https://${SITE_HOST}
-NEXT_PUBLIC_PANEL_URL=https://painel.visualdesignmoz.com
 NEXT_PUBLIC_SERVER_IP=${NEXT_PUBLIC_SERVER_IP:-37.27.17.25}
 NEXT_PUBLIC_PANEL_SLUG=${NEXT_PUBLIC_PANEL_SLUG:-visualdesign}
 PANEL_SLUG=${PANEL_SLUG:-visualdesign}

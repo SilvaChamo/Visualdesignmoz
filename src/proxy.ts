@@ -4,14 +4,12 @@ import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
   buildPanelLoginUrl,
   getPublicSiteOrigin,
-  isPanelHost,
   isPanelRoute,
   panelRouteFromPublicEntry,
   PUBLIC_LOGIN_ENTRY,
   PUBLIC_PANEL_ENTRY,
   resolveInnerPanelPath,
   resolvePanelInnerRedirect,
-  shouldUsePanelOriginForHost,
 } from '@/lib/panel-origin'
 import { OAUTH_CALLBACK_PATH } from '@/lib/oauth-callback'
 import { getRequestHostname } from '@/lib/request-host'
@@ -98,29 +96,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(legacy, 308)
   }
 
-  const onPanelHost = isPanelHost(hostname)
-
-  // Subdomínio painel.* — marketing no site principal; raiz = entrada do painel
-  if (onPanelHost) {
-    if (pathname !== '/' && isPublicMarketingPath(pathname)) {
-      return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin))
-    }
-    if (pathname === '/auth/login' || pathname === PUBLIC_LOGIN_ENTRY) {
-      const login = buildPanelLoginUrl(publicOrigin, request.nextUrl.searchParams)
-      return NextResponse.redirect(login)
-    }
-    if (pathname.startsWith('/auth/')) {
-      const dest = new URL(`${pathname}${request.nextUrl.search}`, publicOrigin)
-      return NextResponse.redirect(dest)
-    }
-  }
-
   // Páginas públicas de marketing (home, serviços, portfolio, preços, etc.)
   // — não correr auth no proxy. Isto evita uma chamada de rede à Supabase
   // em CADA visita anónima a estas páginas, que são as mais visitadas do
   // site. Antes disto só cobria a home ('/'), o que gastava Fluid Compute
   // desnecessário em todas as outras páginas públicas.
-  if (isPublicMarketingPath(pathname) && !oauthCode && !onPanelHost) {
+  if (isPublicMarketingPath(pathname) && !oauthCode) {
     return NextResponse.next()
   }
 
@@ -158,11 +139,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const isPanelEntryPath =
-    pathname === PUBLIC_PANEL_ENTRY ||
-    pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`) ||
-    (onPanelHost && pathname === '/')
+    pathname === PUBLIC_PANEL_ENTRY || pathname.startsWith(`${PUBLIC_PANEL_ENTRY}/`)
 
-  // Entrada: visualdesignmoz.com/painel (site) ou painel.* / (subdomínio)
+  // Entrada: visualdesignmoz.com/painel
   if (isPanelEntryPath) {
     if (!user) {
       return redirectWithSession(buildPanelLoginUrl(request.url))
@@ -181,18 +160,8 @@ export async function proxy(request: NextRequest) {
     return redirectWithSession(target)
   }
 
-  // Site público (Vercel): rotas do painel → Hetzner (ou login)
-  if (shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname)) {
-    if (!user) {
-      return redirectWithSession(buildPanelLoginUrl(request.url))
-    }
-    return redirectWithSession(
-      resolvePanelInnerRedirect(request.url, pathname, request.nextUrl.search),
-    )
-  }
-
-  // Local / mesmo host: /dashboard, /client… — API e UI no mesmo `npm run dev`
-  if (!shouldUsePanelOriginForHost(hostname) && isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
+  // Rotas do painel: /dashboard, /client…
+  if (isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
       return redirectWithSession(buildPanelLoginUrl(request.url))
     }

@@ -14,21 +14,6 @@ const STORAGE_KEY = 'vd-theme';
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-/** Domínio do cookie partilhado — mesmo padrão usado para a sessão de login
- *  (visualdesignmoz.com + painel.visualdesignmoz.com partilham o cookie). */
-function getSharedCookieDomain(): string | undefined {
-  try {
-    const host = window.location.hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app')) {
-      return undefined;
-    }
-    if (host.endsWith('visualdesignmoz.com')) return '.visualdesignmoz.com';
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function readCookieTheme(): ThemeMode | null {
   try {
     const match = document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/);
@@ -74,10 +59,8 @@ function persistTheme(theme: ThemeMode) {
     /* ignore */
   }
   try {
-    const domain = getSharedCookieDomain();
-    const domainPart = domain ? `; domain=${domain}` : '';
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `${STORAGE_KEY}=${theme}; path=/; max-age=31536000; SameSite=Lax${domainPart}${secure}`;
+    document.cookie = `${STORAGE_KEY}=${theme}; path=/; max-age=31536000; SameSite=Lax${secure}`;
   } catch {
     /* ignore */
   }

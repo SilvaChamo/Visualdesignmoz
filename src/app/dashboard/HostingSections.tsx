@@ -11240,7 +11240,7 @@ export function DeploySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [log, setLog] = useState('')
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [gitLog, setGitLog] = useState('')
-  const [selectedDomain, setSelectedDomain] = useState('painel.visualdesignmoz.com')
+  const [selectedDomain, setSelectedDomain] = useState('visualdesignmoz.com')
 
   const loadGitLog = async () => {
     const res = await fetch('/api/git-deploy', {
@@ -11287,7 +11287,7 @@ export function DeploySection({ sites }: { sites: DirectAdminWebsite[] }) {
         <select value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
           className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm">
-          <option value="painel.visualdesignmoz.com">Painel de Controlo (Hetzner)</option>
+          <option value="visualdesignmoz.com">VisualDesign (site + painel, Hetzner)</option>
           {activeSites.map(s => (
             <option key={s.domain} value={s.domain}>{s.domain}</option>
           ))}
