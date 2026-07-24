@@ -11,7 +11,7 @@ import { NotchSection } from '@/components/home/NotchSection'
 // em vez de várias subcategorias na barra lateral (cada uma com 1 opção),
 // mostram uma única entrada "Serviços" e listam todas as opções juntas na
 // coluna direita, para escolha múltipla.
-const FLATTENED_BRANDS = new Set(['visualweb', 'visualtransporte'])
+const FLATTENED_BRANDS = new Set(['web', 'transporte'])
 const isFlatId = (id: string) => id.startsWith('flat:')
 const flatBrandOf = (id: string) => id.slice('flat:'.length)
 

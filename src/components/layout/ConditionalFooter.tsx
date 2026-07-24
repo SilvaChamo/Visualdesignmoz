@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { CompactFooter } from './CompactFooter'
 
 /**
@@ -10,11 +10,13 @@ import { CompactFooter } from './CompactFooter'
  */
 export function ConditionalFooter() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
-  const excludedRoutes = ['/dashboard', '/client', '/auth', '/login', '/revendedor', '/guest', '/encomendas']
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas']
   const isExcluded = excludedRoutes.some((route) => pathname.startsWith(route))
+  const isEmbedded = searchParams?.get('embed') === '1'
 
-  if (isExcluded) return null
+  if (isExcluded || isEmbedded) return null
 
   // Sobreposição -mt confirmada no histórico do git como o padrão original
   // (sempre presente antes de qualquer alteração desta sessão) — o rodapé

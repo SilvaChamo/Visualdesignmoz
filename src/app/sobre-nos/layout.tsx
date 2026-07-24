@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 
 const DESCRIPTION =
-    "Preços de alojamento web, domínios, email profissional e SSL da VisualDesign — planos claros para empresas em Moçambique.";
+    "Conheça a VisualDesign, agência de design e serviços digitais em Maputo, Moçambique — a nossa história, missão e equipa.";
 
 export const metadata: Metadata = {
-    title: "Preços",
+    title: "Sobre Nós",
     description: DESCRIPTION,
-    alternates: { canonical: "/precos" },
+    alternates: { canonical: "/sobre-nos" },
     openGraph: {
-        title: "Preços | VisualDesign",
+        title: "Sobre Nós | VisualDesign",
         description: DESCRIPTION,
-        url: "https://visualdesignmoz.com/precos",
+        url: "https://visualdesignmoz.com/sobre-nos",
         siteName: "VisualDesign",
         locale: "pt_MZ",
         type: "website",
     },
 };
 
-export default function PricingLayout({
+export default function SobreNosLayout({
     children,
 }: {
     children: React.ReactNode;

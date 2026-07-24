@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'VisualEventos — Eventos Memoráveis',
     description: 'Soluções integradas de stands, catering e organização de eventos em Moçambique.',
-    url: 'https://provisualcorporate.co.mz/visualeventos',
+    url: 'https://visualdesignmoz.com/eventos',
     siteName: 'VisualDesign',
     locale: 'pt_MZ',
     type: 'website',

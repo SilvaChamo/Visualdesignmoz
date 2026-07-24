@@ -93,12 +93,12 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
   const whyUsColumns = [whyUsItems.slice(0, 2), whyUsItems.slice(2, 4)]
 
   const brands = [
-    { Icon: Monitor, name: 'VisualWeb', desc: 'Sites corporativos, e-commerce, alojamento, domínios e marketing digital.', href: '/visualweb' },
+    { Icon: Monitor, name: 'VisualWeb', desc: 'Sites corporativos, e-commerce, alojamento, domínios e marketing digital.', href: '/web' },
     { Icon: Palette, name: 'VisualDesign', desc: 'Identidade de marca, design de logotipos, materiais gráficos e envelopamento.', href: '/' },
-    { Icon: Calendar, name: 'VisualEventos', desc: 'Stands para exposições, catering completo, aluguer e organização.', href: '/visualeventos' },
-    { Icon: Film, name: 'VisualPro', desc: 'Vídeo institucional, fotografia profissional e cobertura multimedia.', href: '/visualpro' },
-    { Icon: Truck, name: 'VisualTransporte', desc: 'Serviços de mobilidade, transferes executivos e logística integrada.', href: '/visualtransporte' },
-    { Icon: Gift, name: 'VisualGifts', desc: 'Merchandising promocional, fardamento técnico e welcome kits corporativos.', href: '/visualgifts' },
+    { Icon: Calendar, name: 'VisualEventos', desc: 'Stands para exposições, catering completo, aluguer e organização.', href: '/eventos' },
+    { Icon: Film, name: 'VisualPro', desc: 'Vídeo institucional, fotografia profissional e cobertura multimedia.', href: '/producoes' },
+    { Icon: Truck, name: 'VisualTransporte', desc: 'Serviços de mobilidade, transferes executivos e logística integrada.', href: '/transporte' },
+    { Icon: Gift, name: 'VisualGifts', desc: 'Merchandising promocional, fardamento técnico e welcome kits corporativos.', href: '/brindes' },
   ]
 
   return (
@@ -443,7 +443,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         </div>
       </NotchSection>
 
-      {/* Why Choose Us Section - Matching cards layout from visualweb, restored original 2-column layout */}
+      {/* Why Choose Us Section - Matching cards layout from web, restored original 2-column layout */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mx-5">

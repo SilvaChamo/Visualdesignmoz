@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'VisualWeb — Presença Digital Completa',
     description: 'Alojamento web rápido, registo de domínios e soluções de infraestrutura digital em Moçambique.',
-    url: 'https://provisualcorporate.co.mz/visualweb',
+    url: 'https://visualdesignmoz.com/web',
     siteName: 'VisualDesign',
     locale: 'pt_MZ',
     type: 'website',

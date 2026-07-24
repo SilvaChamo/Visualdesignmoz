@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'VisualGifts — Brindes e Merchandising',
     description: 'Personalização de brindes corporativos, fardamento e kits onboarding em Moçambique.',
-    url: 'https://provisualcorporate.co.mz/visualgifts',
+    url: 'https://visualdesignmoz.com/brindes',
     siteName: 'VisualDesign',
     locale: 'pt_MZ',
     type: 'website',

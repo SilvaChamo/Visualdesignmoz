@@ -95,8 +95,8 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     },
   },
 
-  visualeventos: {
-    slug: 'visualeventos',
+  eventos: {
+    slug: 'eventos',
     hero: {
       title: 'Eventos memoráveis, do conceito à execução',
       subtitle:
@@ -114,10 +114,10 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Tudo para o seu evento',
     servicesSubtitle: 'De uma feira corporativa a um evento privado — cobrimos todas as etapas.',
     services: [
-      { Icon: Tent, title: 'Feiras e Eventos', desc: 'Design de stands e cobertura completa de eventos.', href: '/visualeventos/feiras' },
-      { Icon: Coffee, title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/visualeventos/catering' },
-      { Icon: TruckIcon, title: 'Aluguer de Equipamento', desc: 'Aluguer de material técnico e mobiliário para eventos.', href: '/visualeventos' },
-      { Icon: Users, title: 'Organização de Eventos', desc: 'Planeamento e execução de eventos de ponta a ponta.', href: '/visualeventos' },
+      { Icon: Tent, title: 'Feiras e Eventos', desc: 'Design de stands e cobertura completa de eventos.', href: '/eventos/feiras' },
+      { Icon: Coffee, title: 'Catering', desc: 'Serviço de catering para eventos corporativos e privados.', href: '/eventos/catering' },
+      { Icon: TruckIcon, title: 'Aluguer de Equipamento', desc: 'Aluguer de material técnico e mobiliário para eventos.', href: '/eventos' },
+      { Icon: Users, title: 'Organização de Eventos', desc: 'Planeamento e execução de eventos de ponta a ponta.', href: '/eventos' },
     ],
     whyUsPretitle: 'Porquê a VisualEventos',
     whyUsTitle: 'Um evento, uma só equipa',
@@ -136,8 +136,8 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     },
   },
 
-  visualpro: {
-    slug: 'visualpro',
+  producoes: {
+    slug: 'producoes',
     hero: {
       title: 'Vídeo e fotografia profissional para a sua marca',
       subtitle:
@@ -154,9 +154,9 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Produção Audiovisual',
     servicesSubtitle: 'Conteúdo profissional em foto e vídeo adaptado ao seu mercado e objectivos.',
     services: [
-      { Icon: Video, title: 'Produção de Vídeo', desc: 'Vídeos institucionais, spot TV e conteúdos publicitários.', href: '/visualpro' },
-      { Icon: Camera, title: 'Fotografia Profissional', desc: 'Sessões de produto, retrato corporate e instalações.', href: '/visualpro/fotografia' },
-      { Icon: Users, title: 'Cobertura de Eventos', desc: 'Foto e vídeo ao vivo para congressos e feiras.', href: '/visualpro/eventos' },
+      { Icon: Video, title: 'Produção de Vídeo', desc: 'Vídeos institucionais, spot TV e conteúdos publicitários.', href: '/producoes' },
+      { Icon: Camera, title: 'Fotografia Profissional', desc: 'Sessões de produto, retrato corporate e instalações.', href: '/producoes/fotografia' },
+      { Icon: Users, title: 'Cobertura de Eventos', desc: 'Foto e vídeo ao vivo para congressos e feiras.', href: '/producoes/eventos' },
     ],
     whyUsPretitle: 'Porquê a VisualPro',
     whyUsTitle: 'Vídeo e imagem com qualidade de cinema',
@@ -175,8 +175,8 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     },
   },
 
-  visualtransporte: {
-    slug: 'visualtransporte',
+  transporte: {
+    slug: 'transporte',
     hero: {
       title: 'A sua marca em movimento',
       subtitle:
@@ -193,9 +193,9 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Mobilidade e Logística',
     servicesSubtitle: 'Serviços de transporte corporativo e aluguer de viaturas.',
     services: [
-      { Icon: Route, title: 'Serviços de Mobilidade', desc: 'Logística de rotas e transferes de equipas corporativas.', href: '/visualtransporte' },
-      { Icon: Car, title: 'Aluguer de Viaturas', desc: 'Disponibilização de viaturas para eventos ou uso executivo.', href: '/visualtransporte' },
-      { Icon: TruckIcon, title: 'Logística de Eventos', desc: 'Transporte e montagem de estruturas no local.', href: '/visualtransporte' },
+      { Icon: Route, title: 'Serviços de Mobilidade', desc: 'Logística de rotas e transferes de equipas corporativas.', href: '/transporte' },
+      { Icon: Car, title: 'Aluguer de Viaturas', desc: 'Disponibilização de viaturas para eventos ou uso executivo.', href: '/transporte' },
+      { Icon: TruckIcon, title: 'Logística de Eventos', desc: 'Transporte e montagem de estruturas no local.', href: '/transporte' },
     ],
     whyUsPretitle: 'Porquê a VisualTransporte',
     whyUsTitle: 'Pontualidade e Segurança Absoluta',
@@ -214,8 +214,8 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     },
   },
 
-  visualgifts: {
-    slug: 'visualgifts',
+  brindes: {
+    slug: 'brindes',
     hero: {
       title: 'Brindes que representam a sua marca',
       subtitle:
@@ -232,9 +232,9 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Merchandising e Artigos Promocionais',
     servicesSubtitle: 'Artigos personalizados sob medida com a identidade visual da sua marca.',
     services: [
-      { Icon: Gift, title: 'Merchandising Promocional', desc: 'Canetas, agendas e brindes personalizados diversos.', href: '/visualgifts' },
-      { Icon: Shirt, title: 'Fardamento e Têxteis', desc: 'Polos, t-shirts e vestuário técnico estampado ou bordado.', href: '/visualgifts/texteis' },
-      { Icon: PackageOpen, title: 'Kits Onboarding', desc: 'Welcome packs e kits corporativos completos.', href: '/visualgifts/kits' },
+      { Icon: Gift, title: 'Merchandising Promocional', desc: 'Canetas, agendas e brindes personalizados diversos.', href: '/brindes' },
+      { Icon: Shirt, title: 'Fardamento e Têxteis', desc: 'Polos, t-shirts e vestuário técnico estampado ou bordado.', href: '/brindes/texteis' },
+      { Icon: PackageOpen, title: 'Kits Onboarding', desc: 'Welcome packs e kits corporativos completos.', href: '/brindes/kits' },
     ],
     whyUsPretitle: 'Porquê a VisualGifts',
     whyUsTitle: 'Artigos Únicos e Coordenação Total',

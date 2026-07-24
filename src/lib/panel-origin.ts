@@ -1,7 +1,7 @@
 import type { CookieOptions } from '@supabase/ssr'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 
-const PANEL_PATHS = ['/dashboard', '/client', '/revendedor', '/guest'] as const
+const PANEL_PATHS = ['/dashboard', '/cliente', '/revendedor', '/guest'] as const
 
 const DEFAULT_PUBLIC_SITE_ORIGIN = 'https://visualdesignmoz.com'
 

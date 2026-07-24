@@ -12,10 +12,10 @@ export function BrandHero({ data, breadcrumb }: { data: BrandLandingContent; bre
 
   const getBrandSegment = () => {
     switch (pathname) {
-      case '/visualeventos': return 'VisualEventos'
-      case '/visualpro': return 'VisualPro'
-      case '/visualtransporte': return 'VisualTransporte'
-      case '/visualgifts': return 'VisualGifts'
+      case '/eventos': return 'VisualEventos'
+      case '/producoes': return 'VisualPro'
+      case '/transporte': return 'VisualTransporte'
+      case '/brindes': return 'VisualGifts'
       default: return 'Marcas'
     }
   }
@@ -114,7 +114,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
             <div className="mt-12 sm:mt-16 mx-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 sm:gap-12">
                 {data.services.map(({ Icon, title, desc, href }) => {
-                  const hasSubPage = href !== '#' && href !== '' && href !== '/visualdesign' && href !== '/visualeventos' && href !== '/visualpro' && href !== '/visualtransporte' && href !== '/visualgifts' && href !== '/visualweb'
+                  const hasSubPage = href !== '#' && href !== '' && href !== '/visualdesign' && href !== '/eventos' && href !== '/producoes' && href !== '/transporte' && href !== '/brindes' && href !== '/web'
                   return (
                     <div key={title} className="flex flex-col items-start text-left space-y-4">
                       <div className="text-red-600 dark:text-red-500 flex items-center justify-center shrink-0">
@@ -307,7 +307,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
   )
 }
 
-/** Marca completa (hero + secções) — usada nas páginas standalone /visualdesign, /visualeventos, etc. */
+/** Marca completa (hero + secções) — usada nas páginas standalone /visualdesign, /eventos, etc. */
 export function BrandLanding({ data }: { data: BrandLandingContent }) {
   return (
     <>

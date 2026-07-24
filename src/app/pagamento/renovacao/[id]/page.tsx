@@ -154,7 +154,7 @@ export default function PagamentoRenovacaoPage() {
             Sua renovação foi processada com sucesso. Você receberá um email de confirmação em breve.
           </p>
           <Link 
-            href="/client" 
+            href="/cliente" 
             className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -175,7 +175,7 @@ export default function PagamentoRenovacaoPage() {
             O link de pagamento pode ter expirado ou ser inválido.
           </p>
           <Link 
-            href="/client" 
+            href="/cliente" 
             className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -320,7 +320,7 @@ export default function PagamentoRenovacaoPage() {
 
         {/* Footer */}
         <div className="text-center mt-6">
-          <Link href="/client" className="text-gray-500 hover:text-gray-700 text-sm flex items-center justify-center gap-1">
+          <Link href="/cliente" className="text-gray-500 hover:text-gray-700 text-sm flex items-center justify-center gap-1">
             <ArrowLeft className="w-4 h-4" />
             Voltar ao painel do cliente
           </Link>

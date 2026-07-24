@@ -21,11 +21,11 @@ export type Brand = {
 
 export const BRANDS: Brand[] = [
   { id: 'visualdesign', label: 'Design Gráfico' },
-  { id: 'visualweb', label: 'Web Design' },
-  { id: 'visualtransporte', label: 'Transporte' },
-  { id: 'visualeventos', label: 'Eventos' },
-  { id: 'visualgifts', label: 'Brindes Corporativos' },
-  { id: 'visualpro', label: 'Produção Audiovisual' },
+  { id: 'web', label: 'Web Design' },
+  { id: 'transporte', label: 'Transporte' },
+  { id: 'eventos', label: 'Eventos' },
+  { id: 'brindes', label: 'Brindes Corporativos' },
+  { id: 'producoes', label: 'Produção Audiovisual' },
 ]
 
 export const CATEGORIES: Category[] = [
@@ -179,7 +179,7 @@ export const CATEGORIES: Category[] = [
     label: 'Web Design',
     subtitle: 'Sites modernos, institucionais e landing pages responsivos, adaptados ao seu negócio.',
     minQty: '',
-    brand: 'visualweb',
+    brand: 'web',
     items: [{ name: 'Website Institucional / Landing Page', price: 0, sobConsulta: true }],
   },
   {
@@ -187,7 +187,7 @@ export const CATEGORIES: Category[] = [
     label: 'Aplicações & Sistemas de Gestão',
     subtitle: 'Aplicações web personalizadas, plataformas SaaS e automação de processos internos.',
     minQty: '',
-    brand: 'visualweb',
+    brand: 'web',
     items: [
       { name: 'Aplicação Web', price: 0, sobConsulta: true },
       { name: 'Sistema de Gestão', price: 0, sobConsulta: true },
@@ -198,7 +198,7 @@ export const CATEGORIES: Category[] = [
     label: 'Otimização para Buscadores (SEO)',
     subtitle: 'Posicionamento do seu site nos motores de busca.',
     minQty: '',
-    brand: 'visualweb',
+    brand: 'web',
     items: [{ name: 'Otimização SEO', price: 0, sobConsulta: true }],
   },
   {
@@ -206,7 +206,7 @@ export const CATEGORIES: Category[] = [
     label: 'Gestão de Redes Sociais',
     subtitle: 'Gestão de conteúdo e presença nas redes sociais.',
     minQty: '',
-    brand: 'visualweb',
+    brand: 'web',
     items: [{ name: 'Gestão de Redes Sociais', price: 0, sobConsulta: true }],
   },
   {
@@ -214,7 +214,7 @@ export const CATEGORIES: Category[] = [
     label: 'Lojas Online (E-commerce)',
     subtitle: 'Plataformas de venda online completas.',
     minQty: '',
-    brand: 'visualweb',
+    brand: 'web',
     items: [{ name: 'Loja Online (E-commerce)', price: 0, sobConsulta: true }],
   },
 
@@ -226,7 +226,7 @@ export const CATEGORIES: Category[] = [
     label: 'Serviços de Mobilidade',
     subtitle: 'Logística de rotas e transferes de equipas corporativas.',
     minQty: '',
-    brand: 'visualtransporte',
+    brand: 'transporte',
     items: [{ name: 'Serviço de Mobilidade Corporativa', price: 0, sobConsulta: true }],
   },
   {
@@ -234,7 +234,7 @@ export const CATEGORIES: Category[] = [
     label: 'Aluguer de Viaturas',
     subtitle: 'Disponibilização de viaturas para eventos ou uso executivo.',
     minQty: '',
-    brand: 'visualtransporte',
+    brand: 'transporte',
     items: [
       { name: 'Viatura para Evento Corporativo', price: 0, sobConsulta: true },
       { name: 'Transfere Executivo com Motorista', price: 0, sobConsulta: true },
@@ -245,7 +245,7 @@ export const CATEGORIES: Category[] = [
     label: 'Logística de Eventos',
     subtitle: 'Transporte e montagem de estruturas no local.',
     minQty: '',
-    brand: 'visualtransporte',
+    brand: 'transporte',
     items: [{ name: 'Logística e Transporte para Eventos', price: 0, sobConsulta: true }],
   },
 
@@ -257,7 +257,7 @@ export const CATEGORIES: Category[] = [
     label: 'Catering',
     subtitle: 'Serviço de catering para eventos corporativos e privados.',
     minQty: '',
-    brand: 'visualeventos',
+    brand: 'eventos',
     items: [
       { name: 'Coffee Break Empresarial', price: 0, sobConsulta: true },
       { name: 'Brunch e Cocktails Volantes', price: 0, sobConsulta: true },
@@ -270,7 +270,7 @@ export const CATEGORIES: Category[] = [
     label: 'Feiras e Eventos',
     subtitle: 'Stands, montagem e cobertura para feiras e conferências.',
     minQty: '',
-    brand: 'visualeventos',
+    brand: 'eventos',
     items: [
       { name: 'Stands e Montagem 3D', price: 0, sobConsulta: true },
       { name: 'Aluguer de Equipamento de Som e Luz', price: 0, sobConsulta: true },
@@ -283,7 +283,7 @@ export const CATEGORIES: Category[] = [
     label: 'Organização de Eventos',
     subtitle: 'Aluguer de equipamento e organização completa de eventos.',
     minQty: '',
-    brand: 'visualeventos',
+    brand: 'eventos',
     items: [
       { name: 'Aluguer de Equipamento', price: 0, sobConsulta: true },
       { name: 'Organização de Evento Completa', price: 0, sobConsulta: true },
@@ -298,7 +298,7 @@ export const CATEGORIES: Category[] = [
     label: 'Kits Onboarding',
     subtitle: 'Kits de boas-vindas personalizados para novos colaboradores ou clientes.',
     minQty: '',
-    brand: 'visualgifts',
+    brand: 'brindes',
     items: [
       { name: 'Agenda / Caderno Personalizado', price: 0, sobConsulta: true },
       { name: 'Garrafa / Caneca Térmica Gravada', price: 0, sobConsulta: true },
@@ -312,7 +312,7 @@ export const CATEGORIES: Category[] = [
     label: 'Fardamento e Têxteis',
     subtitle: 'Fardamento corporativo e têxteis personalizados para a sua equipa.',
     minQty: '',
-    brand: 'visualgifts',
+    brand: 'brindes',
     items: [
       { name: 'Polos e T-Shirts Promocionais', price: 0, sobConsulta: true },
       { name: 'Camisas de Alta Gama', price: 0, sobConsulta: true },
@@ -326,7 +326,7 @@ export const CATEGORIES: Category[] = [
     label: 'Merchandising Promocional',
     subtitle: 'Brindes e artigos promocionais personalizados com a sua marca.',
     minQty: '',
-    brand: 'visualgifts',
+    brand: 'brindes',
     items: [{ name: 'Merchandising Promocional', price: 0, sobConsulta: true }],
   },
 
@@ -338,7 +338,7 @@ export const CATEGORIES: Category[] = [
     label: 'Produção de Vídeo Corporativo',
     subtitle: 'Vídeos institucionais, comerciais e para redes sociais.',
     minQty: '',
-    brand: 'visualpro',
+    brand: 'producoes',
     items: [
       { name: 'Vídeo Institucional', price: 0, sobConsulta: true },
       { name: 'Vídeo Comercial', price: 0, sobConsulta: true },
@@ -351,7 +351,7 @@ export const CATEGORIES: Category[] = [
     label: 'Fotografia Profissional',
     subtitle: 'Fotografia de produto, corporativa e cobertura de eventos.',
     minQty: '',
-    brand: 'visualpro',
+    brand: 'producoes',
     items: [
       { name: 'Fotografia de Produto / E-commerce', price: 0, sobConsulta: true },
       { name: 'Fotografia Corporativa (Equipa e Instalações)', price: 0, sobConsulta: true },
@@ -364,7 +364,7 @@ export const CATEGORIES: Category[] = [
     label: 'Cobertura de Eventos',
     subtitle: 'Cobertura profissional de vídeo e fotografia para eventos.',
     minQty: '',
-    brand: 'visualpro',
+    brand: 'producoes',
     items: [
       { name: 'Gravação com Câmaras de Cinema Digitais', price: 0, sobConsulta: true },
       { name: 'Reportagem Fotográfica de Evento', price: 0, sobConsulta: true },

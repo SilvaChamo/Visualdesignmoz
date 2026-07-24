@@ -200,7 +200,7 @@ export async function proxy(request: NextRequest) {
     appMetadata: user.app_metadata,
   })
 
-  if (pathname.startsWith('/client') && role !== 'client') {
+  if (pathname.startsWith('/cliente') && role !== 'client') {
     return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
   }
 
@@ -213,7 +213,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith('/dashboard') && role === 'client') {
-    return redirectWithSession(new URL('/client', request.url))
+    return redirectWithSession(new URL('/cliente', request.url))
   }
 
   return response
@@ -241,7 +241,7 @@ export const config = {
     '/admin',
     '/admin/:path*',
     '/api/:path*',
-    '/client/:path*',
+    '/cliente/:path*',
     '/guest/:path*',
     '/revendedor/:path*',
     '/login',

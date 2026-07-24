@@ -12,6 +12,20 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   outputFileTracingRoot: path.join(__dirname),
+  async redirects() {
+    return [
+      { source: '/visualweb', destination: '/web', permanent: true },
+      { source: '/visualeventos', destination: '/eventos', permanent: true },
+      { source: '/visualeventos/:path*', destination: '/eventos/:path*', permanent: true },
+      { source: '/visualgifts', destination: '/brindes', permanent: true },
+      { source: '/visualgifts/:path*', destination: '/brindes/:path*', permanent: true },
+      { source: '/visualpro', destination: '/producoes', permanent: true },
+      { source: '/visualpro/:path*', destination: '/producoes/:path*', permanent: true },
+      { source: '/visualtransporte', destination: '/transporte', permanent: true },
+      { source: '/client', destination: '/cliente', permanent: true },
+      { source: '/client/:path*', destination: '/cliente/:path*', permanent: true },
+    ]
+  },
   async headers() {
     return [
       {

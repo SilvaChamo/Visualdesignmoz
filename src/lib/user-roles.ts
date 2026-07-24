@@ -66,7 +66,7 @@ export function getRedirectPathForRole(role: UserRole): string {
     case 'reseller':
       return '/revendedor';
     case 'client':
-      return '/client';
+      return '/cliente';
     case 'guest':
     default:
       return '/guest';

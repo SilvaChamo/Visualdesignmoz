@@ -39,7 +39,7 @@ function CheckoutSucessoContent() {
           await supabase.auth.refreshSession();
           clearCart();
           router.refresh();
-          setTimeout(() => router.replace('/client'), 1800);
+          setTimeout(() => router.replace('/cliente'), 1800);
           return;
         }
 
@@ -105,7 +105,7 @@ function CheckoutSucessoContent() {
               pouco ou contacte o suporte se o problema persistir.
             </p>
             <button
-              onClick={() => router.replace('/client')}
+              onClick={() => router.replace('/cliente')}
               className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
             >
               Ir para a área de cliente

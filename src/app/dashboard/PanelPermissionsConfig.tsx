@@ -189,7 +189,7 @@ function ClientPanelPermissionsConfig() {
           
           <div className="flex items-center gap-3">
             <a
-              href="/client"
+              href="/cliente"
               target="_blank"
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all"
             >

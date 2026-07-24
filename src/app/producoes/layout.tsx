@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'VisualPro — Audiovisual Profissional',
     description: 'Vídeo institucional, cobertura de eventos e fotografia profissional em Moçambique.',
-    url: 'https://provisualcorporate.co.mz/visualpro',
+    url: 'https://visualdesignmoz.com/producoes',
     siteName: 'VisualDesign',
     locale: 'pt_MZ',
     type: 'website',

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'VisualTransporte — Mobilidade e Logística',
     description: 'Transferes corporativos, aluguer de viaturas e transporte de mercadorias em Moçambique.',
-    url: 'https://provisualcorporate.co.mz/visualtransporte',
+    url: 'https://visualdesignmoz.com/transporte',
     siteName: 'VisualDesign',
     locale: 'pt_MZ',
     type: 'website',

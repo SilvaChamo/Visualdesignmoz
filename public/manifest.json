@@ -1,8 +1,8 @@
 {
-  "name": "VisualDesign - Gestão de Email Marketing",
+  "name": "VisualDesign",
   "short_name": "VisualDesign",
-  "description": "Painel de gestão de clientes e campanhas de email marketing",
-  "start_url": "/client",
+  "description": "Agência de design e serviços digitais em Maputo, Moçambique.",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",

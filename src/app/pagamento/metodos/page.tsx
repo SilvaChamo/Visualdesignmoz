@@ -221,7 +221,7 @@ export default function MetodosPagamentoPage() {
             </div>
 
             <div className="text-center mt-6">
-              <Link href="/client" className="text-gray-500 hover:text-gray-700 text-sm">
+              <Link href="/cliente" className="text-gray-500 hover:text-gray-700 text-sm">
                 Voltar ao painel do cliente
               </Link>
             </div>

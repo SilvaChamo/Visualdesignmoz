@@ -10,7 +10,7 @@ import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 import DomainSearch from '@/components/DomainSearch'
 import { NotchSection } from '@/components/home/NotchSection'
 
-/** Banner (hero) da VisualWeb — usado tanto na home como em /visualweb. */
+/** Banner (hero) da VisualWeb — usado tanto na home como em /web. */
 export function VisualWebHero() {
   return (
     <NotchSection shape="start" bg="bg-black" first>
@@ -478,7 +478,7 @@ export function VisualWebBody() {
   )
 }
 
-/** VisualWeb completa (hero + secções) — usada em /visualweb e na home. */
+/** VisualWeb completa (hero + secções) — usada em /web e na home. */
 export default function VisualWebLanding() {
   return (
     <>
