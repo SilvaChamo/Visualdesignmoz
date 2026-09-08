@@ -219,7 +219,8 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
       const data = await res.json().catch(() => ({}))
       if (data.success) {
         setReprovisionSteps(data.result?.steps || [])
-        showMsg(data.dnsOk ? 'Configuração concluída.' : 'Alguns passos ainda falharam — ver detalhe abaixo.', data.dnsOk ? 'success' : 'error')
+        const base = data.dnsOk ? 'Configuração concluída.' : 'Alguns passos ainda falharam — ver detalhe abaixo.'
+        showMsg(data.hint ? `${base} ${data.hint}` : base, data.dnsOk ? 'success' : 'error')
       } else {
         showMsg(data.error || 'Erro ao reprocessar configuração', 'error')
       }
