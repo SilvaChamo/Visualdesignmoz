@@ -4,22 +4,27 @@
 // passou a usar a Cloudflare como DNS em vez do BIND interno do
 // DirectAdmin) — ver domain-email-auth.ts para a lógica de escolha.
 //
-// Precisa de CLOUDFLARE_API_TOKEN_ACCOUNT com permissão "Zone / DNS / Edit"
-// em "Todas as zonas" da conta, e de CLOUDFLARE_ACCOUNT_ID (para criar zonas
-// novas). Não usa nenhum token com escopo só à zona do visualdesignmoz.com —
-// esse tipo de token antigo foi removido do .env por não ter uso no código.
+// Autenticação (14 ago 2026): usa CLOUDFLARE_EMAIL + CLOUDFLARE_GLOBAL_API_KEY
+// (Global API Key, acesso total à conta) quando presentes — confirmado ao
+// vivo que consegue criar zonas novas. CLOUDFLARE_API_TOKEN_ACCOUNT (token
+// restrito a Zone/DNS) fica como alternativa se algum dia se conseguir dar-lhe
+// também a permissão "Account > Zone > Edit" (não encontrada na interface da
+// Cloudflare nessa data) — nesse caso volta a bastar só o token, sem a
+// Global Key. Precisa também de CLOUDFLARE_ACCOUNT_ID (para criar zonas novas).
 
 const CF_API_BASE = 'https://api.cloudflare.com/client/v4';
 
-function getCloudflareToken(): string | undefined {
-  return process.env.CLOUDFLARE_API_TOKEN_ACCOUNT?.trim() || undefined;
-}
-
-function cfHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
+function getCloudflareAuthHeaders(): Record<string, string> | undefined {
+  const email = process.env.CLOUDFLARE_EMAIL?.trim();
+  const globalKey = process.env.CLOUDFLARE_GLOBAL_API_KEY?.trim();
+  if (email && globalKey) {
+    return { 'X-Auth-Email': email, 'X-Auth-Key': globalKey, 'Content-Type': 'application/json' };
+  }
+  const token = process.env.CLOUDFLARE_API_TOKEN_ACCOUNT?.trim();
+  if (token) {
+    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  }
+  return undefined;
 }
 
 export type CloudflareRecordInput = {
@@ -44,13 +49,13 @@ export type CloudflareApplyResult = {
  *  Cloudflare como DNS, e quem chamar isto deve cair no DNS interno do
  *  DirectAdmin em alternativa). */
 export async function findCloudflareZoneId(domain: string): Promise<string | null> {
-  const token = getCloudflareToken();
-  if (!token) return null;
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return null;
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
 
   try {
     const res = await fetch(`${CF_API_BASE}/zones?name=${encodeURIComponent(clean)}`, {
-      headers: cfHeaders(token),
+      headers,
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { success: boolean; result?: Array<{ id: string }> };
@@ -75,9 +80,9 @@ export async function createCloudflareZone(
   | { ok: true; zoneId: string; nameServers: string[]; alreadyExisted: boolean }
   | { ok: false; error: string }
 > {
-  const token = getCloudflareToken();
+  const headers = getCloudflareAuthHeaders();
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
-  if (!token) return { ok: false, error: 'CLOUDFLARE_API_TOKEN_ACCOUNT não configurado' };
+  if (!headers) return { ok: false, error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados' };
   if (!accountId) return { ok: false, error: 'CLOUDFLARE_ACCOUNT_ID não configurado' };
 
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
@@ -85,7 +90,7 @@ export async function createCloudflareZone(
   const existingId = await findCloudflareZoneId(clean);
   if (existingId) {
     try {
-      const res = await fetch(`${CF_API_BASE}/zones/${existingId}`, { headers: cfHeaders(token) });
+      const res = await fetch(`${CF_API_BASE}/zones/${existingId}`, { headers });
       const data = (await res.json()) as { success: boolean; result?: { name_servers?: string[] } };
       if (data.success && data.result?.name_servers?.length) {
         return { ok: true, zoneId: existingId, nameServers: data.result.name_servers, alreadyExisted: true };
@@ -99,7 +104,7 @@ export async function createCloudflareZone(
   try {
     const res = await fetch(`${CF_API_BASE}/zones`, {
       method: 'POST',
-      headers: cfHeaders(token),
+      headers,
       body: JSON.stringify({ name: clean, account: { id: accountId }, type: 'full' }),
     });
     const data = (await res.json()) as {
@@ -134,14 +139,14 @@ function stripTrailingDot(value: string): string {
 }
 
 async function findExistingRecords(
-  token: string,
+  headers: Record<string, string>,
   zoneId: string,
   type: string,
   name: string,
 ): Promise<Array<{ id: string; content: string }>> {
   const params = new URLSearchParams({ type, name });
   const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?${params.toString()}`, {
-    headers: cfHeaders(token),
+    headers,
   });
   if (!res.ok) return [];
   const data = (await res.json()) as {
@@ -164,14 +169,14 @@ export async function upsertCloudflareRecord(
   domain: string,
   record: CloudflareRecordInput,
 ): Promise<CloudflareApplyResult> {
-  const token = getCloudflareToken();
-  if (!token) {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) {
     return {
       ok: false,
       name: record.name,
       type: record.type,
       action: 'error',
-      error: 'CLOUDFLARE_API_TOKEN_ACCOUNT não configurado',
+      error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados',
     };
   }
 
@@ -181,7 +186,7 @@ export async function upsertCloudflareRecord(
     : record.content;
 
   try {
-    const existing = await findExistingRecords(token, zoneId, record.type, name);
+    const existing = await findExistingRecords(headers, zoneId, record.type, name);
     const sameContent = existing.find((r) => r.content === content);
     if (sameContent) {
       return { ok: true, name, type: record.type, action: 'skipped' };
@@ -211,7 +216,7 @@ export async function upsertCloudflareRecord(
       ? `${CF_API_BASE}/zones/${zoneId}/dns_records/${toReplace.id}`
       : `${CF_API_BASE}/zones/${zoneId}/dns_records`;
 
-    const res = await fetch(url, { method, headers: cfHeaders(token), body: JSON.stringify(body) });
+    const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
     const data = (await res.json()) as { success: boolean; errors?: Array<{ message: string }> };
     if (!data.success) {
       return {
@@ -258,15 +263,15 @@ export async function deleteCloudflareEmailRecords(
   domain: string,
   zoneId: string,
 ): Promise<{ ok: boolean; deleted: number; error?: string }> {
-  const token = getCloudflareToken();
-  if (!token) return { ok: false, deleted: 0, error: 'CLOUDFLARE_API_TOKEN_ACCOUNT não configurado' };
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, deleted: 0, error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados' };
 
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
   const emailSubdomains = new Set([`mail.${clean}`, `ftp.${clean}`, `pop.${clean}`, `smtp.${clean}`]);
 
   try {
     const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?per_page=100`, {
-      headers: cfHeaders(token),
+      headers,
     });
     if (!res.ok) return { ok: false, deleted: 0, error: `HTTP ${res.status}` };
     const data = (await res.json()) as {
@@ -284,7 +289,7 @@ export async function deleteCloudflareEmailRecords(
       if (!isEmailRecord) continue;
       const del = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${rec.id}`, {
         method: 'DELETE',
-        headers: cfHeaders(token),
+        headers,
       });
       if (del.ok) deleted += 1;
     }
