@@ -5,6 +5,7 @@ import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { deductResellerBalance, refundResellerBalance } from '@/lib/reseller-balance';
 import { fulfillCheckout } from '@/lib/checkout-fulfillment';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 // Paga uma compra nova do carrinho com o saldo do revendedor
 // (reseller_credits) — ao contrário de M-Pesa/Transferência, não fica
@@ -26,14 +27,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
     }
 
+    // Se um admin estiver a "entrar como" um revendedor, a compra (e o
+    // débito de saldo) corre como a conta impersonada, não como o admin.
+    const actor = await resolveCheckoutActor(admin, user);
+
     const { data: profile } = await admin
       .from('profiles')
       .select('da_username')
-      .eq('user_id', user.id)
+      .eq('user_id', actor.buyerUserId)
       .maybeSingle();
     const daUsername = profile?.da_username as string | undefined;
     if (!daUsername) {
-      return NextResponse.json({ error: 'Esta conta não é de revendedor — não tem saldo próprio.' }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: actor.impersonating
+            ? `A conta ${actor.impersonatedLabel} não é de revendedor — não tem saldo próprio.`
+            : 'Esta conta não é de revendedor — não tem saldo próprio.',
+        },
+        { status: 403 },
+      );
     }
 
     const body = await request.json();
@@ -55,11 +67,12 @@ export async function POST(request: NextRequest) {
     const totalMt = resolved.reduce((sum, r) => sum + r.priceMt, 0);
 
     const hasDomain = resolved.some((r) => r.item.type === 'domain');
-    if (hasDomain && !(await isProfileWhoisComplete(admin, user.id))) {
+    if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
       return NextResponse.json(
         {
-          error:
-            'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
+          error: actor.impersonating
+            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados usados no registo oficial do domínio. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
         },
         { status: 400 },
       );
@@ -75,7 +88,7 @@ export async function POST(request: NextRequest) {
     const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
       .insert({
-        user_id: user.id,
+        user_id: actor.buyerUserId,
         items: itemsWithStatus,
         total_mt: totalMt,
         currency: 'mzn',
@@ -93,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await fulfillCheckout(admin, user.id, toValidatedCartItems(resolved), 'saldo');
+      await fulfillCheckout(admin, actor.buyerUserId, toValidatedCartItems(resolved), 'saldo');
     } catch (err) {
       console.error('[checkout/saldo-session] fulfillCheckout falhou, a devolver saldo:', err);
       await refundResellerBalance(admin, daUsername, totalMt);

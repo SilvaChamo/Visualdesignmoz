@@ -5,6 +5,7 @@ import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteGuestToProfissional } from '@/lib/checkout-fulfillment';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
 
@@ -50,12 +51,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
     }
 
+    // Se um admin estiver a "entrar como" um revendedor/cliente, o pedido
+    // corre como a conta impersonada (dono do domínio, WHOIS, faturação).
+    const actor = await resolveCheckoutActor(admin, user);
+
     const hasDomain = resolved.some((r) => r.item.type === 'domain');
-    if (hasDomain && !(await isProfileWhoisComplete(admin, user.id))) {
+    if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
       return NextResponse.json(
         {
-          error:
-            'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
+          error: actor.impersonating
+            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados usados no registo oficial do domínio. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
         },
         { status: 400 },
       );
@@ -64,7 +70,7 @@ export async function POST(request: NextRequest) {
     const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
       .insert({
-        user_id: user.id,
+        user_id: actor.buyerUserId,
         items: toValidatedCartItems(resolved),
         total_mt: totalMt,
         currency: 'mzn',
@@ -86,14 +92,17 @@ export async function POST(request: NextRequest) {
     // seguir a esta resposta) mas nunca falha a criação do pedido por causa
     // disto — o pedido em si já está gravado.
     try {
-      await promoteGuestToProfissional(admin, user.id);
+      await promoteGuestToProfissional(admin, actor.buyerUserId);
     } catch (err) {
       console.error('[checkout/manual-session] promoteGuestToProfissional falhou:', err);
     }
 
+    const quemPaga = actor.impersonating
+      ? `${user.email} (em nome de ${actor.impersonatedLabel})`
+      : user.email;
     notifyQuoteTeam({
       title: 'Novo pedido de pagamento manual (checkout)',
-      message: `${user.email} quer pagar ${resolved.map((r) => r.item.name).join(', ')} (${totalMt} MT) via ${
+      message: `${quemPaga} quer pagar ${resolved.map((r) => r.item.name).join(', ')} (${totalMt} MT) via ${
         metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'
       }. Fica a aguardar comprovativo e confirmação da equipa.`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/admin`,

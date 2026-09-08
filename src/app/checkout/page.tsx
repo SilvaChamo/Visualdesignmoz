@@ -184,6 +184,23 @@ function CheckoutContent() {
       .then(({ data }: { data: { telefone?: string | null; morada?: string | null; cidade?: string | null } | null }) => setProfileExtra(data));
   }, [authUser]);
 
+  // "Entrar como" — se um admin estiver a impersonar um revendedor/cliente, a
+  // compra corre como essa conta (servidor: /lib/checkout-actor.ts). Aqui só
+  // trazemos o rótulo + os dados de faturação DESSA conta para o cartão não
+  // mostrar os dados do admin.
+  const [buyingAs, setBuyingAs] = useState<{
+    label: string | null;
+    email: string | null;
+    billing: { nome: string | null; telefone: string | null; morada: string | null; cidade: string | null };
+  } | null>(null);
+  useEffect(() => {
+    if (!authUser) return;
+    fetch('/api/checkout/actor', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBuyingAs(d && d.impersonating ? d : null))
+      .catch(() => setBuyingAs(null));
+  }, [authUser]);
+
   // Editar telefone/morada/cidade sem sair do checkout — "Completar Dados"
   // já não manda para /cliente (dava problemas de navegação para contas que
   // não são 'client'); passa a editar aqui mesmo, os mesmos campos que a
@@ -507,14 +524,19 @@ function CheckoutContent() {
                       <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
                         <UserCircle className="w-3.5 h-3.5" /> Faturado Para
                       </p>
-                      {!editingProfile && (
+                      {!editingProfile && !buyingAs && (
                         <button type="button" onClick={startEditingProfile} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
                           Editar
                         </button>
                       )}
                     </div>
-                    <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{clientName}</p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {authUser?.email}</p>
+                    {buyingAs ? (
+                      <p className="mb-2 inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                        Em nome de: {buyingAs.label}
+                      </p>
+                    ) : null}
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{buyingAs?.billing?.nome || clientName}</p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {buyingAs?.email || authUser?.email}</p>
 
                     {editingProfile ? (
                       <div className="mt-3 space-y-2">
@@ -560,11 +582,20 @@ function CheckoutContent() {
                     ) : (
                       <>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">
-                          Endereço: {[profileExtra?.morada, profileExtra?.cidade].filter(Boolean).join(', ') || '—'}
+                          Endereço: {buyingAs
+                            ? [buyingAs.billing?.morada, buyingAs.billing?.cidade].filter(Boolean).join(', ') || '—'
+                            : [profileExtra?.morada, profileExtra?.cidade].filter(Boolean).join(', ') || '—'}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                          Contacto: {profileExtra?.telefone || authUser?.user_metadata?.telefone || '—'}
+                          Contacto: {buyingAs
+                            ? buyingAs.billing?.telefone || '—'
+                            : profileExtra?.telefone || authUser?.user_metadata?.telefone || '—'}
                         </p>
+                        {buyingAs ? (
+                          <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">
+                            Estes são os dados da conta {buyingAs.label}. Se estiverem incompletos, complete o perfil dessa conta antes de comprar um domínio.
+                          </p>
+                        ) : null}
                       </>
                     )}
                   </div>

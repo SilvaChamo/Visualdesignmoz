@@ -8,8 +8,11 @@ export function ResellerProfileSection() {
     email: '',
     nome: '',
     telefone: '',
-    empresa: ''
+    empresa: '',
+    morada: '',
+    cidade: ''
   });
+  const [buyingAs, setBuyingAs] = useState<string | null>(null);
   const [passwords, setPasswords] = useState({
     current: '',
     new: '',
@@ -30,9 +33,12 @@ export function ResellerProfileSection() {
           email: data.email || '',
           nome: data.nome || data.email?.split('@')[0] || '',
           telefone: data.telefone || '',
-          empresa: data.empresa || ''
+          empresa: data.empresa || '',
+          morada: data.morada || '',
+          cidade: data.cidade || ''
         });
         setOriginalEmail(data.email || '');
+        setBuyingAs(data.impersonating ? (data.impersonatedLabel || 'outra conta') : null);
       } catch {
         /* mantém campos vazios */
       }
@@ -66,6 +72,8 @@ export function ResellerProfileSection() {
           nome: userData.nome,
           telefone: userData.telefone,
           empresa: userData.empresa,
+          morada: userData.morada,
+          cidade: userData.cidade,
           ...(emailChanged ? { email: newEmail } : {}),
         }),
       });
@@ -112,6 +120,11 @@ export function ResellerProfileSection() {
 
   return (
     <div className="max-w-full">
+      {buyingAs && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          Está a ver e a editar o perfil da conta <strong>{buyingAs}</strong> (modo &quot;entrar como&quot;). As alterações são guardadas nessa conta, não na sua.
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Coluna da Esquerda: Formulários */}
         <div className="lg:col-span-3 space-y-6">
@@ -163,7 +176,30 @@ export function ResellerProfileSection() {
                     placeholder="+258 ..."
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-gray-700">Morada</label>
+                  <input
+                    type="text"
+                    value={userData.morada}
+                    onChange={(e) => setUserData({ ...userData, morada: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-red-500/20 outline-none"
+                    placeholder="Av. ..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-gray-700">Cidade</label>
+                  <input
+                    type="text"
+                    value={userData.cidade}
+                    onChange={(e) => setUserData({ ...userData, cidade: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-red-500/20 outline-none"
+                    placeholder="Maputo"
+                  />
+                </div>
               </div>
+              <p className="text-xs text-gray-400">
+                Telefone, morada e cidade são os dados usados no registo oficial de domínios (WHOIS).
+              </p>
 
               <div className="pt-4 flex justify-end">
                 <button
