@@ -16,6 +16,13 @@ export type DomainTldPrice = {
    * nunca ler este campo directamente, para o checkout e a UI nunca divergir.
    */
   fixedPurchasePriceMt?: number
+  /**
+   * A API da Dynadot não regista esta extensão (.app/.dev — Google Registry):
+   * a compra é aceite na mesma, mas o registo é feito à mão pela equipa e a
+   * activação demora até 1 dia útil. Ver domain-registration-support.ts e o
+   * ramo de domínio em checkout-fulfillment.ts.
+   */
+  manualRegistration?: boolean
 }
 
 /**
@@ -42,8 +49,8 @@ export const DOMAIN_TLD_PRICES: DomainTldPrice[] = [
   { value: '.ai', label: '.ai', price: 85.6, renewPrice: 85.6, icann: 0.2, transfer: 85.6 },
   { value: '.co', label: '.co', price: 3.48, renewPrice: 31.2, icann: 0.2, transfer: 31.2 },
   { value: '.io', label: '.io', price: 28.89, renewPrice: 53.5, icann: 0.2, transfer: 53.5 },
-  { value: '.app', label: '.app', price: 9.99, renewPrice: 14.5, icann: 0.2, transfer: 13.99 },
-  { value: '.dev', label: '.dev', price: 8, renewPrice: 12.5, icann: 0.2, transfer: 11.99 },
+  { value: '.app', label: '.app', price: 9.99, renewPrice: 14.5, icann: 0.2, transfer: 13.99, manualRegistration: true },
+  { value: '.dev', label: '.dev', price: 8, renewPrice: 12.5, icann: 0.2, transfer: 11.99, manualRegistration: true },
   { value: '.online', label: '.online', price: 2.5, renewPrice: 29.64, icann: 0.2, transfer: 26.97 },
   { value: '.tech', label: '.tech', price: 6.64, renewPrice: 52.65, icann: 0.2, transfer: 52.65 },
   { value: '.store', label: '.store', price: 2.5, renewPrice: 43.02, icann: 0.2, transfer: 43.02 },

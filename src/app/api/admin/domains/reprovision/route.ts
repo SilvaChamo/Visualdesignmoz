@@ -51,13 +51,19 @@ export async function POST(req: NextRequest) {
       displayName: (authUser?.user?.user_metadata?.nome as string) || undefined,
     });
 
+    const registoStep = result.steps.find((s) => s.step === 'registo');
     const zonaStep = result.steps.find((s) => s.step === 'zona-cloudflare');
     const nsStep = result.steps.find((s) => s.step === 'nameservers');
     const dnsOk = Boolean(zonaStep?.ok) && Boolean(nsStep?.ok);
+    // O domínio existe mesmo no registador (passo `registo` ok) — tira-o de
+    // 'pending' (ex.: .app/.dev registado à mão, ou uma compra em que o
+    // registo automático tinha falhado e já foi resolvido).
+    const registoOk = Boolean(registoStep?.ok);
 
     await admin
       .from('domain_renewals')
       .update({
+        ...(registoOk ? { status: 'active' } : {}),
         dns_status: dnsOk ? 'ok' : 'pending',
         notes: dnsOk ? null : `DNS por configurar: ${result.steps.filter((s) => !s.ok).map((s) => `${s.step}: ${s.error}`).join(' | ')}`,
       })
