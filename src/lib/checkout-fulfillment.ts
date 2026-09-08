@@ -472,7 +472,7 @@ export async function fulfillCheckout(
         if (admin) {
           await alertAdminOfTrackingFailure(
             'registo manual de domínio',
-            `${domainName} (${paymentMethod}): a extensão não regista pela API da Dynadot. Registar à mão em dynadot.com (mesma conta), depois no painel abrir Domínios → "Mover domínio para outra conta" (${domainName} + email do cliente) e no domínio → "Reprovisionar".`,
+            `${domainName} (${paymentMethod}): a extensão .app/.dev não regista pela API da Dynadot. 1) Registar à mão em dynadot.com (mesma conta). 2) No painel: Domínios → "Mover domínio para outra conta" (${domainName} + email do cliente). 3) Abrir o domínio → "Reprocessar DNS" (a partir daí é automático — zona Cloudflare, nameservers e DNS de email).`,
           );
           try {
             await admin.from('notifications').insert({
