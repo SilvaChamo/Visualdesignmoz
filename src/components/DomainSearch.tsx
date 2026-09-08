@@ -308,6 +308,11 @@ export default function DomainSearch({
                     </span>
                   ) : null}
                 </div>
+                {findTld(result.domain)?.manualRegistration ? (
+                  <span className="text-[11px] font-medium text-amber-600 dark:text-amber-500">
+                    Activação em até 1 dia útil (registo confirmado pela nossa equipa).
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>

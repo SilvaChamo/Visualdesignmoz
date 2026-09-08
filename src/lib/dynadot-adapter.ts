@@ -168,6 +168,43 @@ function sleep(ms: number) {
 }
 
 /**
+ * API3 legada, resposta no formato `{ <Comando>Response: { ResponseCode, Status,
+ * Error?, ... } }` (ao contrário do `dynadotApi3Fetch` acima, que espera a
+ * forma antiga `{ Response: {...} }` só usada por `tld_price`).
+ *
+ * Só existe porque a **RESTful v1** recusa TODAS as operações de domínio único
+ * para `.app`/`.dev` (Google Registry) com "Unsupported domain type" — mas a
+ * API3 legada trata-as bem (confirmado ao vivo: `domain_info` de um `.app`
+ * responde `success`). Usado como recurso quando a RESTful falha.
+ */
+async function dynadotApi3Command(
+  command: string,
+  params: Record<string, string> = {},
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
+  const keys = getKeys();
+  if (!keys) return { ok: false, error: 'Chaves de API do registador não configuradas' };
+  const qs = new URLSearchParams({ key: keys.apiKey, command, ...params });
+  try {
+    const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+    const json = (await res.json().catch(() => ({}))) as Record<string, { ResponseCode?: number | string; Status?: string; Error?: string; [k: string]: unknown }>;
+    const key = Object.keys(json).find((k) => /Response$/.test(k));
+    const resp = key ? json[key] : undefined;
+    if (!resp) return { ok: false, error: 'Resposta inesperada da API3 da Dynadot' };
+    if (String(resp.ResponseCode) !== '0' && String(resp.Status).toLowerCase() !== 'success') {
+      return { ok: false, error: resp.Error || `Erro da API3 (código ${resp.ResponseCode})` };
+    }
+    return { ok: true, data: resp };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Erro ao contactar a API3 da Dynadot' };
+  }
+}
+
+/** A RESTful v1 devolve isto para `.app`/`.dev` em qualquer operação de domínio único. */
+function isUnsupportedDomainType(error: string): boolean {
+  return /unsupported domain type/i.test(error);
+}
+
+/**
  * Pesquisa de disponibilidade — não exige X-Signature.
  *
  * A pesquisa de domínio na página inicial faz até 7 pedidos a esta API em
@@ -239,6 +276,7 @@ export const dynadotAPI = {
         isLocked?: boolean;
         autoRenew?: boolean;
         expireDate?: string;
+        registrationDate?: string;
         status?: string;
         nameservers?: string[];
         privacyEnabled?: boolean;
@@ -250,19 +288,42 @@ export const dynadotAPI = {
       'GET',
       `/restful/v1/domains/${encodeURIComponent(clean)}`,
     );
-    if (!result.ok) return { success: false, error: result.error };
-    const info = result.data.domainInfo?.[0];
-    if (!info) return { success: false, error: 'Domínio não encontrado' };
+    if (result.ok) {
+      const info = result.data.domainInfo?.[0];
+      if (!info) return { success: false, error: 'Domínio não encontrado' };
+      return {
+        success: true,
+        isLocked: info.locked === 'Yes',
+        autoRenew: info.renew_option === 'auto-renew',
+        expireDate: info.expiration ? new Date(info.expiration).toISOString().slice(0, 10) : undefined,
+        registrationDate: info.registration ? new Date(info.registration).toISOString().slice(0, 10) : undefined,
+        status: info.status,
+        nameservers: (info.glueInfo?.name_server_settings?.name_servers || [])
+          .map((n) => n.server_name)
+          .filter(Boolean),
+        privacyEnabled: /privacy/i.test(info.privacy || ''),
+      };
+    }
+
+    // .app/.dev (ou qualquer domínio que a RESTful recuse) — a API3 legada
+    // trata destes. Sem isto o painel dizia "não está na conta Dynadot" para
+    // um domínio que está mesmo lá.
+    const legacy = await dynadotApi3Command('domain_info', { domain: clean });
+    if (!legacy.ok) return { success: false, error: result.error };
+    const di = (legacy.data.DomainInfo || {}) as Record<string, unknown>;
+    const nsSettings = (di.NameServerSettings || {}) as {
+      Type?: string;
+      NameServers?: Array<{ ServerName?: string }>;
+    };
     return {
       success: true,
-      isLocked: info.locked === 'Yes',
-      autoRenew: info.renew_option === 'auto-renew',
-      expireDate: info.expiration ? new Date(info.expiration).toISOString().slice(0, 10) : undefined,
-      status: info.status,
-      nameservers: (info.glueInfo?.name_server_settings?.name_servers || [])
-        .map((n) => n.server_name)
-        .filter(Boolean),
-      privacyEnabled: /privacy/i.test(info.privacy || ''),
+      isLocked: String(di.Locked || '').toLowerCase() === 'yes',
+      autoRenew: /auto/i.test(String(di.RenewOption || '')),
+      expireDate: di.Expiration ? new Date(Number(di.Expiration)).toISOString().slice(0, 10) : undefined,
+      registrationDate: di.Registration ? new Date(Number(di.Registration)).toISOString().slice(0, 10) : undefined,
+      status: (di.Status as string) || undefined,
+      nameservers: (nsSettings.NameServers || []).map((n) => n.ServerName || '').filter(Boolean),
+      privacyEnabled: /(^|[^n])privacy/i.test(String(di.Privacy || '')) && String(di.Privacy).toLowerCase() !== 'none',
     };
   },
 
@@ -337,8 +398,25 @@ export const dynadotAPI = {
     const result = await dynadotFetch('PUT', `/restful/v1/domains/${encodeURIComponent(clean)}/nameservers`, {
       nameserver_list: hosts,
     });
-    if (!result.ok) return { success: false, error: result.error };
-    return { success: true, hosts };
+    if (result.ok) return { success: true, hosts };
+
+    // .app/.dev — a RESTful recusa; a API3 legada aceita. O `set_ns` exige que
+    // os nameservers já existam na conta, por isso tenta registá-los primeiro
+    // (`add_ns` — "já existe" é inofensivo).
+    if (isUnsupportedDomainType(result.error)) {
+      for (const host of hosts) {
+        await dynadotApi3Command('add_ns', { host });
+      }
+      const nsParams: Record<string, string> = { domain: clean };
+      hosts.forEach((h, i) => {
+        nsParams[`ns${i}`] = h;
+      });
+      const legacy = await dynadotApi3Command('set_ns', nsParams);
+      if (legacy.ok) return { success: true, hosts };
+      return { success: false, error: legacy.error };
+    }
+
+    return { success: false, error: result.error };
   },
 
   async createContact(contactData: {
