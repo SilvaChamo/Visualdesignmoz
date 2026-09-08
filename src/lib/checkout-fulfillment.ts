@@ -11,6 +11,7 @@ import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import { listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
+import { requiresManualRegistration } from '@/lib/domain-registration-support';
 import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 
@@ -424,6 +425,14 @@ export async function fulfillCheckout(
 
     if (item.type === 'domain') {
       const domainName = item.name.toLowerCase().trim();
+      // .app/.dev não registam pela API da Dynadot — entram como `pending` e
+      // a equipa regista à mão. Todos os outros seguem o fluxo automático e
+      // só passam a `active` quando o registo confirma (ver mais abaixo).
+      const manualRegistration = requiresManualRegistration(domainName);
+      const initialStatus = manualRegistration ? 'pending' : 'active';
+      const initialNotes = manualRegistration
+        ? `Compra carrinho (${paymentMethod}) — extensão de registo manual (.app/.dev): registar na Dynadot e concluir com "Mover domínio" + "Reprovisionar".`
+        : `Compra carrinho (${paymentMethod})`;
       const { error } = await supabase.from('domain_renewals').upsert(
         {
           user_id: userId,
@@ -432,9 +441,9 @@ export async function fulfillCheckout(
           expiration_date: expires,
           renewal_price: item.price,
           currency: 'MZN',
-          status: 'active',
+          status: initialStatus,
           registrar: 'VisualDesign',
-          notes: `Compra carrinho (${paymentMethod})`,
+          notes: initialNotes,
         },
         { onConflict: 'user_id,domain_name', ignoreDuplicates: false },
       );
@@ -446,8 +455,9 @@ export async function fulfillCheckout(
           expiration_date: expires,
           renewal_price: item.price,
           currency: 'MZN',
-          status: 'active',
+          status: initialStatus,
           registrar: 'VisualDesign',
+          notes: initialNotes,
         });
         if (insErr) {
           console.warn('[checkout-fulfillment] domain_renewals:', insErr.message);
@@ -455,6 +465,29 @@ export async function fulfillCheckout(
         }
       }
       created.push(`domínio:${domainName}`);
+
+      // .app/.dev: não tentar registar pela API (falha sempre) — avisar a
+      // equipa para tratar à mão e o cliente para saber que está em curso.
+      if (manualRegistration) {
+        if (admin) {
+          await alertAdminOfTrackingFailure(
+            'registo manual de domínio',
+            `${domainName} (${paymentMethod}): a extensão não regista pela API da Dynadot. Registar à mão em dynadot.com (mesma conta), depois no painel abrir Domínios → "Mover domínio para outra conta" (${domainName} + email do cliente) e no domínio → "Reprovisionar".`,
+          );
+          try {
+            await admin.from('notifications').insert({
+              user_id: userId,
+              title: 'Domínio recebido — a processar',
+              message: `Recebemos o pedido do domínio ${domainName}. Esta extensão é activada manualmente pela nossa equipa (normalmente até 1 dia útil). Avisamos assim que estiver pronto.`,
+              type: 'info',
+              category: 'system',
+            });
+          } catch {
+            /* nunca falhar o checkout por causa de uma notificação */
+          }
+        }
+        continue;
+      }
 
       // Se o cliente já tinha um plano de email comprado à espera de
       // domínio, este domínio novo fica automaticamente ligado a ele — a
@@ -491,16 +524,30 @@ export async function fulfillCheckout(
             console.error('[checkout-fulfillment] auto-provisionamento de domínio incompleto:', domainName, failed);
             await alertAdminOfTrackingFailure('auto-provisionamento de domínio', `${domainName}: ${failed}`);
             const registoStep = result.steps.find((s) => s.step === 'registo');
+            // Se o REGISTO em si falhou, o domínio não é nosso — não pode
+            // ficar como 'active' (era este o bug do menocrazy.app: aparecia
+            // ao cliente como registado quando a Dynadot o tinha recusado).
+            // Volta a 'pending' até um admin tratar.
+            if (registoStep && !registoStep.ok) {
+              await supabase
+                .from('domain_renewals')
+                .update({
+                  status: 'pending',
+                  dns_status: 'pending',
+                  notes: `Registo não concluído — a aguardar intervenção da equipa: ${failed}`,
+                })
+                .eq('user_id', userId)
+                .eq('domain_name', domainName);
+            }
             // #9: a zona Cloudflare e os nameservers também impedem o domínio de
             // resolver para algo — sem isto o cliente via "Domínio registado" e
             // achava que estava tudo bem, sem saber que o site ainda não aponta
             // para lado nenhum. `dns_status` marca isto para o painel poder
-            // mostrar "a aguardar configuração de DNS" (não muda `status`, que
-            // continua 'active' — o domínio É nosso, só a configuração falhou).
+            // mostrar "a aguardar configuração de DNS".
             const zonaStep = result.steps.find((s) => s.step === 'zona-cloudflare');
             const nsStep = result.steps.find((s) => s.step === 'nameservers');
             const dnsBlocked = (zonaStep && !zonaStep.ok) || (nsStep && !nsStep.ok);
-            if (dnsBlocked) {
+            if (dnsBlocked && !(registoStep && !registoStep.ok)) {
               await supabase
                 .from('domain_renewals')
                 .update({ dns_status: 'pending', notes: `DNS por configurar: ${failed}` })
