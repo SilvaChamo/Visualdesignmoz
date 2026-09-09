@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     isLocked: result.isLocked,
     autoRenew: result.autoRenew,
     expireDate: result.expireDate,
+    registrationDate: result.registrationDate,
     status: result.status,
     nameservers: result.nameservers,
     privacyEnabled: result.privacyEnabled,
