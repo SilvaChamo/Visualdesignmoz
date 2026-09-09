@@ -8,6 +8,7 @@ import {
 } from '@/lib/renewal-templates'
 import { sendEmail } from '@/lib/email-service'
 import { EMAIL_PLAN_PACKAGE_NAME } from '@/lib/email-plan-provision'
+import { suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 
 // Cron secret para segurança
 const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-production'
@@ -283,10 +284,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const overdue = await suspendOverdueHostingAccounts(supabaseAdmin)
+    if (overdue.errors.length) results.errors.push(...overdue.errors)
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      ...results
+      ...results,
+      overdueSuspend: overdue,
     })
 
   } catch (error: any) {

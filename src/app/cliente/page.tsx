@@ -2399,120 +2399,90 @@ function FaturasSkeleton() {
   )
 }
 
-// Componente FacturacaoSection
+type CheckoutCompra = {
+  id: string
+  items: Array<{ name?: string; price?: number }>
+  total_mt: number
+  metodo_pagamento: string
+  status: string
+  created_at: string
+}
+
+function compraDescricao(compra: CheckoutCompra) {
+  const names = (compra.items || []).map((i) => i.name).filter(Boolean)
+  return names.length ? names.join(', ') : 'Compra no carrinho'
+}
+
 function FacturacaoSection() {
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
-  const [faturasHistorico, setFaturasHistorico] = useState<any[]>([])
+  const [compras, setCompras] = useState<CheckoutCompra[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchFaturas()
+    fetch('/api/client/minhas-compras')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setCompras(data.compras || [])
+      })
+      .finally(() => setLoading(false))
   }, [])
-
-  const fetchFaturas = async () => {
-    setLoading(true)
-    try {
-      // Delay para evitar conflito com outras chamadas
-      await new Promise(resolve => setTimeout(resolve, 200))
-      const { data: { user } } = await createClientInstance.auth.getUser()
-      if (!user) return
-
-      await new Promise(resolve => setTimeout(resolve, 100))
-      const { data: pendentes } = await createClientInstance
-        .from('pagamentos')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-
-      await new Promise(resolve => setTimeout(resolve, 100))
-      const { data: historico } = await createClientInstance
-        .from('pagamentos')
-        .select('*')
-        .eq('user_id', user.id)
-        .neq('status', 'pending')
-
-      if (pendentes) setFaturasPendentes(pendentes)
-      if (historico) setFaturasHistorico(historico)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) return <FaturasSkeleton />
 
+  const pendentes = compras.filter((c) => c.status === 'pending')
+  const historico = compras.filter((c) => c.status !== 'pending')
+  const pagos = historico.filter((c) => c.status === 'paid')
+  const year = new Date().getFullYear()
+  const totalAno = pagos
+    .filter((c) => new Date(c.created_at).getFullYear() === year)
+    .reduce((acc, c) => acc + (c.total_mt || 0), 0)
+  const formatMt = (n: number) => new Intl.NumberFormat('pt-MZ').format(n)
+
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-gray-900">Facturação</h1><p className="text-gray-500 mt-1">Facturas, pagamentos e histórico financeiro.</p></div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Facturação</h1>
+        <p className="text-gray-500 mt-1">Facturas, pagamentos e histórico financeiro.</p>
+      </div>
 
-      {/* Resumo */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Total Pago Este Ano</p>
-          <p className="text-2xl font-bold text-green-600">
-            {new Intl.NumberFormat('pt-MZ').format(faturasHistorico.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN
-          </p>
+          <p className="text-2xl font-bold text-green-600">{formatMt(totalAno)} MZN</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Facturas Pendentes</p>
-          <p className="text-2xl font-bold text-red-600">{faturasPendentes.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Valor: {new Intl.NumberFormat('pt-MZ').format(faturasPendentes.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN</p>
+          <p className="text-2xl font-bold text-red-600">{pendentes.length}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Valor: {formatMt(pendentes.reduce((acc, c) => acc + (c.total_mt || 0), 0))} MZN
+          </p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Estado da Conta</p>
-          <p className={`text-2xl font-bold ${faturasPendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {faturasPendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
+          <p className={`text-2xl font-bold ${pendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {pendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
           </p>
         </div>
       </div>
 
-      {/* Facturas Pendentes */}
-      {faturasPendentes.length > 0 && (
+      {pendentes.length > 0 && (
         <div className="bg-yellow-50 rounded-lg border border-yellow-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-yellow-200">
-            <h2 className="text-sm font-bold text-yellow-800">⚠️ Facturas Pendentes</h2>
+            <h2 className="text-sm font-bold text-yellow-800">Facturas Pendentes</h2>
           </div>
-          {faturasPendentes.map(f => (
-            <div key={f.id} className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-bold text-gray-900">{f.descricao}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Vencimento: {f.vencimento} • {f.id}</p>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{new Intl.NumberFormat('pt-MZ').format(f.valor)} MZN</p>
+          {pendentes.map((c) => (
+            <div key={c.id} className="flex items-center justify-between p-5">
+              <div>
+                <p className="font-bold text-gray-900">{compraDescricao(c)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {new Date(c.created_at).toLocaleDateString('pt-PT')}
+                </p>
               </div>
-              <button onClick={() => setExpanded(expanded === f.id ? null : f.id)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
-                Como Pagar
-              </button>
-              {expanded === f.id && (
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">📱 M-Pesa</p>
-                    <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">📱 E-Mola</p>
-                    <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">🏦 Transferência</p>
-                    <p className="text-xs text-gray-600">Banco: <strong>BCI</strong></p>
-                    <p className="text-xs text-gray-600">NIB: <strong>a preencher</strong></p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                </div>
-              )}
+              <p className="text-xl font-bold text-gray-900">{formatMt(c.total_mt)} MZN</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Histórico */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="text-sm font-bold text-gray-700">Histórico de Pagamentos</h2>
@@ -2529,19 +2499,31 @@ function FacturacaoSection() {
             </tr>
           </thead>
           <tbody>
-            {faturasHistorico.map(f => (
-              <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50">
+            {historico.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">Ainda não há pagamentos confirmados.</td>
+              </tr>
+            ) : historico.map((c) => (
+              <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-5 py-3">
-                  <p className="font-medium text-gray-800">{f.descricao}</p>
-                  <p className="text-xs text-gray-400">{f.id}</p>
+                  <p className="font-medium text-gray-800">{compraDescricao(c)}</p>
                 </td>
-                <td className="px-5 py-3 font-bold text-gray-900">{new Intl.NumberFormat('pt-MZ').format(f.valor)} MZN</td>
-                <td className="px-5 py-3 text-gray-600">{f.dataPagamento}</td>
-                <td className="px-5 py-3 text-gray-600">{f.metodo}</td>
-                <td className="px-5 py-3"><span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Pago</span></td>
+                <td className="px-5 py-3 font-bold text-gray-900">{formatMt(c.total_mt)} MZN</td>
+                <td className="px-5 py-3 text-gray-600">{new Date(c.created_at).toLocaleDateString('pt-PT')}</td>
+                <td className="px-5 py-3 text-gray-600">{c.metodo_pagamento}</td>
                 <td className="px-5 py-3">
-                  <button onClick={() => alert('Recibo disponível em breve!')}
-                    className="text-xs text-blue-600 hover:underline font-medium">↓ Recibo</button>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    c.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {c.status === 'paid' ? 'Pago' : c.status}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  {c.status === 'paid' ? (
+                    <a href={`/recibo/${c.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-medium">
+                      ↓ Recibo
+                    </a>
+                  ) : '—'}
                 </td>
               </tr>
             ))}
@@ -3428,7 +3410,7 @@ function ClientPageContent() {
       // webmail/file-manager/etc.), por isso não deve cair neste bloqueio;
       // sem isto, exactamente quem só comprou domínio (sem hospedagem) —
       // logo sem conta DA, logo sempre "read-only" — nunca via as compras.
-      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras'].includes(activeSection);
+      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras', 'facturas'].includes(activeSection);
     if (readOnlyBlocked) {
       return <ClientProductsHub onNavigate={setActiveSection} />;
     }

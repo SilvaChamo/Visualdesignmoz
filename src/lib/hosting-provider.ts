@@ -14,6 +14,12 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 export type HostingProvider = 'directadmin' | 'hestia';
 
+/** Este deploy (Contabo) só fala com o Hestia. O código DirectAdmin fica no
+ * repo para o Hetzner; aqui não pode ser chamado. */
+export function isHestiaOnlyDeploy(): boolean {
+  return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+}
+
 /** Servidor onde a conta com este username vive de facto. 'directadmin' por
  * omissão — mesmo default da coluna, e comportamento seguro se a conta não
  * for encontrada (nunca aponta silenciosamente para o servidor errado).
@@ -30,6 +36,13 @@ export type HostingProvider = 'directadmin' | 'hestia';
  * "utilizador não existe" e pára) enquanto um falso positivo para
  * 'directadmin' manda o comando para um servidor de produção partilhado. */
 export async function getProviderByUsername(username: string): Promise<HostingProvider> {
+  const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
+
+  // Esta instalação usa um único servidor Hestia na Contabo. O espelho pode
+  // ainda conter owners/provider antigos do período em que existia DA; não
+  // deixar esses dados redireccionarem operações actuais para outro servidor.
+  if (defaultProvider === 'hestia') return 'hestia';
+
   // A própria conta principal do Hestia (HESTIA_USER, normalmente 'vdadmin')
   // nunca aparece em panel_users nem panel_auth_accounts — de propósito,
   // não é uma conta de cliente (ver hestia-sync-engine.ts) — por isso caía
@@ -41,7 +54,7 @@ export async function getProviderByUsername(username: string): Promise<HostingPr
   // com a página "Coming Soon" por omissão do Hestia.
   if (
     username &&
-    (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia' &&
+    defaultProvider === 'hestia' &&
     username === (process.env.HESTIA_USER || 'vdadmin').trim()
   ) {
     return 'hestia';

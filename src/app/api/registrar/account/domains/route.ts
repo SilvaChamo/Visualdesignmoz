@@ -4,13 +4,14 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { readImpersonateDaUsername } from '@/lib/panel-api-context';
 import { resolveEffectivePanelUserId } from '@/lib/panel-reseller-context';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
+import { classifyRegistrarDomains } from '@/lib/registrar-domain-ownership';
 
 /**
  * Lista de domínios para a secção "Domínios" do painel.
  *
- * Admin (sem impersonar): vê a conta Dynadot inteira (conta única partilhada
- * por toda a empresa, sem coluna de posse por domínio aí) — útil para
- * vigilância geral.
+ * Admin (sem impersonar): a conta Dynadot é partilhada. A lista é cortada
+ * pelos donos no Hestia/painel (vdadmin = VisualDesign; oshercollective e
+ * restantes contas = clientes), para "Meus domínios" não misturar marcas.
  *
  * Qualquer outra conta (reseller/manager/profissional/client, ou admin a
  * impersonar): via `domain_renewals`, filtrado ao próprio utilizador. CORRIGIDO
@@ -20,7 +21,7 @@ import { dynadotAPI } from '@/lib/dynadot-adapter';
  * para o admin. Ver AUDITORIA_PAINEL_PLANO_CORRECAO.md, P1-6 (gap conhecido,
  * fechado agora).
  */
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return auth.error;
 
@@ -36,16 +37,16 @@ export async function GET() {
       );
     }
 
-    // Domínios de teste criados por sessões anteriores a testar o adaptador Dynadot
-    // (ex: "claude-adapter-test-1785931940279.com") ficam presos na conta partilhada:
-    // a Dynadot só permite apagar via grace_delete dentro do período de carência,
-    // que já expirou para estes (confirmado via API a 2026-08-11, código 409 "grace
-    // period has expired"). Filtrar aqui é o único ponto único que cobre tanto
-    // "Meus domínios" como "Domínios registados", sem esconder domínios reais.
-    const isTestArtifact = (domain: string) => /^claude-[a-z0-9-]+-\d{10,}\.[a-z.]+$/i.test(domain);
-    const domains = result.domains.filter((d) => !isTestArtifact(d.domain));
+    const classified = await classifyRegistrarDomains(result.domains);
+    const scope = new URL(request.url).searchParams.get('scope');
+    const domains =
+      scope === 'clients'
+        ? classified.clients
+        : scope === 'all'
+          ? [...classified.mine, ...classified.clients]
+          : classified.mine;
 
-    return NextResponse.json({ success: true, domains });
+    return NextResponse.json({ success: true, domains, scope: scope === 'clients' ? 'clients' : scope === 'all' ? 'all' : 'mine' });
   }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

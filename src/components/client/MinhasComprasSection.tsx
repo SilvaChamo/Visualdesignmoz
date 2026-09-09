@@ -100,17 +100,30 @@ export function MinhasComprasSection() {
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-bold text-slate-800 dark:text-zinc-100">Total: {formatMt(compra.total_mt)}</span>
-              {compra.comprovativo_url ? (
-                <a
-                  href={compra.comprovativo_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:underline"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  Ver comprovativo
-                </a>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-3">
+                {compra.status === 'paid' ? (
+                  <a
+                    href={`/recibo/${compra.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Recibo
+                  </a>
+                ) : null}
+                {compra.comprovativo_url ? (
+                  <a
+                    href={compra.comprovativo_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Ver comprovativo
+                  </a>
+                ) : null}
+              </div>
             </div>
 
             {compra.status === 'failed' && compra.rejection_reason ? (

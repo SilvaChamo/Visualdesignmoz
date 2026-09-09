@@ -1301,6 +1301,7 @@ function ResellerPageContent({
   const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
   const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
   const [directAdminPackages, setDirectAdminPackages] = useState<DirectAdminPackage[]>([])
+  const [hestiaOnly, setHestiaOnly] = useState(false)
   const [isFetchingDirectAdmin, setIsFetchingDirectAdmin] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
   const [selectedManageDomain, setSelectedManageDomain] = useState<string>(() => {
@@ -1408,6 +1409,7 @@ function ResellerPageContent({
     setDirectAdminSites(boot.sites)
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
+    setHestiaOnly(Boolean(boot.hestiaOnly || boot.hostingOwner))
 
     if (boot.resellerContext) {
       setResellerDaUsername(boot.resellerContext.daUsername)
@@ -1578,6 +1580,7 @@ function ResellerPageContent({
           <ResellerDirectAccessSection
             sessionEmail={sessionUser}
             onOpenWebmailInPanel={() => handleNavigate('webmail')}
+            hideDirectAdmin={hestiaOnly}
           />
         )
       case 'domains':
@@ -1793,8 +1796,11 @@ function ResellerPageContent({
           <div className="p-6 bg-white border border-gray-200 rounded-lg">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Métricas e relatórios</h2>
             <p className="text-sm text-gray-500">
-              Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.
+              {hestiaOnly
+                ? 'As métricas de sites e contas estão nas secções do próprio painel.'
+                : 'Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.'}
             </p>
+            {!hestiaOnly ? (
             <a
               href={getDirectAdminAccessUrl('reseller')}
               target="_blank"
@@ -1803,6 +1809,7 @@ function ResellerPageContent({
             >
               Abrir DirectAdmin →
             </a>
+            ) : null}
           </div>
         )
 
@@ -2116,7 +2123,7 @@ function ResellerPageContent({
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
+              {!hestiaOnly && ['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
                 <a
                   href={getDirectAdminAccessUrl('reseller')}
                   target="_blank"

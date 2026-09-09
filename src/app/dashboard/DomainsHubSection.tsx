@@ -9,6 +9,7 @@ import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import type { DirectAdminPackage, DirectAdminWebsite } from '@/lib/directadmin-api';
 
+import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 import type { DomainHubTab } from '@/lib/panel-admin-menu';
 export type { DomainHubTab } from '@/lib/panel-admin-menu';
 export {
@@ -28,16 +29,24 @@ const ADMIN_TABS: TabDef[] = [
   { id: 'registar', label: 'Registar domínio', icon: ShoppingCart },
 ];
 
-/** Separação automática por email — não pelo "owner" do servidor, que não
- * distingue "é da VisualDesign" de "é de cliente mas foi criado directamente
- * sob a conta admin" (site próprio de um domínio de cliente pode ficar sem
- * conta dedicada). Um domínio cujo email de contacto é o do próprio admin
- * fica em "Meus domínios"; qualquer outro email (o do cliente) fica em
- * "Domínios de Clientes" — não precisa de manutenção manual, actualiza-se
- * sozinho conforme o email associado a cada conta/domínio for corrigido. */
-function isVisualDesignOwnSite(site: Pick<DirectAdminWebsite, 'adminEmail'>, adminEmail: string): boolean {
-  if (!adminEmail) return false;
-  return (site.adminEmail || '').trim().toLowerCase() === adminEmail.trim().toLowerCase();
+/** Ownership do cliente tem precedência sobre o email do site: domínios
+ * criados sob a conta administrativa podem herdar o email da VisualDesign,
+ * mas continuam a pertencer ao cliente associado ao owner. */
+function isVisualDesignOwnSite(
+  site: Pick<DirectAdminWebsite, 'adminEmail' | 'owner'>,
+  adminEmail: string,
+  clientOwners: Set<string>,
+  clientEmails: Set<string>,
+  hostingOwner?: string | null,
+): boolean {
+  const owner = (site.owner || '').trim().toLowerCase();
+  const siteEmail = (site.adminEmail || '').trim().toLowerCase();
+  if (owner && owner === PRIMARY_RESELLER_DA_USER.toLowerCase()) return false;
+  if (owner && clientOwners.has(owner)) return false;
+  if (siteEmail && clientEmails.has(siteEmail)) return false;
+  if (Boolean(adminEmail) && siteEmail === adminEmail.trim().toLowerCase()) return true;
+  const companyOwner = (hostingOwner || '').trim().toLowerCase();
+  return Boolean(companyOwner) && owner === companyOwner;
 }
 
 type DomainsHubSectionProps = {
@@ -49,6 +58,11 @@ type DomainsHubSectionProps = {
   /** Email de quem está autenticado — usado para separar "Meus domínios" de
    * "Domínios de Clientes" (ver isVisualDesignOwnSite). */
   adminEmail?: string | null;
+  /** Username da conta principal no Hestia, fonte de verdade do ownership. */
+  hostingOwner?: string | null;
+  /** Owners e emails associados a contas de clientes, vindos do bootstrap. */
+  clientOwners?: string[];
+  clientEmails?: string[];
   onRefresh?: () => void | Promise<void>;
   onCreateEmail?: (domain: string) => void;
   onNavigate?: (section: string, opts?: { domain?: string }) => void;
@@ -62,6 +76,9 @@ export function DomainsHubSection({
   sites,
   packages = [],
   adminEmail,
+  hostingOwner,
+  clientOwners = [],
+  clientEmails = [],
   onRefresh,
   onCreateEmail,
   onNavigate,
@@ -75,14 +92,35 @@ export function DomainsHubSection({
   // Um revendedor não tem noção de "domínios da VisualDesign vs. de clientes"
   // (para ele, os domínios geridos SÃO todos de clientes) — só o admin separa.
   const tabs = variant === 'admin' ? ADMIN_TABS : ADMIN_TABS.filter((t) => t.id !== 'clientes');
+  const clientOwnerSet = useMemo(
+    () => new Set(clientOwners.map((value) => value.trim().toLowerCase()).filter(Boolean)),
+    [clientOwners],
+  );
+  const clientEmailSet = useMemo(
+    () => new Set(clientEmails.map((value) => value.trim().toLowerCase()).filter(Boolean)),
+    [clientEmails],
+  );
+  const osherOwner = PRIMARY_RESELLER_DA_USER.toLowerCase();
 
   const ownSites = useMemo(
-    () => (variant === 'admin' ? sites.filter((s) => isVisualDesignOwnSite(s, adminEmail || '')) : sites),
-    [variant, sites, adminEmail],
+    () => (variant === 'admin'
+      ? sites.filter((s) => {
+          const owner = (s.owner || '').trim().toLowerCase();
+          if (owner && owner === osherOwner) return false;
+          return isVisualDesignOwnSite(s, adminEmail || '', clientOwnerSet, clientEmailSet, hostingOwner);
+        })
+      : sites),
+    [variant, sites, adminEmail, clientOwnerSet, clientEmailSet, osherOwner, hostingOwner],
   );
   const clientSites = useMemo(
-    () => (variant === 'admin' ? sites.filter((s) => !isVisualDesignOwnSite(s, adminEmail || '')) : []),
-    [variant, sites, adminEmail],
+    () => (variant === 'admin'
+      ? sites.filter((s) => {
+          const owner = (s.owner || '').trim().toLowerCase();
+          if (owner && owner === osherOwner) return false;
+          return !isVisualDesignOwnSite(s, adminEmail || '', clientOwnerSet, clientEmailSet, hostingOwner);
+        })
+      : []),
+    [variant, sites, adminEmail, clientOwnerSet, clientEmailSet, osherOwner, hostingOwner],
   );
 
   const closeHubPanel = () => {
@@ -237,6 +275,7 @@ export function DomainsHubSection({
           // sozinhos (registrar-only, ex: compra directa no carrinho sem hosting)
           // ficavam invisíveis mesmo para o admin. 'all' junta as duas listas.
           domainListMode="all"
+          registrarScope="mine"
           isActive={isActive}
           listSearch={listSearch}
           onListSearchChange={setListSearch}
@@ -253,7 +292,8 @@ export function DomainsHubSection({
           onNavigate={onNavigate}
           hubMode
           hubPanel="list"
-          domainListMode="hosting"
+          domainListMode="all"
+          registrarScope="clients"
           isActive={isActive}
           listSearch={listSearch}
           onListSearchChange={setListSearch}

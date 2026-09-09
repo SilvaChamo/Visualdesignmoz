@@ -13,8 +13,14 @@ import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { getMirrorSiteOwner, isMirrorStale, listMirrorDns } from '@/lib/panel-mirror-read';
 import { deleteMirrorDnsById, upsertMirrorDns } from '@/lib/panel-mirror-write';
 import { resolveDirectAdminCredentials, resolveDirectAdminCredentialsForDomainOwner } from '@/lib/directadmin-credentials';
-import { getProviderByUsername } from '@/lib/hosting-provider';
+import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
+import {
+  deleteCloudflareDnsRecord,
+  findCloudflareZoneId,
+  listCloudflareDnsRecords,
+  upsertCloudflareRecord,
+} from '@/lib/cloudflare-dns';
 
 async function canAccessDomain(
   role: 'admin' | 'reseller' | 'manager' | 'profissional',
@@ -111,9 +117,22 @@ export async function GET(req: NextRequest) {
     if (stale) scheduleDaSync(0);
 
     let records = await listMirrorDns(domain, mirrorScope);
-    let source: 'mirror' | 'live' = 'mirror';
+    let source: 'mirror' | 'live' | 'cloudflare' = 'mirror';
 
-    if (records.length === 0) {
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId) {
+      const live = await listCloudflareDnsRecords(cfZoneId, domain);
+      if (live.length > 0) {
+        records = live.map((r) => ({
+          id: r.id,
+          name: r.name === '@' ? domain : r.name,
+          type: r.type,
+          content: r.content,
+          ttl: r.ttl || 3600,
+        }));
+        source = 'cloudflare';
+      }
+    } else if (records.length === 0) {
       const { provider, owner } = await resolveDnsProvider(domain);
 
       try {
@@ -127,7 +146,7 @@ export async function GET(req: NextRequest) {
             ttl: r.ttl || 3600,
           }));
           source = 'live';
-        } else if (provider !== 'hestia') {
+        } else if (provider !== 'hestia' && !isHestiaOnlyDeploy()) {
           const daApi =
             auth.user.role === 'client'
               ? await (await import('@/lib/directadmin-adapter')).getDirectAdminAPIForAuth({
@@ -189,6 +208,32 @@ export async function POST(req: NextRequest) {
       if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, impersonating))) {
         return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
       }
+    }
+
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId) {
+      const result = await upsertCloudflareRecord(cfZoneId, domain, {
+        type: type as 'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX',
+        name,
+        content: value,
+        ttl,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo na Cloudflare' }, { status: 502 });
+      }
+      const mirror = await upsertMirrorDns({ domain, name: name === '@' ? domain : name, type, value, ttl });
+      return NextResponse.json({
+        success: true,
+        message: 'Registo DNS criado na Cloudflare.',
+        id: mirror.id,
+      });
+    }
+
+    if (isHestiaOnlyDeploy()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Neste servidor o DNS autoritativo é a Cloudflare. Sem zona para este domínio, não há onde gravar o registo.',
+      }, { status: 409 });
     }
 
     const { provider, owner } = await resolveDnsProvider(domain);
@@ -274,6 +319,23 @@ export async function DELETE(req: NextRequest) {
 
     if (fetchErr || !row) {
       return NextResponse.json({ success: false, error: 'Registo não encontrado' }, { status: 404 });
+    }
+
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId && id.length > 8) {
+      const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
+      if (!cfDel.ok) {
+        return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
+      }
+      await deleteMirrorDnsById(id).catch(() => {});
+      return NextResponse.json({ success: true, message: 'Registo DNS removido na Cloudflare.' });
+    }
+
+    if (isHestiaOnlyDeploy() && !cfZoneId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Neste servidor o DNS autoritativo é a Cloudflare.',
+      }, { status: 409 });
     }
 
     const { provider, owner } = await resolveDnsProvider(domain);

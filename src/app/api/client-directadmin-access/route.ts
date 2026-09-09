@@ -4,6 +4,7 @@ import { CANONICAL_DIRECTADMIN_HOST } from '@/lib/directadmin-url';
 import { daOneTimeLoginUrl } from '@/lib/da-api-ssh';
 import { buildPanelLoginUrl, getPublicSiteOrigin } from '@/lib/panel-origin';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 /** Navegação no browser (botão DirectAdmin) — redirecionar em vez de JSON. */
 function isBrowserNavigation(request: NextRequest): boolean {
@@ -23,6 +24,16 @@ function isBrowserNavigation(request: NextRequest): boolean {
 export async function GET(request: NextRequest) {
   const browserNav = isBrowserNavigation(request);
   const dashboardUrl = new URL('/cliente', getPublicSiteOrigin());
+
+  if (isHestiaOnlyDeploy()) {
+    if (browserNav) {
+      return NextResponse.redirect(dashboardUrl, { status: 307, headers: { 'Cache-Control': 'no-store' } });
+    }
+    return NextResponse.json(
+      { error: 'Neste servidor a hospedagem é gerida neste painel, não no DirectAdmin.' },
+      { status: 409 },
+    );
+  }
 
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) {

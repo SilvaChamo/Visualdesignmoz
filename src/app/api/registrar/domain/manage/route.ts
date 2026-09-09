@@ -1,6 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDaAccessForDomain } from '@/lib/panel-domain-access';
-import { dynadotAPI } from '@/lib/dynadot-adapter';
+import { dynadotAPI, mapProfileToDynadotContact } from '@/lib/dynadot-adapter';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { profileAuthOrFilter } from '@/lib/profile-db';
+
+export type WhoisPreview = {
+  name: string;
+  email: string;
+  telefone: string;
+  morada: string;
+  cidade: string;
+  complete: boolean;
+};
+
+async function loadWhoisPreview(domain: string, fallbackUserId: string): Promise<WhoisPreview | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data: renewal } = await admin
+    .from('domain_renewals')
+    .select('user_id')
+    .eq('domain_name', domain)
+    .maybeSingle();
+  const userId = renewal?.user_id || fallbackUserId;
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('name, telefone, morada, cidade, email')
+    .or(profileAuthOrFilter(userId))
+    .maybeSingle();
+
+  let email = String(profile?.email || '');
+  if (!email) {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    email = data.user?.email || '';
+  }
+
+  const telefone = String(profile?.telefone || '').trim();
+  const morada = String(profile?.morada || '').trim();
+  const cidade = String(profile?.cidade || '').trim();
+  return {
+    name: String(profile?.name || '').trim(),
+    email,
+    telefone,
+    morada,
+    cidade,
+    complete: Boolean(telefone && morada && cidade),
+  };
+}
 
 /** Detalhes e acções de gestão de domínio no registador (Dynadot). */
 export async function GET(request: NextRequest) {
@@ -12,9 +59,10 @@ export async function GET(request: NextRequest) {
   const auth = await requireDaAccessForDomain(domain);
   if ('error' in auth) return auth.error;
 
-  const [result, dnssec] = await Promise.all([
+  const [result, dnssec, contactPreview] = await Promise.all([
     dynadotAPI.getDomainDetails(domain),
     dynadotAPI.getDnssecStatus(domain),
+    loadWhoisPreview(domain, auth.user.id),
   ]);
   if (!result.success) {
     return NextResponse.json({ success: false, error: result.error }, { status: 400 });
@@ -31,6 +79,7 @@ export async function GET(request: NextRequest) {
     nameservers: result.nameservers,
     privacyEnabled: result.privacyEnabled,
     dnssecEnabled: dnssec.success ? dnssec.enabled : null,
+    contactPreview,
   });
 }
 
@@ -112,6 +161,35 @@ export async function POST(request: NextRequest) {
       success: true,
       autoRenew: result.isEnabled,
       message: result.isEnabled ? 'Renovação automática activada.' : 'Renovação automática desactivada.',
+    });
+  }
+
+  if (action === 'set-contacts') {
+    const preview = await loadWhoisPreview(domain, auth.user.id);
+    if (!preview?.complete) {
+      return NextResponse.json({
+        success: false,
+        error: 'O perfil do dono ainda não tem telefone, morada e cidade — complete-os em Conta antes de actualizar o WHOIS.',
+        contactPreview: preview,
+      }, { status: 400 });
+    }
+    const contact = await dynadotAPI.createContact(mapProfileToDynadotContact({
+      name: preview.name,
+      telefone: preview.telefone,
+      morada: preview.morada,
+      cidade: preview.cidade,
+    }, preview.email));
+    if (!contact.success) {
+      return NextResponse.json({ success: false, error: contact.error || 'Falha a criar contacto WHOIS' }, { status: 400 });
+    }
+    const applied = await dynadotAPI.setDomainContacts(domain, contact.contactId);
+    if (!applied.success) {
+      return NextResponse.json({ success: false, error: applied.error || 'Falha a aplicar o contacto ao domínio' }, { status: 400 });
+    }
+    return NextResponse.json({
+      success: true,
+      contactPreview: preview,
+      message: 'Dados de contacto WHOIS actualizados no registador.',
     });
   }
 

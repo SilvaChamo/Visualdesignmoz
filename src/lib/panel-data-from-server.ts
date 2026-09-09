@@ -41,6 +41,12 @@ export type PanelBootstrapSession = {
 
 export type PanelBootstrapData = {
   sites: DirectAdminWebsite[];
+  /** Conta principal do provedor Hestia, dona dos sites da VisualDesign. */
+  hostingOwner?: string | null;
+  /** Este deploy só fala com Hestia (Contabo) — sem botões/rotas DirectAdmin. */
+  hestiaOnly?: boolean;
+  /** Todos os sites do espelho, incluindo contas de clientes/Osher — para o hub de domínios. */
+  allSites?: DirectAdminWebsite[];
   users: DirectAdminUser[];
   packages: DirectAdminPackage[];
   accounts: PanelBootstrapAccount[];

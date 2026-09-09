@@ -25,7 +25,17 @@ type RegistrarInfo = {
 type HealthCheck = { ok: boolean; detail: string }
 type HealthResult = { dns: HealthCheck; server: HealthCheck; ssl: HealthCheck } | null
 
+type WhoisPreview = {
+  name: string
+  email: string
+  telefone: string
+  morada: string
+  cidade: string
+  complete: boolean
+}
+
 type RenewalInfo = {
+  id?: string
   registrationDate?: string
   expirationDate?: string
   renewalPrice?: number
@@ -79,6 +89,9 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
   const [health, setHealth] = useState<HealthResult>(null)
 
   const [renewal, setRenewal] = useState<RenewalInfo>(null)
+  const [whoisOpen, setWhoisOpen] = useState(false)
+  const [whoisSaving, setWhoisSaving] = useState(false)
+  const [whoisPreview, setWhoisPreview] = useState<WhoisPreview | null>(null)
 
   const [pointerOpen, setPointerOpen] = useState(false)
   const [pointerLoading, setPointerLoading] = useState(false)
@@ -138,6 +151,7 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
           privacyEnabled: typeof data.privacyEnabled === 'boolean' ? data.privacyEnabled : null,
           dnssecEnabled: typeof data.dnssecEnabled === 'boolean' ? data.dnssecEnabled : null,
         })
+        if (data.contactPreview) setWhoisPreview(data.contactPreview)
       }
     } catch {
       /* domínio pode ser só de hospedagem, sem registo neste registador */
@@ -177,6 +191,7 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
         )
         if (row) {
           setRenewal({
+            id: row.id,
             registrationDate: row.registration_date,
             expirationDate: row.expiration_date,
             renewalPrice: row.renewal_price,
@@ -195,6 +210,8 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
     setAuthCodeExpires('')
     setHealth(null)
     setRenewal(null)
+    setWhoisOpen(false)
+    setWhoisPreview(null)
     void loadRegistrarInfo()
     void loadHealth()
     void loadRenewalInfo()
@@ -273,6 +290,29 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
       showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
     } finally {
       setRegistrarLoading(false)
+    }
+  }
+
+  const handleApplyWhois = async () => {
+    setWhoisSaving(true)
+    try {
+      const res = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain, action: 'set-contacts' }),
+      })
+      const data = await res.json()
+      if (data.contactPreview) setWhoisPreview(data.contactPreview)
+      if (data.success) {
+        showMsg(data.message || 'WHOIS actualizado no registador.')
+      } else {
+        showMsg(data.error || 'Erro ao actualizar WHOIS', 'error')
+      }
+    } catch (e: unknown) {
+      showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
+    } finally {
+      setWhoisSaving(false)
     }
   }
 
@@ -733,17 +773,44 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
                   </button>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => showMsg('Disponível em breve — a gestão de WHOIS ainda não está ligada ao registador.', 'error')}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-400 dark:text-zinc-600"
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
-                <span className="flex-1">
-                  Informações de Contacto
-                  <span className="mt-0.5 block text-xs text-gray-400 dark:text-zinc-600">Em breve</span>
-                </span>
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setWhoisOpen((open) => !open)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
+                >
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">
+                    Informações de Contacto
+                    <span className="mt-0.5 block text-xs text-gray-500 dark:text-zinc-500">
+                      {whoisPreview?.complete ? 'Dados do perfil prontos a aplicar' : 'Telefone, morada e cidade do perfil'}
+                    </span>
+                  </span>
+                  {whoisOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" /> : <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />}
+                </button>
+                {whoisOpen && (
+                  <div className="space-y-2 border-t border-gray-100 px-4 py-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-zinc-400">
+                    <p><span className="font-bold text-gray-500">Nome:</span> {whoisPreview?.name || '—'}</p>
+                    <p><span className="font-bold text-gray-500">Email:</span> {whoisPreview?.email || '—'}</p>
+                    <p><span className="font-bold text-gray-500">Telefone:</span> {whoisPreview?.telefone || '—'}</p>
+                    <p><span className="font-bold text-gray-500">Morada:</span> {whoisPreview?.morada || '—'}</p>
+                    <p><span className="font-bold text-gray-500">Cidade:</span> {whoisPreview?.cidade || '—'}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleApplyWhois()}
+                      disabled={whoisSaving || !whoisPreview?.complete}
+                      className={`${panelBtnPrimary} mt-1 disabled:opacity-50`}
+                    >
+                      {whoisSaving ? 'A actualizar…' : 'Aplicar dados do perfil ao WHOIS'}
+                    </button>
+                    {!whoisPreview?.complete && (
+                      <p className="text-amber-700 dark:text-amber-400">
+                        Complete telefone, morada e cidade em Conta / Perfil para poder actualizar o WHOIS.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => onNavigate?.('dns-central', { domain })}
@@ -807,7 +874,13 @@ export function DomainDetailSection({ domain, sites, onNavigate, onRefresh, setA
             <div className="divide-y divide-gray-100 dark:divide-zinc-800">
               <button
                 type="button"
-                onClick={() => onNavigate?.('cadastrar-renovacao', { domain })}
+                onClick={() => {
+                  if (renewal?.id) {
+                    window.location.href = `/renovacao/iniciar/domain/${renewal.id}`
+                    return
+                  }
+                  onNavigate?.('cadastrar-renovacao', { domain })
+                }}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400"
               >
                 <RefreshCw className="h-4 w-4 shrink-0" />

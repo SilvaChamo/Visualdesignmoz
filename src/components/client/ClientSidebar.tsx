@@ -104,6 +104,7 @@ export function ClientSidebar({
         // #10: precisamente quem só comprou domínio (sem hospedagem) fica
         // sempre neste modo "só leitura" — sem isto nunca via as compras.
         { id: 'minhas-compras', label: 'As Minhas Compras', icon: ShoppingBag },
+        { id: 'facturas', label: 'Facturas', icon: FileText },
       ]
     : FLAT_ITEMS;
   const expandableMenus = readOnly

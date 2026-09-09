@@ -10144,6 +10144,7 @@ export function DomainManagerSection({
   hubMode = false,
   hubPanel = 'list',
   domainListMode = 'hosting',
+  registrarScope = 'mine',
   isActive = true,
   onHubAddClose,
   listSearch: listSearchProp,
@@ -10158,6 +10159,7 @@ export function DomainManagerSection({
   hubMode?: boolean
   hubPanel?: 'list' | 'add'
   domainListMode?: 'hosting' | 'registrar' | 'all'
+  registrarScope?: 'mine' | 'clients'
   isActive?: boolean
   onHubAddClose?: () => void
   listSearch?: string
@@ -10196,20 +10198,20 @@ export function DomainManagerSection({
   const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
 
   const [registrarListRows, setRegistrarListRows] = useState<CachedDomainRow[]>(() =>
-    domainListMode === 'registrar' ? readRegistrarDomainListCache() : [],
+    domainListMode === 'registrar' ? readRegistrarDomainListCache(true, registrarScope) : [],
   )
   const [registrarListLoading, setRegistrarListLoading] = useState(false)
 
   useEffect(() => {
     if ((domainListMode !== 'registrar' && domainListMode !== 'all') || !isActive || hubPanel !== 'list') return
     let cancelled = false
-    const cached = readRegistrarDomainListCache(true)
+    const cached = readRegistrarDomainListCache(true, registrarScope)
     if (cached.length > 0) {
       setRegistrarListRows(cached)
     } else {
       setRegistrarListLoading(true)
     }
-    void fetch('/api/registrar/account/domains', { credentials: 'include' })
+    void fetch(`/api/registrar/account/domains?scope=${registrarScope}`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { success?: boolean; domains?: { domain: string; status?: string; expireDate?: string }[] }) => {
         if (cancelled) return
@@ -10221,7 +10223,7 @@ export function DomainManagerSection({
             expireDate: d.expireDate,
           }))
           setRegistrarListRows(rows)
-          writeRegistrarDomainListCache(rows)
+          writeRegistrarDomainListCache(rows, registrarScope)
         } else if (cached.length === 0) {
           setRegistrarListRows([])
         }
@@ -10235,7 +10237,7 @@ export function DomainManagerSection({
     return () => {
       cancelled = true
     }
-  }, [domainListMode, isActive, hubPanel])
+  }, [domainListMode, registrarScope, isActive, hubPanel])
 
   // Data de expiração vinda de domain_renewals (mesma fonte usada no aviso
   // de período de redenção do admin) — só os domínios do próprio utilizador,

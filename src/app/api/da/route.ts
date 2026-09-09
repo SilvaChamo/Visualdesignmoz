@@ -85,6 +85,23 @@ const CLIENT_SAFE_ACTIONS = new Set([
 ]);
 
 async function resolveApi(action?: string, domain?: string) {
+  const hestiaOnly = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+
+  // O endpoint mantém o nome legado para compatibilidade com o frontend, mas
+  // numa instalação Hestia não pode sequer inicializar credenciais DA.
+  if (hestiaOnly) {
+    const auth = await requireAdminOrReseller();
+    if ('error' in auth) return { error: auth.error } as const;
+    const impersonating = auth.user.role === 'admin' ? await (await import('next/headers')).cookies().then((store) => store.get('vd_impersonate_reseller')?.value?.trim() || null) : null;
+    return {
+      daApi: null,
+      user: auth.user,
+      mirrorScope: impersonating
+        ? { role: 'reseller' as const, daUsername: impersonating }
+        : { role: auth.user.role === 'admin' ? 'admin' as const : 'reseller' as const, userId: auth.user.id },
+    } as const;
+  }
+
   if (action && CLIENT_SAFE_ACTIONS.has(action)) {
     const auth = await requireDaAccessForDomain(domain || '');
     if ('error' in auth) return { error: auth.error } as const;
@@ -112,10 +129,12 @@ async function resolveApi(action?: string, domain?: string) {
 // segue o caminho DA normal (com o mesmo comportamento de sempre para essas
 // lacunas, já conhecido/documentado à parte).
 const HESTIA_SUPPORTED_ACTIONS = new Set([
+  'listWebsites', 'createWebsite',
   'listEmails', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail', 'changeEmailPassword', 'setEmailLimits',
   'listFTPAccounts', 'createFTPAccount', 'deleteFTPAccount',
   'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
-  'issueSSL',
+  'issueSSL', 'listDatabases', 'createDatabase', 'deleteDatabase',
+  'listDNS', 'createDNSZone', 'deleteDNSZone',
 ]);
 
 async function tryHestiaAction(
@@ -128,6 +147,17 @@ async function tryHestiaAction(
   const domainParam = String(params.domain || '');
   const emailParam = String(params.email || '');
   const domain = domainParam || (emailParam.includes('@') ? emailParam.split('@')[1] : '');
+  if (action === 'listWebsites') {
+    const owner = (process.env.HESTIA_USER || 'vdadmin').trim();
+    const rows = await hestiaAdapter.listWebDomains(owner);
+    return {
+      handled: true,
+      response: NextResponse.json({
+        success: true,
+        data: rows.map((row) => ({ domain: row.domain, owner, siteType: 'empty', hasWordPress: false })),
+      }),
+    };
+  }
   if (!domain) return { handled: false };
 
   const sites = await listMirrorWebsites(mirrorScope);
@@ -141,6 +171,12 @@ async function tryHestiaAction(
   let data: unknown;
   try {
     switch (action) {
+      case 'createWebsite': {
+        const owner = String(params.owner || process.env.HESTIA_USER || 'vdadmin').trim();
+        const result = await hestiaAdapter.addWebDomain(owner, domain);
+        data = { success: result.ok, error: result.error };
+        break;
+      }
       case 'listEmails': {
         const rows = await hestiaAdapter.listMailAccounts(owner, domain);
         data = rows.map((r) => ({
@@ -204,6 +240,41 @@ async function tryHestiaAction(
       case 'listFTPAccounts': {
         const rows = await hestiaAdapter.listFtpAccounts(owner, domain);
         data = rows.map((r) => ({ username: r.ftpUser, userName: r.ftpUser, domain, path: r.path }));
+        break;
+      }
+      case 'listDatabases': {
+        const rows = await hestiaAdapter.listDatabases(owner);
+        data = rows.map((row) => ({ database: row.database, dbuser: row.dbUser, type: row.type, charset: row.charset, sizeBytes: row.diskUsedMb * 1024 * 1024, suspended: row.suspended }));
+        break;
+      }
+      case 'createDatabase': {
+        const rawName = String(params.name || params.dbName || '').trim();
+        const rawUser = String(params.dbuser || params.dbUser || rawName).trim();
+        const password = String(params.password || params.dbPassword || '');
+        const dbNameSuffix = rawName.startsWith(`${owner}_`) ? rawName.slice(owner.length + 1) : rawName;
+        const dbUserSuffix = rawUser.startsWith(`${owner}_`) ? rawUser.slice(owner.length + 1) : rawUser;
+        const result = await hestiaAdapter.createDatabase({ username: owner, dbNameSuffix, dbUserSuffix, password });
+        data = { success: result.ok, error: result.error, database: result.database, dbuser: result.dbUser };
+        break;
+      }
+      case 'deleteDatabase': {
+        const result = await hestiaAdapter.deleteDatabase(owner, String(params.database || params.dbName || ''));
+        data = { success: result.ok, error: result.error };
+        break;
+      }
+      case 'listDNS': {
+        const rows = await hestiaAdapter.listDnsRecords(owner, domain);
+        data = rows.map((row) => ({ name: row.record === '@' ? domain : row.record, type: row.type, value: row.value, ttl: row.ttl }));
+        break;
+      }
+      case 'createDNSZone': {
+        const result = await hestiaAdapter.addDnsZone(owner, domain);
+        data = { success: result.ok, error: result.error };
+        break;
+      }
+      case 'deleteDNSZone': {
+        const result = await hestiaAdapter.deleteDnsZone(owner, domain);
+        data = { success: result.ok, error: result.error };
         break;
       }
       case 'createFTPAccount': {
@@ -279,10 +350,14 @@ export async function POST(req: NextRequest) {
     const resolved = await resolveApi(action, String(params.domain || params.hostname || ''));
     if ('error' in resolved) return resolved.error;
 
-    const { daApi, user, mirrorScope } = resolved;
+      const { daApi, user, mirrorScope } = resolved;
 
     const hestiaResult = await tryHestiaAction(action, params, mirrorScope);
     if (hestiaResult.handled) return hestiaResult.response;
+
+      if (!daApi) {
+        return NextResponse.json({ success: false, error: `Acção "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
+      }
 
     let data: unknown;
 
@@ -646,6 +721,18 @@ export async function GET(req: NextRequest) {
 
     if (!action) {
       return NextResponse.json({ success: false, error: 'action é obrigatória' }, { status: 400 });
+    }
+
+    if (!daApi && action === 'listWebsites') {
+      const owner = (process.env.HESTIA_USER || 'vdadmin').trim();
+      const rows = await hestiaAdapter.listWebDomains(owner);
+      return NextResponse.json({
+        success: true,
+        data: rows.map((row) => ({ domain: row.domain, owner, siteType: 'empty', hasWordPress: false })),
+      });
+    }
+    if (!daApi) {
+      return NextResponse.json({ success: false, error: `GET action "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
     }
 
     let data: unknown;

@@ -126,6 +126,22 @@ export async function createCloudflareZone(
   }
 }
 
+export async function deleteCloudflareZone(
+  domain: string,
+): Promise<{ ok: boolean; error?: string; alreadyGone?: boolean }> {
+  const zoneId = await findCloudflareZoneId(domain);
+  if (!zoneId) return { ok: true, alreadyGone: true };
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}`, { method: 'DELETE', headers });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar zona' };
+  }
+}
+
 function normalizeRecordName(name: string, domain: string): string {
   const n = (name || '').trim();
   if (!n || n === '@' || n === domain) return domain;
@@ -237,6 +253,84 @@ export async function upsertCloudflareRecord(
       error: error instanceof Error ? error.message : 'Erro desconhecido',
     };
   }
+}
+
+export type CloudflareListedRecord = {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  ttl: number;
+  priority?: number;
+};
+
+export async function listCloudflareDnsRecords(
+  zoneId: string,
+  domain: string,
+): Promise<CloudflareListedRecord[]> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return [];
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?per_page=200`, { headers });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      success: boolean;
+      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number }>;
+    };
+    if (!data.success) return [];
+    return (data.result || []).map((r) => ({
+      id: r.id,
+      name: r.name === clean ? '@' : r.name.replace(new RegExp(`\\.${clean}$`), ''),
+      type: r.type,
+      content: r.content,
+      ttl: r.ttl || 3600,
+      priority: r.priority,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteCloudflareDnsRecord(
+  zoneId: string,
+  recordId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar registo' };
+  }
+}
+
+/** Aponta o domínio e www para o IP deste servidor (Contabo ou Hetzner). */
+export async function pointDomainToServerIp(
+  domain: string,
+  ip: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const zoneId = await findCloudflareZoneId(domain);
+  if (!zoneId) return { ok: false, error: 'Sem zona Cloudflare para este domínio' };
+  const root = await upsertCloudflareRecord(zoneId, domain, {
+    type: 'A',
+    name: '@',
+    content: ip,
+    proxied: false,
+  });
+  const www = await upsertCloudflareRecord(zoneId, domain, {
+    type: 'A',
+    name: 'www',
+    content: ip,
+    proxied: false,
+  });
+  const error = [root.error, www.error].filter(Boolean).join('; ');
+  return { ok: root.ok && www.ok, error: error || undefined };
 }
 
 /** Aplica uma lista de registos de uma vez, devolvendo o relatório de cada um. */

@@ -14,6 +14,9 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { UserRole } from '@/lib/user-roles';
 import { patchMirrorUser } from '@/lib/panel-mirror-write';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
+import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
+import { getServerHost } from '@/lib/server-config';
+import { pointDomainToServerIp } from '@/lib/cloudflare-dns';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -86,6 +89,7 @@ async function markAccountServerLinked(params: {
     name: params.name,
     serverLinked: true,
     daUsername: params.userName,
+    provider: isHestiaOnlyDeploy() ? 'hestia' : undefined,
   });
   await patchMirrorUser(params.userName, { updated_at: new Date().toISOString() });
 }
@@ -160,7 +164,9 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
   }
 
   const acl = String(panelUser.acl || 'user').toLowerCase();
-  const provider = authRow?.provider === 'hestia' ? 'hestia' : 'directadmin';
+  const provider = isHestiaOnlyDeploy()
+    ? 'hestia'
+    : await getProviderByUsername(username);
 
   const result =
     provider === 'hestia'
@@ -218,6 +224,17 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     runHestiaFullSyncDeduped().catch((err) =>
       console.error('[panel-server-provision] sync Hestia pós-criação falhou:', err),
     );
+    const serverIp = getServerHost();
+    void pointDomainToServerIp(domain, serverIp).catch((err) =>
+      console.error('[panel-server-provision] A/www Cloudflare:', err),
+    );
+    void (async () => {
+      for (const waitMs of [20_000, 60_000, 180_000]) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        const ssl = await hestiaAdapter.issueLetsEncrypt(username, domain);
+        if (ssl.ok) return;
+      }
+    })().catch((err) => console.error('[panel-server-provision] retry SSL:', err));
   }
 
   return { ok: true, linked: true };

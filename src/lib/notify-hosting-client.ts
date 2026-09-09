@@ -1,7 +1,8 @@
 import { sendEmail } from '@/lib/email-service';
 import { emailHeader, emailGreeting, emailFooter, wrapContentInFrame } from '@/lib/renewal-templates';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
-import { DEFAULT_SERVER_IP } from '@/lib/server-config';
+import { getServerHost } from '@/lib/server-config';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com';
 const SUPPORT_PHONE = '+258 85 242 5525';
@@ -26,16 +27,23 @@ export async function notifyHostingAccountProvisioned(params: {
   const { to, clientName, domain, daUsername, password } = params;
   const title = 'A sua hospedagem foi activada';
 
-  const message =
-    `A sua conta de hospedagem para o domínio "${domain}" já está activa.\n\n` +
-    `Aceda ao seu painel VisualDesign e clique em "Direct Admin" — entra directamente, sem pedir password outra vez.\n\n` +
-    `Se precisar de aceder directamente ao DirectAdmin (fora do painel):\n` +
-    `Utilizador: ${daUsername}\n` +
-    `Password: ${password} (a mesma que usa para entrar no seu painel VisualDesign)\n` +
-    `IP do servidor: ${DEFAULT_SERVER_IP}\n\n` +
-    `Para o seu domínio apontar para esta hospedagem, configure os nameservers no registo do domínio:\n` +
-    `${VISUALDESIGN_DEFAULT_NS.ns1}\n${VISUALDESIGN_DEFAULT_NS.ns2}\n\n` +
-    `A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`;
+  const hestiaOnly = isHestiaOnlyDeploy();
+  const message = hestiaOnly
+    ? `A sua conta de hospedagem para o domínio "${domain}" já está activa.\n\n` +
+      `Entre no painel VisualDesign para gerir o site, o DNS e o webmail.\n\n` +
+      `Utilizador: ${daUsername}\n` +
+      `Password: ${password} (a mesma que usa para entrar no seu painel VisualDesign)\n` +
+      `IP do servidor: ${getServerHost()}\n\n` +
+      `O domínio já fica apontado automaticamente (Cloudflare). A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`
+    : `A sua conta de hospedagem para o domínio "${domain}" já está activa.\n\n` +
+      `Aceda ao seu painel VisualDesign e clique em "Direct Admin" — entra directamente, sem pedir password outra vez.\n\n` +
+      `Se precisar de aceder directamente ao DirectAdmin (fora do painel):\n` +
+      `Utilizador: ${daUsername}\n` +
+      `Password: ${password} (a mesma que usa para entrar no seu painel VisualDesign)\n` +
+      `IP do servidor: ${getServerHost()}\n\n` +
+      `Para o seu domínio apontar para esta hospedagem, configure os nameservers no registo do domínio:\n` +
+      `${VISUALDESIGN_DEFAULT_NS.ns1}\n${VISUALDESIGN_DEFAULT_NS.ns2}\n\n` +
+      `A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`;
 
   const body = `
     <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px;">${title}</h2>

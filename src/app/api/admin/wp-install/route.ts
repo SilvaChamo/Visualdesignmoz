@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-api-auth';
-import { createDirectAdminAPI, getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
-import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
-import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { installWordPressSite } from '@/lib/wp-cli-server';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
@@ -13,19 +10,12 @@ import * as hestiaAdapter from '@/lib/hestia-adapter';
  * omissão quando não há registo próprio no mirror. */
 async function resolveDomainOwner(domain: string): Promise<string> {
   const admin = getDaSyncAdmin();
-  let owner = 'admin';
+  let owner = (process.env.HESTIA_USER || 'vdadmin').trim();
   if (admin) {
     const { data } = await admin.from('panel_sites').select('owner').eq('domain', domain).maybeSingle();
-    if (data?.owner) owner = String(data.owner);
+    if (data?.owner && String(data.owner).trim()) owner = String(data.owner).trim();
   }
   return owner;
-}
-
-async function daApiForOwner(owner: string) {
-  if (!owner || owner === 'admin') return getAdminDirectAdminAPI();
-  const stored = await loadResellerCredentialsByDaUsername(owner);
-  if (!stored) return getAdminDirectAdminAPI();
-  return createDirectAdminAPI({ role: 'reseller', user: stored.user, password: stored.password });
 }
 
 export async function POST(req: NextRequest) {
@@ -53,40 +43,30 @@ export async function POST(req: NextRequest) {
     const owner = await resolveDomainOwner(domain);
     const provider = await getProviderByUsername(owner);
 
-    // wp-cli-server já sabe encontrar a pasta certa em qualquer painel
-    // (DirectAdmin .../domains/ ou Hestia .../web/) — só a criação da base
-    // de dados é que precisa de despacho, porque cada painel tem a sua
-    // própria forma de a criar.
-    let dbNameFinal = dbName;
-    let dbUserFinal = dbUser;
-
-    if (provider === 'hestia') {
-      const dbResult = await hestiaAdapter.createDatabase({
-        username: owner,
-        dbNameSuffix: dbName,
-        dbUserSuffix: dbUser,
-        password: dbPassword,
-      });
-      if (!dbResult.ok) {
-        return NextResponse.json(
-          { success: false, error: dbResult.error || 'Falha ao criar base de dados' },
-          { status: 502 },
-        );
-      }
-      // O Hestia prefixa sempre com "username_" — o wp-config.php tem de
-      // usar o nome real da base, não o sufixo que veio do formulário.
-      dbNameFinal = dbResult.database || dbName;
-      dbUserFinal = dbResult.dbUser || dbUser;
-    } else {
-      const da = await daApiForOwner(owner);
-      const dbResult = await da.createDatabase({ domain, dbName, dbUser, dbPassword });
-      if (dbResult.success === false) {
-        return NextResponse.json(
-          { success: false, error: dbResult.error || dbResult.output || 'Falha ao criar base de dados' },
-          { status: 502 },
-        );
-      }
+    if (provider !== 'hestia') {
+      return NextResponse.json(
+        { success: false, error: 'Este painel está configurado para hospedagem Hestia; o domínio não está associado a uma conta Hestia.' },
+        { status: 409 },
+      );
     }
+
+    const dbResult = await hestiaAdapter.createDatabase({
+      username: owner,
+      dbNameSuffix: dbName,
+      dbUserSuffix: dbUser,
+      password: dbPassword,
+    });
+    if (!dbResult.ok) {
+      return NextResponse.json(
+        { success: false, error: dbResult.error || 'Falha ao criar base de dados no Hestia' },
+        { status: 502 },
+      );
+    }
+
+    // O Hestia prefixa sempre com "username_". O wp-config.php precisa dos
+    // nomes completos devolvidos pela criação, não dos sufixos do formulário.
+    const dbNameFinal = dbResult.database || `${owner}_${dbName}`;
+    const dbUserFinal = dbResult.dbUser || `${owner}_${dbUser}`;
 
     await mirrorAfterDaMutation('createDatabase', { domain, dbName: dbNameFinal, dbUser: dbUserFinal, dbPassword });
 
@@ -108,7 +88,10 @@ export async function POST(req: NextRequest) {
     }
 
     await mirrorAfterDaMutation('installWordPress', { domain });
-    if (provider !== 'hestia') scheduleDaSync(400);
+    const { runHestiaFullSyncDeduped } = await import('@/lib/hestia-sync-engine');
+    void runHestiaFullSyncDeduped().catch((error) => {
+      console.error('[wp-install] sincronização Hestia falhou após instalação:', error);
+    });
 
     return NextResponse.json({ success: true, message: 'WordPress instalado com sucesso.', output: result.output });
   } catch (e: unknown) {

@@ -249,13 +249,14 @@ export function ClientProductsHub({ onNavigate }: Props) {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onNavigate?.('facturas')}
-                      className="text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                    >
-                      Renovar
-                    </button>
+                    {d.id ? (
+                      <a
+                        href={`/renovacao/iniciar/domain/${d.id}`}
+                        className="text-xs font-bold bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                      >
+                        Renovar
+                      </a>
+                    ) : null}
                     <a
                       href={`https://${d.name}`}
                       target="_blank"
@@ -293,6 +294,7 @@ export function ClientProductsHub({ onNavigate }: Props) {
               [
                 ...pendingHostingRows.map((row) => ({
                   key: `pending-${row.sessionId}-${row.domain}`,
+                  id: undefined as string | undefined,
                   domain: row.domain,
                   plan: row.plan,
                   expirationDate: undefined as string | undefined,
@@ -300,6 +302,7 @@ export function ClientProductsHub({ onNavigate }: Props) {
                 })),
                 ...products.hosting.map((h) => ({
                   key: h.id ?? h.domain,
+                  id: h.id,
                   domain: h.domain,
                   plan: h.plan,
                   expirationDate: h.expirationDate ?? undefined,
@@ -345,16 +348,6 @@ export function ClientProductsHub({ onNavigate }: Props) {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <a
-                      href="/api/client-directadmin-access"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-disabled={disabled}
-                      onClick={(e) => { if (disabled) e.preventDefault(); }}
-                      className={`text-xs font-bold border border-gray-300 px-4 py-2 rounded-lg ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-red-400'}`}
-                    >
-                      Direct Admin
-                    </a>
                     <button
                       type="button"
                       onClick={() => onNavigate?.('webmail')}
@@ -363,14 +356,14 @@ export function ClientProductsHub({ onNavigate }: Props) {
                     >
                       Webmail
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate?.('facturas')}
-                      disabled={disabled}
-                      className="text-xs font-bold bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Renovar
-                    </button>
+                    {row.state === 'active' && row.id ? (
+                      <a
+                        href={`/renovacao/iniciar/hosting/${row.id}`}
+                        className="text-xs font-bold bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                      >
+                        Renovar
+                      </a>
+                    ) : null}
                   </div>
                 </div>
                 );
@@ -379,23 +372,12 @@ export function ClientProductsHub({ onNavigate }: Props) {
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => onNavigate?.('gestao-emails')}
-                className="text-xs font-bold border border-gray-300 px-4 py-2 rounded-lg hover:border-red-400"
-              >
-                Gerir emails
-              </button>
-              <button
-                type="button"
                 onClick={() => (window.location.href = '/precos#dominios')}
                 className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
               >
                 <ShoppingCart className="w-4 h-4" /> Comprar domínio no painel
               </button>
             </div>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
-              O botão &quot;Direct Admin&quot; entra directamente na sua conta de hospedagem, sem pedir password.
-            </p>
           </div>
         </section>
       )}
@@ -465,13 +447,14 @@ export function ClientProductsHub({ onNavigate }: Props) {
                     >
                       Webmail
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate?.('facturas')}
-                      className="text-xs font-bold bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                    >
-                      Renovar
-                    </button>
+                    {plan.id ? (
+                      <a
+                        href={`/renovacao/iniciar/hosting/${plan.id}`}
+                        className="text-xs font-bold bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                      >
+                        Renovar
+                      </a>
+                    ) : null}
                   </div>
                 </div>
               );

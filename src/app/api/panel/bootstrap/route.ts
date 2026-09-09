@@ -178,6 +178,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       sites: sitesOut,
+      allSites: isReseller ? sitesOut : sites,
+      hostingOwner: (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia'
+        ? (process.env.HESTIA_USER || 'vdadmin').trim()
+        : null,
+      hestiaOnly: (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia',
       users: usersOut,
       packages: packagesOut,
       accounts: accountsResult.accounts,

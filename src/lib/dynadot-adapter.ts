@@ -83,6 +83,12 @@ function getKeys() {
   return { apiKey, secretKey };
 }
 
+function api3Url(): string {
+  return DYNADOT_ENV === 'production'
+    ? 'https://api.dynadot.com/api3.json'
+    : 'https://api-sandbox.dynadot.com/api3.json';
+}
+
 function signRequest(apiKey: string, secretKey: string, path: string, requestId: string, body: string) {
   const stringToSign = `${apiKey}\n${path}\n${requestId}\n${body}`;
   return crypto.createHmac('sha256', secretKey).update(stringToSign).digest('hex');
@@ -149,7 +155,7 @@ async function dynadotApi3Fetch(
 
   const qs = new URLSearchParams({ key: keys.apiKey, command, ...params });
   try {
-    const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+    const res = await fetch(`${api3Url()}?${qs.toString()}`);
     const json = (await res.json().catch(() => ({}))) as {
       Response?: { ResponseCode?: string; Error?: string; [key: string]: unknown };
     };
@@ -184,8 +190,11 @@ async function dynadotApi3Command(
   const keys = getKeys();
   if (!keys) return { ok: false, error: 'Chaves de API do registador não configuradas' };
   const qs = new URLSearchParams({ key: keys.apiKey, command, ...params });
+  const api3Url = DYNADOT_ENV === 'production'
+    ? 'https://api.dynadot.com/api3.json'
+    : 'https://api-sandbox.dynadot.com/api3.json';
   try {
-    const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+    const res = await fetch(`${api3Url}?${qs.toString()}`);
     const json = (await res.json().catch(() => ({}))) as Record<string, { ResponseCode?: number | string; Status?: string; Error?: string; [k: string]: unknown }>;
     const key = Object.keys(json).find((k) => /Response$/.test(k));
     const resp = key ? json[key] : undefined;
@@ -268,6 +277,35 @@ export const dynadotAPI = {
     const result = await dynadotFetch<{ domainInfo: DynadotDomainInfo[] }>('GET', '/restful/v1/domains');
     if (!result.ok) return { success: false, error: result.error };
     return { success: true, domains: (result.data.domainInfo || []).map(mapDynadotDomain) };
+  },
+
+  async setPrivacy(
+    domain: string,
+    enabled: boolean,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const result = await dynadotApi3Command('set_privacy', {
+      domain: clean,
+      whois_privacy_option: enabled ? 'yes' : 'no',
+      option: enabled ? 'on' : 'off',
+    });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
+  },
+
+  /** Apaga o domínio no período de carência (crédito na conta). */
+  async graceDeleteDomain(
+    domain: string,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const unlocked = await dynadotAPI.setTransferLock(clean, false);
+    if (!unlocked.success && !/already|not locked/i.test(unlocked.error || '')) {
+      /* continua — alguns TLDs não têm lock */
+    }
+    await dynadotAPI.setPrivacy(clean, false);
+    const result = await dynadotApi3Command('delete', { domain: clean });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
   },
 
   async getDomainDetails(domain: string): Promise<
@@ -437,6 +475,22 @@ export const dynadotAPI = {
     if (!result.ok) return { success: false, error: result.error };
     if (!result.data.contact_id) return { success: false, error: 'ID do contacto não retornado pela API' };
     return { success: true, contactId: String(result.data.contact_id) };
+  },
+
+  async setDomainContacts(
+    domain: string,
+    contactId: string,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const id = Number(contactId);
+    const result = await dynadotFetch('PUT', `/restful/v1/domains/${encodeURIComponent(clean)}/contacts`, {
+      registrant_contactId: id,
+      admin_contactId: id,
+      tech_contactId: id,
+      billing_contactId: id,
+    });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
   },
 
   async registerDomain(

@@ -7,14 +7,16 @@ import { getWebFileManagerUrl, getDirectAdminAccessUrl } from '@/lib/server-conf
 type Props = {
   sessionEmail?: string | null;
   onOpenWebmailInPanel?: () => void;
+  hideDirectAdmin?: boolean;
 };
 
 export function ResellerDirectAccessSection({
   sessionEmail,
   onOpenWebmailInPanel,
+  hideDirectAdmin = false,
 }: Props) {
   const links = [
-    {
+    ...(!hideDirectAdmin ? [{
       id: 'da',
       title: 'DirectAdmin',
       description: 'Painel nativo DirectAdmin — abre automaticamente com a mesma conta do portal.',
@@ -22,7 +24,7 @@ export function ResellerDirectAccessSection({
       icon: Server,
       color: 'bg-red-50 border-red-200 text-red-700',
       button: 'Abrir DirectAdmin',
-    },
+    }] : []),
     {
       id: 'roundcube',
       title: 'Roundcube (Webmail directo)',

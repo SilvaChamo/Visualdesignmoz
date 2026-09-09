@@ -1081,6 +1081,8 @@ function AdminPageContent() {
   const [selectedSslViewHostname, setSelectedSslViewHostname] = useState<string>('')
   const [accountDaUsername, setAccountDaUsername] = useState<string>('visualdesign')
   const [accountPrimaryDomain, setAccountPrimaryDomain] = useState<string | null>(null)
+  const [bootHostingOwner, setBootHostingOwner] = useState<string | null>(null)
+  const [allHostingSites, setAllHostingSites] = useState<DirectAdminWebsite[]>([])
   const [dashboardSearch, setDashboardSearch] = useState('')
 
   // Modal de criação de email (movido para nível do AdminPage)
@@ -1111,6 +1113,7 @@ function AdminPageContent() {
   }
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
+    setBootHostingOwner(boot.hostingOwner || null)
     if (boot.session?.capabilities) {
       setPanelCapabilities(boot.session.capabilities);
     }
@@ -1118,6 +1121,9 @@ function AdminPageContent() {
       ? { sites: boot.sites, users: boot.users, packages: boot.packages }
       : applyAdminPanelScope(boot)
     setDirectAdminSites(scoped.sites)
+    setAllHostingSites(
+      Array.isArray(boot.allSites) && boot.allSites.length > 0 ? boot.allSites : scoped.sites,
+    )
     setDirectAdminUsers(scoped.users)
     setDirectAdminPackages(scoped.packages)
     if (boot.resellerContext?.daUsername) {
@@ -1228,9 +1234,24 @@ function AdminPageContent() {
     [filteredSitesBase, accountPrimaryDomain],
   )
   const domainHubSites = useMemo(
-    () => filteredSitesBase,
-    [filteredSitesBase],
+    () =>
+      (allHostingSites.length > 0 ? allHostingSites : filteredSitesBase).filter((s) => {
+        if (s.domain.includes('contaboserver')) return false
+        if (s.domain.toLowerCase().startsWith('mail.')) return false
+        return true
+      }),
+    [allHostingSites, filteredSitesBase],
   )
+  const clientOwnership = useMemo(() => {
+    const clientAccounts = directAdminUsers.filter((user) => {
+      const accountType = String(user.acl || user.type || '').trim().toLowerCase()
+      return accountType === 'user' || accountType === 'client' || accountType === 'guest'
+    })
+    return {
+      owners: clientAccounts.map((user) => user.userName).filter(Boolean),
+      emails: clientAccounts.map((user) => user.email).filter(Boolean) as string[],
+    }
+  }, [directAdminUsers])
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 
@@ -1338,6 +1359,9 @@ function AdminPageContent() {
             sites={domainHubSites}
             packages={directAdminPackages}
             adminEmail={sessionUser}
+            hostingOwner={bootHostingOwner}
+            clientOwners={clientOwnership.owners}
+            clientEmails={clientOwnership.emails}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
@@ -1400,6 +1424,9 @@ function AdminPageContent() {
             sites={domainHubSites}
             packages={directAdminPackages}
             adminEmail={sessionUser}
+            hostingOwner={bootHostingOwner}
+            clientOwners={clientOwnership.owners}
+            clientEmails={clientOwnership.emails}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
@@ -1875,7 +1902,7 @@ function AdminPageContent() {
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' ? (
+              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' && !bootHostingOwner ? (
                 <a
                   href={getDirectAdminAccessUrl('admin')}
                   target="_blank"

@@ -1,5 +1,11 @@
 const DOMAIN_LIST_CACHE_KEY = 'vd_domain_mgr_list_v1';
-const REGISTRAR_DOMAIN_LIST_CACHE_KEY = 'vd_registrar_domain_list_v1';
+const REGISTRAR_DOMAIN_LIST_CACHE_KEY = 'vd_registrar_domain_list_v3';
+
+export type RegistrarDomainScope = 'mine' | 'clients';
+
+function registrarCacheKey(scope: RegistrarDomainScope = 'mine'): string {
+  return `${REGISTRAR_DOMAIN_LIST_CACHE_KEY}_${scope}`;
+}
 const DOMAIN_LIST_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export type CachedDomainRow = {
@@ -64,10 +70,16 @@ function writeCacheByKey(key: string, domains: CachedDomainRow[]) {
   }
 }
 
-export function readRegistrarDomainListCache(allowStale = true): CachedDomainRow[] {
-  return readCacheByKey(REGISTRAR_DOMAIN_LIST_CACHE_KEY, allowStale);
+export function readRegistrarDomainListCache(
+  allowStale = true,
+  scope: RegistrarDomainScope = 'mine',
+): CachedDomainRow[] {
+  return readCacheByKey(registrarCacheKey(scope), allowStale);
 }
 
-export function writeRegistrarDomainListCache(domains: CachedDomainRow[]) {
-  writeCacheByKey(REGISTRAR_DOMAIN_LIST_CACHE_KEY, domains);
+export function writeRegistrarDomainListCache(
+  domains: CachedDomainRow[],
+  scope: RegistrarDomainScope = 'mine',
+) {
+  writeCacheByKey(registrarCacheKey(scope), domains);
 }
