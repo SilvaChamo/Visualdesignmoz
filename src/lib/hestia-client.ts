@@ -38,6 +38,26 @@ export type HestiaCallResult = {
  * arg2, ...) — a mesma ordem da própria CLI (`v-add-user USER PASSWORD
  * EMAIL...` → args: [USER, PASSWORD, EMAIL, ...]).
  */
+async function hestiaCallViaSsh(cmd: string, args: string[]): Promise<HestiaCallResult> {
+  const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+  const quoted = args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ');
+  try {
+    const output = (await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1`)).trim();
+    const denied = /ip is not allowed|access denied|error/i.test(output) && !output.trim().startsWith('{') && !output.trim().startsWith('[');
+    if (!output || denied) {
+      return { ok: false, exitCode: 1, output, error: output || `Comando ${cmd} falhou via SSH` };
+    }
+    return { ok: true, exitCode: 0, output };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      exitCode: -1,
+      output: '',
+      error: e instanceof Error ? e.message : 'Ligação SSH ao Hestia falhou',
+    };
+  }
+}
+
 export async function hestiaCall(cmd: string, args: string[] = []): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
 
@@ -56,12 +76,7 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
       cache: 'no-store',
     });
   } catch (e: unknown) {
-    return {
-      ok: false,
-      exitCode: -1,
-      output: '',
-      error: e instanceof Error ? e.message : 'Ligação ao Hestia falhou',
-    };
+    return hestiaCallViaSsh(cmd, args);
   }
 
   const output = (await response.text()).trim();
@@ -69,6 +84,9 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
   const exitCode = exitCodeHeader !== null ? Number(exitCodeHeader) : response.ok ? 0 : 1;
 
   if (exitCode !== 0) {
+    if (/ip is not allowed/i.test(output)) {
+      return hestiaCallViaSsh(cmd, args);
+    }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
   }
   return { ok: true, exitCode, output };

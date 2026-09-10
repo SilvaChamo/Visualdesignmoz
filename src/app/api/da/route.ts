@@ -140,6 +140,7 @@ const HESTIA_SUPPORTED_ACTIONS = new Set([
   'createSubdomain', 'deleteSubdomain', 'listSubdomains',
   'listBackups', 'createBackup',
   'listUsers', 'listPackages',
+  'changePHPVersion',
 ]);
 
 async function tryHestiaAction(
@@ -497,6 +498,12 @@ async function tryHestiaAction(
           }
         }
         data = { success: result.ok, error: result.error, output: result.output };
+        break;
+      }
+      case 'changePHPVersion': {
+        const phpVersion = String(params.phpVersion || params.version || '8.2');
+        const result = await hestiaAdapter.changeWebDomainPhp(owner, domain, phpVersion);
+        data = { success: result.ok, error: result.error };
         break;
       }
       default:

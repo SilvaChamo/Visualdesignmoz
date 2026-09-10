@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
 import { resolveHostingOwner } from '@/lib/hosting-resolver';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
+import * as hestiaAdapter from '@/lib/hestia-adapter';
 import {
   daBackupCreate,
   daBackupDelete,
@@ -114,6 +116,22 @@ export async function POST(req: NextRequest) {
   try {
     switch (action) {
       case 'list': {
+        if (isHestiaOnlyDeploy()) {
+          const rows = await hestiaAdapter.listBackups(owner);
+          return NextResponse.json({
+            success: true,
+            data: rows.map((b) => ({
+              filename: b.filename,
+              size: `${b.size} MB`,
+              sizeBytes: b.size * 1024 * 1024,
+              date: [b.date, b.time].filter(Boolean).join(' ') || '—',
+              path: `/backup/${b.filename}`,
+              scope: 'full',
+              source: 'server',
+              domain: domain || lookupDomain,
+            })),
+          });
+        }
         const scope = body.scope ? String(body.scope) as BackupTab : undefined;
         const listDomain = domain || lookupDomain;
         const accountDomains = Array.isArray(body.accountDomains)
@@ -131,6 +149,11 @@ export async function POST(req: NextRequest) {
         if (!domainOwner) {
           return NextResponse.json({ success: false, error: 'Domínio não encontrado.' }, { status: 400 });
         }
+        if (isHestiaOnlyDeploy()) {
+          const result = await hestiaAdapter.createBackup(domainOwner);
+          if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+          return NextResponse.json({ success: true });
+        }
         const result = await daBackupCreate(domainOwner, domain, items);
         if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
         return NextResponse.json({ success: true });
@@ -141,6 +164,11 @@ export async function POST(req: NextRequest) {
         const scope = (String(body.scope || 'full') as BackupTab);
         if (!items.length || !domains.length) {
           return NextResponse.json({ success: false, error: 'Domínios ou itens em falta.' }, { status: 400 });
+        }
+        if (isHestiaOnlyDeploy()) {
+          const result = await hestiaAdapter.createBackup(owner);
+          if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+          return NextResponse.json({ success: true, data: { created: [owner] } });
         }
         const daErrors: string[] = [];
         const warnings: string[] = [];

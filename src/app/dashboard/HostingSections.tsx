@@ -4245,11 +4245,8 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
         {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('!') && !msg.includes('Erro') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         <div className="rounded border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
-          Limites finos (memory_limit, upload_max_filesize, max_execution_time, etc.) não têm uma opção editável por aqui —
-          são geridos directamente no DirectAdmin, em "Select PHP Version" do domínio.
-          <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer" className="ml-1 font-bold text-red-600 hover:underline">
-            Abrir no DirectAdmin →
-          </a>
+          A versão PHP é aplicada no Hestia deste servidor. Extensões e limites finos (memory_limit, upload_max_filesize)
+          gerem-se no template PHP-FPM do Hestia, não no DirectAdmin.
         </div>
       </div>
 
@@ -4260,10 +4257,6 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
-          <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer"
-            className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center justify-start gap-2 sm:justify-center">
-            <ExternalLink className="w-3.5 h-3.5" /> Gerir no DirectAdmin
-          </a>
         </div>
         <div className={`${panelMobileCardGrid} md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`}>
           {[
@@ -4294,7 +4287,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
         </div>
         <p className="text-xs text-gray-400 mt-4">
           As extensões marcadas <span className="font-bold text-indigo-600">WP</span> são necessárias para WordPress.
-          Para instalar, clica em "Gerir no DirectAdmin" → selecciona a versão PHP → activa a extensão.
+          As extensões marcadas WP são necessárias para WordPress. Activa-as no template PHP-FPM do Hestia deste servidor.
         </p>
       </div>
     </div>

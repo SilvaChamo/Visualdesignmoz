@@ -1083,6 +1083,7 @@ function AdminPageContent() {
   const [accountDaUsername, setAccountDaUsername] = useState<string>('visualdesign')
   const [accountPrimaryDomain, setAccountPrimaryDomain] = useState<string | null>(null)
   const [bootHostingOwner, setBootHostingOwner] = useState<string | null>(null)
+  const [bootHestiaOnly, setBootHestiaOnly] = useState(false)
   const [allHostingSites, setAllHostingSites] = useState<DirectAdminWebsite[]>([])
   const [dashboardSearch, setDashboardSearch] = useState('')
 
@@ -1115,6 +1116,7 @@ function AdminPageContent() {
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
     setBootHostingOwner(boot.hostingOwner || null)
+    setBootHestiaOnly(Boolean(boot.hestiaOnly))
     if (boot.session?.capabilities) {
       setPanelCapabilities(boot.session.capabilities);
     }
@@ -1907,7 +1909,7 @@ function AdminPageContent() {
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' && !bootHostingOwner ? (
+              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' && !bootHestiaOnly && !bootHostingOwner ? (
                 <a
                   href={getDirectAdminAccessUrl('admin')}
                   target="_blank"

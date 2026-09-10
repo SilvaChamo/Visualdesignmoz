@@ -624,3 +624,14 @@ export async function createUserOnly(input: {
   }
   return { ok: true };
 }
+
+/** Altera o PHP-FPM do site. Hestia: `v-change-web-domain-backend USER DOMAIN VERSION yes`. */
+export async function changeWebDomainPhp(
+  username: string,
+  domain: string,
+  phpVersion: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const version = phpVersion.replace(/[^0-9.]/g, '') || '8.2';
+  const result = await hestiaCall('v-change-web-domain-backend', [username, domain, version, 'yes']);
+  return { ok: result.ok, error: result.error };
+}

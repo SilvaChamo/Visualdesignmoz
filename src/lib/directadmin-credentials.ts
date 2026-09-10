@@ -91,6 +91,9 @@ export async function resolveDirectAdminCredentials(
   role: DirectAdminRole = 'admin',
   context?: DirectAdminAuthContext,
 ): Promise<DirectAdminCredentials> {
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+  }
   if (role === 'admin') {
     return resolveAdminCredentials();
   }

@@ -27,6 +27,16 @@ export type PanelDaContext = {
   effectiveRole: 'admin' | 'reseller';
 };
 
+function hestiaDaApiStub(): DirectAdminServerAPI {
+  return new Proxy({} as DirectAdminServerAPI, {
+    get(_target, prop) {
+      return async () => {
+        throw new Error(`DirectAdmin.${String(prop)} não está disponível neste servidor (Hestia).`);
+      };
+    },
+  });
+}
+
 export async function resolvePanelDaContext(
   auth: PanelStaffAuthSuccess,
   opts?: { ignoreImpersonation?: boolean },
@@ -35,6 +45,27 @@ export async function resolvePanelDaContext(
     auth.user.role === 'admin' && !opts?.ignoreImpersonation
       ? await readImpersonateDaUsername()
       : null;
+
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    const isReseller =
+      Boolean(impersonating) ||
+      auth.user.role === 'reseller' ||
+      auth.user.role === 'manager' ||
+      auth.user.role === 'profissional';
+    const daUsername = impersonating || (isReseller ? await getResellerDaUsername({
+      id: auth.user.id,
+      email: auth.user.email,
+      role: 'reseller',
+    }) : undefined);
+    return {
+      daApi: hestiaDaApiStub(),
+      mirrorScope: isReseller
+        ? { role: 'reseller', userId: auth.user.id, daUsername: daUsername || undefined }
+        : { role: 'admin', userId: auth.user.id },
+      impersonating,
+      effectiveRole: isReseller ? 'reseller' : 'admin',
+    };
+  }
 
   if (impersonating) {
     const daApi = await getDirectAdminAPIForDaUsername(impersonating);

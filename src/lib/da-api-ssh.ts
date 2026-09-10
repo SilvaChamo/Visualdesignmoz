@@ -2,13 +2,24 @@
  * Chamadas API ao servidor via SSH (localhost — evita IP blacklist da Vercel).
  */
 
+import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { parseDaResponse } from '@/lib/directadmin';
 import {
   resolveDirectAdminCredentials,
   type DirectAdminCredentials,
 } from '@/lib/directadmin-credentials';
 import { CANONICAL_DIRECTADMIN_PORT, normalizeDirectAdminHost } from '@/lib/directadmin-url';
-import { executeServerCommand } from '@/lib/server-ssh-exec';
+
+const DA_UNAVAILABLE = 'DirectAdmin não está disponível neste servidor (Hestia).';
+
+function isHestiaOnlyDeploy(): boolean {
+  return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+}
+
+function refuseIfHestia(): { ok: false; raw: string; error: string } | null {
+  if (!isHestiaOnlyDeploy()) return null;
+  return { ok: false, raw: '', error: DA_UNAVAILABLE };
+}
 
 const DA_BIN = '/usr/local/directadmin/directadmin';
 
@@ -75,6 +86,8 @@ async function daRequestViaSshAsDaUser(
   fields: Record<string, string>,
   daUsername: string,
 ): Promise<{ ok: boolean; raw: string; error?: string }> {
+  const blocked = refuseIfHestia();
+  if (blocked) return blocked;
   const userQ = shellQuote(daUsername);
   const host = shellQuote(readDaHost());
   const port = CANONICAL_DIRECTADMIN_PORT;
@@ -117,6 +130,8 @@ async function daRequestViaSsh(
   fields: Record<string, string>,
   creds?: DirectAdminCredentials,
 ): Promise<{ ok: boolean; raw: string; error?: string }> {
+  const blocked = refuseIfHestia();
+  if (blocked) return blocked;
   const credentials = creds ?? (await resolveDirectAdminCredentials('admin'));
   const auth = shellQuote(`${credentials.user}:${credentials.password}`);
 
