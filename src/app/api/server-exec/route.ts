@@ -607,11 +607,18 @@ export async function POST(req: NextRequest) {
         const { getProviderByUsername } = await import('@/lib/hosting-provider');
         const siteProvider = await getProviderByUsername(mirrorOwner);
         const rootDir = siteProvider === 'hestia' ? 'web' : 'domains';
+        // No deploy Hestia (Contabo), o owner do mirror pode ser 'admin' (domínio do DA/Hetzner
+        // que não existe no Hestia). Nesse caso, tentar o utilizador Hestia principal (vdadmin).
+        const hestiaAdmin = (process.env.HESTIA_USER || 'vdadmin').trim();
+        const effectiveOwner =
+          siteProvider === 'hestia' && mirrorOwner !== hestiaAdmin
+            ? hestiaAdmin
+            : mirrorOwner;
         return NextResponse.json({
           success: true,
           data: {
-            path: `/home/${mirrorOwner}/${rootDir}/${targetDomain}/public_html`,
-            owner: mirrorOwner,
+            path: `/home/${effectiveOwner}/${rootDir}/${targetDomain}/public_html`,
+            owner: effectiveOwner,
           },
         });
       }

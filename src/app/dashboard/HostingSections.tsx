@@ -8265,9 +8265,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
     const owner = getOwner(targetDomain)
-    // Tentativa inicial com o caminho DirectAdmin — se falhar, o loadFiles
-    // chama resolveSitePath para descobrir o caminho real (Hestia usa
-    // /home/USER/web/DOMAIN/public_html em vez de .../domains/...).
+    // O loadFiles detecta automaticamente se a pasta não existe (404)
+    // e chama resolveSitePath para obter o caminho correcto do servidor
+    // (Hestia: /home/USER/web/DOMAIN/public_html; DA: /home/USER/domains/...).
+    // Tentativa inicial usa o padrão DirectAdmin; para contas Hestia o
+    // resolveSitePath corrige antes da segunda tentativa.
     return `/home/${owner}/domains/${targetDomain}/public_html`
   }
 
@@ -8741,22 +8743,9 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   useEffect(() => {
     if (!isActive) return
-    setChrome({
-      toolbar: (
-        <select
-          value={selectedDomain}
-          onChange={(e) => handleDomainChange(e.target.value)}
-          className={`${panelField} w-44 min-w-[10rem] max-w-xs`}
-        >
-          <option value="" disabled>Seleccione o domínio…</option>
-          {sites.map((s) => (
-            <option key={s.domain} value={s.domain}>{s.domain}</option>
-          ))}
-        </select>
-      ),
-    })
+    setChrome({})
     return () => setChrome(null)
-  }, [isActive, selectedDomain, siteDomainKey, setChrome])
+  }, [isActive, setChrome])
 
   useEffect(() => {
     const sentinel = toolbarSentinelRef.current
@@ -8830,8 +8819,77 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             : 'bg-transparent border-b border-transparent',
         )}
       >
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+        {/* Linha única: [selector + criar] à esquerda | [acções ficheiros] à direita */}
+        <div className="flex w-full items-center justify-between gap-3 flex-wrap">
+
+          {/* ESQUERDA: seletor de domínio + Nova pasta + Novo ficheiro + Upload */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <select
+              value={selectedDomain}
+              onChange={(e) => handleDomainChange(e.target.value)}
+              className={`${panelField} shrink-0 min-w-[10rem] max-w-[14rem]`}
+            >
+              <option value="" disabled>Seleccione o domínio…</option>
+              {sites.map((s) => (
+                <option key={s.domain} value={s.domain}>{s.domain}</option>
+              ))}
+            </select>
+            {selectedDomain ? (
+              <>
+                <div className="h-5 w-px bg-gray-200 dark:bg-zinc-700 shrink-0" />
+                <button type="button" disabled={actionBusy} onClick={() => openCreateFolderDialog()} className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}>
+                  <FolderPlus className="w-4 h-4" /> Nova pasta
+                </button>
+                <button type="button" disabled={actionBusy} onClick={() => openCreateFileDialog()} className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}>
+                  <FilePlus className="w-4 h-4" /> Novo ficheiro
+                </button>
+                <label
+                  className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
+                  title="Upload"
+                >
+                  <input type="file" multiple className="hidden" disabled={loading}
+                    onChange={async (e) => {
+                      const selectedFiles = Array.from(e.target.files || []);
+                      if (!selectedFiles.length) return;
+                      e.target.value = '';
+                      const originalError = error;
+                      try {
+                        let successCount = 0; let failCount = 0;
+                        for (let i = 0; i < selectedFiles.length; i++) {
+                          const file = selectedFiles[i];
+                          if (files.some(f => f.name === file.name)) {
+                            alert(`O ficheiro "${file.name}" já existe. Elimine-o ou mude o nome antes de fazer upload.`);
+                            continue;
+                          }
+                          const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
+                          setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
+                          await new Promise<void>((resolve) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.upload.addEventListener('progress', (ev) => {
+                              if (ev.lengthComputable) setUploadProgress(prev => prev ? { ...prev, progress: Math.round((ev.loaded / ev.total) * 100), processing: Math.round((ev.loaded / ev.total) * 100) === 100 } : null);
+                            });
+                            xhr.onload = () => { if (xhr.status === 200) { try { const d = JSON.parse(xhr.responseText); if (d.success) successCount++; else { console.error(d.error); failCount++; } } catch { failCount++; } } else { failCount++; } resolve(); };
+                            xhr.onerror = () => { failCount++; resolve(); };
+                            xhr.open('POST', '/api/upload-native');
+                            xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
+                            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                            xhr.send(file);
+                          });
+                        }
+                        setUploadProgress(null); refreshList();
+                        if (failCount > 0) alert(`Upload: ${successCount} sucesso(s), ${failCount} falha(s).`);
+                      } catch (err: any) { setError(err.message || 'Erro no upload'); setTimeout(() => setError(originalError), 5000); }
+                      e.target.value = '';
+                    }}
+                  />
+                  <UploadCloud className="w-4 h-4" /> Upload
+                </label>
+              </>
+            ) : null}
+          </div>
+
+          {/* DIREITA: botões de acção sobre ficheiros seleccionados */}
+          <div className="flex items-center gap-2 overflow-x-auto shrink-0">
             <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}><Edit className="w-4 h-4" /> Editar</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleCopy} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Copy className="w-4 h-4" /> Copiar</button>
             <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}><Layers className="w-4 h-4" /> Duplicar</button>
@@ -8839,121 +8897,14 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Download className="w-4 h-4" /> Transferir</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Archive className="w-4 h-4" /> Compactar</button>
             <div className="relative shrink-0">
-              <button
-                type="button"
-                disabled={!hasFileSelection || actionBusy}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  if (moreMenuAnchor) setMoreMenuAnchor(null)
-                  else setMoreMenuAnchor(rect)
-                }}
-                className={fmToolBtnClass(hasFileSelection, actionBusy)}
-              >
+              <button type="button" disabled={!hasFileSelection || actionBusy}
+                onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (moreMenuAnchor) setMoreMenuAnchor(null); else setMoreMenuAnchor(rect); }}
+                className={fmToolBtnClass(hasFileSelection, actionBusy)}>
                 <MoreVertical className="w-4 h-4" /> Mais
               </button>
             </div>
           </div>
 
-          {selectedDomain ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                disabled={actionBusy}
-                onClick={() => openCreateFolderDialog()}
-                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
-              >
-                <FolderPlus className="w-4 h-4" /> Nova pasta
-              </button>
-              <button
-                type="button"
-                disabled={actionBusy}
-                onClick={() => openCreateFileDialog()}
-                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
-              >
-                <FilePlus className="w-4 h-4" /> Novo ficheiro
-              </button>
-              <label
-                className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
-                title="Upload"
-              >
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  disabled={loading}
-                  onChange={async (e) => {
-                    const selectedFiles = Array.from(e.target.files || []);
-                    if (!selectedFiles.length) return;
-
-                    e.target.value = '';
-                    const originalError = error;
-
-                    try {
-                      let successCount = 0;
-                      let failCount = 0;
-
-                      for (let i = 0; i < selectedFiles.length; i++) {
-                        const file = selectedFiles[i];
-
-                        if (files.some(f => f.name === file.name)) {
-                          alert(`O ficheiro "${file.name}" já existe na pasta actual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
-                          continue;
-                        }
-
-                        const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
-
-                        setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
-
-                        await new Promise<void>((resolve) => {
-                          const xhr = new XMLHttpRequest();
-                          xhr.upload.addEventListener('progress', (ev) => {
-                            if (ev.lengthComputable) {
-                              const pct = Math.round((ev.loaded / ev.total) * 100);
-                              setUploadProgress(prev => prev ? { ...prev, progress: pct, processing: pct === 100 } : null);
-                            }
-                          });
-
-                          xhr.onload = () => {
-                            if (xhr.status === 200) {
-                              try {
-                                const data = JSON.parse(xhr.responseText);
-                                if (data.success) successCount++;
-                                else { console.error(data.error); failCount++; }
-                              } catch {
-                                failCount++;
-                              }
-                            } else {
-                              failCount++;
-                            }
-                            resolve();
-                          };
-
-                          xhr.onerror = () => { failCount++; resolve(); };
-                          xhr.open('POST', '/api/upload-native');
-                          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
-                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                          xhr.send(file);
-                        });
-                      }
-
-                      setUploadProgress(null);
-                      refreshList();
-
-                      if (failCount > 0) {
-                        alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
-                      }
-                    } catch (err: any) {
-                      setError(err.message || 'Erro ao processar uploads');
-                      setTimeout(() => setError(originalError), 5000);
-                    }
-                    e.target.value = '';
-                  }}
-                />
-                <UploadCloud className="w-4 h-4" />
-                Upload
-              </label>
-            </div>
-          ) : null}
         </div>
       </div>
 
