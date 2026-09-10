@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { requirePanelBootstrapAccess, type PanelBootstrapAuthSuccess } from '@/lib/panel-api-auth';
-import { listMirrorWebsitesForClientUser } from '@/lib/panel-mirror-read';
+import { listHostingDomainsForClient } from '@/lib/hosting-resolver';
 
 type DomainAccessFailure = { error: NextResponse };
 
@@ -33,7 +33,7 @@ export async function requireDaAccessForDomain(
   const clean = domain.trim().toLowerCase();
   if (!clean) return { error: ACCESS_DENIED() };
 
-  const sites = await listMirrorWebsitesForClientUser(auth.user.id, auth.user.email);
+  const sites = await listHostingDomainsForClient(auth.user.id, auth.user.email);
   if (sites.some((s) => (s.domain || '').toLowerCase() === clean)) return auth;
 
   // CORRIGIDO (15 ago 2026): dono só via hospedagem (mirror DA/Hestia) deixava

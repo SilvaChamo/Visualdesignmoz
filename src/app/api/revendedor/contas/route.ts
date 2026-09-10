@@ -33,8 +33,8 @@ import {
   isMirrorStale,
   listMirrorPackages,
   listMirrorUsers,
-  listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
+import { listHostingDomains, listHostingUsers, listHostingPackages } from '@/lib/hosting-resolver';
 import type { PanelUser } from '@/lib/directadmin-hosting-api';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -128,19 +128,24 @@ export async function GET(req: NextRequest) {
     const { ctx, mirrorScope } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const { searchParams } = new URL(req.url);
-    if (searchParams.get('sync') === '1') {
-      scheduleDaSync(0);
-    } else {
-      const stale = await isMirrorStale(120);
-      if (stale) scheduleDaSync(0);
+    const hestiaOnly = resolveNewAccountProvider() === 'hestia';
+    if (!hestiaOnly) {
+      if (searchParams.get('sync') === '1') {
+        scheduleDaSync(0);
+      } else {
+        const stale = await isMirrorStale(120);
+        if (stale) scheduleDaSync(0);
+      }
     }
 
     const daUsername = ctx.daUsername;
     const [rawUsers, sites] = await Promise.all([
-      listMirrorUsers(mirrorScope),
-      listMirrorWebsites(mirrorScope),
+      hestiaOnly ? listHostingUsers() : listMirrorUsers(mirrorScope),
+      listHostingDomains(mirrorScope),
     ]);
-    const packages = await listMirrorPackages(mirrorScope, sites);
+    const packages = hestiaOnly
+      ? await listHostingPackages()
+      : await listMirrorPackages(mirrorScope, sites);
 
     const users = filterResellerUsers(rawUsers, daUsername);
     const visiblePackages = excludeResellerSelfPackages(packages, sites, daUsername);

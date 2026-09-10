@@ -4,7 +4,7 @@ import { TAB_BACKUP_ITEMS } from '@/lib/da-backup-types'
 import type { BackupItemId, BackupTab } from '@/lib/da-backup-types'
 import { pruneBucketBackups, uploadBackupFileToBucket } from '@/lib/panel-backup-bucket'
 import { computeNextRunAt } from '@/lib/panel-backup-schedule-utils'
-import { listMirrorWebsites } from '@/lib/panel-mirror-read'
+import { listHostingDomains } from '@/lib/hosting-resolver'
 import type { MirrorScope } from '@/lib/panel-mirror-read'
 
 export async function runBackupScheduleRow(
@@ -21,7 +21,7 @@ export async function runBackupScheduleRow(
   if (row.domain_mode === 'selected' && Array.isArray(row.domains) && row.domains.length) {
     domains = row.domains.map(String)
   } else {
-    const sites = await listMirrorWebsites(mirrorScope || { role: 'admin' })
+    const sites = await listHostingDomains(mirrorScope || { role: 'admin' })
     domains = [...new Set(sites.filter((s) => s.owner?.toLowerCase() === owner).map((s) => s.domain))]
   }
 

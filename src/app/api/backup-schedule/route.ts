@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth'
-import { listMirrorWebsites } from '@/lib/panel-mirror-read'
+import { listHostingDomains, resolveHostingOwner } from '@/lib/hosting-resolver'
 import { resolvePanelDaContext } from '@/lib/panel-api-context'
 import { PANEL_SLUG } from '@/lib/panel-tenant'
 import { TAB_BACKUP_ITEMS } from '@/lib/da-backup-types'
@@ -48,14 +48,12 @@ async function resolveOwnerForDomain(domain: string, auth?: PanelStaffAuthSucces
   if (!domain) return null
   const session = auth ?? await requireAdminResellerOrManager()
   if ('error' in session) return null
-  const { mirrorScope } = await resolvePanelDaContext(session)
-  const sites = await listMirrorWebsites(mirrorScope)
-  return sites.find((s) => s.domain === domain)?.owner?.toLowerCase() || null
+  return (await resolveHostingOwner(domain)).toLowerCase()
 }
 
 async function ownersInScope(auth: PanelStaffAuthSuccess): Promise<string[]> {
   const { mirrorScope } = await resolvePanelDaContext(auth)
-  const sites = await listMirrorWebsites(mirrorScope)
+  const sites = await listHostingDomains(mirrorScope)
   return [...new Set(sites.map((s) => s.owner?.toLowerCase()).filter(Boolean) as string[])]
 }
 

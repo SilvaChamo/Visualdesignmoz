@@ -3,7 +3,7 @@
  */
 
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
-import { listMirrorWebsitesForClientUser } from '@/lib/panel-mirror-read';
+import { listHostingDomainsForClient } from '@/lib/hosting-resolver';
 import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
 import type { UserProductsSummary } from '@/lib/user-products';
 import { createClient } from '@supabase/supabase-js';
@@ -29,7 +29,7 @@ export async function resolveClientPanelContext(
   userId: string,
   email?: string | null,
 ): Promise<ClientPanelContext> {
-  const sites = await listMirrorWebsitesForClientUser(userId, email);
+  const sites = await listHostingDomainsForClient(userId, email);
   const products = await fetchProductsForUserId(userId);
 
   const sb = getDaSyncAdmin();

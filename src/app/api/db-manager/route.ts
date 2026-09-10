@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
-import { listMirrorWebsites } from '@/lib/panel-mirror-read';
-import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import { resolveHostingOwner } from '@/lib/hosting-resolver';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
@@ -38,10 +37,7 @@ async function resolveOwner(domain: string): Promise<string | null> {
   if (!domain) return null;
   const auth = await requireAdminResellerOrManager();
   if ('error' in auth) return null;
-  const { mirrorScope } = await resolvePanelDaContext(auth);
-  const sites = await listMirrorWebsites(mirrorScope);
-  const site = sites.find((s) => s.domain === domain);
-  return site?.owner?.toLowerCase() || null;
+  return (await resolveHostingOwner(domain)).toLowerCase();
 }
 
 export async function GET(req: NextRequest) {
