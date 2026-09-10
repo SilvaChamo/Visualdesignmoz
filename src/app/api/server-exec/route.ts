@@ -590,14 +590,13 @@ export async function POST(req: NextRequest) {
     if (action === 'listHestiaWebDomains') {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
-      const { listWebDomains } = await import('@/lib/hestia-adapter');
-      const hestiaUser = (process.env.HESTIA_USER || 'vdadmin').trim();
-      const domains = await listWebDomains(hestiaUser);
+      const { listHostingDomains } = await import('@/lib/hosting-resolver');
+      const domains = await listHostingDomains();
       const result = domains.map((d) => ({
         domain: d.domain,
-        owner: hestiaUser,
-        path: `/home/${hestiaUser}/web/${d.domain}/public_html`,
-        suspended: d.suspended,
+        owner: d.owner,
+        path: `/home/${d.owner}/web/${d.domain}/public_html`,
+        suspended: d.state === 'suspended',
       }));
       return NextResponse.json({ success: true, data: result });
     }

@@ -8253,9 +8253,9 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const { setChrome } = useAdminSectionChrome()
 
   // ── Hestia direct: domínios reais sem mirror ────────────────────────────
-  // Quando o servidor usa Hestia, lemos a lista de domínios directamente da
-  // API Hestia (v-list-web-domains) em vez do espelho panel_sites. Isto
-  // garante caminhos correctos (/home/vdadmin/web/…) e owners actualizados.
+  // Quando o servidor usa Hestia, lemos a lista de domínios de TODAS as contas
+  // (vdadmin, aamihe, …) em vez do espelho panel_sites. O caminho é
+  // /home/<dono>/web/<domínio>/public_html — não só vdadmin.
   const [hestiaDomains, setHestiaDomains] = useState<{ domain: string; owner: string; path: string }[]>([])
   const [hestiaLoaded, setHestiaLoaded] = useState(false)
 

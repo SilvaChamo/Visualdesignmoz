@@ -20,16 +20,92 @@ const IS_HESTIA =
 
 const HESTIA_USER = (process.env.HESTIA_USER || 'vdadmin').trim();
 
+type HestiaDomainRow = {
+  username: string;
+  domain: string;
+  ip: string;
+  suspended: boolean;
+  sslEnabled: boolean;
+  diskUsedMb: number;
+  bandwidthUsedMb: number;
+};
+
+let hestiaDomainCache: { at: number; rows: HestiaDomainRow[] } | null = null;
+const HESTIA_DOMAIN_CACHE_MS = 60_000;
+
+/**
+ * União de v-list-web-domains para todos os utilizadores Hestia (vdadmin +
+ * contas cliente como aamihe). listUsers() exclui HESTIA_USER de propósito
+ * (não é uma conta de cliente no sync) — aqui voltamos a incluí-lo.
+ */
+async function listAllHestiaDomainRows(): Promise<HestiaDomainRow[]> {
+  if (hestiaDomainCache && Date.now() - hestiaDomainCache.at < HESTIA_DOMAIN_CACHE_MS) {
+    return hestiaDomainCache.rows;
+  }
+
+  const { listUsers, listWebDomains } = await import('@/lib/hestia-adapter');
+  const users = await listUsers();
+  const usernames = [
+    HESTIA_USER,
+    ...users.map((u) => u.username).filter((name) => name !== HESTIA_USER),
+  ];
+
+  const rows: HestiaDomainRow[] = [];
+  await Promise.all(
+    usernames.map(async (username) => {
+      try {
+        const domains = await listWebDomains(username);
+        for (const d of domains) {
+          rows.push({
+            username,
+            domain: d.domain,
+            ip: d.ip,
+            suspended: d.suspended,
+            sslEnabled: d.sslEnabled,
+            diskUsedMb: d.diskUsedMb,
+            bandwidthUsedMb: d.bandwidthUsedMb,
+          });
+        }
+      } catch (err) {
+        console.warn(`[hosting-resolver] v-list-web-domains(${username}) falhou:`, err);
+      }
+    }),
+  );
+
+  hestiaDomainCache = { at: Date.now(), rows };
+  return rows;
+}
+
+function hestiaPublicHtml(owner: string, domain: string): string {
+  return `/home/${owner}/web/${domain}/public_html`;
+}
+
 // ── Owner ────────────────────────────────────────────────────────────────────
 
 /**
  * Devolve o utilizador do servidor responsável pelo domínio.
  *
- * Hestia (Contabo): todos os sites estão sob HESTIA_USER — sem mirror.
+ * Hestia (Contabo): dono real da conta (vdadmin, aamihe, …) — sem mirror.
  * DA    (Hetzner):  consulta o espelho panel_sites no Supabase.
  */
 export async function resolveHostingOwner(domain: string): Promise<string> {
-  if (IS_HESTIA) return HESTIA_USER;
+  if (IS_HESTIA) {
+    const needle = domain.trim().toLowerCase();
+    if (!needle) return HESTIA_USER;
+
+    const rows = await listAllHestiaDomainRows();
+    const hit = rows.find((r) => r.domain.toLowerCase() === needle);
+    if (hit) return hit.username;
+
+    try {
+      const { resolveDomainSitePath } = await import('@/lib/wp-cli-server');
+      const site = await resolveDomainSitePath(needle);
+      if (site?.user) return site.user;
+    } catch {
+      /* filesystem lookup é fallback — se o SSH falhar, usa HESTIA_USER */
+    }
+    return HESTIA_USER;
+  }
 
   const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
   return (await getMirrorSiteOwner(domain)) ?? 'admin';
@@ -40,19 +116,22 @@ export async function resolveHostingOwner(domain: string): Promise<string> {
 /**
  * Lista todos os domínios web activos no servidor.
  *
- * Hestia (Contabo): chama v-list-web-domains directamente — sem mirror.
+ * Hestia (Contabo): une v-list-web-domains de todas as contas — sem mirror.
  * DA    (Hetzner):  lê panel_sites (Supabase mirror).
  */
 export async function listHostingDomains(
   mirrorScope?: { role: 'admin' | 'reseller'; userId?: string; daUsername?: string },
 ): Promise<PanelWebsite[]> {
   if (IS_HESTIA) {
-    const { listWebDomains } = await import('@/lib/hestia-adapter');
-    const domains = await listWebDomains(HESTIA_USER);
-    return domains.map((d) => ({
+    const rows = await listAllHestiaDomainRows();
+    const scoped =
+      mirrorScope?.role === 'reseller' && mirrorScope.daUsername
+        ? rows.filter((r) => r.username === mirrorScope.daUsername)
+        : rows;
+    return scoped.map((d) => ({
       id: d.domain,
       domain: d.domain,
-      owner: HESTIA_USER,
+      owner: d.username,
       state: d.suspended ? 'suspended' : 'active',
       status: d.suspended ? 'suspended' : 'active',
       ssl: d.sslEnabled,
@@ -126,12 +205,20 @@ export async function listHostingSubdomains(parentDomain: string): Promise<{ dom
 /**
  * Devolve o caminho absoluto do public_html de um domínio no servidor.
  *
- * Hestia: /home/HESTIA_USER/web/DOMAIN/public_html
+ * Hestia: /home/OWNER/web/DOMAIN/public_html  (OWNER = conta real, não só vdadmin)
  * DA:     /home/OWNER/domains/DOMAIN/public_html
  */
 export async function resolveHostingPath(domain: string): Promise<string> {
   if (IS_HESTIA) {
-    return `/home/${HESTIA_USER}/web/${domain}/public_html`;
+    try {
+      const { resolveDomainSitePath } = await import('@/lib/wp-cli-server');
+      const site = await resolveDomainSitePath(domain);
+      if (site?.path) return site.path;
+    } catch {
+      /* cai no caminho construído a partir do dono */
+    }
+    const owner = await resolveHostingOwner(domain);
+    return hestiaPublicHtml(owner, domain);
   }
 
   const owner = await resolveHostingOwner(domain);

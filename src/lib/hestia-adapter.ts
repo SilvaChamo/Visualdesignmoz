@@ -226,16 +226,16 @@ export type HestiaWebDomain = {
 /** Lista os domínios/websites reais de uma conta Hestia (equivalente a `da.listWebsites()` filtrado por dono). */
 export async function listWebDomains(username: string): Promise<HestiaWebDomain[]> {
   const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-web-domains', [username]);
-  // Nunca devolver [] num falhanço — o único chamador (hestia-sync-engine.ts)
-  // usa uma lista vazia como "esta conta não tem sites nenhuns" para apagar
-  // do espelho tudo o que já lá estava (fora do período de graça). Uma falha
-  // transitória a falar com a Hestia (timeout, blip de rede) parecia
-  // sucesso-com-zero-sites, e apagava o entrecamposblog.com (e potencialmente
-  // todos os outros sites do vdadmin) do painel sem o domínio ter mudado
-  // nada a sério no servidor. Confirmado ao vivo 1 set — reapareceu depois
-  // de repor à mão e desapareceu outra vez pouco depois, sem eu ter tocado
-  // em nada. Atirar o erro deixa o try/catch já existente no chamador tratar
-  // isto como "sync falhou para esta conta", nunca como "conta sem sites".
+  // Nunca devolver [] num falhanço — o hestia-sync-engine usa uma lista vazia
+  // como "esta conta não tem sites nenhuns" para apagar do espelho tudo o que
+  // já lá estava (fora do período de graça). Uma falha transitória a falar com
+  // a Hestia (timeout, blip de rede) parecia sucesso-com-zero-sites, e apagava
+  // o entrecamposblog.com (e potencialmente todos os outros sites do vdadmin)
+  // do painel sem o domínio ter mudado nada a sério no servidor. Confirmado ao
+  // vivo 1 set — reapareceu depois de repor à mão e desapareceu outra vez pouco
+  // depois, sem eu ter tocado em nada. Atirar o erro deixa o try/catch já
+  // existente no chamador (sync e hosting-resolver) tratar isto como "esta
+  // conta falhou", nunca como "conta sem sites".
   if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios no Hestia');
   return Object.entries(result.data).map(([domain, d]) => ({
     domain,

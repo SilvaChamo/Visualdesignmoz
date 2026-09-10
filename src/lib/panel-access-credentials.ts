@@ -36,15 +36,23 @@ export function decryptStoredPassword(encoded: string): string {
       return encoded;
     }
   }
-  const [, ivB64, tagB64, dataB64] = encoded.split(':');
-  const key = encryptionKey();
-  const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
-  decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
-  const dec = Buffer.concat([
-    decipher.update(Buffer.from(dataB64, 'base64')),
-    decipher.final(),
-  ]);
-  return dec.toString('utf8');
+  try {
+    const [, ivB64, tagB64, dataB64] = encoded.split(':');
+    if (!ivB64 || !tagB64 || !dataB64) return '';
+    const key = encryptionKey();
+    const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+    const dec = Buffer.concat([
+      decipher.update(Buffer.from(dataB64, 'base64')),
+      decipher.final(),
+    ]);
+    return dec.toString('utf8');
+  } catch {
+    // AES-GCM recusa o ciphertext se a chave for outra (ex.: PANEL_CREDENTIALS_SECRET
+    // diferente entre Hetzner e Contabo) ou se o blob estiver corrompido. Nunca
+    // rebentar o GET — o chamador trata string vazia como "sem password guardada".
+    return '';
+  }
 }
 
 /** Guarda credenciais exportáveis (espelho ProvisualCorporate — password recuperável para download). */
