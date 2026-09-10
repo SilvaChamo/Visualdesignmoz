@@ -124,6 +124,9 @@ export async function fetchPanelBootstrap(options?: {
     success?: boolean;
     error?: string;
     sites?: DirectAdminWebsite[];
+    allSites?: DirectAdminWebsite[];
+    hostingOwner?: string | null;
+    hestiaOnly?: boolean;
     users?: DirectAdminUser[];
     packages?: DirectAdminPackage[];
     accounts?: PanelBootstrapAccount[];
@@ -139,6 +142,9 @@ export async function fetchPanelBootstrap(options?: {
 
   const data: PanelBootstrapData = {
     sites: Array.isArray(json.sites) ? json.sites : [],
+    allSites: Array.isArray(json.allSites) ? json.allSites : undefined,
+    hostingOwner: json.hostingOwner ?? null,
+    hestiaOnly: Boolean(json.hestiaOnly),
     users: Array.isArray(json.users) ? json.users : [],
     packages: Array.isArray(json.packages) ? json.packages : [],
     accounts: Array.isArray(json.accounts) ? json.accounts : [],

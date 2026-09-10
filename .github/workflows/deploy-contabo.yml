@@ -186,7 +186,16 @@ jobs:
             # Apagar antes de reconstruir elimina essa classe de corrupção.
             rm -rf .next
             npm run build
-            pm2 restart visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" -- start -- -p 3002
+            # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel)
+            # ficava a escutar a 3002. O restart desta app falhava com
+            # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público
+            # continuava a servir o código velho — abas de domínios vazias.
+            pm2 delete visualdesign-panel || true
+            pm2 stop visualdesign-site-teste || true
+            sleep 2
+            fuser -k 3002/tcp || true
+            sleep 1
+            pm2 start visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" --cwd /opt/visualdesign-site-teste -- start -- -p 3002
             pm2 save
 
             # Desde que este site passou a ter base de dados própria (separada do
