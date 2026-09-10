@@ -135,6 +135,12 @@ const HESTIA_SUPPORTED_ACTIONS = new Set([
   'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
   'issueSSL', 'listDatabases', 'createDatabase', 'deleteDatabase',
   'listDNS', 'createDNSZone', 'deleteDNSZone',
+  // Gestão de contas (utilizadores)
+  'createUser', 'modifyUser', 'deleteUser',
+  // Subdomínios (no Hestia são domínios completos da mesma conta)
+  'createSubdomain', 'deleteSubdomain',
+  // Backups
+  'listBackups', 'createBackup',
 ]);
 
 async function tryHestiaAction(
@@ -144,9 +150,11 @@ async function tryHestiaAction(
 ): Promise<{ handled: false } | { handled: true; response: NextResponse }> {
   if (!HESTIA_SUPPORTED_ACTIONS.has(action)) return { handled: false };
 
+  const hestiaAdmin = (process.env.HESTIA_USER || 'vdadmin').trim();
   const domainParam = String(params.domain || '');
   const emailParam = String(params.email || '');
   const domain = domainParam || (emailParam.includes('@') ? emailParam.split('@')[1] : '');
+
   if (action === 'listWebsites') {
     const rows = await listMirrorWebsites(mirrorScope);
     return {
@@ -154,9 +162,120 @@ async function tryHestiaAction(
       response: NextResponse.json({ success: true, data: rows }),
     };
   }
+
+  // ── Acções que NÃO precisam de lookupde domínio ─────────────────────────
+  // Gestão de utilizadores (createUser, modifyUser, deleteUser)
+  if (action === 'createUser') {
+    try {
+      const username = String(params.userName || params.username || '').trim().toLowerCase();
+      const password = String(params.password || '');
+      const email = String(params.email || '');
+      const packageName = String(params.packageName || 'default').trim();
+      const domainToAdd = String(params.domain || '').trim();
+      if (!username || !password) {
+        return { handled: true, response: NextResponse.json({ success: false, error: 'Utilizador e senha são obrigatórios.' }, { status: 400 }) };
+      }
+      let result: { ok: boolean; error?: string };
+      if (domainToAdd) {
+        result = await hestiaAdapter.createAccount({ username, password, email, domain: domainToAdd, packageName });
+      } else {
+        result = await hestiaAdapter.createUserOnly({ username, password, email, packageName });
+      }
+      if (result.ok) {
+        const { scheduleHestiaSync } = await import('@/lib/hestia-sync-engine');
+        scheduleHestiaSync(2000);
+      }
+      return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro ao criar utilizador' }, { status: 500 }) };
+    }
+  }
+
+  if (action === 'modifyUser') {
+    try {
+      const username = String(params.userName || params.username || '').trim().toLowerCase();
+      if (!username) return { handled: true, response: NextResponse.json({ success: false, error: 'Utilizador obrigatório.' }, { status: 400 }) };
+      let result: { ok: boolean; error?: string } = { ok: true };
+      if (params.password) {
+        result = await hestiaAdapter.changePassword(username, String(params.password));
+      }
+      if (result.ok && params.suspended !== undefined) {
+        result = params.suspended
+          ? await hestiaAdapter.suspendAccount(username)
+          : await hestiaAdapter.unsuspendAccount(username);
+      }
+      if (result.ok && params.packageName) {
+        result = await hestiaAdapter.changeUserPackage(username, String(params.packageName));
+      }
+      return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro ao modificar utilizador' }, { status: 500 }) };
+    }
+  }
+
+  if (action === 'deleteUser') {
+    try {
+      const username = String(params.userName || params.username || '').trim().toLowerCase();
+      if (!username) return { handled: true, response: NextResponse.json({ success: false, error: 'Utilizador obrigatório.' }, { status: 400 }) };
+      const result = await hestiaAdapter.deleteAccount(username);
+      if (result.ok) {
+        const { scheduleHestiaSync } = await import('@/lib/hestia-sync-engine');
+        scheduleHestiaSync(2000);
+      }
+      return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro ao apagar utilizador' }, { status: 500 }) };
+    }
+  }
+
+  if (action === 'listBackups') {
+    try {
+      const username = String(params.userName || params.username || hestiaAdmin).trim().toLowerCase();
+      const rows = await hestiaAdapter.listBackups(username);
+      return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro ao listar backups' }, { status: 500 }) };
+    }
+  }
+
+  if (action === 'createBackup') {
+    try {
+      const username = String(params.userName || params.username || hestiaAdmin).trim().toLowerCase();
+      const result = await hestiaAdapter.createBackup(username);
+      return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro ao criar backup' }, { status: 500 }) };
+    }
+  }
+
+  // ── Acções baseadas em domínio (precisam do owner a partir do espelho) ───
   if (!domain) return { handled: false };
 
   const sites = await listMirrorWebsites(mirrorScope);
+
+  // Subdomínios: o domínio de lookup é o domínio PAI (ex.: "entrecamposblog.com")
+  // e o subdomínio é um campo separado (ex.: "blog" → "blog.entrecamposblog.com")
+  if (action === 'createSubdomain' || action === 'deleteSubdomain') {
+    try {
+      const site = sites.find((s) => s.domain?.toLowerCase() === domain.toLowerCase());
+      const subOwner = site?.owner?.toLowerCase() || hestiaAdmin;
+      const sub = String(params.subdomain || '').trim().toLowerCase().replace(/\.$/, '');
+      if (!sub) return { handled: true, response: NextResponse.json({ success: false, error: 'Subdomínio obrigatório.' }, { status: 400 }) };
+      // No Hestia, subdomínios são domínios completos da mesma conta
+      const fullSub = sub.includes('.') ? sub : `${sub}.${domain}`;
+      const result = action === 'createSubdomain'
+        ? await hestiaAdapter.addWebDomain(subOwner, fullSub)
+        : await hestiaAdapter.deleteWebDomain(subOwner, fullSub);
+      if (result.ok) {
+        const { scheduleHestiaSync } = await import('@/lib/hestia-sync-engine');
+        scheduleHestiaSync(2000);
+      }
+      return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
+    } catch (err: unknown) {
+      return { handled: true, response: NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro com subdomínio' }, { status: 500 }) };
+    }
+  }
+
   const site = sites.find((s) => s.domain?.toLowerCase() === domain.toLowerCase());
   const owner = site?.owner?.toLowerCase();
   if (!owner) return { handled: false };

@@ -105,11 +105,31 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Rotas de API: cada uma já se autentica sozinha (assinatura de webhook,
-  // CRON_SECRET, ou o seu próprio cliente Supabase). O resultado de
-  // supabase.auth.getUser() nunca é usado para /api/* — só gastava uma
-  // chamada de rede à Supabase em CADA pedido de API (checkout, webhooks,
-  // cron, painel admin), sem nenhum benefício.
+  // Rotas de API do painel (/api/da, /api/server-exec, /api/admin/*):
+  // refrescar a sessão Supabase para que tokens expirados sejam renovados
+  // *antes* de o Route Handler os validar. Sem isto, o JWT expira após ~1h
+  // e chamadas mutativas (createEmail, createUser, etc.) devolvem 401 "Não
+  // autorizado" mesmo que o utilizador ainda veja dados em cache. A função
+  // updateSession actualiza os cookies no request (para o Route Handler
+  // receber tokens frescos) e na response (para o browser actualizar o
+  // cookie). Rotas de webhook/cron com CRON_SECRET ou assinatura própria
+  // não passam por aqui (a lista é explícita) — evita latência extra em
+  // chamadas que não usam sessão Supabase.
+  if (
+    pathname === '/api/da' ||
+    pathname.startsWith('/api/da/') ||
+    pathname === '/api/server-exec' ||
+    pathname.startsWith('/api/server-exec/') ||
+    pathname.startsWith('/api/admin/') ||
+    pathname === '/api/panel/bootstrap' ||
+    pathname.startsWith('/api/panel/')
+  ) {
+    const { updateSession } = await import('@/utils/supabase/middleware')
+    return updateSession(request)
+  }
+
+  // Restantes rotas de API: cada uma já se autentica sozinha (webhook,
+  // CRON_SECRET, etc.) — não precisam do refresh de sessão.
   if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }

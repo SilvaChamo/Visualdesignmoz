@@ -8265,6 +8265,9 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
     const owner = getOwner(targetDomain)
+    // Tentativa inicial com o caminho DirectAdmin — se falhar, o loadFiles
+    // chama resolveSitePath para descobrir o caminho real (Hestia usa
+    // /home/USER/web/DOMAIN/public_html em vez de .../domains/...).
     return `/home/${owner}/domains/${targetDomain}/public_html`
   }
 

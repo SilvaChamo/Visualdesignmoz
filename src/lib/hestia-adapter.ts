@@ -559,3 +559,68 @@ export async function changeFtpPassword(
   const result = await hestiaCall('v-change-web-domain-ftp-password', [username, domain, ftpUser, password]);
   return { ok: result.ok, error: result.error };
 }
+
+// ---------------------------------------------------------------------------
+// Backups — v-backup-user cria um backup completo da conta (web, mail, BD,
+// cron, userdir) e coloca-o em /backup. v-list-user-backups devolve a lista
+// de backups existentes para uma conta.
+// ---------------------------------------------------------------------------
+
+export type HestiaBackup = {
+  filename: string;
+  type: string;
+  size: number; // MB
+  web: string[];
+  mail: string[];
+  db: string[];
+  date: string;
+  time: string;
+  runtime: number; // segundos
+};
+
+export async function listBackups(username: string): Promise<HestiaBackup[]> {
+  const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-user-backups', [username]);
+  if (!result.ok) return [];
+  return Object.entries(result.data).map(([filename, b]) => ({
+    filename,
+    type: b.TYPE || 'local',
+    size: parseHestiaUsage(b.SIZE),
+    web: (b.WEB || '').split(',').map((s) => s.trim()).filter(Boolean),
+    mail: (b.MAIL || '').split(',').map((s) => s.trim()).filter(Boolean),
+    db: (b.DB || '').split(',').map((s) => s.trim()).filter(Boolean),
+    date: b.DATE || '',
+    time: b.TIME || '',
+    runtime: Number(b.RUNTIME) || 0,
+  }));
+}
+
+/** Cria um backup da conta. Pode demorar vários segundos para contas com muitos dados. */
+export async function createBackup(username: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await hestiaCall('v-backup-user', [username]);
+  return { ok: result.ok, error: result.error };
+}
+
+// ---------------------------------------------------------------------------
+// Gestão de utilizadores (contas de cliente) — criação, alteração de package,
+// mudança de password, suspend/unsuspend, delete.
+// ---------------------------------------------------------------------------
+
+/** Cria só o utilizador (sem domínio associado). Para criar com domínio usar
+ * createAccount() que chama v-add-user + v-add-web-domain em sequência. */
+export async function createUserOnly(input: {
+  username: string;
+  password: string;
+  email: string;
+  packageName?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const result = await hestiaCall('v-add-user', [
+    input.username,
+    input.password,
+    input.email,
+    input.packageName || 'default',
+  ]);
+  if (!result.ok && !isAlreadyExistsError(result.error)) {
+    return { ok: false, error: result.error };
+  }
+  return { ok: true };
+}
