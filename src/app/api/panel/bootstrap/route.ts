@@ -21,6 +21,32 @@ import {
 } from '@/lib/panel-mirror-read';
 import { applyAdminPanelScope } from '@/lib/panel-scope-filter';
 import { createClient } from '@supabase/supabase-js';
+import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
+
+// ── Hestia directo — sem mirror ─────────────────────────────────────────────
+// Quando o servidor usa Hestia (Contabo), lemos os sites directamente da API
+// Hestia em vez do espelho panel_sites (que foi sincronizado de um servidor
+// DirectAdmin diferente e tem owners/caminhos errados para Hestia).
+const IS_HESTIA = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+const HESTIA_USER = (process.env.HESTIA_USER || 'vdadmin').trim();
+
+async function loadHestiaWebsites(): Promise<PanelWebsite[]> {
+  const { listWebDomains } = await import('@/lib/hestia-adapter');
+  const domains = await listWebDomains(HESTIA_USER);
+  return domains.map((d) => ({
+    id: d.domain,
+    domain: d.domain,
+    owner: HESTIA_USER,
+    state: d.suspended ? 'suspended' : 'active',
+    status: d.suspended ? 'suspended' : 'active',
+    ssl: d.sslEnabled,
+    sslStatus: d.sslEnabled ? 'Secure' : 'No SSL',
+    ip: d.ip,
+    diskUsage: d.diskUsedMb,
+    bandwidth: d.bandwidthUsedMb,
+    isActive: !d.suspended,
+  } satisfies PanelWebsite));
+}
 
 async function loadResellerTier(userId: string): Promise<ResellerTier | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -131,43 +157,64 @@ export async function GET(req: NextRequest) {
     const isReseller = effectiveRole === 'reseller';
     const resellerTier = isReseller ? await loadResellerTier(auth.user.id) : null;
 
-    const [sites, users, accountsResult, resellerContext] = await Promise.all([
-      listMirrorWebsites(mirrorScope),
-      listMirrorUsers(mirrorScope),
-      isReseller
-        ? Promise.resolve({ accounts: [], counts: {} as Record<string, number> })
-        : listBootstrapPanelAccounts(staffAuth.user.role === 'admin' ? 'admin' : 'reseller'),
-      isReseller ? resolveResellerPanelContext({ user: staffAuth.user }) : Promise.resolve(null),
-    ]);
+    // ── Hestia directo ─────────────────────────────────────────────────────
+    // No deploy Contabo (IS_HESTIA=true) lemos directamente da API Hestia.
+    // Os utilizadores e pacotes não existem no Hestia com o mesmo conceito
+    // do DA, por isso devolvemos listas vazias para esses — o painel já trata
+    // graciosamente ausência de utilizadores/pacotes.
+    let sitesOut: PanelWebsite[];
+    let usersOut: Awaited<ReturnType<typeof listMirrorUsers>>;
+    let packagesOut: Awaited<ReturnType<typeof listMirrorPackages>>;
+    let accountsResult: { accounts: Awaited<ReturnType<typeof listBootstrapPanelAccounts>>['accounts']; counts: Record<string, number> };
+    let resellerContext: Awaited<ReturnType<typeof resolveResellerPanelContext>> | null;
 
-    let sitesOut = sites;
-    let usersOut = users;
-    let packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
-
-    if (resellerContext?.daUsername) {
-      const owner = resellerContext.daUsername;
-      sitesOut = sitesOut.filter((s) => !s.owner || s.owner === owner);
-      usersOut = usersOut.filter(
-        (u) => u.userName === owner || u.parentUsername === owner,
-      );
-      packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
-    } else if (!isReseller) {
-      const scoped = applyAdminPanelScope({
-        sites: sitesOut,
-        users: usersOut,
-        packages: packagesOut,
-      });
-      sitesOut = scoped.sites;
-    }
-
-    if (!sitesOut.length && !usersOut.length) {
-      scheduleDaSync(0);
+    if (IS_HESTIA) {
+      // Fonte única: API Hestia (v-list-web-domains)
+      sitesOut = await loadHestiaWebsites();
+      usersOut = [];
+      packagesOut = [];
+      accountsResult = { accounts: [], counts: {} };
+      resellerContext = null;
     } else {
-      void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
-        isMirrorStale(120).then((stale) => {
-          if (stale) scheduleDaSync(0);
-        }),
-      );
+      const [sites, users, acctRes, resCon] = await Promise.all([
+        listMirrorWebsites(mirrorScope),
+        listMirrorUsers(mirrorScope),
+        isReseller
+          ? Promise.resolve({ accounts: [], counts: {} as Record<string, number> })
+          : listBootstrapPanelAccounts(staffAuth.user.role === 'admin' ? 'admin' : 'reseller'),
+        isReseller ? resolveResellerPanelContext({ user: staffAuth.user }) : Promise.resolve(null),
+      ]);
+      sitesOut = sites;
+      usersOut = users;
+      accountsResult = acctRes;
+      resellerContext = resCon;
+      packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
+
+      if (resellerContext?.daUsername) {
+        const owner = resellerContext.daUsername;
+        sitesOut = sitesOut.filter((s) => !s.owner || s.owner === owner);
+        usersOut = usersOut.filter(
+          (u) => u.userName === owner || u.parentUsername === owner,
+        );
+        packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
+      } else if (!isReseller) {
+        const scoped = applyAdminPanelScope({
+          sites: sitesOut,
+          users: usersOut,
+          packages: packagesOut,
+        });
+        sitesOut = scoped.sites;
+      }
+
+      if (!sitesOut.length && !usersOut.length) {
+        scheduleDaSync(0);
+      } else {
+        void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
+          isMirrorStale(120).then((stale) => {
+            if (stale) scheduleDaSync(0);
+          }),
+        );
+      }
     }
 
     const capabilities = resolvePanelCapabilities({
@@ -178,11 +225,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       sites: sitesOut,
-      allSites: isReseller ? sitesOut : sites,
-      hostingOwner: (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia'
-        ? (process.env.HESTIA_USER || 'vdadmin').trim()
-        : null,
-      hestiaOnly: (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia',
+      allSites: sitesOut,   // No Hestia não há distinção admin/reseller; no DA era isReseller ? sitesOut : sites
+      hostingOwner: IS_HESTIA ? HESTIA_USER : null,
+      hestiaOnly: IS_HESTIA,
       users: usersOut,
       packages: packagesOut,
       accounts: accountsResult.accounts,
@@ -196,7 +241,7 @@ export async function GET(req: NextRequest) {
         capabilities,
         resellerTier,
       },
-      meta: { source: 'mirror', lastSyncedAt },
+      meta: { source: IS_HESTIA ? 'hestia-direct' : 'mirror', lastSyncedAt },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erro interno';

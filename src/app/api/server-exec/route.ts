@@ -585,6 +585,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { ssl } });
     }
 
+    // ── Hestia direct: lista de domínios web sem mirror ──────────────────────
+    if (action === 'listHestiaWebDomains') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+      const { listWebDomains } = await import('@/lib/hestia-adapter');
+      const hestiaUser = (process.env.HESTIA_USER || 'vdadmin').trim();
+      const domains = await listWebDomains(hestiaUser);
+      const result = domains.map((d) => ({
+        domain: d.domain,
+        owner: hestiaUser,
+        path: `/home/${hestiaUser}/web/${d.domain}/public_html`,
+        suspended: d.suspended,
+      }));
+      return NextResponse.json({ success: true, data: result });
+    }
+
     if (action === 'resolveSitePath') {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;

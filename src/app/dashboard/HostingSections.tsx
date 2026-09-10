@@ -8259,22 +8259,49 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const toolbarSentinelRef = useRef<HTMLDivElement>(null)
   const { setChrome } = useAdminSectionChrome()
 
-  const getOwner = (targetDomain: string) =>
-    sites.find(s => s.domain === targetDomain)?.owner || 'admin'
+  // ── Hestia direct: domínios reais sem mirror ────────────────────────────
+  // Quando o servidor usa Hestia, lemos a lista de domínios directamente da
+  // API Hestia (v-list-web-domains) em vez do espelho panel_sites. Isto
+  // garante caminhos correctos (/home/vdadmin/web/…) e owners actualizados.
+  const [hestiaDomains, setHestiaDomains] = useState<{ domain: string; owner: string; path: string }[]>([])
+  const [hestiaLoaded, setHestiaLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!isActive) return
+    fetch('/api/server-exec', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listHestiaWebDomains', params: {} }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data) && d.data.length > 0) {
+          setHestiaDomains(d.data)
+        }
+      })
+      .catch(() => { /* fallback para mirror */ })
+      .finally(() => setHestiaLoaded(true))
+  }, [isActive])
+
+  // Usa Hestia directamente quando disponível; caso contrário, volta ao mirror
+  const allDomains: { domain: string }[] = hestiaDomains.length > 0
+    ? hestiaDomains
+    : sites
 
   const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
-    const owner = getOwner(targetDomain)
-    // O loadFiles detecta automaticamente se a pasta não existe (404)
-    // e chama resolveSitePath para obter o caminho correcto do servidor
-    // (Hestia: /home/USER/web/DOMAIN/public_html; DA: /home/USER/domains/...).
-    // Tentativa inicial usa o padrão DirectAdmin; para contas Hestia o
-    // resolveSitePath corrige antes da segunda tentativa.
+    // Hestia directo — caminho exacto sem mirror
+    const hd = hestiaDomains.find(d => d.domain === targetDomain)
+    if (hd) return hd.path
+    // Fallback DA/mirror
+    const owner = sites.find(s => s.domain === targetDomain)?.owner || 'admin'
     return `/home/${owner}/domains/${targetDomain}/public_html`
   }
 
   useEffect(() => {
-    const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
+    // Aguarda o carregamento da lista Hestia antes de navegar
+    if (!hestiaLoaded) return
+    const d = domain || allDomains.find(s => !s.domain.includes('contaboserver'))?.domain || ''
     if (!d) return
 
     let cancelled = false
@@ -8286,7 +8313,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
 
     return () => { cancelled = true }
-  }, [domain, sites])
+  }, [domain, hestiaLoaded])
 
   useEffect(() => {
     if (!path) return
@@ -8366,7 +8393,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   }
 
   const navigateTo = (folder: string) => {
-    const root = siteRoot || `/home/${getOwner(selectedDomain)}/domains/${selectedDomain}/public_html`
+    const root = siteRoot || resolveRoot(selectedDomain)
     if (folder === '..') {
       if (path === root) return
       const parts = path.split('/').filter(Boolean)
@@ -8383,7 +8410,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const joinPath = (name: string) => `${path.replace(/\/$/, '')}/${name}`
 
-  const resolveTrashPath = () => `/home/${getOwner(selectedDomain)}/.trash`
+  const resolveTrashPath = () => {
+    const hd = hestiaDomains.find(d => d.domain === selectedDomain)
+    const owner = hd ? hd.owner : (sites.find(s => s.domain === selectedDomain)?.owner || 'admin')
+    return `/home/${owner}/.trash`
+  }
 
   const sortedFiles = useMemo(() => sortFmDirectoryEntries(files as FmDirEntry[]), [files])
 
@@ -8739,7 +8770,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setMoreMenuAnchor(null)
   }
 
-  const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
+  const siteDomainKey = useMemo(() => allDomains.map((s) => s.domain).join(','), [allDomains])
 
   useEffect(() => {
     if (!isActive) return
@@ -8830,7 +8861,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
               className={`${panelField} shrink-0 min-w-[10rem] max-w-[14rem]`}
             >
               <option value="" disabled>Seleccione o domínio…</option>
-              {sites.map((s) => (
+              {allDomains.map((s) => (
                 <option key={s.domain} value={s.domain}>{s.domain}</option>
               ))}
             </select>
@@ -9014,9 +9045,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                   {error}
                 </td></tr>
               ) : loading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                  <Spinner className="w-8 h-8 mx-auto mb-3" />
-                  <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
+                <tr><td colSpan={5} className="py-16">
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <Spinner className="w-8 h-8" />
+                    <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório…</span>
+                  </div>
                 </td></tr>
               ) : sortedFiles.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
