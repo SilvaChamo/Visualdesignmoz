@@ -293,7 +293,12 @@ async function tryHestiaAction(
         break;
       }
       case 'listEmails': {
-        const rows = await hestiaAdapter.listMailAccounts(owner, domain);
+        let rows = await hestiaAdapter.listMailAccounts(owner, domain);
+        // Fallback: se o dono não for o utilizador Hestia principal (ex.: domínio do DA/Hetzner
+        // que tem mail configurado no Hestia sob vdadmin), tentar com hestiaAdmin directamente.
+        if (rows.length === 0 && owner !== hestiaAdmin) {
+          rows = await hestiaAdapter.listMailAccounts(hestiaAdmin, domain);
+        }
         data = rows.map((r) => ({
           id: `${r.account}@${domain}`,
           email: `${r.account}@${domain}`,
@@ -314,29 +319,48 @@ async function tryHestiaAction(
             response: NextResponse.json({ success: false, error: 'Utilizador e senha são obrigatórios.' }, { status: 400 }),
           };
         }
-        data = await hestiaAdapter.addMailAccount(owner, domain, userName, password, quotaMb);
+        // Tenta com o dono do mirror; se falhar (ex.: dono é 'admin' do DA, não existe no Hestia),
+        // retenta com o utilizador principal do Hestia (vdadmin).
+        let createResult = await hestiaAdapter.addMailAccount(owner, domain, userName, password, quotaMb);
+        if (!createResult.ok && owner !== hestiaAdmin) {
+          createResult = await hestiaAdapter.addMailAccount(hestiaAdmin, domain, userName, password, quotaMb);
+        }
+        data = createResult;
         await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
       case 'deleteEmail': {
         const userName = String(params.userName || emailParam.split('@')[0] || '');
-        data = await hestiaAdapter.deleteMailAccount(owner, domain, userName);
+        let deleteResult = await hestiaAdapter.deleteMailAccount(owner, domain, userName);
+        if (!deleteResult.ok && owner !== hestiaAdmin) {
+          deleteResult = await hestiaAdapter.deleteMailAccount(hestiaAdmin, domain, userName);
+        }
+        data = deleteResult;
         await deleteEmailContasRow(`${userName}@${domain}`);
         break;
       }
       case 'suspendEmail':
       case 'unsuspendEmail': {
         const userName = emailParam.split('@')[0] || '';
-        data =
-          action === 'suspendEmail'
-            ? await hestiaAdapter.suspendMailAccount(owner, domain, userName)
-            : await hestiaAdapter.unsuspendMailAccount(owner, domain, userName);
+        let suspendResult = action === 'suspendEmail'
+          ? await hestiaAdapter.suspendMailAccount(owner, domain, userName)
+          : await hestiaAdapter.unsuspendMailAccount(owner, domain, userName);
+        if (!suspendResult.ok && owner !== hestiaAdmin) {
+          suspendResult = action === 'suspendEmail'
+            ? await hestiaAdapter.suspendMailAccount(hestiaAdmin, domain, userName)
+            : await hestiaAdapter.unsuspendMailAccount(hestiaAdmin, domain, userName);
+        }
+        data = suspendResult;
         break;
       }
       case 'changeEmailPassword': {
         const userName = emailParam.split('@')[0] || '';
         const password = String(params.password || '');
-        data = await hestiaAdapter.changeMailAccountPassword(owner, domain, userName, password);
+        let passResult = await hestiaAdapter.changeMailAccountPassword(owner, domain, userName, password);
+        if (!passResult.ok && owner !== hestiaAdmin) {
+          passResult = await hestiaAdapter.changeMailAccountPassword(hestiaAdmin, domain, userName, password);
+        }
+        data = passResult;
         await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
@@ -349,7 +373,11 @@ async function tryHestiaAction(
             response: NextResponse.json({ success: false, error: 'Quota inválida.' }, { status: 400 }),
           };
         }
-        data = await hestiaAdapter.changeMailAccountQuota(owner, domain, userName, quotaMb);
+        let quotaResult = await hestiaAdapter.changeMailAccountQuota(owner, domain, userName, quotaMb);
+        if (!quotaResult.ok && owner !== hestiaAdmin) {
+          quotaResult = await hestiaAdapter.changeMailAccountQuota(hestiaAdmin, domain, userName, quotaMb);
+        }
+        data = quotaResult;
         break;
       }
       case 'listFTPAccounts': {

@@ -115,6 +115,11 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     ],
   },
   {
+    id: 'file-manager',
+    label: 'Gestão de Ficheiros',
+    isNewMenu: true,
+  },
+  {
     id: 'nov-sistema',
     label: 'Sistema',
     isNewMenu: true,
