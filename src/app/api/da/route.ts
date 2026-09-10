@@ -334,6 +334,102 @@ async function tryHestiaAction(
   return { handled: true, response: NextResponse.json({ success: true, data }) };
 }
 
+/** Leituras do painel na Contabo: o browser continua a chamar `/api/da`,
+ * mas a fonte é o espelho Hestia/Supabase — nunca 501 numa listagem. */
+async function tryHestiaMirrorRead(
+  action: string,
+  params: Record<string, unknown>,
+  mirrorScope: Parameters<typeof listMirrorWebsites>[0],
+): Promise<{ handled: false } | { handled: true; response: NextResponse }> {
+  const domain = String(params.domain || '');
+  try {
+    switch (action) {
+      case 'listWebsites':
+        return {
+          handled: true,
+          response: NextResponse.json({ success: true, data: await listMirrorWebsites(mirrorScope) }),
+        };
+      case 'listUsers':
+        return {
+          handled: true,
+          response: NextResponse.json({ success: true, data: await listMirrorUsers(mirrorScope) }),
+        };
+      case 'listPackages':
+        return {
+          handled: true,
+          response: NextResponse.json({ success: true, data: await listMirrorPackages(mirrorScope) }),
+        };
+      case 'listSubdomains':
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: await listMirrorSubdomains(domain, mirrorScope),
+          }),
+        };
+      case 'listEmails':
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: await listMirrorEmails(domain, mirrorScope),
+          }),
+        };
+      case 'listFTPAccounts':
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: await listMirrorFtp(domain, mirrorScope),
+          }),
+        };
+      case 'listDatabases':
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: await listMirrorDatabases(domain, mirrorScope),
+          }),
+        };
+      case 'listDNS':
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: await listMirrorDns(domain, mirrorScope),
+          }),
+        };
+      case 'serverStats': {
+        const [sites, users] = await Promise.all([
+          listMirrorWebsites(mirrorScope),
+          listMirrorUsers(mirrorScope),
+        ]);
+        return {
+          handled: true,
+          response: NextResponse.json({
+            success: true,
+            data: {
+              sites: sites.length,
+              users: users.length,
+              load: 0,
+              bandwidth: 0,
+              disk: 0,
+            },
+          }),
+        };
+      }
+      default:
+        return { handled: false };
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro interno (espelho Hestia)';
+    return {
+      handled: true,
+      response: NextResponse.json({ success: false, error: message }, { status: 500 }),
+    };
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -352,6 +448,8 @@ export async function POST(req: NextRequest) {
     if (hestiaResult.handled) return hestiaResult.response;
 
       if (!daApi) {
+        const mirrorRead = await tryHestiaMirrorRead(action, params, mirrorScope);
+        if (mirrorRead.handled) return mirrorRead.response;
         return NextResponse.json({ success: false, error: `Acção "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
       }
 
@@ -719,11 +817,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'action é obrigatória' }, { status: 400 });
     }
 
-    if (!daApi && action === 'listWebsites') {
-      const rows = await listMirrorWebsites(mirrorScope);
-      return NextResponse.json({ success: true, data: rows });
-    }
     if (!daApi) {
+      if (action === 'listWebsites') {
+        return NextResponse.json({ success: true, data: await listMirrorWebsites(mirrorScope) });
+      }
+      if (action === 'listUsers') {
+        return NextResponse.json({ success: true, data: await listMirrorUsers(mirrorScope) });
+      }
+      if (action === 'listPackages') {
+        return NextResponse.json({ success: true, data: await listMirrorPackages(mirrorScope) });
+      }
       return NextResponse.json({ success: false, error: `GET action "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
     }
 
