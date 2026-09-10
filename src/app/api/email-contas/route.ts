@@ -50,10 +50,10 @@ async function userCanAccessMailboxPassword(
   // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
   if (effectiveRole === 'reseller' && accountDomain) {
     const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store')
-    const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read')
+    const { resolveHostingOwner } = await import('@/lib/hosting-resolver')
     const username = await resolveOwnerDaUsername(sessionUser.id)
     if (username) {
-      const owner = await getMirrorSiteOwner(accountDomain)
+      const owner = await resolveHostingOwner(accountDomain)
       if (owner === username) return true
     }
   }
@@ -171,8 +171,8 @@ export async function GET(req: NextRequest) {
         console.error('📧 [API] Erro ao buscar todas as contas:', error);
       } else if (allContas && allContas.length > 0) {
         if (impersonating) {
-          const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
-          const sites = await listMirrorWebsites({ role: 'reseller', daUsername: impersonating });
+          const { listHostingDomains } = await import('@/lib/hosting-resolver');
+          const sites = await listHostingDomains({ role: 'reseller', daUsername: impersonating });
           const ownedDomains = new Set(sites.map((s) => s.domain.toLowerCase()));
           allEmails = allContas.filter((c: any) => {
             const domain = String(c.email || '').split('@')[1]?.toLowerCase();
@@ -190,8 +190,10 @@ export async function GET(req: NextRequest) {
     // de string do domínio do próprio email de login (isso deixava a conta de
     // um tenant aparecer no selector de outro só por partilharem sufixo de domínio).
     else {
-      const { listMirrorWebsitesForClientUser } = await import('@/lib/panel-mirror-read');
-      const ownedSites = await listMirrorWebsitesForClientUser(session.user.id, session.user?.email || undefined);
+      // No Contabo (Hestia), listHostingDomains devolve domínios Hestia directos;
+      // no Hetzner, usa mirror. Para clientes, o filtro por userId é feito depois.
+      const { listHostingDomains } = await import('@/lib/hosting-resolver');
+      const ownedSites = await listHostingDomains();
       const ownedDomains = new Set(ownedSites.map((s) => s.domain.toLowerCase()));
 
       const { data: activeContas, error } = await supabaseAdmin
@@ -551,10 +553,9 @@ export async function PATCH(req: NextRequest) {
     // sem isto, um email já no Hestia (ex.: oshercollective) tentava sempre
     // mudar a password via credenciais DA, que já não existem para essa
     // conta (ver [[project_da-to-hestia-migration]]).
-    const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read')
-    const { getProviderByUsername } = await import('@/lib/hosting-provider')
-    const mailOwner = await getMirrorSiteOwner(domain)
-    const mailProvider = mailOwner ? await getProviderByUsername(mailOwner) : 'directadmin'
+    const { resolveHostingOwner, hostingProvider } = await import('@/lib/hosting-resolver')
+    const mailOwner = await resolveHostingOwner(domain)
+    const mailProvider = hostingProvider === 'hestia' ? 'hestia' : 'directadmin'
 
     if (mailProvider === 'hestia') {
       if (!mailOwner) {

@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
     // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
     if (!canAccess && effectiveRole === 'reseller' && accountDomain) {
       const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store');
-      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+      const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
       const username = await resolveOwnerDaUsername(session.user.id);
       if (username) {
-        const owner = await getMirrorSiteOwner(accountDomain);
+        const owner = await resolveHostingOwner(accountDomain);
         canAccess = owner === username;
       }
     }

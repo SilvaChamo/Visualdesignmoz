@@ -10,7 +10,8 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { requireDaAccessForDomain } from '@/lib/panel-domain-access';
 import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
-import { getMirrorSiteOwner, isMirrorStale, listMirrorDns } from '@/lib/panel-mirror-read';
+import { isMirrorStale, listMirrorDns } from '@/lib/panel-mirror-read';
+import { resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
 import { deleteMirrorDnsById, upsertMirrorDns } from '@/lib/panel-mirror-write';
 import { resolveDirectAdminCredentials, resolveDirectAdminCredentialsForDomainOwner } from '@/lib/directadmin-credentials';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
@@ -28,19 +29,23 @@ async function canAccessDomain(
   domain: string,
   impersonatingDaUsername?: string | null,
 ): Promise<boolean> {
-  if (impersonatingDaUsername) {
-    const owner = await getMirrorSiteOwner(domain);
-    return owner === impersonatingDaUsername;
-  }
   if (role === 'admin') return true;
+  // resolveHostingOwner: no Contabo devolve HESTIA_USER; no Hetzner consulta mirror
+  const owner = await resolveHostingOwner(domain);
+  if (impersonatingDaUsername) return owner === impersonatingDaUsername;
   const username = await resolveOwnerDaUsername(userId);
-  if (!username) return false;
-  const owner = await getMirrorSiteOwner(domain);
-  return owner === username;
+  return username ? owner === username : false;
 }
 
 /** Dono real do domínio + onde vive hoje — despacha DNS para o adaptador certo. */
 async function resolveDnsProvider(domain: string): Promise<{ provider: 'hestia' | 'directadmin'; owner: string | null }> {
+  // No Contabo, DNS é sempre Hestia — sem mirror
+  if (_hostingProvider === 'hestia') {
+    const owner = await resolveHostingOwner(domain);
+    return { provider: 'hestia', owner };
+  }
+  // Hetzner: consulta mirror para saber se DA ou Hestia
+  const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
   const owner = await getMirrorSiteOwner(domain);
   if (!owner) return { provider: 'directadmin', owner: null };
   return { provider: await getProviderByUsername(owner), owner };

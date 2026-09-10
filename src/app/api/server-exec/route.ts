@@ -610,32 +610,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'domain é obrigatório' }, { status: 400 });
       }
 
-      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
-      const mirrorOwner = await getMirrorSiteOwner(targetDomain);
-      if (mirrorOwner) {
-        if (auth.user.role !== 'admin' && !(await assertPathsOwnedByCaller([`/home/${mirrorOwner}/`], auth.user.id))) {
+      // Usa hosting-resolver: no Contabo vai directo ao Hestia, no Hetzner usa mirror
+      const { resolveHostingOwner, resolveHostingPath } = await import('@/lib/hosting-resolver');
+      const owner = await resolveHostingOwner(targetDomain);
+      const resolvedPath = await resolveHostingPath(targetDomain);
+
+      if (owner) {
+        if (auth.user.role !== 'admin' && !(await assertPathsOwnedByCaller([`/home/${owner}/`], auth.user.id))) {
           return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
         }
-        // O Hestia guarda os sites em .../web/<dominio>/public_html, nao
-        // .../domains/<dominio>/public_html (so o DirectAdmin usa esse padrao)
-        // — sem isto, o Gestor de Ficheiros apontava sempre para uma pasta
-        // inexistente numa conta Hestia.
-        const { getProviderByUsername } = await import('@/lib/hosting-provider');
-        const siteProvider = await getProviderByUsername(mirrorOwner);
-        const rootDir = siteProvider === 'hestia' ? 'web' : 'domains';
-        // No deploy Hestia (Contabo), o owner do mirror pode ser 'admin' (domínio do DA/Hetzner
-        // que não existe no Hestia). Nesse caso, tentar o utilizador Hestia principal (vdadmin).
-        const hestiaAdmin = (process.env.HESTIA_USER || 'vdadmin').trim();
-        const effectiveOwner =
-          siteProvider === 'hestia' && mirrorOwner !== hestiaAdmin
-            ? hestiaAdmin
-            : mirrorOwner;
         return NextResponse.json({
           success: true,
-          data: {
-            path: `/home/${effectiveOwner}/${rootDir}/${targetDomain}/public_html`,
-            owner: effectiveOwner,
-          },
+          data: { path: resolvedPath, owner },
         });
       }
 
