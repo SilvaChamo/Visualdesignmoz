@@ -174,6 +174,38 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const syncNow = searchParams.get('sync') === '1';
 
+    const hestiaOnly = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+    if (hestiaOnly) {
+      const { listHostingDomains, listHostingUsers, listHostingPackages } = await import('@/lib/hosting-resolver');
+      const [sites, users, packages] = await Promise.all([
+        listHostingDomains(),
+        listHostingUsers(),
+        listHostingPackages(),
+      ]);
+      const packageMap = new Map(packages.map((p) => [p.packageName, p]));
+      const allPackages = Array.from(packageMap.values()).sort((a, b) =>
+        a.packageName.localeCompare(b.packageName),
+      );
+      const enriched = enrichPanelAccounts(users, sites, packageMap).map((row) => ({
+        ...row,
+        packageName: row.packageName || '—',
+        quotaLabel:
+          row.quotaLabel ||
+          (row.packageName && row.packageName !== '—'
+            ? formatPackageSize(resolvePackageMeta(packageMap, row.packageName)?.diskSpace)
+            : '—'),
+      }));
+      return NextResponse.json({
+        success: true,
+        users: enriched,
+        packages: allPackages,
+        resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
+        osherReseller: OSHER_RESELLER,
+        osherCredsOk: false,
+        meta: { source: 'hestia-direct', lastSyncedAt: new Date().toISOString(), stale: false },
+      });
+    }
+
     const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
     let [users, sites, packages] = await Promise.all([
       listMirrorUsers(mirrorScope),

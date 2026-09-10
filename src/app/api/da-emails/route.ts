@@ -4,7 +4,7 @@ import { requireAdminResellerOrManager, type PanelStaffAuthSuccess } from '@/lib
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { loadResellerCredentialsByDaUsername, resolveOwnerDaUsername } from '@/lib/da-credential-store';
 import { resolveDirectAdminCredentials, type DirectAdminCredentials } from '@/lib/directadmin-credentials';
-import { getMirrorSiteOwner } from '@/lib/panel-mirror-read';
+import { resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { encryptStoredPassword } from '@/lib/panel-access-credentials';
 import { getProviderByUsername } from '@/lib/hosting-provider';
@@ -24,24 +24,21 @@ async function canAccessDomain(
   impersonatingDaUsername?: string | null,
 ): Promise<boolean> {
   if (impersonatingDaUsername) {
-    const owner = await getMirrorSiteOwner(domain);
+    const owner = await resolveHostingOwner(domain);
     return owner === impersonatingDaUsername;
   }
   if (role === 'admin') return true;
   const username = await resolveOwnerDaUsername(userId);
   if (!username) return false;
-  const owner = await getMirrorSiteOwner(domain);
+  const owner = await resolveHostingOwner(domain);
   return owner === username;
 }
 
-/** Dono real do domínio no servidor + onde ele vive hoje (Hestia ou
- * DirectAdmin) — despacha as operações de email para o adaptador certo.
- * Só o "list" de todos os domínios (`action=domains`, admin) continua
- * DirectAdmin-only por agora; contas Hestia ainda não entram nesse resumo. */
 async function resolveEmailProvider(
   domain: string,
 ): Promise<{ provider: 'hestia' | 'directadmin'; owner: string | null }> {
-  const owner = await getMirrorSiteOwner(domain);
+  const owner = await resolveHostingOwner(domain);
+  if (_hostingProvider === 'hestia') return { provider: 'hestia', owner };
   if (!owner) return { provider: 'directadmin', owner: null };
   return { provider: await getProviderByUsername(owner), owner };
 }

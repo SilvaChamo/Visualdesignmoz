@@ -16,7 +16,6 @@ import { ensureBrevoDomainAuth, triggerBrevoDomainVerification, deleteBrevoDomai
 import { getServerHost } from '@/lib/server-config';
 import { upsertMirrorDns, deleteMirrorSite } from '@/lib/panel-mirror-write';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
-import { getMirrorSiteOwner } from '@/lib/panel-mirror-read';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import {
   findCloudflareZoneId,
@@ -36,7 +35,9 @@ function sleep(ms: number) {
 async function resolveFallbackHostingProvider(
   domain: string,
 ): Promise<{ provider: 'hestia' | 'directadmin'; owner: string | null }> {
-  const owner = await getMirrorSiteOwner(domain);
+  const { resolveHostingOwner, hostingProvider } = await import('@/lib/hosting-resolver');
+  const owner = await resolveHostingOwner(domain);
+  if (hostingProvider === 'hestia') return { provider: 'hestia', owner };
   if (!owner) return { provider: 'directadmin', owner: null };
   return { provider: await getProviderByUsername(owner), owner };
 }

@@ -1,6 +1,5 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getProfileForAuthUser } from '@/lib/profile-db';
-import { listMirrorUsers, listMirrorWebsites } from '@/lib/panel-mirror-read';
 import { buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter';
 import type { WpInstallInfo } from '@/lib/wp-cli-server';
 
@@ -44,18 +43,18 @@ export async function resolvePanelWpScope(
 
 /** Domínios permitidos no espelho — admin exclui sites de revendedores. */
 export async function getAllowedPanelWpDomains(scope: PanelWpScope): Promise<Set<string>> {
-  const mirrorScope =
+  const { listHostingDomains, listHostingUsers, hostingProvider } = await import('@/lib/hosting-resolver');
+  const sites = await listHostingDomains(
     scope.role === 'admin'
-      ? ({ role: 'admin' as const })
-      : ({ role: 'reseller' as const, userId: scope.userId, daUsername: scope.daUsername });
+      ? { role: 'admin' }
+      : { role: 'reseller', userId: scope.userId, daUsername: scope.daUsername },
+  );
 
-  const sites = await listMirrorWebsites(mirrorScope);
-
-  if (scope.role === 'reseller') {
+  if (scope.role === 'reseller' || hostingProvider === 'hestia') {
     return new Set(sites.map((s) => (s.domain || '').toLowerCase()).filter(Boolean));
   }
 
-  const users = await listMirrorUsers({ role: 'admin' });
+  const users = await listHostingUsers();
   const resellerTree = buildResellerOwnerTree(users);
 
   return new Set(

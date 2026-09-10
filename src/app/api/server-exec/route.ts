@@ -229,9 +229,10 @@ async function readFromMirror(
   mirrorScope: Parameters<typeof listMirrorWebsites>[0],
   params: Record<string, unknown>,
 ) {
+  const { listHostingDomains } = await import('@/lib/hosting-resolver');
   switch (action) {
     case 'listWebsites':
-      return listMirrorWebsites(mirrorScope);
+      return listHostingDomains(mirrorScope);
     case 'listUsers':
       return listMirrorUsers(mirrorScope);
     case 'listPackages':

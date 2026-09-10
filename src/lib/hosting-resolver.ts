@@ -13,7 +13,7 @@
  * getMirrorSiteOwner / listMirrorWebsites.
  */
 
-import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
+import type { PanelPackage, PanelUser, PanelWebsite } from '@/lib/directadmin-hosting-api';
 
 const IS_HESTIA =
   (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
@@ -68,6 +68,59 @@ export async function listHostingDomains(
   return listMirrorWebsites(mirrorScope ?? { role: 'admin' });
 }
 
+export async function listHostingUsers(): Promise<PanelUser[]> {
+  if (IS_HESTIA) {
+    const { listUsers } = await import('@/lib/hestia-adapter');
+    const users = await listUsers();
+    return users.map((u) => ({
+      id: u.username,
+      userName: u.username,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      packageName: u.packageName,
+      suspended: u.suspended,
+      status: u.suspended ? 'suspended' : 'active',
+      existsOnServer: true,
+      diskUsedMb: u.diskUsedMb,
+      bandwidthUsedMb: u.bandwidthUsedMb,
+      quotaLimitMb: u.diskLimitMb,
+      bandwidthLimitMb: u.bandwidthLimitMb,
+      hostingProvider: 'hestia',
+    } satisfies PanelUser));
+  }
+
+  const { listMirrorUsers } = await import('@/lib/panel-mirror-read');
+  return listMirrorUsers({ role: 'admin' });
+}
+
+export async function listHostingPackages(): Promise<PanelPackage[]> {
+  if (IS_HESTIA) {
+    const { listPackages } = await import('@/lib/hestia-adapter');
+    const packages = await listPackages();
+    return packages.map((p) => ({
+      id: p.packageName,
+      packageName: p.packageName,
+    } satisfies PanelPackage));
+  }
+
+  const { listMirrorPackages } = await import('@/lib/panel-mirror-read');
+  return listMirrorPackages({ role: 'admin' });
+}
+
+export async function listHostingSubdomains(parentDomain: string): Promise<{ domain: string; subdomain: string }[]> {
+  const parent = parentDomain.trim().toLowerCase();
+  if (!parent) return [];
+  const sites = await listHostingDomains();
+  const suffix = `.${parent}`;
+  return sites
+    .filter((s) => s.domain.toLowerCase().endsWith(suffix))
+    .map((s) => ({
+      domain: parent,
+      subdomain: s.domain.slice(0, -suffix.length),
+    }));
+}
+
 // ── Caminho no sistema de ficheiros ──────────────────────────────────────────
 
 /**
@@ -83,6 +136,26 @@ export async function resolveHostingPath(domain: string): Promise<string> {
 
   const owner = await resolveHostingOwner(domain);
   return `/home/${owner}/domains/${domain}/public_html`;
+}
+
+// ── Domínios por cliente ──────────────────────────────────────────────────────
+
+/**
+ * Lista os domínios associados a um utilizador cliente específico.
+ *
+ * A propriedade do domínio por cliente é sempre registada no Supabase
+ * (panel_sites / panel_users) tanto no deploy Hestia como no DA — esta
+ * função centraliza esse acesso para desacoplar os chamadores de
+ * panel-mirror-read.
+ */
+export async function listHostingDomainsForClient(
+  userId: string,
+  email?: string | null,
+): Promise<PanelWebsite[]> {
+  // panel_sites é mantido em sincronia pelo sync engine (Hestia ou DA),
+  // por isso esta consulta funciona correctamente em ambos os deployments.
+  const { listMirrorWebsitesForClientUser } = await import('@/lib/panel-mirror-read');
+  return listMirrorWebsitesForClientUser(userId, email);
 }
 
 // ── Metadados ─────────────────────────────────────────────────────────────────

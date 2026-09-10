@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getMirrorSiteOwner } from '@/lib/panel-mirror-read';
 import {
   getProviderByUsername,
   suspendHostingAccount,
@@ -48,7 +47,7 @@ export async function suspendOverdueHostingAccounts(admin: SupabaseClient): Prom
     result.attempted += 1;
 
     try {
-      let owner = (await getMirrorSiteOwner(domain))?.trim() || '';
+      let owner = (await (await import('@/lib/hosting-resolver')).resolveHostingOwner(domain))?.trim() || '';
       if (!owner && row.user_id) {
         const { data: profile } = await admin
           .from('profiles')

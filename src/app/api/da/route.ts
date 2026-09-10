@@ -14,6 +14,7 @@ import {
   listMirrorUsers,
   listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
+import { listHostingDomains, resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
 import { resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
@@ -135,12 +136,10 @@ const HESTIA_SUPPORTED_ACTIONS = new Set([
   'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
   'issueSSL', 'listDatabases', 'createDatabase', 'deleteDatabase',
   'listDNS', 'createDNSZone', 'deleteDNSZone',
-  // Gestão de contas (utilizadores)
   'createUser', 'modifyUser', 'deleteUser',
-  // Subdomínios (no Hestia são domínios completos da mesma conta)
-  'createSubdomain', 'deleteSubdomain',
-  // Backups
+  'createSubdomain', 'deleteSubdomain', 'listSubdomains',
   'listBackups', 'createBackup',
+  'listUsers', 'listPackages',
 ]);
 
 async function tryHestiaAction(
@@ -156,7 +155,35 @@ async function tryHestiaAction(
   const domain = domainParam || (emailParam.includes('@') ? emailParam.split('@')[1] : '');
 
   if (action === 'listWebsites') {
-    const rows = await listMirrorWebsites(mirrorScope);
+    const rows = await listHostingDomains(mirrorScope);
+    return {
+      handled: true,
+      response: NextResponse.json({ success: true, data: rows }),
+    };
+  }
+
+  if (action === 'listUsers') {
+    const { listHostingUsers } = await import('@/lib/hosting-resolver');
+    const rows = await listHostingUsers();
+    return {
+      handled: true,
+      response: NextResponse.json({ success: true, data: rows }),
+    };
+  }
+
+  if (action === 'listPackages') {
+    const { listHostingPackages } = await import('@/lib/hosting-resolver');
+    const rows = await listHostingPackages();
+    return {
+      handled: true,
+      response: NextResponse.json({ success: true, data: rows }),
+    };
+  }
+
+  if (action === 'listSubdomains') {
+    const { listHostingSubdomains } = await import('@/lib/hosting-resolver');
+    const parent = String(params.domain || '');
+    const rows = await listHostingSubdomains(parent);
     return {
       handled: true,
       response: NextResponse.json({ success: true, data: rows }),
@@ -248,17 +275,19 @@ async function tryHestiaAction(
     }
   }
 
-  // ── Acções baseadas em domínio (precisam do owner a partir do espelho) ───
+  // ── Acções baseadas em domínio (owner via hosting-resolver) ─────────────
   if (!domain) return { handled: false };
 
-  const sites = await listMirrorWebsites(mirrorScope);
+  // No Contabo: resolveHostingOwner devolve HESTIA_USER directamente (sem mirror)
+  // No Hetzner: consulta panel_sites
+  const domainOwner = await resolveHostingOwner(domain);
+  const sites = await listHostingDomains(mirrorScope);
 
   // Subdomínios: o domínio de lookup é o domínio PAI (ex.: "entrecamposblog.com")
   // e o subdomínio é um campo separado (ex.: "blog" → "blog.entrecamposblog.com")
   if (action === 'createSubdomain' || action === 'deleteSubdomain') {
     try {
-      const site = sites.find((s) => s.domain?.toLowerCase() === domain.toLowerCase());
-      const subOwner = site?.owner?.toLowerCase() || hestiaAdmin;
+      const subOwner = domainOwner || hestiaAdmin;
       const sub = String(params.subdomain || '').trim().toLowerCase().replace(/\.$/, '');
       if (!sub) return { handled: true, response: NextResponse.json({ success: false, error: 'Subdomínio obrigatório.' }, { status: 400 }) };
       // No Hestia, subdomínios são domínios completos da mesma conta
@@ -277,10 +306,10 @@ async function tryHestiaAction(
   }
 
   const site = sites.find((s) => s.domain?.toLowerCase() === domain.toLowerCase());
-  const owner = site?.owner?.toLowerCase();
+  const owner = (domainOwner || site?.owner)?.toLowerCase();
   if (!owner) return { handled: false };
 
-  const provider = await getProviderByUsername(owner);
+  const provider = _hostingProvider === 'hestia' ? 'hestia' : await getProviderByUsername(owner);
   if (provider !== 'hestia') return { handled: false };
 
   let data: unknown;
@@ -494,62 +523,72 @@ async function tryHestiaMirrorRead(
       case 'listWebsites':
         return {
           handled: true,
-          response: NextResponse.json({ success: true, data: await listMirrorWebsites(mirrorScope) }),
+          response: NextResponse.json({ success: true, data: await listHostingDomains(mirrorScope) }),
         };
-      case 'listUsers':
+      case 'listUsers': {
+        const { listHostingUsers } = await import('@/lib/hosting-resolver');
         return {
           handled: true,
-          response: NextResponse.json({ success: true, data: await listMirrorUsers(mirrorScope) }),
+          response: NextResponse.json({ success: true, data: await listHostingUsers() }),
         };
-      case 'listPackages':
+      }
+      case 'listPackages': {
+        const { listHostingPackages } = await import('@/lib/hosting-resolver');
         return {
           handled: true,
-          response: NextResponse.json({ success: true, data: await listMirrorPackages(mirrorScope) }),
+          response: NextResponse.json({ success: true, data: await listHostingPackages() }),
         };
-      case 'listSubdomains':
-        return {
-          handled: true,
-          response: NextResponse.json({
-            success: true,
-            data: await listMirrorSubdomains(domain, mirrorScope),
-          }),
-        };
-      case 'listEmails':
+      }
+      case 'listSubdomains': {
+        const { listHostingSubdomains } = await import('@/lib/hosting-resolver');
         return {
           handled: true,
           response: NextResponse.json({
             success: true,
-            data: await listMirrorEmails(domain, mirrorScope),
+            data: await listHostingSubdomains(domain),
           }),
         };
-      case 'listFTPAccounts':
+      }
+      case 'listEmails': {
+        const owner = await resolveHostingOwner(domain);
+        let rows = await hestiaAdapter.listMailAccounts(owner, domain);
+        if (rows.length === 0 && owner !== (process.env.HESTIA_USER || 'vdadmin').trim()) {
+          rows = await hestiaAdapter.listMailAccounts((process.env.HESTIA_USER || 'vdadmin').trim(), domain);
+        }
         return {
           handled: true,
           response: NextResponse.json({
             success: true,
-            data: await listMirrorFtp(domain, mirrorScope),
+            data: rows.map((r) => ({
+              id: `${r.account}@${domain}`,
+              email: `${r.account}@${domain}`,
+              domain,
+              quota_mb: r.quotaMb ?? undefined,
+              usage: String(r.diskUsedMb),
+              status: 'active' as const,
+            })),
           }),
         };
-      case 'listDatabases':
-        return {
-          handled: true,
-          response: NextResponse.json({
-            success: true,
-            data: await listMirrorDatabases(domain, mirrorScope),
-          }),
-        };
-      case 'listDNS':
-        return {
-          handled: true,
-          response: NextResponse.json({
-            success: true,
-            data: await listMirrorDns(domain, mirrorScope),
-          }),
-        };
+      }
+      case 'listFTPAccounts': {
+        const owner = await resolveHostingOwner(domain);
+        const rows = await hestiaAdapter.listFtpAccounts(owner, domain);
+        return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
+      }
+      case 'listDatabases': {
+        const owner = await resolveHostingOwner(domain);
+        const rows = await hestiaAdapter.listDatabases(owner);
+        return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
+      }
+      case 'listDNS': {
+        const owner = await resolveHostingOwner(domain);
+        const rows = await hestiaAdapter.listDnsRecords(owner, domain);
+        return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
+      }
       case 'serverStats': {
         const [sites, users] = await Promise.all([
-          listMirrorWebsites(mirrorScope),
-          listMirrorUsers(mirrorScope),
+          listHostingDomains(mirrorScope),
+          (await import('@/lib/hosting-resolver')).listHostingUsers(),
         ]);
         return {
           handled: true,
@@ -606,7 +645,7 @@ export async function POST(req: NextRequest) {
       case 'listWebsites': {
         data = await resolveMirrorOrLive({
           onStale: () => scheduleDaSync(0),
-          mirror: () => listMirrorWebsites(mirrorScope),
+          mirror: () => listHostingDomains(mirrorScope),
           live: async () => {
             const rows = await daApi.listWebsites(timeoutMs);
             if (rows.length > 0) scheduleDaSync(500);
@@ -966,7 +1005,7 @@ export async function GET(req: NextRequest) {
 
     if (!daApi) {
       if (action === 'listWebsites') {
-        return NextResponse.json({ success: true, data: await listMirrorWebsites(mirrorScope) });
+        return NextResponse.json({ success: true, data: await listHostingDomains(mirrorScope) });
       }
       if (action === 'listUsers') {
         return NextResponse.json({ success: true, data: await listMirrorUsers(mirrorScope) });
@@ -990,8 +1029,8 @@ export async function GET(req: NextRequest) {
         break;
       }
       case 'listWebsites': {
-        data = await listMirrorWebsites(mirrorScope);
-        if (!Array.isArray(data) || data.length === 0) data = await daApi.listWebsites();
+        data = await listHostingDomains(mirrorScope);
+        if (!Array.isArray(data) || (data as unknown[]).length === 0) data = await daApi.listWebsites();
         break;
       }
       default:

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { listMirrorPackages } from '@/lib/panel-mirror-read'
 
 async function checkIsAdmin(): Promise<boolean> {
   const supabase = await createClient()
@@ -20,7 +19,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 })
     }
 
-    const packages = await listMirrorPackages({ role: 'admin' })
+    const { listHostingPackages } = await import('@/lib/hosting-resolver')
+    const packages = await listHostingPackages()
 
     return NextResponse.json({
       success: true,

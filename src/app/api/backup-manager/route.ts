@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
-import { listMirrorWebsites } from '@/lib/panel-mirror-read';
-import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import { resolveHostingOwner } from '@/lib/hosting-resolver';
 import {
   daBackupCreate,
   daBackupDelete,
@@ -31,9 +30,7 @@ async function resolveOwnerForDomain(domain: string, auth?: PanelStaffAuthSucces
   if (!domain) return null;
   const session = auth ?? await requireAdminResellerOrManager();
   if ('error' in session) return null;
-  const { mirrorScope } = await resolvePanelDaContext(session);
-  const sites = await listMirrorWebsites(mirrorScope);
-  return sites.find((s) => s.domain === domain)?.owner?.toLowerCase() || null;
+  return (await resolveHostingOwner(domain)).toLowerCase();
 }
 
 function backupDownloadResponse(filename: string, base64: string): NextResponse {

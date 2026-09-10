@@ -169,10 +169,15 @@ export async function GET(req: NextRequest) {
     let resellerContext: Awaited<ReturnType<typeof resolveResellerPanelContext>> | null;
 
     if (IS_HESTIA) {
-      // Fonte única: API Hestia (v-list-web-domains)
-      sitesOut = await loadHestiaWebsites();
-      usersOut = [];
-      packagesOut = [];
+      const { listHostingDomains, listHostingUsers, listHostingPackages } = await import('@/lib/hosting-resolver');
+      const [sites, users, packages] = await Promise.all([
+        listHostingDomains(),
+        listHostingUsers(),
+        listHostingPackages(),
+      ]);
+      sitesOut = sites;
+      usersOut = users;
+      packagesOut = packages;
       accountsResult = { accounts: [], counts: {} };
       resellerContext = null;
     } else {

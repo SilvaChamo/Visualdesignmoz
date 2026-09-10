@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-api-auth';
-import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
 import { installWordPressSite } from '@/lib/wp-cli-server';
 import { getProviderByUsername } from '@/lib/hosting-provider';
@@ -9,13 +8,8 @@ import * as hestiaAdapter from '@/lib/hestia-adapter';
 /** Dono real do domínio (username no servidor, DA ou Hestia) — 'admin' por
  * omissão quando não há registo próprio no mirror. */
 async function resolveDomainOwner(domain: string): Promise<string> {
-  const admin = getDaSyncAdmin();
-  let owner = (process.env.HESTIA_USER || 'vdadmin').trim();
-  if (admin) {
-    const { data } = await admin.from('panel_sites').select('owner').eq('domain', domain).maybeSingle();
-    if (data?.owner && String(data.owner).trim()) owner = String(data.owner).trim();
-  }
-  return owner;
+  const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+  return resolveHostingOwner(domain);
 }
 
 export async function POST(req: NextRequest) {
