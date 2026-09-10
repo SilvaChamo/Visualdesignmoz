@@ -1,12 +1,17 @@
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
-import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
+import {
+  COMPANY_HOSTING_OWNERS,
+  PRIMARY_RESELLER_DA_USER,
+  isVisualDesignInfrastructureDomain,
+} from '@/lib/panel-contas-enrich';
 import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry';
 
 export type DomainOwnershipBucket = 'mine' | 'client' | 'foreign';
 
+
 /** Contas no servidor que são a VisualDesign — não clientes nem a Osher. */
 function visualDesignServerOwners(): Set<string> {
-  const owners = new Set(['admin', 'visualdesign']);
+  const owners = new Set(COMPANY_HOSTING_OWNERS);
   if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
     owners.add((process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase());
   }
@@ -108,6 +113,8 @@ export async function classifyRegistrarDomains<T extends { domain: string }>(
       bucket = 'foreign';
     } else if (userBucket === 'foreign') {
       bucket = 'foreign';
+    } else if (isVisualDesignInfrastructureDomain(domain)) {
+      bucket = 'mine';
     } else if (userBucket) {
       // Compra no carrinho: o dono da renovação manda — mesmo que o site
       // viva na conta partilhada vdadmin.

@@ -233,3 +233,16 @@ export function runHestiaFullSyncDeduped(): Promise<HestiaSyncResult> {
   });
   return syncInFlight;
 }
+
+let _lastHestiaScheduledAt = 0;
+const HESTIA_SCHEDULE_THROTTLE_MS = 2 * 60 * 1000;
+
+/** Sync Hestia → espelho, em segundo plano. Na Contabo substitui o DA. */
+export function scheduleHestiaSync(delayMs = 2000) {
+  const now = Date.now();
+  if (now - _lastHestiaScheduledAt < HESTIA_SCHEDULE_THROTTLE_MS) return;
+  _lastHestiaScheduledAt = now;
+  setTimeout(() => {
+    runHestiaFullSyncDeduped().catch((e) => console.error('[hestia-sync] background:', e));
+  }, delayMs);
+}

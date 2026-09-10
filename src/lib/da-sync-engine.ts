@@ -299,6 +299,10 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const hestiaOwners = new Set(
     (hestiaUsers || []).map((r) => String(r.username || '')).filter(Boolean),
   );
+  // A conta API do Hestia (vdadmin) não tem linha em panel_users — sem isto
+  // o sync DA trata os sites dela como obsoletos e apaga-os do espelho.
+  hestiaOwners.add((process.env.HESTIA_USER || 'vdadmin').trim());
+  hestiaOwners.add('vdadmin');
   const staleDomains = (existingSites || [])
     .map((r) => ({ domain: r.domain as string, owner: String(r.owner || '') }))
     .filter(
@@ -696,6 +700,16 @@ const SCHEDULE_THROTTLE_MS = 60 * 60 * 1000; // 60 minutos (era 5)
 
 /** Sync rápido após mutação no painel (não bloqueia UI). */
 export function scheduleDaSync(delayMs = 2000) {
+  // Na Contabo o DirectAdmin não é fonte de verdade. Disparar o sync DA
+  // aqui apagava os sites da conta principal do Hestia (vdadmin) do espelho
+  // e as duas abas de domínios ficavam vazias.
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    void import('@/lib/hestia-sync-engine').then(({ scheduleHestiaSync }) => {
+      scheduleHestiaSync(delayMs);
+    });
+    return;
+  }
+
   const now = Date.now();
   if (now - _lastScheduledAt < SCHEDULE_THROTTLE_MS) {
     console.info('[da-sync] scheduleDaSync: throttled (último sync há menos de 5 min).');

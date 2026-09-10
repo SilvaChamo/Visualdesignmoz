@@ -9,7 +9,11 @@ import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import type { DirectAdminPackage, DirectAdminWebsite } from '@/lib/directadmin-api';
 
-import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
+import {
+  PRIMARY_RESELLER_DA_USER,
+  isCompanyHostingOwner,
+  isVisualDesignInfrastructureDomain,
+} from '@/lib/panel-contas-enrich';
 import type { DomainHubTab } from '@/lib/panel-admin-menu';
 export type { DomainHubTab } from '@/lib/panel-admin-menu';
 export {
@@ -29,11 +33,13 @@ const ADMIN_TABS: TabDef[] = [
   { id: 'registar', label: 'Registar domínio', icon: ShoppingCart },
 ];
 
-/** Ownership do cliente tem precedência sobre o email do site: domínios
- * criados sob a conta administrativa podem herdar o email da VisualDesign,
- * mas continuam a pertencer ao cliente associado ao owner. */
+/** Meus = sites da VisualDesign neste servidor. Clientes = contas Hestia
+ * reais de clientes. Osher fica de fora das duas. A conta API do Hestia
+ * (`vdadmin`) não está em panel_users — tratar o owner da empresa ANTES
+ * de qualquer lista de clientes, senão teste/files/entrecampos caem na
+ * aba errada. */
 function isVisualDesignOwnSite(
-  site: Pick<DirectAdminWebsite, 'adminEmail' | 'owner'>,
+  site: Pick<DirectAdminWebsite, 'adminEmail' | 'owner' | 'domain'>,
   adminEmail: string,
   clientOwners: Set<string>,
   clientEmails: Set<string>,
@@ -42,11 +48,12 @@ function isVisualDesignOwnSite(
   const owner = (site.owner || '').trim().toLowerCase();
   const siteEmail = (site.adminEmail || '').trim().toLowerCase();
   if (owner && owner === PRIMARY_RESELLER_DA_USER.toLowerCase()) return false;
+  if (isVisualDesignInfrastructureDomain(site.domain)) return true;
+  if (isCompanyHostingOwner(owner, hostingOwner)) return true;
+  if (Boolean(adminEmail) && siteEmail === adminEmail.trim().toLowerCase()) return true;
   if (owner && clientOwners.has(owner)) return false;
   if (siteEmail && clientEmails.has(siteEmail)) return false;
-  if (Boolean(adminEmail) && siteEmail === adminEmail.trim().toLowerCase()) return true;
-  const companyOwner = (hostingOwner || '').trim().toLowerCase();
-  return Boolean(companyOwner) && owner === companyOwner;
+  return false;
 }
 
 type DomainsHubSectionProps = {

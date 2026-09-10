@@ -3,6 +3,35 @@ import { OSHER_DOMAIN } from '@/lib/email-domains';
 
 export const PRIMARY_RESELLER_DA_USER = 'oshercollective';
 
+/** Contas de hospedagem da VisualDesign — nunca são "cliente" nas tabs Meus/Clientes.
+ * `vdadmin` não aparece em panel_users (é a conta API do Hestia), por isso o
+ * filtro por tipo de conta não a conhece e metia os sites dela em Clientes. */
+export const COMPANY_HOSTING_OWNERS = new Set(['admin', 'visualdesign', 'vdadmin']);
+
+export function isCompanyHostingOwner(
+  owner: string | null | undefined,
+  extraOwner?: string | null,
+): boolean {
+  const name = (owner || '').trim().toLowerCase();
+  if (!name) return false;
+  if (COMPANY_HOSTING_OWNERS.has(name)) return true;
+  const extra = (extraOwner || '').trim().toLowerCase();
+  return Boolean(extra) && name === extra;
+}
+
+export function isVisualDesignInfrastructureDomain(domain: string | null | undefined): boolean {
+  const name = (domain || '').trim().toLowerCase();
+  if (!name) return false;
+  return (
+    name === 'visualdesignmoz.com' ||
+    name.endsWith('.visualdesignmoz.com') ||
+    name === 'visualdesigne.com' ||
+    name.endsWith('.visualdesigne.com') ||
+    name === 'visualdesigne.pt' ||
+    name.endsWith('.visualdesigne.pt')
+  );
+}
+
 const VISUALDESIGN_PRIMARY_DOMAINS = [
   'visualdesignmoz.com',
   'visualdesigne.com',

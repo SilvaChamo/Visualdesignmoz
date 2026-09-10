@@ -148,14 +148,10 @@ async function tryHestiaAction(
   const emailParam = String(params.email || '');
   const domain = domainParam || (emailParam.includes('@') ? emailParam.split('@')[1] : '');
   if (action === 'listWebsites') {
-    const owner = (process.env.HESTIA_USER || 'vdadmin').trim();
-    const rows = await hestiaAdapter.listWebDomains(owner);
+    const rows = await listMirrorWebsites(mirrorScope);
     return {
       handled: true,
-      response: NextResponse.json({
-        success: true,
-        data: rows.map((row) => ({ domain: row.domain, owner, siteType: 'empty', hasWordPress: false })),
-      }),
+      response: NextResponse.json({ success: true, data: rows }),
     };
   }
   if (!domain) return { handled: false };
@@ -724,12 +720,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (!daApi && action === 'listWebsites') {
-      const owner = (process.env.HESTIA_USER || 'vdadmin').trim();
-      const rows = await hestiaAdapter.listWebDomains(owner);
-      return NextResponse.json({
-        success: true,
-        data: rows.map((row) => ({ domain: row.domain, owner, siteType: 'empty', hasWordPress: false })),
-      });
+      const rows = await listMirrorWebsites(mirrorScope);
+      return NextResponse.json({ success: true, data: rows });
     }
     if (!daApi) {
       return NextResponse.json({ success: false, error: `GET action "${action}" ainda não está disponível no Hestia.` }, { status: 501 });

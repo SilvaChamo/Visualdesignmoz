@@ -123,6 +123,7 @@ import {
 } from '@/lib/panel-data-from-server'
 import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { applyAdminPanelScope, buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter'
+import { PRIMARY_RESELLER_DA_USER, isCompanyHostingOwner } from '@/lib/panel-contas-enrich'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
 const MailMarketingSection = dynamic(() => import('@/components/dashboard/MailMarketingSection').then(m => m.MailMarketingSection), { ssr: false, loading: () => sectionLoadingFallback })
@@ -1245,13 +1246,17 @@ function AdminPageContent() {
   const clientOwnership = useMemo(() => {
     const clientAccounts = directAdminUsers.filter((user) => {
       const accountType = String(user.acl || user.type || '').trim().toLowerCase()
-      return accountType === 'user' || accountType === 'client' || accountType === 'guest'
+      if (accountType !== 'user' && accountType !== 'client' && accountType !== 'guest') return false
+      const name = String(user.userName || '').trim().toLowerCase()
+      if (!name || name === PRIMARY_RESELLER_DA_USER.toLowerCase()) return false
+      if (isCompanyHostingOwner(name, bootHostingOwner)) return false
+      return true
     })
     return {
       owners: clientAccounts.map((user) => user.userName).filter(Boolean),
       emails: clientAccounts.map((user) => user.email).filter(Boolean) as string[],
     }
-  }, [directAdminUsers])
+  }, [directAdminUsers, bootHostingOwner])
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 

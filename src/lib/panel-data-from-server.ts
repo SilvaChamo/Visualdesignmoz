@@ -9,7 +9,7 @@ import type { UserProductsSummary } from '@/lib/user-products';
 import type { PanelCapabilities, ResellerTier } from '@/lib/panel-role-capabilities';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
-const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v2';
+const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v3';
 // 8h — dentro de um dia de trabalho normal, o dashboard mostra sempre a
 // última versão guardada na hora (instantâneo) e só actualiza em segundo
 // plano (fetchPanelBootstrapStaleWhileRevalidate), em vez de voltar a
