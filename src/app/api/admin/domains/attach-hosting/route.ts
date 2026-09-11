@@ -6,7 +6,7 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
-import { findCloudflareZoneId, upsertCloudflareRecord } from '@/lib/cloudflare-dns';
+import { applyCloudflareSafeCacheDefaults, findCloudflareZoneId, upsertCloudflareRecord } from '@/lib/cloudflare-dns';
 import { getServerHost } from '@/lib/server-config';
 import { HOSTING_DOMAIN_REGEX } from '@/lib/checkout-fulfillment';
 import { after } from 'next/server';
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
         upsertCloudflareRecord(zoneId, domainName, { type: 'A', name: 'www', content: serverIp, proxied: false }),
       ]);
       const allOk = results.every((r) => r.ok);
+      void applyCloudflareSafeCacheDefaults(zoneId, domainName);
       steps.push({
         step: 'DNS apontado para o servidor (Cloudflare)',
         ok: allOk,

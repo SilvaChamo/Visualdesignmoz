@@ -1460,7 +1460,7 @@ function AdminPageContent() {
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'databases':
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
+        return <DatabasesSection sites={domainHubSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} loggedInOwner={bootHostingOwner || undefined} />
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
@@ -1578,6 +1578,7 @@ function AdminPageContent() {
           <ListWebsitesSection
             sites={filteredSites}
             wordpressOnly
+            wordpressOwner={bootHostingOwner || 'admin'}
             panelScope="admin"
             onRefresh={() => void loadDirectAdminData(true)}
             packages={directAdminPackages}

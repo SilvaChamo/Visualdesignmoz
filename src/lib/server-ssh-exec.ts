@@ -32,7 +32,51 @@ async function hasSshpass(): Promise<boolean> {
 // intermitente/consistente quando corre dentro do processo do `next dev`
 // (funciona isoladamente via tsx/node simples) — usar o `ssh` nativo com
 // sshpass para password evita depender da negociação criptográfica do ssh2.
-async function executeViaNativeSsh(command: string, fast = false): Promise<string> {
+function hestiaRunsLocally(): boolean {
+  try {
+    return fs.existsSync('/usr/local/hestia/bin/v-list-users');
+  } catch {
+    return false;
+  }
+}
+
+function useLocalServerExec(): boolean {
+  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') return true;
+  if (process.env.SERVER_USE_LOCAL_EXEC === 'false') return false;
+  return hestiaRunsLocally();
+}
+
+function sanitizeServerOutput(raw: string): string {
+  return raw
+    .split(/\r?\n/)
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return false;
+      if (/permanently added/i.test(t)) return false;
+      if (/known hosts/i.test(t)) return false;
+      if (/^warning:/i.test(t) && /ssh|host/i.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
+function localServerExec(command: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve) => {
+    const { exec } = require('child_process') as typeof import('child_process');
+    exec(command, { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 }, (error, stdout, stderr) => {
+      const out = sanitizeServerOutput((stdout || '').toString());
+      if (error) {
+        const errText = sanitizeServerOutput((stderr || error.message || '').toString());
+        resolve(out || errText);
+        return;
+      }
+      resolve(out);
+    });
+  });
+}
+
+async function executeViaNativeSsh(command: string, fast = false, timeoutMs?: number): Promise<string> {
   const opts = getSshConnectOptions();
   const keyPath = resolveSshKeyPath();
 
@@ -77,16 +121,28 @@ async function executeViaNativeSsh(command: string, fast = false): Promise<strin
   const sshArgs = [...sshOpts, `${opts.username}@${opts.host}`, command];
 
   try {
-    const { stdout, stderr } = await execFileAsync(
-      useSshpass ? 'sshpass' : 'ssh',
-      useSshpass ? ['-e', 'ssh', ...sshArgs] : sshArgs,
-      {
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: fast ? 20000 : 120000,
-        env: useSshpass ? { ...process.env, SSHPASS: opts.password } : process.env,
-      },
-    );
-    return (stdout || stderr || '').trim();
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        useSshpass ? 'sshpass' : 'ssh',
+        useSshpass ? ['-e', 'ssh', ...sshArgs] : sshArgs,
+        {
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: timeoutMs ?? (fast ? 20000 : 120000),
+          env: useSshpass ? { ...process.env, SSHPASS: opts.password } : process.env,
+        },
+      );
+      return sanitizeServerOutput(`${stdout || ''}\n${stderr || ''}`.trim());
+    } catch (e: unknown) {
+      const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
+      const out = sanitizeServerOutput(`${err.stdout || ''}\n${err.stderr || ''}`.trim());
+      const sshBroke =
+        !out ||
+        /Connection refused|Permission denied \(publickey|Could not resolve|No route to host|Connection timed out|ECONNREFUSED|ETIMEDOUT|Host key verification/i.test(
+          err.message || '',
+        );
+      if (!sshBroke) return out;
+      throw err;
+    }
   } finally {
     if (tempKeyPath) {
       try {
@@ -98,21 +154,19 @@ async function executeViaNativeSsh(command: string, fast = false): Promise<strin
   }
 }
 
-export function executeServerCommand(command: string, options?: { fast?: boolean }): Promise<string> {
+export function executeServerCommand(
+  command: string,
+  options?: { fast?: boolean; timeoutMs?: number },
+): Promise<string> {
   const fast = options?.fast === true;
-  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
-    return new Promise((resolve) => {
-      const { exec } = require('child_process') as typeof import('child_process');
-      exec(command, { timeout: 120000 }, (error, stdout, stderr) => {
-        if (error) resolve(stderr || error.message);
-        else resolve(stdout);
-      });
-    });
+  const timeoutMs = options?.timeoutMs ?? (fast ? 20_000 : 120_000);
+  if (useLocalServerExec()) {
+    return localServerExec(command, timeoutMs);
   }
 
   // Preferir ssh nativo — mais fiável com chaves OpenSSH multilinha
   return withSshSlot(() =>
-    executeViaNativeSsh(command, fast).catch((nativeErr: Error) => {
+    executeViaNativeSsh(command, fast, timeoutMs).catch((nativeErr: Error) => {
     return new Promise((resolve, reject) => {
       let connectOptions: ReturnType<typeof getSshConnectOptions>;
       try {
@@ -150,7 +204,7 @@ export function executeServerCommand(command: string, options?: { fast?: boolean
               if (code !== 0 && errOutput && !output) {
                 reject(new Error(`SSH falhou (${code}): ${errOutput}`));
               } else {
-                resolve(output || errOutput);
+                resolve(sanitizeServerOutput(output));
               }
             });
             stream.on('data', (data: Buffer) => {
@@ -176,7 +230,7 @@ export function executeServerCommand(command: string, options?: { fast?: boolean
 }
 
 export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('stream/web').ReadableStream): Promise<void> {
-  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
+  if (useLocalServerExec()) {
     return new Promise(async (resolve, reject) => {
       try {
         if (Buffer.isBuffer(fileData)) {

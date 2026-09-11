@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Database, Users, ExternalLink, Loader2, Plus, Trash2, Eye, EyeOff, KeyRound,
-  Upload, Download, Search, Wrench, Rocket, ChevronDown, ChevronUp, User,
+  Database, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, KeyRound,
+  Upload, Download, Search, Wrench, Rocket, ChevronDown, ChevronUp, User, Copy, Check,
 } from 'lucide-react'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
@@ -13,9 +13,9 @@ import {
   panelInnerDetailCard,
 } from '@/lib/panel-ui'
 import type {
-  DbDatabaseUser, DbListEntry, DbMetadata, DbUserDatabase, DbUserEntry,
+  DbDatabaseUser, DbListEntry, DbMetadata, DbPrivs, DbUserDatabase, DbUserEntry,
 } from '@/lib/da-database-types'
-import { formatDbSize, hasFullAccess } from '@/lib/da-database-types'
+import { formatDbSize, hasFullAccess, fullDbPrivileges, readOnlyDbPrivileges, DB_PRIVILEGE_LABELS } from '@/lib/da-database-types'
 import {
   invalidateDbCaches, readDbListCache, readDbMetaCache, readDbUsersCache,
   writeDbListCache, writeDbMetaCache, writeDbUsersCache,
@@ -29,6 +29,27 @@ type ConfirmDialog = {
   confirmLabel: string
   danger?: boolean
   onConfirm: () => Promise<void>
+}
+
+type DbOpAction = 'import' | 'export-sql' | 'export-gz' | 'check' | 'repair' | 'optimize'
+
+type DbOpState = {
+  action: DbOpAction
+  phase: string
+  percent: number | null
+  fileName?: string
+  result?: string
+  done?: boolean
+  error?: boolean
+}
+
+const DB_OP_LABEL: Record<DbOpAction, string> = {
+  import: 'Importar',
+  'export-sql': 'Exportar SQL',
+  'export-gz': 'Exportar GZ',
+  check: 'Verificar',
+  repair: 'Reparar',
+  optimize: 'Optimizar',
 }
 
 async function dbRequest<T = unknown>(payload: Record<string, unknown>): Promise<T> {
@@ -50,6 +71,245 @@ function generatePassword(length = 16): string {
   let out = ''
   for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)]
   return out
+}
+
+function PrivilegeEditor({
+  privileges,
+  onChange,
+}: {
+  privileges: DbPrivs
+  onChange: (next: DbPrivs) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={panelBtnSecondary} onClick={() => onChange(fullDbPrivileges())}>
+          Acesso total
+        </button>
+        <button type="button" className={panelBtnSecondary} onClick={() => onChange(readOnlyDbPrivileges())}>
+          Só leitura
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {DB_PRIVILEGE_LABELS.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={Boolean(privileges[key])}
+              onChange={(e) => onChange({ ...privileges, [key]: e.target.checked })}
+              className="rounded border-gray-300 text-red-600"
+            />
+            <span className="font-mono">{label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function domainOptionsFromSites(sites: DirectAdminWebsite[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const site of sites) {
+    const domain = (site.domain || '').trim()
+    if (!domain || domain.includes('contaboserver') || seen.has(domain)) continue
+    seen.add(domain)
+    out.push(domain)
+  }
+  return out
+}
+
+function pickInitialDomain(sites: DirectAdminWebsite[], initial?: string): string {
+  const options = domainOptionsFromSites(sites)
+  if (initial && options.includes(initial)) return initial
+  return options[0] || ''
+}
+
+function domainToDbHint(domain: string): string {
+  const host = domain.replace(/^www\./i, '').split(':')[0]
+  const label = host.split('.')[0] || host
+  return label.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+}
+
+function domainMatchTokens(domain: string): string[] {
+  const hint = domainToDbHint(domain).toLowerCase()
+  const host = domain.replace(/^www\./i, '').split(':')[0].toLowerCase()
+  const label = (host.split('.')[0] || host).replace(/[^a-z0-9]/g, '')
+  const tokens = new Set<string>()
+  if (hint) tokens.add(hint)
+  if (label) tokens.add(label)
+  for (let n = 5; n <= Math.min(label.length, 14); n++) tokens.add(label.slice(0, n))
+  return [...tokens].filter((token) => token.length >= 4)
+}
+
+function stripOwnerPrefix(name: string, owner: string): string {
+  const prefix = `${owner}_`
+  return name.toLowerCase().startsWith(prefix.toLowerCase()) ? name.slice(prefix.length) : name
+}
+
+function findDatabaseForDomain(domain: string, databases: DbListEntry[]): DbListEntry | undefined {
+  const tokens = domainMatchTokens(domain)
+  if (!tokens.length || !databases.length) return undefined
+  let best: { row: DbListEntry; score: number } | undefined
+  for (const row of databases) {
+    const hay = `${row.database} ${row.dbuser || ''}`.toLowerCase()
+    let score = 0
+    for (const token of tokens) {
+      if (hay.includes(token)) score = Math.max(score, token.length)
+    }
+    if (score > 0 && (!best || score > best.score)) best = { row, score }
+  }
+  return best?.row
+}
+
+function DomainSelect({
+  value,
+  options,
+  associatedDomains,
+  onChange,
+}: {
+  value: string
+  options: string[]
+  associatedDomains?: Set<string>
+  onChange: (domain: string) => void
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${panelField} w-full dark:bg-zinc-900`}
+    >
+      {options.length === 0 ? (
+        <option value="">Nenhum domínio desta conta</option>
+      ) : (
+        options.map((domain) => {
+          const associated = associatedDomains?.has(domain)
+          return (
+            <option key={domain} value={domain}>
+              {associated ? `${domain} · associado` : domain}
+            </option>
+          )
+        })
+      )}
+    </select>
+  )
+}
+
+function CopySecret({
+  value,
+  emptyHint = 'A senha actual não está em texto nesta conta. Defina uma nova senha para a copiar e configurar o site.',
+}: {
+  value: string
+  emptyHint?: string
+}) {
+  const [visible, setVisible] = useState(false)
+  const [copied, setCopied] = useState(false)
+  if (!value) {
+    return <p className="text-xs text-zinc-500">{emptyHint}</p>
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        readOnly
+        type={visible ? 'text' : 'password'}
+        value={value}
+        className={`${panelField} min-w-0 flex-1 font-mono dark:bg-zinc-900`}
+      />
+      <button type="button" className="p-2 text-zinc-400 hover:text-zinc-700" onClick={() => setVisible((v) => !v)} title={visible ? 'Ocultar' : 'Mostrar'}>
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        className="p-2 text-zinc-400 hover:text-zinc-700"
+        title="Copiar"
+        onClick={() => {
+          void navigator.clipboard.writeText(value)
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1600)
+        }}
+      >
+        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+      </button>
+    </div>
+  )
+}
+
+function UserSecurityPanel({
+  dbuser,
+  knownPassword,
+  hostsValue,
+  onHostsChange,
+  newPassword,
+  onNewPasswordChange,
+  showNewPass,
+  onToggleShowNew,
+  busy,
+  onChangePassword,
+  onSaveHosts,
+}: {
+  dbuser: string
+  knownPassword: string
+  hostsValue: string
+  onHostsChange: (value: string) => void
+  newPassword: string
+  onNewPasswordChange: (value: string) => void
+  showNewPass: boolean
+  onToggleShowNew: () => void
+  busy: boolean
+  onChangePassword: () => Promise<void>
+  onSaveHosts: () => Promise<void>
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="mb-1 text-xs font-bold uppercase text-zinc-500">Senha</p>
+        <p className="mb-2 text-xs text-zinc-500">
+          Senha actual de <span className="font-mono">{dbuser}</span> (lida do wp-config do site, se existir) — copie para configurar o site.
+        </p>
+        <CopySecret value={knownPassword} />
+        <p className="mb-1.5 mt-3 text-xs font-bold uppercase text-zinc-500">Alterar senha</p>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <input
+            type={showNewPass ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => onNewPasswordChange(e.target.value)}
+            placeholder="Nova senha (mín. 8 caracteres)"
+            className={`${panelField} w-full md:flex-1 dark:bg-zinc-900`}
+          />
+          <button type="button" className="p-2 text-zinc-400" onClick={onToggleShowNew}>
+            {showNewPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            disabled={busy || newPassword.length < 8}
+            className={panelBtnPrimary}
+            onClick={() => void onChangePassword()}
+          >
+            Alterar senha
+          </button>
+        </div>
+      </div>
+      <div>
+        <p className="mb-1 text-xs font-bold uppercase text-zinc-500">Hosts permitidos</p>
+        <p className="mb-2 text-xs text-zinc-500">Separados por vírgula. Para adicionar outro host, inclua-o na lista e guarde (ex.: localhost, %, 127.0.0.1).</p>
+        <div className="flex flex-col gap-2 md:flex-row">
+          <input
+            value={hostsValue}
+            onChange={(e) => onHostsChange(e.target.value)}
+            className={`${panelField} w-full md:flex-1 font-mono text-xs dark:bg-zinc-900`}
+          />
+          <button
+            type="button"
+            disabled={busy || !hostsValue.trim()}
+            className={panelBtnPrimary}
+            onClick={() => void onSaveHosts()}
+          >
+            Guardar hosts
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PrefixField({
@@ -135,19 +395,27 @@ function DbListSkeleton() {
 export function DatabasesManagerSection({
   sites,
   initialDomain,
+  loggedInOwner,
 }: {
   sites: DirectAdminWebsite[]
   initialDomain?: string
+  /** Username de hospedagem de quem está autenticado (vdadmin, oshercollective, aamihe, …). */
+  loggedInOwner?: string
 }) {
-  const selectedDomain = useMemo(() => {
-    if (initialDomain) return initialDomain
-    return sites.find((s) => !s.domain.includes('contaboserver'))?.domain || sites[0]?.domain || ''
-  }, [initialDomain, sites])
-
-  const owner = useMemo(
-    () => sites.find((s) => s.domain === selectedDomain)?.owner || 'admin',
-    [sites, selectedDomain],
+  const sessionOwner = (loggedInOwner || '').trim().toLowerCase()
+  const scopedSites = useMemo(
+    () => (sessionOwner
+      ? sites.filter((s) => (s.owner || '').trim().toLowerCase() === sessionOwner)
+      : []),
+    [sites, sessionOwner],
   )
+  const domainOptions = useMemo(() => domainOptionsFromSites(scopedSites), [scopedSites])
+  const [selectedDomain, setSelectedDomain] = useState(() => pickInitialDomain(
+    sessionOwner ? sites.filter((s) => (s.owner || '').trim().toLowerCase() === sessionOwner) : [],
+    initialDomain,
+  ))
+  const appliedInitialDomain = useRef(initialDomain || '')
+  const owner = sessionOwner
 
   const listCache = useMemo(() => (owner ? readDbListCache(owner) : null), [owner])
   const usersCache = useMemo(() => (owner ? readDbUsersCache(owner) : null), [owner])
@@ -169,6 +437,7 @@ export function DatabasesManagerSection({
   const [loading, setLoading] = useState(() => !listCache)
   const [syncing, setSyncing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [pmaBusy, setPmaBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [noSize, setNoSize] = useState(false)
@@ -192,6 +461,16 @@ export function DatabasesManagerSection({
   const [grantDatabase, setGrantDatabase] = useState('')
   const [hostsInput, setHostsInput] = useState('')
   const [importClean, setImportClean] = useState(false)
+  const [dbOp, setDbOp] = useState<DbOpState | null>(null)
+  const importWaitRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [privEdit, setPrivEdit] = useState<{ dbuser: string; database: string; privileges: DbPrivs } | null>(null)
+  const [knownPassword, setKnownPassword] = useState('')
+  const [createdSecret, setCreatedSecret] = useState<{ database?: string; dbuser?: string; password: string } | null>(null)
+  const [userPasswords, setUserPasswords] = useState<Record<string, string>>({})
+  const [userNewPass, setUserNewPass] = useState<Record<string, string>>({})
+  const [userHosts, setUserHosts] = useState<Record<string, string>>({})
+  const [showUserNewPass, setShowUserNewPass] = useState<Record<string, boolean>>({})
+  const dbUserNames = useMemo(() => dbUsers.map((u) => u.dbuser).join('|'), [dbUsers])
 
   const flash = (text: string, isError = false) => {
     if (isError) setError(text)
@@ -286,25 +565,19 @@ export function DatabasesManagerSection({
   }, [selectedDomain, owner])
 
   useEffect(() => {
-    if (!selectedDomain || view !== 'databases') return
-    const cached = readDbListCache(owner)
-    if (cached) {
-      setDatabases(cached.rows)
-      setTotalBytes(cached.totalBytes)
-      setLoading(false)
+    if (!selectedDomain || !owner) return
+    const cachedList = readDbListCache(owner)
+    const cachedUsers = readDbUsersCache(owner)
+    if (cachedList) {
+      setDatabases(cachedList.rows)
+      setTotalBytes(cachedList.totalBytes)
     }
-    void loadDatabases({ hadCache: Boolean(cached) })
-  }, [selectedDomain, owner, view, noSize, loadDatabases])
-
-  useEffect(() => {
-    if (!selectedDomain || view !== 'users') return
-    const cached = readDbUsersCache(owner)
-    if (cached) {
-      setUsers(cached.rows)
-      setLoading(false)
-    }
-    void loadUsers({ hadCache: Boolean(cached) })
-  }, [selectedDomain, owner, view, loadUsers])
+    if (cachedUsers) setUsers(cachedUsers.rows)
+    if (view === 'databases' && !cachedList) setLoading(true)
+    if (view === 'users' && !cachedUsers) setLoading(true)
+    void loadDatabases({ hadCache: Boolean(cachedList) })
+    void loadUsers({ hadCache: Boolean(cachedUsers) })
+  }, [selectedDomain, owner, noSize, loadDatabases, loadUsers, view])
 
   useEffect(() => {
     if (view === 'manage-db' && selectedDatabase) void loadDbDetail(selectedDatabase)
@@ -314,56 +587,292 @@ export function DatabasesManagerSection({
     if (view === 'manage-user' && selectedDbUser) void loadUserDetail(selectedDbUser)
   }, [view, selectedDbUser, loadUserDetail])
 
-  const openPhpMyAdmin = async (database?: string) => {
-    setBusy(true)
-    try {
-      const data = await dbRequest<{ url: string }>({
-        action: 'phpmyadminSso', domain: selectedDomain, owner, database,
-      })
-      window.open(data.url, '_blank', 'noopener,noreferrer')
-    } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : 'Não foi possível abrir o gestor SQL.', true)
-    } finally {
-      setBusy(false)
+  useEffect(() => {
+    if (initialDomain && domainOptions.includes(initialDomain) && initialDomain !== appliedInitialDomain.current) {
+      appliedInitialDomain.current = initialDomain
+      setSelectedDomain(initialDomain)
+      setView('databases')
+      return
     }
+    if (!selectedDomain && domainOptions[0]) {
+      setSelectedDomain(domainOptions[0])
+      return
+    }
+    if (selectedDomain && domainOptions.length && !domainOptions.includes(selectedDomain)) {
+      setSelectedDomain(domainOptions[0])
+    }
+  }, [initialDomain, domainOptions, selectedDomain])
+
+  const createFieldsKeyRef = useRef('')
+
+  const applyCreateFieldsFromDomain = (domain: string) => {
+    if (!owner) return
+    const row = findDatabaseForDomain(domain, databases)
+    if (row) {
+      setCreateDbName(stripOwnerPrefix(row.database, owner))
+      setCreateDbUser(row.dbuser ? stripOwnerPrefix(row.dbuser, owner) : '')
+      setCreateDbPass('')
+      if (row.dbuser) {
+        void dbRequest<{ password?: string | null }>({
+          action: 'revealPassword',
+          domain,
+          owner,
+          dbuser: row.dbuser,
+          database: row.database,
+        }).then((data) => {
+          const password = data?.password || ''
+          if (password && !/permanently added|known hosts/i.test(password)) {
+            setCreateDbPass(password)
+          }
+        }).catch(() => undefined)
+      }
+      return
+    }
+    const hint = domainToDbHint(domain)
+    setCreateDbName(hint)
+    setCreateDbUser(hint)
+    setCreateDbPass('')
   }
 
-  const runDbOp = async (action: string, database: string) => {
+  const handleCreateDomainChange = (domain: string) => {
+    createFieldsKeyRef.current = ''
+    setSelectedDomain(domain)
+  }
+
+  useEffect(() => {
+    if (view !== 'databases' || !selectedDomain || !owner) return
+    const key = `${selectedDomain}::${databases.map((row) => row.database).join(',')}`
+    if (createFieldsKeyRef.current === key) return
+    createFieldsKeyRef.current = key
+    applyCreateFieldsFromDomain(selectedDomain)
+  }, [view, selectedDomain, owner, databases])
+
+  const openPhpMyAdmin = (database?: string) => {
+    if (pmaBusy) return
+    const qs = new URLSearchParams({ action: 'phpmyadminSso' })
+    if (selectedDomain) qs.set('domain', selectedDomain)
+    if (database) qs.set('database', database)
+    const opened = window.open(`/api/db-manager?${qs.toString()}`, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      flash('Permita pop-ups para abrir o MySQL numa nova aba.', true)
+      return
+    }
+    setPmaBusy(true)
+    window.setTimeout(() => setPmaBusy(false), 1600)
+  }
+
+  const runDbOp = async (action: 'check' | 'repair' | 'optimize', database: string) => {
     setBusy(true)
+    setDbOp({ action, phase: `A ${DB_OP_LABEL[action].toLowerCase()} «${database}»…`, percent: null })
     try {
-      await dbRequest({ action, domain: selectedDomain, owner, database })
-      flash('Operação concluída.')
+      const data = await dbRequest<unknown>({ action, domain: selectedDomain, owner, database })
+      const result = typeof data === 'string' && data.trim()
+        ? data.trim()
+        : data != null && typeof data === 'object'
+          ? JSON.stringify(data, null, 2)
+          : `${DB_OP_LABEL[action]} concluído.`
+      setDbOp({ action, phase: `${DB_OP_LABEL[action]} concluído.`, percent: 100, result, done: true })
+      flash(`${DB_OP_LABEL[action]} concluído.`)
       invalidateDbCaches(owner, database)
       void loadDbDetail(database, { hadCache: true })
       void loadDatabases({ hadCache: true })
     } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : 'Operação falhou.', true)
+      const message = e instanceof Error ? e.message : 'Operação falhou.'
+      setDbOp({ action, phase: message, percent: 100, result: message, done: true, error: true })
+      flash(message, true)
     } finally {
       setBusy(false)
     }
   }
 
+  const clearImportWait = () => {
+    if (importWaitRef.current != null) {
+      clearInterval(importWaitRef.current)
+      importWaitRef.current = null
+    }
+  }
+
+  const handleImport = async (file: File) => {
+    if (!selectedDatabase) return
+    setBusy(true)
+    clearImportWait()
+    setDbOp({
+      action: 'import',
+      phase: `A enviar «${file.name}» (${formatDbSize(file.size)})…`,
+      percent: 0,
+      fileName: file.name,
+    })
+    try {
+      const form = new FormData()
+      form.append('domain', selectedDomain)
+      form.append('owner', owner)
+      form.append('database', selectedDatabase)
+      form.append('sqlfile', file, file.name)
+      form.append('clean', importClean ? 'yes' : 'no')
+      const data = await new Promise<{ success?: boolean; error?: string; data?: { sizeBytes?: number; tableCount?: number } }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', '/api/db-manager')
+        xhr.withCredentials = true
+        xhr.timeout = 600_000
+        xhr.ontimeout = () => reject(new Error('A importação demorou mais de 10 minutos e foi interrompida.'))
+        xhr.upload.onprogress = (ev) => {
+          if (!ev.lengthComputable) return
+          const uploaded = Math.round((ev.loaded / ev.total) * 40)
+          setDbOp((prev) => prev && prev.action === 'import' && !prev.done
+            ? { ...prev, percent: uploaded, phase: `A enviar «${file.name}» (${formatDbSize(file.size)})… ${uploaded}%` }
+            : prev)
+        }
+        xhr.upload.onload = () => {
+          setDbOp((prev) => prev && prev.action === 'import' && !prev.done
+            ? { ...prev, percent: Math.max(prev.percent ?? 40, 40), phase: `Ficheiro enviado. A importar para «${selectedDatabase}»…` }
+            : prev)
+          clearImportWait()
+          importWaitRef.current = setInterval(() => {
+            setDbOp((prev) => {
+              if (!prev || prev.action !== 'import' || prev.done || prev.percent == null) return prev
+              if (prev.percent >= 95) return prev
+              return { ...prev, percent: Math.min(95, prev.percent + 1) }
+            })
+          }, 500)
+        }
+        xhr.onerror = () => reject(new Error('Falha de rede ao importar.'))
+        xhr.onload = () => {
+          clearImportWait()
+          let parsed: { success?: boolean; error?: string; data?: { sizeBytes?: number; tableCount?: number } } = {}
+          try { parsed = JSON.parse(xhr.responseText || '{}') } catch { /* ignore */ }
+          if (xhr.status >= 400 || parsed.success === false) {
+            reject(new Error(parsed.error || `Importação falhou (${xhr.status}).`))
+            return
+          }
+          resolve(parsed)
+        }
+        xhr.send(form)
+      })
+      const importedSize = data?.data?.sizeBytes
+      const importedTables = data?.data?.tableCount
+      setDbOp({
+        action: 'import',
+        phase: 'Importação concluída.',
+        percent: 100,
+        fileName: file.name,
+        result: importedSize
+          ? `«${file.name}» importado para ${selectedDatabase} (${formatDbSize(importedSize)}).`
+          : `«${file.name}» importado para ${selectedDatabase}.`,
+        done: true,
+      })
+      flash('Importação concluída.')
+      if (importedSize != null) {
+        setDatabases((prev) => {
+          const next = prev.map((row) => row.database === selectedDatabase
+            ? { ...row, sizeBytes: importedSize, tableCount: importedTables ?? row.tableCount }
+            : row)
+          setTotalBytes(next.reduce((sum, row) => sum + (row.sizeBytes || 0), 0))
+          return next
+        })
+      }
+      invalidateDbCaches(owner, selectedDatabase)
+      await loadDbDetail(selectedDatabase, { hadCache: true })
+      await loadDatabases({ hadCache: true })
+    } catch (e: unknown) {
+      clearImportWait()
+      const message = e instanceof Error ? e.message : 'Importação falhou.'
+      setDbOp({
+        action: 'import',
+        phase: message,
+        percent: 100,
+        fileName: file.name,
+        result: message,
+        done: true,
+        error: true,
+      })
+      flash(message, true)
+    } finally {
+      clearImportWait()
+      setBusy(false)
+    }
+  }
+
+  const handleExport = async (gzip: boolean) => {
+    if (!selectedDatabase) return
+    const action: DbOpAction = gzip ? 'export-gz' : 'export-sql'
+    setBusy(true)
+    setDbOp({
+      action,
+      phase: gzip ? `A gerar dump comprimido de «${selectedDatabase}»…` : `A gerar dump SQL de «${selectedDatabase}»…`,
+      percent: null,
+    })
+    try {
+      const res = await fetch(
+        `/api/db-manager?action=export&domain=${encodeURIComponent(selectedDomain)}&owner=${encodeURIComponent(owner)}&database=${encodeURIComponent(selectedDatabase)}&gzip=${gzip ? '1' : '0'}`,
+        { credentials: 'include' },
+      )
+      const contentType = res.headers.get('content-type') || ''
+      if (!res.ok || contentType.includes('application/json')) {
+        const err = await res.json().catch(() => ({ error: 'Exportação falhou.' }))
+        throw new Error(err.error || 'Exportação falhou.')
+      }
+      const blob = await res.blob()
+      const filename = `${selectedDatabase}${gzip ? '.sql.gz' : '.sql'}`
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(href)
+      setDbOp({
+        action,
+        phase: 'Exportação concluída.',
+        percent: 100,
+        result: `${filename} (${formatDbSize(blob.size)})`,
+        done: true,
+      })
+      flash(`Exportação concluída: ${filename}`)
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Exportação falhou.'
+      setDbOp({ action, phase: message, percent: 100, result: message, done: true, error: true })
+      flash(message, true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  useEffect(() => () => {
+    if (importWaitRef.current != null) clearInterval(importWaitRef.current)
+  }, [])
+
   const handleCreateDatabase = async () => {
-    if (!createDbName.trim()) return
+    if (!owner || !createDbName.trim()) return
     setBusy(true)
     try {
+      const userSuffix = createDbUser.trim()
+      const password = userSuffix ? (createDbPass || generatePassword()) : ''
       const data = await dbRequest<{ database: string; dbuser?: string; password?: string }>({
         action: 'createDatabase',
         domain: selectedDomain,
         owner,
         name: createDbName.trim(),
-        dbuser: createDbUser.trim() || createDbName.trim(),
-        password: createDbPass || generatePassword(),
+        dbuser: userSuffix,
+        password,
         charset: advancedCreate ? createCharset : undefined,
         collation: advancedCreate ? createCollation : undefined,
         advanced: advancedCreate,
       })
-      flash(`Base de dados «${data.database}» criada.`)
+      if (userSuffix && data.password) {
+        setCreatedSecret({ database: data.database, dbuser: data.dbuser, password: data.password })
+        setKnownPassword(data.password)
+        flash(`Base «${data.database}» e utilizador «${data.dbuser}» criados e associados. Copie a senha abaixo.`)
+      } else {
+        setCreatedSecret(null)
+        flash(`Base «${data.database}» criada. Associe um utilizador na página desta base.`)
+      }
       setCreateDbName('')
       setCreateDbUser('')
       setCreateDbPass('')
       invalidateDbCaches(owner)
       void loadDatabases({ hadCache: true })
+      void loadUsers({ hadCache: true })
     } catch (e: unknown) {
       flash(e instanceof Error ? e.message : 'Criação falhou.', true)
     } finally {
@@ -375,14 +884,16 @@ export function DatabasesManagerSection({
     if (!createUserName.trim() || !createUserPass) return
     setBusy(true)
     try {
-      await dbRequest({
+      const data = await dbRequest<{ dbuser: string; password?: string }>({
         action: 'createUser',
         domain: selectedDomain,
         owner,
         dbuser: createUserName.trim(),
         password: createUserPass,
       })
-      flash('Utilizador criado.')
+      setCreatedSecret({ dbuser: data.dbuser, password: data.password || createUserPass })
+      setKnownPassword(data.password || createUserPass)
+      flash('Utilizador criado. Ainda sem base — associe-o numa base existente.')
       setCreateUserName('')
       setCreateUserPass('')
       invalidateDbCaches(owner)
@@ -394,32 +905,6 @@ export function DatabasesManagerSection({
     }
   }
 
-  const handleImport = async (file: File) => {
-    if (!selectedDatabase) return
-    setBusy(true)
-    try {
-      const form = new FormData()
-      form.append('domain', selectedDomain)
-      form.append('owner', owner)
-      form.append('database', selectedDatabase)
-      form.append('sqlfile', file)
-      form.append('clean', importClean ? 'yes' : 'no')
-      const res = await fetch('/api/db-manager', { method: 'POST', credentials: 'include', body: form })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Importação falhou')
-      flash('Importação concluída.')
-      invalidateDbCaches(owner, selectedDatabase)
-      void loadDbDetail(selectedDatabase, { hadCache: true })
-    } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : 'Importação falhou.', true)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const exportUrl = (database: string, gzip: boolean) =>
-    `/api/db-manager?action=export&domain=${encodeURIComponent(selectedDomain)}&owner=${encodeURIComponent(owner)}&database=${encodeURIComponent(database)}&gzip=${gzip ? '1' : '0'}`
-
   const breadcrumb = () => {
     if (view === 'databases') return 'Bases de dados'
     if (view === 'users') return 'Bases de dados / Utilizadores'
@@ -427,22 +912,171 @@ export function DatabasesManagerSection({
     return `Bases de dados / Utilizadores / ${selectedDbUser}`
   }
 
-  const breadcrumbLine = `${breadcrumb()}${selectedDomain ? ` · ${selectedDomain}` : ''}`
+  const breadcrumbLine = breadcrumb()
 
-  const availableGrantUsers = users.filter(
-    (u) => !dbUsers.some((du) => du.dbuser === u.dbuser),
+  const savePrivileges = async () => {
+    if (!privEdit) return
+    setBusy(true)
+    try {
+      await dbRequest({
+        action: 'changePrivs',
+        domain: selectedDomain,
+        owner,
+        database: privEdit.database,
+        dbuser: privEdit.dbuser,
+        privileges: privEdit.privileges,
+      })
+      flash('Privilégios actualizados.')
+      setPrivEdit(null)
+      if (view === 'manage-db' && selectedDatabase) void loadDbDetail(selectedDatabase, { hadCache: true })
+      if (view === 'manage-user' && selectedDbUser) void loadUserDetail(selectedDbUser)
+      void loadDatabases({ hadCache: true })
+      void loadUsers({ hadCache: true })
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : 'Não foi possível guardar os privilégios.', true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const associatedDomains = useMemo(() => {
+    const set = new Set<string>()
+    for (const domain of domainOptions) {
+      if (findDatabaseForDomain(domain, databases)) set.add(domain)
+    }
+    return set
+  }, [domainOptions, databases])
+
+  const selectedDomainDb = useMemo(
+    () => findDatabaseForDomain(selectedDomain, databases),
+    [selectedDomain, databases],
   )
 
-  const availableGrantDbs = databases.filter(
-    (d) => !userDatabases.some((ud) => ud.database === d.database),
-  )
+  const createDbExists = useMemo(() => {
+    const suffix = createDbName.trim()
+    if (!owner || !suffix) return false
+    const full = suffix.toLowerCase().startsWith(`${owner}_`.toLowerCase()) ? suffix : `${owner}_${suffix}`
+    return databases.some((row) => row.database.toLowerCase() === full.toLowerCase())
+  }, [owner, createDbName, databases])
+
+  useEffect(() => {
+    if (view !== 'manage-user' || !selectedDbUser || !owner || !selectedDomain) return
+    let cancelled = false
+    setKnownPassword('')
+    void dbRequest<{ password?: string | null }>({
+      action: 'revealPassword',
+      domain: selectedDomain,
+      owner,
+      dbuser: selectedDbUser,
+      database: selectedDatabase || undefined,
+    })
+      .then((data) => {
+        if (!cancelled && data?.password) setKnownPassword(data.password)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [view, selectedDbUser, owner, selectedDomain])
+
+  useEffect(() => {
+    setUserHosts((prev) => {
+      const next = { ...prev }
+      for (const u of dbUsers) {
+        next[u.dbuser] = (u.hostPatterns || []).join(', ')
+      }
+      return next
+    })
+    if (view === 'manage-db') {
+      setGrantUser(dbUsers[0]?.dbuser || '')
+    }
+  }, [dbUserNames, dbUsers, view])
+
+  useEffect(() => {
+    if (view !== 'manage-db' || !selectedDomain || !owner || !dbUserNames) return
+    const names = dbUserNames.split('|').filter(Boolean)
+    let cancelled = false
+    void Promise.all(names.map(async (dbuser) => {
+      try {
+        const data = await dbRequest<{ password?: string | null }>({
+          action: 'revealPassword',
+          domain: selectedDomain,
+          owner,
+          dbuser,
+          database: selectedDatabase,
+        })
+        return [dbuser, /permanently added|known hosts/i.test(data?.password || '') ? '' : (data?.password || '')] as const
+      } catch {
+        return [dbuser, ''] as const
+      }
+    })).then((pairs) => {
+      if (!cancelled) setUserPasswords((prev) => ({ ...prev, ...Object.fromEntries(pairs) }))
+    })
+    return () => { cancelled = true }
+  }, [view, selectedDomain, owner, selectedDatabase, dbUserNames])
+
+  const changeUserPassword = async (dbuser: string, override?: string) => {
+    const pwd = (override ?? userNewPass[dbuser] ?? newPassword).trim()
+    if (pwd.length < 8 || !selectedDomain || !owner) return
+    setBusy(true)
+    try {
+      const data = await dbRequest<{ password?: string }>({
+        action: 'changePassword', domain: selectedDomain, owner, dbuser, newPassword: pwd,
+      })
+      const next = data?.password || pwd
+      setUserPasswords((p) => ({ ...p, [dbuser]: next }))
+      setCreatedSecret({ dbuser, password: next })
+      setUserNewPass((p) => {
+        const copy = { ...p }
+        delete copy[dbuser]
+        return copy
+      })
+      if (dbuser === selectedDbUser) {
+        setKnownPassword(next)
+        setNewPassword('')
+      }
+      flash('Senha alterada. Copie-a abaixo para actualizar o site.')
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : 'Falhou.', true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveUserHosts = async (dbuser: string) => {
+    const raw = userHosts[dbuser] ?? hostsInput
+    const hostPatterns = raw.split(',').map((h) => h.trim()).filter(Boolean)
+    if (!hostPatterns.length || !selectedDomain || !owner) return
+    setBusy(true)
+    try {
+      await dbRequest({ action: 'changeHosts', domain: selectedDomain, owner, dbuser, hostPatterns })
+      if (view === 'manage-db' && selectedDatabase) void loadDbDetail(selectedDatabase, { hadCache: true })
+      if (view === 'manage-user' && selectedDbUser === dbuser) void loadUserDetail(dbuser)
+      flash('Hosts actualizados.')
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : 'Falhou.', true)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-800 dark:text-zinc-200">{breadcrumbLine}</span>
-        </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="w-full max-w-xl space-y-1.5">
+          {view === 'manage-db' && selectedDatabase ? (
+            <p className="text-base font-semibold font-mono text-zinc-900 dark:text-zinc-100">{selectedDatabase}</p>
+          ) : view === 'manage-user' && selectedDbUser ? (
+            <p className="text-base font-semibold font-mono text-zinc-900 dark:text-zinc-100">{selectedDbUser}</p>
+          ) : (
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{breadcrumbLine}</p>
+          )}
+          {owner ? (
+            <p className="text-xs text-zinc-500">
+              Utilizador da conta principal: <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{owner}</span> —
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-500">A identificar a conta autenticada…</p>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {view !== 'databases' ? (
             <button
@@ -454,18 +1088,25 @@ export function DatabasesManagerSection({
                 setView('databases')
               }}
             >
-              Gerir bases de dados
+              {view === 'manage-db' ? 'Lista de bases' : 'Gerir bases de dados'}
             </button>
           ) : null}
           {view === 'databases' ? (
             <>
-              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void openPhpMyAdmin()}>
-                <ExternalLink className="h-4 w-4" /> phpMyAdmin
+              <button type="button" disabled={pmaBusy} className={panelBtnSecondary} onClick={() => openPhpMyAdmin()}>
+                {pmaBusy ? <Spinner className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+                {pmaBusy ? 'A abrir MySQL…' : 'phpMyAdmin'}
               </button>
               <button type="button" className={panelBtnPrimary} onClick={() => setView('users')}>
                 <Users className="h-4 w-4" /> Gerir utilizadores
               </button>
             </>
+          ) : null}
+          {view === 'manage-db' ? (
+            <button type="button" disabled={pmaBusy || !selectedDatabase} className={panelBtnSecondary} onClick={() => openPhpMyAdmin(selectedDatabase)}>
+              {pmaBusy ? <Spinner className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+              {pmaBusy ? 'A abrir MySQL…' : 'phpMyAdmin'}
+            </button>
           ) : null}
           {view === 'users' || view === 'manage-user' ? (
             <button type="button" className={panelBtnPrimary} onClick={() => setView('databases')}>
@@ -477,7 +1118,6 @@ export function DatabasesManagerSection({
 
       {msg ? <div className="rounded border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{msg}</div> : null}
       {error ? <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
-      {syncing ? <p className="text-xs text-zinc-400">A actualizar…</p> : null}
 
       {!selectedDomain ? (
         <div className={`${panelCard} p-8 text-center text-sm text-zinc-500`}>Nenhum website associado a esta secção.</div>
@@ -489,7 +1129,9 @@ export function DatabasesManagerSection({
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Lista de bases de dados</h3>
-                <p className="mt-1 text-sm text-zinc-500">Todas as bases de dados da conta, com tamanho, utilizadores e tabelas.</p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Todas as bases de dados da conta <span className="font-mono">{owner}</span>, com tamanho, utilizadores e tabelas.
+                </p>
               </div>
               <label className="flex items-center gap-2 text-sm text-zinc-500">
                 <input type="checkbox" checked={noSize} onChange={(e) => setNoSize(e.target.checked)} className="rounded border-gray-300 text-red-600" />
@@ -514,19 +1156,21 @@ export function DatabasesManagerSection({
               <table className="w-full text-sm text-left">
                 <thead className="border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-700">
                   <tr>
-                    <th className="px-3 py-2">Nome</th>
+                    <th className="px-3 py-2">Base de dados</th>
+                    <th className="px-3 py-2">Utilizador</th>
                     <th className="px-3 py-2">Tamanho</th>
-                    <th className="px-3 py-2">Utilizadores</th>
+                    <th className="px-3 py-2">Acessos</th>
                     <th className="px-3 py-2">Tabelas</th>
                     <th className="px-3 py-2 text-right">Acções</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
                   {databases.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-10 text-center text-zinc-400">Nenhuma base de dados.</td></tr>
+                    <tr><td colSpan={6} className="px-3 py-10 text-center text-zinc-400">Nenhuma base de dados.</td></tr>
                   ) : databases.map((db) => (
                     <tr key={db.database} className="hover:bg-gray-50/80 dark:hover:bg-zinc-800/30">
                       <td className="px-3 py-2 font-mono font-medium">{db.database}</td>
+                      <td className="px-3 py-2 font-mono text-zinc-600">{db.dbuser || '—'}</td>
                       <td className="px-3 py-2 text-zinc-600">{formatDbSize(db.sizeBytes)}</td>
                       <td className="px-3 py-2">{db.userCount}</td>
                       <td className="px-3 py-2">{db.tableCount}</td>
@@ -571,7 +1215,26 @@ export function DatabasesManagerSection({
           <div className={`${panelCard} space-y-4 p-6`}>
             <div>
               <h3 className="text-sm font-bold">Criar uma nova base de dados</h3>
-              <p className="mt-1 text-xs text-zinc-500">Modo rápido cria utilizador com o mesmo nome; use modo avançado para charset e collation.</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Pode criar só a base e associar um utilizador depois. Se preencher o utilizador, os dois nascem ligados. Deixe o utilizador vazio para criar a base sozinha.
+              </p>
+            </div>
+            <div className="max-w-md">
+              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Domínio</label>
+              <DomainSelect
+                value={selectedDomain}
+                options={domainOptions}
+                associatedDomains={associatedDomains}
+                onChange={handleCreateDomainChange}
+              />
+              {selectedDomainDb ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Este domínio já tem a base <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.database}</span>
+                  {selectedDomainDb.dbuser ? <> · utilizador <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.dbuser}</span></> : null}.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-500">Ainda não há base associada a este domínio. Os nomes abaixo são uma sugestão.</p>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
@@ -579,17 +1242,18 @@ export function DatabasesManagerSection({
                 <PrefixField prefix={owner} value={createDbName} onChange={setCreateDbName} placeholder="minha_bd" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Nome de utilizador</label>
-                <PrefixField prefix={owner} value={createDbUser} onChange={setCreateDbUser} placeholder="minha_bd" />
+                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Nome de utilizador (opcional)</label>
+                <PrefixField prefix={owner} value={createDbUser} onChange={setCreateDbUser} placeholder="vazio = só a base" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Senha</label>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Senha do utilizador</label>
                 <div className="relative">
                   <input
                     type={showCreatePass ? 'text' : 'password'}
                     value={createDbPass}
                     onChange={(e) => setCreateDbPass(e.target.value)}
-                    placeholder="Auto-gerada se vazia"
+                    placeholder={createDbUser.trim() ? 'Auto-gerada se vazia' : 'Só se criar utilizador'}
+                    disabled={!createDbUser.trim()}
                     className={`${panelField} w-full pr-20 dark:bg-zinc-900`}
                   />
                   <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
@@ -601,6 +1265,14 @@ export function DatabasesManagerSection({
                 </div>
               </div>
             </div>
+            {createdSecret?.password && view === 'databases' ? (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase text-green-800">Senha para configurar o site</p>
+                {createdSecret.database ? <p className="mb-1 text-xs font-mono text-zinc-600">Base: {createdSecret.database}</p> : null}
+                {createdSecret.dbuser ? <p className="mb-2 text-xs font-mono text-zinc-600">Utilizador: {createdSecret.dbuser}</p> : null}
+                <CopySecret value={createdSecret.password} />
+              </div>
+            ) : null}
             <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700" onClick={() => setAdvancedCreate((v) => !v)}>
               Modo avançado {advancedCreate ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
@@ -617,8 +1289,8 @@ export function DatabasesManagerSection({
               </div>
             ) : null}
             <div className="flex justify-end">
-              <button type="button" disabled={busy || !createDbName.trim()} className={panelBtnPrimary} onClick={() => void handleCreateDatabase()}>
-                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Criar
+              <button type="button" disabled={busy || !owner || !createDbName.trim() || createDbExists} className={panelBtnPrimary} onClick={() => void handleCreateDatabase()}>
+                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {createDbExists ? 'Já existe' : 'Criar'}
               </button>
             </div>
           </div>
@@ -683,7 +1355,7 @@ export function DatabasesManagerSection({
 
           <div className={`${panelCard} space-y-4 p-6`}>
             <h3 className="text-sm font-bold">Criar uma nova conta</h3>
-            <p className="text-xs text-zinc-500">O utilizador não terá acesso a bases de dados até ser autorizado.</p>
+            <p className="text-xs text-zinc-500">O utilizador nasce sem base. Depois associe-o a uma base existente — ou crie os dois juntos no formulário da página de bases.</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Nome de utilizador</label>
@@ -708,12 +1380,23 @@ export function DatabasesManagerSection({
               </div>
             </div>
             <div className="flex justify-end">
-              <button type="button" disabled={busy || !createUserName.trim() || !createUserPass} className={panelBtnPrimary} onClick={() => void handleCreateUser()}>
-                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Criar
+              <button type="button" disabled={busy || !createUserName.trim() || createUserPass.length < 8} className={panelBtnPrimary} onClick={() => void handleCreateUser()}>
+                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Criar utilizador
               </button>
             </div>
+            {createdSecret?.password && view === 'users' ? (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase text-green-800">Senha para configurar o site</p>
+                {createdSecret.dbuser ? <p className="mb-2 text-xs font-mono text-zinc-600">Utilizador: {createdSecret.dbuser}</p> : null}
+                <CopySecret value={createdSecret.password} />
+              </div>
+            ) : null}
           </div>
         </>
+      ) : null}
+
+      {selectedDomain && view === 'manage-db' && loading && !dbMeta ? (
+        <div className={`${panelCard} py-12 text-center`}><Spinner className="mx-auto h-6 w-6" /></div>
       ) : null}
 
       {selectedDomain && view === 'manage-db' && dbMeta ? (
@@ -753,7 +1436,13 @@ export function DatabasesManagerSection({
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-zinc-800">
-                  {dbUsers.map((u) => (
+                  {dbUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-8 text-center text-sm text-zinc-500">
+                        Nenhum utilizador associado. Use o card abaixo para associar.
+                      </td>
+                    </tr>
+                  ) : dbUsers.map((u) => (
                     <tr key={u.dbuser}>
                       <td className="px-3 py-2 font-mono">{u.dbuser}</td>
                       <td className="px-3 py-2">
@@ -763,24 +1452,33 @@ export function DatabasesManagerSection({
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex justify-end flex-wrap gap-2">
-                          <button type="button" className={panelBtnSecondary} onClick={() => { setSelectedDbUser(u.dbuser); setView('manage-user') }}>Gerir</button>
-                          <button type="button" className={panelBtnSecondary} onClick={() => void openPhpMyAdmin(selectedDatabase)}>phpMyAdmin</button>
+                          <button type="button" disabled={pmaBusy} className={panelBtnSecondary} onClick={() => openPhpMyAdmin(selectedDatabase)}>
+                            {pmaBusy ? <Spinner className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+                            {pmaBusy ? 'A abrir MySQL…' : 'phpMyAdmin'}
+                          </button>
+                          <button
+                            type="button"
+                            className={panelBtnSecondary}
+                            onClick={() => setPrivEdit({ dbuser: u.dbuser, database: selectedDatabase, privileges: { ...u.privileges } })}
+                          >
+                            Editar privilégios
+                          </button>
                           <button
                             type="button"
                             className={`${panelBtnSecondary} border-red-300 text-red-600`}
                             onClick={() => setConfirm({
-                              title: 'Revogar acesso',
-                              message: `Revogar acesso de «${u.dbuser}» a «${selectedDatabase}»?`,
-                              confirmLabel: 'Revogar',
+                              title: 'Desassociar utilizador',
+                              message: `Desassociar «${u.dbuser}» de «${selectedDatabase}»?`,
+                              confirmLabel: 'Desassociar',
                               danger: true,
                               onConfirm: async () => {
                                 await dbRequest({ action: 'revokeAccess', domain: selectedDomain, owner, database: selectedDatabase, dbuser: u.dbuser })
                                 void loadDbDetail(selectedDatabase, { hadCache: true })
-                                flash('Acesso revogado.')
+                                flash('Utilizador desassociado.')
                               },
                             })}
                           >
-                            Revogar acesso
+                            Desassociar
                           </button>
                         </div>
                       </td>
@@ -789,53 +1487,207 @@ export function DatabasesManagerSection({
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-gray-200 pt-4 dark:border-zinc-700">
-              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Conceder acesso a utilizador adicional</label>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                <select value={grantUser} onChange={(e) => setGrantUser(e.target.value)} className={`${panelField} w-full md:flex-1 dark:bg-zinc-900`}>
-                  <option value="">Seleccione o utilizador…</option>
-                  {availableGrantUsers.map((u) => <option key={u.dbuser} value={u.dbuser}>{u.dbuser}</option>)}
-                </select>
-                <button
-                  type="button"
-                  disabled={!grantUser || busy}
-                  className={panelBtnPrimary}
-                  onClick={async () => {
-                    setBusy(true)
-                    try {
-                      await dbRequest({ action: 'grantAccess', domain: selectedDomain, owner, database: selectedDatabase, dbuser: grantUser })
-                      setGrantUser('')
-                      void loadDbDetail(selectedDatabase, { hadCache: true })
-                      flash('Acesso concedido.')
-                    } catch (e: unknown) {
-                      flash(e instanceof Error ? e.message : 'Falhou.', true)
-                    } finally { setBusy(false) }
-                  }}
-                >
-                  <Plus className="h-4 w-4" /> Conceder acesso total
-                </button>
+            {privEdit && privEdit.database === selectedDatabase ? (
+              <div className="rounded border border-red-200 bg-red-50/40 p-4 dark:border-red-900 dark:bg-red-950/20">
+                <p className="mb-3 text-sm font-bold">
+                  Privilégios de <span className="font-mono">{privEdit.dbuser}</span> em <span className="font-mono">{privEdit.database}</span>
+                </p>
+                <PrivilegeEditor
+                  privileges={privEdit.privileges}
+                  onChange={(privileges) => setPrivEdit({ ...privEdit, privileges })}
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <button type="button" className={panelBtnSecondary} onClick={() => setPrivEdit(null)}>Cancelar</button>
+                  <button type="button" disabled={busy} className={panelBtnPrimary} onClick={() => void savePrivileges()}>
+                    {busy ? <Spinner className="h-4 w-4" /> : null} Guardar privilégios
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
+
+          {(() => {
+            const primaryUser = dbUsers[0]?.dbuser || ''
+            const associated = Boolean(primaryUser)
+            const rawPass = (createdSecret?.dbuser === primaryUser ? createdSecret.password : '') || userPasswords[primaryUser] || ''
+            const currentPass = /permanently added|known hosts/i.test(rawPass) ? '' : rawPass
+            const passwordField = userNewPass[primaryUser] ?? currentPass
+            const hostsField = userHosts[primaryUser] ?? (dbUsers[0]?.hostPatterns || []).join(', ')
+            return (
+              <div className={`${panelCard} space-y-3 p-6`}>
+                <h3 className="text-sm font-bold">Senha, associação e hosts</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Base de dados</label>
+                    <p className={`${panelField} flex items-center font-mono`}>{selectedDatabase}</p>
+                    {associated ? (
+                      <p className={`${panelField} flex items-center font-mono`}>{primaryUser}</p>
+                    ) : (
+                      <div className="flex gap-2">
+                        <select
+                          value={grantUser}
+                          onChange={(e) => setGrantUser(e.target.value)}
+                          className={`${panelField} min-w-0 flex-1 dark:bg-zinc-900`}
+                        >
+                          <option value="">Seleccione o utilizador…</option>
+                          {users.map((u) => (
+                            <option key={u.dbuser} value={u.dbuser}>{u.dbuser}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={!grantUser || busy}
+                          className={panelBtnPrimary}
+                          onClick={async () => {
+                            setBusy(true)
+                            try {
+                              await dbRequest({ action: 'grantAccess', domain: selectedDomain, owner, database: selectedDatabase, dbuser: grantUser })
+                              void loadDbDetail(selectedDatabase, { hadCache: true })
+                              void loadUsers({ hadCache: true })
+                              flash('Utilizador associado.')
+                            } catch (e: unknown) {
+                              flash(e instanceof Error ? e.message : 'Falhou.', true)
+                            } finally { setBusy(false) }
+                          }}
+                        >
+                          Associar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Hosts</label>
+                    <input
+                      value={hostsField}
+                      onChange={(e) => {
+                        if (!primaryUser) return
+                        setUserHosts((p) => ({ ...p, [primaryUser]: e.target.value }))
+                      }}
+                      placeholder={primaryUser ? 'localhost, %' : 'Associe um utilizador primeiro'}
+                      disabled={!primaryUser || busy}
+                      className={`${panelField} w-full font-mono text-xs dark:bg-zinc-900`}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy || !primaryUser || !hostsField.trim()}
+                      className={`${panelBtnPrimary} w-full`}
+                      onClick={() => void saveUserHosts(primaryUser)}
+                    >
+                      Guardar hosts
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Senha</label>
+                    <input
+                      type="text"
+                      value={passwordField}
+                      onChange={(e) => {
+                        if (!primaryUser) return
+                        setUserNewPass((p) => ({ ...p, [primaryUser]: e.target.value }))
+                      }}
+                      placeholder={primaryUser ? 'Senha actual ou nova senha' : 'Sem utilizador associado'}
+                      disabled={!primaryUser || busy}
+                      className={`${panelField} w-full font-mono dark:bg-zinc-900`}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy || !primaryUser || passwordField.trim().length < 8}
+                      className={`${panelBtnPrimary} w-full`}
+                      onClick={() => void changeUserPassword(primaryUser, passwordField)}
+                    >
+                      Alterar senha
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           <div className={`${panelCard} space-y-4 p-6`}>
             <h3 className="text-sm font-bold">Operações de base de dados</h3>
-            <p className="text-xs text-zinc-500">Importar, exportar, verificar, reparar ou optimizar.</p>
+            <p className="text-xs text-zinc-500">Importar, exportar, verificar, reparar ou optimizar «{selectedDatabase}».</p>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-              <label className={`${panelBtnSecondary} cursor-pointer`}>
-                <Upload className="h-4 w-4" /> Importar
-                <input type="file" accept=".sql,.gz,.zip" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f); e.target.value = '' }} />
+              <label className={cn(panelBtnSecondary, 'cursor-pointer', busy && 'pointer-events-none opacity-50')}>
+                {busy && dbOp?.action === 'import' && !dbOp.done ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                Importar
+                <input
+                  type="file"
+                  accept=".sql,.sql.gz,.gz,.zip"
+                  disabled={busy}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleImport(f)
+                    e.target.value = ''
+                  }}
+                />
               </label>
-              <a href={exportUrl(selectedDatabase, false)} className={panelBtnSecondary}><Download className="h-4 w-4" /> Exportar SQL</a>
-              <a href={exportUrl(selectedDatabase, true)} className={panelBtnSecondary}><Download className="h-4 w-4" /> Exportar GZ</a>
-              <button type="button" className={panelBtnSecondary} onClick={() => void runDbOp('check', selectedDatabase)}><Search className="h-4 w-4" /> Verificar</button>
-              <button type="button" className={panelBtnSecondary} onClick={() => void runDbOp('repair', selectedDatabase)}><Wrench className="h-4 w-4" /> Reparar</button>
-              <button type="button" className={panelBtnSecondary} onClick={() => void runDbOp('optimize', selectedDatabase)}><Rocket className="h-4 w-4" /> Optimizar</button>
+              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void handleExport(false)}>
+                {busy && dbOp?.action === 'export-sql' ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                Exportar SQL
+              </button>
+              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void handleExport(true)}>
+                {busy && dbOp?.action === 'export-gz' ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                Exportar GZ
+              </button>
+              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void runDbOp('check', selectedDatabase)}>
+                {busy && dbOp?.action === 'check' ? <Spinner className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                Verificar
+              </button>
+              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void runDbOp('repair', selectedDatabase)}>
+                {busy && dbOp?.action === 'repair' ? <Spinner className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                Reparar
+              </button>
+              <button type="button" disabled={busy} className={panelBtnSecondary} onClick={() => void runDbOp('optimize', selectedDatabase)}>
+                {busy && dbOp?.action === 'optimize' ? <Spinner className="h-4 w-4" /> : <Rocket className="h-4 w-4" />}
+                Optimizar
+              </button>
             </div>
             <label className="flex items-center gap-2 text-xs text-zinc-500">
-              <input type="checkbox" checked={importClean} onChange={(e) => setImportClean(e.target.checked)} className="rounded border-gray-300 text-red-600" />
+              <input type="checkbox" checked={importClean} disabled={busy} onChange={(e) => setImportClean(e.target.checked)} className="rounded border-gray-300 text-red-600" />
               Limpar base de dados antes de importar
             </label>
+            {dbOp ? (
+              <div className={cn(
+                'rounded-lg border p-4',
+                dbOp.error
+                  ? 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20'
+                  : dbOp.done
+                    ? 'border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/20'
+                    : 'border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800/40',
+              )}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {DB_OP_LABEL[dbOp.action]}
+                      {dbOp.fileName ? <span className="font-normal text-zinc-500"> · {dbOp.fileName}</span> : null}
+                    </p>
+                    <p className={cn('mt-0.5 text-xs', dbOp.error ? 'text-red-700' : 'text-zinc-600 dark:text-zinc-400')}>{dbOp.phase}</p>
+                  </div>
+                  {!dbOp.done ? <Spinner className="h-4 w-4 shrink-0" /> : null}
+                </div>
+                {dbOp.percent != null ? (
+                  <div className="mt-3 h-2 overflow-hidden rounded bg-white dark:bg-zinc-900">
+                    <div
+                      className={cn('h-2 rounded transition-all duration-300', dbOp.error ? 'bg-red-500' : 'bg-red-600')}
+                      style={{ width: `${Math.max(2, dbOp.percent)}%` }}
+                    />
+                  </div>
+                ) : !dbOp.done ? (
+                  <div className="mt-3 h-2 overflow-hidden rounded bg-white dark:bg-zinc-900">
+                    <div className="h-2 w-1/3 animate-pulse rounded bg-red-400" />
+                  </div>
+                ) : null}
+                {dbOp.percent != null && !dbOp.done ? (
+                  <p className="mt-1 text-right text-[11px] font-mono text-zinc-500">{dbOp.percent}%</p>
+                ) : null}
+                {dbOp.result ? (
+                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded border border-gray-200 bg-white p-2 text-[11px] font-mono text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+                    {dbOp.result}
+                  </pre>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -854,36 +1706,20 @@ export function DatabasesManagerSection({
           </div>
 
           <div className={`${panelCard} space-y-3 p-6`}>
-            <h3 className="text-sm font-bold">Gestão de senha</h3>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <input
-                type={showNewPass ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Nova senha (mín. 8 caracteres)"
-                className={`${panelField} w-full md:flex-1 dark:bg-zinc-900`}
-              />
-              <button type="button" className="p-2 text-zinc-400" onClick={() => setShowNewPass((v) => !v)}>
-                {showNewPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                disabled={busy || newPassword.length < 8}
-                className={panelBtnPrimary}
-                onClick={async () => {
-                  setBusy(true)
-                  try {
-                    await dbRequest({ action: 'changePassword', domain: selectedDomain, owner, dbuser: selectedDbUser, newPassword })
-                    setNewPassword('')
-                    flash('Senha alterada.')
-                  } catch (e: unknown) {
-                    flash(e instanceof Error ? e.message : 'Falhou.', true)
-                  } finally { setBusy(false) }
-                }}
-              >
-                Alterar senha
-              </button>
-            </div>
+            <h3 className="text-sm font-bold">Senha e hosts</h3>
+            <UserSecurityPanel
+              dbuser={selectedDbUser}
+              knownPassword={createdSecret?.dbuser === selectedDbUser ? createdSecret.password : knownPassword}
+              hostsValue={hostsInput}
+              onHostsChange={setHostsInput}
+              newPassword={newPassword}
+              onNewPasswordChange={setNewPassword}
+              showNewPass={showNewPass}
+              onToggleShowNew={() => setShowNewPass((v) => !v)}
+              busy={busy}
+              onChangePassword={() => changeUserPassword(selectedDbUser)}
+              onSaveHosts={() => saveUserHosts(selectedDbUser)}
+            />
           </div>
 
           <div className={`${panelCard} space-y-4 p-6`}>
@@ -907,23 +1743,29 @@ export function DatabasesManagerSection({
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end flex-wrap gap-2">
-                        <button type="button" className={panelBtnSecondary} onClick={() => { setSelectedDatabase(d.database); setView('manage-db') }}>Gerir</button>
+                        <button
+                          type="button"
+                          className={panelBtnSecondary}
+                          onClick={() => setPrivEdit({ dbuser: selectedDbUser, database: d.database, privileges: { ...d.privileges } })}
+                        >
+                          Editar privilégios
+                        </button>
                         <button
                           type="button"
                           className={`${panelBtnSecondary} border-red-300 text-red-600`}
                           onClick={() => setConfirm({
-                            title: 'Revogar acesso',
-                            message: `Revogar acesso de «${selectedDbUser}» a «${d.database}»?`,
-                            confirmLabel: 'Revogar',
+                            title: 'Desassociar utilizador',
+                            message: `Desassociar «${selectedDbUser}» de «${d.database}»?`,
+                            confirmLabel: 'Desassociar',
                             danger: true,
                             onConfirm: async () => {
                               await dbRequest({ action: 'revokeAccess', domain: selectedDomain, owner, database: d.database, dbuser: selectedDbUser })
                               void loadUserDetail(selectedDbUser)
-                              flash('Acesso revogado.')
+                              flash('Utilizador desassociado.')
                             },
                           })}
                         >
-                          Revogar acesso
+                          Desassociar
                         </button>
                       </div>
                     </td>
@@ -931,16 +1773,40 @@ export function DatabasesManagerSection({
                 ))}
               </tbody>
             </table>
+            {privEdit && privEdit.dbuser === selectedDbUser ? (
+              <div className="rounded border border-red-200 bg-red-50/40 p-4 dark:border-red-900 dark:bg-red-950/20">
+                <p className="mb-3 text-sm font-bold">
+                  Privilégios de <span className="font-mono">{privEdit.dbuser}</span> em <span className="font-mono">{privEdit.database}</span>
+                </p>
+                <PrivilegeEditor
+                  privileges={privEdit.privileges}
+                  onChange={(privileges) => setPrivEdit({ ...privEdit, privileges })}
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <button type="button" className={panelBtnSecondary} onClick={() => setPrivEdit(null)}>Cancelar</button>
+                  <button type="button" disabled={busy} className={panelBtnPrimary} onClick={() => void savePrivileges()}>
+                    {busy ? <Spinner className="h-4 w-4" /> : null} Guardar privilégios
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <div className="border-t pt-4 dark:border-zinc-700">
-              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Conceder acesso a base de dados adicional</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Associar a uma base de dados</label>
               <div className="flex flex-col gap-2 md:flex-row">
                 <select value={grantDatabase} onChange={(e) => setGrantDatabase(e.target.value)} className={`${panelField} w-full md:flex-1 dark:bg-zinc-900`}>
                   <option value="">Seleccione a base de dados…</option>
-                  {availableGrantDbs.map((d) => <option key={d.database} value={d.database}>{d.database}</option>)}
+                  {databases.map((d) => {
+                    const associated = userDatabases.some((ud) => ud.database === d.database)
+                    return (
+                      <option key={d.database} value={d.database}>
+                        {d.database}{associated ? ' · associado' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
                 <button
                   type="button"
-                  disabled={!grantDatabase || busy}
+                  disabled={!grantDatabase || busy || userDatabases.some((ud) => ud.database === grantDatabase)}
                   className={panelBtnPrimary}
                   onClick={async () => {
                     setBusy(true)
@@ -948,47 +1814,18 @@ export function DatabasesManagerSection({
                       await dbRequest({ action: 'grantAccess', domain: selectedDomain, owner, database: grantDatabase, dbuser: selectedDbUser })
                       setGrantDatabase('')
                       void loadUserDetail(selectedDbUser)
-                      flash('Acesso concedido.')
+                      flash('Base associada.')
                     } catch (e: unknown) {
                       flash(e instanceof Error ? e.message : 'Falhou.', true)
                     } finally { setBusy(false) }
                   }}
                 >
-                  <Plus className="h-4 w-4" /> Conceder acesso total
+                  <Plus className="h-4 w-4" /> Associar
                 </button>
               </div>
             </div>
           </div>
 
-          <div className={`${panelCard} p-6`}>
-            <h3 className="mb-2 text-sm font-bold">Hosts permitidos</h3>
-            <p className="mb-3 text-xs text-zinc-500">Separados por vírgula (ex.: localhost, %, 127.0.0.1)</p>
-            <div className="flex flex-col gap-2 md:flex-row">
-              <input
-                value={hostsInput}
-                onChange={(e) => setHostsInput(e.target.value)}
-                className={`${panelField} w-full md:flex-1 font-mono text-xs dark:bg-zinc-900`}
-              />
-              <button
-                type="button"
-                disabled={busy || !hostsInput.trim()}
-                className={panelBtnPrimary}
-                onClick={async () => {
-                  setBusy(true)
-                  try {
-                    const hostPatterns = hostsInput.split(',').map((h) => h.trim()).filter(Boolean)
-                    await dbRequest({ action: 'changeHosts', domain: selectedDomain, owner, dbuser: selectedDbUser, hostPatterns })
-                    void loadUserDetail(selectedDbUser)
-                    flash('Hosts actualizados.')
-                  } catch (e: unknown) {
-                    flash(e instanceof Error ? e.message : 'Falhou.', true)
-                  } finally { setBusy(false) }
-                }}
-              >
-                Guardar hosts
-              </button>
-            </div>
-          </div>
         </div>
       ) : null}
 

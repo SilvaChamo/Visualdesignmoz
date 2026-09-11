@@ -170,8 +170,15 @@ export async function GET(req: NextRequest) {
 
     if (IS_HESTIA) {
       const { listHostingDomains, listHostingUsers, listHostingPackages } = await import('@/lib/hosting-resolver');
+      resellerContext = isReseller
+        ? await resolveResellerPanelContext({ user: staffAuth.user })
+        : null;
       const [sites, users, packages] = await Promise.all([
-        listHostingDomains(),
+        listHostingDomains(
+          resellerContext?.daUsername
+            ? { role: 'reseller', daUsername: resellerContext.daUsername }
+            : undefined,
+        ),
         listHostingUsers(),
         listHostingPackages(),
       ]);
@@ -179,7 +186,12 @@ export async function GET(req: NextRequest) {
       usersOut = users;
       packagesOut = packages;
       accountsResult = { accounts: [], counts: {} };
-      resellerContext = null;
+      if (resellerContext?.daUsername) {
+        const owner = resellerContext.daUsername;
+        usersOut = usersOut.filter(
+          (u) => u.userName === owner || u.parentUsername === owner,
+        );
+      }
     } else {
       const [sites, users, acctRes, resCon] = await Promise.all([
         listMirrorWebsites(mirrorScope),
@@ -231,7 +243,7 @@ export async function GET(req: NextRequest) {
       success: true,
       sites: sitesOut,
       allSites: sitesOut,   // No Hestia não há distinção admin/reseller; no DA era isReseller ? sitesOut : sites
-      hostingOwner: IS_HESTIA ? HESTIA_USER : null,
+      hostingOwner: IS_HESTIA ? (resellerContext?.daUsername || HESTIA_USER) : null,
       hestiaOnly: IS_HESTIA,
       users: usersOut,
       packages: packagesOut,

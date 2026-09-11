@@ -150,7 +150,7 @@ export function WordPressHubSection({
   );
 
   const scopedWpDomains = useMemo(() => {
-    if (accountDomainSet.size === 0) return wpDomains;
+    if (accountDomainSet.size === 0) return [];
     return wpDomains.filter((d) => accountDomainSet.has(d.domain.toLowerCase()));
   }, [wpDomains, accountDomainSet]);
 

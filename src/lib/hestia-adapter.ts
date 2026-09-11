@@ -6,6 +6,7 @@
 
 import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
+import { getPhpMyAdminUrl } from '@/lib/server-config';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -279,24 +280,314 @@ export async function listDatabases(username: string): Promise<HestiaDatabase[]>
   }));
 }
 
+function sanitizeDbSuffix(raw: string): string {
+  return raw.replace(/[^A-Za-z0-9_]/g, '').slice(0, 32);
+}
+
+function assertSqlIdent(name: string): string {
+  if (!name || !/^[A-Za-z0-9_]+$/.test(name)) {
+    throw new Error('Nome de base de dados inválido.');
+  }
+  return name;
+}
+
 export async function createDatabase(input: {
   username: string;
   dbNameSuffix: string;
   dbUserSuffix: string;
   password: string;
+  charset?: string;
 }): Promise<{ ok: boolean; error?: string; database?: string; dbUser?: string }> {
-  const result = await hestiaCall('v-add-database', [
-    input.username,
-    input.dbNameSuffix,
-    input.dbUserSuffix,
-    input.password,
-  ]);
+  const dbNameSuffix = sanitizeDbSuffix(input.dbNameSuffix);
+  const dbUserSuffix = sanitizeDbSuffix(input.dbUserSuffix || dbNameSuffix);
+  if (!dbNameSuffix || !dbUserSuffix) {
+    return { ok: false, error: 'Nome da base de dados inválido. Use só letras, números e underscore.' };
+  }
+  const args = [input.username, dbNameSuffix, dbUserSuffix, input.password];
+  const charset = (input.charset || '').replace(/[^A-Za-z0-9_]/g, '');
+  if (charset) args.push('mysql', 'localhost', charset);
+  const result = await hestiaCall('v-add-database', args);
   if (!result.ok) return { ok: false, error: result.error };
   return {
     ok: true,
-    database: `${input.username}_${input.dbNameSuffix}`,
-    dbUser: `${input.username}_${input.dbUserSuffix}`,
+    database: `${input.username}_${dbNameSuffix}`,
+    dbUser: `${input.username}_${dbUserSuffix}`,
   };
+}
+
+type MysqlSchemaStats = {
+  collation: string;
+  tableCount: number;
+  viewCount: number;
+  eventCount: number;
+  triggerCount: number;
+  routineCount: number;
+  sizeBytes: number;
+};
+
+async function mysqlSchemaStats(database: string): Promise<MysqlSchemaStats> {
+  const id = assertSqlIdent(database);
+  const sql = [
+    `SELECT IFNULL((SELECT DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='${id}'),'')`,
+    `IFNULL((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='${id}' AND TABLE_TYPE='BASE TABLE'),0)`,
+    `IFNULL((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='${id}' AND TABLE_TYPE='VIEW'),0)`,
+    `IFNULL((SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA='${id}'),0)`,
+    `IFNULL((SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='${id}'),0)`,
+    `IFNULL((SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='${id}'),0)`,
+    `IFNULL((SELECT SUM(DATA_LENGTH+INDEX_LENGTH) FROM information_schema.TABLES WHERE TABLE_SCHEMA='${id}'),0)`,
+  ].join(', ');
+  const raw = await executeServerCommand(`mysql -N -e "${sql}" 2>/dev/null`);
+  const parts = raw.trim().split(/\s+/);
+  const n = (i: number) => Number(parts[i] || 0) || 0;
+  return {
+    collation: parts[0] || '',
+    tableCount: n(1),
+    viewCount: n(2),
+    eventCount: n(3),
+    triggerCount: n(4),
+    routineCount: n(5),
+    sizeBytes: n(6),
+  };
+}
+
+export type HestiaDatabaseDetails = {
+  database: string;
+  dbUser: string;
+  host: string;
+  type: string;
+  defaultCharset: string;
+  defaultCollation: string;
+  sizeBytes: number;
+  userCount: number;
+  tableCount: number;
+  viewCount: number;
+  eventCount: number;
+  triggerCount: number;
+  routineCount: number;
+  suspended: boolean;
+};
+
+export async function getDatabaseDetails(
+  username: string,
+  database: string,
+): Promise<HestiaDatabaseDetails | null> {
+  const id = assertSqlIdent(database);
+  const admin = username.toLowerCase() === (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase();
+  if (!admin && !id.startsWith(`${username}_`)) return null;
+  const listed = await listDatabases(username);
+  const row = listed.find((d) => d.database === id);
+  const exists = await executeServerCommand(
+    `mysql -N -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='${id}'"`,
+  ).then((raw) => raw.trim() === id).catch(() => Boolean(row));
+  if (!row && !exists) return null;
+  let stats: MysqlSchemaStats = {
+    collation: '',
+    tableCount: 0,
+    viewCount: 0,
+    eventCount: 0,
+    triggerCount: 0,
+    routineCount: 0,
+    sizeBytes: row ? row.diskUsedMb * 1024 * 1024 : 0,
+  };
+  try {
+    stats = await mysqlSchemaStats(id);
+  } catch {
+    if (!row) return null;
+  }
+  return {
+    database: id,
+    dbUser: row?.dbUser || '',
+    host: row?.host || 'localhost',
+    type: row?.type || 'mysql',
+    defaultCharset: row?.charset || 'utf8mb4',
+    defaultCollation: stats.collation || 'utf8mb4_unicode_ci',
+    sizeBytes: stats.sizeBytes || (row ? row.diskUsedMb * 1024 * 1024 : 0),
+    userCount: 1,
+    tableCount: stats.tableCount,
+    viewCount: stats.viewCount,
+    eventCount: stats.eventCount,
+    triggerCount: stats.triggerCount,
+    routineCount: stats.routineCount,
+    suspended: row?.suspended || false,
+  };
+}
+
+/** No Hestia 1 base = 1 utilizador. A UI DA espera uma lista. */
+export function hestiaDatabaseUsers(row: { database: string; dbUser: string; host: string }) {
+  return [
+    {
+      dbuser: row.dbUser,
+      hostPatterns: [row.host || 'localhost'],
+      privileges: {
+        alter: true,
+        alterRoutine: true,
+        create: true,
+        createRoutine: true,
+        createTmpTable: true,
+        createView: true,
+        delete: true,
+        drop: true,
+        event: true,
+        execute: true,
+        index: true,
+        insert: true,
+        lockTables: true,
+        references: true,
+        select: true,
+        showView: true,
+        trigger: true,
+        update: true,
+      },
+    },
+  ];
+}
+
+function mysqlViaStdin(sql: string): Promise<string> {
+  const b64 = Buffer.from(sql, 'utf8').toString('base64');
+  const marker = '__MYSQL_OK__';
+  return executeServerCommand(
+    `echo '${b64}' | base64 -d | mysql --batch --raw --default-character-set=utf8mb4 && echo ${marker}`,
+  ).then((out) => {
+    if (!out.includes(marker) || /ERROR\s+\d+/i.test(out)) {
+      throw new Error(out.replace(marker, '').trim() || 'MySQL falhou.');
+    }
+    return out.replace(marker, '').trim();
+  });
+}
+
+export async function exportDatabaseFile(
+  database: string,
+  gzip: boolean,
+): Promise<{ ok: boolean; filePath?: string; error?: string }> {
+  let id: string;
+  try {
+    id = assertSqlIdent(database);
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Nome inválido' };
+  }
+  const tmp = `/tmp/vd-dump-${process.pid}-${Date.now()}.${gzip ? 'sql.gz' : 'sql'}`;
+  const dump = `mysqldump --single-transaction --quick --hex-blob --routines --triggers --default-character-set=utf8mb4 ${id}`;
+  const cmd = gzip ? `${dump} | gzip -c > ${tmp}` : `${dump} > ${tmp}`;
+  try {
+    await executeServerCommand(`${cmd} && test -s ${tmp} && echo OK`);
+    return { ok: true, filePath: tmp };
+  } catch (e: unknown) {
+    await executeServerCommand(`rm -f ${tmp}`).catch(() => '');
+    return { ok: false, error: e instanceof Error ? e.message : 'Exportação falhou' };
+  }
+}
+
+export async function exportDatabaseBytes(
+  database: string,
+  gzip: boolean,
+): Promise<{ ok: boolean; bytes?: Buffer; error?: string }> {
+  const dumped = await exportDatabaseFile(database, gzip);
+  if (!dumped.ok || !dumped.filePath) return { ok: false, error: dumped.error };
+  const tmp = dumped.filePath;
+  try {
+    const fs = await import('fs/promises');
+    try {
+      const bytes = await fs.readFile(tmp);
+      if (bytes.length) return { ok: true, bytes };
+    } catch {
+      /* o dump vive no servidor de hospedagem — ler via SSH */
+    }
+    const b64 = await executeServerCommand(`base64 ${tmp}`);
+    const bytes = Buffer.from(b64.replace(/\s+/g, ''), 'base64');
+    if (!bytes.length) return { ok: false, error: 'Dump vazio.' };
+    return { ok: true, bytes };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Exportação falhou' };
+  } finally {
+    await executeServerCommand(`rm -f ${tmp}`).catch(() => '');
+  }
+}
+
+export async function importDatabaseFile(
+  database: string,
+  sql: Buffer,
+  clean: boolean,
+  fileName = '',
+): Promise<{ ok: boolean; error?: string }> {
+  let id: string;
+  try {
+    id = assertSqlIdent(database);
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Nome inválido' };
+  }
+  const { uploadFileViaSsh } = await import('@/lib/server-ssh-exec');
+  const stamp = `${process.pid}-${Date.now()}`;
+  const isGz =
+    /\.gz$/i.test(fileName) || (sql.length >= 2 && sql[0] === 0x1f && sql[1] === 0x8b);
+  const isZip =
+    /\.zip$/i.test(fileName) || (sql.length >= 2 && sql[0] === 0x50 && sql[1] === 0x4b);
+  const remote = isGz
+    ? `/tmp/vd-import-${stamp}.sql.gz`
+    : isZip
+      ? `/tmp/vd-import-${stamp}.zip`
+      : `/tmp/vd-import-${stamp}.sql`;
+  try {
+    await uploadFileViaSsh(remote, sql);
+    if (clean) {
+      await mysqlViaStdin(
+        [
+          'SET FOREIGN_KEY_CHECKS=0;',
+          'SET SESSION group_concat_max_len=10485760;',
+          `SET @drop = (SELECT CONCAT('DROP TABLE IF EXISTS ', GROUP_CONCAT(CONCAT('\`', table_name, '\`'))) FROM information_schema.tables WHERE table_schema='${id}' AND table_type='BASE TABLE');`,
+          "SET @drop = IFNULL(@drop, 'SELECT 1');",
+          'PREPARE stmt FROM @drop; EXECUTE stmt; DEALLOCATE PREPARE stmt;',
+          'SET FOREIGN_KEY_CHECKS=1;',
+        ].join(' '),
+      );
+    }
+    const marker = '__MYSQL_OK__';
+    const load = isGz
+      ? `gunzip -c ${remote} | mysql --default-character-set=utf8mb4 ${id}`
+      : isZip
+        ? `SQLFILE=$(unzip -Z -1 ${remote} | grep -i '\\.sql$' | head -1) && unzip -p ${remote} "$SQLFILE" | mysql --default-character-set=utf8mb4 ${id}`
+        : `mysql --default-character-set=utf8mb4 ${id} < ${remote}`;
+    const out = await executeServerCommand(`${load} && echo ${marker}`, { timeoutMs: 600_000 });
+    if (!out.includes(marker) || /ERROR\s+\d+/i.test(out.replace(marker, ''))) {
+      throw new Error(out.replace(marker, '').trim() || 'Importação falhou.');
+    }
+    return { ok: true };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Importação falhou' };
+  } finally {
+    await executeServerCommand(`rm -f ${remote}`).catch(() => '');
+  }
+}
+
+export async function maintainDatabase(
+  database: string,
+  op: 'check' | 'repair' | 'optimize',
+): Promise<{ ok: boolean; error?: string; data?: string }> {
+  let id: string;
+  try {
+    id = assertSqlIdent(database);
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Nome inválido' };
+  }
+  const verb = op === 'check' ? 'CHECK' : op === 'repair' ? 'REPAIR' : 'OPTIMIZE';
+  try {
+    const rawTables = await executeServerCommand(
+      `mysql -N -e "SELECT table_name FROM information_schema.tables WHERE table_schema='${id}' AND table_type='BASE TABLE'"`,
+    );
+    const tables = rawTables
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => `\`${id}\`.\`${assertSqlIdent(t)}\``);
+    if (!tables.length) return { ok: true, data: 'Nenhuma tabela nesta base de dados.' };
+    const output = await mysqlViaStdin(`${verb} TABLE ${tables.join(',')}`);
+    return { ok: true, data: output || `${verb} concluído.` };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Operação falhou' };
+  }
+}
+
+export function phpMyAdminUrl(domain?: string): string {
+  return getPhpMyAdminUrl(domain);
 }
 
 /** `database` tem de vir já com o prefixo `${username}_` (como devolvido por listDatabases). */
@@ -312,6 +603,13 @@ export async function changeDatabasePassword(
 ): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-change-database-password', [username, database, password]);
   return { ok: result.ok, error: result.error };
+}
+
+export async function refreshDatabaseDisk(
+  username: string,
+  database: string,
+): Promise<void> {
+  await hestiaCall('v-update-database-disk', [username, database]);
 }
 
 // ---------------------------------------------------------------------------

@@ -197,7 +197,7 @@ async function tryHestiaCreateWebsite(
   // mexe na Cloudflare — confirmado ao vivo 1 set com entrecamposblog.com.
   (async () => {
     try {
-      const { findCloudflareZoneId, upsertCloudflareRecord } = await import('@/lib/cloudflare-dns');
+      const { findCloudflareZoneId, upsertCloudflareRecord, applyCloudflareSafeCacheDefaults } = await import('@/lib/cloudflare-dns');
       const zoneId = await findCloudflareZoneId(domain);
       if (zoneId) {
         const serverIp = getServerHost();
@@ -205,6 +205,7 @@ async function tryHestiaCreateWebsite(
           upsertCloudflareRecord(zoneId, domain, { type: 'A', name: '@', content: serverIp, proxied: false }),
           upsertCloudflareRecord(zoneId, domain, { type: 'A', name: 'www', content: serverIp, proxied: false }),
         ]);
+        await applyCloudflareSafeCacheDefaults(zoneId, domain);
       }
     } catch {
       // best-effort — não bloqueia a criação do website

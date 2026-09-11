@@ -21,6 +21,10 @@ SERVER="${SERVER_USER}@${SERVER_HOST}"
 echo "==> Verificar servidor Hestia/Contabo"
 ssh "${SSH_OPTS[@]}" "$SERVER" 'hostname; command -v node; command -v pm2 || true'
 
+echo "==> Expor phpMyAdmin no hostname do painel"
+scp "${SSH_OPTS[@]}" "$LOCAL_PROJECT/deploy/ensure-hestia-phpmyadmin.sh" "$SERVER:/tmp/ensure-hestia-phpmyadmin.sh"
+ssh "${SSH_OPTS[@]}" "$SERVER" 'bash /tmp/ensure-hestia-phpmyadmin.sh'
+
 echo "==> Enviar código"
 ssh "${SSH_OPTS[@]}" "$SERVER" "mkdir -p '$REMOTE_DIR'"
 rsync -az --delete \
@@ -56,7 +60,9 @@ env_args+=(
   "NEXT_PUBLIC_SITE_URL=https://teste.visualdesignmoz.com"
   "NEXT_PUBLIC_SERVER_IP=169.58.148.144"
   "DEFAULT_HOSTING_PROVIDER=hestia"
+  "NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER=hestia"
   "HESTIA_HOST=teste.visualdesignmoz.com"
+  "NEXT_PUBLIC_HESTIA_HOST=teste.visualdesignmoz.com"
   "HESTIA_PORT=8083"
   "HESTIA_USER=vdadmin"
   "SERVER_IP=169.58.148.144"

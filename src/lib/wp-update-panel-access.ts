@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getProfileForAuthUser } from '@/lib/profile-db';
-import { buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter';
+import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
 import type { WpInstallInfo } from '@/lib/wp-cli-server';
 
 export type PanelWpScope = {
@@ -41,25 +41,28 @@ export async function resolvePanelWpScope(
   return { role: 'reseller', userId, daUsername };
 }
 
-/** Domínios permitidos no espelho — admin exclui sites de revendedores. */
+/** Domínios permitidos — conta principal só vê sites da Visual Design; Osher só os dela. */
 export async function getAllowedPanelWpDomains(scope: PanelWpScope): Promise<Set<string>> {
-  const { listHostingDomains, listHostingUsers, hostingProvider } = await import('@/lib/hosting-resolver');
+  const { listHostingDomains } = await import('@/lib/hosting-resolver');
   const sites = await listHostingDomains(
     scope.role === 'admin'
       ? { role: 'admin' }
       : { role: 'reseller', userId: scope.userId, daUsername: scope.daUsername },
   );
 
-  if (scope.role === 'reseller' || hostingProvider === 'hestia') {
-    return new Set(sites.map((s) => (s.domain || '').toLowerCase()).filter(Boolean));
+  if (scope.role === 'reseller') {
+    const owner = scope.daUsername.toLowerCase();
+    return new Set(
+      sites
+        .filter((s) => (s.owner || '').trim().toLowerCase() === owner)
+        .map((s) => (s.domain || '').toLowerCase())
+        .filter(Boolean),
+    );
   }
-
-  const users = await listHostingUsers();
-  const resellerTree = buildResellerOwnerTree(users);
 
   return new Set(
     sites
-      .filter((s) => isAdminPanelSite(s, resellerTree))
+      .filter((s) => isCompanyHostingOwner(s.owner))
       .map((s) => (s.domain || '').toLowerCase())
       .filter(Boolean),
   );
@@ -71,15 +74,10 @@ export function filterWpInstallsForPanel(
   allowedDomains: Set<string>,
 ): WpInstallInfo[] {
   if (scope.role === 'admin') {
-    // O admin gere contas em mais do que um utilizador de sistema (DirectAdmin
-    // 'admin' no Hetzner, mas no Contabo cada conta Hestia tem o seu próprio
-    // username real — 'vdadmin', 'aamihe', 'oshercollective', etc.) — nunca
-    // só um. Comparar install.user com um único valor fixo ('admin') excluía
-    // sempre todos os sites Hestia da lista, mesmo os do próprio admin.
-    // allowedDomains (já calculado a partir do espelho, correcto nos dois
-    // painéis via isAdminPanelSite) é o filtro certo. Confirmado ao vivo 1
-    // set: mltmark.com e aamihe.com (WordPress reais) ficavam invisíveis.
-    return installs.filter((install) => allowedDomains.has(install.domain.toLowerCase()));
+    return installs.filter((install) => {
+      if (!isCompanyHostingOwner(install.user)) return false;
+      return allowedDomains.has(install.domain.toLowerCase());
+    });
   }
   const daUser = scope.daUsername.toLowerCase();
   return installs.filter((install) => {
@@ -104,12 +102,9 @@ export async function assertPanelOwnsWpDomain(
   if (allowed.has(normalized)) return;
 
   if (scope.role === 'admin') {
-    // Mesmo raciocínio de filterWpInstallsForPanel — o admin não está preso a
-    // um único username de sistema, por isso qualquer instalação real
-    // encontrada no servidor chega (o domínio só não estava ainda no espelho).
     const { resolveWpInstall } = await import('@/lib/wp-cli-server');
     const install = await resolveWpInstall(normalized);
-    if (install) return;
+    if (install && isCompanyHostingOwner(install.user)) return;
   }
 
   throw new Error('Sem permissão para este domínio.');

@@ -73,6 +73,29 @@ export function getCPUrl(): string {
   return getWebmailUrl();
 }
 
+function envLooksLikeHestia(): boolean {
+  const explicit = (
+    process.env.NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER ||
+    process.env.DEFAULT_HOSTING_PROVIDER ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+  if (explicit === 'hestia') return true;
+  if (explicit === 'directadmin') return false;
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').toLowerCase();
+  return site.includes('teste.visualdesignmoz.com');
+}
+
+function publicHostname(raw: string): string {
+  return raw.replace(/^https?:\/\//, '').replace(/:\d+$/, '').replace(/\/$/, '').split('/')[0];
+}
+
+function isLoopbackHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return !h || h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
+
 /** Login do painel Hestia (Contabo). Sem host configurado, não inventa um URL. */
 export function getHestiaUrl(): string {
   const host = (process.env.HESTIA_HOST || process.env.NEXT_PUBLIC_HESTIA_HOST || '').trim();
@@ -80,6 +103,34 @@ export function getHestiaUrl(): string {
   const clean = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const port = (process.env.HESTIA_PORT || process.env.NEXT_PUBLIC_HESTIA_PORT || '8083').trim();
   return `https://${clean}:${port}`;
+}
+
+/**
+ * Gestor MySQL (phpMyAdmin). No Contabo o hostname do painel faz proxy de
+ * "/" para o Next.js — o PMA vive em https://{host}/phpmyadmin/, não na
+ * porta 2222 do DirectAdmin nem no domínio do cliente.
+ */
+export function getPhpMyAdminUrl(domain?: string): string {
+  const fromEnv = (process.env.NEXT_PUBLIC_PHPMYADMIN_URL || '').trim();
+  if (fromEnv) return fromEnv.replace(/\/?$/, '/');
+
+  const browserHost = typeof window !== 'undefined' ? window.location.hostname : '';
+  const onHestiaPanel = envLooksLikeHestia() || browserHost === 'teste.visualdesignmoz.com';
+
+  if (onHestiaPanel) {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      return `${window.location.origin}/phpmyadmin/`;
+    }
+    const siteHost = publicHostname(process.env.NEXT_PUBLIC_SITE_URL || 'teste.visualdesignmoz.com');
+    if (siteHost && !isLoopbackHost(siteHost)) {
+      return `https://${siteHost}/phpmyadmin/`;
+    }
+    return 'https://teste.visualdesignmoz.com/phpmyadmin/';
+  }
+
+  const host = publicHostname(domain || '');
+  if (host) return `https://${host}:2222/phpMyAdmin/`;
+  return `https://${getServerHost()}:2222/phpMyAdmin/`;
 }
 
 /** URL público do Roundcube: https://{domínio}/webmail — o subdomínio

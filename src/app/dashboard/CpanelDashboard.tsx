@@ -349,7 +349,8 @@ export function CpanelDashboard({
         return
       }
       if (tool.id === 'phpmyadmin') {
-        window.location.assign(`https://${primaryDomain}:2222/phpMyAdmin/`)
+        const domainQ = primaryDomain !== 'your-domain.com' ? `domain=${encodeURIComponent(primaryDomain)}` : ''
+        window.open(`/api/db-manager?action=phpmyadminSso${domainQ ? `&${domainQ}` : ''}`, '_blank', 'noopener,noreferrer')
         return
       }
       if (tool.id === 'dns-central' && onSetDNSDomain) {

@@ -66,7 +66,7 @@ export const DASHBOARD_EXTRA_TOOLS_BY_MENU: Record<string, DashboardMenuToolDef[
     { id: 'cp-suspend-website', name: 'Suspender/Activar' },
     { id: 'website-preview', name: 'Pré-visualização' },
     { id: 'cp-delete-website', name: 'Apagar website' },
-    { id: 'phpmyadmin', name: 'phpMyAdmin' },
+    { id: 'phpmyadmin', name: 'MySQL' },
     { id: 'backup-manager', name: 'Gestão de backups' },
     { id: 'cp-wp-restore-backup', name: 'Restaurar backup' },
   ],

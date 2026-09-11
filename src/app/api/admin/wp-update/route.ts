@@ -56,13 +56,6 @@ export async function GET(req: NextRequest) {
     if (!domain && 'installs' in result && Array.isArray(result.installs)) {
       const allowed = await getAllowedPanelWpDomains(scope);
       const filtered = filterWpInstallsForPanel(result.installs, scope, allowed);
-      // eslint-disable-next-line no-console -- diagnóstico temporário, remover depois de confirmar
-      console.log('[wp-update DEBUG]', JSON.stringify({
-        scope,
-        rawInstalls: result.installs,
-        allowedDomains: Array.from(allowed),
-        filteredCount: filtered.length,
-      }));
       return NextResponse.json({
         ...result,
         installs: filtered,

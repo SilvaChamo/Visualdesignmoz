@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   outputFileTracingRoot: path.join(__dirname),
+  experimental: {
+    proxyClientMaxBodySize: '512mb',
+    serverActions: {
+      bodySizeLimit: '512mb',
+    },
+  },
   async redirects() {
     return [
       { source: '/visualweb', destination: '/web', permanent: true },

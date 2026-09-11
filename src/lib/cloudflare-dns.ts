@@ -93,11 +93,13 @@ export async function createCloudflareZone(
       const res = await fetch(`${CF_API_BASE}/zones/${existingId}`, { headers });
       const data = (await res.json()) as { success: boolean; result?: { name_servers?: string[] } };
       if (data.success && data.result?.name_servers?.length) {
+        void applyCloudflareSafeCacheDefaults(existingId, clean);
         return { ok: true, zoneId: existingId, nameServers: data.result.name_servers, alreadyExisted: true };
       }
     } catch {
       /* segue para tentar criar - o findCloudflareZoneId já confirmou que existe */
     }
+    void applyCloudflareSafeCacheDefaults(existingId, clean);
     return { ok: true, zoneId: existingId, nameServers: [], alreadyExisted: true };
   }
 
@@ -115,12 +117,14 @@ export async function createCloudflareZone(
     if (!data.success || !data.result) {
       return { ok: false, error: data.errors?.map((e) => e.message).join('; ') || `HTTP ${res.status}` };
     }
-    return {
-      ok: true,
+    const created = {
+      ok: true as const,
       zoneId: data.result.id,
       nameServers: data.result.name_servers || [],
       alreadyExisted: false,
     };
+    void applyCloudflareSafeCacheDefaults(created.zoneId, clean);
+    return created;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
@@ -330,7 +334,82 @@ export async function pointDomainToServerIp(
     proxied: false,
   });
   const error = [root.error, www.error].filter(Boolean).join('; ');
+  void applyCloudflareSafeCacheDefaults(zoneId, domain);
   return { ok: root.ok && www.ok, error: error || undefined };
+}
+
+/**
+ * Defaults de cache para sites de hospedagem. O cliente carrega um ficheiro
+ * e espera vê-lo já — cache agressivo da Cloudflare (HTML com TTL de horas)
+ * foi o que fez o menocrazy.app servir uma cópia antiga a todos os visitantes
+ * (10 set 2026). Cada zona Free tem 3 Page Rules; gastamos uma em Bypass
+ * para o caso de alguém ligar o proxy (nuvem laranja) mais tarde.
+ *
+ * Idempotente. Falhas aqui nunca devem impedir criar a zona / apontar o DNS.
+ */
+export async function applyCloudflareSafeCacheDefaults(
+  zoneId: string,
+  domain: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  const errors: string[] = [];
+
+  const patchSetting = async (setting: string, value: string | number) => {
+    try {
+      const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/settings/${setting}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ value }),
+      });
+      const data = (await res.json()) as { success: boolean; errors?: Array<{ message: string }> };
+      if (!data.success) {
+        errors.push(`${setting}: ${data.errors?.map((e) => e.message).join('; ') || `HTTP ${res.status}`}`);
+      }
+    } catch (error) {
+      errors.push(`${setting}: ${error instanceof Error ? error.message : 'erro'}`);
+    }
+  };
+
+  await patchSetting('cache_level', 'simplified');
+  await patchSetting('browser_cache_ttl', 0);
+
+  const pattern = `*${clean}/*`;
+  try {
+    const listRes = await fetch(`${CF_API_BASE}/zones/${zoneId}/pagerules`, { headers });
+    const listData = (await listRes.json()) as {
+      success: boolean;
+      result?: Array<{
+        targets?: Array<{ constraint?: { value?: string } }>;
+        actions?: Array<{ id?: string; value?: string }>;
+      }>;
+    };
+    const already = (listData.result || []).some((rule) => {
+      const url = rule.targets?.[0]?.constraint?.value;
+      const bypass = (rule.actions || []).some((a) => a.id === 'cache_level' && a.value === 'bypass');
+      return url === pattern && bypass;
+    });
+    if (!already) {
+      const createRes = await fetch(`${CF_API_BASE}/zones/${zoneId}/pagerules`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          targets: [{ target: 'url', constraint: { operator: 'matches', value: pattern } }],
+          actions: [{ id: 'cache_level', value: 'bypass' }],
+          status: 'active',
+        }),
+      });
+      const created = (await createRes.json()) as { success: boolean; errors?: Array<{ message: string }> };
+      if (!created.success) {
+        errors.push(`pagerule: ${created.errors?.map((e) => e.message).join('; ') || `HTTP ${createRes.status}`}`);
+      }
+    }
+  } catch (error) {
+    errors.push(`pagerule: ${error instanceof Error ? error.message : 'erro'}`);
+  }
+
+  return { ok: errors.length === 0, error: errors.join('; ') || undefined };
 }
 
 /** Aplica uma lista de registos de uma vez, devolvendo o relatório de cada um. */

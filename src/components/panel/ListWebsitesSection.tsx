@@ -16,6 +16,7 @@ import { getServerHost } from '@/lib/server-config';
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache';
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache';
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache';
+import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
 import type { PanelBootstrapScope } from '@/lib/panel-data-from-server';
 import { directAdminAPI } from '@/lib/directadmin-api';
 import type { DirectAdminWebsite, DirectAdminPackage } from '@/lib/directadmin-api';
@@ -183,19 +184,10 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
           siteType: 'wordpress',
           hasWordPress: true,
         })
-      } else {
-        map.set(domain, {
-          id: domain,
-          domain,
-          owner: wordpressOwner || '',
-          state: 'Active',
-          siteType: 'wordpress',
-          hasWordPress: true,
-        })
       }
     }
     return Array.from(map.values())
-  }, [sitesArray, wpDomainSet, wordpressOnly, wordpressOwner])
+  }, [sitesArray, wpDomainSet, wordpressOnly])
 
   const filtered = sortSitesPrimaryFirst(
     mergedSitesArray.filter(s => {
@@ -205,7 +197,12 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       if (wordpressOnly) {
         const owner = (s.owner || '').trim().toLowerCase()
         const expected = (wordpressOwner || '').trim().toLowerCase()
-        if (!expected || owner !== expected) return false
+        const principalAccount = !expected || expected === 'admin' || isCompanyHostingOwner(expected)
+        if (principalAccount) {
+          if (!isCompanyHostingOwner(owner, expected || 'admin')) return false
+        } else if (owner !== expected) {
+          return false
+        }
       }
       if (wordpressOnly && !isWordPressSite(s) && !wpDomainSet.has(s.domain.toLowerCase())) return false
       return true
