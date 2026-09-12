@@ -63,10 +63,8 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
     subItems: [
       { id: 'domain-manager', label: 'Domínios' },
-      { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
       { id: 'cp-php', label: 'Configurar PHP' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'transferir-dominio', label: 'Transferir' },
     ],
   },
@@ -166,10 +164,8 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'domain-manager', label: 'Domínios' },
       { id: 'registrar-domains', label: 'Registar domínio' },
-      { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
       { id: 'cp-php', label: 'Configurar PHP' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'transferir-dominio', label: 'Transferir' },
       { id: 'cp-ftp', label: 'Contas FTP' },
     ],
