@@ -21,7 +21,7 @@ import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
 import { EmailTemplates } from "@/components/admin/EmailTemplates";
 import { fetchCompanyLogoUrl } from "@/components/admin/CompanyLogoUpload";
 import { toast } from "sonner";
-import { directAdminAPI } from '@/lib/directadmin-hosting-api';
+import directAdminAPI from '@/lib/directadmin-hosting-api';
 import {
   adminListarSubscritores as listarSubscritores,
   adminAdicionarSubscritor as adicionarSubscritor,
