@@ -704,6 +704,25 @@ export async function unsuspendMailAccount(
   return { ok: result.ok, error: result.error };
 }
 
+function parseHestiaForwardList(raw: unknown): string[] {
+  const value = String(raw ?? '').trim();
+  if (!value || /^(no|n\/a|none|null)$/i.test(value)) return [];
+  return value
+    .split(/[,;]/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.includes('@'));
+}
+
+function hestiaRecordField(data: Record<string, unknown>, key: string, nestedKey?: string): unknown {
+  if (data[key] != null) return data[key];
+  if (nestedKey && data[nestedKey] && typeof data[nestedKey] === 'object') {
+    return (data[nestedKey] as Record<string, unknown>)[key];
+  }
+  const first = Object.values(data)[0];
+  if (first && typeof first === 'object') return (first as Record<string, unknown>)[key];
+  return undefined;
+}
+
 export async function addMailForward(
   username: string,
   domain: string,
@@ -711,7 +730,69 @@ export async function addMailForward(
   forwardTo: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-add-mail-account-forward', [username, domain, account, forwardTo]);
+  if (!result.ok && !isAlreadyExistsError(result.error)) return { ok: false, error: result.error };
+  return { ok: true };
+}
+
+export async function deleteMailForward(
+  username: string,
+  domain: string,
+  account: string,
+  forwardTo: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const result = await hestiaCall('v-delete-mail-account-forward', [username, domain, account, forwardTo]);
   return { ok: result.ok, error: result.error };
+}
+
+export async function listMailAccountForwards(
+  username: string,
+  domain: string,
+  account: string,
+): Promise<{ ok: boolean; forwards: string[]; error?: string }> {
+  const result = await hestiaCallJson<Record<string, unknown>>('v-list-mail-account', [username, domain, account]);
+  if (!result.ok) return { ok: false, forwards: [], error: result.error };
+  return {
+    ok: true,
+    forwards: parseHestiaForwardList(hestiaRecordField(result.data, 'FWD', account) ?? hestiaRecordField(result.data, 'FORWARD', account)),
+  };
+}
+
+export async function getMailDomainCatchall(
+  username: string,
+  domain: string,
+): Promise<{ ok: boolean; catchall: string; error?: string }> {
+  const result = await hestiaCallJson<Record<string, unknown>>('v-list-mail-domain', [username, domain]);
+  if (!result.ok) return { ok: false, catchall: '', error: result.error };
+  const raw = String(hestiaRecordField(result.data, 'CATCHALL', domain) ?? '').trim();
+  if (!raw || /^(no|n\/a|none|null|disabled)$/i.test(raw) || raw.startsWith(':')) {
+    return { ok: true, catchall: '' };
+  }
+  return { ok: true, catchall: raw };
+}
+
+export async function setMailDomainCatchall(
+  username: string,
+  domain: string,
+  email: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const domainStep = await addMailDomain(username, domain);
+  if (!domainStep.ok) return domainStep;
+  const target = email.trim();
+  if (!target) {
+    const result = await hestiaCall('v-delete-mail-domain-catchall', [username, domain]);
+    if (!result.ok && /exist|found|no such/i.test(result.error || '')) return { ok: true };
+    return { ok: result.ok, error: result.error };
+  }
+  const added = await hestiaCall('v-add-mail-domain-catchall', [username, domain, target]);
+  if (added.ok || isAlreadyExistsError(added.error)) {
+    if (added.ok) return { ok: true };
+    const changed = await hestiaCall('v-change-mail-domain-catchall', [username, domain, target]);
+    if (changed.ok || isAlreadyExistsError(changed.error)) return { ok: true };
+    return { ok: false, error: changed.error || added.error };
+  }
+  const changed = await hestiaCall('v-change-mail-domain-catchall', [username, domain, target]);
+  if (changed.ok || isAlreadyExistsError(changed.error)) return { ok: true };
+  return { ok: false, error: added.error || changed.error };
 }
 
 // ---------------------------------------------------------------------------

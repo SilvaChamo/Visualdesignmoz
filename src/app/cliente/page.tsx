@@ -76,7 +76,6 @@ import {
   adminCriarLista as criarLista,
   adminRemoverLista as removerLista,
   adminListarCampanhas as listarCampanhas,
-  adminSalvarCampanha as salvarCampanha,
   adminRemoverCampanha as removerCampanha,
   adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing'
@@ -920,25 +919,20 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
 
-      // 🐛 CORRECÇÃO: Verificar se realmente enviou algo
-      const sentCount = result?.details?.success ?? 0;
-      const failedCount = result?.details?.failed ?? emailList.length;
-
-      if (sentCount === 0) {
-        throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
-      } else if (failedCount > 0) {
-        toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+      if (result.queued) {
+        toast.success(result.message || `Campanha enfileirada para ${emailList.length} contactos.`);
       } else {
-        toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
-      }
+        const sentCount = result?.details?.success ?? 0;
+        const failedCount = result?.details?.failed ?? emailList.length;
 
-      await salvarCampanha({
-        subject,
-        content_html: finalHtml,
-        total_recipients: emailList.length,
-        domain: selectedSite,
-        owner_email: user?.email || currentUserEmail || ''
-      });
+        if (sentCount === 0) {
+          throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+        } else if (failedCount > 0) {
+          toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+        } else {
+          toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
+        }
+      }
 
       setAttachments([]);
 

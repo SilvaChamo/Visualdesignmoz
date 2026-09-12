@@ -44,6 +44,8 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'webmail', label: 'Webmail' },
       { id: 'emails-new', label: 'Contas de e-mail' },
+      { id: 'cp-email-forwarding', label: 'Encaminhamento' },
+      { id: 'cp-email-catchall', label: 'Catch-all' },
       { id: 'setup-smtp', label: 'Configurar SMTP' },
     ],
   },
@@ -98,7 +100,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Websites',
     isNewMenu: true,
     subItems: [
-      { id: 'nextjs-sites', label: 'Next.js' },
       {
         id: 'wordpress-group',
         label: 'WordPress',
@@ -106,7 +107,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
           { id: 'wp-sites', label: 'Sites' },
           { id: 'wordpress-install', label: 'Criar Website' },
           { id: 'wp-plugins', label: 'Plugins' },
-          { id: 'wp-backup', label: 'Backups' },
           { id: 'cp-databases', label: 'Bases de Dados' },
         ],
       },
@@ -115,6 +115,11 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
   {
     id: 'file-manager',
     label: 'Gestão de Ficheiros',
+    isNewMenu: true,
+  },
+  {
+    id: 'backup-manager',
+    label: 'Backup',
     isNewMenu: true,
   },
   {
@@ -146,6 +151,8 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'emails-new', label: 'Contas de e-mail' },
       { id: 'webmail', label: 'Webmail' },
+      { id: 'cp-email-forwarding', label: 'Encaminhamento' },
+      { id: 'cp-email-catchall', label: 'Catch-all' },
       { id: 'setup-smtp', label: 'Envio e Recepção' },
     ],
   },
@@ -177,13 +184,16 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
       { id: 'wp-sites', label: 'Sites' },
       { id: 'wordpress-install', label: 'Criar Website' },
       { id: 'wp-plugins', label: 'Plugins' },
-      { id: 'wp-backup', label: 'Backup' },
       { id: 'cp-databases', label: 'Bases de Dados' },
     ],
   },
   {
     id: 'file-manager',
     label: 'Gestão de Ficheiros',
+  },
+  {
+    id: 'backup-manager',
+    label: 'Backup',
   },
   {
     id: 'nov-notificacoes',
@@ -388,13 +398,16 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'wp-sites': 'nov-wordpress',
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
-  'wp-backup': 'nov-wordpress',
-  'wp-backup-auto': 'nov-wordpress',
-  'wp-backup-report': 'nov-wordpress',
+  'wp-backup': 'backup-manager',
+  'wp-backup-auto': 'backup-manager',
+  'wp-backup-report': 'backup-manager',
   'cp-databases': 'nov-wordpress',
   'nextjs-sites': 'nov-wordpress',
   'domain-detail': 'nov-dominios',
-  'backup-manager': 'nov-wordpress',
+  'backup-manager': 'backup-manager',
+  'file-manager': 'file-manager',
+  'cp-file-manager': 'file-manager',
+  'cp-backup': 'backup-manager',
   infrastructure: 'nov-sistema',
   'git-deploy': 'nov-sistema',
   'cp-security': 'nov-sistema',
@@ -408,6 +421,8 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'emails-new': 'nov-email',
   webmail: 'nov-email',
   'setup-smtp': 'nov-email',
+  'cp-email-forwarding': 'nov-email',
+  'cp-email-catchall': 'nov-email',
   newsletter: 'newsletter',
   'newsletter-subs': 'newsletter',
   'newsletter-comp': 'newsletter',
@@ -428,9 +443,9 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'wp-sites': 'nov-wordpress',
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
-  'wp-backup': 'nov-wordpress',
-  'wp-backup-auto': 'nov-wordpress',
-  'wp-backup-report': 'nov-wordpress',
+  'wp-backup': 'backup-manager',
+  'wp-backup-auto': 'backup-manager',
+  'wp-backup-report': 'backup-manager',
   'cp-databases': 'nov-wordpress',
   'domain-detail': 'nov-dominios',
   'cp-ftp': 'nov-dominios',
@@ -439,6 +454,8 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'settings-profile': 'nov-definicoes',
   'file-manager': 'file-manager',
   'cp-file-manager': 'file-manager',
+  'backup-manager': 'backup-manager',
+  'cp-backup': 'backup-manager',
 };
 
 export function resellerMenuParentForSection(sectionId: string): string | null {

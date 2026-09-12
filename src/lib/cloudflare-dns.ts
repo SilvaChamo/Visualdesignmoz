@@ -67,6 +67,25 @@ export async function findCloudflareZoneId(domain: string): Promise<string | nul
 }
 
 /**
+ * Percorre o hostname até encontrar a zona Cloudflare que o cobre.
+ * `app.mltmark.com` não tem zona própria — a zona é `mltmark.com`.
+ * Sem isto, criar um subdomínio depois do domínio principal nunca apontava DNS.
+ */
+export async function findCloudflareZoneForHost(
+  host: string,
+): Promise<{ zoneId: string; zoneName: string } | null> {
+  const clean = host.trim().toLowerCase().replace(/\.$/, '');
+  if (!clean.includes('.')) return null;
+  const labels = clean.split('.').filter(Boolean);
+  for (let i = 0; i <= labels.length - 2; i++) {
+    const zoneName = labels.slice(i).join('.');
+    const zoneId = await findCloudflareZoneId(zoneName);
+    if (zoneId) return { zoneId, zoneName };
+  }
+  return null;
+}
+
+/**
  * Cria uma zona nova na Cloudflare para um domínio recém-registado (ex: logo
  * a seguir a uma compra através do painel). Devolve os nameservers que a
  * Cloudflare atribuiu — têm de ser postos no registador (ver
@@ -314,28 +333,63 @@ export async function deleteCloudflareDnsRecord(
   }
 }
 
-/** Aponta o domínio e www para o IP deste servidor (Contabo ou Hetzner). */
+/** Aponta o domínio (e www, se for o apex da zona) para o IP deste servidor.
+ *  Subdomínios (`app.mltmark.com`) gravam o A na zona do domínio pai. */
 export async function pointDomainToServerIp(
   domain: string,
   ip: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const zoneId = await findCloudflareZoneId(domain);
-  if (!zoneId) return { ok: false, error: 'Sem zona Cloudflare para este domínio' };
-  const root = await upsertCloudflareRecord(zoneId, domain, {
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  const found = await findCloudflareZoneForHost(clean);
+  if (!found) return { ok: false, error: 'Sem zona Cloudflare para este domínio' };
+  const { zoneId, zoneName } = found;
+
+  if (clean === zoneName) {
+    const root = await upsertCloudflareRecord(zoneId, zoneName, {
+      type: 'A',
+      name: '@',
+      content: ip,
+      proxied: false,
+    });
+    const www = await upsertCloudflareRecord(zoneId, zoneName, {
+      type: 'A',
+      name: 'www',
+      content: ip,
+      proxied: false,
+    });
+    const error = [root.error, www.error].filter(Boolean).join('; ');
+    void applyCloudflareSafeCacheDefaults(zoneId, zoneName);
+    return { ok: root.ok && www.ok, error: error || undefined };
+  }
+
+  const relative = clean.endsWith(`.${zoneName}`) ? clean.slice(0, -(zoneName.length + 1)) : clean;
+  const rec = await upsertCloudflareRecord(zoneId, zoneName, {
     type: 'A',
-    name: '@',
+    name: relative,
     content: ip,
     proxied: false,
   });
-  const www = await upsertCloudflareRecord(zoneId, domain, {
-    type: 'A',
-    name: 'www',
-    content: ip,
-    proxied: false,
-  });
-  const error = [root.error, www.error].filter(Boolean).join('; ');
-  void applyCloudflareSafeCacheDefaults(zoneId, domain);
-  return { ok: root.ok && www.ok, error: error || undefined };
+  return { ok: rec.ok, error: rec.error };
+}
+
+/** Remove o A do hostname na zona Cloudflare do domínio pai (subdomínio) ou o A da raiz. */
+export async function deleteHostARecord(host: string): Promise<{ ok: boolean; error?: string }> {
+  const clean = host.trim().toLowerCase().replace(/\.$/, '');
+  const found = await findCloudflareZoneForHost(clean);
+  if (!found) return { ok: true };
+  const { zoneId, zoneName } = found;
+  const fqdn = clean === zoneName ? zoneName : clean;
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const existing = await findExistingRecords(headers, zoneId, 'A', fqdn);
+    if (!existing.length) return { ok: true };
+    const results = await Promise.all(existing.map((r) => deleteCloudflareDnsRecord(zoneId, r.id)));
+    const failed = results.find((r) => !r.ok);
+    return failed ? { ok: false, error: failed.error } : { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar DNS' };
+  }
 }
 
 /**

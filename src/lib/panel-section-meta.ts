@@ -33,6 +33,7 @@ const SECTION_TITLES: Record<string, string> = {
   'packages-reseller': 'Pacotes de revenda',
   'packages-new': 'Criar pacote',
   'domain-detail': 'Gerir domínio',
+  'backup-manager': 'Backup',
 };
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {

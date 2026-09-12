@@ -16,6 +16,7 @@ const MAIL_BATCH_PAUSE_MS = Math.max(0, parseInt(process.env.MAILMARKETING_BATCH
 const MAIL_MAX_RETRIES = Math.max(1, parseInt(process.env.MAILMARKETING_MAX_RETRIES || '3'));
 const PROCESS_CAMPAIGNS_LIMIT = Math.max(1, parseInt(process.env.MAILMARKETING_PROCESS_LIMIT || '10'));
 const MAIL_QUEUE_SECRET = process.env.MAILMARKETING_QUEUE_SECRET || '';
+const CRON_SECRET = process.env.CRON_SECRET || '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -25,6 +26,7 @@ type QueuePayload = {
   domain: string;
   senderName: string;
   senderEmail: string;
+  ownerEmail?: string;
   batchSize: number;
   retryCount: number;
   lastError?: string;
@@ -38,7 +40,7 @@ function extractEmail(input: string): string {
 }
 
 // Nunca usar VERCEL_URL — geraria links visualdesigne-*.vercel.app no email.
-const SITE_ORIGIN = 'https://visualdesignmoz.com';
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com').replace(/\/$/, '');
 
 // O conteúdo composto no painel pode ter imagens/links por caminho relativo
 // (ex.: /assets/logo.png) — resolve bem no preview do editor porque corre no
@@ -90,6 +92,7 @@ function normalizeQueuePayload(raw: unknown): QueuePayload {
     domain: String(obj.domain || ''),
     senderName: String(obj.senderName || base.senderName),
     senderEmail: extractEmail(String(obj.senderEmail || base.senderEmail)),
+    ownerEmail: obj.ownerEmail ? extractEmail(String(obj.ownerEmail)) : undefined,
     batchSize: Math.max(10, Number(obj.batchSize) || MAIL_BATCH_SIZE),
     retryCount: Math.max(0, Number(obj.retryCount) || 0),
     lastError: obj.lastError ? String(obj.lastError) : undefined,
@@ -132,11 +135,13 @@ async function queueCampaign(params: {
   domain: string;
   senderEmail: string;
   senderName: string;
+  ownerEmail: string;
 }) {
   const queuePayload: QueuePayload = {
     recipients: params.recipients,
     domain: params.domain,
     senderEmail: extractEmail(params.senderEmail),
+    ownerEmail: extractEmail(params.ownerEmail || params.senderEmail),
     senderName: params.senderName || 'VisualDesign',
     batchSize: MAIL_BATCH_SIZE,
     retryCount: 0,
@@ -148,9 +153,10 @@ async function queueCampaign(params: {
       subject: params.subject,
       content_html: params.content,
       status: 'queued',
-      sender_email: queuePayload.senderEmail,
+      sender_email: queuePayload.ownerEmail || queuePayload.senderEmail,
       target_audiences: queuePayload,
       total_recipients: params.recipients.length,
+      recipient_count: params.recipients.length,
       successful_sends: 0,
       failed_sends: 0,
       created_at: new Date().toISOString(),
@@ -305,13 +311,18 @@ export async function POST(req: NextRequest) {
       domain: String(clientDomain),
       senderEmail: fromEmail,
       senderName: String(fromName),
+      ownerEmail: extractEmail(auth.user.email || clientEmail || fromEmail),
+    });
+
+    void processQueuedCampaigns().catch((err: unknown) => {
+      console.error('[mailmarketing-send] processamento imediato falhou:', err instanceof Error ? err.message : err);
     });
 
     return NextResponse.json({
       success: true,
       queued: true,
       campaignId: campaign.id,
-      message: `Campanha enfileirada para ${recipients.length} destinatários. O envio será processado por lotes.`,
+      message: `Campanha enfileirada para ${recipients.length} destinatários. O envio corre por lotes.`,
       details: {
         success: recipients.length,
         failed: 0,
@@ -338,9 +349,15 @@ export async function GET(req: NextRequest) {
     const domain = searchParams.get('domain');
     if (action === 'process-queue') {
       const secret = searchParams.get('secret');
-      const auth = await requireAdminOrReseller();
-      const authorizedBySecret = !!MAIL_QUEUE_SECRET && secret === MAIL_QUEUE_SECRET;
-      if ('error' in auth && !authorizedBySecret) return auth.error;
+      const authHeader = req.headers.get('authorization') || '';
+      const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const authorizedBySecret =
+        (!!MAIL_QUEUE_SECRET && (secret === MAIL_QUEUE_SECRET || bearer === MAIL_QUEUE_SECRET)) ||
+        (!!CRON_SECRET && (secret === CRON_SECRET || bearer === CRON_SECRET));
+      if (!authorizedBySecret) {
+        const auth = await requireAdminOrReseller();
+        if ('error' in auth) return auth.error;
+      }
 
       const result = await processQueuedCampaigns();
       return NextResponse.json({

@@ -214,30 +214,65 @@ async function tryHestiaCreateWebsite(
     );
   }
 
-  // Aponta o domínio para o servidor — melhor esforço, mesma lógica de
-  // attach-hosting/route.ts. Sem isto o site fica criado no Hestia mas
-  // continua sem resolver (NXDOMAIN), porque criar o website aqui nunca
-  // mexe na Cloudflare — confirmado ao vivo 1 set com entrecamposblog.com.
-  (async () => {
-    try {
-      const { findCloudflareZoneId, upsertCloudflareRecord, applyCloudflareSafeCacheDefaults } = await import('@/lib/cloudflare-dns');
-      const zoneId = await findCloudflareZoneId(domain);
-      if (zoneId) {
-        const serverIp = getServerHost();
-        await Promise.all([
-          upsertCloudflareRecord(zoneId, domain, { type: 'A', name: '@', content: serverIp, proxied: false }),
-          upsertCloudflareRecord(zoneId, domain, { type: 'A', name: 'www', content: serverIp, proxied: false }),
-        ]);
-        await applyCloudflareSafeCacheDefaults(zoneId, domain);
-      }
-    } catch {
-      // best-effort — não bloqueia a criação do website
-    }
-  })();
+  // Aponta o hostname para o servidor. Subdomínios (app.mltmark.com) usam a
+  // zona Cloudflare do domínio pai — confirmado 12 set: findCloudflareZoneId
+  // exacto deixava o A por criar e o site abria como 404 em mltmark.com/app.
+  const { pointHostingHostToServer, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+  const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+  invalidateHestiaDomainCache();
+  await pointHostingHostToServer(domain).catch(() => undefined);
+  scheduleHostingSslRetry(owner, domain);
 
   await mirrorAfterDaMutation('createWebsite', { ...params, owner }).catch(() => undefined);
   scheduleDaSync(400);
   return NextResponse.json({ success: true, data: { output: 'website has been created' } });
+}
+
+async function tryHestiaSubdomain(
+  mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string },
+  action: 'createSubdomain' | 'deleteSubdomain',
+  params: Record<string, unknown>,
+): Promise<NextResponse | null> {
+  const parent = String(params.domain || '').trim().toLowerCase();
+  const sub = String(params.subdomain || '').trim().toLowerCase();
+  if (!parent || !sub) return null;
+
+  const { getProviderByUsername } = await import('@/lib/hosting-provider');
+  let owner: string;
+  if (mirrorScope.role === 'reseller' && mirrorScope.daUsername) {
+    owner = mirrorScope.daUsername;
+    const provider = await getProviderByUsername(owner);
+    if (provider !== 'hestia') return null;
+  } else {
+    const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
+    if (defaultProvider !== 'hestia') return null;
+    const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+    owner = await resolveHostingOwner(parent);
+  }
+
+  const { subdomainFqdn, pointHostingHostToServer, removeHostingHostDns, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+  const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+  const { addWebDomain, deleteWebDomain } = await import('@/lib/hestia-adapter');
+  const fullSub = subdomainFqdn(parent, sub);
+  const result = action === 'createSubdomain'
+    ? await addWebDomain(owner, fullSub)
+    : await deleteWebDomain(owner, fullSub);
+  if (!result.ok) {
+    return NextResponse.json(
+      { success: false, error: result.error || 'Falha ao gerir subdomínio no Hestia' },
+      { status: 500 },
+    );
+  }
+  invalidateHestiaDomainCache();
+  if (action === 'createSubdomain') {
+    await pointHostingHostToServer(fullSub).catch(() => undefined);
+    scheduleHostingSslRetry(owner, fullSub);
+  } else {
+    await removeHostingHostDns(fullSub).catch(() => undefined);
+  }
+  await mirrorAfterDaMutation(action, { ...params, domain: parent, subdomain: fullSub, owner }).catch(() => undefined);
+  scheduleDaSync(400);
+  return NextResponse.json({ success: true, data: { output: action === 'createSubdomain' ? 'subdomain created' : 'subdomain deleted' } });
 }
 
 const DA_READ_PROXY: Record<
@@ -440,6 +475,15 @@ export async function POST(req: NextRequest) {
 
       if (action === 'createWebsite') {
         const hestiaResponse = await tryHestiaCreateWebsite(mirrorScope, params as Record<string, unknown>);
+        if (hestiaResponse) return hestiaResponse;
+      }
+
+      if (action === 'createSubdomain' || action === 'deleteSubdomain') {
+        const hestiaResponse = await tryHestiaSubdomain(
+          mirrorScope,
+          action,
+          params as Record<string, unknown>,
+        );
         if (hestiaResponse) return hestiaResponse;
       }
 

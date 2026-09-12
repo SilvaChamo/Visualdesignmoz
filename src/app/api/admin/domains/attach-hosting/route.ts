@@ -6,8 +6,7 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
-import { applyCloudflareSafeCacheDefaults, findCloudflareZoneId, upsertCloudflareRecord } from '@/lib/cloudflare-dns';
-import { getServerHost } from '@/lib/server-config';
+import { pointHostingHostToServer, scheduleHostingSslRetry } from '@/lib/hosting-site-dns';
 import { HOSTING_DOMAIN_REGEX } from '@/lib/checkout-fulfillment';
 import { after } from 'next/server';
 
@@ -65,24 +64,13 @@ export async function POST(req: NextRequest) {
     }
     steps.push({ step: 'Associação gravada no painel', ok: true });
 
-    // 2) DNS — melhor esforço, só se o domínio já tiver zona na Cloudflare.
-    const serverIp = getServerHost();
-    const zoneId = await findCloudflareZoneId(domainName);
-    if (zoneId) {
-      const results = await Promise.all([
-        upsertCloudflareRecord(zoneId, domainName, { type: 'A', name: '@', content: serverIp, proxied: false }),
-        upsertCloudflareRecord(zoneId, domainName, { type: 'A', name: 'www', content: serverIp, proxied: false }),
-      ]);
-      const allOk = results.every((r) => r.ok);
-      void applyCloudflareSafeCacheDefaults(zoneId, domainName);
-      steps.push({
-        step: 'DNS apontado para o servidor (Cloudflare)',
-        ok: allOk,
-        detail: allOk ? undefined : results.filter((r) => !r.ok).map((r) => r.error).join('; '),
-      });
-    } else {
-      steps.push({ step: 'DNS', ok: false, detail: 'Domínio sem zona na Cloudflare — aponta o DNS manualmente.' });
-    }
+    // 2) DNS — melhor esforço. Subdomínios usam a zona do domínio pai.
+    const dns = await pointHostingHostToServer(domainName);
+    steps.push({
+      step: 'DNS apontado para o servidor (Cloudflare)',
+      ok: dns.ok,
+      detail: dns.ok ? undefined : dns.error || 'Domínio sem zona na Cloudflare — aponta o DNS manualmente.',
+    });
 
     // 3) Painel de hospedagem (DirectAdmin ou Hestia, consoante a conta) — em
     //    segundo plano, nunca bloqueia nem desfaz os passos acima.
@@ -96,6 +84,8 @@ export async function POST(req: NextRequest) {
           const result = await hestiaAdapter.addWebDomain(username, domainName);
           if (!result.ok) {
             console.error('[attach-hosting] propagação Hestia falhou:', domainName, username, result.error);
+          } else {
+            scheduleHostingSslRetry(username, domainName);
           }
           return;
         }

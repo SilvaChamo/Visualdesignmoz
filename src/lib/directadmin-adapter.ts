@@ -872,6 +872,18 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       return { success: result.ok };
     },
 
+    deleteEmailForwarding: async (p: Record<string, unknown>) => {
+      const email = String(p.email || '');
+      const [user, domain] = email.split('@');
+      const result = await daPost(credentials, 'CMD_API_EMAIL_FORWARDERS', {
+        action: 'delete',
+        domain,
+        user,
+        select0: String(p.forward || ''),
+      });
+      return { success: result.ok };
+    },
+
     // Redireccionar um domínio (ou domínio adicional que já possuis) para este
     // domínio principal — ex.: uma antiga variante com erro de escrita a apontar
     // para o domínio correcto. alias='no' -> redirecciona (HTTP), em vez de servir

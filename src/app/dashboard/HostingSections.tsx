@@ -31,6 +31,7 @@ import {
 } from '@/lib/panel-file-manager-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import { queueHostingAccountEdit } from '@/lib/panel-hosting-edit-nav'
+import { subdomainFqdn } from '@/lib/subdomain-fqdn'
 import { loadScreenshot as fetchSiteScreenshot } from '@/lib/site-screenshot-cache'
 import {
   readDomainListCache,
@@ -212,6 +213,13 @@ const ConfirmModal = ({
 // SUBDOMAINS SECTION
 // ============================================================
 export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
+  const parentDomains = useMemo(
+    () =>
+      [...new Set(sites.map((s) => s.domain).filter((d) => d && d.includes('.')))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [sites],
+  )
   const [selectedDomain, setSelectedDomain] = useState('')
   const [subdomains, setSubdomains] = useState<DirectAdminSubdomain[]>([])
   const [loading, setLoading] = useState(false)
@@ -228,26 +236,30 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
     try {
       const data = await directAdminAPI.listSubdomains(domain) as DirectAdminSubdomain[]
-      if (data.length > 0) {
-        setSubdomains(data)
-        data.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
-      }
+      const rows = Array.isArray(data) ? data : []
+      setSubdomains(rows)
+      rows.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
+  useEffect(() => {
+    if (!selectedDomain && parentDomains.length === 1) {
+      setSelectedDomain(parentDomains[0])
+      void loadSubs(parentDomains[0])
+    }
+  }, [parentDomains, selectedDomain])
+
+  const previewHost = selectedDomain ? subdomainFqdn(selectedDomain, newSub) : ''
+
   const handleCreate = async () => {
     if (!selectedDomain || !newSub.trim()) return
+    const host = subdomainFqdn(selectedDomain, newSub)
     setCreating(true); setMsg('')
     try {
-      const res = await directAdminAPI.createSubdomain(selectedDomain, newSub.trim()) as { success?: boolean; error?: string }
-      const ok = res?.success === true
-      if (ok) {
-        cpSaveSubdomain(selectedDomain, newSub.trim())
-        setMsg('Subdomínio criado com sucesso!')
-      } else {
-        setMsg('Erro: ' + (res?.error || 'Não foi criado no DirectAdmin'))
-      }
+      await directAdminAPI.createSubdomain(selectedDomain, newSub.trim())
+      cpSaveSubdomain(selectedDomain, newSub.trim())
+      setMsg(`Subdomínio criado: https://${host}`)
       setNewSub('')
       loadSubs(selectedDomain)
     } catch (e: unknown) {
@@ -257,7 +269,8 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
   }
 
   const handleDelete = async (sub: string) => {
-    if (!confirm(`Eliminar subdomínio ${sub}?`)) return
+    const host = subdomainFqdn(selectedDomain, sub)
+    if (!confirm(`Eliminar subdomínio ${host}?`)) return
     await directAdminAPI.deleteSubdomain(selectedDomain, sub)
     cpRemoveSubdomain(sub)
     loadSubs(selectedDomain)
@@ -265,51 +278,64 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-4">
-
-      </div>
-
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
+        {parentDomains.length === 0 ? (
+          <p className="text-sm text-gray-500">Crie primeiro o domínio principal. Depois pode adicionar subdomínios (ex.: app.exemplo.com).</p>
+        ) : (
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio principal</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
               className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione um domínio...</option>
-              {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+              {parentDomains.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo Subdomínio</label>
+          <div className="flex-[1.4] min-w-[240px]">
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo subdomínio</label>
             <div className="flex gap-2">
-              <input value={newSub} onChange={(e) => setNewSub(e.target.value)} placeholder="blog"
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-[10px] text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+              <div className="flex flex-1 min-w-0 overflow-hidden rounded-[10px] border border-gray-300">
+                <input value={newSub} onChange={(e) => setNewSub(e.target.value.replace(/^https?:\/\//, '').split('/')[0])} placeholder="app"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-sm focus:outline-none" />
+                {selectedDomain ? (
+                  <span className="hidden sm:flex items-center bg-gray-50 px-3 text-sm text-gray-500 whitespace-nowrap border-l border-gray-200">
+                    .{selectedDomain}
+                  </span>
+                ) : null}
+              </div>
               <button onClick={handleCreate} disabled={creating || !selectedDomain || !newSub.trim()}
                 className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2.5 rounded-[10px] text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {creating ? <Spinner className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
                 Criar
               </button>
             </div>
+            {previewHost ? (
+              <p className="mt-1.5 text-xs text-gray-500">Abre em <span className="font-mono text-gray-700">https://{previewHost}</span> — não em {selectedDomain}/{newSub.trim() || 'app'}</p>
+            ) : null}
           </div>
         </div>
+        )}
 
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-[10px] text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded-[10px] text-sm font-medium ${msg.includes('criado') || msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
-        {loading && <TableSkeleton columns={4} rows={5} />}
+        {loading && <TableSkeleton columns={3} rows={5} />}
         {!loading && selectedDomain && subdomains.length === 0 ? (
           <div className="py-12 text-center text-gray-400"><Layers className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum subdomínio encontrado.</p></div>
         ) : !loading && subdomains.length > 0 ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomínio</th><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
+            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Endereço</th><th className="px-4 py-3">Domínio pai</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
             <tbody>
-              {subdomains.map((s, i) => (
+              {subdomains.map((s, i) => {
+                const host = subdomainFqdn(s.domain || selectedDomain, s.subdomain)
+                return (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{s.subdomain}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.domain}</td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.path}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <a href={`https://${host}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{host}</a>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{s.domain || selectedDomain}</td>
                   <td className="px-4 py-3"><button onClick={() => handleDelete(s.subdomain)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         ) : null}
@@ -5923,44 +5949,7 @@ export function APIConfigSection() {
 // LIST SUBDOMAINS SECTION
 // ============================================================
 export function ListSubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [subdomains, setSubdomains] = useState<DirectAdminSubdomain[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const loadSubs = async (domain: string) => {
-    if (!domain) return
-    setLoading(true)
-    const data = await directAdminAPI.listSubdomains(domain)
-    setSubdomains(data)
-    setLoading(false)
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="mb-6">
-          <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
-            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
-            <option value="">Select a domain...</option>
-            {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-          </select>
-        </div>
-        {loading ? <div className="py-12 text-center"><Spinner className="w-8 h-8 mx-auto" /></div> : subdomains.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomain</th><th className="px-4 py-3">Domain</th><th className="px-4 py-3">Path</th></tr></thead>
-            <tbody>{subdomains.map((s, i) => (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{s.subdomain}</td>
-                <td className="px-4 py-3 text-gray-600">{s.domain}</td>
-                <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.path}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">No subdomains found.</p> : null}
-      </div>
-    </div>
-  )
+  return <SubdomainsSection sites={sites} />
 }
 
 // ============================================================
@@ -7021,31 +7010,82 @@ export function EmailForwardingSection({ sites }: { sites: DirectAdminWebsite[] 
   const [forwards, setForwards] = useState<string[]>([])
   const [forwardTo, setForwardTo] = useState('')
   const [msg, setMsg] = useState('')
+  const [msgOk, setMsgOk] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const loadEmails = async (domain: string) => { if (!domain) return; setLoading(true); const data = await directAdminAPI.listEmails(domain); setEmails(data); setLoading(false) }
+  const loadEmails = async (domain: string) => {
+    if (!domain) return
+    setLoading(true)
+    setMsg('')
+    try {
+      const data = await directAdminAPI.listEmails(domain)
+      setEmails(data)
+    } catch (error) {
+      setEmails([])
+      setMsg(error instanceof Error ? error.message : 'Erro ao listar contas.')
+      setMsgOk(false)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadForwards = async (email: string) => {
     setSelectedEmail(email)
-    const fwds = await directAdminAPI.getEmailForwarding({ email })
-    setForwards(fwds)
+    setMsg('')
+    try {
+      const fwds = await directAdminAPI.getEmailForwarding({ email, domain: selectedDomain })
+      setForwards(Array.isArray(fwds) ? fwds : [])
+    } catch (error) {
+      setForwards([])
+      setMsg(error instanceof Error ? error.message : 'Erro ao listar encaminhamentos.')
+      setMsgOk(false)
+    }
   }
 
   const handleAdd = async () => {
     if (!selectedEmail || !forwardTo) return
-    const ok = await directAdminAPI.addEmailForwarding({ email: selectedEmail, forward: forwardTo })
-    if (ok) { setForwardTo(''); loadForwards(selectedEmail) }
-    else setMsg('Error adding forwarding.')
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.addEmailForwarding({ email: selectedEmail, forward: forwardTo.trim() })
+      setForwardTo('')
+      setMsg('Encaminhamento adicionado.')
+      setMsgOk(true)
+      await loadForwards(selectedEmail)
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao adicionar encaminhamento.')
+      setMsgOk(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (destination: string) => {
+    if (!selectedEmail) return
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.deleteEmailForwarding({ email: selectedEmail, forward: destination })
+      setMsg('Encaminhamento removido.')
+      setMsgOk(true)
+      await loadForwards(selectedEmail)
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao remover encaminhamento.')
+      setMsgOk(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
-            <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+        <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
+          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail(''); setForwards([]) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
+            <option value="">Seleccionar...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className="mb-4 px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msgOk ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-8 text-center"><Spinner className="w-6 h-6 mx-auto" /></div> : emails.length > 0 ? (
           <div className="space-y-2">{emails.map((em, i) => (
             <div key={i} className="border border-gray-200 rounded p-3 hover:bg-gray-50">
@@ -7056,15 +7096,24 @@ export function EmailForwardingSection({ sites }: { sites: DirectAdminWebsite[] 
               {selectedEmail === em.email && (
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex gap-2 mb-2">
-                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="forward@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
-                    <button onClick={handleAdd} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold">Add</button>
+                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="destino@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
+                    <button onClick={handleAdd} disabled={saving} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50">Adicionar</button>
                   </div>
-                  {forwards.length > 0 && <div className="flex flex-wrap gap-1">{forwards.map((f, fi) => <span key={fi} className="bg-gray-100 px-2 py-1 rounded text-xs">{f}</span>)}</div>}
+                  {forwards.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {forwards.map((f, fi) => (
+                        <span key={fi} className="bg-gray-100 px-2 py-1 rounded text-xs inline-flex items-center gap-1">
+                          {f}
+                          <button type="button" onClick={() => handleDelete(f)} disabled={saving} className="text-red-500 hover:text-red-700" aria-label={`Remover ${f}`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           ))}</div>
-        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">No emails found.</p> : null}
+        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">Nenhuma conta de e-mail neste domínio.</p> : null}
       </div>
     </div>
   )
@@ -7080,14 +7129,33 @@ export function CatchAllEmailSection({ sites }: { sites: DirectAdminWebsite[] })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const loadCatchAll = async (domain: string) => { if (!domain) return; setLoading(true); const ca = await directAdminAPI.getCatchAllEmail(domain); setCatchAll(ca || ''); setLoading(false) }
+  const loadCatchAll = async (domain: string) => {
+    if (!domain) return
+    setLoading(true)
+    setMsg('')
+    try {
+      const ca = await directAdminAPI.getCatchAllEmail(domain)
+      setCatchAll(typeof ca === 'string' ? ca : '')
+    } catch (error) {
+      setCatchAll('')
+      setMsg(error instanceof Error ? error.message : 'Erro ao ler o catch-all.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!selectedDomain) return
-    setSaving(true); setMsg('')
-    const ok = await directAdminAPI.setCatchAllEmail({ domain: selectedDomain, email: catchAll })
-    setMsg(ok ? 'Catch-all configured!' : 'Error configuring catch-all.')
-    setSaving(false)
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.setCatchAllEmail({ domain: selectedDomain, email: catchAll })
+      setMsg(catchAll.trim() ? 'Catch-all configurado.' : 'Catch-all removido.')
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao configurar o catch-all.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -7104,9 +7172,9 @@ export function CatchAllEmailSection({ sites }: { sites: DirectAdminWebsite[] })
               <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />}
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configurado') || msg.includes('removido') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleSave} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">
-          {saving ? 'Saving...' : 'Save Catch-All'}
+          {saving ? 'A guardar...' : 'Guardar catch-all'}
         </button>
       </div>
     </div>
@@ -11543,19 +11611,56 @@ function DomainCreateModal({
 }) {
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
   const [newDomain, setNewDomain] = useState('')
+  const [parentDomain, setParentDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [docRoot, setDocRoot] = useState('')
   const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const parentDomains = useMemo(
+    () =>
+      [...new Set((sites || []).map((s) => s.domain).filter((d) => d && d.includes('.')))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [sites],
+  )
+
   useEffect(() => {
-    if (newDomain && !docRoot) {
+    if (newDomain && !docRoot && domainType !== 'subdomain') {
       setDocRoot(`public_html/${newDomain}`)
     }
-  }, [newDomain, docRoot])
+  }, [newDomain, docRoot, domainType])
+
+  useEffect(() => {
+    if (domainType === 'subdomain' && !parentDomain && parentDomains.length === 1) {
+      setParentDomain(parentDomains[0])
+    }
+  }, [domainType, parentDomain, parentDomains])
+
+  const subdomainHost = domainType === 'subdomain' && parentDomain
+    ? subdomainFqdn(parentDomain, newDomain)
+    : ''
 
   const handleSubmit = async () => {
+    if (domainType === 'subdomain') {
+      if (!parentDomain || !newDomain.trim()) {
+        setError('Escolha o domínio principal e o nome do subdomínio.')
+        return
+      }
+      setLoading(true)
+      setError('')
+      try {
+        await directAdminAPI.createSubdomain(parentDomain, newDomain.trim())
+        onSuccess()
+      } catch (e: unknown) {
+        const host = subdomainFqdn(parentDomain, newDomain)
+        setError(e instanceof Error ? e.message : `Falha ao criar ${host}`)
+      }
+      setLoading(false)
+      return
+    }
+
     if (!newDomain || !adminEmail) {
       setError('Preencha todos os campos obrigatórios')
       return
@@ -11659,6 +11764,7 @@ function DomainCreateModal({
   const resetForm = () => {
     setDomainType('addon')
     setNewDomain('')
+    setParentDomain('')
     setAdminEmail('')
     setDocRoot('')
     setSelectedPHP('PHP 8.2')
@@ -11683,10 +11789,12 @@ function DomainCreateModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-zinc-900 block dark:text-zinc-100">
-                Detalhes do domínio
+                {domainType === 'subdomain' ? 'Novo subdomínio' : 'Detalhes do domínio'}
               </h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                Criar novo domínio no servidor
+                {domainType === 'subdomain'
+                  ? 'Depois do domínio principal, como no cPanel e no DirectAdmin'
+                  : 'Criar novo domínio no servidor'}
               </span>
             </div>
           </div>
@@ -11702,7 +11810,7 @@ function DomainCreateModal({
               <div className="flex flex-col items-center gap-3">
                 <Spinner className="w-8 h-8" />
                 <span className="text-sm text-zinc-600 font-medium dark:text-zinc-300">
-                  A criar domínio…
+                  {domainType === 'subdomain' ? 'A criar subdomínio…' : 'A criar domínio…'}
                 </span>
                 <span className="text-xs text-zinc-400">Isso pode levar alguns segundos</span>
               </div>
@@ -11728,7 +11836,11 @@ function DomainCreateModal({
             </label>
             <select
               value={domainType}
-              onChange={e => setDomainType(e.target.value as 'addon' | 'subdomain' | 'parked')}
+              onChange={e => {
+                setDomainType(e.target.value as 'addon' | 'subdomain' | 'parked')
+                setNewDomain('')
+                setError('')
+              }}
               className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             >
               <option value="addon">Domínio adicional</option>
@@ -11737,6 +11849,54 @@ function DomainCreateModal({
             </select>
           </div>
 
+          {domainType === 'subdomain' ? (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+                  Domínio principal
+                </label>
+                {parentDomains.length === 0 ? (
+                  <p className="text-sm text-zinc-500">Crie primeiro o domínio principal nesta conta. Depois o subdomínio fica disponível aqui, como no cPanel.</p>
+                ) : (
+                  <select
+                    value={parentDomain}
+                    onChange={e => setParentDomain(e.target.value)}
+                    className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
+                  >
+                    <option value="">Seleccione o domínio já criado…</option>
+                    {parentDomains.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+                  Nome do subdomínio
+                </label>
+                <div className="flex overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                  <input
+                    value={newDomain}
+                    onChange={e => setNewDomain(e.target.value.replace(/^https?:\/\//, '').split('/')[0])}
+                    placeholder="app"
+                    className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none dark:text-zinc-100"
+                  />
+                  {parentDomain ? (
+                    <span className="flex items-center whitespace-nowrap border-l border-zinc-300 bg-zinc-100 px-4 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                      .{parentDomain}
+                    </span>
+                  ) : null}
+                </div>
+                {subdomainHost ? (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    O site abre em <span className="font-mono text-zinc-800 dark:text-zinc-200">https://{subdomainHost}</span>
+                    {' '}— não em {parentDomain}/{newDomain.trim() || 'app'}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
           {/* Domain Name */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
@@ -11745,7 +11905,7 @@ function DomainCreateModal({
             <input
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
-              placeholder="subdominio.exemplo.com ou novodominio.com"
+              placeholder="novodominio.com"
               className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             />
           </div>
@@ -11775,7 +11935,7 @@ function DomainCreateModal({
               <input
                 value={docRoot}
                 onChange={e => setDocRoot(e.target.value)}
-                placeholder="public_html/subdominio"
+                placeholder="public_html"
                 className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none dark:text-zinc-100"
               />
             </div>
@@ -11798,6 +11958,8 @@ function DomainCreateModal({
               <option>PHP 8.3</option>
             </select>
           </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-white/80 px-8 py-6 dark:border-zinc-800 dark:bg-zinc-900/80">
@@ -11807,11 +11969,15 @@ function DomainCreateModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !newDomain || !adminEmail}
+            disabled={
+              loading
+              || !newDomain
+              || (domainType === 'subdomain' ? !parentDomain : !adminEmail)
+            }
             className={panelBtnPrimary}
           >
             {loading ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            Adicionar domínio
+            {domainType === 'subdomain' ? 'Criar subdomínio' : 'Adicionar domínio'}
           </button>
         </div>
       </div>

@@ -132,6 +132,8 @@ async function resolveApi(action?: string, domain?: string) {
 const HESTIA_SUPPORTED_ACTIONS = new Set([
   'listWebsites', 'createWebsite',
   'listEmails', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail', 'changeEmailPassword', 'setEmailLimits',
+  'getEmailForwarding', 'addEmailForwarding', 'deleteEmailForwarding',
+  'getCatchAllEmail', 'setCatchAllEmail',
   'listFTPAccounts', 'createFTPAccount', 'deleteFTPAccount',
   'deleteWebsite', 'suspendWebsite', 'unsuspendWebsite',
   'issueSSL', 'listDatabases', 'createDatabase', 'deleteDatabase',
@@ -291,12 +293,22 @@ async function tryHestiaAction(
       const subOwner = domainOwner || hestiaAdmin;
       const sub = String(params.subdomain || '').trim().toLowerCase().replace(/\.$/, '');
       if (!sub) return { handled: true, response: NextResponse.json({ success: false, error: 'Subdomínio obrigatório.' }, { status: 400 }) };
-      // No Hestia, subdomínios são domínios completos da mesma conta
-      const fullSub = sub.includes('.') ? sub : `${sub}.${domain}`;
+      const { subdomainFqdn, pointHostingHostToServer, removeHostingHostDns, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+      const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+      // No Hestia, subdomínios são domínios completos da mesma conta do pai
+      const fullSub = subdomainFqdn(domain, sub);
       const result = action === 'createSubdomain'
         ? await hestiaAdapter.addWebDomain(subOwner, fullSub)
         : await hestiaAdapter.deleteWebDomain(subOwner, fullSub);
       if (result.ok) {
+        invalidateHestiaDomainCache();
+        if (action === 'createSubdomain') {
+          await pointHostingHostToServer(fullSub).catch(() => undefined);
+          scheduleHostingSslRetry(subOwner, fullSub);
+        } else {
+          await removeHostingHostDns(fullSub).catch(() => undefined);
+        }
+        await mirrorAfterDaMutation(action, { domain, subdomain: fullSub }).catch(() => undefined);
         const { scheduleHestiaSync } = await import('@/lib/hestia-sync-engine');
         scheduleHestiaSync(2000);
       }
@@ -319,6 +331,13 @@ async function tryHestiaAction(
       case 'createWebsite': {
         const owner = String(params.owner || process.env.HESTIA_USER || 'vdadmin').trim();
         const result = await hestiaAdapter.addWebDomain(owner, domain);
+        if (result.ok) {
+          const { pointHostingHostToServer, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+          const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+          invalidateHestiaDomainCache();
+          await pointHostingHostToServer(domain).catch(() => undefined);
+          scheduleHostingSslRetry(owner, domain);
+        }
         data = { success: result.ok, error: result.error };
         break;
       }
@@ -408,6 +427,64 @@ async function tryHestiaAction(
           quotaResult = await hestiaAdapter.changeMailAccountQuota(hestiaAdmin, domain, userName, quotaMb);
         }
         data = quotaResult;
+        break;
+      }
+      case 'getEmailForwarding': {
+        const userName = emailParam.split('@')[0] || '';
+        let listed = await hestiaAdapter.listMailAccountForwards(owner, domain, userName);
+        if (!listed.ok && owner !== hestiaAdmin) {
+          listed = await hestiaAdapter.listMailAccountForwards(hestiaAdmin, domain, userName);
+        }
+        data = listed.forwards;
+        break;
+      }
+      case 'addEmailForwarding':
+      case 'deleteEmailForwarding': {
+        const userName = emailParam.split('@')[0] || '';
+        const forwardTo = String(params.forward || params.forwardTo || '').trim();
+        if (!userName || !forwardTo) {
+          return {
+            handled: true,
+            response: NextResponse.json({ success: false, error: 'Conta e destino do encaminhamento são obrigatórios.' }, { status: 400 }),
+          };
+        }
+        const mutate = action === 'addEmailForwarding'
+          ? hestiaAdapter.addMailForward
+          : hestiaAdapter.deleteMailForward;
+        let result = await mutate(owner, domain, userName, forwardTo);
+        if (!result.ok && owner !== hestiaAdmin) {
+          result = await mutate(hestiaAdmin, domain, userName, forwardTo);
+        }
+        if (!result.ok) {
+          return {
+            handled: true,
+            response: NextResponse.json({ success: false, error: result.error || 'Não foi possível actualizar o encaminhamento.' }, { status: 400 }),
+          };
+        }
+        data = { success: true };
+        break;
+      }
+      case 'getCatchAllEmail': {
+        let listed = await hestiaAdapter.getMailDomainCatchall(owner, domain);
+        if (!listed.ok && owner !== hestiaAdmin) {
+          listed = await hestiaAdapter.getMailDomainCatchall(hestiaAdmin, domain);
+        }
+        data = listed.catchall;
+        break;
+      }
+      case 'setCatchAllEmail': {
+        const catchAll = String(params.email || params.catchAll || params.value || '').trim();
+        let result = await hestiaAdapter.setMailDomainCatchall(owner, domain, catchAll);
+        if (!result.ok && owner !== hestiaAdmin) {
+          result = await hestiaAdapter.setMailDomainCatchall(hestiaAdmin, domain, catchAll);
+        }
+        if (!result.ok) {
+          return {
+            handled: true,
+            response: NextResponse.json({ success: false, error: result.error || 'Não foi possível configurar o catch-all.' }, { status: 400 }),
+          };
+        }
+        data = { success: true };
         break;
       }
       case 'listFTPAccounts': {
@@ -770,6 +847,9 @@ export async function POST(req: NextRequest) {
         break;
       case 'addEmailForwarding':
         data = await daApi.addEmailForwarding(params);
+        break;
+      case 'deleteEmailForwarding':
+        data = await daApi.deleteEmailForwarding(params);
         break;
       case 'listDomainPointers':
         data = await daApi.listDomainPointers(String(params.domain || ''));

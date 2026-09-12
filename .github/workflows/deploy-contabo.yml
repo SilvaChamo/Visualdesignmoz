@@ -70,9 +70,8 @@ jobs:
           # Contabo, separada do Hetzner) — deixou de fazer sentido a regra
           # antiga de "zero crons para não duplicar efeitos reais na BD
           # partilhada". Tem os seus próprios crons de domínio (dns-retry,
-          # brevo-retry, mais abaixo) e o sync do Hestia; ainda não tem
-          # renewal-check/da-sync/mailmarketing (esses continuam só no
-          # Hetzner, por agora).
+          # brevo-retry, mais abaixo), o sync do Hestia e a fila de
+          # mailmarketing. renewal-check/da-sync continuam só no Hetzner.
           command_timeout: 30m
           script: |
             set -e
@@ -223,3 +222,4 @@ jobs:
             # não reproduzível por SSH directo (ver histórico do ficheiro) — mesmo
             # depois de reescrita, voltou a falhar aqui dentro sem falhar à mão.
             bash scripts/install-hestia-cron.sh
+            bash scripts/install-mailmarketing-cron.sh

@@ -33,6 +33,10 @@ type HestiaDomainRow = {
 let hestiaDomainCache: { at: number; rows: HestiaDomainRow[] } | null = null;
 const HESTIA_DOMAIN_CACHE_MS = 60_000;
 
+export function invalidateHestiaDomainCache(): void {
+  hestiaDomainCache = null;
+}
+
 /**
  * União de v-list-web-domains para todos os utilizadores Hestia (vdadmin +
  * contas cliente como aamihe). listUsers() exclui HESTIA_USER de propósito

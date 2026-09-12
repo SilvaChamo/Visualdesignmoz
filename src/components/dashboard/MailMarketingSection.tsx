@@ -21,6 +21,7 @@ import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
 import { EmailTemplates } from "@/components/admin/EmailTemplates";
 import { fetchCompanyLogoUrl } from "@/components/admin/CompanyLogoUpload";
 import { toast } from "sonner";
+import { directAdminAPI } from '@/lib/directadmin-hosting-api';
 import {
   adminListarSubscritores as listarSubscritores,
   adminAdicionarSubscritor as adicionarSubscritor,
@@ -30,7 +31,6 @@ import {
   adminCriarLista as criarLista,
   adminRemoverLista as removerLista,
   adminListarCampanhas as listarCampanhas,
-  adminSalvarCampanha as salvarCampanha,
   adminRemoverCampanha as removerCampanha,
   adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing';
@@ -343,11 +343,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
       try {
         const [supabaseRes, panelRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch('/api/panel-bridge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'listEmails', params: { domain: selectedSite } })
-          })
+          directAdminAPI.listEmails(selectedSite),
         ]);
         
         let allEmailsList: string[] = [];
@@ -366,11 +362,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
           }
         }
         
-        if (panelRes.status === 'fulfilled') {
-          const result = await panelRes.value.json();
-          if (result.success && Array.isArray(result.emails)) {
-            allEmailsList = [...allEmailsList, ...result.emails];
-          }
+        if (panelRes.status === 'fulfilled' && Array.isArray(panelRes.value)) {
+          const panelEmails = panelRes.value
+            .map((account: { email?: string }) => account.email)
+            .filter((email): email is string => Boolean(email));
+          allEmailsList = [...allEmailsList, ...panelEmails];
         }
         
         const domainEmailsList = [...new Set(allEmailsList.filter((e: string) => e && e.includes('@')))];
@@ -539,24 +535,20 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
       
-      const sentCount = result?.details?.success ?? 0;
-      const failedCount = result?.details?.failed ?? emailList.length;
-      
-      if (sentCount === 0) {
-        throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
-      } else if (failedCount > 0) {
-        toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+      if (result.queued) {
+        toast.success(result.message || `Campanha enfileirada para ${emailList.length} contactos.`);
       } else {
-        toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
-      }
+        const sentCount = result?.details?.success ?? 0;
+        const failedCount = result?.details?.failed ?? emailList.length;
 
-      await salvarCampanha({
-        subject,
-        content_html: finalHtml,
-        total_recipients: emailList.length,
-        domain: selectedSite,
-        owner_email: user?.email || currentUserEmail || ''
-      });
+        if (sentCount === 0) {
+          throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+        } else if (failedCount > 0) {
+          toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+        } else {
+          toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
+        }
+      }
 
       setAttachments([]);
       setShowSuccessDialog(true);
@@ -1083,7 +1075,8 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend, isAc
                 <div><h4 className="font-bold dark:text-white">{camp.subject}</h4><p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black">{new Date(camp.created_at).toLocaleString()}</p></div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="text-right"><p className="text-sm font-black dark:text-white">{camp.recipient_count || 0}</p></div>
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">{camp.status === 'sent' ? 'Enviada' : camp.status === 'queued' ? 'Na fila' : camp.status === 'processing' ? 'A enviar' : camp.status === 'partial_failed' ? 'Parcial' : camp.status === 'failed' ? 'Falhou' : camp.status || '—'}</span>
+                <div className="text-right"><p className="text-sm font-black dark:text-white">{camp.total_recipients || camp.recipient_count || 0}</p></div>
                 <button onClick={() => onResend && onResend(camp)} className="p-2 hover:bg-orange-50 dark:hover:bg-orange-950/30 text-slate-400 hover:text-orange-600 rounded-lg"><RefreshCw size={14} /></button>
                 <button onClick={async () => { if (confirm("Remover campanha?")) { await removerCampanha(camp.id, currentUserEmail || ''); fetchCampaigns(); } }} className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
               </div>
