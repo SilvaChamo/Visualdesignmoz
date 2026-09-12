@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
+import { listMysqlSchemas, listSiteMysqlSchemas } from '@/lib/hestia-mysql-acl';
 
 const TICKET_DIR = '/var/lib/phpmyadmin/sso';
 const KEY_FILE = '/etc/phpmyadmin/vd-panel-sso.key';
@@ -26,20 +27,37 @@ async function mysqlRoot(sql: string): Promise<string> {
   return out.replace(marker, '').trim();
 }
 
+/** Bases a que o ticket SSO deve dar acesso: nunca `*.*` para uma conta que
+ * não seja o próprio admin do Hestia — evita que um reseller/manager sem
+ * `database` válido (ou com um valor inválido) receba acesso a bases de
+ * outras contas. */
+async function resolveSsoSchemas(owner: string, database?: string): Promise<string[]> {
+  const db = database && /^[A-Za-z0-9_]+$/.test(database) ? database : '';
+  if (db) return [db];
+  const adminUser = (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase();
+  if (owner.trim().toLowerCase() === adminUser) {
+    return listSiteMysqlSchemas();
+  }
+  return listMysqlSchemas(owner);
+}
+
 async function createTempMysqlLogin(
-  _owner: string,
+  owner: string,
   database?: string,
 ): Promise<{ user: string; password: string; host: string }> {
+  const schemas = await resolveSsoSchemas(owner, database);
+  if (schemas.length === 0) {
+    throw new Error('Sem bases de dados disponíveis para abrir no phpMyAdmin.');
+  }
   const user = `pma_vd_${crypto.randomBytes(6).toString('hex')}`;
   const password = crypto.randomBytes(18).toString('base64url');
-  const db = database && /^[A-Za-z0-9_]+$/.test(database) ? database : '';
-  const grant = db
-    ? `GRANT ALL PRIVILEGES ON \`${db}\`.* TO \`${user}\`@\`localhost\``
-    : `GRANT ALL PRIVILEGES ON *.* TO \`${user}\`@\`localhost\``;
+  const grants = schemas.map(
+    (name) => `GRANT ALL PRIVILEGES ON \`${name}\`.* TO \`${user}\`@\`localhost\``,
+  );
   await mysqlRoot(
     [
       `CREATE USER \`${user}\`@\`localhost\` IDENTIFIED BY ${mysqlQuote(password)}`,
-      grant,
+      ...grants,
       'FLUSH PRIVILEGES',
     ].join('; '),
   );

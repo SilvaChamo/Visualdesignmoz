@@ -96,7 +96,6 @@ if (!is_readable($ticketPath)) {
 }
 
 $raw = (string) file_get_contents($ticketPath);
-@chmod($ticketPath, 0666);
 @unlink($ticketPath);
 $data = json_decode($raw, true);
 $user = is_array($data) ? (string) ($data['user'] ?? '') : '';
