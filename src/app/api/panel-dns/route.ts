@@ -232,6 +232,9 @@ export async function DELETE(req: NextRequest) {
     // estes domínios), sem passar pelo espelho/credenciais do DirectAdmin.
     const cfZoneId = await findCloudflareZoneId(domain);
     if (cfZoneId) {
+      if (!/^[a-f0-9]{32}$/i.test(id)) {
+        return NextResponse.json({ success: false, error: 'Id de registo inválido' }, { status: 400 });
+      }
       const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
       if (!cfDel.ok) {
         return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
