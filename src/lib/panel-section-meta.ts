@@ -113,7 +113,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   newsletter: 'Campanhas e envio de email marketing',
   'da-emails': 'Contas POP/IMAP no servidor',
   'backup-manager': 'Gere backups de sites, ficheiros, bases de dados e e-mails',
-  'wp-sites': 'Sites WordPress instalados no servidor',
+  'wp-sites': 'Websites na hospedagem',
   'wp-plugins': 'Activar, instalar, actualizar e gerir plugins',
   'wp-backup': 'Restaurar e backup remoto WordPress',
   'cp-reseller-permissions': 'Módulos visíveis no painel do revendedor',

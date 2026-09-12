@@ -86,7 +86,6 @@ const HostingPendingSection = dynamic(() => import('./HostingPendingSection').th
 const NotificationsSection = dynamic(() => import('./NotificationsSection').then(m => m.NotificationsSection), { ssr: false, loading: () => sectionLoadingFallback })
 const CotacoesSection = dynamic(() => import('./CotacoesSection').then(m => m.CotacoesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const ContabilidadeTable = dynamic(() => import('@/components/quotations/ContabilidadeTable').then(m => m.ContabilidadeTable), { ssr: false, loading: () => sectionLoadingFallback })
-const NextJsSitesSection = dynamic(() => import('./NextJsSitesSection').then(m => m.NextJsSitesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const TemplatesSection = dynamic(() => import('./TemplatesSection').then(m => m.TemplatesSection), { ssr: false })
 const DNSCentralSection = dynamic(() => import('./DNSCentralSection').then(m => m.DNSCentralSection), { ssr: false, loading: () => sectionLoadingFallback })
 const DomainTransferSection = dynamic(() => import('./DomainTransferSection').then(m => m.DomainTransferSection), { ssr: false, loading: () => sectionLoadingFallback })
@@ -1509,16 +1508,6 @@ function AdminPageContent() {
         return <EncomendasClientesSection isActive={isActive} />
       case 'contabilidade':
         return <ContabilidadeTable />
-      case 'nextjs-sites':
-        return (
-          <NextJsSitesSection
-            sites={directAdminSites}
-            onNavigate={(section, opts) => {
-              if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              handleNavigate(section)
-            }}
-          />
-        )
       case 'cp-users':
         return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} onNavigate={handleNavigate} />
       case 'wp-users':
@@ -1572,12 +1561,12 @@ function AdminPageContent() {
             setActiveSection={setActiveSection}
           />
         )
+      case 'nextjs-sites':
       case 'wp-sites':
       case 'cp-wp-list':
         return (
           <ListWebsitesSection
             sites={filteredSites}
-            wordpressOnly
             wordpressOwner={bootHostingOwner || 'admin'}
             panelScope="admin"
             onRefresh={() => void loadDirectAdminData(true)}

@@ -788,7 +788,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 </span>
                 {/* Badge por tipo de site */}
                 {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
-                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black  rounded-full text-xs font-bold">Next.js</span>}
+                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">Next.js</span>}
                 {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
                 {s.ssl ? (
                   <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
@@ -1818,7 +1818,6 @@ function ResellerPageContent({
         return (
           <PanelListWebsitesSection
             sites={sortedSites}
-            wordpressOnly
             panelScope="reseller"
             wordpressOwner={resellerDaUsername ?? undefined}
             onRefresh={() => void loadDirectAdminData(true)}

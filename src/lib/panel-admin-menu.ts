@@ -100,16 +100,10 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     label: 'Websites',
     isNewMenu: true,
     subItems: [
-      {
-        id: 'wordpress-group',
-        label: 'WordPress',
-        subItems: [
-          { id: 'wp-sites', label: 'Sites' },
-          { id: 'wordpress-install', label: 'Criar Website' },
-          { id: 'wp-plugins', label: 'Plugins' },
-          { id: 'cp-databases', label: 'Bases de Dados' },
-        ],
-      },
+      { id: 'wp-sites', label: 'Sites' },
+      { id: 'wordpress-install', label: 'Criar Website' },
+      { id: 'wp-plugins', label: 'Plugins' },
+      { id: 'cp-databases', label: 'Bases de Dados' },
     ],
   },
   {
@@ -179,7 +173,7 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
   },
   {
     id: 'nov-wordpress',
-    label: 'WordPress',
+    label: 'Websites',
     subItems: [
       { id: 'wp-sites', label: 'Sites' },
       { id: 'wordpress-install', label: 'Criar Website' },
@@ -282,6 +276,7 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'git-deploy-legacy': 'git-deploy',
   'wp-update': 'wp-plugins',
   'cp-wp-list': 'wp-sites',
+  'nextjs-sites': 'wp-sites',
   'cp-wp-plugins': 'wp-plugins',
   'cp-wp-backup': 'backup-manager',
   'cp-wp-restore-backup': 'backup-manager',
