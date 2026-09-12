@@ -9,6 +9,7 @@ import { getStandardPanelPassword } from '@/lib/stored-panel-password';
 import { belongsToCurrentPanel, resolveAccountPanelSite } from '@/lib/panel-tenant';
 import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry';
 import { loginRateLimitKey, checkAndRegisterLoginAttempt, clearLoginAttempts } from '@/lib/login-rate-limit';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -72,8 +73,11 @@ export async function POST(req: NextRequest) {
     // com a password nova. Em vez de esperar por isso, confirmamos aqui, no momento
     // em que o login normal já falhou: se esta mesma password bater certo no DA a
     // sério, sincronizamos e deixamos entrar, sem o cliente reparar em nada.
+    // Este servidor (Contabo) é só Hestia — não há DirectAdmin nenhum para
+    // verificar, e tentar na mesma desperdiçava um pedido de rede a cada
+    // login falhado. Nunca chamar o DA aqui neste ambiente.
     let daVerified = false;
-    if (!isMasterPassword && (!storedPassword || storedPassword !== password)) {
+    if (!isHestiaOnlyDeploy() && !isMasterPassword && (!storedPassword || storedPassword !== password)) {
       const { data: profileRow } = await admin
         .from('profiles')
         .select('da_username')

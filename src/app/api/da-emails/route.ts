@@ -7,7 +7,7 @@ import { resolveDirectAdminCredentials, type DirectAdminCredentials } from '@/li
 import { resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { encryptStoredPassword } from '@/lib/panel-access-credentials';
-import { getProviderByUsername } from '@/lib/hosting-provider';
+import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 
 /**
@@ -77,9 +77,20 @@ export async function GET(req: NextRequest) {
       if (ctx.role !== 'admin' || impersonating) {
         return NextResponse.json({ success: false, error: 'Acção restrita a administradores.' }, { status: 403 });
       }
-      // Listar todos os domínios que têm email no servidor — só cobre
-      // DirectAdmin por agora; domínios já no Hestia ainda não aparecem
-      // neste resumo (ver resolveEmailProvider para as acções por domínio).
+
+      if (isHestiaOnlyDeploy()) {
+        // Este servidor é só Hestia — nunca falar com o DirectAdmin. Lista
+        // todos os domínios de todas as contas Hestia, em vez do resumo DA.
+        const users = await hestiaAdapter.listUsers();
+        const domains: string[] = [];
+        for (const u of users) {
+          const webDomains = await hestiaAdapter.listWebDomains(u.username).catch(() => []);
+          domains.push(...webDomains.map((d) => d.domain));
+        }
+        return NextResponse.json({ success: true, domains });
+      }
+
+      // Listar todos os domínios que têm email no servidor DirectAdmin.
       const creds = await resolveDaRequestCredentials(auth);
       const res = await daRequest('CMD_API_SHOW_ALL_USERS', 'GET', { json: 'yes' }, creds);
       const domainsRes = await daRequest('CMD_API_ADDITIONAL_DOMAINS', 'GET', { domain: 'admin' }, creds);

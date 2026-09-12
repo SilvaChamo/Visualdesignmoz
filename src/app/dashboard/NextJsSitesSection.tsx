@@ -13,6 +13,12 @@ import {
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
 import { Spinner } from '@/components/ui/spinner'
 import { panelBtnPrimary, panelBtnSecondary, panelField, panelSectionCard, panelInnerDetailCard, panelMobileCardGrid } from '@/lib/panel-ui'
+
+// Este servidor (Contabo) só fala com o Hestia — nunca mostrar o link para o
+// DirectAdmin, que nem existe aqui. Variável NEXT_PUBLIC_ porque este é um
+// componente de cliente (a versão server-only fica em '@/lib/hosting-provider').
+const IS_HESTIA_ONLY_DEPLOY =
+  (process.env.NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia'
 import { SiteThumbnail } from '@/components/panel/ListWebsitesSection'
 import type { DirectAdminWebsite } from '@/lib/directadmin-api'
 import { readListCache, writeListCache } from '@/lib/panel-list-cache'
@@ -383,11 +389,13 @@ export function NextJsSitesSection({
                             >
                               Nameservers
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="text-xs px-2 py-1.5">
-                              <a href={`/api/directadmin-access?user=${encodeURIComponent(owner)}`}>
-                                Abrir no DirectAdmin
-                              </a>
-                            </DropdownMenuItem>
+                            {!IS_HESTIA_ONLY_DEPLOY && (
+                              <DropdownMenuItem asChild className="text-xs px-2 py-1.5">
+                                <a href={`/api/directadmin-access?user=${encodeURIComponent(owner)}`}>
+                                  Abrir no DirectAdmin
+                                </a>
+                              </DropdownMenuItem>
+                            )}
                           </>
                         ) : (
                           <div className="px-2 py-1.5 text-xs text-gray-400 dark:text-zinc-500 max-w-[14rem]">

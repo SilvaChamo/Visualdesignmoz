@@ -148,6 +148,10 @@ jobs:
             # Hestia a partir daqui. O Hetzner (produção) nunca recebe esta
             # variável, por isso continua 100% DirectAdmin sem qualquer mudança.
             set_env_var DEFAULT_HOSTING_PROVIDER "hestia"
+            # Cópia NEXT_PUBLIC_ da variável acima — o valor server-only não
+            # chega a componentes 'use client' (ex.: esconder botões que só
+            # fazem sentido com DirectAdmin, como "Abrir no DirectAdmin").
+            set_env_var NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER "hestia"
             # M-Pesa Sandbox — idem, só activo aqui. Em produção o método
             # "M-Pesa" continua manual (comprovativo + confirmação humana),
             # exactamente como está hoje.

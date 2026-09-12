@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getDaSyncAdmin } from '@/lib/da-sync-schema'
 import { getMirrorSiteOwner } from '@/lib/panel-mirror-read'
 import { daRequest } from '@/lib/directadmin'
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider'
 
 async function checkIsAdmin(): Promise<boolean> {
   const supabase = await createClient()
@@ -53,15 +54,20 @@ export async function GET(request: NextRequest) {
     let registrationDate: string | null = null
     let dateSource: 'directadmin' | 'sync_estimate' = 'sync_estimate'
 
-    try {
-      const config = await daRequest('CMD_API_SHOW_USER_CONFIG', 'GET', { user: owner }, 'admin')
-      const liveDate = parseDaDate(config?.data?.date_created as string | undefined)
-      if (liveDate) {
-        registrationDate = liveDate
-        dateSource = 'directadmin'
+    // Este servidor (Contabo) é só Hestia — nunca falar com o DirectAdmin.
+    // A data estimada via panel_users.created_at (abaixo) já chega para
+    // pré-preencher o formulário.
+    if (!isHestiaOnlyDeploy()) {
+      try {
+        const config = await daRequest('CMD_API_SHOW_USER_CONFIG', 'GET', { user: owner }, 'admin')
+        const liveDate = parseDaDate(config?.data?.date_created as string | undefined)
+        if (liveDate) {
+          registrationDate = liveDate
+          dateSource = 'directadmin'
+        }
+      } catch (e) {
+        console.error('[domain-lookup] falha ao consultar DirectAdmin ao vivo:', e)
       }
-    } catch (e) {
-      console.error('[domain-lookup] falha ao consultar DirectAdmin ao vivo:', e)
     }
 
     if (!registrationDate && ownerRow?.created_at) {
