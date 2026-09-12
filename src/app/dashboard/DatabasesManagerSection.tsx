@@ -652,13 +652,13 @@ export function DatabasesManagerSection({
     const qs = new URLSearchParams({ action: 'phpmyadminSso' })
     if (selectedDomain) qs.set('domain', selectedDomain)
     if (database) qs.set('database', database)
-    const opened = window.open(`/api/db-manager?${qs.toString()}`, '_blank', 'noopener,noreferrer')
+    const opened = window.open(`/api/db-manager?${qs.toString()}`, '_blank')
     if (!opened) {
       flash('Permita pop-ups para abrir o MySQL numa nova aba.', true)
       return
     }
     setPmaBusy(true)
-    window.setTimeout(() => setPmaBusy(false), 1600)
+    window.setTimeout(() => setPmaBusy(false), 2000)
   }
 
   const runDbOp = async (action: 'check' | 'repair' | 'optimize', database: string) => {
@@ -1088,7 +1088,7 @@ export function DatabasesManagerSection({
                 setView('databases')
               }}
             >
-              {view === 'manage-db' ? 'Lista de bases' : 'Gerir bases de dados'}
+              {view === 'manage-db' ? 'Lista de bases de dados' : 'Gerir bases de dados'}
             </button>
           ) : null}
           {view === 'databases' ? (
@@ -1101,12 +1101,6 @@ export function DatabasesManagerSection({
                 <Users className="h-4 w-4" /> Gerir utilizadores
               </button>
             </>
-          ) : null}
-          {view === 'manage-db' ? (
-            <button type="button" disabled={pmaBusy || !selectedDatabase} className={panelBtnSecondary} onClick={() => openPhpMyAdmin(selectedDatabase)}>
-              {pmaBusy ? <Spinner className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-              {pmaBusy ? 'A abrir MySQL…' : 'phpMyAdmin'}
-            </button>
           ) : null}
           {view === 'users' || view === 'manage-user' ? (
             <button type="button" className={panelBtnPrimary} onClick={() => setView('databases')}>
@@ -1219,34 +1213,26 @@ export function DatabasesManagerSection({
                 Pode criar só a base e associar um utilizador depois. Se preencher o utilizador, os dois nascem ligados. Deixe o utilizador vazio para criar a base sozinha.
               </p>
             </div>
-            <div className="max-w-md">
-              <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Domínio</label>
-              <DomainSelect
-                value={selectedDomain}
-                options={domainOptions}
-                associatedDomains={associatedDomains}
-                onChange={handleCreateDomainChange}
-              />
-              {selectedDomainDb ? (
-                <p className="mt-2 text-xs text-zinc-500">
-                  Este domínio já tem a base <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.database}</span>
-                  {selectedDomainDb.dbuser ? <> · utilizador <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.dbuser}</span></> : null}.
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-zinc-500">Ainda não há base associada a este domínio. Os nomes abaixo são uma sugestão.</p>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Nome da base de dados</label>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="min-w-0">
+                <label className="mb-1.5 flex min-h-[32px] items-end text-xs font-bold uppercase leading-tight text-zinc-500">Domínio</label>
+                <DomainSelect
+                  value={selectedDomain}
+                  options={domainOptions}
+                  associatedDomains={associatedDomains}
+                  onChange={handleCreateDomainChange}
+                />
+              </div>
+              <div className="min-w-0">
+                <label className="mb-1.5 flex min-h-[32px] items-end text-xs font-bold uppercase leading-tight text-zinc-500">Nome da base de dados</label>
                 <PrefixField prefix={owner} value={createDbName} onChange={setCreateDbName} placeholder="minha_bd" />
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Nome de utilizador (opcional)</label>
+              <div className="min-w-0">
+                <label className="mb-1.5 flex min-h-[32px] items-end text-xs font-bold uppercase leading-tight text-zinc-500">Nome de utilizador (opcional)</label>
                 <PrefixField prefix={owner} value={createDbUser} onChange={setCreateDbUser} placeholder="vazio = só a base" />
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-zinc-500">Senha do utilizador</label>
+              <div className="min-w-0">
+                <label className="mb-1.5 flex min-h-[32px] items-end text-xs font-bold uppercase leading-tight text-zinc-500">Senha do utilizador</label>
                 <div className="relative">
                   <input
                     type={showCreatePass ? 'text' : 'password'}
@@ -1265,6 +1251,14 @@ export function DatabasesManagerSection({
                 </div>
               </div>
             </div>
+            {selectedDomainDb ? (
+              <p className="text-xs text-zinc-500">
+                Este domínio já tem a base <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.database}</span>
+                {selectedDomainDb.dbuser ? <> · utilizador <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{selectedDomainDb.dbuser}</span></> : null}.
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-500">Ainda não há base associada a este domínio. Os nomes nos campos ao lado são uma sugestão.</p>
+            )}
             {createdSecret?.password && view === 'databases' ? (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                 <p className="mb-2 text-xs font-bold uppercase text-green-800">Senha para configurar o site</p>

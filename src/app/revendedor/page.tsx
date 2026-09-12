@@ -1603,7 +1603,7 @@ function ResellerPageContent({
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} isActive={isActive} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} isActive={isActive} loggedInOwner={resellerDaUsername || undefined} />
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':

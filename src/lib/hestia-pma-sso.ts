@@ -6,7 +6,6 @@
 import crypto from 'crypto';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
-import { listSiteMysqlSchemas } from '@/lib/hestia-mysql-acl';
 
 const TICKET_DIR = '/var/lib/phpmyadmin/sso';
 const KEY_FILE = '/etc/phpmyadmin/vd-panel-sso.key';
@@ -33,19 +32,14 @@ async function createTempMysqlLogin(
 ): Promise<{ user: string; password: string; host: string }> {
   const user = `pma_vd_${crypto.randomBytes(6).toString('hex')}`;
   const password = crypto.randomBytes(18).toString('base64url');
-  const schemas = await listSiteMysqlSchemas().catch(() => [] as string[]);
-  const focus = database && /^[A-Za-z0-9_]+$/.test(database) ? database : '';
-  const grantDbs = focus ? [focus] : schemas;
-  const grants = grantDbs.length
-    ? grantDbs.map((db) => `GRANT ALL PRIVILEGES ON \`${db}\`.* TO \`${user}\`@\`localhost\``)
-    : [];
-  if (!grants.length) {
-    throw new Error('Não há bases de dados de sites para abrir no MySQL.');
-  }
+  const db = database && /^[A-Za-z0-9_]+$/.test(database) ? database : '';
+  const grant = db
+    ? `GRANT ALL PRIVILEGES ON \`${db}\`.* TO \`${user}\`@\`localhost\``
+    : `GRANT ALL PRIVILEGES ON *.* TO \`${user}\`@\`localhost\``;
   await mysqlRoot(
     [
       `CREATE USER \`${user}\`@\`localhost\` IDENTIFIED BY ${mysqlQuote(password)}`,
-      ...grants,
+      grant,
       'FLUSH PRIVILEGES',
     ].join('; '),
   );
@@ -65,7 +59,7 @@ export async function createPhpMyAdminSsoUrl(
   const secret = await readSsoSecret();
   const login = await createTempMysqlLogin(owner, database);
   const nonce = crypto.randomBytes(16).toString('hex');
-  const exp = Math.floor(Date.now() / 1000) + 90;
+  const exp = Math.floor(Date.now() / 1000) + 600;
   const mac = crypto.createHmac('sha256', secret).update(`${nonce}|${exp}`).digest('hex');
   const ticket = JSON.stringify({
     user: login.user,
@@ -76,7 +70,7 @@ export async function createPhpMyAdminSsoUrl(
   const b64 = Buffer.from(ticket, 'utf8').toString('base64');
   const ticketPath = `${TICKET_DIR}/${nonce}.json`;
   await executeServerCommand(
-    `mkdir -p ${TICKET_DIR} && echo '${b64}' | base64 -d > ${ticketPath} && chmod 644 ${ticketPath} && (chown root:www-data ${ticketPath} || chown root:hestiamail ${ticketPath} || true)`,
+    `mkdir -p ${TICKET_DIR} && echo '${b64}' | base64 -d > ${ticketPath} && chmod 664 ${ticketPath} && (chown root:www-data ${ticketPath} || chown root:hestiamail ${ticketPath} || true) && find ${TICKET_DIR} -type f -mmin +20 -delete 2>/dev/null || true`,
   );
   const qs = new URLSearchParams({ n: nonce, exp: String(exp), mac });
   return `${getPhpMyAdminUrl().replace(/\/?$/, '/')}vd-panel-sso.php?${qs.toString()}`;

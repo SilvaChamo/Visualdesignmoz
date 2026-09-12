@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 180;
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
 import { requireAdminOrReseller, type PanelAuthSuccess } from '@/lib/panel-api-auth';
@@ -27,6 +28,17 @@ import {
 import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 import { isValidHomePath, assertPathsOwnedByCaller } from '@/lib/panel-fs-ownership';
+import {
+  canUseLocalFmFs,
+  localCopyOrMove,
+  localCreateFolder,
+  localDelete,
+  localDuplicate,
+  localListDirectory,
+  localReadFile,
+  localRename,
+  localWriteFile,
+} from '@/lib/panel-fm-fs';
 
 function normalizeHomePaths(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -47,7 +59,18 @@ async function runPythonOnServer(script: string): Promise<string> {
 }
 
 function parsePythonJsonOutput(output: string): unknown {
-  return JSON.parse(output.trim());
+  const trimmed = output.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const obj = trimmed.lastIndexOf('{');
+    const arr = trimmed.lastIndexOf('[');
+    const start = Math.max(obj, arr);
+    if (start >= 0) {
+      return JSON.parse(trimmed.slice(start));
+    }
+    throw new Error('Resposta inválida ao executar operação de ficheiros');
+  }
 }
 
 const LIVE_LIST_FALLBACK: Record<
@@ -591,8 +614,21 @@ export async function POST(req: NextRequest) {
     if (action === 'listHestiaWebDomains') {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
+      const ctx = await resolvePanelDaContext(auth);
+      const sessionOwner = (
+        ctx.impersonating ||
+        ctx.mirrorScope.daUsername ||
+        (auth.user.role === 'admin' ? (process.env.HESTIA_USER || 'vdadmin') : '')
+      ).trim().toLowerCase();
       const { listHostingDomains } = await import('@/lib/hosting-resolver');
-      const domains = await listHostingDomains();
+      const scope =
+        sessionOwner && (ctx.impersonating || ctx.mirrorScope.role === 'reseller')
+          ? { role: 'reseller' as const, daUsername: sessionOwner }
+          : undefined;
+      let domains = await listHostingDomains(scope);
+      if (sessionOwner) {
+        domains = domains.filter((d) => (d.owner || '').trim().toLowerCase() === sessionOwner);
+      }
       const result = domains.map((d) => ({
         domain: d.domain,
         owner: d.owner,
@@ -653,6 +689,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Caminho fora do seu painel.' }, { status: 403 });
       }
 
+      if (canUseLocalFmFs()) {
+        try {
+          const files = await localListDirectory(targetPath);
+          return NextResponse.json({ success: true, data: { files } });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Não foi possível listar a pasta';
+          const notFound = /não encontrada/i.test(msg);
+          return NextResponse.json({ success: false, error: msg }, { status: notFound ? 404 : 500 });
+        }
+      }
+
       const { executeServerCommand } = await import('@/lib/server-ssh-exec');
       const script = [
         'import os, json, stat, datetime as dt',
@@ -685,8 +732,8 @@ export async function POST(req: NextRequest) {
         `python3 -c "import base64; exec(base64.b64decode('${b64}').decode())"`,
       );
       try {
-        const parsed = JSON.parse(output.trim());
-        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+        const parsed = parsePythonJsonOutput(output);
+        if (parsed && typeof parsed === 'object' && 'error' in (parsed as object)) {
           return NextResponse.json({ success: false, error: 'Pasta não encontrada' }, { status: 404 });
         }
         return NextResponse.json({ success: true, data: { files: Array.isArray(parsed) ? parsed : [] } });
@@ -732,6 +779,21 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
         const maxBytes = Math.min(Number(p.maxBytes) || 2 * 1024 * 1024, 4 * 1024 * 1024);
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localReadFile(filePath, maxBytes);
+            return NextResponse.json({ success: true, data: parsed });
+          } catch (e: unknown) {
+            const code = e instanceof Error ? e.message : '';
+            if (code === 'not_file') {
+              return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+            }
+            if (code === 'too_large') {
+              return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande para editar' }, { status: 413 });
+            }
+            return NextResponse.json({ success: false, error: code || 'Não foi possível ler o ficheiro' }, { status: 500 });
+          }
+        }
         const script = [
           'import os, json, base64',
           `p = ${JSON.stringify(filePath)}`,
@@ -766,6 +828,17 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Dados inválidos' }, { status: 400 });
         }
         const contentB64 = String(p.contentBase64);
+        if (canUseLocalFmFs()) {
+          try {
+            await localWriteFile(filePath, contentB64);
+            return NextResponse.json({ success: true });
+          } catch (e: unknown) {
+            return NextResponse.json(
+              { success: false, error: e instanceof Error ? e.message : 'Não foi possível guardar' },
+              { status: 400 },
+            );
+          }
+        }
         const script = [
           'import os, json, base64',
           `p = ${JSON.stringify(filePath)}`,
@@ -796,6 +869,15 @@ export async function POST(req: NextRequest) {
         const paths = normalizeHomePaths(p.paths);
         if (!paths.length) {
           return NextResponse.json({ success: false, error: 'Nenhum caminho válido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          const parsed = await localDelete(paths);
+          const ok = parsed.done.length > 0;
+          return NextResponse.json({
+            success: ok,
+            data: parsed,
+            error: ok ? undefined : parsed.errors[0]?.error || 'Não foi possível eliminar',
+          });
         }
         const script = [
           'import os, shutil, json',
@@ -836,19 +918,63 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Origem ou destino inválido' }, { status: 400 });
         }
         const op = action === 'movePaths' ? 'move' : 'copy';
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localCopyOrMove(sources, destDir, op);
+            const ok = parsed.done.length > 0;
+            const firstErr = parsed.errors[0]?.error;
+            return NextResponse.json({
+              success: ok,
+              data: parsed,
+              error: ok ? undefined : firstErr || (op === 'move' ? 'Não foi possível mover' : 'Não foi possível copiar'),
+            });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Operação falhou';
+            const notFound = /não encontrada/i.test(msg);
+            return NextResponse.json({ success: false, error: msg }, { status: notFound ? 404 : 400 });
+          }
+        }
         const script = [
           'import os, shutil, json',
           `sources = ${JSON.stringify(sources)}`,
           `dest_dir = ${JSON.stringify(destDir)}`,
           `op = ${JSON.stringify(op)}`,
-          'if not os.path.isdir(dest_dir):',
-          '    print(json.dumps({"error": "dest_missing"}))',
-          'else:',
+          'def unique(dest_dir, base):',
+          '    name, ext = os.path.splitext(base)',
+          '    candidate = base',
+          '    i = 0',
+          '    while os.path.exists(os.path.join(dest_dir, candidate)):',
+          '        i += 1',
+          '        suffix = "_copia" if op == "copy" else "_movido"',
+          '        candidate = f"{name}{suffix}{ext}" if i == 1 else f"{name}{suffix}{i}{ext}"',
+          '    return candidate',
+          'parent = os.path.dirname(dest_dir)',
+          'base = os.path.basename(dest_dir)',
+          'if not os.path.isdir(dest_dir) and os.path.isdir(parent):',
+          '    for name in os.listdir(parent):',
+          '        cand = os.path.join(parent, name)',
+          '        if name.lower() == base.lower() and os.path.isdir(cand):',
+          '            dest_dir = cand',
+          '            break',
+          'if os.path.isfile(dest_dir):',
+          '    print(json.dumps({"error": "dest_is_file"}))',
+          'elif not os.path.isdir(dest_dir):',
+          '    try:',
+          '        os.makedirs(dest_dir, exist_ok=True)',
+          '    except OSError:',
+          '        print(json.dumps({"error": "dest_missing"}))',
+          '        dest_dir = ""',
+          'if dest_dir and os.path.isdir(dest_dir):',
           '    done = []',
           '    errors = []',
           '    for src in sources:',
           '        try:',
           '            target = os.path.join(dest_dir, os.path.basename(src))',
+          '            if os.path.realpath(src) == os.path.realpath(target):',
+          '                errors.append({"path": src, "error": "já está nesta pasta — escolha outro destino"})',
+          '                continue',
+          '            if os.path.exists(target):',
+          '                target = os.path.join(dest_dir, unique(dest_dir, os.path.basename(src)))',
           '            if op == "move":',
           '                shutil.move(src, target)',
           '            elif os.path.isdir(src):',
@@ -862,12 +988,23 @@ export async function POST(req: NextRequest) {
         ].join('\n');
         const output = await runPythonOnServer(script);
         try {
-          const parsed = parsePythonJsonOutput(output) as { error?: string; done?: string[] };
+          const parsed = parsePythonJsonOutput(output) as {
+            error?: string;
+            done?: string[];
+            errors?: Array<{ path: string; error: string }>;
+          };
           if (parsed.error === 'dest_missing') {
             return NextResponse.json({ success: false, error: 'Pasta de destino não encontrada' }, { status: 404 });
           }
+          if (parsed.error === 'dest_is_file') {
+            return NextResponse.json({ success: false, error: 'O destino é um ficheiro, não uma pasta.' }, { status: 400 });
+          }
           const ok = (parsed.done?.length || 0) > 0;
-          return NextResponse.json({ success: ok, data: parsed });
+          return NextResponse.json({
+            success: ok,
+            data: parsed,
+            error: ok ? undefined : parsed.errors?.[0]?.error || (op === 'move' ? 'Não foi possível mover' : 'Não foi possível copiar'),
+          });
         } catch {
           return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
         }
@@ -877,6 +1014,18 @@ export async function POST(req: NextRequest) {
         const source = String(p.path || '').trim();
         if (!isValidHomePath(source)) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          try {
+            const dest = await localDuplicate(source);
+            return NextResponse.json({ success: true, data: { path: dest } });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : '';
+            return NextResponse.json(
+              { success: false, error: msg === 'missing' ? 'Origem não encontrada' : msg || 'Não foi possível duplicar' },
+              { status: msg === 'missing' ? 404 : 400 },
+            );
+          }
         }
         const script = [
           'import os, shutil, json',
@@ -954,15 +1103,29 @@ export async function POST(req: NextRequest) {
           'import os, zipfile, tarfile, json',
           `archive = ${JSON.stringify(archivePath)}`,
           `dest = ${JSON.stringify(destDir)}`,
+          'def safe_extract_zip(zf, dest):',
+          '    dest_real = os.path.realpath(dest)',
+          '    for info in zf.infolist():',
+          '        target = os.path.realpath(os.path.join(dest, info.filename))',
+          '        if target != dest_real and not target.startswith(dest_real + os.sep):',
+          '            raise ValueError("arquivo com caminho inseguro")',
+          '        zf.extract(info, dest)',
+          'def safe_extract_tar(tf, dest):',
+          '    dest_real = os.path.realpath(dest)',
+          '    for member in tf.getmembers():',
+          '        target = os.path.realpath(os.path.join(dest, member.name))',
+          '        if target != dest_real and not target.startswith(dest_real + os.sep):',
+          '            raise ValueError("arquivo com caminho inseguro")',
+          '        tf.extract(member, dest)',
           'if not os.path.isfile(archive):',
           '    print(json.dumps({"error": "missing"}))',
           'elif archive.endswith(".zip"):',
           '    with zipfile.ZipFile(archive, "r") as zf:',
-          '        zf.extractall(dest)',
+          '        safe_extract_zip(zf, dest)',
           '    print(json.dumps({"ok": True}))',
           'elif archive.endswith((".tar.gz", ".tgz", ".tar")):',
           '    with tarfile.open(archive, "r:*") as tf:',
-          '        tf.extractall(dest)',
+          '        safe_extract_tar(tf, dest)',
           '    print(json.dumps({"ok": True}))',
           'else:',
           '    print(json.dumps({"error": "format"}))',
@@ -987,6 +1150,16 @@ export async function POST(req: NextRequest) {
         const newName = String(p.newName || '').trim();
         if (!isValidHomePath(source) || !newName || newName.includes('/') || newName.includes('..')) {
           return NextResponse.json({ success: false, error: 'Nome inválido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          try {
+            const dest = await localRename(source, newName);
+            return NextResponse.json({ success: true, data: { path: dest } });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Não foi possível renomear';
+            const status = /não encontrada/i.test(msg) ? 404 : /já existe/i.test(msg) ? 409 : 400;
+            return NextResponse.json({ success: false, error: msg }, { status });
+          }
         }
         const script = [
           'import os, json',
@@ -1063,6 +1236,17 @@ export async function POST(req: NextRequest) {
         if (!isValidHomePath(folderPath)) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
+        if (canUseLocalFmFs()) {
+          try {
+            await localCreateFolder(folderPath);
+            return NextResponse.json({ success: true });
+          } catch (e: unknown) {
+            return NextResponse.json(
+              { success: false, error: e instanceof Error ? e.message : 'Não foi possível criar a pasta' },
+              { status: 400 },
+            );
+          }
+        }
         const script = [
           'import os, json',
           `p = ${JSON.stringify(folderPath)}`,
@@ -1079,6 +1263,29 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
         const maxBytes = Math.min(Number(p.maxBytes) || 50 * 1024 * 1024, 50 * 1024 * 1024);
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localReadFile(filePath, maxBytes);
+            return NextResponse.json({
+              success: true,
+              data: {
+                content: parsed.content,
+                filename: filePath.split('/').pop() || 'ficheiro',
+                mime: 'application/octet-stream',
+                size: parsed.size,
+              },
+            });
+          } catch (e: unknown) {
+            const code = e instanceof Error ? e.message : '';
+            if (code === 'not_file') {
+              return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+            }
+            if (code === 'too_large') {
+              return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande' }, { status: 413 });
+            }
+            return NextResponse.json({ success: false, error: code || 'Download falhou' }, { status: 500 });
+          }
+        }
         const script = [
           'import os, json, base64, mimetypes',
           `p = ${JSON.stringify(filePath)}`,

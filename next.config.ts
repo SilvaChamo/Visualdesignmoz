@@ -87,19 +87,8 @@ const pwaConfig = {
   },
   runtimeCaching: [
     {
-      urlPattern: /^https?.*$/,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'pages',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60
-        },
-        networkTimeoutSeconds: 10,
-        cacheableResponse: {
-          statuses: [0, 200]
-        }
-      }
+      urlPattern: /\/api\/.*/i,
+      handler: 'NetworkOnly',
     },
     {
       urlPattern: /\/_next\/static\/.*/i,

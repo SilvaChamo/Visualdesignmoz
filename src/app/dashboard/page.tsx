@@ -1383,7 +1383,7 @@ function AdminPageContent() {
         )
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} loggedInOwner={bootHostingOwner || undefined} />
       case 'news-manager':
         return <NewsManagerSection />
       case 'utilizadores-revendedores':

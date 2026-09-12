@@ -7,6 +7,12 @@
 
 declare(strict_types=1);
 
+$_SERVER['HTTPS'] = 'on';
+$_SERVER['SERVER_PORT'] = '443';
+if (empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+	$_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+}
+
 $sessionName = 'SignonSession';
 $cookiePath = '/phpmyadmin/';
 $ticketDir = '/var/lib/phpmyadmin/sso';
@@ -67,10 +73,10 @@ $nonce = preg_replace('/[^a-f0-9]/', '', (string) ($_GET['n'] ?? ''));
 $exp = (int) ($_GET['exp'] ?? 0);
 $mac = preg_replace('/[^a-f0-9]/', '', (string) ($_GET['mac'] ?? ''));
 
-if ($nonce === '' || $mac === '' || $exp < 1 || $exp < time() - 5) {
+if ($nonce === '' || $mac === '' || $exp < 1 || $exp < time() - 30) {
 	vd_sso_leave();
 }
-if ($exp > time() + 300) {
+if ($exp > time() + 1200) {
 	vd_sso_leave();
 }
 
@@ -90,6 +96,7 @@ if (!is_readable($ticketPath)) {
 }
 
 $raw = (string) file_get_contents($ticketPath);
+@chmod($ticketPath, 0666);
 @unlink($ticketPath);
 $data = json_decode($raw, true);
 $user = is_array($data) ? (string) ($data['user'] ?? '') : '';

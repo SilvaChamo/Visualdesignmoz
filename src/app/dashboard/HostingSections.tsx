@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useId } from 'react'
 import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
@@ -68,7 +68,7 @@ import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
-  Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search,
+  Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search, ChevronDown,
   Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare, FolderPlus, FilePlus
 } from 'lucide-react'
 
@@ -6347,6 +6347,24 @@ export function DNSNameserverSection({ sites }: { sites: DirectAdminWebsite[] })
   )
 }
 
+function normalizeNameserverHost(value: string): string {
+  return value.trim().toLowerCase().replace(/\.$/, '')
+}
+
+function isVisualDesignNameservers(nameservers: string[]): boolean {
+  const set = new Set(nameservers.map(normalizeNameserverHost).filter(Boolean))
+  return (
+    set.has(normalizeNameserverHost(VISUALDESIGN_DEFAULT_NS.ns1)) &&
+    set.has(normalizeNameserverHost(VISUALDESIGN_DEFAULT_NS.ns2))
+  )
+}
+
+function sameNameserverList(a: string[], b: string[]): boolean {
+  const left = a.map(normalizeNameserverHost).filter(Boolean).sort()
+  const right = b.map(normalizeNameserverHost).filter(Boolean).sort()
+  return left.length === right.length && left.every((value, i) => value === right[i])
+}
+
 export function NameserverManagementSection({
   sites,
   initialDomain,
@@ -6357,27 +6375,47 @@ export function NameserverManagementSection({
   sites: DirectAdminWebsite[]
   initialDomain?: string
   /** Embutido na página de um domínio específico — esconde o selector de
-   * domínio (não faz sentido escolher outro ali) e fixa sempre initialDomain.
-   * Também troca a acção de "Nameservers personalizados": em vez de criar
-   * glue records (child nameservers do DirectAdmin, que pedem IP e nunca
-   * reflectiam o que o domínio já usava de facto), aponta o domínio para os
-   * nameservers indicados através do registador — o mesmo mecanismo real
-   * que já mostrava os nameservers verdadeiros (ex.: Cloudflare). */
+   * domínio (não faz sentido escolher outro ali) e fixa sempre initialDomain. */
   lockDomain?: boolean
-  /** Nameservers reais e actuais do domínio (vindos do registador) — usados
-   * em lockDomain para pré-seleccionar o modo certo e mostrar os valores
-   * verdadeiros em vez de assumir sempre "DNS predefinido Visual Design". */
+  /** Nameservers reais e actuais do domínio (vindos do registador). Em
+   * lockDomain vêm do detalhe; na página global, se não forem passados,
+   * carregam-se via GET /api/registrar/domain/manage. */
   currentNameservers?: string[]
   onChanged?: () => void
 }) {
   const [mode, setMode] = useState<'default' | 'custom'>('default')
   const [selectedDomain, setSelectedDomain] = useState(initialDomain || '')
-  const [ns1, setNs1] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns1)
-  const [ns2, setNs2] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns2)
-  const [ns1IP, setNs1IP] = useState('')
-  const [ns2IP, setNs2IP] = useState('')
+  const [ns1, setNs1] = useState('')
+  const [ns2, setNs2] = useState('')
+  const [savedNs, setSavedNs] = useState<string[]>([])
+  const [loadingNs, setLoadingNs] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [creatingGlue, setCreatingGlue] = useState(false)
   const [msg, setMsg] = useState('')
+  const [glueOpen, setGlueOpen] = useState(false)
+  const [glueNs1, setGlueNs1] = useState('')
+  const [glueNs2, setGlueNs2] = useState('')
+  const [glueNs1IP, setGlueNs1IP] = useState('')
+  const [glueNs2IP, setGlueNs2IP] = useState('')
+  const nsModeName = useId()
+
+  const domain = (lockDomain ? initialDomain || selectedDomain : selectedDomain).trim().toLowerCase()
+  const seededNs = (currentNameservers || []).map((n) => n.trim()).filter(Boolean)
+
+  const applyLoadedNs = (nameservers: string[]) => {
+    const cleaned = nameservers.map((n) => n.trim()).filter(Boolean)
+    setSavedNs(cleaned)
+    if (isVisualDesignNameservers(cleaned)) {
+      setMode('default')
+      setNs1(VISUALDESIGN_DEFAULT_NS.ns1)
+      setNs2(VISUALDESIGN_DEFAULT_NS.ns2)
+    } else {
+      setMode('custom')
+      setNs1(cleaned[0] || '')
+      setNs2(cleaned[1] || '')
+    }
+  }
 
   useEffect(() => {
     if (initialDomain) {
@@ -6386,53 +6424,81 @@ export function NameserverManagementSection({
   }, [initialDomain])
 
   useEffect(() => {
-    if (lockDomain) return // sincronizado a partir de currentNameservers, ver efeito abaixo
-    if (mode === 'default') {
-      setNs1(VISUALDESIGN_DEFAULT_NS.ns1)
-      setNs2(VISUALDESIGN_DEFAULT_NS.ns2)
-    } else if (selectedDomain) {
-      setNs1(`ns1.${selectedDomain}`)
-      setNs2(`ns2.${selectedDomain}`)
-    }
-  }, [mode, selectedDomain, lockDomain])
+    if (seededNs.length === 0) return
+    applyLoadedNs(seededNs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockDomain, seededNs.join('|')])
 
   useEffect(() => {
-    if (!lockDomain || !currentNameservers || currentNameservers.length === 0) return
-    const isDefault =
-      currentNameservers.length === 2 &&
-      currentNameservers.some((n) => n.toLowerCase() === VISUALDESIGN_DEFAULT_NS.ns1.toLowerCase()) &&
-      currentNameservers.some((n) => n.toLowerCase() === VISUALDESIGN_DEFAULT_NS.ns2.toLowerCase())
-    if (isDefault) {
-      setMode('default')
-    } else {
-      setMode('custom')
-      setNs1(currentNameservers[0] || '')
-      setNs2(currentNameservers[1] || '')
+    if (lockDomain) return
+    if (seededNs.length > 0) return
+    if (!domain) {
+      setSavedNs([])
+      setLoadError('')
+      setNs1('')
+      setNs2('')
+      return
     }
-  }, [lockDomain, currentNameservers])
-
-  const handleSaveDefault = async () => {
-    setSaving(true)
+    let cancelled = false
+    setLoadingNs(true)
+    setLoadError('')
     setMsg('')
-    const ok = await directAdminAPI.configDefaultNameservers({
-      ns1: VISUALDESIGN_DEFAULT_NS.ns1,
-      ns2: VISUALDESIGN_DEFAULT_NS.ns2,
-    })
-    setMsg(ok ? 'Nameservers predefinidos Visual Design activados.' : 'Erro ao configurar nameservers.')
-    setSaving(false)
-  }
+    void fetch(`/api/registrar/domain/manage?domain=${encodeURIComponent(domain)}`, { credentials: 'include' })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
+        const nameservers = Array.isArray(data.nameservers) ? data.nameservers.map((n: unknown) => String(n)) : []
+        if (res.ok && data.success && nameservers.length > 0) {
+          applyLoadedNs(nameservers)
+        } else {
+          setSavedNs([])
+          setMode('custom')
+          setNs1('')
+          setNs2('')
+          setLoadError(
+            data.error ||
+              'Não foi possível carregar os nameservers deste domínio — pode estar registado noutro sítio.',
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSavedNs([])
+          setLoadError('Erro de ligação ao carregar nameservers.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingNs(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, lockDomain, seededNs.join('|')])
 
-  const handleCreateCustom = async () => {
-    if (!selectedDomain || !ns1 || !ns1IP || !ns2 || !ns2IP) return
-    setSaving(true)
-    setMsg('')
-    const ok = await directAdminAPI.createNameserver({ domain: selectedDomain, ns1, ns1IP, ns2, ns2IP })
-    setMsg(ok ? 'Nameservers personalizados criados.' : 'Erro ao criar nameservers.')
-    setSaving(false)
-  }
+  useEffect(() => {
+    if (!domain) {
+      setGlueNs1('')
+      setGlueNs2('')
+      setGlueNs1IP('')
+      setGlueNs2IP('')
+      return
+    }
+    setGlueNs1(`ns1.${domain}`)
+    setGlueNs2(`ns2.${domain}`)
+    setGlueNs1IP('')
+    setGlueNs2IP('')
+  }, [domain])
 
-  const handleApplyDomainNameservers = async (nameservers: string[]) => {
-    if (!initialDomain) return
+  const pendingNs =
+    mode === 'default'
+      ? [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2]
+      : [ns1.trim(), ns2.trim()].filter(Boolean)
+  const dirty = pendingNs.length >= 2 && !sameNameserverList(pendingNs, savedNs)
+  const activatingVd = isVisualDesignNameservers(pendingNs) && !isVisualDesignNameservers(savedNs)
+
+  const handleApplyDomainNameservers = async () => {
+    if (!domain || !dirty) return
     setSaving(true)
     setMsg('')
     try {
@@ -6440,10 +6506,12 @@ export function NameserverManagementSection({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ domain: initialDomain, action: 'set-nameservers', nameservers }),
+        body: JSON.stringify({ domain, action: 'set-nameservers', nameservers: pendingNs }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
+        const applied = Array.isArray(data.nameservers) && data.nameservers.length > 0 ? data.nameservers : pendingNs
+        applyLoadedNs(applied)
         setMsg(data.message || 'Nameservers actualizados.')
         onChanged?.()
       } else {
@@ -6456,12 +6524,45 @@ export function NameserverManagementSection({
     }
   }
 
+  const handleCreateGlue = async () => {
+    if (!domain || !glueNs1 || !glueNs1IP || !glueNs2 || !glueNs2IP) return
+    setCreatingGlue(true)
+    setMsg('')
+    const ok = await directAdminAPI.createNameserver({
+      domain,
+      ns1: glueNs1,
+      ns1IP: glueNs1IP,
+      ns2: glueNs2,
+      ns2IP: glueNs2IP,
+    })
+    setMsg(ok ? 'Nameservers (glue) criados.' : 'Erro ao criar nameservers.')
+    setCreatingGlue(false)
+  }
+
   return (
     <div className="w-full space-y-4">
       <div className="rounded border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
         <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
           Escolha os nameservers predefinidos ou configure nameservers personalizados por domínio.
         </p>
+
+        {!lockDomain && (
+          <div className="mb-6">
+            <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Domínio</label>
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className={`${panelField} w-full max-w-md`}
+            >
+              <option value="">Seleccione...</option>
+              {sites.map((s) => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
@@ -6472,7 +6573,7 @@ export function NameserverManagementSection({
           >
             <input
               type="radio"
-              name="ns-mode"
+              name={nsModeName}
               checked={mode === 'default'}
               onChange={() => setMode('default')}
               className="mt-1"
@@ -6495,17 +6596,21 @@ export function NameserverManagementSection({
           >
             <input
               type="radio"
-              name="ns-mode"
+              name={nsModeName}
               checked={mode === 'custom'}
-              onChange={() => setMode('custom')}
+              onChange={() => {
+                setMode('custom')
+                if (!ns1.trim() && !ns2.trim() && savedNs.length >= 2) {
+                  setNs1(savedNs[0] || '')
+                  setNs2(savedNs[1] || '')
+                }
+              }}
               className="mt-1"
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Nameservers personalizados</p>
               <p className="mt-1 text-xs text-gray-600 dark:text-zinc-400">
-                {lockDomain
-                  ? 'Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).'
-                  : 'Criar child nameservers (glue records) para um domínio específico.'}
+                Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).
               </p>
             </div>
           </label>
@@ -6513,64 +6618,35 @@ export function NameserverManagementSection({
 
         {mode === 'custom' && (
           <div className="mb-6 space-y-4 border-t border-gray-100 pt-4 dark:border-zinc-800">
-            {lockDomain ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
-                  <input value={ns1} onChange={(e) => setNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
-                  <input value={ns2} onChange={(e) => setNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
-                </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
+                <input
+                  value={ns1}
+                  onChange={(e) => setNs1(e.target.value)}
+                  placeholder="ns1.exemplo.com"
+                  className={`${panelField} w-full font-mono`}
+                />
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Domínio</label>
-                  <select
-                    value={selectedDomain}
-                    onChange={(e) => setSelectedDomain(e.target.value)}
-                    className={`${panelField} w-full max-w-md`}
-                  >
-                    <option value="">Seleccione...</option>
-                    {sites.map((s) => (
-                      <option key={s.domain} value={s.domain}>
-                        {s.domain}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
-                    <input value={ns1} onChange={(e) => setNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1 IP</label>
-                    <input
-                      value={ns1IP}
-                      onChange={(e) => setNs1IP(e.target.value)}
-                      placeholder={getServerHost()}
-                      className={`${panelField} w-full font-mono`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
-                    <input value={ns2} onChange={(e) => setNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2 IP</label>
-                    <input
-                      value={ns2IP}
-                      onChange={(e) => setNs2IP(e.target.value)}
-                      placeholder={getServerHost()}
-                      className={`${panelField} w-full font-mono`}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
+                <input
+                  value={ns2}
+                  onChange={(e) => setNs2(e.target.value)}
+                  placeholder="ns2.exemplo.com"
+                  className={`${panelField} w-full font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loadingNs && (
+          <p className="mb-4 text-sm text-gray-400 dark:text-zinc-500">A carregar nameservers actuais…</p>
+        )}
+        {loadError && !loadingNs && (
+          <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+            {loadError}
           </div>
         )}
 
@@ -6587,27 +6663,72 @@ export function NameserverManagementSection({
 
         <button
           type="button"
-          onClick={() => {
-            if (lockDomain) {
-              const nameservers =
-                mode === 'default'
-                  ? [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2]
-                  : [ns1.trim(), ns2.trim()].filter(Boolean)
-              void handleApplyDomainNameservers(nameservers)
-              return
-            }
-            void (mode === 'default' ? handleSaveDefault() : handleCreateCustom())
-          }}
-          disabled={
-            saving ||
-            (mode === 'custom' &&
-              (lockDomain ? !ns1.trim() || !ns2.trim() : !selectedDomain || !ns1IP || !ns2IP))
-          }
+          onClick={() => void handleApplyDomainNameservers()}
+          disabled={saving || loadingNs || !domain || !dirty || pendingNs.length < 2}
           className={panelBtnPrimary}
         >
           {saving ? <Spinner className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
-          {mode === 'default' ? 'Activar DNS Visual Design' : lockDomain ? 'Guardar nameservers' : 'Criar nameservers'}
+          {activatingVd ? 'Activar DNS Visual Design' : 'Guardar alterações'}
         </button>
+
+        {domain && (
+          <div className="mt-6 border-t border-gray-100 pt-4 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setGlueOpen((open) => !open)}
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${glueOpen ? 'rotate-180' : ''}`} />
+              Criar nameservers (glue)
+            </button>
+            {glueOpen && (
+              <div className="mt-3 space-y-4">
+                <p className="text-xs text-gray-500 dark:text-zinc-500">
+                  O apontamento automático é o caso habitual — basta guardar os nameservers acima. Crie nameservers
+                  apenas se precisar de glue records (child nameservers do próprio domínio, por exemplo ns1.oseudominio.com
+                  com o IP do servidor).
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
+                    <input value={glueNs1} onChange={(e) => setGlueNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1 IP</label>
+                    <input
+                      value={glueNs1IP}
+                      onChange={(e) => setGlueNs1IP(e.target.value)}
+                      placeholder={getServerHost()}
+                      className={`${panelField} w-full font-mono`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
+                    <input value={glueNs2} onChange={(e) => setGlueNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2 IP</label>
+                    <input
+                      value={glueNs2IP}
+                      onChange={(e) => setGlueNs2IP(e.target.value)}
+                      placeholder={getServerHost()}
+                      className={`${panelField} w-full font-mono`}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleCreateGlue()}
+                  disabled={creatingGlue || !glueNs1 || !glueNs1IP || !glueNs2 || !glueNs2IP}
+                  className={panelBtnSecondary}
+                >
+                  {creatingGlue ? <Spinner className="h-4 w-4" /> : <Server className="h-4 w-4" />}
+                  Criar nameservers
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -8220,10 +8341,21 @@ const FileManagerCodeEditor = dynamic(
   },
 )
 
-export function FileManagerSection({ domain, sites, isActive = false }: {
+function fmNetworkError(e: unknown): string {
+  if (e instanceof DOMException && e.name === 'AbortError') return ''
+  const msg = e instanceof Error ? e.message : ''
+  if (!msg || msg === 'Failed to fetch' || msg === 'Load failed' || /NetworkError/i.test(msg)) {
+    return 'Não foi possível contactar o servidor. Tente outra vez.'
+  }
+  if (e instanceof SyntaxError) return 'Resposta inválida ao listar ficheiros.'
+  return msg
+}
+
+export function FileManagerSection({ domain, sites, isActive = false, loggedInOwner }: {
   domain: string,
   sites: DirectAdminWebsite[]
   isActive?: boolean
+  loggedInOwner?: string
 }) {
   const [path, setPath] = useState('')
   const [showTrashView, setShowTrashView] = useState(false)
@@ -8248,21 +8380,24 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const [fmDialogBusy, setFmDialogBusy] = useState(false)
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<DOMRect | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [actionBusyLabel, setActionBusyLabel] = useState('')
   const [toolbarStuck, setToolbarStuck] = useState(false)
   const toolbarSentinelRef = useRef<HTMLDivElement>(null)
+  const listAbortRef = useRef<AbortController | null>(null)
+  const listGenRef = useRef(0)
+  const uploadXhrRef = useRef<XMLHttpRequest | null>(null)
+  const uploadCancelRef = useRef(false)
   const { setChrome } = useAdminSectionChrome()
 
-  // ── Hestia direct: domínios reais sem mirror ────────────────────────────
-  // Quando o servidor usa Hestia, lemos a lista de domínios de TODAS as contas
-  // (vdadmin, aamihe, …) em vez do espelho panel_sites. O caminho é
-  // /home/<dono>/web/<domínio>/public_html — não só vdadmin.
+  // Domínios Hestia da conta autenticada (vdadmin, aamihe, …), não de todos os clientes.
   const [hestiaDomains, setHestiaDomains] = useState<{ domain: string; owner: string; path: string }[]>([])
   const [hestiaLoaded, setHestiaLoaded] = useState(false)
+  const sessionOwner = (loggedInOwner || '').trim().toLowerCase()
 
   useEffect(() => {
     if (!isActive) return
     fetch('/api/server-exec', {
-      method: 'POST', credentials: 'include',
+      method: 'POST', credentials: 'include', cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'listHestiaWebDomains', params: {} }),
     })
@@ -8276,15 +8411,23 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       .finally(() => setHestiaLoaded(true))
   }, [isActive])
 
-  // Usa Hestia directamente quando disponível; caso contrário, volta ao mirror
-  const allDomains: { domain: string }[] = hestiaDomains.length > 0
-    ? hestiaDomains
-    : sites
+  const scopedHestia = useMemo(() => {
+    if (!sessionOwner) return hestiaDomains
+    return hestiaDomains.filter((d) => (d.owner || '').trim().toLowerCase() === sessionOwner)
+  }, [hestiaDomains, sessionOwner])
+  const scopedSites = useMemo(() => {
+    if (!sessionOwner) return sites
+    return sites.filter((s) => (s.owner || '').trim().toLowerCase() === sessionOwner)
+  }, [sites, sessionOwner])
+
+  const allDomains: { domain: string }[] = scopedHestia.length > 0
+    ? scopedHestia
+    : scopedSites
 
   const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
     // Hestia directo — caminho exacto sem mirror
-    const hd = hestiaDomains.find(d => d.domain === targetDomain)
+    const hd = scopedHestia.find(d => d.domain === targetDomain) || hestiaDomains.find(d => d.domain === targetDomain)
     if (hd) return hd.path
     // Fallback DA/mirror
     const owner = sites.find(s => s.domain === targetDomain)?.owner || 'admin'
@@ -8294,7 +8437,10 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   useEffect(() => {
     // Aguarda o carregamento da lista Hestia antes de navegar
     if (!hestiaLoaded) return
-    const d = domain || allDomains.find(s => !s.domain.includes('contaboserver'))?.domain || ''
+    const allowed = allDomains.map((s) => s.domain)
+    const d = (domain && allowed.includes(domain))
+      ? domain
+      : allDomains.find(s => !s.domain.includes('contaboserver'))?.domain || allowed[0] || ''
     if (!d) return
 
     let cancelled = false
@@ -8323,6 +8469,10 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const loadFiles = async (currentPath: string, options?: { hadCache?: boolean }) => {
     const hadCache = options?.hadCache === true
+    listAbortRef.current?.abort()
+    const ac = new AbortController()
+    listAbortRef.current = ac
+    const gen = ++listGenRef.current
     if (!hadCache) {
       setLoading(true)
     } else {
@@ -8333,6 +8483,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         credentials: 'include',
+        cache: 'no-store',
+        signal: ac.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'listDirectory',
@@ -8340,6 +8492,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
         }),
       })
       const data = await res.json()
+      if (gen !== listGenRef.current) return
       if (!res.ok || !data.success) {
         // A pasta "adivinhada" (padrão DirectAdmin, .../domains/<domínio>) pode
         // estar errada para uma conta Hestia (guarda os sites noutro sítio,
@@ -8351,6 +8504,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             const resolveRes = await fetch('/api/server-exec', {
               method: 'POST',
               credentials: 'include',
+              cache: 'no-store',
+              signal: ac.signal,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'resolveSitePath', params: { domain: selectedDomain } }),
             })
@@ -8375,13 +8530,16 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       setFiles(rows)
       writeFmDirCache(currentPath, rows)
     } catch (e: unknown) {
+      if (ac.signal.aborted || gen !== listGenRef.current) return
       if (!hadCache) {
-        setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
+        setError(fmNetworkError(e) || 'Erro ao carregar ficheiros.')
         setFiles([])
       }
     } finally {
-      setLoading(false)
-      setDirSyncing(false)
+      if (gen === listGenRef.current) {
+        setLoading(false)
+        setDirSyncing(false)
+      }
     }
   }
 
@@ -8444,12 +8602,14 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     const res = await fetch('/api/server-exec', {
       method: 'POST',
       credentials: 'include',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, params }),
     })
     const data = await res.json()
     if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Operação falhou')
+      const nested = Array.isArray(data.data?.errors) ? data.data.errors[0]?.error : ''
+      throw new Error(data.error || nested || 'Operação falhou')
     }
     return data
   }
@@ -8457,6 +8617,17 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const flashAction = (text: string) => {
     setActionMsg(text)
     setTimeout(() => setActionMsg(''), 3500)
+  }
+
+  const startFmAction = (label: string) => {
+    setMoreMenuAnchor(null)
+    setActionBusy(true)
+    setActionBusyLabel(label)
+  }
+
+  const stopFmAction = () => {
+    setActionBusy(false)
+    setActionBusyLabel('')
   }
 
   const refreshList = (extraPaths?: string[]) => {
@@ -8481,7 +8652,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       return
     }
     const filePath = joinPath(target)
-    setActionBusy(true)
+    startFmAction('A abrir ficheiro…')
     try {
       const data = await execFileAction('readFileContent', { path: filePath })
       const b64 = data.data?.content as string
@@ -8491,7 +8662,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível abrir o ficheiro')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8513,17 +8684,56 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
   }
 
+  const folderByName = (name: string) =>
+    files.find((f: { name: string; isDir?: boolean }) => f.isDir && f.name.toLowerCase() === name.toLowerCase())
+
+  const backupFolderName = () =>
+    files.find((f: { name: string; isDir?: boolean }) => f.isDir && /^backup$/i.test(f.name))?.name
+
+  const suggestedDestDir = (mode: 'copy' | 'move') => {
+    const backup = backupFolderName()
+    if (mode === 'move' && backup && selectedFiles.some((n) => n !== backup)) {
+      return joinPath(backup)
+    }
+    const match = files.find((f: { name: string; isDir?: boolean }) =>
+      f.isDir && selectedFiles.some((n) => n !== f.name && n.toLowerCase() === f.name.toLowerCase()),
+    )
+    return match ? joinPath(match.name) : path
+  }
+
+  const resolveListedDestDir = (raw: string) => {
+    const destDir = raw.replace(/\/+$/, '')
+    const destBase = destDir.split('/').filter(Boolean).pop() || ''
+    const listed = folderByName(destBase)
+    if (!listed) return destDir
+    const listedPath = joinPath(listed.name)
+    if (destDir === listedPath || destDir.toLowerCase() === listedPath.toLowerCase()) {
+      return listedPath
+    }
+    return destDir
+  }
+
   const handleCopy = () => {
     if (!selectedFiles.length) return
     setFmDialog({ type: 'transfer', mode: 'copy', sources: selectedFullPaths() })
-    setFmDialogInput(path)
+    setFmDialogInput(suggestedDestDir('copy'))
     setMoreMenuAnchor(null)
   }
 
   const handleMove = () => {
     if (!selectedFiles.length) return
-    setFmDialog({ type: 'transfer', mode: 'move', sources: selectedFullPaths() })
-    setFmDialogInput(path)
+    const dest = suggestedDestDir('move')
+    const destName = dest.split('/').filter(Boolean).pop() || ''
+    const sources = selectedFullPaths().filter((src) => {
+      const base = src.split('/').filter(Boolean).pop() || ''
+      return base.toLowerCase() !== destName.toLowerCase()
+    })
+    if (!sources.length) {
+      alert('Seleccione os ficheiros a mover para a pasta Backup — a pasta de destino não se move a si própria.')
+      return
+    }
+    setFmDialog({ type: 'transfer', mode: 'move', sources })
+    setFmDialogInput(dest)
     setMoreMenuAnchor(null)
   }
 
@@ -8535,11 +8745,31 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setFmDialogBusy(true)
     try {
       if (fmDialog.type === 'transfer') {
+        let destDir = resolveListedDestDir(input)
+        const backup = backupFolderName()
+        const sourceParents = new Set(fmDialog.sources.map((src) => src.replace(/\/[^/]+$/, '')))
+        if (fmDialog.mode === 'move' && sourceParents.has(destDir) && backup) {
+          destDir = joinPath(backup)
+        }
+        if (fmDialog.mode === 'move' && sourceParents.has(destDir)) {
+          alert('Escolha uma pasta diferente da pasta actual — por exemplo Backup.')
+          return
+        }
+        const destNorm = destDir.replace(/\/+$/, '')
+        const sources = fmDialog.sources.filter((src) => {
+          const n = src.replace(/\/+$/, '')
+          return n !== destNorm && !n.startsWith(`${destNorm}/`)
+        })
+        if (!sources.length) {
+          alert('Nada para mover: a pasta de destino estava incluída na selecção.')
+          return
+        }
         const action = fmDialog.mode === 'copy' ? 'copyPaths' : 'movePaths'
-        await execFileAction(action, { sources: fmDialog.sources, destDir: input })
+        startFmAction(fmDialog.mode === 'copy' ? 'A copiar…' : 'A mover…')
+        await execFileAction(action, { sources, destDir })
         flashAction(fmDialog.mode === 'copy' ? 'Cópia concluída.' : 'Movimento concluído.')
         setFmDialog(null)
-        refreshList()
+        refreshList([destDir])
         return
       }
 
@@ -8572,6 +8802,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
           : 'Operação falhou'
       alert(e instanceof Error ? e.message : fallback)
     } finally {
+      stopFmAction()
       setFmDialogBusy(false)
       setMoreMenuAnchor(null)
     }
@@ -8587,12 +8818,91 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setFmDialogInput('')
   }
 
+  const cancelUpload = () => {
+    uploadCancelRef.current = true
+    uploadXhrRef.current?.abort()
+    uploadXhrRef.current = null
+  }
+
+  const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!picked.length || uploadProgress) return
+    uploadCancelRef.current = false
+    const originalError = error
+    try {
+      let successCount = 0
+      let failCount = 0
+      let cancelled = false
+      for (let i = 0; i < picked.length; i++) {
+        if (uploadCancelRef.current) {
+          cancelled = true
+          break
+        }
+        const file = picked[i]
+        if (files.some((f: { name: string }) => f.name === file.name)) {
+          alert(`O ficheiro "${file.name}" já existe. Elimine-o ou mude o nome antes de fazer upload.`)
+          continue
+        }
+        const destPath = `${path.endsWith('/') ? path : `${path}/`}${file.name}`
+        setUploadProgress({ name: file.name, current: i + 1, total: picked.length, progress: 0, processing: false })
+        await new Promise<void>((resolve) => {
+          const xhr = new XMLHttpRequest()
+          uploadXhrRef.current = xhr
+          xhr.upload.addEventListener('progress', (ev) => {
+            if (ev.lengthComputable) {
+              const pct = Math.round((ev.loaded / ev.total) * 100)
+              setUploadProgress((prev) => (prev ? { ...prev, progress: pct, processing: pct === 100 } : null))
+            }
+          })
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              try {
+                const d = JSON.parse(xhr.responseText)
+                if (d.success) successCount += 1
+                else failCount += 1
+              } catch {
+                failCount += 1
+              }
+            } else {
+              failCount += 1
+            }
+            resolve()
+          }
+          xhr.onerror = () => {
+            failCount += 1
+            resolve()
+          }
+          xhr.onabort = () => {
+            cancelled = true
+            resolve()
+          }
+          xhr.open('POST', '/api/upload-native')
+          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath))
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+          xhr.send(file)
+        })
+        uploadXhrRef.current = null
+      }
+      setUploadProgress(null)
+      refreshList()
+      if (cancelled || uploadCancelRef.current) {
+        flashAction(successCount > 0 ? `Upload cancelado. ${successCount} ficheiro(s) já enviado(s).` : 'Upload cancelado.')
+      } else if (failCount > 0) {
+        alert(`Upload: ${successCount} sucesso(s), ${failCount} falha(s).`)
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro no upload')
+      setTimeout(() => setError(originalError), 5000)
+    }
+  }
+
   const handleDuplicate = async () => {
     if (selectedFiles.length !== 1) {
       alert('Seleccione apenas um item para duplicar.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A duplicar…')
     try {
       await execFileAction('duplicatePath', { path: joinPath(selectedFiles[0]) })
       flashAction('Duplicado com sucesso.')
@@ -8600,7 +8910,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível duplicar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8610,7 +8920,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Seleccione ficheiros para transferir.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A transferir…')
     try {
       for (const f of targets) {
         const data = await execFileAction('downloadFile', { path: joinPath(f.name) })
@@ -8630,14 +8940,14 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Download falhou')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
   const handleCompress = async () => {
     if (!selectedFiles.length) return
     const archivePath = `${path.replace(/\/$/, '')}/arquivo-${Date.now()}.zip`
-    setActionBusy(true)
+    startFmAction('A compactar…')
     try {
       await execFileAction('compressPaths', { sources: selectedFullPaths(), archivePath })
       flashAction('Arquivo criado na pasta actual.')
@@ -8645,7 +8955,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível compactar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8660,7 +8970,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     if (!fmDialog || fmDialog.type !== 'confirm-delete' || !selectedFiles.length) return
     const inTrash = fmDialog.inTrash
     setFmDialogBusy(true)
-    setActionBusy(true)
+    startFmAction(inTrash ? 'A eliminar…' : 'A mover para a lixeira…')
     try {
       if (inTrash) {
         await execFileAction('deletePaths', { paths: selectedFullPaths() })
@@ -8675,7 +8985,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
       setFmDialogBusy(false)
       setFmDialog(null)
       setMoreMenuAnchor(null)
@@ -8690,7 +9000,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     const current = selectedFiles[0]
     const newName = prompt('Novo nome:', current)
     if (!newName || newName === current) return
-    setActionBusy(true)
+    startFmAction('A renomear…')
     try {
       await execFileAction('renamePath', { path: joinPath(current), newName })
       flashAction('Renomeado.')
@@ -8698,8 +9008,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível renomear')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8713,7 +9022,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Formato não suportado para descompactar.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A descompactar…')
     try {
       await execFileAction('extractArchive', { path: joinPath(selectedFiles[0]), destDir: path })
       flashAction('Arquivo descompactado.')
@@ -8721,8 +9030,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Descompactação falhou')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8739,7 +9047,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Formato inválido. Use 3 ou 4 dígitos octais (ex.: 644).')
       return
     }
-    setActionBusy(true)
+    startFmAction('A alterar permissões…')
     try {
       await execFileAction('setPathPermissions', { paths: selectedFullPaths(), mode: mode.trim() })
       flashAction('Permissões actualizadas.')
@@ -8747,8 +9055,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível alterar permissões')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8827,7 +9134,12 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   return (
     <div className="w-full space-y-3 -mt-4 lg:-mt-5">
-      {actionMsg ? (
+      {actionBusy && actionBusyLabel ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <Spinner className="h-4 w-4" />
+          {actionBusyLabel}
+        </div>
+      ) : actionMsg ? (
         <div className="rounded-lg border border-green-300/50 bg-transparent px-4 py-2 text-sm text-green-600 dark:border-green-800/50 dark:text-green-500">
           {actionMsg}
         </div>
@@ -8868,43 +9180,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                   <FilePlus className="w-4 h-4" /> Novo ficheiro
                 </button>
                 <label
-                  className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
+                  className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading || uploadProgress ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
                   title="Upload"
                 >
-                  <input type="file" multiple className="hidden" disabled={loading}
-                    onChange={async (e) => {
-                      const selectedFiles = Array.from(e.target.files || []);
-                      if (!selectedFiles.length) return;
-                      e.target.value = '';
-                      const originalError = error;
-                      try {
-                        let successCount = 0; let failCount = 0;
-                        for (let i = 0; i < selectedFiles.length; i++) {
-                          const file = selectedFiles[i];
-                          if (files.some(f => f.name === file.name)) {
-                            alert(`O ficheiro "${file.name}" já existe. Elimine-o ou mude o nome antes de fazer upload.`);
-                            continue;
-                          }
-                          const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
-                          setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
-                          await new Promise<void>((resolve) => {
-                            const xhr = new XMLHttpRequest();
-                            xhr.upload.addEventListener('progress', (ev) => {
-                              if (ev.lengthComputable) setUploadProgress(prev => prev ? { ...prev, progress: Math.round((ev.loaded / ev.total) * 100), processing: Math.round((ev.loaded / ev.total) * 100) === 100 } : null);
-                            });
-                            xhr.onload = () => { if (xhr.status === 200) { try { const d = JSON.parse(xhr.responseText); if (d.success) successCount++; else { console.error(d.error); failCount++; } } catch { failCount++; } } else { failCount++; } resolve(); };
-                            xhr.onerror = () => { failCount++; resolve(); };
-                            xhr.open('POST', '/api/upload-native');
-                            xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
-                            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                            xhr.send(file);
-                          });
-                        }
-                        setUploadProgress(null); refreshList();
-                        if (failCount > 0) alert(`Upload: ${successCount} sucesso(s), ${failCount} falha(s).`);
-                      } catch (err: any) { setError(err.message || 'Erro no upload'); setTimeout(() => setError(originalError), 5000); }
-                      e.target.value = '';
-                    }}
+                  <input type="file" multiple className="hidden" disabled={loading || Boolean(uploadProgress)}
+                    onChange={(e) => void handleUploadChange(e)}
                   />
                   <UploadCloud className="w-4 h-4" /> Upload
                 </label>
@@ -8914,17 +9194,18 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
           {/* DIREITA: botões de acção sobre ficheiros seleccionados */}
           <div className="flex items-center gap-2 overflow-x-auto shrink-0">
-            <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}><Edit className="w-4 h-4" /> Editar</button>
+            <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}>{actionBusyLabel.startsWith('A abrir') ? <Spinner className="w-4 h-4" /> : <Edit className="w-4 h-4" />} Editar</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleCopy} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Copy className="w-4 h-4" /> Copiar</button>
-            <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}><Layers className="w-4 h-4" /> Duplicar</button>
+            <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}>{actionBusyLabel.startsWith('A duplicar') ? <Spinner className="w-4 h-4" /> : <Layers className="w-4 h-4" />} Duplicar</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleMove} className={fmToolBtnClass(hasFileSelection, actionBusy)}><ArrowRightLeft className="w-4 h-4" /> Mover</button>
-            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Download className="w-4 h-4" /> Transferir</button>
-            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Archive className="w-4 h-4" /> Compactar</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}>{actionBusyLabel.startsWith('A transferir') ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" />} Transferir</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}>{actionBusyLabel.startsWith('A compactar') ? <Spinner className="w-4 h-4" /> : <Archive className="w-4 h-4" />} Compactar</button>
             <div className="relative shrink-0">
               <button type="button" disabled={!hasFileSelection || actionBusy}
                 onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (moreMenuAnchor) setMoreMenuAnchor(null); else setMoreMenuAnchor(rect); }}
                 className={fmToolBtnClass(hasFileSelection, actionBusy)}>
-                <MoreVertical className="w-4 h-4" /> Mais
+                {actionBusy ? <Spinner className="w-4 h-4" /> : <MoreVertical className="w-4 h-4" />}
+                {actionBusy && actionBusyLabel ? actionBusyLabel.replace(/…$/, '') : 'Mais'}
               </button>
             </div>
           </div>
@@ -8973,7 +9254,15 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       </div>
 
       {/* Tabela de ficheiros */}
-      <div className={panelCard}>
+      <div className={`${panelCard} relative`}>
+        {actionBusy && actionBusyLabel ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/75 dark:bg-zinc-950/75">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+              <Spinner className="h-4 w-4" />
+              {actionBusyLabel}
+            </div>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -9030,12 +9319,27 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                     <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2.5 overflow-hidden">
                       <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress.progress}%` }}></div>
                     </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={cancelUpload}
+                        className={`${panelBtnSecondary} text-red-600 dark:text-red-400`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancelar upload
+                      </button>
+                    </div>
                   </div>
                 </td></tr>
               ) : error ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
                   <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-50" />
                   {error}
+                  <div className="mt-4">
+                    <button type="button" className={panelBtnSecondary} onClick={() => void loadFiles(path)}>
+                      Tentar de novo
+                    </button>
+                  </div>
                 </td></tr>
               ) : loading ? (
                 <tr><td colSpan={5} className="py-16">
@@ -9208,6 +9512,45 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                       if (e.key === 'Enter' && !fmDialogBusy) void confirmFmDialog()
                     }}
                   />
+                  {fmDialog.type === 'transfer' && /^backup$/i.test(fmDialogInput.split('/').filter(Boolean).pop() || '') ? (
+                    <p className="mt-1.5 text-xs text-green-700 dark:text-green-400">
+                      Destino: pasta Backup (não um ficheiro). Os itens seleccionados serão {fmDialog.mode === 'copy' ? 'copiados' : 'movidos'} para lá.
+                    </p>
+                  ) : null}
+                  {fmDialog.type === 'transfer' ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {path !== siteRoot ? (
+                        <button
+                          type="button"
+                          className={panelBtnSecondary}
+                          onClick={() => {
+                            const parent = `/${path.split('/').filter(Boolean).slice(0, -1).join('/')}`
+                            setFmDialogInput(parent.startsWith(siteRoot) ? parent : siteRoot)
+                          }}
+                        >
+                          Pasta acima
+                        </button>
+                      ) : null}
+                      {sortedFiles
+                        .filter((f) => f.isDir)
+                        .slice()
+                        .sort((a, b) => Number(/^backup$/i.test(b.name)) - Number(/^backup$/i.test(a.name)))
+                        .slice(0, 12)
+                        .map((f) => (
+                        <button
+                          key={f.name}
+                          type="button"
+                          className={cn(
+                            panelBtnSecondary,
+                            /^backup$/i.test(f.name) && 'border-green-400 font-semibold text-green-700 dark:border-green-700 dark:text-green-400',
+                          )}
+                          onClick={() => setFmDialogInput(joinPath(f.name))}
+                        >
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>

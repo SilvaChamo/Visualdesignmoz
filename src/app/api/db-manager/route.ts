@@ -59,7 +59,10 @@ export async function GET(req: NextRequest) {
     if (hestiaOwner && (isHestiaOnlyDeploy() || (await getProviderByUsername(hestiaOwner)) === 'hestia')) {
       try {
         const url = await createPhpMyAdminSsoUrl(hestiaOwner, database || undefined);
-        return NextResponse.redirect(url, 302);
+        const dest = new URL(url, req.nextUrl.origin);
+        const res = NextResponse.redirect(dest, 302);
+        res.headers.set('Cache-Control', 'no-store');
+        return res;
       } catch (e: unknown) {
         return NextResponse.json(
           { success: false, error: e instanceof Error ? e.message : 'Não foi possível abrir o MySQL.' },
