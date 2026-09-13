@@ -294,24 +294,27 @@ function CheckoutContent() {
 
         if (!res.ok) {
           if (data.error?.includes('Já existe uma conta') || data.error?.includes('already')) {
-             try {
-               await supabase.auth.signInWithPassword({
-                 email: accountForm.email,
-                 password: accountForm.password,
-               });
-             } catch (loginErr) {
+             // signInWithPassword nunca lança excepção mesmo com credenciais
+             // erradas — devolve sempre { error } no resultado. Um try/catch
+             // à volta não deteta a falha; é preciso verificar o campo error.
+             const { error: loginError } = await supabase.auth.signInWithPassword({
+               email: accountForm.email,
+               password: accountForm.password,
+             });
+             if (loginError) {
                throw new Error('Já existe uma conta com este email. Por favor, faça login para continuar.');
              }
           } else {
             throw new Error(data.error || 'Erro ao criar a sua conta.');
           }
         } else {
-          try {
-            await supabase.auth.signInWithPassword({
-              email: accountForm.email,
-              password: accountForm.password,
-            });
-          } catch (e) {}
+          const { error: loginError } = await supabase.auth.signInWithPassword({
+            email: accountForm.email,
+            password: accountForm.password,
+          });
+          if (loginError) {
+            throw new Error('Não foi possível iniciar sessão com a conta criada. Tente submeter novamente.');
+          }
         }
       }
 

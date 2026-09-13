@@ -1,6 +1,14 @@
 // Sincroniza a tabela domain_tld_price_overrides com os preços reais da
-// Dynadot, extensão a extensão. Chamado pela rota de cron
-// /api/cron/sync-domain-prices — nunca corre no browser.
+// Dynadot. Chamado pela rota de cron /api/cron/sync-domain-prices — nunca
+// corre no browser.
+//
+// #10 (2026-09-13, backport de visualdesign-teste): antes pedia um preço de
+// cada vez (`getTldPrice(tld)`), que falhava sempre nas 44 extensões porque
+// esse comando da API3 não aceita filtrar por `tld` — nunca escreveu uma
+// linha sequer desde que foi criado (confirmado: `domain_tld_price_overrides`
+// estava vazia apesar do robô "ter sucesso" todas as semanas). Agora pede a
+// lista completa de uma vez (`getAllTldPrices`) e cruza com as extensões que
+// vendemos.
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { DOMAIN_TLD_PRICES } from '@/lib/domain-tld-prices';
@@ -10,10 +18,19 @@ export type DomainPriceSyncResult = {
   failed: { tld: string; error: string }[];
 };
 
-/** Pausa entre pedidos — 44 extensões a bater na API da Dynadot de seguida sem
- * pausa arrisca rate-limit; isto não é urgente ao segundo. */
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Guarda contra uma leitura da API mal interpretada (ex.: preço de retalho
+ * em vez de preço de revendedor) — nunca aplicar um valor absurdamente
+ * diferente do que já temos sem alguém rever primeiro. Um aumento real de
+ * registo (como o do .com, Nov/2026) fica bem dentro desta margem; só
+ * bloqueia leituras claramente erradas.
+ */
+const MAX_PLAUSIBLE_CHANGE_RATIO = 0.5;
+
+function isPlausible(oldUsd: number, newUsd: number): boolean {
+  if (oldUsd <= 0) return true;
+  const change = Math.abs(newUsd - oldUsd) / oldUsd;
+  return change <= MAX_PLAUSIBLE_CHANGE_RATIO;
 }
 
 export async function syncAllTldPrices(): Promise<DomainPriceSyncResult> {
@@ -26,12 +43,25 @@ export async function syncAllTldPrices(): Promise<DomainPriceSyncResult> {
   }
   const admin = createAdminClient(supabaseUrl, serviceKey);
 
+  const fetched = await dynadotAPI.getAllTldPrices();
+  if (!fetched.success) {
+    result.failed.push({ tld: '*', error: fetched.error });
+    return result;
+  }
+
   for (const entry of DOMAIN_TLD_PRICES) {
     const tld = entry.value.replace(/^\./, '');
-    const price = await dynadotAPI.getTldPrice(tld);
-    if (!price.success) {
-      result.failed.push({ tld: entry.value, error: price.error });
-      await sleep(300);
+    const price = fetched.prices.get(tld);
+    if (!price) {
+      result.failed.push({ tld: entry.value, error: 'Extensão não veio na lista de preços da Dynadot' });
+      continue;
+    }
+
+    if (!isPlausible(entry.price, price.priceUsd) || !isPlausible(entry.renewPrice, price.renewPriceUsd)) {
+      result.failed.push({
+        tld: entry.value,
+        error: `Variação suspeita — a rever à mão: registo $${entry.price}→$${price.priceUsd}, renovação $${entry.renewPrice}→$${price.renewPriceUsd}`,
+      });
       continue;
     }
 
@@ -51,7 +81,6 @@ export async function syncAllTldPrices(): Promise<DomainPriceSyncResult> {
     } else {
       result.updated.push(entry.value);
     }
-    await sleep(300);
   }
 
   return result;

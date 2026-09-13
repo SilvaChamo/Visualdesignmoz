@@ -140,37 +140,13 @@ async function dynadotFetch<T = unknown>(
  * consulta de preço, por isso o formato mais simples/antigo aqui não é
  * problema de segurança.
  */
-async function dynadotApi3Fetch(
-  command: string,
-  params: Record<string, string> = {},
-): Promise<{ ok: true; data: Record<string, unknown>; raw: unknown } | { ok: false; error: string; raw?: unknown }> {
-  const keys = getKeys();
-  if (!keys) return { ok: false, error: 'Chaves de API do registador não configuradas' };
-
-  const qs = new URLSearchParams({ key: keys.apiKey, command, ...params });
-  try {
-    const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
-    const json = (await res.json().catch(() => ({}))) as {
-      Response?: { ResponseCode?: string; Error?: string; [key: string]: unknown };
-    };
-    const resp = json.Response;
-    if (!resp || String(resp.ResponseCode) !== '0') {
-      return { ok: false, error: resp?.Error || 'Erro na API3 da Dynadot', raw: json };
-    }
-    return { ok: true, data: resp as Record<string, unknown>, raw: json };
-  } catch (e: unknown) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Erro ao contactar a API3 da Dynadot' };
-  }
-}
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * API3 legada, resposta no formato `{ <Comando>Response: { ResponseCode, Status,
- * Error?, ... } }` (ao contrário do `dynadotApi3Fetch` acima, que espera a
- * forma antiga `{ Response: {...} }` só usada por `tld_price`).
+ * Error?, ... } }`.
  *
  * Só existe porque a **RESTful v1** recusa TODAS as operações de domínio único
  * para `.app`/`.dev` (Google Registry) com "Unsupported domain type" — mas a
@@ -202,6 +178,33 @@ async function dynadotApi3Command(
 /** A RESTful v1 devolve isto para `.app`/`.dev` em qualquer operação de domínio único. */
 function isUnsupportedDomainType(error: string): boolean {
   return /unsupported domain type/i.test(error);
+}
+
+/**
+ * Procura, em qualquer profundidade de uma resposta JSON da API3, um
+ * indicador explícito de erro (`Error`, `ResponseCode` != 0, `Status` de
+ * falha) — usado por `getAllTldPrices`, que não pode assumir nenhuma forma
+ * de envelope específica (nunca confirmada ao vivo para o comando
+ * `tld_price`). Devolve `undefined` se não encontrar nada parecido com erro.
+ */
+function findFirstErrorMessage(node: unknown, depth = 0): string | undefined {
+  if (depth > 4 || node === null || typeof node !== 'object' || Array.isArray(node)) return undefined;
+  const obj = node as Record<string, unknown>;
+  const errField = obj.Error ?? obj.error;
+  if (typeof errField === 'string' && errField.trim()) return errField.trim();
+  const status = obj.Status ?? obj.status;
+  if (typeof status === 'string' && /error|fail/i.test(status)) {
+    return typeof errField === 'string' ? errField : `Erro da API3 (status ${status})`;
+  }
+  const code = obj.ResponseCode ?? obj.response_code;
+  if (code !== undefined && String(code) !== '0') {
+    return typeof errField === 'string' ? errField : `Erro da API3 (código ${code})`;
+  }
+  for (const value of Object.values(obj)) {
+    const found = findFirstErrorMessage(value, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 /**
@@ -530,45 +533,137 @@ export const dynadotAPI = {
   },
 
   /**
-   * Preço real actual da Dynadot para uma extensão (TLD) — regista, renova e
-   * transferência, em USD. Usado para manter a nossa tabela de preços
-   * (domain-tld-prices.ts) sincronizada em vez de fixa no código. A API3 da
-   * Dynadot não documenta os nomes exactos dos campos da resposta de sucesso
-   * (só consegui confirmar o nome do comando e o formato de erro a partir
-   * daqui — o meu IP local não está autorizado, só o do servidor); por isso
-   * a leitura dos campos é tolerante a várias grafias possíveis e devolve o
-   * corpo em bruto (`raw`) sempre que não reconhece a forma da resposta, para
-   * nunca aplicar um preço adivinhado.
+   * Preços reais actuais da Dynadot para TODAS as extensões de uma vez —
+   * regista, renova e transferência, em USD. Usado para manter a nossa
+   * tabela de preços (domain-tld-prices.ts) sincronizada em vez de fixa no
+   * código.
+   *
+   * #10 (2026-09-13, backport de visualdesign-teste): substituiu um
+   * `getTldPrice(tld)` que pedia um preço de cada vez com `tld=<extensão>`
+   * — esse parâmetro NÃO existe no comando `tld_price` da API3 (confirmado
+   * na documentação pública da Dynadot: só aceita
+   * `currency`/`count_per_page`/`page_index`/`sort`, devolve sempre uma
+   * LISTA paginada de todas as extensões). Por não existir esse filtro, a
+   * chamada antiga falhava sempre, nas 44 extensões, todas as semanas,
+   * desde que este sync foi criado — nunca escreveu um preço sequer (ver
+   * `domain_tld_price_overrides`, sempre vazia). Isto pede a lista completa
+   * (paginada) de uma vez, em vez de 44 pedidos individuais.
+   *
+   * A forma exacta dos campos de cada linha da lista não está documentada,
+   * por isso a leitura é tolerante a várias grafias possíveis. Se a forma da
+   * resposta não for reconhecida (envelope ou lista), devolve o corpo em
+   * bruto (`raw`) para diagnóstico em vez de aplicar um preço adivinhado —
+   * nunca escreve nada na base de dados nesse caso (ver domain-price-sync.ts).
    */
-  async getTldPrice(
-    tld: string,
-  ): Promise<
-    | { success: true; priceUsd: number; renewPriceUsd: number; transferPriceUsd?: number }
+  async getAllTldPrices(): Promise<
+    | { success: true; prices: Map<string, { priceUsd: number; renewPriceUsd: number; transferPriceUsd?: number }> }
     | { success: false; error: string; raw?: unknown }
   > {
-    const clean = tld.replace(/^\./, '').toLowerCase().trim();
-    const result = await dynadotApi3Fetch('tld_price', { tld: clean });
-    if (!result.ok) return { success: false, error: result.error, raw: 'raw' in result ? result.raw : undefined };
+    const keys = getKeys();
+    if (!keys) return { success: false, error: 'Chaves de API do registador não configuradas' };
 
-    const data = result.data;
-    const pick = (...keys: string[]): number | undefined => {
-      for (const k of keys) {
-        const v = data[k];
+    const prices = new Map<string, { priceUsd: number; renewPriceUsd: number; transferPriceUsd?: number }>();
+    const pageSize = 200;
+    const maxPages = 10; // cobre até 2000 extensões — a Dynadot lista pouco mais de 500
+
+    const pickStr = (row: Record<string, unknown>, ...names: string[]): string | undefined => {
+      for (const k of names) {
+        const v = row[k];
+        if (typeof v === 'string' && v.trim()) return v.trim().replace(/^\./, '').toLowerCase();
+      }
+      return undefined;
+    };
+    const pickNum = (row: Record<string, unknown>, ...names: string[]): number | undefined => {
+      for (const k of names) {
+        const v = row[k];
         const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : undefined;
         if (n !== undefined && Number.isFinite(n) && n > 0) return n;
       }
       return undefined;
     };
-
-    const priceUsd = pick('Price', 'price', 'RegisterPrice', 'register_price', 'NewRegistrationPrice');
-    const renewPriceUsd = pick('RenewPrice', 'renew_price', 'RenewalPrice');
-    const transferPriceUsd = pick('TransferPrice', 'transfer_price');
-
-    if (priceUsd === undefined || renewPriceUsd === undefined) {
-      return { success: false, error: 'Formato de resposta de preço não reconhecido', raw: result.raw };
+    // Não confiamos em nenhum nome de campo de envelope específico (nunca
+    // confirmado ao vivo) — procura recursivamente, em toda a árvore JSON,
+    // o primeiro array de objectos que pareça linhas de preço por extensão
+    // (tem um campo de nome de TLD reconhecível).
+    function findTldList(node: unknown, depth = 0): Record<string, unknown>[] | undefined {
+      if (depth > 4 || node === null || typeof node !== 'object') return undefined;
+      if (Array.isArray(node)) {
+        if (node.length > 0 && typeof node[0] === 'object' && node[0] !== null) {
+          const first = node[0] as Record<string, unknown>;
+          if (pickStr(first, 'Tld', 'tld', 'TldName', 'Name', 'name', 'Extension')) {
+            return node as Record<string, unknown>[];
+          }
+        }
+        for (const item of node) {
+          const found = findTldList(item, depth + 1);
+          if (found) return found;
+        }
+        return undefined;
+      }
+      for (const value of Object.values(node as Record<string, unknown>)) {
+        const found = findTldList(value, depth + 1);
+        if (found) return found;
+      }
+      return undefined;
     }
 
-    return { success: true, priceUsd, renewPriceUsd, transferPriceUsd };
+    let lastRaw: unknown;
+    for (let page = 0; page < maxPages; page++) {
+      const qs = new URLSearchParams({
+        key: keys.apiKey,
+        command: 'tld_price',
+        currency: 'USD',
+        count_per_page: String(pageSize),
+        page_index: String(page),
+      });
+      let json: unknown;
+      try {
+        const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+        json = await res.json().catch(() => undefined);
+      } catch (e: unknown) {
+        if (page === 0) {
+          return { success: false, error: e instanceof Error ? e.message : 'Erro ao contactar a API3 da Dynadot' };
+        }
+        break;
+      }
+      if (!json || typeof json !== 'object') {
+        if (page === 0) return { success: false, error: 'Resposta vazia/inválida da API3 da Dynadot' };
+        break;
+      }
+      lastRaw = json;
+
+      // Erro explícito reportado pela Dynadot (qualquer forma de envelope).
+      const errMsg = findFirstErrorMessage(json);
+      if (errMsg) {
+        if (page === 0) return { success: false, error: errMsg, raw: json };
+        break;
+      }
+
+      const listCandidate = findTldList(json);
+      if (!listCandidate) {
+        if (page === 0) {
+          return { success: false, error: 'Formato de resposta de preços não reconhecido (sem lista)', raw: json };
+        }
+        break;
+      }
+
+      for (const row of listCandidate) {
+        const tld = pickStr(row, 'Tld', 'tld', 'TldName', 'Name', 'name', 'Extension');
+        const priceUsd = pickNum(row, 'Price', 'price', 'RegisterPrice', 'register_price', 'NewRegistrationPrice', 'NewPrice');
+        const renewPriceUsd = pickNum(row, 'RenewPrice', 'renew_price', 'RenewalPrice');
+        const transferPriceUsd = pickNum(row, 'TransferPrice', 'transfer_price');
+        if (tld && priceUsd !== undefined && renewPriceUsd !== undefined) {
+          prices.set(tld, { priceUsd, renewPriceUsd, transferPriceUsd });
+        }
+      }
+
+      if (listCandidate.length < pageSize) break; // última página
+    }
+
+    if (prices.size === 0) {
+      return { success: false, error: 'Nenhuma extensão reconhecida na resposta da Dynadot', raw: lastRaw };
+    }
+    return { success: true, prices };
   },
 
   /**
