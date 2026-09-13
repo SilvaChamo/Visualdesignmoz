@@ -227,3 +227,4 @@ jobs:
             # depois de reescrita, voltou a falhar aqui dentro sem falhar à mão.
             bash scripts/install-hestia-cron.sh
             bash scripts/install-mailmarketing-cron.sh
+            bash scripts/install-backup-schedule-cron.sh

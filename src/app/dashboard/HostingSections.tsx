@@ -4479,6 +4479,13 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [bfHistory, setBfHistory] = useState<Array<{ ip: string; count: string; service: string; time: string }>>([])
   const [bfLoading, setBfLoading] = useState(false)
   const [bfSaving, setBfSaving] = useState(false)
+  // ModSecurity e "Força Bruta" (config/histórico) são funcionalidades
+  // próprias do DirectAdmin, sem equivalente no Hestia — nesse servidor as
+  // chamadas voltam sempre com "ainda não está disponível no Hestia."; em
+  // vez de mostrar essas abas vazias/parecendo desligadas (quando na
+  // verdade a protecção real é o CSF/fail2ban, já coberto na Visão Geral),
+  // ficam escondidas assim que se confirma que não estão disponíveis.
+  const [hestiaLimited, setHestiaLimited] = useState(false)
 
   const showMsg = (text: string, type: 'ok' | 'err' = 'ok') => {
     setMsg(text); setMsgType(type)
@@ -4497,9 +4504,16 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
 
       // Carregar dados de Força Bruta
       setBfLoading(true)
+      const NOT_ON_HESTIA = /ainda não está disponível no Hestia/i
       const [conf, hist] = await Promise.all([
-        directAdminAPI.getBruteForceConfig().catch(() => ({})),
-        directAdminAPI.getBruteForceHistory().catch(() => []),
+        directAdminAPI.getBruteForceConfig().catch((e) => {
+          if (e instanceof Error && NOT_ON_HESTIA.test(e.message)) setHestiaLimited(true)
+          return {}
+        }),
+        directAdminAPI.getBruteForceHistory().catch((e) => {
+          if (e instanceof Error && NOT_ON_HESTIA.test(e.message)) setHestiaLimited(true)
+          return []
+        }),
       ])
       setBfConfig(conf)
       setBfHistory(hist)
@@ -4607,27 +4621,37 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const loadModSec = async (domain: string) => {
     if (!domain) return
     setModsecLoading(true)
-    const status = await directAdminAPI.getModSecurityStatus()
-    setModsecOn(status)
+    try {
+      const status = await directAdminAPI.getModSecurityStatus()
+      setModsecOn(status)
+    } catch (e) {
+      if (e instanceof Error && /ainda não está disponível no Hestia/i.test(e.message)) setHestiaLimited(true)
+    }
     setModsecLoading(false)
   }
 
   const handleToggleModSec = async () => {
     if (!selectedDomain) return
     setModsecLoading(true)
-    const ok = await directAdminAPI.toggleModSecurity({ enable: !modsecOn })
-    if (ok) { setModsecOn(!modsecOn); showMsg(`ModSecurity ${!modsecOn ? 'activado' : 'desactivado'}.`, 'ok') }
-    else showMsg('Erro ao alterar ModSecurity.', 'err')
+    try {
+      const ok = await directAdminAPI.toggleModSecurity({ enable: !modsecOn })
+      if (ok) { setModsecOn(!modsecOn); showMsg(`ModSecurity ${!modsecOn ? 'activado' : 'desactivado'}.`, 'ok') }
+      else showMsg('Erro ao alterar ModSecurity.', 'err')
+    } catch {
+      showMsg('Erro ao alterar ModSecurity.', 'err')
+    }
     setModsecLoading(false)
   }
 
-  const TABS = [
-    { id: 'overview', label: 'Visão Geral' },
-    { id: 'blocked', label: `IPs Bloqueados (${blockedIPs.length})` },
-    { id: 'attempts', label: `Tentativas (${loginAttempts.length})` },
-    { id: 'modsec', label: 'ModSecurity' },
-    { id: 'bruteforce', label: 'Força Bruta' },
-  ] as const
+  const TABS = (
+    [
+      { id: 'overview', label: 'Visão Geral' },
+      { id: 'blocked', label: `IPs Bloqueados (${blockedIPs.length})` },
+      { id: 'attempts', label: `Tentativas (${loginAttempts.length})` },
+      { id: 'modsec', label: 'ModSecurity' },
+      { id: 'bruteforce', label: 'Força Bruta' },
+    ] as const
+  ).filter((t) => !hestiaLimited || (t.id !== 'modsec' && t.id !== 'bruteforce'))
 
   return (
     <div className="space-y-4">

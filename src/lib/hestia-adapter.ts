@@ -979,6 +979,25 @@ export async function createBackup(username: string): Promise<{ ok: boolean; err
   return { ok: result.ok, error: result.error };
 }
 
+/** Lê os bytes (base64) de um backup já criado, para o enviar ao bucket de
+ * armazenamento — mesma ideia de daBackupReadFile, mas o Hestia guarda tudo
+ * em /backup (um único backup por conta inteira, não por domínio). */
+export async function readBackupFile(filename: string): Promise<{ ok: boolean; base64?: string; error?: string }> {
+  if (!/^[\w.-]+$/.test(filename)) {
+    return { ok: false, error: 'Nome de ficheiro inválido' };
+  }
+  try {
+    const quoted = `'/backup/${filename.replace(/'/g, `'\\''`)}'`;
+    const out = (await executeServerCommand(`base64 -w0 ${quoted} 2>/dev/null`)).trim();
+    if (!out || out.toLowerCase().includes('error')) {
+      return { ok: false, error: 'Não foi possível ler o backup' };
+    }
+    return { ok: true, base64: out };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Download falhou' };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Gestão de utilizadores (contas de cliente) — criação, alteração de package,
 // mudança de password, suspend/unsuspend, delete.
