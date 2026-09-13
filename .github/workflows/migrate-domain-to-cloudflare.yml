@@ -1,0 +1,21 @@
+name: Migrate domain to Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domínio a migrar para zona própria na Cloudflare (ex.: oshercollective.com)'
+        required: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de migração
+        env:
+          DOMAIN: ${{ github.event.inputs.domain }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -f -G "https://visualdesignmoz.com/api/cron/migrate-domain-to-cloudflare" \
+            --data-urlencode "domain=$DOMAIN" \
+            --data-urlencode "secret=$CRON_SECRET"
