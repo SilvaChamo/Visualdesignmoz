@@ -12,6 +12,12 @@ import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { getMirrorSiteOwner, isMirrorStale, listMirrorDns } from '@/lib/panel-mirror-read';
 import { deleteMirrorDnsById, upsertMirrorDns } from '@/lib/panel-mirror-write';
 import { resolveDirectAdminCredentials, resolveDirectAdminCredentialsForDomainOwner } from '@/lib/directadmin-credentials';
+import {
+  deleteCloudflareDnsRecord,
+  findCloudflareZoneId,
+  listCloudflareDnsRecords,
+  upsertCloudflareRecord,
+} from '@/lib/cloudflare-dns';
 
 async function canAccessDomain(
   role: 'admin' | 'reseller' | 'manager',
@@ -78,9 +84,22 @@ export async function GET(req: NextRequest) {
     if (stale) scheduleDaSync(0);
 
     let records = await listMirrorDns(domain, mirrorScope);
-    let source: 'mirror' | 'live' = 'mirror';
+    let source: 'mirror' | 'live' | 'cloudflare' = 'mirror';
 
-    if (records.length === 0) {
+    // Domínios com zona própria na Cloudflare (a maioria dos registados pela
+    // Dynadot) — a Cloudflare é a fonte autoritativa, não o espelho do DA.
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId) {
+      const live = await listCloudflareDnsRecords(cfZoneId, domain);
+      records = live.map((r) => ({
+        id: r.id,
+        name: r.name === '@' ? domain : r.name,
+        type: r.type,
+        content: r.content,
+        ttl: r.ttl || 3600,
+      }));
+      source = 'cloudflare';
+    } else if (records.length === 0) {
       try {
         const live = await daApi.listDNS(domain);
         records = live.map((r) => ({
@@ -127,16 +146,42 @@ export async function POST(req: NextRequest) {
     const auth = await requireDaAccessForDomain(domain);
     if ('error' in auth) return auth.error;
 
-    let creds: Awaited<ReturnType<typeof resolveDaCreds>>;
-    if (auth.user.role === 'client') {
-      creds = await resolveDirectAdminCredentialsForDomainOwner(domain);
-    } else {
-      const { impersonating } = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
+    let impersonating: string | null | undefined;
+    if (auth.user.role !== 'client') {
+      const ctx = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
+      impersonating = ctx.impersonating;
       if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, impersonating))) {
         return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
       }
-      creds = await resolveDaCreds(auth.user.role, auth.user.id, impersonating);
     }
+
+    // Verifica a Cloudflare ANTES de resolver credenciais do DirectAdmin —
+    // um domínio só-Cloudflare (sem conta de hospedagem DA associada) faria
+    // resolveDirectAdminCredentialsForDomainOwner rebentar antes de sequer
+    // chegarmos aqui, se a ordem fosse a inversa.
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId) {
+      const result = await upsertCloudflareRecord(cfZoneId, domain, {
+        type: type as 'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX',
+        name,
+        content: value,
+        ttl,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo na Cloudflare' }, { status: 502 });
+      }
+      const mirror = await upsertMirrorDns({ domain, name: name === '@' ? domain : name, type, value, ttl });
+      return NextResponse.json({
+        success: true,
+        message: 'Registo DNS criado na Cloudflare.',
+        id: mirror.id,
+      });
+    }
+
+    const creds =
+      auth.user.role === 'client'
+        ? await resolveDirectAdminCredentialsForDomainOwner(domain)
+        : await resolveDaCreds(auth.user.role, auth.user.id, impersonating);
 
     const result = await daAddDnsRecord(creds, { domain, name, type, value, ttl });
     if (!result.ok) {
@@ -173,16 +218,35 @@ export async function DELETE(req: NextRequest) {
     const auth = await requireDaAccessForDomain(domain);
     if ('error' in auth) return auth.error;
 
-    let creds: Awaited<ReturnType<typeof resolveDaCreds>>;
-    if (auth.user.role === 'client') {
-      creds = await resolveDirectAdminCredentialsForDomainOwner(domain);
-    } else {
-      const { impersonating } = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
+    let impersonating: string | null | undefined;
+    if (auth.user.role !== 'client') {
+      const ctx = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
+      impersonating = ctx.impersonating;
       if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, impersonating))) {
         return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
       }
-      creds = await resolveDaCreds(auth.user.role, auth.user.id, impersonating);
     }
+
+    // Cloudflare é autoritativa para este domínio — apaga directamente lá
+    // (o id já vem do GET, que agora devolve o id real da Cloudflare para
+    // estes domínios), sem passar pelo espelho/credenciais do DirectAdmin.
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId) {
+      if (!/^[a-f0-9]{32}$/i.test(id)) {
+        return NextResponse.json({ success: false, error: 'Id de registo inválido' }, { status: 400 });
+      }
+      const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
+      if (!cfDel.ok) {
+        return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
+      }
+      await deleteMirrorDnsById(id).catch(() => {});
+      return NextResponse.json({ success: true, message: 'Registo DNS removido na Cloudflare.' });
+    }
+
+    const creds =
+      auth.user.role === 'client'
+        ? await resolveDirectAdminCredentialsForDomainOwner(domain)
+        : await resolveDaCreds(auth.user.role, auth.user.id, impersonating);
 
     const admin = getDaSyncAdmin();
     if (!admin) {

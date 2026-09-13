@@ -298,3 +298,71 @@ export async function deleteCloudflareEmailRecords(
     return { ok: false, deleted: 0, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
 }
+
+export type CloudflareListedRecord = {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  ttl: number;
+  priority?: number;
+};
+
+/** Lista todos os registos da zona — usado pelo painel (Gerenciar DNS) para
+ * domínios com zona própria na Cloudflare, em vez do espelho do DirectAdmin. */
+export async function listCloudflareDnsRecords(
+  zoneId: string,
+  domain: string,
+): Promise<CloudflareListedRecord[]> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return [];
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?per_page=200`, { headers });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      success: boolean;
+      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number }>;
+    };
+    if (!data.success) return [];
+    return (data.result || []).map((r) => ({
+      id: r.id,
+      name: r.name === clean ? '@' : r.name.replace(new RegExp(`\\.${clean}$`), ''),
+      type: r.type,
+      content: r.content,
+      ttl: r.ttl || 3600,
+      priority: r.priority,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Apaga um registo específico pelo id da Cloudflare — usado pelo painel
+ * (Gerenciar DNS) para domínios com zona própria na Cloudflare. */
+const CLOUDFLARE_ID_RE = /^[a-f0-9]{32}$/i;
+
+export async function deleteCloudflareDnsRecord(
+  zoneId: string,
+  recordId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  // zoneId/recordId acabam interpolados directamente no URL da API — o
+  // segundo vem do id que o cliente manda no pedido DELETE do painel, por
+  // isso valida-se a forma (id real da Cloudflare é sempre hex de 32) antes
+  // de deixar seguir, em vez de confiar no formato.
+  if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) {
+    return { ok: false, error: 'Id de zona/registo inválido' };
+  }
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar registo' };
+  }
+}
