@@ -140,10 +140,19 @@ export async function provisionHostingAccountOnPanel(params: {
       email,
       da_password_encrypted: encryptDaSecret(password),
     });
+    // #10 (2026-09-13, backport de visualdesign-teste): ficava sempre
+    // hardcoded 'client', sobrepondo-se a um papel já elevado (staff) que a
+    // conta pudesse ter — preserva admin/manager/reseller em vez de os
+    // rebaixar; só um guest normal é que fica 'client' ao comprar.
+    const existingProfile = await getProfileForAuthUser(admin, userId, email);
+    const ELEVATED_ROLES = ['admin', 'manager', 'reseller'];
+    const resolvedRole = ELEVATED_ROLES.includes(existingProfile?.role || '')
+      ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
+      : 'client';
     await upsertPanelAuthAccount(admin, {
       userId,
       email,
-      role: 'client',
+      role: resolvedRole,
       name: displayName,
       serverLinked: false,
       daUsername: null,
