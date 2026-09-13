@@ -31,12 +31,14 @@ import {
   findFirstNavigableSubItem,
   isMenuHeaderSubItem,
   isPanelMenuItemActive,
+  PANEL_LOADING_MENU_IDS,
   resolveSectionId,
   type PanelMenuItemDef,
   type PanelMenuSubItem,
 } from '@/lib/panel-admin-menu';
 import { panelShellHeaderHeight } from '@/lib/panel-ui';
 import { cn } from '@/lib/utils';
+import { MenuSpinner } from '@/components/ui/spinner';
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -46,6 +48,7 @@ interface AdminSidebarProps {
   sessionUser: string | null;
   isMobile?: boolean;
   menuDefs?: PanelMenuItemDef[];
+  isLoading?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -184,6 +187,7 @@ export function AdminSidebar({
   sessionUser,
   isMobile = false,
   menuDefs,
+  isLoading = false,
 }: AdminSidebarProps) {
   const items = menuDefs ? buildMenuItems(menuDefs) : menuItems;
   const currentSidebarWidth = isCollapsed ? 64 : 242;
@@ -395,7 +399,17 @@ export function AdminSidebar({
                               : 'text-gray-500 group-hover:text-red-600'
                           }`}
                         />
-                        {!isCollapsed && <span className="ml-3 truncate text-base leading-none">{item.label}</span>}
+                        {!isCollapsed && (
+                          <span className="ml-3 flex min-w-0 items-center gap-2 truncate text-base leading-none">
+                            {item.label}
+                            {isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && <MenuSpinner />}
+                          </span>
+                        )}
+                        {isCollapsed && isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && (
+                          <span className="absolute right-1 top-1">
+                            <MenuSpinner />
+                          </span>
+                        )}
                         {item.id === 'nov-notificacoes' && unreadNotifications > 0 && (
                           <span
                             className={`flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white ${

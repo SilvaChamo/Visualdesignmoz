@@ -71,6 +71,17 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     ],
   },
   {
+    id: 'nov-wordpress',
+    label: 'Websites',
+    isNewMenu: true,
+    subItems: [
+      { id: 'wp-sites', label: 'Sites' },
+      { id: 'wordpress-install', label: 'Criar Website' },
+      { id: 'wp-plugins', label: 'Plugins' },
+      { id: 'cp-databases', label: 'Bases de Dados' },
+    ],
+  },
+  {
     id: 'nov-notificacoes',
     label: 'Notificações',
     isNewMenu: true,
@@ -94,17 +105,6 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     id: 'contabilidade',
     label: 'Contabilidade',
     isNewMenu: true,
-  },
-  {
-    id: 'nov-wordpress',
-    label: 'Websites',
-    isNewMenu: true,
-    subItems: [
-      { id: 'wp-sites', label: 'Sites' },
-      { id: 'wordpress-install', label: 'Criar Website' },
-      { id: 'wp-plugins', label: 'Plugins' },
-      { id: 'cp-databases', label: 'Bases de Dados' },
-    ],
   },
   {
     id: 'file-manager',
@@ -461,6 +461,18 @@ export function resellerMenuParentForSection(sectionId: string): string | null {
 }
 
 export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [...NEW_MENU_ITEM_DEFS];
+
+/** Menus da sidebar que mostram spinner enquanto o bootstrap da hospedagem carrega. */
+export const PANEL_LOADING_MENU_IDS = new Set([
+  'nov-wordpress',
+  'nov-hospedagem',
+  'nov-email',
+  'nov-dominios',
+  'file-manager',
+  'backup-manager',
+  'webmail',
+  'domains',
+]);
 export const RESELLER_ADMIN_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MENU_DEFS;
 
 export function resolveSectionId(sectionId: string): string {

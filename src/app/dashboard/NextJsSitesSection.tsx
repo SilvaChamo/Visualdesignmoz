@@ -256,7 +256,7 @@ export function NextJsSitesSection({
   return (
     <div className="space-y-4">
       {loading && rows.length === 0 ? (
-        <div className="text-center py-12 text-sm text-gray-400 dark:text-zinc-500">A carregar sites...</div>
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar sites...</div>
       ) : rows.length === 0 ? (
         <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
           Ainda não há sites Next.js registados.

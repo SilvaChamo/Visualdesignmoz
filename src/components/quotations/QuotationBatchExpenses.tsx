@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { panelField } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
+import { Spinner } from '@/components/ui/spinner'
 
 type Expense = {
   id: string
@@ -109,7 +110,7 @@ export function QuotationBatchExpenses({
   }, [saldoNegativo, onSaldoChange])
 
   if (!despesas) {
-    return <p className="text-xs text-gray-400 dark:text-zinc-500">A carregar despesas de produção...</p>
+    return <p className="flex items-center gap-2 text-xs text-gray-400 dark:text-zinc-500"><Spinner /> A carregar despesas de produção...</p>
   }
 
   const totalLabel = total === 0 ? '00,00' : formatMt(total)

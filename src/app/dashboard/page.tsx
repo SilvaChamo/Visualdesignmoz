@@ -1878,6 +1878,7 @@ function AdminPageContent() {
         sessionUser={sessionUser}
         isMobile={isMobile}
         menuDefs={adminSidebarMenuDefs}
+        isLoading={isFetchingDirectAdmin}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PanelHeader

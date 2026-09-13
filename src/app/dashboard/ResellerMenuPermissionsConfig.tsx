@@ -17,6 +17,7 @@ import {
   panelTabBtnInactive,
   panelTabList,
 } from '@/lib/panel-ui';
+import { Spinner } from '@/components/ui/spinner';
 import { dispatchPanelMenuPrivilegesUpdated } from '@/hooks/usePanelMenuPrivileges';
 import {
   MANAGER_PRIVILEGE_MENU_DEFS,
@@ -275,8 +276,8 @@ export function ResellerMenuPermissionsConfig() {
 
   if (loading.reseller && loading.manager) {
     return (
-      <div className="font-panel flex justify-center p-10 text-sm text-gray-500 dark:text-zinc-400">
-        A carregar configurações…
+      <div className="font-panel flex items-center justify-center gap-2 p-10 text-sm text-gray-500 dark:text-zinc-400">
+        <Spinner /> A carregar configurações…
       </div>
     );
   }
@@ -339,8 +340,8 @@ export function ResellerMenuPermissionsConfig() {
 
         <div className={panelSectionPadding}>
           {loading[activeTab] ? (
-            <div className="flex justify-center py-10 text-sm text-gray-500 dark:text-zinc-400">
-              A carregar…
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-zinc-400">
+              <Spinner /> A carregar…
             </div>
           ) : (
             <>

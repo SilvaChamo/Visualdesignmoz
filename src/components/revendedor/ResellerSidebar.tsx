@@ -34,11 +34,13 @@ import {
   RESELLER_MAIN_MENU_DEFS,
   RESELLER_SECTION_TO_PARENT,
   isPanelMenuItemActive,
+  PANEL_LOADING_MENU_IDS,
   resolveSectionId,
   resellerMenuParentForSection,
   type PanelMenuItemDef,
 } from '@/lib/panel-admin-menu';
 import { filterMenuByPrivileges } from '@/lib/panel-menu-privileges';
+import { MenuSpinner } from '@/components/ui/spinner';
 
 interface ResellerSidebarProps {
   activeSection: string;
@@ -56,6 +58,7 @@ interface ResellerSidebarProps {
   /** Caminho-base das rotas do painel (logo, link do dashboard) — '/revendedor'
    * por omissão; o painel Profissional passa '/profissional'. */
   basePath?: string;
+  isLoading?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -101,6 +104,7 @@ export function ResellerSidebar({
   isMobile = false,
   menuDefs = RESELLER_MAIN_MENU_DEFS,
   basePath = '/revendedor',
+  isLoading = false,
 }: ResellerSidebarProps) {
   const { privileges } = useResellerMenuPrivileges();
   const { unreadCount, refreshUnread } = useResellerNotificationBadge();
@@ -185,7 +189,7 @@ export function ResellerSidebar({
                   if (isCollapsed && isMobile && hasSubItems) return;
                   handleParentClick(item);
                 }}
-                className={`group flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
+                className={`group relative flex w-full items-center overflow-hidden ${MENU_ROW_CLASS} transition-all duration-200 ease-out hover:translate-x-1 ${
                   isCollapsed ? 'justify-center px-2' : 'px-2.5'
                 } rounded-lg ${
                   isActive
@@ -216,11 +220,17 @@ export function ResellerSidebar({
                 {!isCollapsed && (
                   <span className="ml-3 flex flex-1 items-center gap-2 truncate text-base leading-none">
                     {item.label}
+                    {isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && <MenuSpinner />}
                     {showNotifBadge && (
                       <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
+                  </span>
+                )}
+                {isCollapsed && isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && (
+                  <span className="absolute right-1 top-1">
+                    <MenuSpinner />
                   </span>
                 )}
                 {!isCollapsed && hasSubItems && (

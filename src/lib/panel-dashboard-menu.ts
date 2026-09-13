@@ -41,9 +41,9 @@ export const DASHBOARD_SECTION_ORDER: string[] = [
   'menu-nov-hospedagem',
   DASHBOARD_EMAIL_SECTION_ID,
   'menu-nov-dominios',
+  'menu-nov-wordpress',
   'menu-utilizadores',
   'menu-nov-notificacoes',
-  'menu-nov-wordpress',
   'menu-nov-sistema',
 ];
 

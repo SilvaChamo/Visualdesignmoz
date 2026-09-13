@@ -242,7 +242,7 @@ export function QuotationMessagesThread({
     <div className="flex flex-col h-full min-h-[320px]">
       <div className="flex-1 overflow-y-auto space-y-3 p-1">
         {loading ? (
-          <p className="text-sm text-gray-400 dark:text-zinc-500">A carregar conversa...</p>
+          <p className="flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar conversa...</p>
         ) : items.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-zinc-500 flex items-center gap-1.5">
             <MessageSquare className="w-4 h-4" />

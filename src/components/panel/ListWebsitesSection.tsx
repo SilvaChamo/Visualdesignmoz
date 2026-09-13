@@ -96,14 +96,34 @@ export function SiteThumbnail({
   )
 }
 function sortSitesPrimaryFirst(list: DirectAdminWebsite[], primaryDomain?: string | null) {
-  if (!primaryDomain) return list
-  const primary = primaryDomain.toLowerCase()
+  const primary = resolveListPrimaryDomain(list, primaryDomain)
+  if (!primary) return list
   return [...list].sort((a, b) => {
     const aPri = a.domain.toLowerCase() === primary ? 0 : 1
     const bPri = b.domain.toLowerCase() === primary ? 0 : 1
     if (aPri !== bPri) return aPri - bPri
     return a.domain.localeCompare(b.domain)
   })
+}
+
+function resolveListPrimaryDomain(
+  sites: DirectAdminWebsite[],
+  preferred?: string | null,
+): string | null {
+  if (!sites.length) return null
+  const domains = new Set(sites.map((s) => s.domain.toLowerCase()).filter(Boolean))
+  const candidates: string[] = []
+  if (preferred?.trim()) candidates.push(preferred.trim().toLowerCase())
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.replace(/^www\./i, '').toLowerCase()
+    if (host && !host.startsWith('localhost') && host !== '127.0.0.1') candidates.push(host)
+  }
+  candidates.push('visualdesignmoz.com', 'teste.visualdesignmoz.com')
+  for (const candidate of candidates) {
+    if (domains.has(candidate)) return candidate
+  }
+  const visual = sites.find((s) => /visualdesign/i.test(s.domain))
+  return visual?.domain.toLowerCase() ?? sites[0]?.domain.toLowerCase() ?? null
 }
 
 function isAdminOwnedSite(site: DirectAdminWebsite, resellerOwners: Set<string>): boolean {
@@ -269,6 +289,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     }),
     primaryDomain,
   )
+  const listPrimaryDomain = resolveListPrimaryDomain(filtered, primaryDomain)
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -680,17 +701,28 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       )}
 
       {filtered.length === 0 && !daLoadError && (
-        <p className="text-center text-gray-500 py-8">
-          {wpListLoading || nextJsListLoading
-            ? 'A detectar sites instalados…'
-            : 'Nenhum site instalado. Domínios sem WordPress, Next.js ou HTML não aparecem aqui.'}
-        </p>
+        wpListLoading || nextJsListLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spinner />
+            A detectar sites instalados…
+          </div>
+        ) : (
+          <p className="text-center text-gray-500 py-8">
+            Nenhum site instalado. Domínios sem WordPress, Next.js ou HTML não aparecem aqui.
+          </p>
+        )
       )}
 
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
-        {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} transition-all`}>
+        {paginatedSites.map((s, i) => {
+          const isPrimary = Boolean(listPrimaryDomain && s.domain.toLowerCase() === listPrimaryDomain)
+          return (
+          <div key={s.domain || i} className={`bg-white rounded border transition-all ${
+            isPrimary
+              ? 'border-red-300 ring-1 ring-red-200 shadow-md'
+              : expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'
+          }`}>
 
             {/* Linha do site com botões explícitos */}
             <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
@@ -708,10 +740,13 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   href={`https://${s.domain}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-sm text-gray-900 dark:text-zinc-100 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  className={`${isPrimary ? 'text-base' : 'text-sm'} font-bold text-gray-900 dark:text-zinc-100 hover:text-red-600 dark:hover:text-red-400 transition-colors`}
                 >
                   {s.domain}
                 </a>
+                {isPrimary && (
+                  <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded-full text-xs font-bold">Principal</span>
+                )}
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(s.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {parseState(s.state) || 'Active'}
                 </span>
@@ -917,7 +952,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Paginação */}

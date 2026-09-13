@@ -3692,6 +3692,7 @@ function ClientPageContent() {
         readOnly={clientReadOnly}
         hasEncomendas={hasEncomendas}
         hasDomains={directAdminSites.length > 0}
+        isLoading={isFetchingDirectAdmin}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">

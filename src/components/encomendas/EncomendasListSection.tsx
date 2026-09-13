@@ -117,8 +117,8 @@ export function EncomendasListSection() {
         </button>
 
         {loading && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 text-base text-gray-500 dark:text-zinc-400">
-            A carregar...
+          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 text-base text-gray-500 dark:text-zinc-400">
+            <Spinner /> A carregar...
           </div>
         )}
 

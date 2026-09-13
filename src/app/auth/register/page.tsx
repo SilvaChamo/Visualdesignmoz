@@ -2,6 +2,7 @@
 import React, { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AuthPageShell } from '@/components/auth/AuthPageShell'
+import { Spinner } from '@/components/ui/spinner'
 import {
   authCardClass,
   authErrorBoxClass,
@@ -378,7 +379,8 @@ export default function RegisterPage() {
   return (
     <Suspense fallback={
       <AuthPageShell>
-        <div className="flex items-center justify-center p-8">
+        <div className="flex items-center justify-center gap-2 p-8">
+          <Spinner />
           <p className="text-zinc-500 font-medium">A carregar...</p>
         </div>
       </AuthPageShell>

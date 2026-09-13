@@ -6631,7 +6631,9 @@ export function NameserverManagementSection({
         )}
 
         {loadingNs && (
-          <p className="mb-4 text-sm text-gray-400 dark:text-zinc-500">A carregar nameservers actuais…</p>
+          <p className="mb-4 flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500">
+            <Spinner /> A carregar nameservers actuais…
+          </p>
         )}
         {loadError && !loadingNs && (
           <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
@@ -8402,8 +8404,8 @@ const FileManagerCodeEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className={`${panelField} flex min-h-[65vh] items-center justify-center text-sm text-gray-400`}>
-        A carregar editor…
+      <div className={`${panelField} flex min-h-[65vh] items-center justify-center gap-2 text-sm text-gray-400`}>
+        <Spinner /> A carregar editor…
       </div>
     ),
   },
@@ -12428,8 +12430,8 @@ export function SMTPConfigSection() {
       </div>
 
       {statusLoading && !status ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-          A carregar estado...
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          <Spinner /> A carregar estado...
         </div>
       ) : (
         <>

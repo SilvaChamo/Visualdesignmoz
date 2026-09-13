@@ -292,8 +292,8 @@ export function DirectAdminEmailsSection() {
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-bold text-gray-700">
-              {loading ? 'A carregar...' : `${emails.length} conta${emails.length !== 1 ? 's' : ''} em @${selectedDomain}`}
+            <span className="text-sm font-bold text-gray-700 inline-flex items-center gap-2">
+              {loading ? <><Spinner /> A carregar...</> : `${emails.length} conta${emails.length !== 1 ? 's' : ''} em @${selectedDomain}`}
             </span>
           </div>
         </div>

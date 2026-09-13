@@ -5,6 +5,7 @@ import { Smartphone, Landmark, CheckCircle2, Wallet, FileText } from 'lucide-rea
 import { formatMt } from '@/lib/pricing-catalog';
 import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB, metodoPagamentoLabel } from '@/lib/quotation-payment-info';
 import { panelCard, panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
+import { Spinner } from '@/components/ui/spinner';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
 
@@ -65,7 +66,11 @@ export function EncomendasPagamentosSection() {
   const numeros = useBatchNumeros();
 
   if (loading) {
-    return <p className="text-sm text-gray-400 dark:text-zinc-500">A carregar...</p>;
+    return (
+      <p className="flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500">
+        <Spinner /> A carregar...
+      </p>
+    );
   }
 
   if (batches.length === 0) {

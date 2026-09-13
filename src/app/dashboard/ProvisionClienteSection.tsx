@@ -563,7 +563,7 @@ export function ProvisionClienteSection({
               Ligar a uma conta de hospedagem que já existe no servidor (contas novas nascem sempre na compra pública, não aqui).
             </p>
             {loadingUnlinkedHosting ? (
-              <p className="text-sm text-gray-500">A carregar contas disponíveis…</p>
+              <p className="flex items-center gap-2 text-sm text-gray-500"><Spinner /> A carregar contas disponíveis…</p>
             ) : unlinkedHostingAccounts.length === 0 ? (
               <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
                 Nenhuma conta de hospedagem por associar — fica conta simples.

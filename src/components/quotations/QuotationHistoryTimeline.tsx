@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { statusMeta } from '@/lib/quotation-status-labels';
 
 type HistoryEntry = {
@@ -40,7 +41,7 @@ export function QuotationHistoryTimeline({ quotationId }: { quotationId: string 
   }, [quotationId]);
 
   if (loading) {
-    return <p className="text-sm text-gray-400 dark:text-zinc-500">A carregar histórico...</p>;
+    return <p className="flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar histórico...</p>;
   }
 
   if (entries.length === 0) {

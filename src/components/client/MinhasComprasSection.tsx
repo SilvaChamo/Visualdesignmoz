@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ShoppingBag, FileDown, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react';
 import { metodoPagamentoLabel } from '@/lib/quotation-payment-info';
+import { Spinner } from '@/components/ui/spinner';
 
 type CompraItem = {
   name?: string;
@@ -53,7 +54,7 @@ export function MinhasComprasSection() {
   }, []);
 
   if (loading) {
-    return <div className="p-6 text-sm text-slate-500 dark:text-zinc-400">A carregar as suas compras…</div>;
+    return <div className="flex items-center gap-2 p-6 text-sm text-slate-500 dark:text-zinc-400"><Spinner /> A carregar as suas compras…</div>;
   }
 
   if (error) {
