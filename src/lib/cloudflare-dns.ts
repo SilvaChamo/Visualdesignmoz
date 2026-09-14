@@ -187,26 +187,40 @@ export async function upsertCloudflareRecord(
 
   try {
     const existing = await findExistingRecords(headers, zoneId, record.type, name);
-    const sameContent = existing.find((r) => r.content === content);
+
+    // SPF só pode ter um por domínio (2 registos "v=spf1" causam permerror e
+    // podem reprovar TODO o email do domínio). #11 (2026-09-14, backport de
+    // visualdesign-teste): mudar o IP do servidor criava um SPF novo em vez
+    // de substituir o antigo — apanhado ao testar o email do
+    // entrecamposblog.com no Contabo. Limpa qualquer SPF "órfão" (diferente
+    // do que se está agora a aplicar) ANTES de decidir se há algo a fazer —
+    // senão, voltar a aplicar o mesmo valor correcto uma segunda vez nunca
+    // chegava a limpar o antigo (a verificação de "já está igual" abaixo
+    // saía mais cedo). #11b: os registos apagados deixam de ser candidatos a
+    // "substituir" — um PUT sobre um id já apagado falharia (404).
+    const isSpf = record.type === 'TXT' && /^v=spf1\b/i.test(content);
+    let candidates = existing;
+    if (isSpf) {
+      const stale = existing.filter((r) => /^v=spf1\b/i.test(r.content) && r.content !== content);
+      for (const s of stale) {
+        await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${s.id}`, { method: 'DELETE', headers }).catch(() => {});
+      }
+      const staleIds = new Set(stale.map((s) => s.id));
+      candidates = existing.filter((r) => !staleIds.has(r.id));
+    }
+
+    const sameContent = candidates.find((r) => r.content === content);
     if (sameContent) {
       return { ok: true, name, type: record.type, action: 'skipped' };
     }
 
     // Para A/AAAA/CNAME (registos "singulares" na prática deste uso) troca
     // o existente em vez de duplicar; MX/TXT podem coexistir (ex: DKIM +
-    // brevo-code, os dois em TXT), cria novo — EXCEPTO o SPF, que também só
-    // pode ter um por domínio (2 registos "v=spf1" causam permerror e podem
-    // reprovar TODO o email do domínio). #11 (2026-09-14, backport de
-    // visualdesign-teste): mudar o IP do servidor criava um SPF novo em vez
-    // de substituir o antigo — apanhado ao testar o email do
-    // entrecamposblog.com no Contabo.
-    const isSpf = record.type === 'TXT' && /^v=spf1\b/i.test(content);
-    const singular = record.type === 'A' || record.type === 'AAAA' || record.type === 'CNAME' || isSpf;
-    const toReplace = isSpf
-      ? existing.find((r) => /^v=spf1\b/i.test(r.content))
-      : singular
-        ? existing[0]
-        : undefined;
+    // brevo-code, os dois em TXT), cria novo — SPF é sempre singular (ver
+    // acima; qualquer SPF conflituoso já foi apagado, por isso cria-se
+    // sempre de novo em vez de tentar substituir um id já removido).
+    const singular = record.type === 'A' || record.type === 'AAAA' || record.type === 'CNAME';
+    const toReplace = singular ? candidates[0] : undefined;
 
     const body: Record<string, unknown> = {
       type: record.type,
