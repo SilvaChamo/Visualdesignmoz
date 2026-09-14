@@ -232,9 +232,19 @@ export async function upsertCloudflareRecord(
     }
 
     // Para A/AAAA/CNAME (registos "singulares" na prática deste uso) troca
-    // o existente em vez de duplicar; MX/TXT podem coexistir, cria novo.
-    const singular = record.type === 'A' || record.type === 'AAAA' || record.type === 'CNAME';
-    const toReplace = singular ? existing[0] : undefined;
+    // o existente em vez de duplicar; MX/TXT podem coexistir (ex: DKIM +
+    // brevo-code, os dois em TXT), cria novo — EXCEPTO o SPF, que também só
+    // pode ter um por domínio (2 registos "v=spf1" causam permerror e podem
+    // reprovar TODO o email do domínio). #11 (2026-09-14): mudar o IP do
+    // servidor criava um SPF novo em vez de substituir o antigo — apanhado
+    // ao testar o email do entrecamposblog.com no Contabo.
+    const isSpf = record.type === 'TXT' && /^v=spf1\b/i.test(content);
+    const singular = record.type === 'A' || record.type === 'AAAA' || record.type === 'CNAME' || isSpf;
+    const toReplace = isSpf
+      ? existing.find((r) => /^v=spf1\b/i.test(r.content))
+      : singular
+        ? existing[0]
+        : undefined;
 
     const body: Record<string, unknown> = {
       type: record.type,
