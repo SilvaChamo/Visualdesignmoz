@@ -1,0 +1,55 @@
+name: "Ops - Desligar ClamAV no Contabo (baixar carga)"
+
+# ============================================================================
+# ESCREVE so no Contabo. Passo conservador, reversivel:
+#   - para e desactiva o servico clamav-daemon (antivirus que vem com o
+#     Hestia, para analisar anexos de email) — confirmado no teste de
+#     capacidade de 2026-09-14: sozinho, o clamd consumia 21% CPU e 28% de
+#     toda a RAM do servidor, em repouso, sem nenhum cliente real a usar o
+#     Contabo ainda. E o maior consumidor de recursos da maquina inteira.
+#   - Como o Contabo ainda nao recebe email a serio (MX continua no
+#     Hetzner), desligar isto agora nao remove nenhuma proteccao real em
+#     uso — so volta a ligar-se antes de qualquer dominio real passar a
+#     receber email pelo Contabo.
+# Reverter: systemctl enable --now clamav-daemon clamav-freshclam
+# ============================================================================
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tune:
+    name: desligar clamav no Contabo (medir antes/depois)
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Parar clamav + medir"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            echo "===== ANTES ====="
+            cat /proc/loadavg
+            ps -eo pid,pcpu,pmem,rss,user,comm --sort=-pcpu | head -6
+            echo
+            echo "===== parar clamav ====="
+            systemctl stop clamav-daemon clamav-freshclam 2>&1
+            systemctl disable clamav-daemon clamav-freshclam 2>&1
+            systemctl status clamav-daemon --no-pager 2>&1 | head -5
+            echo
+            echo "===== confirmar que o resto continua de pe ====="
+            docker ps --filter health=unhealthy --format '{{.Names}}'
+            for i in 1 2 3; do curl -s -o /dev/null -w "  painel: %{http_code} em %{time_total}s\n" -H "Host: teste.visualdesignmoz.com" http://127.0.0.1:3002/ ; done
+            echo
+            echo "===== esperar 2 min e medir a carga ====="
+            sleep 120
+            cat /proc/loadavg
+            uptime
+            echo "-- top 8 CPU --"
+            ps -eo pcpu,pmem,comm --sort=-pcpu | head -9
+            echo "-- memoria --"
+            free -h
+            echo "===== FEITO (clamav parado e desactivado) ====="
