@@ -1,0 +1,26 @@
+name: Provision email auth for a domain (Contabo)
+
+# Fica em main (o branch por omissão do repositório) só porque um workflow
+# workflow_dispatch novo precisa de estar no branch por omissão para o
+# GitHub o deixar disparar — a chamada em si é sempre para o Contabo/teste
+# (a rota /api/cron/provision-email-auth só existe lá, nunca no Hetzner).
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domínio a aplicar/actualizar autenticação de email (ex.: entrecamposblog.com)'
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de autenticação de email no Contabo
+        env:
+          DOMAIN: ${{ github.event.inputs.domain }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -f -G "https://teste.visualdesignmoz.com/api/cron/provision-email-auth" \
+            --data-urlencode "domain=$DOMAIN" \
+            -H "Authorization: Bearer $CRON_SECRET"
