@@ -171,7 +171,7 @@ export function CompactFooter() {
               {/* Visa */}
               <img src="/assets/visa.jpg" alt="Visa" className="h-6 w-auto object-contain rounded-none" />
               {/* Mastercard SVG */}
-              <div className="h-6 w-9 bg-zinc-900 border border-white/5 rounded-none flex items-center justify-center p-1">
+              <div className="h-6 w-9 bg-[#18181b] border border-white/5 rounded-none flex items-center justify-center p-1">
                 <svg className="h-4 w-auto" viewBox="0 0 24 16">
                   <circle cx="8" cy="8" r="8" fill="#EB001B" />
                   <circle cx="16" cy="8" r="8" fill="#F79E1B" fillOpacity="0.8" />

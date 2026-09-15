@@ -21,7 +21,30 @@ export async function POST(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
-    
+
+    // Antes de perguntar ao registador se está disponível, verificar se já
+    // está na nossa própria lista de domínios registados/geridos (mesmo que
+    // tenha entretanto expirado no mundo real e ainda não tenha sido
+    // removido daqui) — sem isto, esse domínio podia aparecer como
+    // "disponível" e deixar alguém tentar registá-lo por cima do nosso.
+    // Também poupa a chamada à API do registador nesse caso.
+    if (supabase) {
+      const { data: owned } = await supabase
+        .from('domain_renewals')
+        .select('domain_name')
+        .eq('domain_name', fullDomain)
+        .limit(1)
+        .maybeSingle();
+      if (owned) {
+        return NextResponse.json({
+          available: false,
+          domain: fullDomain,
+          alreadyOurs: true,
+          message: 'Este domínio já está registado connosco.',
+        });
+      }
+    }
+
     // 1. Iniciar chamadas à base de dados (Rate Limit) e API do registador em paralelo
     const threshold = new Date(Date.now() - 300 * 1000).toISOString();
     const dbPromise = supabase

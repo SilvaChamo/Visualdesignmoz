@@ -17,11 +17,11 @@ export const backupDomainModeRow = 'flex flex-wrap items-center gap-5'
 export const backupDomainModeLabel =
   'flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300'
 
-/** Lista de domínios: 4 colunas, fundo suave e linhas a tocar nas laterais do cartão */
+/** Lista de domínios: coluna única (vertical), fundo suave e linhas a tocar nas laterais do cartão */
 export const backupDomainSection =
   '-mx-6 border-y border-gray-200 bg-gray-100 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'
 
-export const backupDomainGrid = 'grid grid-cols-2 gap-x-4 gap-y-1.5 px-6 sm:grid-cols-4'
+export const backupDomainGrid = 'grid grid-cols-1 gap-y-1.5 px-6'
 
 /** Cortina — desliza para baixo ao seleccionar domínios */
 export const backupDomainCurtain =
