@@ -16,6 +16,7 @@ import { getServerHost } from '@/lib/server-config';
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache';
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache';
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache';
+import { WordPressPanelBadge } from '@/components/panel/WordPressPanelBadge';
 import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
 import type { PanelBootstrapScope } from '@/lib/panel-data-from-server';
 import { directAdminAPI } from '@/lib/directadmin-api';
@@ -161,7 +162,7 @@ const SITE_KIND_BADGE = 'px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text
 
 function SiteKindBadge({ site }: { site: DirectAdminWebsite }) {
   if (isWordPressSite(site)) {
-    return <span className={SITE_KIND_BADGE}>WordPress</span>
+    return <WordPressPanelBadge domain={site.domain} />
   }
   if (isNextJsSite(site)) {
     return <span className={SITE_KIND_BADGE}>Next.js</span>
@@ -211,6 +212,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     new Set(readWpInstallsCache(panelScope).map((d) => d.toLowerCase())),
   )
   const [nextJsDomainSet, setNextJsDomainSet] = useState<Set<string>>(() => new Set(readCachedNextJsDomains()))
+  const [wpOwnerByDomain, setWpOwnerByDomain] = useState<Map<string, string>>(() => new Map())
   const [wpListLoading, setWpListLoading] = useState(false)
   const [nextJsListLoading, setNextJsListLoading] = useState(() => readCachedNextJsDomains().length === 0)
   const [wpListError, setWpListError] = useState('')
@@ -234,15 +236,23 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       if (!s.domain) continue
       map.set(s.domain.toLowerCase(), s)
     }
+    // A lista de instalações WordPress responde em segundos e já vem filtrada pelo âmbito
+    // de quem está no painel: os sites WordPress entram mesmo que a lista de domínios do
+    // servidor ainda não tenha chegado (no Mac, via SSH, pode passar dos 30 s).
     for (const domain of wpDomainSet) {
       const existing = map.get(domain)
-      if (existing) {
-        map.set(domain, {
-          ...existing,
-          siteType: 'wordpress',
-          hasWordPress: true,
-        })
-      }
+      map.set(domain, existing
+        ? { ...existing, siteType: 'wordpress', hasWordPress: true }
+        : {
+            id: domain,
+            domain,
+            owner: wpOwnerByDomain.get(domain) || undefined,
+            siteType: 'wordpress',
+            hasWordPress: true,
+            state: 'Active',
+            status: 'Active',
+            isActive: true,
+          })
     }
     for (const domain of nextJsDomainSet) {
       const existing = map.get(domain)
@@ -267,7 +277,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       })
     }
     return Array.from(map.values())
-  }, [sitesArray, wpDomainSet, nextJsDomainSet])
+  }, [sitesArray, wpDomainSet, wpOwnerByDomain, nextJsDomainSet])
 
   const filtered = sortSitesPrimaryFirst(
     mergedSitesArray.filter(s => {
@@ -332,6 +342,9 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         const domains = data.installs.map((i: { domain: string }) => i.domain.toLowerCase())
         writeWpInstallsCache(domains, panelScope)
         setWpDomainSet(new Set(domains))
+        setWpOwnerByDomain(new Map(
+          data.installs.map((i: { domain: string; user?: string }) => [i.domain.toLowerCase(), String(i.user || '')]),
+        ))
       } catch (e: unknown) {
         if (!cancelled && wordpressOnly && !cached.length) {
           setWpListError(e instanceof Error ? e.message : 'Erro de ligação ao carregar sites WordPress.')

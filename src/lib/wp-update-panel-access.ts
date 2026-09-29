@@ -1,6 +1,7 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
+import { filterSitesForAdminPanel } from '@/lib/panel-scope-filter';
 import type { WpInstallInfo } from '@/lib/wp-cli-server';
 
 export type PanelWpScope = {
@@ -60,9 +61,14 @@ export async function getAllowedPanelWpDomains(scope: PanelWpScope): Promise<Set
     );
   }
 
+  // Admin: os mesmos sites da lista "Sites" do painel — empresa e clientes directos
+  // (ex.: aamihe.com). Antes eram só os da empresa, e os WordPress de clientes directos
+  // nunca apareciam nem abriam. Contas de revenda e as suas sub-contas ficam de fora
+  // (aparecem no painel do revendedor), tal como na lista.
+  const { listHostingUsers } = await import('@/lib/hosting-resolver');
+  const users = await listHostingUsers();
   return new Set(
-    sites
-      .filter((s) => isCompanyHostingOwner(s.owner))
+    filterSitesForAdminPanel(sites, users)
       .map((s) => (s.domain || '').toLowerCase())
       .filter(Boolean),
   );
@@ -74,10 +80,7 @@ export function filterWpInstallsForPanel(
   allowedDomains: Set<string>,
 ): WpInstallInfo[] {
   if (scope.role === 'admin') {
-    return installs.filter((install) => {
-      if (!isCompanyHostingOwner(install.user)) return false;
-      return allowedDomains.has(install.domain.toLowerCase());
-    });
+    return installs.filter((install) => allowedDomains.has(install.domain.toLowerCase()));
   }
   const daUser = scope.daUsername.toLowerCase();
   return installs.filter((install) => {

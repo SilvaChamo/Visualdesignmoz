@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { panelBtnPrimary, panelBtnSecondary, panelCard, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard, panelTabList, panelTabBtn } from '@/lib/panel-ui'
 import { PanelIconTip } from '@/components/panel/PanelIconTip'
+import { WordPressPanelBadge, useWordPressDomains } from '@/components/panel/WordPressPanelBadge'
 import { Spinner } from '@/components/ui/spinner'
 import { clearAllPanelClientCaches } from '@/lib/panel-session-cache-clear'
 import { directAdminAPI } from '@/lib/directadmin-api'
@@ -10606,6 +10607,7 @@ export function DomainManagerSection({
     [sites],
   )
 
+  const wordPressDomains = useWordPressDomains()
   const siteByDomain = useMemo(() => {
     const map = new Map<string, DirectAdminWebsite>()
     for (const s of sites) map.set(s.domain.toLowerCase(), s)
@@ -11166,6 +11168,7 @@ export function DomainManagerSection({
                           Sem SSL
                         </span>
                       )}
+                      {wordPressDomains.has(d.domain.toLowerCase()) && <WordPressPanelBadge domain={d.domain} />}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-start gap-2 text-xs">
                       <span className={`font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
