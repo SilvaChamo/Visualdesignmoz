@@ -52,11 +52,16 @@ export function resolveUserRole(source: RoleSource): UserRole {
   // navegar manualmente para /dashboard (que já reconhecia este mesmo email).
   if (email && ADMIN_BOOTSTRAP_EMAILS.has(email)) return 'admin';
 
-  const metaRole = readRole(source.userMetadata?.role) ?? readRole(source.appMetadata?.role);
+  // O user_metadata é editável pelo próprio utilizador (supabase.auth.updateUser), por
+  // isso nunca pode dar papéis de staff: admin/manager/reseller só vêm do app_metadata
+  // (escrito só pelo servidor), do perfil (a coluna role deixou de ser editável pelo
+  // próprio — RLS de 29 set) ou do registo. Para os restantes papéis continua a contar.
+  const appMetaRole = readRole(source.appMetadata?.role);
+  const metaRole = readRole(source.userMetadata?.role) ?? appMetaRole;
   const profileRole = readRole(source.profileRole);
 
-  if (profileRole === 'admin' || metaRole === 'admin') return 'admin';
-  if (profileRole === 'manager' || metaRole === 'manager') return 'manager';
+  if (profileRole === 'admin' || appMetaRole === 'admin') return 'admin';
+  if (profileRole === 'manager' || appMetaRole === 'manager') return 'manager';
 
   const registryRole = resolveRegistryPanelRole({
     email,
@@ -64,7 +69,7 @@ export function resolveUserRole(source: RoleSource): UserRole {
   });
   if (registryRole) return registryRole;
 
-  if (profileRole === 'reseller' || metaRole === 'reseller') return 'reseller';
+  if (profileRole === 'reseller' || appMetaRole === 'reseller') return 'reseller';
   if (profileRole === 'profissional' || metaRole === 'profissional') return 'profissional';
   if (profileRole === 'client' || metaRole === 'client') return 'client';
 

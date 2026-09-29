@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, getVerifiedSession } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     // Auth check using standard app router client
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getVerifiedSession(supabase);
 
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

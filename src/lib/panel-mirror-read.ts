@@ -24,6 +24,9 @@ export type MirrorScope = {
   role: 'admin' | 'reseller';
   userId?: string;
   daUsername?: string;
+  /** Contas de domínio ligadas que este âmbito também gere directamente
+   * (Enterprise — ver linked-accounts.ts). Nunca inclui contas trancadas. */
+  linkedOwners?: string[];
 };
 
 const scopeCache = new Map<string, { isAdmin: boolean; daUsername?: string; at: number }>();
@@ -237,7 +240,8 @@ export async function listMirrorWebsites(scope: MirrorScope): Promise<PanelWebsi
 
   let query = admin.from('panel_sites').select('*').order('domain');
   if (!isAdmin && daUsername) {
-    query = query.eq('owner', daUsername);
+    const owners = [daUsername, ...(scope.linkedOwners || [])];
+    query = owners.length > 1 ? query.in('owner', owners) : query.eq('owner', daUsername);
   }
   const { data, error } = await query;
   if (error) {

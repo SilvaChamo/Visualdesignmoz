@@ -51,13 +51,19 @@ export async function createAccount(input: {
   email: string;
   domain: string;
   packageName: string;
-}): Promise<{ ok: boolean; error?: string }> {
+  /** true = uma conta com este nome já existir é erro (nunca junta o domínio
+   * a uma conta alheia) — usado nas contas próprias de domínios ligados. */
+  requireNewUser?: boolean;
+}): Promise<{ ok: boolean; error?: string; userExists?: boolean }> {
   const userResult = await hestiaCall('v-add-user', [
     input.username,
     input.password,
     input.email,
     input.packageName,
   ]);
+  if (!userResult.ok && isAlreadyExistsError(userResult.error) && input.requireNewUser) {
+    return { ok: false, error: userResult.error, userExists: true };
+  }
   if (!userResult.ok && !isAlreadyExistsError(userResult.error)) {
     return { ok: false, error: userResult.error };
   }
@@ -160,6 +166,33 @@ export async function changePassword(
 ): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-change-user-password', [username, password]);
   return { ok: result.ok, error: result.error };
+}
+
+/** Confirma a password de uma conta (`v-check-user-password`) — é a "chave"
+ * pedida para entrar numa conta de domínio ligada (plano Premium). Só conta o
+ * código de saída real da API (0 = certa). Se a API cair para o SSH, o
+ * sucesso não imprime nada e o resultado fica `ok: false` — falha fechada,
+ * nunca deixa entrar com uma password errada. */
+export async function checkUserPassword(
+  username: string,
+  password: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!username || !password) return { ok: false, error: 'Credenciais em falta.' };
+  const result = await hestiaCall('v-check-user-password', [username, password]);
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** Limite de domínios web de cada pacote (nome em minúsculas → limite; null =
+ * sem limite). Mapa vazio quando o Hestia não responde. */
+export async function listPackageDomainLimits(): Promise<Map<string, number | null>> {
+  const limits = new Map<string, number | null>();
+  const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-user-packages');
+  if (!result.ok) return limits;
+  for (const [name, pkg] of Object.entries(result.data)) {
+    if (name === 'system') continue;
+    limits.set(name.toLowerCase(), parseHestiaLimit(pkg?.WEB_DOMAINS));
+  }
+  return limits;
 }
 
 export type HestiaUser = {

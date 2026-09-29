@@ -11,6 +11,7 @@ import {
 import { getResellerDaUsername } from '@/lib/directadmin-credentials';
 import type { MirrorScope } from '@/lib/panel-mirror-read';
 import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
+import { resolveAccountScope, type AccountScope } from '@/lib/linked-accounts';
 
 export const IMPERSONATE_COOKIE = 'vd_impersonate_reseller';
 
@@ -25,6 +26,9 @@ export type PanelDaContext = {
   mirrorScope: MirrorScope;
   impersonating: string | null;
   effectiveRole: 'admin' | 'reseller';
+  /** Nível e contas de domínio ligadas da conta principal (Hestia). null para
+   * o admin sem impersonação e no deploy DirectAdmin. */
+  accountScope?: AccountScope | null;
 };
 
 function hestiaDaApiStub(): DirectAdminServerAPI {
@@ -52,18 +56,35 @@ export async function resolvePanelDaContext(
       auth.user.role === 'reseller' ||
       auth.user.role === 'manager' ||
       auth.user.role === 'profissional';
-    const daUsername = impersonating || (isReseller ? await getResellerDaUsername({
+    const mainAccount = impersonating || (isReseller ? await getResellerDaUsername({
       id: auth.user.id,
       email: auth.user.email,
       role: 'reseller',
     }) : undefined);
+    // Premium: se o login entrou numa conta de domínio ligada (com as
+    // credenciais dela), todo o painel passa a trabalhar nessa conta.
+    // Enterprise: a conta principal gere também as ligadas (linkedOwners).
+    // O admin a impersonar nunca "entra" com credenciais (sessionUserId null).
+    const accountScope = mainAccount
+      ? await resolveAccountScope(mainAccount, impersonating ? null : auth.user.id)
+      : null;
+    const activeAccount = accountScope?.entered || mainAccount;
+    const linkedOwners = accountScope && !accountScope.entered
+      ? accountScope.manageOwners.filter((owner) => owner !== accountScope.main)
+      : [];
     return {
       daApi: hestiaDaApiStub(),
       mirrorScope: isReseller
-        ? { role: 'reseller', userId: auth.user.id, daUsername: daUsername || undefined }
+        ? {
+            role: 'reseller',
+            userId: auth.user.id,
+            daUsername: activeAccount || undefined,
+            ...(linkedOwners.length ? { linkedOwners } : {}),
+          }
         : { role: 'admin', userId: auth.user.id },
       impersonating,
       effectiveRole: isReseller ? 'reseller' : 'admin',
+      accountScope,
     };
   }
 

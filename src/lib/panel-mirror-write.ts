@@ -41,10 +41,13 @@ export async function upsertMirrorUser(row: {
     status: row.status ?? 'Active',
     websites_limit: row.websites_limit ?? 0,
     emails_limit: row.emails_limit ?? 0,
-    parent_username: row.parent_username ?? null,
     synced_at: ts,
     updated_at: ts,
   };
+  // Só grava a conta principal quando é pedida (incluindo null explícito) —
+  // omitir já não desliga uma conta de domínio da sua conta principal
+  // (panel_users.parent_username, ver linked-accounts.ts).
+  if (row.parent_username !== undefined) payload.parent_username = row.parent_username;
   if (row.auth_user_id) payload.auth_user_id = row.auth_user_id;
   if (row.package_name) payload.package_name = row.package_name;
   if (row.hosting_provider) payload.hosting_provider = row.hosting_provider;

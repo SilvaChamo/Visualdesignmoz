@@ -32,6 +32,16 @@ export async function assertPathsOwnedByCaller(paths: string[], userId: string):
   }
   if (owners.size === 0) return true;
 
+  // Hestia: mesmas regras do resto do painel (domain-access.ts) — conta
+  // activa + contas ligadas geridas directamente (Enterprise). No Premium as
+  // contas ligadas só se abrem depois de entrar nelas com as credenciais.
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  if (isHestiaOnlyDeploy()) {
+    const { resolveCallerManagedOwners, isOwnerManaged } = await import('@/lib/domain-access');
+    const managed = await resolveCallerManagedOwners({ user: { id: userId, role: 'reseller' } });
+    return [...owners].every((owner) => isOwnerManaged(managed, owner));
+  }
+
   const { getResellerDaUsername } = await import('@/lib/directadmin-credentials');
   const daUsername = (await getResellerDaUsername({ id: userId, role: 'reseller' })).toLowerCase();
   if (!daUsername) return false;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
 import { decryptStoredPassword } from '@/lib/panel-access-credentials'
 
@@ -15,7 +15,7 @@ const decrypt = decryptStoredPassword
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = await getVerifiedSession(supabase);
 
   if (!session) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -57,14 +57,12 @@ export async function POST(req: NextRequest) {
 
     // Revendedor: só se o domínio da conta pertencer de facto à sua conta DA — nunca um
     // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
+    // Mesma regra do resto do painel (domain-access.ts): conta activa +
+    // contas ligadas geridas directamente (Enterprise); Premium trancado.
     if (!canAccess && effectiveRole === 'reseller' && accountDomain) {
-      const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store');
-      const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
-      const username = await resolveOwnerDaUsername(session.user.id);
-      if (username) {
-        const owner = await resolveHostingOwner(accountDomain);
-        canAccess = owner === username;
-      }
+      const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+      const access = await resolveOwnAccountDomainAccess(session.user.id, accountDomain);
+      canAccess = access.allowed;
     }
 
     if (!canAccess) {

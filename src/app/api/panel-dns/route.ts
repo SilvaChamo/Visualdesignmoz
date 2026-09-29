@@ -9,6 +9,7 @@ import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { requireDaAccessForDomain } from '@/lib/panel-domain-access';
 import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
+import { denyUnlessCallerManagesDomain } from '@/lib/domain-access';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { isMirrorStale, listMirrorDns } from '@/lib/panel-mirror-read';
 import { resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
@@ -22,20 +23,6 @@ import {
   listCloudflareDnsRecords,
   upsertCloudflareRecord,
 } from '@/lib/cloudflare-dns';
-
-async function canAccessDomain(
-  role: 'admin' | 'reseller' | 'manager' | 'profissional',
-  userId: string,
-  domain: string,
-  impersonatingDaUsername?: string | null,
-): Promise<boolean> {
-  if (role === 'admin') return true;
-  // resolveHostingOwner: no Contabo devolve HESTIA_USER; no Hetzner consulta mirror
-  const owner = await resolveHostingOwner(domain);
-  if (impersonatingDaUsername) return owner === impersonatingDaUsername;
-  const username = await resolveOwnerDaUsername(userId);
-  return username ? owner === username : false;
-}
 
 /** Dono real do domínio + onde vive hoje — despacha DNS para o adaptador certo. */
 async function resolveDnsProvider(domain: string): Promise<{ provider: 'hestia' | 'directadmin'; owner: string | null }> {
@@ -112,9 +99,8 @@ export async function GET(req: NextRequest) {
       mirrorScope = { role: 'admin', userId: auth.user.id };
     } else {
       staffCtx = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
-      if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, staffCtx.impersonating))) {
-        return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
-      }
+      const domainDenied = await denyUnlessCallerManagesDomain(auth as PanelStaffAuthSuccess, domain);
+      if (domainDenied) return domainDenied;
       mirrorScope = staffCtx.mirrorScope;
     }
 
@@ -210,9 +196,8 @@ export async function POST(req: NextRequest) {
     if (auth.user.role !== 'client') {
       const ctx = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
       impersonating = ctx.impersonating;
-      if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, impersonating))) {
-        return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
-      }
+      const domainDenied = await denyUnlessCallerManagesDomain(auth as PanelStaffAuthSuccess, domain);
+      if (domainDenied) return domainDenied;
     }
 
     const cfZoneId = await findCloudflareZoneId(domain);
@@ -305,9 +290,8 @@ export async function DELETE(req: NextRequest) {
     if (auth.user.role !== 'client') {
       const ctx = await resolvePanelDaContext(auth as PanelStaffAuthSuccess);
       impersonating = ctx.impersonating;
-      if (!(await canAccessDomain(auth.user.role, auth.user.id, domain, impersonating))) {
-        return NextResponse.json({ success: false, error: 'Sem acesso a este domínio' }, { status: 403 });
-      }
+      const domainDenied = await denyUnlessCallerManagesDomain(auth as PanelStaffAuthSuccess, domain);
+      if (domainDenied) return domainDenied;
     }
 
     const admin = getDaSyncAdmin();

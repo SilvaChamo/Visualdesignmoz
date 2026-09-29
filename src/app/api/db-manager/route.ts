@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
-import { resolveHostingOwner } from '@/lib/hosting-resolver';
+import { requireAdminResellerOrManager, type PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
+import {
+  domainAccessDeniedResponse,
+  resolveCallerDomainAccess,
+  resolveCallerManagedOwners,
+} from '@/lib/domain-access';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
@@ -36,11 +40,36 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-async function resolveOwner(domain: string): Promise<string | null> {
-  if (!domain) return null;
-  const auth = await requireAdminResellerOrManager();
-  if ('error' in auth) return null;
-  return (await resolveHostingOwner(domain)).toLowerCase();
+type OwnerResolution = {
+  owner: string | null;
+  /** false = admin sem impersonação (sem restrições de conta). */
+  scoped: boolean;
+  denied?: NextResponse;
+};
+
+/** Conta cujo MySQL o pedido vai usar. Um login que não é admin só chega a
+ * domínios das contas que gere (ver domain-access.ts) e, sem domínio, fica na
+ * sua própria conta activa — antes caía na conta principal do servidor
+ * (vdadmin) e qualquer revendedor abria o phpMyAdmin dela. */
+async function resolveOwner(auth: PanelStaffAuthSuccess, domain: string): Promise<OwnerResolution> {
+  const managed = await resolveCallerManagedOwners(auth);
+  const scoped = managed.owners !== null;
+  if (!domain) return { owner: scoped ? managed.activeAccount : null, scoped };
+  const access = await resolveCallerDomainAccess(auth, domain, managed);
+  if (!access.allowed) return { owner: null, scoped, denied: domainAccessDeniedResponse(access.reason) };
+  return { owner: access.owner, scoped };
+}
+
+/** No Hestia (e no DirectAdmin) as bases e utilizadores MySQL de uma conta
+ * começam sempre por "<conta>_". Sem isto bastava indicar o próprio domínio
+ * com o nome da base de outra conta para a exportar/importar/apagar. */
+function foreignDatabaseName(owner: string, names: string[]): string | null {
+  const prefix = `${owner.toLowerCase()}_`;
+  return names.find((name) => name && !name.toLowerCase().startsWith(prefix)) || null;
+}
+
+function foreignDatabaseResponse(): NextResponse {
+  return NextResponse.json({ success: false, error: 'Base de dados fora da sua conta.' }, { status: 403 });
 }
 
 export async function GET(req: NextRequest) {
@@ -51,11 +80,15 @@ export async function GET(req: NextRequest) {
   const action = sp.get('action');
   const domain = sp.get('domain') || '';
   const database = sp.get('database') || '';
-  const owner = await resolveOwner(domain);
+  const resolved = await resolveOwner(auth, domain);
+  if (resolved.denied) return resolved.denied;
+  const owner = resolved.owner;
+  if (resolved.scoped && owner && foreignDatabaseName(owner, [database])) return foreignDatabaseResponse();
   if (action === 'phpmyadminSso') {
+    // Só o admin cai na conta principal do servidor quando não há domínio.
     const hestiaOwner =
       owner ||
-      (isHestiaOnlyDeploy() ? (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase() : '');
+      (!resolved.scoped && isHestiaOnlyDeploy() ? (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase() : '');
     if (hestiaOwner && (isHestiaOnlyDeploy() || (await getProviderByUsername(hestiaOwner)) === 'hestia')) {
       try {
         const url = await createPhpMyAdminSsoUrl(hestiaOwner, database || undefined);
@@ -131,7 +164,10 @@ export async function POST(req: NextRequest) {
     }
     const domain = String(form.get('domain') || '');
     const database = String(form.get('database') || '');
-    const owner = await resolveOwner(domain);
+    const resolved = await resolveOwner(auth, domain);
+    if (resolved.denied) return resolved.denied;
+    const owner = resolved.owner;
+    if (resolved.scoped && owner && foreignDatabaseName(owner, [database])) return foreignDatabaseResponse();
     const file = form.get('sqlfile');
     const clean = form.get('clean') === 'yes' || form.get('clean') === 'true';
     if (!owner || !database || !(file instanceof Blob)) {
@@ -174,9 +210,11 @@ export async function POST(req: NextRequest) {
 
   const action = String(body.action || '');
   const domain = String(body.domain || '');
-  const owner = await resolveOwner(domain);
+  const resolved = await resolveOwner(auth, domain);
+  if (resolved.denied) return resolved.denied;
+  const owner = resolved.owner;
   if (!owner) {
-    if (action === 'phpmyadminSso' && isHestiaOnlyDeploy()) {
+    if (action === 'phpmyadminSso' && isHestiaOnlyDeploy() && !resolved.scoped) {
       try {
         const url = await createPhpMyAdminSsoUrl(
           (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase(),
@@ -195,6 +233,12 @@ export async function POST(req: NextRequest) {
 
   const database = String(body.database || '');
   const dbuser = String(body.dbuser || body.dbUser || '');
+  if (resolved.scoped) {
+    // createDatabase/createUser recebem só o sufixo — o prefixo da conta é
+    // acrescentado pelo próprio código; nas restantes o nome vem completo.
+    const isCreate = action === 'createDatabase' || action === 'createUser';
+    if (foreignDatabaseName(owner, [database, isCreate ? '' : dbuser])) return foreignDatabaseResponse();
+  }
 
   const provider = await getProviderByUsername(owner);
   if (provider === 'hestia') {

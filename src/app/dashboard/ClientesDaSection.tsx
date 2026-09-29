@@ -13,6 +13,15 @@ import { PRIMARY_RESELLER_DA_USER, isPanelAdminAccount } from '@/lib/panel-conta
 import { clearAllPanelClientCaches } from '@/lib/panel-session-cache-clear';
 import { Spinner } from '@/components/ui/spinner';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
+import { ACCOUNT_LEVEL_LABELS, type AccountLevel } from '@/lib/account-levels';
+
+/** "Premium", "Enterprise · 3 contas", "Conta de domínio de X" — ou null. */
+function accountLevelLabel(row: { accountLevel?: AccountLevel | null; linkedTo?: string; linkedCount?: number }): string | null {
+  if (row.linkedTo) return `Conta de domínio de ${row.linkedTo}`;
+  if (!row.accountLevel) return null;
+  const label = ACCOUNT_LEVEL_LABELS[row.accountLevel];
+  return row.linkedCount ? `${label} · ${row.linkedCount} conta${row.linkedCount === 1 ? '' : 's'} de domínio` : label;
+}
 
 const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v4';
 const RESELLER_CLIENTES_CACHE_KEY = 'vd-reseller-contas-v1';
@@ -33,6 +42,11 @@ interface DaUserRow {
   quotaLabel?: string;
   diskUsedLabel?: string;
   resellerOwner?: string;
+  /** Hestia: nível da conta principal (account-levels.ts). */
+  accountLevel?: AccountLevel | null;
+  /** Conta de domínio ligada: conta principal a que pertence. */
+  linkedTo?: string;
+  linkedCount?: number;
   ownedDomains?: Array<{
     domain: string;
     package: string;
@@ -558,6 +572,7 @@ export function ClientesDaSection({
             { label: 'Quota', value: selectedUser.quotaLabel || '—' },
             { label: 'Disco usado', value: selectedUser.diskUsedLabel || '0 MB' },
             { label: 'Pacote', value: selectedUser.packageName || '—' },
+            { label: 'Nível', value: accountLevelLabel(selectedUser) || '—' },
             { label: 'Domínios', value: String(selectedUser.domainCount ?? domains.length) },
             { label: 'E-mail', value: selectedUser.email || '—' },
             { label: 'Revendedor', value: selectedUser.resellerOwner || '—' },
@@ -740,6 +755,11 @@ export function ClientesDaSection({
                   </td>
                   <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>
                     {isSimpleAccount ? <span className="text-xs text-gray-500 font-medium">Conta Simples</span> : (u.packageName || '—')}
+                    {!isSimpleAccount && accountLevelLabel(u) ? (
+                      <span className="ml-2 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                        {accountLevelLabel(u)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
                   <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>

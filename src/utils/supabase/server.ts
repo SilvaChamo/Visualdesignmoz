@@ -34,3 +34,17 @@ export async function createClient() {
         }
     );
 }
+
+/**
+ * Sessão só depois de validada pelo servidor de auth. O `getSession()` lê o cookie tal
+ * como veio do browser, sem verificar a assinatura — um cookie forjado com o email de
+ * outra pessoa passava. Aqui o `getUser()` confirma o token primeiro e é esse utilizador
+ * (e não o que vinha no cookie) que fica em `session.user`.
+ */
+export async function getVerifiedSession(supabase: Awaited<ReturnType<typeof createClient>>) {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    return { ...session, user };
+}

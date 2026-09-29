@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 import { PANEL_SLUG, inferPanelSiteFromEmail } from '@/lib/panel-tenant'
 import { encryptStoredPassword, decryptStoredPassword } from '@/lib/panel-access-credentials'
@@ -12,7 +12,7 @@ import { readImpersonateDaUsername } from '@/lib/panel-api-context'
 import type { User } from '@supabase/supabase-js'
 
 async function resolveSessionUser(supabase: Awaited<ReturnType<typeof createClient>>): Promise<User | null> {
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getVerifiedSession(supabase)
   if (session?.user) return session.user
   const { data: { user }, error } = await supabase.auth.getUser()
   if (!error && user) return user
@@ -48,14 +48,12 @@ async function userCanAccessMailboxPassword(
   if (sessionDomain && accountDomain && sessionDomain === accountDomain) return true
   // Revendedor: só se o domínio da conta pertencer de facto à sua conta DA — nunca um
   // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
+  // Mesma regra do resto do painel (domain-access.ts): conta activa +
+  // contas ligadas geridas directamente (Enterprise); Premium trancado.
   if (effectiveRole === 'reseller' && accountDomain) {
-    const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store')
-    const { resolveHostingOwner } = await import('@/lib/hosting-resolver')
-    const username = await resolveOwnerDaUsername(sessionUser.id)
-    if (username) {
-      const owner = await resolveHostingOwner(accountDomain)
-      if (owner === username) return true
-    }
+    const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access')
+    const access = await resolveOwnAccountDomainAccess(sessionUser.id, accountDomain)
+    if (access.allowed) return true
   }
   return false
 }
@@ -140,7 +138,7 @@ export async function GET(req: NextRequest) {
 
   // Protecção: utilizador só vê o seu próprio ID, a menos que seja admin
   const isBootstrap = isBootstrapAdmin(session.user?.email);
-  if (clienteId !== session.user.id && session.user?.user_metadata?.role !== 'admin' && !isBootstrap) {
+  if (clienteId !== session.user.id && session.user?.app_metadata?.role !== 'admin' && !isBootstrap) {
     return NextResponse.json({ error: 'Acesso proibido a dados de terceiros' }, { status: 403 });
   }
 
@@ -246,7 +244,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Protecção: não deixar criar conta para outro cliente ID se não for admin
-    const isAdmin = isBootstrapAdmin(session.user?.email) || session.user?.user_metadata?.role === 'admin';
+    const isAdmin = isBootstrapAdmin(session.user?.email) || session.user?.app_metadata?.role === 'admin';
     if (cliente_id !== session.user.id && !isAdmin) {
       return NextResponse.json({ error: 'Operação não autorizada' }, { status: 403 });
     }
@@ -389,7 +387,7 @@ export async function POST(req: NextRequest) {
 // 🆕 PUT: Actualizar/Sincronizar conta existente (para contas criadas directamente no servidor)
 export async function PUT(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = await getVerifiedSession(supabase);
 
   if (!session) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

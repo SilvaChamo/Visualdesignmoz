@@ -4,6 +4,7 @@ import { resolvePanelDaContext, readImpersonateDaUsername } from '@/lib/panel-ap
 import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { OSHER_DOMAIN } from '@/lib/email-domains';
+import type { AccountLevel } from '@/lib/account-levels';
 
 /**
  * Contas Supabase (logo, "Meu Perfil", etc.) são identificadas por `auth.user.id` —
@@ -40,11 +41,21 @@ export async function resolveEffectivePanelUserId(auth: { id: string; role: stri
 }
 
 export type ResellerPanelContext = {
+  /** Conta activa — a conta principal, ou a conta de domínio em que o login
+   * entrou com credenciais (Premium). */
   daUsername: string;
   email: string;
   displayName: string;
   primaryDomain: string | null;
   impersonating: boolean;
+  /** Conta principal do login (igual a daUsername excepto dentro de uma conta ligada). */
+  mainAccount: string;
+  /** Conta de domínio ligada em que o login entrou (Premium), ou null. */
+  enteredAccount: string | null;
+  /** Contas ligadas geridas directamente (Enterprise) — os seus domínios
+   * fazem parte da lista do painel. */
+  linkedOwners: string[];
+  level: AccountLevel | null;
 };
 
 function formatResellerUsername(username: string): string {
@@ -133,6 +144,7 @@ export async function resolveResellerPanelContext(
 
   const [email, displayName] = await Promise.all([emailPromise, loadResellerDisplayName(daUsername)]);
 
+  const scope = ctx.accountScope ?? null;
   return {
     daUsername,
     email,
@@ -141,5 +153,9 @@ export async function resolveResellerPanelContext(
       creds?.domain ||
       (daUsername.toLowerCase() === 'oshercollective' ? OSHER_DOMAIN : null),
     impersonating: Boolean(ctx.impersonating),
+    mainAccount: scope?.main || daUsername,
+    enteredAccount: scope?.entered ?? null,
+    linkedOwners: ctx.mirrorScope.linkedOwners ?? [],
+    level: scope?.level ?? null,
   };
 }

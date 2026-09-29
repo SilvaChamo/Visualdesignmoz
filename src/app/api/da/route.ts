@@ -19,6 +19,14 @@ import { resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import {
+  domainAccessDeniedResponse,
+  domainAccessForManaged,
+  isOwnerManaged,
+  managedOwnersFromContext,
+  type CallerManagedOwners,
+} from '@/lib/domain-access';
+import type { AccountScope } from '@/lib/linked-accounts';
 
 // O Webmail lê sempre a password de email_contas (ver WebmailSection.tsx) —
 // sem isto, contas de email do Hestia criadas/alteradas aqui nunca ficavam
@@ -93,13 +101,16 @@ async function resolveApi(action?: string, domain?: string) {
   if (hestiaOnly) {
     const auth = await requireAdminOrReseller();
     if ('error' in auth) return { error: auth.error } as const;
-    const impersonating = auth.user.role === 'admin' ? await (await import('next/headers')).cookies().then((store) => store.get('vd_impersonate_reseller')?.value?.trim() || null) : null;
+    // Mesmo âmbito do resto do painel (conta activa + contas ligadas
+    // Enterprise; admin a impersonar fica na conta impersonada). Antes um
+    // revendedor ia sem conta nenhuma no âmbito: listWebsites devolvia o
+    // servidor inteiro e as acções abaixo aceitavam qualquer conta/domínio.
+    const ctx = await resolvePanelDaContext(auth);
     return {
       daApi: null,
       user: auth.user,
-      mirrorScope: impersonating
-        ? { role: 'reseller' as const, daUsername: impersonating }
-        : { role: auth.user.role === 'admin' ? 'admin' as const : 'reseller' as const, userId: auth.user.id },
+      mirrorScope: ctx.mirrorScope,
+      accountScope: ctx.accountScope ?? null,
     } as const;
   }
 
@@ -145,12 +156,33 @@ const HESTIA_SUPPORTED_ACTIONS = new Set([
   'changePHPVersion',
 ]);
 
+/** Não-admin só vê a sua conta principal e as contas ligadas a ela. */
+function filterUsersForCaller<T extends { userName: string; parentUsername?: string }>(
+  users: T[],
+  managed: CallerManagedOwners,
+): T[] {
+  if (managed.owners === null) return users;
+  const main = (managed.mainAccount || '').toLowerCase();
+  return users.filter((u) => {
+    const name = u.userName.toLowerCase();
+    return name === main || managed.owners!.has(name) || (u.parentUsername || '').toLowerCase() === main;
+  });
+}
+
+/** Resposta pronta quando um login que não é admin não pode mexer numa conta. */
+function accountDeniedResponse(message = 'Conta fora do seu painel.'): { handled: true; response: NextResponse } {
+  return { handled: true, response: NextResponse.json({ success: false, error: message }, { status: 403 }) };
+}
+
 async function tryHestiaAction(
   action: string,
   params: Record<string, unknown>,
   mirrorScope: Parameters<typeof listMirrorWebsites>[0],
+  managed: CallerManagedOwners,
+  accountScope: AccountScope | null,
 ): Promise<{ handled: false } | { handled: true; response: NextResponse }> {
   if (!HESTIA_SUPPORTED_ACTIONS.has(action)) return { handled: false };
+  const scoped = managed.owners !== null;
 
   const hestiaAdmin = (process.env.HESTIA_USER || 'vdadmin').trim();
   const domainParam = String(params.domain || '');
@@ -167,7 +199,7 @@ async function tryHestiaAction(
 
   if (action === 'listUsers') {
     const { listHostingUsers } = await import('@/lib/hosting-resolver');
-    const rows = await listHostingUsers();
+    const rows = filterUsersForCaller(await listHostingUsers(), managed);
     return {
       handled: true,
       response: NextResponse.json({ success: true, data: rows }),
@@ -186,6 +218,10 @@ async function tryHestiaAction(
   if (action === 'listSubdomains') {
     const { listHostingSubdomains } = await import('@/lib/hosting-resolver');
     const parent = String(params.domain || '');
+    if (scoped) {
+      const access = await domainAccessForManaged(managed, parent);
+      if (!access.allowed) return { handled: true, response: domainAccessDeniedResponse(access.reason) };
+    }
     const rows = await listHostingSubdomains(parent);
     return {
       handled: true,
@@ -196,6 +232,9 @@ async function tryHestiaAction(
   // ── Acções que NÃO precisam de lookupde domínio ─────────────────────────
   // Gestão de utilizadores (createUser, modifyUser, deleteUser)
   if (action === 'createUser') {
+    // Contas novas de clientes nascem em Hospedagem → Contas (com conta mãe e
+    // quota); contas próprias de domínios em Domínios → Contas dos domínios.
+    if (scoped) return accountDeniedResponse('Crie contas em Hospedagem → Contas.');
     try {
       const username = String(params.userName || params.username || '').trim().toLowerCase();
       const password = String(params.password || '');
@@ -225,6 +264,14 @@ async function tryHestiaAction(
     try {
       const username = String(params.userName || params.username || '').trim().toLowerCase();
       if (!username) return { handled: true, response: NextResponse.json({ success: false, error: 'Utilizador obrigatório.' }, { status: 400 }) };
+      // Não-admin: só contas que gere directamente (a activa e, no
+      // Enterprise, as ligadas) e nunca mudar o pacote — isso é do admin. No
+      // Premium a password de uma conta ligada é a "chave" dela: não se muda
+      // a partir da conta principal.
+      if (scoped) {
+        if (!isOwnerManaged(managed, username)) return accountDeniedResponse();
+        if (params.packageName) return accountDeniedResponse('Só a VisualDesign pode mudar o plano de uma conta.');
+      }
       let result: { ok: boolean; error?: string } = { ok: true };
       if (params.password) {
         result = await hestiaAdapter.changePassword(username, String(params.password));
@@ -247,6 +294,14 @@ async function tryHestiaAction(
     try {
       const username = String(params.userName || params.username || '').trim().toLowerCase();
       if (!username) return { handled: true, response: NextResponse.json({ success: false, error: 'Utilizador obrigatório.' }, { status: 400 }) };
+      if (
+        scoped &&
+        (!isOwnerManaged(managed, username) ||
+          username === managed.mainAccount ||
+          username === managed.activeAccount)
+      ) {
+        return accountDeniedResponse();
+      }
       const result = await hestiaAdapter.deleteAccount(username);
       if (result.ok) {
         const { scheduleHestiaSync } = await import('@/lib/hestia-sync-engine');
@@ -260,7 +315,8 @@ async function tryHestiaAction(
 
   if (action === 'listBackups') {
     try {
-      const username = String(params.userName || params.username || hestiaAdmin).trim().toLowerCase();
+      const username = String(params.userName || params.username || (scoped ? managed.activeAccount : hestiaAdmin) || '').trim().toLowerCase();
+      if (scoped && !isOwnerManaged(managed, username)) return accountDeniedResponse();
       const rows = await hestiaAdapter.listBackups(username);
       return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
     } catch (err: unknown) {
@@ -270,7 +326,8 @@ async function tryHestiaAction(
 
   if (action === 'createBackup') {
     try {
-      const username = String(params.userName || params.username || hestiaAdmin).trim().toLowerCase();
+      const username = String(params.userName || params.username || (scoped ? managed.activeAccount : hestiaAdmin) || '').trim().toLowerCase();
+      if (scoped && !isOwnerManaged(managed, username)) return accountDeniedResponse();
       const result = await hestiaAdapter.createBackup(username);
       return { handled: true, response: NextResponse.json({ success: result.ok, error: result.error }) };
     } catch (err: unknown) {
@@ -280,6 +337,14 @@ async function tryHestiaAction(
 
   // ── Acções baseadas em domínio (owner via hosting-resolver) ─────────────
   if (!domain) return { handled: false };
+
+  // Não-admin: o domínio tem de ser de uma conta que gere directamente
+  // (domain-access.ts). createWebsite é um domínio que ainda não existe —
+  // verifica-se a conta de destino e o plano no próprio case.
+  if (scoped && action !== 'createWebsite') {
+    const access = await domainAccessForManaged(managed, domain);
+    if (!access.allowed) return { handled: true, response: domainAccessDeniedResponse(access.reason) };
+  }
 
   // No Contabo: resolveHostingOwner devolve HESTIA_USER directamente (sem mirror)
   // No Hetzner: consulta panel_sites
@@ -329,7 +394,17 @@ async function tryHestiaAction(
   try {
     switch (action) {
       case 'createWebsite': {
-        const owner = String(params.owner || process.env.HESTIA_USER || 'vdadmin').trim();
+        const owner = String(
+          params.owner || (scoped ? managed.activeAccount : process.env.HESTIA_USER || 'vdadmin') || '',
+        ).trim().toLowerCase();
+        if (scoped) {
+          if (!isOwnerManaged(managed, owner)) return accountDeniedResponse();
+          if (accountScope) {
+            const { checkNewDomainInActiveAccount } = await import('@/lib/account-domain-limits');
+            const allowed = await checkNewDomainInActiveAccount(accountScope, domain);
+            if (!allowed.ok) return accountDeniedResponse(allowed.error);
+          }
+        }
         const result = await hestiaAdapter.addWebDomain(owner, domain);
         if (result.ok) {
           const { pointHostingHostToServer, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
@@ -508,7 +583,11 @@ async function tryHestiaAction(
         break;
       }
       case 'deleteDatabase': {
-        const result = await hestiaAdapter.deleteDatabase(owner, String(params.database || params.dbName || ''));
+        const database = String(params.database || params.dbName || '');
+        if (scoped && !database.toLowerCase().startsWith(`${owner}_`)) {
+          return accountDeniedResponse('Base de dados fora da sua conta.');
+        }
+        const result = await hestiaAdapter.deleteDatabase(owner, database);
         data = { success: result.ok, error: result.error };
         break;
       }
@@ -600,8 +679,13 @@ async function tryHestiaMirrorRead(
   action: string,
   params: Record<string, unknown>,
   mirrorScope: Parameters<typeof listMirrorWebsites>[0],
+  managed: CallerManagedOwners,
 ): Promise<{ handled: false } | { handled: true; response: NextResponse }> {
   const domain = String(params.domain || '');
+  if (managed.owners !== null && domain) {
+    const access = await domainAccessForManaged(managed, domain);
+    if (!access.allowed) return { handled: true, response: domainAccessDeniedResponse(access.reason) };
+  }
   try {
     switch (action) {
       case 'listWebsites':
@@ -613,7 +697,7 @@ async function tryHestiaMirrorRead(
         const { listHostingUsers } = await import('@/lib/hosting-resolver');
         return {
           handled: true,
-          response: NextResponse.json({ success: true, data: await listHostingUsers() }),
+          response: NextResponse.json({ success: true, data: filterUsersForCaller(await listHostingUsers(), managed) }),
         };
       }
       case 'listPackages': {
@@ -670,10 +754,11 @@ async function tryHestiaMirrorRead(
         return { handled: true, response: NextResponse.json({ success: true, data: rows }) };
       }
       case 'serverStats': {
-        const [sites, users] = await Promise.all([
+        const [sites, allUsers] = await Promise.all([
           listHostingDomains(mirrorScope),
           (await import('@/lib/hosting-resolver')).listHostingUsers(),
         ]);
+        const users = filterUsersForCaller(allUsers, managed);
         return {
           handled: true,
           response: NextResponse.json({
@@ -713,12 +798,18 @@ export async function POST(req: NextRequest) {
     if ('error' in resolved) return resolved.error;
 
       const { daApi, user, mirrorScope } = resolved;
+    const accountScope = ('accountScope' in resolved ? resolved.accountScope : null) ?? null;
+    const managed = managedOwnersFromContext({
+      effectiveRole: mirrorScope.role === 'admin' ? 'admin' : 'reseller',
+      mirrorScope,
+      accountScope,
+    });
 
-    const hestiaResult = await tryHestiaAction(action, params, mirrorScope);
+    const hestiaResult = await tryHestiaAction(action, params, mirrorScope, managed, accountScope);
     if (hestiaResult.handled) return hestiaResult.response;
 
       if (!daApi) {
-        const mirrorRead = await tryHestiaMirrorRead(action, params, mirrorScope);
+        const mirrorRead = await tryHestiaMirrorRead(action, params, mirrorScope, managed);
         if (mirrorRead.handled) return mirrorRead.response;
         return NextResponse.json({ success: false, error: `Acção "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
       }

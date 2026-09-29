@@ -7,6 +7,7 @@ import { panelField, panelBtnSecondary, panelTabList, panelTabBtn } from '@/lib/
 import { DomainManagerSection } from '@/app/dashboard/HostingSections';
 import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection';
 import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { LinkedAccountsPanel } from '@/components/panel/LinkedAccountsPanel';
 import type { DirectAdminPackage, DirectAdminWebsite } from '@/lib/directadmin-api';
 
 import {
@@ -267,6 +268,11 @@ export function DomainsHubSection({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {variant === 'reseller' && activeTab === 'meus' ? (
+        // Nível do plano + contas próprias dos domínios (Premium/Enterprise).
+        <LinkedAccountsPanel onChanged={() => void onRefresh?.()} />
       ) : null}
 
       {activeTab === 'meus' ? (

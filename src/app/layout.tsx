@@ -77,6 +77,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import { MaintenanceBanner } from "@/components/layout/MaintenanceBanner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -99,6 +101,7 @@ export default function RootLayout({
             <CartProvider>
               <CurrencyProvider>
                 <I18nProvider>
+                  <MaintenanceBanner />
                   <ConditionalNavbar />
                   <ConditionalMain>{children}</ConditionalMain>
                   <ConditionalFooter />

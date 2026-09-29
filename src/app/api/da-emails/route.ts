@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { daRequest } from '@/lib/directadmin';
 import { requireAdminResellerOrManager, type PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
+import { denyUnlessCallerManagesDomain } from '@/lib/domain-access';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
-import { loadResellerCredentialsByDaUsername, resolveOwnerDaUsername } from '@/lib/da-credential-store';
+import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { resolveDirectAdminCredentials, type DirectAdminCredentials } from '@/lib/directadmin-credentials';
 import { resolveHostingOwner, hostingProvider as _hostingProvider } from '@/lib/hosting-resolver';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
@@ -16,23 +17,6 @@ import * as hestiaAdapter from '@/lib/hestia-adapter';
  * DELETE action=delete → apaga email
  * PATCH action=password → muda password
  */
-
-async function canAccessDomain(
-  role: 'admin' | 'reseller' | 'manager' | 'profissional',
-  userId: string,
-  domain: string,
-  impersonatingDaUsername?: string | null,
-): Promise<boolean> {
-  if (impersonatingDaUsername) {
-    const owner = await resolveHostingOwner(domain);
-    return owner === impersonatingDaUsername;
-  }
-  if (role === 'admin') return true;
-  const username = await resolveOwnerDaUsername(userId);
-  if (!username) return false;
-  const owner = await resolveHostingOwner(domain);
-  return owner === username;
-}
 
 async function resolveEmailProvider(
   domain: string,
@@ -98,9 +82,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'list' && domain) {
-      if (!(await canAccessDomain(ctx.role, ctx.id, domain, impersonating))) {
-        return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
-      }
+      const domainDenied = await denyUnlessCallerManagesDomain(auth, domain);
+      if (domainDenied) return domainDenied;
 
       const { provider, owner } = await resolveEmailProvider(domain);
 
@@ -158,8 +141,6 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdminResellerOrManager();
     if ('error' in auth) return auth.error;
-    const ctx = auth.user;
-    const { impersonating } = await resolvePanelDaContext(auth);
 
     const { action, domain, username, password, quota = '250' } = await req.json();
 
@@ -167,9 +148,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'domain, username e password são obrigatórios' }, { status: 400 });
     }
 
-    if (!(await canAccessDomain(ctx.role, ctx.id, domain, impersonating))) {
-      return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
-    }
+    const domainDenied = await denyUnlessCallerManagesDomain(auth, domain);
+    if (domainDenied) return domainDenied;
 
     if (action === 'create') {
       const { provider, owner } = await resolveEmailProvider(domain);
@@ -213,8 +193,6 @@ export async function DELETE(req: NextRequest) {
   try {
     const auth = await requireAdminResellerOrManager();
     if ('error' in auth) return auth.error;
-    const ctx = auth.user;
-    const { impersonating } = await resolvePanelDaContext(auth);
 
     const { domain, username } = await req.json();
 
@@ -222,9 +200,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'domain e username são obrigatórios' }, { status: 400 });
     }
 
-    if (!(await canAccessDomain(ctx.role, ctx.id, domain, impersonating))) {
-      return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
-    }
+    const domainDenied = await denyUnlessCallerManagesDomain(auth, domain);
+    if (domainDenied) return domainDenied;
 
     const { provider, owner } = await resolveEmailProvider(domain);
 
@@ -256,8 +233,6 @@ export async function PATCH(req: NextRequest) {
   try {
     const auth = await requireAdminResellerOrManager();
     if ('error' in auth) return auth.error;
-    const ctx = auth.user;
-    const { impersonating } = await resolvePanelDaContext(auth);
 
     const { domain, username, password } = await req.json();
 
@@ -265,9 +240,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'domain, username e password são obrigatórios' }, { status: 400 });
     }
 
-    if (!(await canAccessDomain(ctx.role, ctx.id, domain, impersonating))) {
-      return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
-    }
+    const domainDenied = await denyUnlessCallerManagesDomain(auth, domain);
+    if (domainDenied) return domainDenied;
 
     const { provider, owner } = await resolveEmailProvider(domain);
 

@@ -124,14 +124,20 @@ export async function resolveHostingOwner(domain: string): Promise<string> {
  * DA    (Hetzner):  lê panel_sites (Supabase mirror).
  */
 export async function listHostingDomains(
-  mirrorScope?: { role: 'admin' | 'reseller'; userId?: string; daUsername?: string },
+  mirrorScope?: { role: 'admin' | 'reseller'; userId?: string; daUsername?: string; linkedOwners?: string[] },
 ): Promise<PanelWebsite[]> {
   if (IS_HESTIA) {
     const rows = await listAllHestiaDomainRows();
-    const scoped =
+    // Enterprise: além da própria conta, as contas de domínio ligadas que
+    // gere directamente (linkedOwners). Contas Premium trancadas nunca vêm
+    // aqui — esta lista é também a base das verificações de acesso.
+    const owners =
       mirrorScope?.role === 'reseller' && mirrorScope.daUsername
-        ? rows.filter((r) => r.username === mirrorScope.daUsername)
-        : rows;
+        ? new Set(
+            [mirrorScope.daUsername, ...(mirrorScope.linkedOwners || [])].map((o) => o.trim().toLowerCase()),
+          )
+        : null;
+    const scoped = owners ? rows.filter((r) => owners.has(r.username.toLowerCase())) : rows;
     return scoped.map((d) => ({
       id: d.domain,
       domain: d.domain,
@@ -154,7 +160,7 @@ export async function listHostingDomains(
 export async function listHostingUsers(): Promise<PanelUser[]> {
   if (IS_HESTIA) {
     const { listUsers } = await import('@/lib/hestia-adapter');
-    const users = await listUsers();
+    const [users, parentByUser] = await Promise.all([listUsers(), loadMirrorParentUsernames()]);
     return users.map((u) => ({
       id: u.username,
       userName: u.username,
@@ -170,11 +176,36 @@ export async function listHostingUsers(): Promise<PanelUser[]> {
       quotaLimitMb: u.diskLimitMb,
       bandwidthLimitMb: u.bandwidthLimitMb,
       hostingProvider: 'hestia',
+      parentUsername: parentByUser.get(u.username.toLowerCase()),
     } satisfies PanelUser));
   }
 
   const { listMirrorUsers } = await import('@/lib/panel-mirror-read');
   return listMirrorUsers({ role: 'admin' });
+}
+
+/** O Hestia não sabe a que conta principal cada conta pertence — isso só
+ * existe no painel (panel_users.parent_username). Sem juntar aqui, o
+ * revendedor nunca via na página "Contas" as contas que ele próprio criou. */
+async function loadMirrorParentUsernames(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const { getDaSyncAdmin } = await import('@/lib/da-sync-schema');
+    const sb = getDaSyncAdmin();
+    if (!sb) return map;
+    const { data } = await sb
+      .from('panel_users')
+      .select('username, parent_username')
+      .not('parent_username', 'is', null);
+    for (const row of data || []) {
+      const username = String(row.username || '').trim().toLowerCase();
+      const parent = String(row.parent_username || '').trim();
+      if (username && parent) map.set(username, parent);
+    }
+  } catch {
+    /* sem ligação à base — contas aparecem sem conta principal, como antes */
+  }
+  return map;
 }
 
 export async function listHostingPackages(): Promise<PanelPackage[]> {

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost } from '@/lib/server-config'
+import { ServerInfoCard } from '@/components/admin/ServerStatusWidget'
 import { panelDashboardToolCardCompact, panelDashboardToolLabel, panelSectionPadding } from '@/lib/panel-ui'
 import {
   DASHBOARD_MENU_SECTION_STYLES,
@@ -446,73 +447,7 @@ export function CpanelDashboard({
       </div>
 
       <div className="hidden w-60 shrink-0 space-y-4 lg:block">
-        <div className="space-y-4 rounded border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Servidor</p>
-            <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden />
-            <span className="text-xs font-bold text-green-600">activo</span>
-          </div>
-
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Utilizador</p>
-              <p className="font-bold text-gray-900 dark:text-zinc-100">admin</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">IP do Servidor</p>
-              <p className="font-mono text-xs text-gray-800 dark:text-zinc-200">{getServerHost()}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                <span className="text-gray-900 dark:text-zinc-100">{sites.length}</span> Websites
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                <span className="text-gray-900 dark:text-zinc-100">{users.length}</span> Utilizadores
-              </p>
-            </div>
-          </div>
-
-          {diskInfo && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Espaço em Disco</p>
-              <p className="font-bold text-gray-900 dark:text-zinc-100">
-                {diskInfo.used} / {diskInfo.total}
-              </p>
-              <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 dark:bg-zinc-800">
-                <div className="h-1.5 rounded-full bg-red-500" style={{ width: diskInfo.percentage }} />
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={async () => {
-              if (
-                confirm(
-                  '⚠️ ATENÇÃO: Tem a certeza que deseja REINICIAR o servidor?\n\nIsto irá interromper todos os serviços temporariamente.',
-                )
-              ) {
-                try {
-                  const res = await fetch('/api/da', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'rebootServer' }),
-                  })
-                  const data = await res.json()
-                  if (data.success) alert('🔄 Comando de reinicialização enviado com sucesso. Aguarde alguns minutos.')
-                  else alert('❌ Erro ao reiniciar: ' + (data.error || 'Desconhecido'))
-                } catch {
-                  alert('Erro de ligação.')
-                }
-              }
-            }}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-gray-900 px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-red-600"
-          >
-            <Power className="h-3.5 w-3.5" /> Reiniciar Servidor
-          </button>
-        </div>
+        <ServerInfoCard sitesCount={sites.length} usersCount={users.length} diskInfo={diskInfo} />
 
         {userResources && (
           <div className="space-y-4 rounded border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

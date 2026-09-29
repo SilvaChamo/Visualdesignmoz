@@ -228,11 +228,13 @@ export async function provisionAllPendingResellers(): Promise<{
     }
   }
 
-  // Auth users com metadata reseller mas sem profile DA
+  // Auth users com papel reseller mas sem profile DA. Só o app_metadata (escrito pelo
+  // servidor) conta: o user_metadata é editável pelo próprio utilizador e bastava pôr lá
+  // role "reseller" para este ciclo criar uma conta de revendedor real a essa pessoa.
   const { data: authList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   for (const u of authList.users || []) {
     if (!u.email) continue;
-    const role = u.user_metadata?.role || u.app_metadata?.role;
+    const role = u.app_metadata?.role;
     if (role !== 'reseller') continue;
     const creds = await loadResellerCredentialsByUserId(u.id);
     if (creds) continue;

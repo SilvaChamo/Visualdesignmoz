@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth'
-import { listHostingDomains, resolveHostingOwner } from '@/lib/hosting-resolver'
+import { listHostingDomains } from '@/lib/hosting-resolver'
+import { domainAccessDeniedResponse, resolveCallerDomainAccess } from '@/lib/domain-access'
 import { resolvePanelDaContext } from '@/lib/panel-api-context'
 import { PANEL_SLUG } from '@/lib/panel-tenant'
 import { TAB_BACKUP_ITEMS } from '@/lib/da-backup-types'
@@ -44,11 +45,19 @@ function rowToClient(r: Record<string, unknown>): BackupScheduleRow {
   }
 }
 
+/** Conta dona do domínio — null quando o login não gere esse domínio (ver domain-access.ts). */
 async function resolveOwnerForDomain(domain: string, auth?: PanelStaffAuthSuccess): Promise<string | null> {
   if (!domain) return null
   const session = auth ?? await requireAdminResellerOrManager()
   if ('error' in session) return null
-  return (await resolveHostingOwner(domain)).toLowerCase()
+  const access = await resolveCallerDomainAccess(session, domain)
+  return access.allowed ? access.owner : null
+}
+
+async function denyForeignDomain(auth: PanelStaffAuthSuccess, domain: string): Promise<NextResponse | null> {
+  if (!domain) return null
+  const access = await resolveCallerDomainAccess(auth, domain)
+  return access.allowed ? null : domainAccessDeniedResponse(access.reason)
 }
 
 async function ownersInScope(auth: PanelStaffAuthSuccess): Promise<string[]> {
@@ -80,6 +89,8 @@ export async function GET(req: NextRequest) {
   }
 
   const domain = sp.get('domain') || ''
+  const denied = await denyForeignDomain(auth, domain)
+  if (denied) return denied
   const owner = await resolveOwnerForDomain(domain, auth)
   if (!owner) {
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 })
@@ -111,6 +122,8 @@ export async function POST(req: NextRequest) {
 
   const action = String(body.action || 'save')
   const domain = String(body.domain || '')
+  const denied = await denyForeignDomain(auth, domain)
+  if (denied) return denied
   const owner = await resolveOwnerForDomain(domain, auth)
   if (!owner && action !== 'save') {
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 })

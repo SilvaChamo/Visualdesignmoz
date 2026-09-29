@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
-import { resolveHostingOwner } from '@/lib/hosting-resolver';
+import {
+  domainAccessDeniedResponse,
+  resolveCallerDomainAccess,
+  resolveCallerManagedOwners,
+} from '@/lib/domain-access';
 import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 import {
@@ -28,11 +32,31 @@ import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
 
 export const dynamic = 'force-dynamic';
 
+/** Conta dona do domínio — null quando o login não gere esse domínio (ver
+ * domain-access.ts). Antes devolvia o dono de QUALQUER domínio a qualquer
+ * revendedor/cliente, que podia assim listar/criar/restaurar backups alheios. */
 async function resolveOwnerForDomain(domain: string, auth?: PanelStaffAuthSuccess): Promise<string | null> {
   if (!domain) return null;
   const session = auth ?? await requireAdminResellerOrManager();
   if ('error' in session) return null;
-  return (await resolveHostingOwner(domain)).toLowerCase();
+  const access = await resolveCallerDomainAccess(session, domain);
+  return access.allowed ? access.owner : null;
+}
+
+/** 403 com a mensagem certa (conta trancada vs. fora do painel), ou null. */
+async function denyForeignDomain(auth: PanelStaffAuthSuccess, domain: string): Promise<NextResponse | null> {
+  if (!domain) return null;
+  const access = await resolveCallerDomainAccess(auth, domain);
+  return access.allowed ? null : domainAccessDeniedResponse(access.reason);
+}
+
+/** Cópias no bucket ficam em "<conta>/<tipo>/<domínio>/<ficheiro>" — um login
+ * que não é admin só toca nas da sua conta. */
+async function bucketPathOutsideOwner(auth: PanelStaffAuthSuccess, owner: string, bucketPath: string): Promise<boolean> {
+  if (!bucketPath) return false;
+  const managed = await resolveCallerManagedOwners(auth);
+  if (!managed.owners) return false;
+  return bucketPath.includes('..') || !bucketPath.toLowerCase().startsWith(`${owner.toLowerCase()}/`);
 }
 
 function backupDownloadResponse(filename: string, base64: string): NextResponse {
@@ -77,6 +101,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const action = sp.get('action');
   const domain = sp.get('domain') || '';
+  const denied = await denyForeignDomain(auth, domain);
+  if (denied) return denied;
   const owner = await resolveOwnerForDomain(domain, auth);
   if (!owner) {
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 });
@@ -85,6 +111,9 @@ export async function GET(req: NextRequest) {
   if (action === 'download') {
     const file = sp.get('file') || '';
     const bucketPath = sp.get('bucketPath') || '';
+    if (await bucketPathOutsideOwner(auth, owner, bucketPath)) {
+      return NextResponse.json({ success: false, error: 'Cópia de segurança fora da sua conta.' }, { status: 403 });
+    }
     return resolveBackupDownload(owner, file, bucketPath);
   }
 
@@ -106,9 +135,17 @@ export async function POST(req: NextRequest) {
   const domain = String(body.domain || '');
   const batchDomains = Array.isArray(body.domains) ? body.domains.map(String).filter(Boolean) : [];
   const lookupDomain = domain || batchDomains[0] || '';
+  for (const candidate of new Set([lookupDomain, ...batchDomains])) {
+    const denied = await denyForeignDomain(auth, candidate);
+    if (denied) return denied;
+  }
   const owner = await resolveOwnerForDomain(lookupDomain, auth);
   if (!owner) {
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 });
+  }
+  const requestBucketPath = String(body.bucketPath || '');
+  if (await bucketPathOutsideOwner(auth, owner, requestBucketPath)) {
+    return NextResponse.json({ success: false, error: 'Cópia de segurança fora da sua conta.' }, { status: 403 });
   }
 
   await ensureBackupSchema();

@@ -195,9 +195,19 @@ export async function GET(req: NextRequest) {
             ? formatPackageSize(resolvePackageMeta(packageMap, row.packageName)?.diskSpace)
             : '—'),
       }));
+      // Nível de cada conta principal (Básico/Premium/Enterprise) e, nas
+      // contas de domínio ligadas, a conta principal a que pertencem.
+      const { resolveAccountScope } = await import('@/lib/linked-accounts');
+      const withLevels = await Promise.all(
+        enriched.map(async (row) => {
+          if (row.parentUsername) return { ...row, accountLevel: null, linkedTo: row.parentUsername };
+          const scope = await resolveAccountScope(row.userName, null);
+          return { ...row, accountLevel: scope.level, linkedCount: scope.linked.length };
+        }),
+      );
       return NextResponse.json({
         success: true,
-        users: enriched,
+        users: withLevels,
         packages: allPackages,
         resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
         osherReseller: OSHER_RESELLER,

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (pedidoError || !pedido) {
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
-  if (pedido.da_username !== ctx.daUsername) {
+  if (pedido.da_username !== ctx.mainAccount) {
     return NextResponse.json({ error: 'Não tem permissão para editar este pedido.' }, { status: 403 });
   }
   if (pedido.status !== 'pending') {

@@ -176,7 +176,11 @@ export async function GET(req: NextRequest) {
       const [sites, users, packages] = await Promise.all([
         listHostingDomains(
           resellerContext?.daUsername
-            ? { role: 'reseller', daUsername: resellerContext.daUsername }
+            ? {
+                role: 'reseller',
+                daUsername: resellerContext.daUsername,
+                linkedOwners: resellerContext.linkedOwners,
+              }
             : undefined,
         ),
         listHostingUsers(),
@@ -187,7 +191,9 @@ export async function GET(req: NextRequest) {
       packagesOut = packages;
       accountsResult = { accounts: [], counts: {} };
       if (resellerContext?.daUsername) {
-        const owner = resellerContext.daUsername;
+        // Contas geridas pertencem sempre à conta principal do login, mesmo
+        // quando está dentro de uma conta de domínio ligada (Premium).
+        const owner = resellerContext.mainAccount || resellerContext.daUsername;
         usersOut = usersOut.filter(
           (u) => u.userName === owner || u.parentUsername === owner,
         );

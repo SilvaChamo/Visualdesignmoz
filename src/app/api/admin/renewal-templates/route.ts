@@ -21,7 +21,7 @@ async function checkIsAdmin(): Promise<boolean> {
   }
 
   const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
-  const isAdmin = adminEmails.includes((user.email || '').toLowerCase()) || user.user_metadata?.role === 'admin'
+  const isAdmin = adminEmails.includes((user.email || '').toLowerCase()) || user.app_metadata?.role === 'admin'
   if (!isAdmin) {
     console.warn(`[renewal-templates] Acesso restrito: utilizador ${user.email} não está na lista de admins.`)
   }

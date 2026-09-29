@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { denyUnlessCallerManagesDomain } from '@/lib/domain-access';
 import { resolveHostingOwner, hostingProvider } from '@/lib/hosting-resolver';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 import { directAdminHostingAPI } from '@/lib/directadmin-adapter';
@@ -10,6 +11,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const { action, params = {} } = await req.json();
+
+    // Não-admin só actua em domínios das contas que gere (domain-access.ts).
+    if (params.domain) {
+      const denied = await denyUnlessCallerManagesDomain(auth, String(params.domain));
+      if (denied) return denied;
+    }
 
     switch (action) {
       case 'listEmails': {

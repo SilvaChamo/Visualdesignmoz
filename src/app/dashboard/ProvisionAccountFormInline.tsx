@@ -13,6 +13,7 @@ import { ResellerProvisionForm } from '@/app/dashboard/ResellerProvisionForm';
 import { DaFormRow } from '@/lib/panel-da-form-rows';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
+import { ACCOUNT_LEVEL_LABELS, ACCOUNT_LEVEL_SUMMARIES, accountLevelForPackage } from '@/lib/account-levels';
 
 type AccountType = 'client' | 'reseller' | 'admin';
 
@@ -331,6 +332,20 @@ export function ProvisionAccountFormInline({
                 )}
               </select>
             </IdentityRow>
+
+            {(() => {
+              // O nível sai do pacote — escolher o plano já activa as funcionalidades dele.
+              const level = accountLevelForPackage(activeClientPackageName);
+              return level ? (
+                <IdentityRow label="Nível">
+                  <p className="min-w-0 flex-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    <strong className="text-zinc-800 dark:text-zinc-200">{ACCOUNT_LEVEL_LABELS[level]}</strong>
+                    {' — '}
+                    {ACCOUNT_LEVEL_SUMMARIES[level]}
+                  </p>
+                </IdentityRow>
+              ) : null;
+            })()}
 
             <IdentityRow label="Domínio">
               <input

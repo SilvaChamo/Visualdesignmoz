@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import type { Session } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import {
   connectImapClient,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     } = await req.json()
 
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getVerifiedSession(supabase)
     const folderTotals: Record<string, number> = {}
     const pastasParaProcessar = foldersParam && Array.isArray(foldersParam) ? foldersParam : [singleFolder || 'INBOX']
 

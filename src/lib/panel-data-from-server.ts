@@ -30,6 +30,12 @@ export type PanelBootstrapResellerContext = {
   primaryDomain: string | null;
   impersonating: boolean;
   resellerTier?: ResellerTier | null;
+  /** Conta principal do login (≠ daUsername dentro de uma conta de domínio ligada). */
+  mainAccount?: string;
+  /** Conta de domínio ligada em que o login entrou com credenciais (Premium). */
+  enteredAccount?: string | null;
+  /** Contas ligadas geridas directamente (Enterprise). */
+  linkedOwners?: string[];
 };
 
 export type PanelBootstrapSession = {

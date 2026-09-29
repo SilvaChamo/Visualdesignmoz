@@ -7,6 +7,7 @@ import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cach
 import { splitCompositePackageName } from '@/lib/reseller-package-form';
 import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
+import { ACCOUNT_LEVEL_LABELS, ACCOUNT_LEVEL_SUMMARIES, accountLevelForPackage } from '@/lib/account-levels';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
 type AccountType = 'client' | 'reseller' | 'professional';
@@ -552,6 +553,16 @@ export function ProvisionClienteSection({
             ) : hasHostingPackage ? (
               <p className="text-xs text-amber-700">
                 Pacote actual «{selectedPackageName}» não está na lista de pacotes disponíveis — ao gravar, é aplicado à mesma.
+              </p>
+            ) : null}
+            {accountLevelForPackage(selectedPackageName) ? (
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Nível{' '}
+                <strong className="text-zinc-800 dark:text-zinc-200">
+                  {ACCOUNT_LEVEL_LABELS[accountLevelForPackage(selectedPackageName)!]}
+                </strong>
+                {' — '}
+                {ACCOUNT_LEVEL_SUMMARIES[accountLevelForPackage(selectedPackageName)!]}
               </p>
             ) : null}
           </div>

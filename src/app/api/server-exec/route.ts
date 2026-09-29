@@ -28,6 +28,7 @@ import {
 import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 import { isValidHomePath, assertPathsOwnedByCaller } from '@/lib/panel-fs-ownership';
+import type { AccountScope } from '@/lib/linked-accounts';
 import {
   canUseLocalFmFs,
   localCopyOrMove,
@@ -188,6 +189,7 @@ async function pushPackageToDa(
 async function tryHestiaCreateWebsite(
   mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string },
   params: Record<string, unknown>,
+  accountScope: AccountScope | null = null,
 ): Promise<NextResponse | null> {
   const domain = String(params.domain || params.domainName || '').trim().toLowerCase();
   if (!domain) return null;
@@ -199,6 +201,15 @@ async function tryHestiaCreateWebsite(
     owner = mirrorScope.daUsername;
     const provider = await getProviderByUsername(owner);
     if (provider !== 'hestia') return null;
+    // Regras do plano (account-domain-limits.ts): Básico = um domínio,
+    // Premium = cada domínio novo na sua própria conta, limite do plano.
+    if (accountScope) {
+      const { checkNewDomainInActiveAccount } = await import('@/lib/account-domain-limits');
+      const allowed = await checkNewDomainInActiveAccount(accountScope, domain);
+      if (!allowed.ok) {
+        return NextResponse.json({ success: false, error: allowed.error }, { status: 403 });
+      }
+    }
   } else {
     const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
     if (defaultProvider !== 'hestia') return null;
@@ -229,9 +240,10 @@ async function tryHestiaCreateWebsite(
 }
 
 async function tryHestiaSubdomain(
-  mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string },
+  mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string; linkedOwners?: string[] },
   action: 'createSubdomain' | 'deleteSubdomain',
   params: Record<string, unknown>,
+  accountScope: AccountScope | null = null,
 ): Promise<NextResponse | null> {
   const parent = String(params.domain || '').trim().toLowerCase();
   const sub = String(params.subdomain || '').trim().toLowerCase();
@@ -240,9 +252,20 @@ async function tryHestiaSubdomain(
   const { getProviderByUsername } = await import('@/lib/hosting-provider');
   let owner: string;
   if (mirrorScope.role === 'reseller' && mirrorScope.daUsername) {
-    owner = mirrorScope.daUsername;
-    const provider = await getProviderByUsername(owner);
+    const provider = await getProviderByUsername(mirrorScope.daUsername);
     if (provider !== 'hestia') return null;
+    // O subdomínio vive na conta do domínio pai — que tem de ser uma conta
+    // que este login gere directamente (a activa ou, no Enterprise, uma ligada).
+    const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+    const {
+      domainAccessDeniedResponse,
+      domainAccessForManaged,
+      managedOwnersFromContext,
+    } = await import('@/lib/domain-access');
+    const managed = managedOwnersFromContext({ effectiveRole: 'reseller', mirrorScope, accountScope });
+    const access = await domainAccessForManaged(managed, parent);
+    if (!access.allowed) return domainAccessDeniedResponse(access.reason);
+    owner = (await resolveHostingOwner(parent)).toLowerCase();
   } else {
     const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
     if (defaultProvider !== 'hestia') return null;
@@ -471,10 +494,12 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const { daApi: api, mirrorScope } = await resolvePanelDaContext(auth);
+      const panelCtx = await resolvePanelDaContext(auth);
+      const { daApi: api, mirrorScope } = panelCtx;
+      const accountScope = panelCtx.accountScope ?? null;
 
       if (action === 'createWebsite') {
-        const hestiaResponse = await tryHestiaCreateWebsite(mirrorScope, params as Record<string, unknown>);
+        const hestiaResponse = await tryHestiaCreateWebsite(mirrorScope, params as Record<string, unknown>, accountScope);
         if (hestiaResponse) return hestiaResponse;
       }
 
@@ -483,6 +508,7 @@ export async function POST(req: NextRequest) {
           mirrorScope,
           action,
           params as Record<string, unknown>,
+          accountScope,
         );
         if (hestiaResponse) return hestiaResponse;
       }

@@ -138,16 +138,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const daUsername = ctx.daUsername;
-    const [rawUsers, sites] = await Promise.all([
+    const daUsername = ctx.mainAccount;
+    const [rawUsers, scopedSites] = await Promise.all([
       hestiaOnly ? listHostingUsers() : listMirrorUsers(mirrorScope),
-      listHostingDomains(mirrorScope),
+      // Hestia: todos os domínios, filtrados logo abaixo às contas deste
+      // revendedor — a lista escopada só trazia os da conta principal, e as
+      // contas criadas por ele apareciam sempre sem domínio nenhum.
+      hestiaOnly ? listHostingDomains() : listHostingDomains(mirrorScope),
     ]);
+
+    const users = filterResellerUsers(rawUsers, daUsername);
+    const ownAccounts = new Set([daUsername, ...users.map((u) => u.userName)].map((u) => u.toLowerCase()));
+    const sites = hestiaOnly
+      ? scopedSites.filter((s) => ownAccounts.has(String(s.owner || '').toLowerCase()))
+      : scopedSites;
     const packages = hestiaOnly
       ? await listHostingPackages()
       : await listMirrorPackages(mirrorScope, sites);
 
-    const users = filterResellerUsers(rawUsers, daUsername);
     const visiblePackages = excludeResellerSelfPackages(packages, sites, daUsername);
     const packageMap = new Map(visiblePackages.map((p) => [p.packageName, p]));
     const enriched = enrichPanelAccounts(users, sites, packageMap, {
@@ -323,7 +331,7 @@ export async function POST(req: NextRequest) {
         first_name: body.firstName || '',
         last_name: body.lastName || '',
         acl: 'user',
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
         auth_user_id: authUserId,
         status: 'Active',
       });
@@ -342,7 +350,7 @@ export async function POST(req: NextRequest) {
           packageName: '—',
           quotaLabel: '—',
           diskUsedLabel: '—',
-          resellerOwner: ctx.daUsername,
+          resellerOwner: ctx.mainAccount,
           domainCount: 0,
           registeredAt: new Date().toISOString(),
           suspended: false,
@@ -358,7 +366,7 @@ export async function POST(req: NextRequest) {
     const resolvedAuth = resolved as Exclude<typeof resolved, { error: NextResponse }>;
     const quota = await assertResellerHostingQuota({
       userId: resolvedAuth.auth.user.id,
-      daUsername: ctx.daUsername,
+      daUsername: ctx.mainAccount,
     });
     if (!quota.ok) {
       return NextResponse.json({ success: false, error: quota.error }, { status: 403 });
@@ -404,7 +412,7 @@ export async function POST(req: NextRequest) {
         acl: 'user',
         domain,
         packageName,
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
       });
 
       const sbHestia = getDaSyncAdmin();
@@ -413,7 +421,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       const result = await daPostViaSshAsDaUser(
-        ctx.daUsername,
+        ctx.mainAccount,
         'CMD_API_ACCOUNT_USER',
         accountUserCreateFields({
           userName,
@@ -445,7 +453,7 @@ export async function POST(req: NextRequest) {
         acl: 'user',
         domain,
         packageName,
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
       });
 
       // Update mirror auth link
@@ -472,7 +480,7 @@ export async function POST(req: NextRequest) {
         packageName,
         quotaLabel: 'Calculando...',
         diskUsedLabel: '0 MB',
-        resellerOwner: ctx.daUsername,
+        resellerOwner: ctx.mainAccount,
         domainCount: 1,
         registeredAt: new Date().toISOString(),
         suspended: false,
@@ -501,13 +509,13 @@ export async function PATCH(req: NextRequest) {
 
     const rawUsers = await listMirrorUsers(mirrorScope);
     const target = rawUsers.find((u) => u.userName === userName);
-    const guard = assertManagedUser(target, ctx.daUsername);
+    const guard = assertManagedUser(target, ctx.mainAccount);
     if (guard) {
       return NextResponse.json({ success: false, error: guard }, { status: 403 });
     }
 
     if (action === 'delete' || action === 'suspend') {
-      if (String(userName).toLowerCase() === ctx.daUsername.toLowerCase()) {
+      if (String(userName).toLowerCase() === ctx.mainAccount.toLowerCase()) {
         return NextResponse.json(
           { success: false, error: 'Não pode alterar a conta principal do painel.' },
           { status: 403 },
@@ -590,7 +598,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     let data: unknown;
-    const daUser = ctx.daUsername;
+    const daUser = ctx.mainAccount;
 
     switch (action) {
       case 'suspend': {

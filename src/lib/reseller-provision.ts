@@ -128,6 +128,9 @@ async function ensureAuthUser(input: ProvisionResellerInput): Promise<{ id: stri
     await admin.auth.admin.updateUserById(existing.id, {
       password: input.password,
       email_confirm: true,
+      // O papel que dá acesso vai no app_metadata (só o servidor escreve); o do
+      // user_metadata fica por compatibilidade, mas o próprio utilizador pode alterá-lo.
+      app_metadata: { ...existing.app_metadata, role: 'reseller' },
       user_metadata: {
         ...existing.user_metadata,
         role: 'reseller',
@@ -142,6 +145,7 @@ async function ensureAuthUser(input: ProvisionResellerInput): Promise<{ id: stri
     email,
     password: input.password,
     email_confirm: true,
+    app_metadata: { role: 'reseller' },
     user_metadata: {
       role: 'reseller',
       nome: input.nome || email.split('@')[0],
@@ -219,6 +223,7 @@ export async function provisionResellerAccount(
 
   const supabase = adminClient();
   await supabase.auth.admin.updateUserById(auth.id, {
+    app_metadata: { role: 'reseller' },
     user_metadata: {
       role: 'reseller',
       nome: input.nome || email.split('@')[0],

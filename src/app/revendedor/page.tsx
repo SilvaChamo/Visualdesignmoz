@@ -10,6 +10,7 @@ import {
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
 import { ImpersonationBanner } from '@/components/encomendas/ImpersonationBanner'
+import { LinkedAccountBanner } from '@/components/panel/LinkedAccountsPanel'
 import { Spinner } from '@/components/ui/spinner'
 import { panelDashboardGrid, panelDashboardToolCard, panelDashboardToolLabel, panelSectionPadding, panelBtnSecondary } from '@/lib/panel-ui'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
@@ -1323,6 +1324,10 @@ function ResellerPageContent({
   const [resellerPrimaryDomain, setResellerPrimaryDomain] = useState<string | null>(null)
   const [isResellerSession, setIsResellerSession] = useState(false)
   const [isAdminImpersonating, setIsAdminImpersonating] = useState(false)
+  // Contas de domínio ligadas (account-levels.ts): Enterprise gere-as daqui,
+  // Premium só depois de entrar numa delas com as credenciais.
+  const [linkedOwners, setLinkedOwners] = useState<string[]>([])
+  const [enteredLinkedAccount, setEnteredLinkedAccount] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
@@ -1417,6 +1422,8 @@ function ResellerPageContent({
       setResellerDisplayName(boot.resellerContext.displayName || null)
       setIsResellerSession(!boot.resellerContext.impersonating)
       setIsAdminImpersonating(Boolean(boot.resellerContext.impersonating))
+      setLinkedOwners(boot.resellerContext.linkedOwners ?? [])
+      setEnteredLinkedAccount(boot.resellerContext.enteredAccount ?? null)
       if (boot.resellerContext.primaryDomain) {
         setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
       } else if (boot.resellerContext.daUsername) {
@@ -1524,7 +1531,7 @@ function ResellerPageContent({
     if (s.domain.toLowerCase().startsWith('mail.')) return false
     const scopeUser = resellerDaUsername
     if (scopeUser) {
-      if (s.owner && s.owner !== scopeUser) return false
+      if (s.owner && s.owner !== scopeUser && !linkedOwners.includes(s.owner)) return false
     } else if (isResellerSession) {
       return false
     }
@@ -2092,6 +2099,7 @@ function ResellerPageContent({
           exitEndpoint="/api/admin/impersonate?exit=1"
         />
       )}
+      {enteredLinkedAccount && <LinkedAccountBanner account={enteredLinkedAccount} />}
       <div className="flex flex-1 min-h-0">
       <ResellerSidebar
         activeSection={activeSection}
