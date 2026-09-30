@@ -61,6 +61,27 @@ function sanitizeServerOutput(raw: string): string {
     .trim();
 }
 
+// Fora do servidor (ex.: `next dev` no Mac) cada comando abria uma ligação SSH nova — 2,5–3,3 s só a ligar,
+// e muitas seguidas chegaram a fazer o servidor bloquear a porta 22 ao Mac. A primeira ligação fica aberta
+// 10 min (ControlMaster) e as seguintes reaproveitam-na. No servidor não entra: lá o exec é local.
+// Desligar com SSH_MULTIPLEX=false.
+function sshMultiplexArgs(): string[] {
+  if (process.env.SSH_MULTIPLEX === 'false') return [];
+  const dir = path.join(os.tmpdir(), 'vd-ssh-mux');
+  try {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  } catch {
+    return [];
+  }
+  return [
+    '-o', 'ControlMaster=auto',
+    '-o', `ControlPath=${path.join(dir, '%r@%h:%p')}`,
+    '-o', 'ControlPersist=600',
+    '-o', 'ServerAliveInterval=15',
+    '-o', 'ServerAliveCountMax=3',
+  ];
+}
+
 function localServerExec(command: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve) => {
     const { exec } = require('child_process') as typeof import('child_process');
@@ -116,6 +137,9 @@ async function executeViaNativeSsh(command: string, fast = false, timeoutMs?: nu
   ];
   if (fast) {
     sshOpts.push('-o', 'Compression=no');
+  }
+  if (!useSshpass) {
+    sshOpts.push(...sshMultiplexArgs());
   }
 
   const sshArgs = [...sshOpts, `${opts.username}@${opts.host}`, command];
@@ -275,6 +299,7 @@ export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('
       '-o', 'BatchMode=yes',
       '-o', 'ConnectTimeout=15',
       '-o', 'ConnectionAttempts=1',
+      ...sshMultiplexArgs(),
       `${opts.username}@${opts.host}`,
       `cat > "${remotePath}"`
     ];
