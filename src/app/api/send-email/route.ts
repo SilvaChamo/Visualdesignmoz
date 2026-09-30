@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWebmailSmtpMail, sendSmtpMail, isSmtpConfigured } from '@/lib/smtp-mail';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, getVerifiedSession } from '@/utils/supabase/server';
 import { resolveMailboxPassword } from '@/lib/imap-panel-shared';
 
 async function saveToSentFolder(
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         // directo pelo domínio real (SPF/DKIM alinhados dão-lhe mais
         // credibilidade num ataque de spoofing).
         const supabase = await createClient();
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getVerifiedSession(supabase);
         if (!session) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
         }

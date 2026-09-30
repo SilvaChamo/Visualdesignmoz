@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, getVerifiedSession } from '@/utils/supabase/server';
 
 const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com', 'geral@your-domain.com'];
 
@@ -9,12 +9,12 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function POST() {
   const supabaseAuth = await createClient();
-  const { data: { session } } = await supabaseAuth.auth.getSession();
+  const session = await getVerifiedSession(supabaseAuth);
 
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
-  if (session.user?.user_metadata?.role !== 'admin' && !isExplicitAdmin) {
+  if (session.user?.app_metadata?.role !== 'admin' && !isExplicitAdmin) {
     return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 });
   }
 

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se é admin
-    const isAdmin = user.user_metadata?.role === 'admin' || 
+    const isAdmin = user.app_metadata?.role === 'admin' || 
                    ['silva.chamo@gmail.com', 'admin@visualdesignmoz.com'].includes(user.email || '');
     
     if (!isAdmin) {

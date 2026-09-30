@@ -31,20 +31,13 @@ const STAFF_ACCESS_DENIED = () => ({
 
 async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAuthFailure> {
   const supabase = await createClient();
+  // Só o getUser() valida o token; o getSession() lia o cookie sem verificação.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  let user = session?.user ?? null;
-  if (!user) {
-    const {
-      data: { user: verifiedUser },
-      error,
-    } = await supabase.auth.getUser();
-    if (!error && verifiedUser) user = verifiedUser;
-  }
-
-  if (!user) {
+  if (userError || !user) {
     return {
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };
@@ -59,9 +52,9 @@ async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAut
     return { user: { id: user.id, email, role: 'admin' } };
   }
 
-  const metadataRole = user.user_metadata?.role || user.app_metadata?.role;
-
-  let effectiveRole = metadataRole;
+  // Atalho só pelo app_metadata (escrito pelo servidor) — o user_metadata é editável
+  // pelo próprio utilizador e não pode decidir papéis de staff.
+  let effectiveRole = user.app_metadata?.role;
   if (!effectiveRole || (effectiveRole !== 'admin' && effectiveRole !== 'manager' && effectiveRole !== 'reseller')) {
     try {
       effectiveRole = await resolveRoleForAuthUser(supabase, user);
@@ -116,20 +109,14 @@ export async function requirePanelBootstrapAccess(): Promise<
   PanelBootstrapAuthSuccess | PanelAuthFailure
 > {
   const supabase = await createClient();
+  // Sem recurso ao getSession() quando o getUser() falha: isso aceitava justamente os
+  // cookies que o servidor de auth acabara de recusar.
   const {
-    data: { user: verifiedUser },
+    data: { user },
     error,
   } = await supabase.auth.getUser();
 
-  let user = verifiedUser;
   if (error || !user) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    user = session?.user ?? null;
-  }
-
-  if (!user) {
     return {
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };
@@ -144,7 +131,7 @@ export async function requirePanelBootstrapAccess(): Promise<
     return { user: { id: user.id, email, role: 'admin' } };
   }
 
-  let effectiveRole = user.user_metadata?.role || user.app_metadata?.role;
+  let effectiveRole = user.app_metadata?.role;
   if (
     !effectiveRole ||
     (effectiveRole !== 'admin' &&

@@ -17,35 +17,25 @@ type AdminAuthFailure = {
 
 export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailure> {
   const supabase = await createClient();
+  // getUser() valida o token no servidor de auth. O atalho antigo com getSession() lia o
+  // cookie sem o verificar e aceitava o role do user_metadata (editável pelo próprio
+  // utilizador) — qualquer conta podia passar por admin.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  const sessionUser = session?.user ?? null;
-  if (sessionUser?.email) {
-    const email = sessionUser.email.toLowerCase();
-    const metaRole = sessionUser.user_metadata?.role || sessionUser.app_metadata?.role;
-    if (ADMIN_EMAILS.has(email) || metaRole === 'admin') {
-      return { user: { id: sessionUser.id, email } };
-    }
-  }
-
-  let user = sessionUser;
-  if (!user?.email) {
-    const {
-      data: { user: verifiedUser },
-      error,
-    } = await supabase.auth.getUser();
-    if (!error && verifiedUser?.email) user = verifiedUser;
-  }
-
-  if (!user?.email) {
+  if (userError || !user?.email) {
     return {
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };
   }
 
   const email = user.email.toLowerCase();
+  if (ADMIN_EMAILS.has(email) || user.app_metadata?.role === 'admin') {
+    return { user: { id: user.id, email } };
+  }
+
   const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   const roleDb =

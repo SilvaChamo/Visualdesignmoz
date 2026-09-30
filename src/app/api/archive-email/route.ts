@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectImapClient, FOLDER_VARIATIONS, resolveMailboxPassword } from '@/lib/imap-panel-shared'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 
 const getMailboxWithFallback = async (client: any, folderPath: string): Promise<{ lock: any; actualPath: string } | null> => {
   const folderList = await client.list()
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getVerifiedSession(supabase)
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

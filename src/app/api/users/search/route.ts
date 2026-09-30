@@ -8,7 +8,7 @@ async function isAdmin(supabase: any): Promise<boolean> {
   if (!user) return false
   
   const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
-  return adminEmails.includes(user.email || '') || user.user_metadata?.role === 'admin'
+  return adminEmails.includes(user.email || '') || user.app_metadata?.role === 'admin'
 }
 
 // Buscar usuário por email

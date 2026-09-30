@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { detectDomainConfig } from '@/lib/email-autoconfig'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getVerifiedSession(supabase)
 
   if (!session) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
