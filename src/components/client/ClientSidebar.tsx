@@ -21,11 +21,10 @@ import {
   isClientMenuItemActive,
 } from '@/lib/panel-client-menu';
 import { CLIENT_READONLY_MENU_DEFS } from '@/lib/panel-role-capabilities';
-import { resolveSectionId, PANEL_LOADING_MENU_IDS } from '@/lib/panel-admin-menu';
+import { resolveSectionId } from '@/lib/panel-admin-menu';
 import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
 import { panelShellHeaderHeight } from '@/lib/panel-ui';
 import { cn } from '@/lib/utils';
-import { MenuSpinner } from '@/components/ui/spinner';
 
 function WordPressMenuIcon({ className, size = 20 }: { className?: string; size?: number }) {
   return (
@@ -83,6 +82,7 @@ interface ClientSidebarProps {
   hasEncomendas?: boolean;
   /** Só mostra "Domínios & DNS" quando o cliente tiver pelo menos um domínio. */
   hasDomains?: boolean;
+  /** Ignorado: o menu deixou de mostrar spinners enquanto o painel carrega (pedido do utilizador, 30 set). */
   isLoading?: boolean;
 }
 
@@ -96,7 +96,6 @@ export function ClientSidebar({
   readOnly = false,
   hasEncomendas = false,
   hasDomains = false,
-  isLoading = false,
 }: ClientSidebarProps) {
   const currentSidebarWidth = isCollapsed ? 64 : 250;
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>(null);
@@ -220,12 +219,7 @@ export function ClientSidebar({
                 }`}
               >
                 <Icon size={22} className={isActive ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-zinc-500'} />
-                {!isCollapsed && (
-                  <span className="ml-3 flex items-center gap-2 text-[15px]">
-                    {item.label}
-                    {isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && <MenuSpinner />}
-                  </span>
-                )}
+                {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
               </button>
             );
           })}
@@ -276,10 +270,7 @@ export function ClientSidebar({
                       )}
                       {!isCollapsed && (
                         <>
-                          <span className="ml-3 flex flex-1 items-center gap-2 text-left text-[15px]">
-                            {menu.label}
-                            {isLoading && PANEL_LOADING_MENU_IDS.has(menu.id) && <MenuSpinner />}
-                          </span>
+                          <span className="ml-3 flex-1 text-left text-[15px]">{menu.label}</span>
                           {hasSubItems && (
                             <ChevronRight
                               size={14}
@@ -355,12 +346,7 @@ export function ClientSidebar({
                 }`}
               >
                 <Icon size={22} className={isActive ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-zinc-500'} />
-                {!isCollapsed && (
-                  <span className="ml-3 flex items-center gap-2 text-[15px]">
-                    {item.label}
-                    {isLoading && PANEL_LOADING_MENU_IDS.has(item.id) && <MenuSpinner />}
-                  </span>
-                )}
+                {!isCollapsed && <span className="ml-3 text-[15px]">{item.label}</span>}
               </button>
             );
           })}
