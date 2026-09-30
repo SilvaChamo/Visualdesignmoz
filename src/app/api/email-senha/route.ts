@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role'
 import { decryptStoredPassword } from '@/lib/panel-access-credentials'
 
@@ -15,7 +15,7 @@ const decrypt = decryptStoredPassword
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = await getVerifiedSession(supabase);
 
   if (!session) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -45,25 +45,21 @@ export async function POST(req: NextRequest) {
     const sessionEmail = (session.user.email || '').toLowerCase();
     const accountEmail = (conta.email || '').toLowerCase();
     const accountDomain = accountEmail.split('@')[1] || '';
-    const sameDomain =
-      sessionEmail.split('@')[1] &&
-      accountEmail.endsWith(`@${sessionEmail.split('@')[1]}`);
-
+    // Ter um email no mesmo domínio já não chega: qualquer funcionário via a password das
+    // caixas dos colegas (e do director). Fica o admin, a própria caixa e o dono do alojamento.
     let canAccess =
       isAdmin ||
       conta.cliente_id === session.user.id ||
-      accountEmail === sessionEmail ||
-      Boolean(sameDomain);
+      accountEmail === sessionEmail;
 
-    // Revendedor: só se o domínio da conta pertencer de facto à sua conta DA — nunca um
-    // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
-    if (!canAccess && effectiveRole === 'reseller' && accountDomain) {
+    // Dono do alojamento do domínio (mesma regra do imap-panel-shared): só se o domínio
+    // pertencer de facto à conta de alojamento de quem pede.
+    if (!canAccess && accountDomain) {
       const { loadResellerCredentialsByUserId } = await import('@/lib/da-credential-store');
       const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
       const creds = await loadResellerCredentialsByUserId(session.user.id);
       if (creds?.user) {
-        const owner = await getMirrorSiteOwner(accountDomain);
-        canAccess = owner === creds.user;
+        canAccess = (await getMirrorSiteOwner(accountDomain)) === creds.user;
       }
     }
 

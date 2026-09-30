@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { applySharedAuthCookieOptions } from '@/lib/panel-origin'
-import { type UserRole } from '@/lib/user-roles'
+import { ADMIN_EMAILS, type UserRole } from '@/lib/user-roles'
 
 /** Grava sessão Supabase em cookies HTTP — o proxy/middleware lê estes cookies. */
 export async function POST(request: NextRequest) {
@@ -27,7 +27,11 @@ export async function POST(request: NextRequest) {
   const {
     data: { user },
   } = await tempSupabase.auth.getUser(access_token)
-  const role = (user?.user_metadata?.role as UserRole) || 'client'
+  // Só serve para a duração do cookie (6 h admin, 1 h resto) — e nunca pelo user_metadata,
+  // que é editável pelo próprio utilizador.
+  const isAdmin =
+    ADMIN_EMAILS.has((user?.email || '').toLowerCase()) || user?.app_metadata?.role === 'admin'
+  const role: UserRole = isAdmin ? 'admin' : 'client'
 
   const response = NextResponse.json({ ok: true })
   const hostname = request.headers.get('host') ?? undefined

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import { createHmac, randomBytes } from 'crypto'
 import { getWebmailUrlForDomain } from '@/lib/server-config'
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getVerifiedSession(supabase)
 
     const targetEmail = emailParam || session?.user?.email || ''
     const roundcubeUrl = roundcubeUrlForEmail(targetEmail)

@@ -141,18 +141,18 @@ export async function resolveMailboxPassword(
   const sessionEmail = session.user.email.toLowerCase()
   const accountEmail = (conta.email || '').toLowerCase()
   const accountDomain = accountEmail.split('@')[1] || ''
-  const sameDomain =
-    sessionEmail.split('@')[1] && accountEmail.endsWith(`@${sessionEmail.split('@')[1]}`)
 
+  // Ter um email no mesmo domínio já não chega: com essa regra qualquer funcionário
+  // abria as caixas dos colegas (e do director) sem saber a password. Quem a souber
+  // continua a entrar pelo `passwordFromClient` acima.
   let canAccess =
     isAdmin ||
     conta.cliente_id === session.user.id ||
-    accountEmail === sessionEmail ||
-    Boolean(sameDomain)
+    accountEmail === sessionEmail
 
-  // Revendedor: só se o domínio da conta pertencer de facto à sua conta DA — nunca um
-  // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
-  if (!canAccess && effectiveRole === 'reseller' && accountDomain) {
+  // Dono do alojamento do domínio (cliente com conta própria ou revendedor que o aloja):
+  // gere todas as caixas desse domínio — só se o domínio pertencer de facto à sua conta.
+  if (!canAccess && accountDomain) {
     const { loadResellerCredentialsByUserId } = await import('@/lib/da-credential-store')
     const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read')
     const creds = await loadResellerCredentialsByUserId(session.user.id)

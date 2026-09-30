@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getVerifiedSession } from '@/utils/supabase/server'
 import {
   connectImapClient,
   getCachedFolderList,
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const uidOpts = bySeq ? undefined : { uid: true as const }
 
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getVerifiedSession(supabase)
     const resolvedPassword = await resolveMailboxPassword(email, password, session)
 
     if (!resolvedPassword) {

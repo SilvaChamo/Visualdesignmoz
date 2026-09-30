@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         }
 
         const adminEmails = ['admin@your-domain.com', 'silva.chamo@gmail.com'];
-        const userRole = user.user_metadata?.role;
+        const userRole = user.app_metadata?.role; // user_metadata é editável pelo próprio
         const isAdmin = adminEmails.includes(user.email || '') || userRole === 'admin' || userRole === 'reseller';
 
         const { searchParams } = new URL(req.url);
