@@ -36,7 +36,7 @@ export default function EscolherDominioPage() {
   const [regName, setRegName] = useState('');
   const [regTld, setRegTld] = useState(DOMAIN_TLD_PRICES[0].value);
   const [regChecking, setRegChecking] = useState(false);
-  const [regResult, setRegResult] = useState<{ available: boolean; domain: string; error?: string } | null>(null);
+  const [regResult, setRegResult] = useState<{ available: boolean; domain: string; error?: string; alreadyOurs?: boolean } | null>(null);
 
   // Transferir
   const [trDomain, setTrDomain] = useState('');
@@ -92,7 +92,7 @@ export default function EscolherDominioPage() {
         return;
       }
       const domain = data.domain as string;
-      setRegResult({ available: data.available, domain });
+      setRegResult({ available: data.available, domain, alreadyOurs: Boolean(data.alreadyOurs) });
       if (data.available) {
         const tld = DOMAIN_TLD_PRICES.find((t) => domain.endsWith(t.value));
         if (tld) {
@@ -131,6 +131,10 @@ export default function EscolherDominioPage() {
       }
       if (data.available) {
         setTrMsg({ ok: false, text: 'Este domínio está livre — não há nada para transferir. Escolha "Registar um novo domínio" em vez disso.' });
+        return;
+      }
+      if (data.alreadyOurs) {
+        setTrMsg({ ok: false, text: 'Este domínio já está registado connosco — não é preciso transferir.' });
         return;
       }
 
@@ -262,6 +266,8 @@ export default function EscolherDominioPage() {
                           <span className="font-bold whitespace-nowrap">{formatPrice(staged.price)}/1º ano</span>
                         )}
                       </>
+                    ) : regResult.alreadyOurs ? (
+                      <span>{regResult.domain} já está registado connosco.</span>
                     ) : (
                       <span>{regResult.domain} já está registado — tente outro nome ou use "Transferir domínio".</span>
                     )}
