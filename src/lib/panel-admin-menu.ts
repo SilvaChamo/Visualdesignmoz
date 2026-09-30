@@ -461,18 +461,6 @@ export function resellerMenuParentForSection(sectionId: string): string | null {
 }
 
 export const ADMIN_MENU_ITEM_DEFS: PanelMenuItemDef[] = [...NEW_MENU_ITEM_DEFS];
-
-/** Menus da sidebar que mostram spinner enquanto o bootstrap da hospedagem carrega. */
-export const PANEL_LOADING_MENU_IDS = new Set([
-  'nov-wordpress',
-  'nov-hospedagem',
-  'nov-email',
-  'nov-dominios',
-  'file-manager',
-  'backup-manager',
-  'webmail',
-  'domains',
-]);
 export const RESELLER_ADMIN_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MENU_DEFS;
 
 export function resolveSectionId(sectionId: string): string {

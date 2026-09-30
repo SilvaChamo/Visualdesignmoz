@@ -46,8 +46,6 @@ interface AdminSidebarProps {
   sessionUser: string | null;
   isMobile?: boolean;
   menuDefs?: PanelMenuItemDef[];
-  /** Ignorado: o menu deixou de mostrar spinners enquanto o painel carrega (pedido do utilizador, 30 set). */
-  isLoading?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {

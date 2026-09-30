@@ -2112,7 +2112,6 @@ function ResellerPageContent({
         isMobile={isMobile}
         menuDefs={menuDefs}
         basePath={basePath}
-        isLoading={isFetchingDirectAdmin}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
         <PanelHeader

@@ -82,8 +82,6 @@ interface ClientSidebarProps {
   hasEncomendas?: boolean;
   /** Só mostra "Domínios & DNS" quando o cliente tiver pelo menos um domínio. */
   hasDomains?: boolean;
-  /** Ignorado: o menu deixou de mostrar spinners enquanto o painel carrega (pedido do utilizador, 30 set). */
-  isLoading?: boolean;
 }
 
 export function ClientSidebar({
