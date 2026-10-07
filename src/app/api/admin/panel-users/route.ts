@@ -3,6 +3,12 @@ import { createClient as createAdminClient, type SupabaseClient, type User } fro
 import { withTimeout } from '@/lib/with-timeout';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import {
+  findProtectedEmailClaim,
+  resellerMayUseEmail,
+  RESELLER_PROTECTED_EMAIL_MESSAGE,
+} from '@/lib/protected-account-email';
 import {
   resolveUserRole,
   getRedirectPathForRole,
@@ -624,6 +630,20 @@ export async function PUT(req: NextRequest) {
         },
         { status: 400 },
       );
+    }
+
+    // Revendedor: o email é escolhido aqui e a conta fica já confirmada — mesma
+    // regra do painel do revendedor (ver protected-account-email.ts).
+    if (auth.user.role === 'reseller') {
+      const { mirrorScope } = await resolvePanelDaContext(auth);
+      const resellerOwner = String(mirrorScope.daUsername || '').trim().toLowerCase();
+      const claim = await findProtectedEmailClaim(normalizedEmail);
+      if (!resellerMayUseEmail(claim, (owner) => Boolean(resellerOwner) && owner === resellerOwner)) {
+        return NextResponse.json(
+          { success: false, error: RESELLER_PROTECTED_EMAIL_MESSAGE },
+          { status: 403 },
+        );
+      }
     }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
