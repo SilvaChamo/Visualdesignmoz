@@ -4,6 +4,11 @@ import { daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import {
+  findProtectedEmailClaim,
+  resellerMayUseEmail,
+  RESELLER_PROTECTED_EMAIL_MESSAGE,
+} from '@/lib/protected-account-email';
 import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
@@ -174,7 +179,7 @@ export async function POST(req: NextRequest) {
   try {
     const resolved = await resolveResellerContext();
     if ('error' in resolved && resolved.error) return resolved.error;
-    const { ctx } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
+    const { ctx, mirrorScope } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const body = await req.json();
     const accountType = String(body.accountType || 'client');
@@ -202,6 +207,20 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Domínio obrigatório (ex.: exemplo.com).' },
         { status: 400 },
       );
+    }
+
+    // Conta nova: o email é escolhido aqui e a conta fica já confirmada, por isso
+    // não pode ser da equipa nem de um domínio alojado noutra conta
+    // (ver protected-account-email.ts).
+    if (!isExistingUser) {
+      const resellerOwner = String(mirrorScope.daUsername || '').trim().toLowerCase();
+      const claim = await findProtectedEmailClaim(email);
+      if (!resellerMayUseEmail(claim, (owner) => Boolean(resellerOwner) && owner === resellerOwner)) {
+        return NextResponse.json(
+          { success: false, error: RESELLER_PROTECTED_EMAIL_MESSAGE },
+          { status: 403 },
+        );
+      }
     }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {

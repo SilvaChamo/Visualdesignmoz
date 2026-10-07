@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
+import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
+
+const EXISTING_ACCOUNT_MESSAGE = 'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta».';
+
+async function authUserExists(admin: SupabaseClient, email: string): Promise<boolean> {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    if (data.users.some((u) => u.email?.toLowerCase() === email)) return true;
+    if (data.users.length < 1000) return false;
+  }
+  return false;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,6 +47,17 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient(url, serviceKey);
     const normalizedEmail = String(email).toLowerCase().trim();
 
+    // O registo confirma o email automaticamente (sem prova de posse), por isso
+    // não pode aceitar emails da equipa nem de domínios alojados connosco.
+    // Se a conta já existir, responde como sempre ("Já existe") — o checkout e a
+    // cotação usam essa resposta para entrar com a password indicada.
+    if (await findProtectedEmailClaim(normalizedEmail)) {
+      if (await authUserExists(admin, normalizedEmail)) {
+        return NextResponse.json({ error: EXISTING_ACCOUNT_MESSAGE }, { status: 409 });
+      }
+      return NextResponse.json({ error: PROTECTED_EMAIL_MESSAGE }, { status: 403 });
+    }
+
     const { data, error } = await admin.auth.admin.createUser({
       email: normalizedEmail,
       password: String(password),
@@ -55,12 +79,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
-        return NextResponse.json(
-          {
-            error: 'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta».',
-          },
-          { status: 409 },
-        );
+        return NextResponse.json({ error: EXISTING_ACCOUNT_MESSAGE }, { status: 409 });
       }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

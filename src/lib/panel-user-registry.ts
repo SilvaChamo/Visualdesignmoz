@@ -63,16 +63,27 @@ export function resolveRegistryDaUsername(source: PanelRoleSource): string | nul
   return [...registry.resellerDaUsernames][0] ?? null;
 }
 
+/** Email de bootstrap ou presente no registo de papéis de qualquer painel. */
+export function isRegisteredPanelEmail(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+  if (ADMIN_BOOTSTRAP_EMAILS.has(normalized)) return true;
+  return Object.values(REGISTRY_BY_PANEL).some(
+    (r) => r.managers.has(normalized) || r.resellers.has(normalized) || r.clients.has(normalized),
+  );
+}
+
 /** Papéis atribuídos automaticamente neste painel (nunca inclui admin). */
 export function resolveRegistryPanelRole(source: PanelRoleSource): UserRole | null {
   const email = (source.email || '').toLowerCase().trim();
   const daUser = (source.daUsername || '').toLowerCase().trim();
   const registry = currentRegistry();
 
+  // Ter um email @visualdesignmoz.com já não dá papel de gestor: qualquer pessoa
+  // podia registar-se com um endereço desses (o registo não confirma o email) e
+  // entrar como gestor. Os gestores reais estão na lista acima ou têm o papel no
+  // app_metadata/perfil.
   if (email && registry.managers.has(email)) return 'manager';
-  if (email && email.endsWith('@visualdesignmoz.com') && PANEL_SLUG === 'visualdesign') {
-    return 'manager';
-  }
   if (email && registry.resellers.has(email)) return 'reseller';
   if (daUser && registry.resellerDaUsernames.has(daUser)) return 'reseller';
   if (email && registry.clients.has(email)) return 'client';
