@@ -36,21 +36,20 @@ async function userCanAccessMailboxPassword(
   sessionUser: { id: string; email?: string | null },
   account: { email?: string | null; cliente_id?: string | null },
   isAdmin: boolean,
-  effectiveRole: string,
 ): Promise<boolean> {
   if (isAdmin) return true
   if (account.cliente_id && account.cliente_id === sessionUser.id) return true
   const sessionEmail = (sessionUser.email || '').toLowerCase()
   const accountEmail = (account.email || '').toLowerCase()
   if (sessionEmail && accountEmail === sessionEmail) return true
-  const sessionDomain = sessionEmail.split('@')[1]
   const accountDomain = accountEmail.split('@')[1]
-  if (sessionDomain && accountDomain && sessionDomain === accountDomain) return true
-  // Revendedor: só se o domínio da conta pertencer de facto à sua conta DA — nunca um
-  // bypass total (evita que qualquer revendedor veja a password de qualquer cliente).
-  // Mesma regra do resto do painel (domain-access.ts): conta activa +
-  // contas ligadas geridas directamente (Enterprise); Premium trancado.
-  if (effectiveRole === 'reseller' && accountDomain) {
+  // Ter um email no mesmo domínio já não chega: qualquer pessoa podia registar
+  // "qualquer@dominio" e mudar a password das caixas desse domínio. Só o dono do
+  // alojamento do domínio (cliente com conta própria ou revendedor que o aloja) —
+  // mesma regra do webmail (imap-panel-shared.ts) e do resto do painel
+  // (domain-access.ts): conta activa + contas ligadas geridas directamente
+  // (Enterprise); Premium trancado.
+  if (accountDomain) {
     const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access')
     const access = await resolveOwnAccountDomainAccess(sessionUser.id, accountDomain)
     if (access.allowed) return true
@@ -218,7 +217,7 @@ export async function GET(req: NextRequest) {
     const contas = await Promise.all(allEmails.map(async c => ({
       ...c,
       password_smtp:
-        c.senha_servidor && (await userCanAccessMailboxPassword(session.user, c, isAdmin, effectiveRole))
+        c.senha_servidor && (await userCanAccessMailboxPassword(session.user, c, isAdmin))
           ? decrypt(c.senha_servidor)
           : '',
     })))
@@ -249,17 +248,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Operação não autorizada' }, { status: 403 });
     }
 
-    // 🚀 VERIFICAÇÃO: Só permite criar emails se o usuário tiver domínio gerenciado
-    // ou se for admin. Usuários com Gmail/Yahoo/etc não podem criar contas de email
+    // Só o admin ou o dono do alojamento do domínio do email. Antes bastava o
+    // login ser de um domínio de uma lista fixa — e essa conta podia então criar
+    // um login (já confirmado) para QUALQUER email, de qualquer domínio, e
+    // reescrever a password guardada de caixas que não eram suas.
     if (!isAdmin) {
-      const userEmailDomain = session.user.email?.split('@')[1]?.toLowerCase() || '';
-      const managedDomains = ['visualdesignmoz.com', 'visualdesignmoz.com', 'visualdesigne.pt', 'aamihe.com', 'anap.co.mz', 'entrecampos.co.mz'];
-      const hasManagedDomain = managedDomains.includes(userEmailDomain);
-      
-      if (!hasManagedDomain) {
-        return NextResponse.json({ 
-          error: 'Não é possível criar contas de email', 
-          details: 'Apenas clientes com domínios gerenciados podem criar emails. Contas Gmail, Yahoo e similares não têm permissão para criar contas de email adicionais.'
+      const targetDomain = String(email).split('@')[1]?.toLowerCase() || '';
+      const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+      const access = targetDomain
+        ? await resolveOwnAccountDomainAccess(session.user.id, targetDomain)
+        : null;
+      if (!access?.allowed) {
+        return NextResponse.json({
+          error: 'Não é possível criar contas de email',
+          details: 'Só pode adicionar contas de email de domínios alojados na sua própria conta.'
         }, { status: 403 });
       }
     }
@@ -542,7 +544,7 @@ export async function PATCH(req: NextRequest) {
     const effectiveRole = await resolveRoleForAuthUser(roleDb, sessionUser);
     const isAdmin = isBootstrapAdmin(sessionUser.email) || effectiveRole === 'admin';
 
-    const allowed = await userCanAccessMailboxPassword(sessionUser, conta, isAdmin, effectiveRole);
+    const allowed = await userCanAccessMailboxPassword(sessionUser, conta, isAdmin);
     if (!allowed) {
       return NextResponse.json({ error: 'Não tens permissão para alterar a password desta conta.' }, { status: 403 });
     }
@@ -633,7 +635,7 @@ export async function DELETE(req: NextRequest) {
 
     const effectiveRole = await resolveRoleForAuthUser(supabaseAdmin, sessionUser)
     const isAdmin = isBootstrapAdmin(sessionUser.email) || effectiveRole === 'admin'
-    const allowed = conta ? await userCanAccessMailboxPassword(sessionUser, conta, isAdmin, effectiveRole) : isAdmin
+    const allowed = conta ? await userCanAccessMailboxPassword(sessionUser, conta, isAdmin) : isAdmin
 
     if (!allowed) {
       return NextResponse.json({ error: 'Não tens permissão para eliminar esta conta' }, { status: 403 });

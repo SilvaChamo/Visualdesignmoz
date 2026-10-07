@@ -35,6 +35,12 @@ import {
   listMirrorUsers,
 } from '@/lib/panel-mirror-read';
 import { listHostingDomains, listHostingUsers, listHostingPackages } from '@/lib/hosting-resolver';
+import { isOwnerManaged, resolveCallerManagedOwners } from '@/lib/domain-access';
+import {
+  findProtectedEmailClaim,
+  resellerMayUseEmail,
+  RESELLER_PROTECTED_EMAIL_MESSAGE,
+} from '@/lib/protected-account-email';
 import type { PanelUser } from '@/lib/directadmin-hosting-api';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -187,7 +193,7 @@ export async function POST(req: NextRequest) {
   try {
     const resolved = await resolveResellerContext();
     if ('error' in resolved && resolved.error) return resolved.error;
-    const { ctx } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
+    const { ctx, auth } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const body = await req.json();
     const accountType = String(body.accountType || 'client');
@@ -215,6 +221,20 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Domínio obrigatório (ex.: exemplo.com).' },
         { status: 400 },
       );
+    }
+
+    // Conta nova: o email é escolhido aqui e a conta fica já confirmada, por isso
+    // não pode ser da equipa nem de um domínio alojado noutra conta
+    // (ver protected-account-email.ts).
+    if (!isExistingUser) {
+      const managed = await resolveCallerManagedOwners(auth);
+      const claim = await findProtectedEmailClaim(email);
+      if (!resellerMayUseEmail(claim, (owner) => isOwnerManaged(managed, owner))) {
+        return NextResponse.json(
+          { success: false, error: RESELLER_PROTECTED_EMAIL_MESSAGE },
+          { status: 403 },
+        );
+      }
     }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
