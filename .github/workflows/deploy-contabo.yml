@@ -29,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -150,6 +150,24 @@ jobs:
             set_env_var SERVER_IP "${{ secrets.CONTABO_HOST }}"
             set_env_var SERVER_SSH_USER "root"
             set_env_var SERVER_SSH_PORT "22"
+            NODE_VERSION="24.18.0"
+            NODE_ROOT="/opt/node-v${NODE_VERSION}"
+            NODE_ARCHIVE="node-v${NODE_VERSION}-linux-x64.tar.xz"
+            if [ ! -x "${NODE_ROOT}/bin/node" ]; then
+              NODE_CHECKSUM="$(curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" | awk -v file="${NODE_ARCHIVE}" '$2 == file { print $1 }')"
+              if [ -z "$NODE_CHECKSUM" ]; then
+                echo "Could not find the official Node.js checksum for ${NODE_ARCHIVE}"
+                exit 1
+              fi
+              curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ARCHIVE}" -o "/tmp/${NODE_ARCHIVE}"
+              echo "${NODE_CHECKSUM}  /tmp/${NODE_ARCHIVE}" | sha256sum -c -
+              mkdir -p "${NODE_ROOT}"
+              tar -xJf "/tmp/${NODE_ARCHIVE}" --strip-components=1 -C "${NODE_ROOT}"
+              rm "/tmp/${NODE_ARCHIVE}"
+            fi
+            export PATH="${NODE_ROOT}/bin:$PATH"
+            node --version
+            npm --version
             npm ci
             npm run build
             pm2 restart visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" -- start -- -p 3002
