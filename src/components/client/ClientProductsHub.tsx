@@ -354,6 +354,89 @@ export function ClientDashboardView({
           </div>
         )}
 
+        {!hasAnything && (
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+            <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+              <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                <ShoppingCart className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                  Ainda não tem produtos activos na sua conta
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional:
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <a
+                href="/servicos/dominios"
+                className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-3">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                    Registar Domínio
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Pesquise e registe o seu domínio (.co.mz, .com, .org) para a sua marca.
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <span>Registar agora</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </a>
+
+              <a
+                href="/precos/hospedagem"
+                className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 mb-3">
+                    <Server className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                    Hospedagem Web
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Alojamento rápido e seguro com suporte a sites WordPress e e-mail.
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <span>Ver planos</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </a>
+
+              <a
+                href="/precos/email"
+                className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                    E-mail Profissional
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Contas de e-mail corporativo personalizadas com o seu próprio domínio.
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <span>Ver planos</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </a>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <button
             type="button"

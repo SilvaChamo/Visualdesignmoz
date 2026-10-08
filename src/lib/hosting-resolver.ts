@@ -172,20 +172,25 @@ export async function findHestiaDomainOwner(domain: string): Promise<string | nu
  * DA    (Hetzner):  lê panel_sites (Supabase mirror).
  */
 export async function listHostingDomains(
-  mirrorScope?: { role: 'admin' | 'reseller'; userId?: string; daUsername?: string; linkedOwners?: string[] },
+  mirrorScope?: { role: string; userId?: string; daUsername?: string; linkedOwners?: string[] },
 ): Promise<PanelWebsite[]> {
   if (IS_HESTIA) {
     const rows = await listAllHestiaDomainRows();
-    // Enterprise: além da própria conta, as contas de domínio ligadas que
-    // gere directamente (linkedOwners). Contas Premium trancadas nunca vêm
-    // aqui — esta lista é também a base das verificações de acesso.
-    const owners =
-      mirrorScope?.role === 'reseller' && mirrorScope.daUsername
-        ? new Set(
-            [mirrorScope.daUsername, ...(mirrorScope.linkedOwners || [])].map((o) => o.trim().toLowerCase()),
-          )
-        : null;
-    const scoped = owners ? rows.filter((r) => owners.has(r.username.toLowerCase())) : rows;
+    let scoped: typeof rows = [];
+    if (mirrorScope?.role === 'admin') {
+      const impersonating = mirrorScope.daUsername;
+      if (impersonating) {
+        const owners = new Set([impersonating, ...(mirrorScope.linkedOwners || [])].map((o) => o.trim().toLowerCase()));
+        scoped = rows.filter((r) => owners.has(r.username.toLowerCase()));
+      } else {
+        scoped = rows;
+      }
+    } else if (mirrorScope?.daUsername) {
+      const owners = new Set([mirrorScope.daUsername, ...(mirrorScope.linkedOwners || [])].map((o) => o.trim().toLowerCase()));
+      scoped = rows.filter((r) => owners.has(r.username.toLowerCase()));
+    } else {
+      scoped = [];
+    }
     return scoped.map((d) => ({
       id: d.domain,
       domain: d.domain,
@@ -202,7 +207,8 @@ export async function listHostingDomains(
   }
 
   const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
-  return listMirrorWebsites(mirrorScope ?? { role: 'admin' });
+  const scope = mirrorScope?.role === 'reseller' ? { role: 'reseller' as const, userId: mirrorScope.userId, daUsername: mirrorScope.daUsername, linkedOwners: mirrorScope.linkedOwners } : { role: 'admin' as const };
+  return listMirrorWebsites(scope);
 }
 
 export async function listHostingUsers(): Promise<PanelUser[]> {

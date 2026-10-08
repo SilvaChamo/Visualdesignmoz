@@ -189,8 +189,14 @@ export async function GET(req: NextRequest) {
     else {
       // No Contabo (Hestia), listHostingDomains devolve domínios Hestia directos;
       // no Hetzner, usa mirror. Para clientes, o filtro por userId é feito depois.
+      const { getProfileForAuthUser } = await import('@/lib/profile-db');
+      const profile = await getProfileForAuthUser(supabaseAdmin, session.user.id, session.user.email);
+      const daUsername = profile?.da_username ? String(profile.da_username).trim().toLowerCase() : undefined;
+
       const { listHostingDomains } = await import('@/lib/hosting-resolver');
-      const ownedSites = await listHostingDomains();
+      const ownedSites = daUsername
+        ? await listHostingDomains({ role: effectiveRole, daUsername, userId: session.user.id })
+        : [];
       const ownedDomains = new Set(ownedSites.map((s) => s.domain.toLowerCase()));
 
       const { data: activeContas, error } = await supabaseAdmin
@@ -203,7 +209,7 @@ export async function GET(req: NextRequest) {
         console.error('📧 [API] Erro ao buscar contas para filtrar por cliente/domínio:', error);
       } else if (activeContas) {
         allEmails = activeContas.filter((c: any) => {
-          if (c.cliente_id === clienteId) return true;
+          if (c.cliente_id === clienteId || c.cliente_id === session.user.id) return true;
           const domain = String(c.email || '').split('@')[1]?.toLowerCase();
           return domain ? ownedDomains.has(domain) : false;
         });

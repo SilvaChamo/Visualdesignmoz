@@ -179,10 +179,10 @@ export default function PrecosEmail() {
         </div>
       </div>
 
-      {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'down'
-          (corte do rodapé em cima, meio a descer em baixo). */}
-      <NotchSection shape="down" bg="bg-zinc-100" className="pt-16 pb-20">
-        <div className="container mx-auto max-w-7xl px-6">
+      {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'mid-alt'
+          (complementar a 'mid' da secção seguinte para criar um único dente limpo sem duplicados). */}
+      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-16 pb-20">
+        <div className="container mx-auto max-w-7xl px-8 sm:px-14 lg:px-20">
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
@@ -191,7 +191,7 @@ export default function PrecosEmail() {
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-4 sm:px-8">
             {[
               { Icon: ShoppingCart, title: '1. Escolha o plano', text: 'Básico, Premium ou Enterprise — pagamento mensal, semestral ou anual.' },
               { Icon: Globe, title: '2. Indique o domínio', text: 'No seu painel, use um domínio que já tenha ou compre um connosco.' },
@@ -212,10 +212,10 @@ export default function PrecosEmail() {
       </NotchSection>
 
       {/* Características — carrossel (4 colunas, avança uma de cada vez), fundo
-          branco antes do rodapé; também 'down': recebe por cima o meio do
-          cinzento e encaixa por baixo no topo 'end' do rodapé. */}
-      <NotchSection shape="down" bg="bg-white" className="pt-16 pb-20">
-        <div className="container mx-auto max-w-7xl px-6">
+          branco antes do rodapé; forma 'mid': inverte a ponta no topo (centro a subir)
+          mantendo o encaixe no topo 'end' do rodapé. */}
+      <NotchSection shape="mid" bg="bg-white" className="pt-16 pb-20">
+        <div className="container mx-auto max-w-7xl px-8 sm:px-12 lg:px-16">
           <EmailFeaturesCarousel
             cards={[
               {
