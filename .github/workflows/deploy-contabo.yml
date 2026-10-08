@@ -172,6 +172,7 @@ jobs:
             npm run build
             pm2 restart visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" -- start -- -p 3002
             pm2 save
+            bash scripts/install-site-watchdog.sh
 
             # Reflecte o estado real do Hestia (contas/domínios/suspensões) de volta
             # para o espelho Supabase — sem isto, mudanças feitas directamente no

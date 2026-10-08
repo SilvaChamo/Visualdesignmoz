@@ -6,7 +6,9 @@
     "node": "24.x"
   },
   "scripts": {
+    "predev": "node scripts/copy-pdf-worker.mjs",
     "dev": "next dev --port 3003",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
