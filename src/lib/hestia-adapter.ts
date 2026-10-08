@@ -839,7 +839,7 @@ export async function setMailDomainCatchall(
 // ---------------------------------------------------------------------------
 // DNS — confirmado no servidor (bin/v-add-dns-domain e afins, 2026-08-31,
 // testado com uma zona descartável .invalid antes de assumir a sintaxe).
-// Isto é o servidor de nomes PRÓPRIO do Hestia (ns1/ns2.visualdesignmoz.com)
+// Isto é o servidor de nomes PRÓPRIO do Hestia (ns3/ns4.visualdesignmoz.com)
 // — só afecta a resolução real de um domínio se os nameservers dele
 // apontarem para aqui. Nenhum domínio real tinha zona criada em 31 ago
 // (nem oshercollective nem vdadmin) — criar uma zona aqui não muda nada

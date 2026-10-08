@@ -47,7 +47,7 @@ async function resolveFallbackHostingProvider(
  * zona própria na Cloudflare, aplica lá (é o que fica realmente visível
  * publicamente); caso contrário cai no DNS interno de quem hospeda o
  * domínio hoje — Hestia ou DirectAdmin — e só serve domínios cujos
- * nameservers ainda são ns1/ns2.visualdesignmoz.com.
+ * nameservers são os desse servidor (ns1/ns2 no Hetzner, ns3/ns4 no Contabo).
  */
 async function applyRecordAnyProvider(
   cleanDomain: string,

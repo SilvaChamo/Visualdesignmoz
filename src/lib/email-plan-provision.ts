@@ -6,7 +6,7 @@
  * houver um plano de email pendente).
  *
  * Hestia (Contabo): cria a conta real — utilizador sem sites (pacote
- * EMAIL_PLAN_HESTIA_PACKAGE) + domínio de email — para o cliente criar e gerir
+ * EMAIL_PLAN_HESTIA_PACKAGE) + zona DNS + domínio de email — para o cliente criar e gerir
  * as caixas no painel. Antes só ficava no espelho do painel, por isso as caixas
  * nunca podiam existir no servidor.
  * DirectAdmin (Hetzner): continua só no espelho (licença do servidor sem
@@ -54,6 +54,12 @@ async function provisionEmailPlanOnHestia(
     packageName: EMAIL_PLAN_HESTIA_PACKAGE,
   });
   if (!created.ok) return { ok: false, error: created.error || 'Falha ao criar a conta no servidor.' };
+  // Zona DNS antes do domínio de email: assim o Hestia junta logo à zona os
+  // registos de email (MX, SPF, DKIM, DMARC). Só conta quando o cliente
+  // apontar os nameservers do domínio para ns3/ns4 — sem isso o email
+  // continua a funcionar com o DNS que o domínio já tiver.
+  const zone = await hestia.addDnsZone(username, domain);
+  if (!zone.ok) console.warn('[email-plan] zona DNS não criada:', domain, zone.error);
   const mail = await hestia.addMailDomain(username, domain);
   if (!mail.ok) return { ok: false, error: mail.error || 'Falha ao activar o email do domínio.' };
   const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
