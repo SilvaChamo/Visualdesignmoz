@@ -67,7 +67,7 @@ export default function PrecosEmail() {
               },
               {
                 title: 'Gestão no painel',
-                items: ['Criar e apagar contas de e-mail', 'Encaminhamento e catch-all', 'DNS e nameservers do domínio'],
+                items: ['Criar e apagar caixas', 'Encaminhamento e catch-all', 'DNS e nameservers'],
               },
             ]}
           />
@@ -212,11 +212,16 @@ const CAROUSEL_TRANSITION_MS = 600
 
 type FeatureCard = { title: string; items: string[] }
 
-/** Um cartão por slide, em loop infinito: clones do último no início e do
- * primeiro no fim; ao chegar a um clone salta sem transição para o real. */
+/** Máximo de cartões visíveis (computador); tablet 2, telemóvel 1. */
+const CAROUSEL_VISIBLE_MAX = 4
+
+/** 4 colunas visíveis, avança um cartão de cada vez, em loop infinito (mesmo
+ * mecanismo do ServicosWebCarousel): clone do último no início e dos
+ * primeiros no fim; ao chegar a um clone salta sem transição para o real. */
 function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
   const total = cards.length
-  const track = [cards[total - 1], ...cards, cards[0]]
+  const track = [cards[total - 1], ...cards, ...cards.slice(0, CAROUSEL_VISIBLE_MAX)]
+  const trackLength = track.length
   const [index, setIndex] = useState(1)
   const [withTransition, setWithTransition] = useState(true)
   const [paused, setPaused] = useState(false)
@@ -256,19 +261,24 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
   const activeDot = ((index - 1) % total + total) % total
 
   return (
-    <div className="max-w-2xl mx-auto" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <style>{`
+        .email-features-track { --visible: 4; }
+        @media (max-width: 639px) { .email-features-track { --visible: 1; } }
+        @media (min-width: 640px) and (max-width: 1023px) { .email-features-track { --visible: 2; } }
+      `}</style>
       <div className="overflow-hidden">
         <div
-          className="flex"
+          className="flex email-features-track"
           style={{
-            width: `${track.length * 100}%`,
-            transform: `translateX(-${(index * 100) / track.length}%)`,
+            width: `calc((${trackLength} / var(--visible)) * 100%)`,
+            transform: `translateX(-${(index * 100) / trackLength}%)`,
             transition: withTransition ? `transform ${CAROUSEL_TRANSITION_MS}ms ease` : 'none',
-          }}
+          } as React.CSSProperties}
           onTransitionEnd={handleTransitionEnd}
         >
           {track.map((card, i) => (
-            <div key={`${card.title}-${i}`} className="shrink-0 px-1" style={{ width: `${100 / track.length}%` }}>
+            <div key={`${card.title}-${i}`} className="shrink-0 px-2 flex flex-col" style={{ width: `${100 / trackLength}%` }}>
               <div className="bg-gray-50 rounded-lg p-6 h-full">
                 <h3 className="text-lg font-bold text-black mb-3">{card.title}</h3>
                 <ul className="space-y-2 text-gray-600">
