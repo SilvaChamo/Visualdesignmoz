@@ -26,11 +26,10 @@ export async function GET() {
     const usernames = (users || []).map((u) => u.username).filter(Boolean);
     const domainByOwner = new Map<string, string>();
     if (usernames.length) {
-      const { data: sites } = await sb
-        .from('panel_sites')
-        .select('domain, owner')
-        .in('owner', usernames);
-      for (const s of sites || []) {
+      const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+      const owned = new Set(usernames);
+      const sites = (await listMirrorWebsites({ role: 'admin' })).filter((s) => s.owner && owned.has(s.owner));
+      for (const s of sites) {
         if (s.owner && !domainByOwner.has(s.owner)) domainByOwner.set(s.owner, s.domain);
       }
     }

@@ -195,6 +195,33 @@ export async function listPackageDomainLimits(): Promise<Map<string, number | nu
   return limits;
 }
 
+export type HestiaPackageDetails = {
+  packageName: string;
+  /** null = ilimitado */
+  webDomains: number | null;
+  mailAccounts: number | null;
+  databases: number | null;
+  diskQuotaMb: number | null;
+  bandwidthMb: number | null;
+};
+
+/** Pacotes com os limites reais (v-list-user-packages) — leitura directa,
+ * sem passar pela tabela panel_packages. */
+export async function listPackagesDetailed(): Promise<HestiaPackageDetails[]> {
+  const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-user-packages');
+  if (!result.ok) return [];
+  return Object.entries(result.data)
+    .filter(([name]) => name !== 'system')
+    .map(([packageName, pkg]) => ({
+      packageName,
+      webDomains: parseHestiaLimit(pkg?.WEB_DOMAINS),
+      mailAccounts: parseHestiaLimit(pkg?.MAIL_ACCOUNTS),
+      databases: parseHestiaLimit(pkg?.DATABASES),
+      diskQuotaMb: parseHestiaLimit(pkg?.DISK_QUOTA),
+      bandwidthMb: parseHestiaLimit(pkg?.BANDWIDTH),
+    }));
+}
+
 export type HestiaUser = {
   username: string;
   email: string;

@@ -211,11 +211,14 @@ export async function POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo na Cloudflare' }, { status: 502 });
       }
-      const mirror = await upsertMirrorDns({ domain, name: name === '@' ? domain : name, type, value, ttl });
+      // Contabo: sem espelho — a lista seguinte lê directo da Cloudflare.
+      const mirror = isHestiaOnlyDeploy()
+        ? null
+        : await upsertMirrorDns({ domain, name: name === '@' ? domain : name, type, value, ttl });
       return NextResponse.json({
         success: true,
         message: 'Registo DNS criado na Cloudflare.',
-        id: mirror.id,
+        id: mirror?.id,
       });
     }
 
@@ -294,6 +297,28 @@ export async function DELETE(req: NextRequest) {
       if (domainDenied) return domainDenied;
     }
 
+    // A lista (GET) devolve os IDs da própria Cloudflare — apaga-se lá
+    // directamente. Antes procurava-se primeiro o ID em panel_dns, onde um ID
+    // da Cloudflare nunca está, e o registo "não era encontrado".
+    const cfZoneId = await findCloudflareZoneId(domain);
+    if (cfZoneId && id.length > 8) {
+      const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
+      if (!cfDel.ok) {
+        return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
+      }
+      if (!isHestiaOnlyDeploy()) await deleteMirrorDnsById(id).catch(() => {});
+      return NextResponse.json({ success: true, message: 'Registo DNS removido na Cloudflare.' });
+    }
+
+    if (isHestiaOnlyDeploy()) {
+      return NextResponse.json({
+        success: false,
+        error: cfZoneId
+          ? 'Registo não encontrado na Cloudflare.'
+          : 'Neste servidor o DNS autoritativo é a Cloudflare.',
+      }, { status: cfZoneId ? 404 : 409 });
+    }
+
     const admin = getDaSyncAdmin();
     if (!admin) {
       return NextResponse.json({ success: false, error: 'Base de dados indisponível' }, { status: 503 });
@@ -308,23 +333,6 @@ export async function DELETE(req: NextRequest) {
 
     if (fetchErr || !row) {
       return NextResponse.json({ success: false, error: 'Registo não encontrado' }, { status: 404 });
-    }
-
-    const cfZoneId = await findCloudflareZoneId(domain);
-    if (cfZoneId && id.length > 8) {
-      const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
-      if (!cfDel.ok) {
-        return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
-      }
-      await deleteMirrorDnsById(id).catch(() => {});
-      return NextResponse.json({ success: true, message: 'Registo DNS removido na Cloudflare.' });
-    }
-
-    if (isHestiaOnlyDeploy() && !cfZoneId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Neste servidor o DNS autoritativo é a Cloudflare.',
-      }, { status: 409 });
     }
 
     const { provider, owner } = await resolveDnsProvider(domain);

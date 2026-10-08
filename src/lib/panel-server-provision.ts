@@ -128,17 +128,13 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     return { ok: true, linked: true };
   }
 
-  const { data: site } = await sb
-    .from('panel_sites')
-    .select('domain, admin_email, package')
-    .eq('owner', username)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+  const site = (await listMirrorWebsites({ role: 'reseller', daUsername: username }))
+    .find((s) => (s.owner || '').toLowerCase() === username.toLowerCase());
 
   const domain = String(site?.domain || `${username}.com`).trim().toLowerCase();
   const packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
-  const email = String(site?.admin_email || panelUser.email || authRow?.email || '').trim();
+  const email = String(site?.adminEmail || panelUser.email || authRow?.email || '').trim();
 
   if (!email.includes('@')) {
     return { ok: false, linked: false, error: 'Email da conta em falta' };

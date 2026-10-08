@@ -32,11 +32,25 @@ type HestiaDomainRow = {
 
 let hestiaDomainCache: { at: number; rows: HestiaDomainRow[] } | null = null;
 let hestiaMailDomainCache: { at: number; rows: { username: string; domain: string }[] } | null = null;
+let hestiaUsersCache: { at: number; rows: import('@/lib/hestia-adapter').HestiaUser[] } | null = null;
 const HESTIA_DOMAIN_CACHE_MS = 60_000;
 
 export function invalidateHestiaDomainCache(): void {
   hestiaDomainCache = null;
   hestiaMailDomainCache = null;
+  hestiaUsersCache = null;
+}
+
+/** v-list-users com a mesma cache curta das listas de domínios — várias
+ * leituras no mesmo pedido (sites, domínios de email, contas) partilham-na. */
+async function listHestiaUsersCached(): Promise<import('@/lib/hestia-adapter').HestiaUser[]> {
+  if (hestiaUsersCache && Date.now() - hestiaUsersCache.at < HESTIA_DOMAIN_CACHE_MS) {
+    return hestiaUsersCache.rows;
+  }
+  const { listUsers } = await import('@/lib/hestia-adapter');
+  const rows = await listUsers();
+  hestiaUsersCache = { at: Date.now(), rows };
+  return rows;
 }
 
 /**
@@ -49,8 +63,8 @@ async function listAllHestiaMailDomainRows(): Promise<{ username: string; domain
   if (hestiaMailDomainCache && Date.now() - hestiaMailDomainCache.at < HESTIA_DOMAIN_CACHE_MS) {
     return hestiaMailDomainCache.rows;
   }
-  const { listUsers, listMailDomains } = await import('@/lib/hestia-adapter');
-  const users = await listUsers();
+  const { listMailDomains } = await import('@/lib/hestia-adapter');
+  const users = await listHestiaUsersCached();
   const usernames = [HESTIA_USER, ...users.map((u) => u.username).filter((name) => name !== HESTIA_USER)];
   const rows: { username: string; domain: string }[] = [];
   await Promise.all(
@@ -76,8 +90,8 @@ async function listAllHestiaDomainRows(): Promise<HestiaDomainRow[]> {
     return hestiaDomainCache.rows;
   }
 
-  const { listUsers, listWebDomains } = await import('@/lib/hestia-adapter');
-  const users = await listUsers();
+  const { listWebDomains } = await import('@/lib/hestia-adapter');
+  const users = await listHestiaUsersCached();
   const usernames = [
     HESTIA_USER,
     ...users.map((u) => u.username).filter((name) => name !== HESTIA_USER),
@@ -163,6 +177,150 @@ export async function findHestiaDomainOwner(domain: string): Promise<string | nu
   return mail?.username ?? null;
 }
 
+// ── Leitura directa do Hestia (Contabo) — substitui o espelho panel_* ───────
+//
+// No Contabo o painel não lê cópias (panel_sites, panel_emails, panel_dns…):
+// essas tabelas vinham do DirectAdmin no Hetzner, onde a API era lenta. Uma
+// cópia desactualizada apagou do painel um domínio que continuava no servidor
+// (concordia.co.mz, 8 out). Aqui só há a cache curta das listagens.
+
+let wpDomainsCache: { at: number; domains: Set<string> } | null = null;
+const WP_CACHE_MS = 5 * 60_000;
+
+/** Domínios com WordPress (wp-config.php no servidor) — uma pesquisa por SSH
+ * para todo o servidor, guardada 5 min. Falha = mantém o último resultado. */
+async function listWpDomainsCached(): Promise<Set<string>> {
+  if (wpDomainsCache && Date.now() - wpDomainsCache.at < WP_CACHE_MS) return wpDomainsCache.domains;
+  try {
+    const { listWpInstalls } = await import('@/lib/wp-cli-server');
+    const domains = new Set((await listWpInstalls()).map((w) => w.domain.toLowerCase()));
+    wpDomainsCache = { at: Date.now(), domains };
+    return domains;
+  } catch {
+    return wpDomainsCache?.domains ?? new Set();
+  }
+}
+
+/** Dono (conta Hestia) de um domínio — site ou só email —, ou null se o
+ * domínio não existe no servidor. Usa a cache curta (não a invalida). */
+export async function getHestiaDomainOwner(domain: string): Promise<string | null> {
+  const needle = domain.trim().toLowerCase();
+  if (!needle) return null;
+  const web = (await listAllHestiaDomainRows()).find((r) => r.domain.toLowerCase() === needle);
+  if (web) return web.username;
+  const mail = (await listAllHestiaMailDomainRows()).find((r) => r.domain.toLowerCase() === needle);
+  return mail?.username ?? null;
+}
+
+/**
+ * Todos os domínios do servidor, directo do Hestia: sites + domínios só de
+ * email (planos de email), no mesmo formato que o espelho devolvia
+ * ('Active'/'Suspended', package/adminEmail da conta dona). `owners` limita
+ * às contas indicadas (minúsculas); omisso = servidor inteiro.
+ */
+export async function listHestiaLiveSites(owners?: Set<string> | null): Promise<PanelWebsite[]> {
+  const [webRows, mailRows, users, wpDomains] = await Promise.all([
+    listAllHestiaDomainRows(),
+    listAllHestiaMailDomainRows(),
+    listHestiaUsersCached(),
+    listWpDomainsCached(),
+  ]);
+  const userByName = new Map(users.map((u) => [u.username.toLowerCase(), u]));
+  const inScope = (owner: string) => !owners || owners.has(owner.toLowerCase());
+
+  const out: PanelWebsite[] = [];
+  const seen = new Set<string>();
+  for (const d of webRows) {
+    if (!inScope(d.username)) continue;
+    const domain = d.domain.toLowerCase();
+    seen.add(domain);
+    const owner = userByName.get(d.username.toLowerCase());
+    const isWp = wpDomains.has(domain);
+    const status = d.suspended ? 'Suspended' : 'Active';
+    out.push({
+      id: d.domain,
+      domain: d.domain,
+      owner: d.username,
+      adminEmail: owner?.email || undefined,
+      package: owner?.packageName || 'Default',
+      state: status,
+      status,
+      isActive: !d.suspended,
+      diskUsage: String(d.diskUsedMb),
+      bandwidth: d.bandwidthUsedMb,
+      ssl: d.sslEnabled,
+      sslStatus: d.sslEnabled ? 'Secure' : 'No SSL',
+      ip: d.ip || undefined,
+      siteType: isWp ? 'wordpress' : 'empty',
+      hasWordPress: isWp,
+      hasNextJs: false,
+      hasBasicSite: false,
+    });
+  }
+  for (const m of mailRows) {
+    const domain = m.domain.toLowerCase();
+    if (seen.has(domain) || !inScope(m.username)) continue;
+    seen.add(domain);
+    const owner = userByName.get(m.username.toLowerCase());
+    const status = owner?.suspended ? 'Suspended' : 'Active';
+    out.push({
+      id: m.domain,
+      domain: m.domain,
+      owner: m.username,
+      adminEmail: owner?.email || undefined,
+      package: owner?.packageName || 'Default',
+      state: status,
+      status,
+      isActive: !owner?.suspended,
+      diskUsage: '0',
+      bandwidth: 0,
+      ssl: false,
+      sslStatus: 'No SSL',
+      siteType: 'empty',
+      hasWordPress: false,
+      hasNextJs: false,
+      hasBasicSite: false,
+      mailOnly: true,
+    });
+  }
+  return out.sort((a, b) => a.domain.localeCompare(b.domain));
+}
+
+type PanelUserRegistryRow = {
+  username: string;
+  parent_username: string | null;
+  auth_user_id: string | null;
+  package_name: string | null;
+  quota_limit_mb: number | null;
+  bandwidth_limit_mb: number | null;
+  websites_limit: number | null;
+  emails_limit: number | null;
+  acl: string | null;
+  created_at: string | null;
+};
+
+/** Registo de contas do painel (panel_users): quem é dono de cada conta, que
+ * revenda a criou, que login está ligado e os limites definidos no painel.
+ * Isto não é cópia do Hestia — o Hestia não conhece nada disto. */
+async function loadPanelUserRegistry(): Promise<Map<string, PanelUserRegistryRow>> {
+  const map = new Map<string, PanelUserRegistryRow>();
+  try {
+    const { getDaSyncAdmin } = await import('@/lib/da-sync-schema');
+    const sb = getDaSyncAdmin();
+    if (!sb) return map;
+    const { data } = await sb
+      .from('panel_users')
+      .select('username, parent_username, auth_user_id, package_name, quota_limit_mb, bandwidth_limit_mb, websites_limit, emails_limit, acl, created_at');
+    for (const row of (data || []) as PanelUserRegistryRow[]) {
+      const username = String(row.username || '').trim().toLowerCase();
+      if (username) map.set(username, row);
+    }
+  } catch {
+    /* sem ligação à base — contas aparecem só com os dados do servidor */
+  }
+  return map;
+}
+
 // ── Domínios ─────────────────────────────────────────────────────────────────
 
 /**
@@ -213,67 +371,74 @@ export async function listHostingDomains(
 
 export async function listHostingUsers(): Promise<PanelUser[]> {
   if (IS_HESTIA) {
-    const { listUsers } = await import('@/lib/hestia-adapter');
-    const [users, parentByUser] = await Promise.all([listUsers(), loadMirrorParentUsernames()]);
-    return users.map((u) => ({
-      id: u.username,
-      userName: u.username,
-      email: u.email,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      packageName: u.packageName,
-      suspended: u.suspended,
+    // Mesmo formato de sempre desta função ('active'/'suspended' em minúsculas).
+    return (await listHestiaLiveUsers()).map((u) => ({
+      ...u,
       status: u.suspended ? 'suspended' : 'active',
-      existsOnServer: true,
-      diskUsedMb: u.diskUsedMb,
-      bandwidthUsedMb: u.bandwidthUsedMb,
-      quotaLimitMb: u.diskLimitMb,
-      bandwidthLimitMb: u.bandwidthLimitMb,
-      hostingProvider: 'hestia',
-      parentUsername: parentByUser.get(u.username.toLowerCase()),
-    } satisfies PanelUser));
+    }));
   }
 
   const { listMirrorUsers } = await import('@/lib/panel-mirror-read');
   return listMirrorUsers({ role: 'admin' });
 }
 
-/** O Hestia não sabe a que conta principal cada conta pertence — isso só
- * existe no painel (panel_users.parent_username). Sem juntar aqui, o
- * revendedor nunca via na página "Contas" as contas que ele próprio criou. */
-async function loadMirrorParentUsernames(): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  try {
-    const { getDaSyncAdmin } = await import('@/lib/da-sync-schema');
-    const sb = getDaSyncAdmin();
-    if (!sb) return map;
-    const { data } = await sb
-      .from('panel_users')
-      .select('username, parent_username')
-      .not('parent_username', 'is', null);
-    for (const row of data || []) {
-      const username = String(row.username || '').trim().toLowerCase();
-      const parent = String(row.parent_username || '').trim();
-      if (username && parent) map.set(username, parent);
-    }
-  } catch {
-    /* sem ligação à base — contas aparecem sem conta principal, como antes */
-  }
-  return map;
+/**
+ * Contas directo do Hestia (estado, uso, pacote) juntas com o registo do
+ * painel: conta principal (parent_username) e, nas contas com login no
+ * painel, o pacote/limites definidos no painel — a mesma regra que o sync
+ * aplicava ao espelho. Estado no formato do espelho ('Active'/'Suspended').
+ */
+export async function listHestiaLiveUsers(): Promise<PanelUser[]> {
+  const [users, registry] = await Promise.all([listHestiaUsersCached(), loadPanelUserRegistry()]);
+  return users.map((u) => {
+    const reg = registry.get(u.username.toLowerCase());
+    const panelManaged = Boolean(reg?.auth_user_id);
+    const status = u.suspended ? 'Suspended' : 'Active';
+    return {
+      id: u.username,
+      userName: u.username,
+      email: u.email || undefined,
+      firstName: u.firstName || undefined,
+      lastName: u.lastName || undefined,
+      type: reg?.acl || 'user',
+      acl: reg?.acl || 'user',
+      packageName: (panelManaged && reg?.package_name) || u.packageName || undefined,
+      suspended: u.suspended,
+      status,
+      existsOnServer: true,
+      registeredAt: reg?.created_at || undefined,
+      diskUsedMb: u.diskUsedMb,
+      bandwidthUsedMb: u.bandwidthUsedMb,
+      quotaLimitMb: panelManaged && reg?.quota_limit_mb != null ? reg.quota_limit_mb : u.diskLimitMb,
+      bandwidthLimitMb: panelManaged && reg?.bandwidth_limit_mb != null ? reg.bandwidth_limit_mb : u.bandwidthLimitMb,
+      websitesLimit: reg?.websites_limit ?? undefined,
+      emailsLimit: reg?.emails_limit ?? undefined,
+      hostingProvider: 'hestia',
+      parentUsername: reg?.parent_username || undefined,
+    } satisfies PanelUser;
+  });
 }
 
 export async function listHostingPackages(): Promise<PanelPackage[]> {
-  if (IS_HESTIA) {
-    const { listPackages } = await import('@/lib/hestia-adapter');
-    const packages = await listPackages();
-    return packages.map((p) => ({
-      id: p.packageName,
-      packageName: p.packageName,
-    } satisfies PanelPackage));
-  }
+  if (IS_HESTIA) return listHestiaLivePackages();
 
   const { listMirrorPackages } = await import('@/lib/panel-mirror-read');
   return listMirrorPackages({ role: 'admin' });
+}
+
+/** Pacotes com os limites reais do Hestia ('-' = ilimitado, como no espelho). */
+export async function listHestiaLivePackages(): Promise<PanelPackage[]> {
+  const { listPackagesDetailed } = await import('@/lib/hestia-adapter');
+  const limit = (n: number | null) => (n === null ? '-' : n);
+  return (await listPackagesDetailed()).map((p) => ({
+    id: p.packageName,
+    packageName: p.packageName,
+    diskSpace: limit(p.diskQuotaMb),
+    bandwidth: limit(p.bandwidthMb),
+    emailAccounts: limit(p.mailAccounts),
+    dataBases: limit(p.databases),
+    allowedDomains: limit(p.webDomains),
+  } satisfies PanelPackage));
 }
 
 export async function listHostingSubdomains(parentDomain: string): Promise<{ domain: string; subdomain: string }[]> {

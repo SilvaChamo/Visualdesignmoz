@@ -161,11 +161,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         .eq('domain_name', domain)
         .maybeSingle();
 
-      const { data: site } = await supabase
-        .from('panel_sites')
-        .select('owner')
-        .eq('domain', domain)
-        .maybeSingle();
+      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+      const siteOwner = await getMirrorSiteOwner(domain);
+      const site = siteOwner ? { owner: siteOwner } : null;
 
       if (site?.owner) {
         const provider = renewal?.server === 'Hestia' ? 'hestia' : 'directadmin';

@@ -60,8 +60,21 @@ export async function classifyRegistrarDomains<T extends { domain: string }>(
   const vdOwners = visualDesignServerOwners();
   const foreignOwners = new Set<string>([PRIMARY_RESELLER_DA_USER.toLowerCase()]);
 
-  const [{ data: sites }, { data: renewals }] = await Promise.all([
-    sb.from('panel_sites').select('domain, owner').in('domain', names),
+  // Dono no servidor: Contabo lê directo do Hestia (sem espelho).
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  const loadSites = async () => {
+    if (isHestiaOnlyDeploy()) {
+      const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+      const wanted = new Set(names);
+      return (await listMirrorWebsites({ role: 'admin' }))
+        .filter((s) => wanted.has(s.domain.toLowerCase()))
+        .map((s) => ({ domain: s.domain, owner: s.owner }));
+    }
+    const { data } = await sb.from('panel_sites').select('domain, owner').in('domain', names);
+    return data || [];
+  };
+  const [sites, { data: renewals }] = await Promise.all([
+    loadSites(),
     sb.from('domain_renewals').select('domain_name, user_id').in('domain_name', names),
   ]);
 

@@ -168,8 +168,10 @@ export async function attachDomainToEmailPlan(
   const profile = await getProfileForAuthUser(admin, userId, clientEmail);
   const ownAccount = String(profile?.da_username || '').trim().toLowerCase() || null;
 
-  const { data: existingSite } = await admin.from('panel_sites').select('domain, owner').eq('domain', domain).maybeSingle();
-  if (existingSite && (!ownAccount || String(existingSite.owner || '').toLowerCase() !== ownAccount)) {
+  // Dono actual do domínio (Contabo: directo do Hestia; Hetzner: espelho).
+  const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+  const existingOwner = await getMirrorSiteOwner(domain);
+  if (existingOwner && (!ownAccount || existingOwner.toLowerCase() !== ownAccount)) {
     return { ok: false, error: 'Este domínio já está registado no painel noutra conta. Contacte o suporte.' };
   }
 

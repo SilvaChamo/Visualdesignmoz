@@ -27,11 +27,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Base de dados indisponível' }, { status: 503 });
     }
 
-    const { data: site } = await sb
-      .from('panel_sites')
-      .select('owner')
-      .eq('domain', domain)
-      .maybeSingle();
+    const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
+    const siteOwner = await getMirrorSiteOwner(domain);
+    const site = siteOwner ? { owner: siteOwner } : null;
     if (!site?.owner) {
       return NextResponse.json(
         { success: false, error: 'Não foi possível identificar a conta dona deste domínio.' },

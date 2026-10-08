@@ -146,6 +146,17 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
     await admin.from('panel_users').delete().in('username', staleUsers);
   }
 
+  // Contabo: não há espelho de sites. O painel lê os domínios, caixas, DNS,
+  // etc. directamente do Hestia (hosting-resolver / panel-mirror-read), por
+  // isso este sync só mantém o registo de contas (panel_users) e nunca
+  // escreve nem apaga panel_sites/panel_emails/panel_dns/... — foi essa
+  // limpeza que tirou concordia.co.mz do painel do cliente (8 out).
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  if (isHestiaOnlyDeploy()) {
+    const ok = errors.length === 0;
+    return { ok, startedAt, finishedAt: nowIso(), durationMs: Date.now() - t0, counts, errors };
+  }
+
   // ── Sites (por conta) ──
   // Detecta WordPress a sério (procura wp-config.php no servidor) em vez de
   // confiar só na instalação feita pelo próprio painel — mesmo raciocínio

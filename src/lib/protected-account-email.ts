@@ -45,9 +45,22 @@ export async function findProtectedEmailClaim(rawEmail: string): Promise<Protect
 
   // panel_users.email: getResellerDaUsername ainda encontra a conta de
   // alojamento de um login profissional/revendedor por este email.
+  // Sites: Contabo lê directo do Hestia (sem espelho); Hetzner usa panel_sites.
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  const siteOwners = async (field: 'domain' | 'admin_email', value: string) => {
+    if (isHestiaOnlyDeploy()) {
+      const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+      const needle = value.toLowerCase();
+      const rows = (await listMirrorWebsites({ role: 'admin' }))
+        .filter((s) => (field === 'domain' ? s.domain : s.adminEmail || '').toLowerCase() === needle)
+        .map((s) => ({ owner: s.owner }));
+      return { data: rows, error: null };
+    }
+    return sb.from('panel_sites').select('owner').ilike(field, escapeLike(value));
+  };
   const [byDomain, byAdminEmail, mailbox, byAccountEmail] = await Promise.all([
-    sb.from('panel_sites').select('owner').ilike('domain', escapeLike(domain)),
-    sb.from('panel_sites').select('owner').ilike('admin_email', escapeLike(email)),
+    siteOwners('domain', domain),
+    siteOwners('admin_email', email),
     sb.from('email_contas').select('email').ilike('email', `%@${escapeLike(domain)}`).limit(1),
     sb.from('panel_users').select('username').ilike('email', escapeLike(email)),
   ]);

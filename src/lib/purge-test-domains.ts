@@ -41,8 +41,9 @@ export async function purgeRegistrarTestDomains(): Promise<{
 
   const sb = getDaSyncAdmin();
   if (sb) {
-    const [{ data: sites }, { data: renewals }, { data: hosting }] = await Promise.all([
-      sb.from('panel_sites').select('domain'),
+    const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+    const [sites, { data: renewals }, { data: hosting }] = await Promise.all([
+      listMirrorWebsites({ role: 'admin' }),
       sb.from('domain_renewals').select('domain_name'),
       sb.from('hosting_renewals').select('domain_name'),
     ]);

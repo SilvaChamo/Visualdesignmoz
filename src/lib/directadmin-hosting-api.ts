@@ -46,6 +46,8 @@ export interface PanelWebsite {
   hasNextJs?: boolean;
   hasBasicSite?: boolean;
   siteType?: 'wordpress' | 'nextjs' | 'html' | 'empty';
+  /** Domínio só de email (plano de email) — existe no servidor sem site. */
+  mailOnly?: boolean;
 }
 
 export interface PanelPackage {

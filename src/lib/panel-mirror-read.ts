@@ -1,5 +1,10 @@
 /**
  * Leitura do espelho Supabase (panel_*) — reflecte estado do DirectAdmin.
+ *
+ * Contabo (DEFAULT_HOSTING_PROVIDER=hestia): NÃO há espelho. Cada função
+ * abaixo lê directamente do Hestia (hosting-resolver) e só usa a base de
+ * dados para o registo do painel (que login/revenda é dono de que conta).
+ * O espelho só existe para o DirectAdmin no Hetzner, cuja API é lenta.
  */
 
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
@@ -28,6 +33,9 @@ export type MirrorScope = {
    * (Enterprise — ver linked-accounts.ts). Nunca inclui contas trancadas. */
   linkedOwners?: string[];
 };
+
+const IS_HESTIA =
+  (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
 
 const scopeCache = new Map<string, { isAdmin: boolean; daUsername?: string; at: number }>();
 const SCOPE_CACHE_MS = 5 * 60_000;
@@ -72,6 +80,23 @@ async function resolveScope(scope: MirrorScope): Promise<{ daUsername?: string; 
 
   scopeCache.set(cacheKey, { ...resolved, at: Date.now() });
   return resolved;
+}
+
+/** Contas que um âmbito não-admin gere: a própria + ligadas (Enterprise). */
+function scopeOwners(daUsername: string, linkedOwners?: string[]): Set<string> {
+  return new Set([daUsername, ...(linkedOwners || [])].map((o) => o.trim().toLowerCase()).filter(Boolean));
+}
+
+/** Contabo: dono real do domínio no Hestia, se o âmbito o puder ver; null
+ * quando o domínio não existe ou é de outra conta. */
+async function hestiaOwnerInScope(domain: string, scope: MirrorScope): Promise<string | null> {
+  const { getHestiaDomainOwner } = await import('@/lib/hosting-resolver');
+  const owner = await getHestiaDomainOwner(domain);
+  if (!owner) return null;
+  const { isAdmin, daUsername } = await resolveScope(scope);
+  if (isAdmin) return owner;
+  if (!daUsername) return null;
+  return scopeOwners(daUsername, scope.linkedOwners).has(owner.toLowerCase()) ? owner : null;
 }
 
 function mapSite(row: Record<string, unknown>): PanelWebsite {
@@ -184,6 +209,8 @@ export function mapPackageForForm(row: Record<string, unknown>): PanelPackage {
 }
 
 export async function getMirrorLastSyncAt(): Promise<string | null> {
+  // Leitura directa: os dados são sempre os de agora.
+  if (IS_HESTIA) return new Date().toISOString();
   const admin = getDaSyncAdmin();
   if (!admin) return null;
   const { data } = await admin
@@ -200,6 +227,8 @@ let staleCache: { at: number; value: boolean } | null = null;
 const STALE_CACHE_MS = 60_000;
 
 export async function isMirrorStale(maxAgeMinutes = 120): Promise<boolean> {
+  // Sem espelho no Contabo — nunca está "desactualizado" nem pede sync.
+  if (IS_HESTIA) return false;
   if (staleCache && Date.now() - staleCache.at < STALE_CACHE_MS) {
     return staleCache.value;
   }
@@ -220,6 +249,10 @@ async function isMirrorStaleUncached(maxAgeMinutes = 120): Promise<boolean> {
 }
 
 export async function getMirrorSiteOwner(domain: string): Promise<string | null> {
+  if (IS_HESTIA) {
+    const { getHestiaDomainOwner } = await import('@/lib/hosting-resolver');
+    return getHestiaDomainOwner(domain);
+  }
   const admin = getDaSyncAdmin();
   if (!admin || !domain) return null;
   const { data, error } = await admin
@@ -232,6 +265,12 @@ export async function getMirrorSiteOwner(domain: string): Promise<string | null>
 }
 
 export async function listMirrorWebsites(scope: MirrorScope): Promise<PanelWebsite[]> {
+  if (IS_HESTIA) {
+    const { isAdmin, daUsername } = await resolveScope(scope);
+    if (!isAdmin && !daUsername) return [];
+    const { listHestiaLiveSites } = await import('@/lib/hosting-resolver');
+    return listHestiaLiveSites(isAdmin ? null : scopeOwners(daUsername!, scope.linkedOwners));
+  }
   const admin = getDaSyncAdmin();
   if (!admin) return [];
   const { isAdmin, daUsername } = await resolveScope(scope);
@@ -252,6 +291,17 @@ export async function listMirrorWebsites(scope: MirrorScope): Promise<PanelWebsi
 }
 
 export async function listMirrorUsers(scope: MirrorScope): Promise<PanelUser[]> {
+  if (IS_HESTIA) {
+    const { isAdmin, daUsername } = await resolveScope(scope);
+    if (!isAdmin && !daUsername) return [];
+    const { listHestiaLiveUsers } = await import('@/lib/hosting-resolver');
+    const users = await listHestiaLiveUsers();
+    if (isAdmin) return users.sort((a, b) => a.userName.localeCompare(b.userName));
+    const main = daUsername!.toLowerCase();
+    return users
+      .filter((u) => u.userName.toLowerCase() === main || (u.parentUsername || '').toLowerCase() === main)
+      .sort((a, b) => a.userName.localeCompare(b.userName));
+  }
   const admin = getDaSyncAdmin();
   if (!admin) return [];
   const { isAdmin, daUsername } = await resolveScope(scope);
@@ -279,6 +329,9 @@ export async function listMirrorWebsitesForClientEmail(email: string): Promise<P
     .maybeSingle();
   const userId = String(profile?.user_id || profile?.id || '').trim();
   if (userId) return listMirrorWebsitesForClientUser(userId, normalized);
+  // Sem perfil no painel não há dono confirmado — no Contabo não se adivinha
+  // pelo nome do domínio (era o que o espelho fazia aqui em baixo).
+  if (IS_HESTIA) return [];
 
   const { data, error } = await admin.from('panel_sites').select('*').order('domain');
   if (error) return [];
@@ -315,6 +368,27 @@ export async function listMirrorWebsitesForClientUser(
   const username = String(panelUser?.username || '').trim().toLowerCase();
   const normalizedEmail = String(email || panelUser?.email || '').toLowerCase().trim();
 
+  if (IS_HESTIA) {
+    // Mesma ligação que o espelho usava (conta do login, ou conta Hestia com
+    // o email do cliente), mas os domínios vêm directo do servidor — incluindo
+    // os domínios só de email dos planos de email.
+    const owners = new Set<string>();
+    if (username) owners.add(username);
+    if (!username) {
+      const profile = await getProfileForAuthUser(admin, userId);
+      const fromProfile = String(profile?.da_username || '').trim().toLowerCase();
+      if (fromProfile) owners.add(fromProfile);
+    }
+    const { listHestiaLiveUsers, listHestiaLiveSites } = await import('@/lib/hosting-resolver');
+    if (normalizedEmail) {
+      for (const u of await listHestiaLiveUsers()) {
+        if ((u.email || '').toLowerCase() === normalizedEmail) owners.add(u.userName.toLowerCase());
+      }
+    }
+    if (!owners.size) return [];
+    return listHestiaLiveSites(owners);
+  }
+
   const { data, error } = await admin.from('panel_sites').select('*').order('domain');
   if (error) return [];
 
@@ -334,14 +408,20 @@ export async function listMirrorPackages(
   prefetchedSites?: PanelWebsite[],
 ): Promise<PanelPackage[]> {
   const admin = getDaSyncAdmin();
-  if (!admin) return [];
+  if (!admin && !IS_HESTIA) return [];
   const { isAdmin, daUsername } = await resolveScope(scope);
 
   if (!isAdmin && !daUsername) return [];
 
-  const { data, error } = await admin.from('panel_packages').select('*').order('package_name');
-  if (error) return [];
-  const all = (data || []).map(mapPackage);
+  let all: PanelPackage[];
+  if (IS_HESTIA) {
+    const { listHestiaLivePackages } = await import('@/lib/hosting-resolver');
+    all = await listHestiaLivePackages();
+  } else {
+    const { data, error } = await admin!.from('panel_packages').select('*').order('package_name');
+    if (error) return [];
+    all = (data || []).map(mapPackage);
+  }
 
   if (isAdmin) {
     try {
@@ -388,6 +468,19 @@ export async function getMirrorPackageForm(
 }
 
 export async function listMirrorEmails(domain: string, scope: MirrorScope): Promise<PanelEmailAccount[]> {
+  if (IS_HESTIA) {
+    const owner = await hestiaOwnerInScope(domain, scope);
+    if (!owner) return [];
+    const { listMailAccounts } = await import('@/lib/hestia-adapter');
+    return (await listMailAccounts(owner, domain)).map((a) => ({
+      id: `${a.account}@${domain}`,
+      email: `${a.account}@${domain}`,
+      domain,
+      quota_mb: a.quotaMb ?? undefined,
+      usage: String(a.diskUsedMb),
+      status: 'active' as const,
+    }));
+  }
   const admin = getDaSyncAdmin();
   if (!admin) return [];
   const { isAdmin, daUsername } = await resolveScope(scope);
@@ -430,6 +523,17 @@ async function assertDomainInScope(domain: string, scope: MirrorScope): Promise<
 }
 
 export async function listMirrorSubdomains(domain: string, scope: MirrorScope): Promise<PanelSubdomain[]> {
+  if (IS_HESTIA) {
+    const owner = await hestiaOwnerInScope(domain, scope);
+    if (!owner) return [];
+    const { listHostingSubdomains } = await import('@/lib/hosting-resolver');
+    return (await listHostingSubdomains(domain)).map((row) => ({
+      id: `${row.subdomain}.${domain}`,
+      domain,
+      subdomain: row.subdomain,
+      path: `/home/${owner}/web/${row.subdomain}.${domain}/public_html`,
+    }));
+  }
   const admin = getDaSyncAdmin();
   if (!admin || !(await assertDomainInScope(domain, scope))) return [];
   const { data, error } = await admin.from('panel_subdomains').select('*').eq('domain', domain);
@@ -443,6 +547,18 @@ export async function listMirrorSubdomains(domain: string, scope: MirrorScope): 
 }
 
 export async function listMirrorDatabases(domain: string, scope: MirrorScope): Promise<PanelDatabase[]> {
+  if (IS_HESTIA) {
+    // No Hestia as bases de dados são da conta, não do domínio.
+    const owner = await hestiaOwnerInScope(domain, scope);
+    if (!owner) return [];
+    const { listDatabases } = await import('@/lib/hestia-adapter');
+    return (await listDatabases(owner)).map((db) => ({
+      id: db.database,
+      domain,
+      dbName: db.database,
+      dbUser: db.dbUser || db.database,
+    }));
+  }
   const admin = getDaSyncAdmin();
   if (!admin || !(await assertDomainInScope(domain, scope))) return [];
   const { data, error } = await admin.from('panel_databases').select('*').eq('domain', domain);
@@ -456,6 +572,18 @@ export async function listMirrorDatabases(domain: string, scope: MirrorScope): P
 }
 
 export async function listMirrorFtp(domain: string, scope: MirrorScope): Promise<PanelFTPAccount[]> {
+  if (IS_HESTIA) {
+    const owner = await hestiaOwnerInScope(domain, scope);
+    if (!owner) return [];
+    const { listFtpAccounts } = await import('@/lib/hestia-adapter');
+    return (await listFtpAccounts(owner, domain)).map((f) => ({
+      id: f.ftpUser,
+      username: f.ftpUser,
+      userName: f.ftpUser,
+      domain,
+      path: f.path || '/',
+    }));
+  }
   const admin = getDaSyncAdmin();
   if (!admin || !(await assertDomainInScope(domain, scope))) return [];
   const { data, error } = await admin.from('panel_ftp').select('*').eq('domain', domain);
@@ -470,6 +598,18 @@ export async function listMirrorFtp(domain: string, scope: MirrorScope): Promise
 }
 
 export async function listMirrorDns(domain: string, scope: MirrorScope) {
+  if (IS_HESTIA) {
+    const owner = await hestiaOwnerInScope(domain, scope);
+    if (!owner) return [];
+    const { listDnsRecords } = await import('@/lib/hestia-adapter');
+    return (await listDnsRecords(owner, domain)).map((r) => ({
+      id: r.id,
+      name: r.record === '@' ? domain : r.record,
+      type: r.type,
+      content: r.value,
+      ttl: r.ttl,
+    }));
+  }
   const admin = getDaSyncAdmin();
   if (!admin) return [];
   if (!(await assertDomainInScope(domain, scope))) return [];
