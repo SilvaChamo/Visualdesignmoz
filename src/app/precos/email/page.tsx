@@ -181,7 +181,7 @@ export default function PrecosEmail() {
 
       {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'mid-alt'
           (complementar a 'mid' da secção seguinte para criar um único dente limpo sem duplicados). */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-16 pb-20">
+      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-24 pb-28 sm:pt-28 sm:pb-32">
         <div className="container mx-auto max-w-7xl px-[30px]">
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
