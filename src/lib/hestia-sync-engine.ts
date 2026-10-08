@@ -18,7 +18,7 @@
  * fora do Hestia (Brevo/Cloudflare), não dentro dele.
  */
 
-import { listUsers, listWebDomains } from '@/lib/hestia-adapter';
+import { listMailDomains, listUsers, listWebDomains } from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 
 export type HestiaSyncResult = {
@@ -72,6 +72,8 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
 
   const syncedAt = nowIso();
   const liveUsernames = new Set<string>();
+  // Contas com login real no painel (auth_user_id) — ver domínios de email abaixo.
+  const panelManagedUsernames = new Set<string>();
 
   // A própria conta principal (HESTIA_USER, normalmente 'vdadmin') fica de
   // propósito fora de listUsers() — não é uma conta de cliente, não faz
@@ -94,6 +96,7 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
         .eq('username', user.username)
         .maybeSingle();
       const panelManaged = Boolean(existing?.auth_user_id);
+      if (panelManaged) panelManagedUsernames.add(user.username);
 
       const { error } = await admin.from('panel_users').upsert(
         {
@@ -178,6 +181,35 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
         );
         if (error) errors.push(`site ${d.domain}: ${error.message}`);
         else counts.sites++;
+      }
+
+      // Planos de email (email-plan-provision.ts) criam contas sem sites — o
+      // domínio só existe como domínio de EMAIL. Sem isto a limpeza abaixo
+      // via-o como "já não existe" e, passado o período de graça, apagava-o
+      // do espelho: o painel Cliente ficava sem domínio e sem poder criar
+      // caixas. Se a listagem falhar, atira — esta conta fica fora da limpeza.
+      const mailDomains = await listMailDomains(username);
+      for (const mailDomain of mailDomains) {
+        if (liveDomains.has(mailDomain)) continue;
+        liveDomains.add(mailDomain);
+        // Só repõe a linha (sem mexer nas existentes) nas contas de clientes
+        // do painel — os domínios de email de outras contas nunca entraram no
+        // espelho como sites e assim continuam.
+        if (!panelManagedUsernames.has(username)) continue;
+        const owner = users.find((u) => u.username === username);
+        const { error } = await admin.from('panel_sites').upsert(
+          {
+            domain: mailDomain,
+            owner: username,
+            admin_email: owner?.email || '',
+            package: owner?.packageName || 'Default',
+            status: owner?.suspended ? 'Suspended' : 'Active',
+            synced_at: syncedAt,
+            updated_at: syncedAt,
+          },
+          { onConflict: 'domain', ignoreDuplicates: true },
+        );
+        if (error) errors.push(`site ${mailDomain}: ${error.message}`);
       }
       liveDomainsByOwner.set(username, liveDomains);
     } catch (e: unknown) {
