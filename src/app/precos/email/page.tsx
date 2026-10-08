@@ -197,7 +197,7 @@ export default function PrecosEmail() {
               { Icon: Globe, title: '2. Indique o domínio', text: 'No seu painel, use um domínio que já tenha ou compre um connosco.' },
               { Icon: Mail, title: '3. Crie as caixas', text: 'Em E-mail → Contas de e-mail, e use-as no Webmail, no telemóvel ou no Outlook.' },
             ].map(({ Icon, title, text }) => (
-              <div key={title} className="bg-white rounded-xl p-6 border border-zinc-200/80 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+              <div key={title} className="bg-white rounded-xl p-6 border border-zinc-200/80 border-l-4 border-l-red-600 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
                 <div className="w-12 h-12 rounded-xl bg-red-100/90 border border-red-200 flex items-center justify-center shrink-0">
                   <Icon className="w-6 h-6 text-red-600" />
                 </div>
