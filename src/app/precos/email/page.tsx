@@ -6,7 +6,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { NotchSection } from '@/components/home/NotchSection'
-import { HardDrive, Mail, Globe, Monitor, Smartphone, ShieldCheck, Lock, LifeBuoy } from 'lucide-react'
+import { HardDrive, Mail, Globe, Monitor, Smartphone, ShieldCheck, Lock, LifeBuoy, ShoppingCart } from 'lucide-react'
 import {
   EMAIL_CYCLE_LABELS,
   EMAIL_CYCLE_MONTHS,
@@ -206,6 +206,38 @@ export default function PrecosEmail() {
           />
         </div>
       </NotchSection>
+
+      {/* Como funciona — também 'down': recebe por cima o meio do cinzento e
+          encaixa por baixo no topo 'end' do rodapé. */}
+      <NotchSection shape="down" bg="bg-white" className="pt-16 pb-20">
+        <div className="container mx-auto max-w-7xl px-6">
+          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
+              <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+              Como funciona
+              <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { Icon: ShoppingCart, title: '1. Escolha o plano', text: 'Básico, Premium ou Enterprise — pagamento mensal, semestral ou anual.' },
+              { Icon: Globe, title: '2. Indique o domínio', text: 'No seu painel, use um domínio que já tenha ou compre um connosco.' },
+              { Icon: Mail, title: '3. Crie as caixas', text: 'Em E-mail → Contas de e-mail, e use-as no Webmail, no telemóvel ou no Outlook.' },
+            ].map(({ Icon, title, text }) => (
+              <div key={title} className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-black mb-1">{title}</h3>
+                  <p className="text-sm text-black/60">{text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </NotchSection>
     </div>
   )
 }
@@ -282,7 +314,7 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
         >
           {track.map((card, i) => (
             <div key={`${card.title}-${i}`} className="shrink-0 px-2.5 flex flex-col" style={{ width: `${100 / trackLength}%` }}>
-              <div className="bg-white rounded-lg p-5 h-full shadow-[0_0_10px_rgba(0,0,0,0.25)]">
+              <div className="bg-white rounded-lg p-5 h-full shadow-[0_0_5px_rgba(0,0,0,0.25)]">
                 <h3 className="text-lg font-bold text-black mb-3">{card.title}</h3>
                 <ul className="space-y-2 text-gray-600">
                   {card.items.map((item) => (
