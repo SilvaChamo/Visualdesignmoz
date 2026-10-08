@@ -101,6 +101,7 @@ export function ClientSidebar({
     ? [
         { id: 'meus-produtos', label: 'Os meus produtos', icon: Home },
         { id: 'domains', label: 'Os meus sites', icon: Globe },
+        { id: 'webmail', label: 'Webmail', icon: Mail },
         // #10: precisamente quem só comprou domínio (sem hospedagem) fica
         // sempre neste modo "só leitura" — sem isto nunca via as compras.
         { id: 'minhas-compras', label: 'As Minhas Compras', icon: ShoppingBag },

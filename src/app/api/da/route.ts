@@ -71,10 +71,10 @@ const MUTATION_ACTIONS = new Set([
  * Revendedores usam credenciais DIRECTADMIN_RESELLER_* (Osher Collective).
  */
 
-// Acções que um cliente comum (dono do domínio, não staff) pode chamar directamente
-// sobre o SEU PRÓPRIO domínio — sempre com verificação de posse via
-// requireDaAccessForDomain. Tudo o resto (criar/apagar contas, pacotes, execCommand,
-// firewall, backups, WordPress, etc.) continua estritamente admin/revendedor.
+// Acções que um cliente comum (dono do domínio, não staff) pode chamar
+// directamente sobre o SEU PRÓPRIO domínio — sempre com verificação de posse
+// via requireDaAccessForDomain. O restante acesso administrativo continua
+// restrito a admin/revendedor.
 // SSL foi retirado desta lista de propósito: getSslCertificate devolve o
 // certificado E A CHAVE PRIVADA em texto (lido directamente do servidor via
 // SSH) — nunca deve poder chegar ao browser de um cliente, mesmo do seu
@@ -82,6 +82,10 @@ const MUTATION_ACTIONS = new Set([
 // o painel do cliente mostra apenas uma nota informativa (renovação automática).
 const CLIENT_SAFE_ACTIONS = new Set([
   'changePHPVersion',
+  'listEmails',
+  'createEmail',
+  'deleteEmail',
+  'changeEmailPassword',
 ]);
 
 async function resolveApi(action?: string, domain?: string) {
@@ -155,20 +159,19 @@ async function tryHestiaAction(
       case 'createEmail': {
         const userName = String(params.userName || params.user || '');
         const password = String(params.password || '');
-        const quotaMb = params.quota ? Number(params.quota) : undefined;
-        if (!userName || !password) {
-          return {
-            handled: true,
-            response: NextResponse.json({ success: false, error: 'Utilizador e senha são obrigatórios.' }, { status: 400 }),
-          };
-        }
-        data = await hestiaAdapter.addMailAccount(owner, domain, userName, password, quotaMb);
+        const quotaRaw = String(params.quota || '');
+        const quotaMb = quotaRaw && quotaRaw !== 'unlimited' ? Number(quotaRaw) : undefined;
+        const result = await hestiaAdapter.addMailAccount(owner, domain, userName, password, quotaMb);
+        data = { success: result.ok, error: result.error };
+        if (!result.ok) break;
         await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
       case 'deleteEmail': {
         const userName = String(params.userName || emailParam.split('@')[0] || '');
-        data = await hestiaAdapter.deleteMailAccount(owner, domain, userName);
+        const result = await hestiaAdapter.deleteMailAccount(owner, domain, userName);
+        data = { success: result.ok, error: result.error };
+        if (!result.ok) break;
         await deleteEmailContasRow(`${userName}@${domain}`);
         break;
       }
@@ -184,7 +187,9 @@ async function tryHestiaAction(
       case 'changeEmailPassword': {
         const userName = emailParam.split('@')[0] || '';
         const password = String(params.password || '');
-        data = await hestiaAdapter.changeMailAccountPassword(owner, domain, userName, password);
+        const result = await hestiaAdapter.changeMailAccountPassword(owner, domain, userName, password);
+        data = { success: result.ok, error: result.error };
+        if (!result.ok) break;
         await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
@@ -247,7 +252,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'action é obrigatória' }, { status: 400 });
     }
 
-    const resolved = await resolveApi(action, String(params.domain || params.hostname || ''));
+    if (action === 'createEmail') {
+      const userName = String(params.userName || params.user || '');
+      const password = String(params.password || '');
+      const quota = String(params.quota || '');
+      if (!/^[a-zA-Z0-9._+-]{1,64}$/.test(userName) || !password) {
+        return NextResponse.json(
+          { success: false, error: 'Utilizador inválido ou senha em falta.' },
+          { status: 400 },
+        );
+      }
+      if (quota && quota !== 'unlimited' && (!Number.isFinite(Number(quota)) || Number(quota) < 0)) {
+        return NextResponse.json({ success: false, error: 'Quota inválida.' }, { status: 400 });
+      }
+    }
+
+    if (action === 'changeEmailPassword' && !String(params.password || '')) {
+      return NextResponse.json(
+        { success: false, error: 'Indique a nova senha.' },
+        { status: 400 },
+      );
+    }
+
+    const emailDomain = typeof params.email === 'string' ? params.email.split('@').at(-1) : '';
+    const resolved = await resolveApi(action, String(params.domain || params.hostname || emailDomain || ''));
     if ('error' in resolved) return resolved.error;
 
     const { daApi, user, mirrorScope } = resolved;
@@ -358,9 +386,17 @@ export async function POST(req: NextRequest) {
       }
       case 'createEmail':
         data = await daApi.createEmail(params);
+        if (mutationSucceeded(data)) {
+          const email = `${String(params.userName || params.user || '')}@${String(params.domain || '')}`;
+          await syncEmailContasPassword(email, String(params.password || ''));
+        }
         break;
       case 'deleteEmail':
         data = await daApi.deleteEmail(params);
+        if (mutationSucceeded(data)) {
+          const email = String(params.email || `${String(params.userName || params.user || '')}@${String(params.domain || '')}`);
+          await deleteEmailContasRow(email);
+        }
         break;
       case 'suspendEmail':
         data = await daApi.suspendEmail(params.email);
@@ -370,6 +406,12 @@ export async function POST(req: NextRequest) {
         break;
       case 'changeEmailPassword':
         data = await daApi.changeEmailPassword(params);
+        if (mutationSucceeded(data)) {
+          await syncEmailContasPassword(
+            String(params.email || `${String(params.userName || params.user || '')}@${String(params.domain || '')}`),
+            String(params.password || ''),
+          );
+        }
         break;
       case 'setEmailLimits':
         data = await daApi.setEmailLimits(params);

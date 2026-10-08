@@ -379,7 +379,7 @@ export function ClientProductsHub({ onNavigate }: Props) {
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => onNavigate?.('gestao-emails')}
+                onClick={() => onNavigate?.('webmail')}
                 className="text-xs font-bold border border-gray-300 px-4 py-2 rounded-lg hover:border-red-400"
               >
                 Gerir emails

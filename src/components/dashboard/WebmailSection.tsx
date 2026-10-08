@@ -135,6 +135,11 @@ export function WebmailSection({
   const [creatingEmail, setCreatingEmail] = useState(false)
   const [createEmailError, setCreateEmailError] = useState('')
   const [createEmailSuccess, setCreateEmailSuccess] = useState('')
+  const [showManageEmailModal, setShowManageEmailModal] = useState(false)
+  const [managingEmail, setManagingEmail] = useState<string | null>(null)
+  const [editingEmailPassword, setEditingEmailPassword] = useState<string | null>(null)
+  const [newEmailPassword, setNewEmailPassword] = useState('')
+  const [manageEmailError, setManageEmailError] = useState('')
   const [createEmailForm, setCreateEmailForm] = useState({
     user: '',
     password: '',
@@ -316,7 +321,7 @@ export function WebmailSection({
     const loadKey = `${sitesKey}|${userEmail || ''}|${isAdmin ? '1' : '0'}`
     if (loadKey === sitesLoadedKeyRef.current && accountsRef.current.length > 0) return
     sitesLoadedKeyRef.current = loadKey
-    void loadEmailAccounts({ fallbackServerMailboxes: isAdmin && useDirectAdminAPI })
+    void loadEmailAccounts({ fallbackServerMailboxes: useDirectAdminAPI })
   }, [sites, userEmail, isAdmin, useDirectAdminAPI])
 
   // Notificar parent quando estado do compose muda (para admin)
@@ -627,12 +632,8 @@ export function WebmailSection({
         publishAccounts(consolidated)
       }
 
-      // Fallback lento só se a lista principal estiver vazia
-      if (
-        consolidated.length === 0 &&
-        options?.fallbackServerMailboxes &&
-        (sites || []).length
-      ) {
+      // Completar a lista da BD com caixas reais ainda não sincronizadas.
+      if (options?.fallbackServerMailboxes && (sites || []).length) {
         for (const site of sites || []) {
           if (!site?.domain) continue
           try {
@@ -907,47 +908,70 @@ export function WebmailSection({
     setCreateEmailSuccess('')
 
     try {
-      const res = await fetch('/api/da-emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          domain: createEmailForm.domain,
-          username: createEmailForm.user,
-          password: createEmailForm.password,
-          quota: createEmailForm.quota || 500
-        })
+      const result = await directAdminAPI.createEmail({
+        domain: createEmailForm.domain,
+        userName: createEmailForm.user,
+        password: createEmailForm.password,
+        quota: createEmailForm.quota || 500,
       })
 
-      const data = await res.json()
-      if (data.success) {
+      if (result.success) {
         setCreateEmailSuccess('Conta de e-mail criada com sucesso!')
-        
-        // Sincronizar com o banco de dados via API
-        await fetch('/api/email-contas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: `${createEmailForm.user}@${createEmailForm.domain}`,
-            password: createEmailForm.password,
-            nome: createEmailForm.user,
-            tipo: 'webmail'
-          })
-        })
-
-        setTimeout(() => {
-          setShowCreateEmailModal(false)
-          setCreateEmailSuccess('')
-          setCreateEmailForm({ user: '', password: '', domain: '', quota: '500' })
-          window.location.reload()
-        }, 1500)
+        await loadEmailAccounts({ fallbackServerMailboxes: useDirectAdminAPI })
+        setShowCreateEmailModal(false)
+        setCreateEmailSuccess('')
+        setCreateEmailForm({ user: '', password: '', domain: '', quota: '500' })
       } else {
-        setCreateEmailError(data.error || 'Erro ao criar conta de e-mail.')
+        setCreateEmailError(result.error || 'Erro ao criar conta de e-mail.')
       }
     } catch (error: any) {
       setCreateEmailError('Erro técnico: ' + error.message)
     } finally {
       setCreatingEmail(false)
+    }
+  }
+
+  const handleChangeMailboxPassword = async (email: string) => {
+    if (!newEmailPassword) {
+      setManageEmailError('Indique a nova palavra-passe.')
+      return
+    }
+
+    setManagingEmail(email)
+    setManageEmailError('')
+    try {
+      const result = await directAdminAPI.changeEmailPassword({ email, password: newEmailPassword })
+      if (!result.success) {
+        setManageEmailError(result.error || 'Não foi possível alterar a palavra-passe.')
+        return
+      }
+      setEditingEmailPassword(null)
+      setNewEmailPassword('')
+      await loadEmailAccounts({ fallbackServerMailboxes: useDirectAdminAPI })
+    } catch (error: unknown) {
+      setManageEmailError(error instanceof Error ? error.message : 'Não foi possível alterar a palavra-passe.')
+    } finally {
+      setManagingEmail(null)
+    }
+  }
+
+  const handleDeleteMailbox = async (email: string) => {
+    if (!window.confirm(`Apagar a conta ${email}? Esta acção não pode ser desfeita.`)) return
+
+    setManagingEmail(email)
+    setManageEmailError('')
+    try {
+      const result = await directAdminAPI.deleteEmail({ email })
+      if (!result.success) {
+        setManageEmailError(result.error || 'Não foi possível apagar a conta.')
+        return
+      }
+      if (selectedAccount === email) setSelectedAccount('')
+      await loadEmailAccounts({ fallbackServerMailboxes: useDirectAdminAPI })
+    } catch (error: unknown) {
+      setManageEmailError(error instanceof Error ? error.message : 'Não foi possível apagar a conta.')
+    } finally {
+      setManagingEmail(null)
     }
   }
 
@@ -1411,10 +1435,23 @@ export function WebmailSection({
                 }
                 setShowCreateEmailModal(true)
               }}
+              disabled={sites.length === 0}
+              title={sites.length === 0 ? 'É necessário ter um domínio associado à sua conta.' : 'Criar conta de email'}
               className={panelBtnPrimary}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nova Conta</span>
+            </button>
+            <button
+              onClick={() => {
+                setManageEmailError('')
+                setShowManageEmailModal(true)
+              }}
+              disabled={sites.length === 0}
+              className={panelBtnSecondary}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Gerir Contas</span>
             </button>
           </div>
         </div>
@@ -2113,6 +2150,96 @@ export function WebmailSection({
                 {creatingEmail ? <Spinner className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 {creatingEmail ? 'A criar...' : 'Criar E-mail'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showManageEmailModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Fechar gestão de contas"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowManageEmailModal(false)}
+          />
+          <div className="relative bg-white border border-gray-200 rounded-lg w-full max-w-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">Gerir contas de email</h2>
+              <button type="button" onClick={() => setShowManageEmailModal(false)} aria-label="Fechar">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 max-h-[65vh] overflow-y-auto">
+              {manageEmailError && (
+                <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
+                  {manageEmailError}
+                </p>
+              )}
+              {allAccounts.filter((account) => sites.some((site) => site.domain === account.domain)).length === 0 ? (
+                <p className="text-sm text-gray-500">Ainda não existem caixas de email nestes domínios.</p>
+              ) : (
+                allAccounts
+                  .filter((account) => sites.some((site) => site.domain === account.domain))
+                  .map((account) => (
+                    <div key={account.email} className="border border-gray-200 rounded-lg p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-medium text-sm text-gray-900 break-all">{account.email}</span>
+                        <button
+                          type="button"
+                          disabled={managingEmail === account.email}
+                          onClick={() => void handleDeleteMailbox(account.email)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                        >
+                          {managingEmail === account.email ? 'A processar…' : 'Apagar'}
+                        </button>
+                      </div>
+                      {editingEmailPassword === account.email ? (
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={newEmailPassword}
+                            onChange={(event) => setNewEmailPassword(event.target.value)}
+                            placeholder="Nova palavra-passe"
+                            className="flex-1 min-w-[200px] border border-gray-300 rounded px-3 py-2 text-sm"
+                          />
+                          <button
+                            type="button"
+                            disabled={managingEmail === account.email || !newEmailPassword}
+                            onClick={() => void handleChangeMailboxPassword(account.email)}
+                            className="text-xs font-semibold bg-blue-600 text-white rounded px-3 py-2 disabled:opacity-50"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingEmailPassword(null)
+                              setNewEmailPassword('')
+                              setManageEmailError('')
+                            }}
+                            className="text-xs text-gray-600 px-2"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingEmailPassword(account.email)
+                            setNewEmailPassword('')
+                            setManageEmailError('')
+                          }}
+                          className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                        >
+                          Alterar palavra-passe
+                        </button>
+                      )}
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </div>
