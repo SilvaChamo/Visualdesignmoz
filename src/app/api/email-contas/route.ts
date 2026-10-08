@@ -208,6 +208,25 @@ export async function GET(req: NextRequest) {
       if (error) {
         console.error('📧 [API] Erro ao buscar contas para filtrar por cliente/domínio:', error);
       } else if (activeContas) {
+        // listHostingDomains só conhece domínios com SITE. Um plano só de email
+        // (domínio de email sem site, ex.: concordia.co.mz da conta concordia9933)
+        // nunca entrava em ownedDomains, e o cliente via o webmail/mailmarketing
+        // sem nenhuma caixa. Para os restantes domínios aplica-se a mesma regra
+        // de posse da password (userCanAccessMailboxPassword) e do webmail.
+        const pendingDomains = new Set<string>();
+        for (const c of activeContas) {
+          const domain = String(c.email || '').split('@')[1]?.toLowerCase();
+          if (domain && !ownedDomains.has(domain)) pendingDomains.add(domain);
+        }
+        const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store');
+        if (pendingDomains.size > 0 && (daUsername || (await resolveOwnerDaUsername(session.user.id)))) {
+          const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+          await Promise.all([...pendingDomains].map(async (domain) => {
+            const access = await resolveOwnAccountDomainAccess(session.user.id, domain).catch(() => null);
+            if (access?.allowed) ownedDomains.add(domain);
+          }));
+        }
+
         allEmails = activeContas.filter((c: any) => {
           if (c.cliente_id === clienteId || c.cliente_id === session.user.id) return true;
           const domain = String(c.email || '').split('@')[1]?.toLowerCase();

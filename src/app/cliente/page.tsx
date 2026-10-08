@@ -578,17 +578,27 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
       setLoadingDomainEmails(true);
       try {
-        // 🆕 BUSCAR DE DUAS FONTES: Supabase + DirectAdmin
-        const [supabaseRes, directadminRes] = await Promise.allSettled([
+        // 🆕 BUSCAR DE DUAS FONTES: Supabase + caixas reais no servidor
+        // (/api/da listEmails — Hestia no Contabo, DirectAdmin no Hetzner).
+        const [supabaseRes, serverRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch(`/api/directadmin-list-emails?domain=${encodeURIComponent(selectedSite)}`)
+          fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'listEmails', params: { domain: selectedSite } }),
+          })
         ]);
+
+        // Uma rota em falta/erro do servidor devolve a página HTML do Next —
+        // .json() directo rebentava o carregamento inteiro do selector.
+        const readJson = async (res: Response) =>
+          res.headers.get('content-type')?.includes('application/json') ? res.json() : null;
 
         let allEmailsList: string[] = [];
 
         // Processar resultado do Supabase
         if (supabaseRes.status === 'fulfilled') {
-          const result = await supabaseRes.value.json();
+          const result = (await readJson(supabaseRes.value)) || {};
           const data = result.contas || result;
           if (Array.isArray(data)) {
             const supabaseEmails = data
@@ -602,13 +612,15 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           }
         }
 
-        // Processar resultado do DirectAdmin
-        if (directadminRes.status === 'fulfilled') {
-          const result = await directadminRes.value.json();
-          if (result.success && Array.isArray(result.emails)) {
-            allEmailsList = [...allEmailsList, ...result.emails];
-            console.log("📧 Emails do DirectAdmin:", result.emails);
-            console.log("📧 Fonte:", result.source);
+        // Processar caixas do servidor de alojamento
+        if (serverRes.status === 'fulfilled') {
+          const result = await readJson(serverRes.value);
+          if (result?.success && Array.isArray(result.data)) {
+            const serverEmails = result.data
+              .map((row: any) => row?.email)
+              .filter((email: unknown): email is string => typeof email === 'string');
+            allEmailsList = [...allEmailsList, ...serverEmails];
+            console.log("📧 Emails do servidor:", serverEmails);
           }
         }
 

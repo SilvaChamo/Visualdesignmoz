@@ -611,7 +611,17 @@ export function WebmailSection({
         console.error('Erro ao buscar contas:', e)
       }
 
-      if (userEmail && !consolidated.find((a) => a.email === userEmail)) {
+      // O login só é uma caixa de correio quando o domínio dele está neste
+      // painel. Um login Gmail/Hotmail entrava sempre na lista, sem password
+      // no servidor, era escolhido por defeito (pickDefaultWebmailAccount) e
+      // o cliente via "Credenciais não disponíveis" em vez das suas caixas.
+      const userDomain = userEmail?.split('@')[1]?.toLowerCase()
+      const userDomainHosted = Boolean(
+        userDomain &&
+          ((sites || []).some((s) => s?.domain?.toLowerCase() === userDomain) ||
+            consolidated.some((a) => a.domain?.toLowerCase() === userDomain)),
+      )
+      if (userEmail && userDomainHosted && !consolidated.find((a) => a.email === userEmail)) {
         const domain = userEmail.split('@')[1]
         consolidated.push({
           email: userEmail,
