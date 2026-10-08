@@ -181,9 +181,9 @@ export default function PrecosEmail() {
 
       {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'mid-alt'
           (complementar a 'mid' da secção seguinte para criar um único dente limpo sem duplicados). */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-16 pb-20">
-        <div className="container mx-auto max-w-7xl px-8 sm:px-14 lg:px-20">
-          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
+      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-12 pb-14">
+        <div className="container mx-auto max-w-7xl px-5">
+          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-8">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
               Como funciona
@@ -191,7 +191,7 @@ export default function PrecosEmail() {
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-4 sm:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { Icon: ShoppingCart, title: '1. Escolha o plano', text: 'Básico, Premium ou Enterprise — pagamento mensal, semestral ou anual.' },
               { Icon: Globe, title: '2. Indique o domínio', text: 'No seu painel, use um domínio que já tenha ou compre um connosco.' },
@@ -214,8 +214,8 @@ export default function PrecosEmail() {
       {/* Características — carrossel (4 colunas, avança uma de cada vez), fundo
           branco antes do rodapé; forma 'mid': inverte a ponta no topo (centro a subir)
           mantendo o encaixe no topo 'end' do rodapé. */}
-      <NotchSection shape="mid" bg="bg-white" className="pt-16 pb-20">
-        <div className="container mx-auto max-w-7xl px-8 sm:px-12 lg:px-16">
+      <NotchSection shape="mid" bg="bg-white" className="pt-12 pb-14">
+        <div className="container mx-auto max-w-7xl px-5">
           <EmailFeaturesCarousel
             cards={[
               {
@@ -293,16 +293,14 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
     }
   }, [withTransition])
 
-  const activeDot = ((index - 1) % total + total) % total
-
   return (
-    <div className="px-[25px]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <style>{`
         .email-features-track { --visible: 4; }
         @media (max-width: 639px) { .email-features-track { --visible: 1; } }
         @media (min-width: 640px) and (max-width: 1023px) { .email-features-track { --visible: 2; } }
       `}</style>
-      <div className="overflow-hidden py-3">
+      <div className="overflow-hidden py-2">
         <div
           className="flex email-features-track"
           style={{
@@ -328,20 +326,6 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
             </div>
           ))}
         </div>
-      </div>
-      <div className="flex justify-center gap-2 mt-5">
-        {cards.map((card, i) => (
-          <button
-            key={card.title}
-            type="button"
-            aria-label={`Ir para ${card.title}`}
-            onClick={() => {
-              setWithTransition(true)
-              setIndex(i + 1)
-            }}
-            className={`h-2 rounded-full transition-all ${activeDot === i ? 'w-6 bg-red-600' : 'w-2 bg-black/20'}`}
-          />
-        ))}
       </div>
     </div>
   )
