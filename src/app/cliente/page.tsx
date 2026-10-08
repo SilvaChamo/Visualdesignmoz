@@ -3477,6 +3477,11 @@ function ClientPageContent() {
         return <FacturacaoSection />
       case 'conta':
         return <ContaSection />
+      case 'emails-new':
+      case 'cp-email-mgmt':
+        // O mesmo ecrã do revendedor; /api/da só deixa mexer nas caixas dos
+        // domínios da conta de alojamento deste login.
+        return <EmailManagementSection sites={directAdminSites} isActive ownerScopeToSites />
       case 'webmail':
         return (
           <WebmailSection

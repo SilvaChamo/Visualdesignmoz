@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrReseller } from '@/lib/panel-api-auth';
+import { requireAdminOrReseller, requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { requireDaAccessForDomain } from '@/lib/panel-domain-access';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
@@ -24,6 +24,7 @@ import {
   domainAccessForManaged,
   isOwnerManaged,
   managedOwnersFromContext,
+  resolveOwnAccountMirrorScope,
   type CallerManagedOwners,
 } from '@/lib/domain-access';
 import type { AccountScope } from '@/lib/linked-accounts';
@@ -93,12 +94,43 @@ const CLIENT_SAFE_ACTIONS = new Set([
   'changePHPVersion',
 ]);
 
+// Hestia (Contabo): acções de contas de e-mail que qualquer conta com
+// alojamento próprio pode fazer nos seus domínios (ver resolveApi).
+const SELF_SERVICE_EMAIL_ACTIONS = new Set([
+  'listEmails', 'createEmail', 'deleteEmail', 'suspendEmail', 'unsuspendEmail',
+  'changeEmailPassword', 'setEmailLimits',
+  'getEmailForwarding', 'addEmailForwarding', 'deleteEmailForwarding',
+  'getCatchAllEmail', 'setCatchAllEmail',
+]);
+
 async function resolveApi(action?: string, domain?: string) {
   const hestiaOnly = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
 
   // O endpoint mantém o nome legado para compatibilidade com o frontend, mas
   // numa instalação Hestia não pode sequer inicializar credenciais DA.
   if (hestiaOnly) {
+    // Contas de e-mail: cada conta (cliente, profissional, colaborador) cria e
+    // gere as caixas dos seus próprios domínios. O âmbito é só a conta de
+    // alojamento ligada ao PRÓPRIO login (perfil ou panel_users.auth_user_id),
+    // como no webmail — nunca pelo email do login. tryHestiaAction confirma
+    // depois que o domínio pertence a esse âmbito (domainAccessForManaged).
+    if (action && SELF_SERVICE_EMAIL_ACTIONS.has(action)) {
+      const auth = await requirePanelBootstrapAccess();
+      if ('error' in auth) return { error: auth.error } as const;
+      if (auth.user.role !== 'admin' && auth.user.role !== 'reseller') {
+        const own = await resolveOwnAccountMirrorScope(auth.user.id);
+        if (!own) {
+          return {
+            error: NextResponse.json(
+              { success: false, error: 'Esta conta não tem alojamento próprio onde criar contas de e-mail.' },
+              { status: 403 },
+            ),
+          } as const;
+        }
+        return { daApi: null, user: auth.user, mirrorScope: own.mirrorScope, accountScope: own.accountScope } as const;
+      }
+    }
+
     const auth = await requireAdminOrReseller();
     if ('error' in auth) return { error: auth.error } as const;
     // Mesmo âmbito do resto do painel (conta activa + contas ligadas

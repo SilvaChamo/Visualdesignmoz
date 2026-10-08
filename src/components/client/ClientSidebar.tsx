@@ -14,6 +14,7 @@ import {
   ChevronRight,
   LogOut,
   ShoppingBag,
+  AtSign,
 } from 'lucide-react';
 import {
   CLIENT_MENU_DEFS,
@@ -58,6 +59,8 @@ const FLAT_ITEMS: FlatItem[] = [
   // forma de rever compras feitas directamente no carrinho (checkout).
   { id: 'minhas-compras', label: 'As Minhas Compras', icon: ShoppingBag },
   { id: 'webmail', label: 'Webmail', icon: Mail },
+  // Criar, editar e apagar as caixas de correio dos próprios domínios.
+  { id: 'emails-new', label: 'Contas de e-mail', icon: AtSign },
   { id: 'mailmarketing', label: 'Mailmarketing', icon: Target },
   { id: 'tickets', label: 'Suporte', icon: Users },
   { id: 'facturas', label: 'Facturas', icon: FileText },

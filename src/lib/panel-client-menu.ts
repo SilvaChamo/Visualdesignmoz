@@ -88,7 +88,7 @@ export const CLIENT_SECTION_LABELS: Record<string, string> = {
   tickets: 'Suporte',
   facturas: 'Facturas',
   conta: 'Conta',
-  'emails-new': 'E-mail',
+  'emails-new': 'Contas de e-mail',
   encomendas: 'Encomendas',
   'encomendas-mensagens': 'Mensagens',
   'encomendas-pagamentos': 'Pagamentos',

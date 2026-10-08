@@ -17,6 +17,8 @@ import { NextResponse } from 'next/server';
 import type { PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext, type PanelDaContext } from '@/lib/panel-api-context';
 import { resolveHostingOwner } from '@/lib/hosting-resolver';
+import type { MirrorScope } from '@/lib/panel-mirror-read';
+import type { AccountScope } from '@/lib/linked-accounts';
 
 export type DomainAccessDeniedReason = 'locked-linked-account' | 'outside-scope';
 
@@ -118,6 +120,37 @@ export async function resolveOwnAccountDomainAccess(userId: string, domain: stri
     allowed: false,
     owner,
     reason: scope.lockedOwners.includes(owner) ? 'locked-linked-account' : 'outside-scope',
+  };
+}
+
+/**
+ * Âmbito do painel (MirrorScope) da conta de alojamento ligada ao PRÓPRIO
+ * login — mesma regra de resolveOwnAccountDomainAccess, para rotas que um
+ * cliente/profissional também chama (contas de e-mail em /api/da). null quando
+ * o login não tem conta de alojamento própria.
+ */
+export async function resolveOwnAccountMirrorScope(
+  userId: string,
+): Promise<{ mirrorScope: MirrorScope; accountScope: AccountScope } | null> {
+  const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store');
+  const main = String((await resolveOwnerDaUsername(userId)) || '').trim().toLowerCase();
+  if (!main) return null;
+  const { resolveAccountScope } = await import('@/lib/linked-accounts');
+  const accountScope = await resolveAccountScope(main, userId);
+  // Igual a resolvePanelDaContext: Premium que entrou numa conta ligada
+  // trabalha só nela; Enterprise gere também as ligadas.
+  const active = accountScope.entered || accountScope.main || main;
+  const linkedOwners = accountScope.entered
+    ? []
+    : accountScope.manageOwners.filter((owner) => owner !== accountScope.main);
+  return {
+    mirrorScope: {
+      role: 'reseller',
+      userId,
+      daUsername: active,
+      ...(linkedOwners.length ? { linkedOwners } : {}),
+    },
+    accountScope,
   };
 }
 

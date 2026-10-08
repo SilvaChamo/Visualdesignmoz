@@ -43,21 +43,30 @@ export async function findProtectedEmailClaim(rawEmail: string): Promise<Protect
   const sb = getDaSyncAdmin();
   if (!sb) throw new Error('Não foi possível validar o email agora. Tente novamente.');
 
-  const [byDomain, byAdminEmail, mailbox] = await Promise.all([
+  // panel_users.email: getResellerDaUsername ainda encontra a conta de
+  // alojamento de um login profissional/revendedor por este email.
+  const [byDomain, byAdminEmail, mailbox, byAccountEmail] = await Promise.all([
     sb.from('panel_sites').select('owner').ilike('domain', escapeLike(domain)),
     sb.from('panel_sites').select('owner').ilike('admin_email', escapeLike(email)),
     sb.from('email_contas').select('email').ilike('email', `%@${escapeLike(domain)}`).limit(1),
+    sb.from('panel_users').select('username').ilike('email', escapeLike(email)),
   ]);
-  if (byDomain.error || byAdminEmail.error || mailbox.error) {
+  if (byDomain.error || byAdminEmail.error || mailbox.error || byAccountEmail.error) {
     throw new Error('Não foi possível validar o email agora. Tente novamente.');
   }
 
   const owners = new Set(
-    [...(byDomain.data || []), ...(byAdminEmail.data || [])]
-      .map((r) => String(r.owner || '').trim().toLowerCase())
+    [
+      ...(byDomain.data || []).map((r) => r.owner),
+      ...(byAdminEmail.data || []).map((r) => r.owner),
+      ...(byAccountEmail.data || []).map((r) => r.username),
+    ]
+      .map((owner) => String(owner || '').trim().toLowerCase())
       .filter(Boolean),
   );
-  let hosted = Boolean(byDomain.data?.length || byAdminEmail.data?.length || mailbox.data?.length);
+  let hosted = Boolean(
+    byDomain.data?.length || byAdminEmail.data?.length || mailbox.data?.length || byAccountEmail.data?.length,
+  );
 
   // Hestia: um domínio acabado de criar no servidor pode ainda não estar no espelho.
   if (!byDomain.data?.length) {
