@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cacheService } from '@/lib/cache-service'
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth'
 import { listMirrorWebsites, listMirrorWebsitesForClientUser } from '@/lib/panel-mirror-read'
-import { EMAIL_PLAN_PACKAGE_NAME } from '@/lib/email-plan-provision'
+import { isEmailPlanPackage } from '@/lib/email-plans'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,7 +55,7 @@ async function resolveSession(): Promise<MailmarketingSession | null> {
     // Webmail — o plano não inclui Mail Marketing.
     const allowedDomains = new Set(
         (sites || [])
-            .filter((s: any) => s.package !== EMAIL_PLAN_PACKAGE_NAME)
+            .filter((s: any) => !isEmailPlanPackage(s.package))
             .map((s: any) => normalizeDomain(s.domain))
             .filter(Boolean)
     )

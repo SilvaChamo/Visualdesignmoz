@@ -1,6 +1,7 @@
 import { getEffectiveTldPrices } from '@/lib/domain-price-sync';
 import { domainRegistrationPriceMt, domainTransferPriceMt } from '@/lib/domain-tld-prices';
 import { HOSTING_PLANS, getHostingCyclePrice, type HostingBillingCycle } from '@/lib/hosting-plans';
+import { emailCycleForMonths, getEmailCyclePrice, getEmailPlan } from '@/lib/email-plans';
 
 export type CatalogCartItem = {
   id: string;
@@ -17,17 +18,13 @@ export type CatalogCartItem = {
 };
 
 /**
- * Único plano de email vendido através do carrinho (DomainSearch, CartDrawer,
- * /precos/email) — sem domínio adicional incluído; o domínio é escolhido
- * depois, no painel do cliente (ver ClientProductsHub / attach-email-domain).
+ * Planos de email (Básico/Premium/Enterprise — ver email-plans.ts), sem
+ * domínio incluído: o domínio é escolhido depois, no painel do cliente (ver
+ * ClientProductsHub / attach-email-domain). O atalho rápido (DomainSearch,
+ * CartDrawer) adiciona o Básico mensal.
  */
 export const EMAIL_BASICO_ID = 'email-basico';
-export const EMAIL_BASICO_PRICE_MT = 680;
-// #13: exportado — o preço anual já existia aqui mas nenhuma interface
-// permitia escolhê-lo; o checkout usa isto para mostrar as duas opções.
-export const EMAIL_CATALOG: Record<string, { name: string; monthly: number; annual: number }> = {
-  [EMAIL_BASICO_ID]: { name: 'Email Básico', monthly: EMAIL_BASICO_PRICE_MT, annual: EMAIL_BASICO_PRICE_MT * 12 },
-};
+export const EMAIL_BASICO_PRICE_MT = getEmailCyclePrice(getEmailPlan(EMAIL_BASICO_ID)!, 'monthly');
 
 const HOSTING_CYCLES: HostingBillingCycle[] = ['monthly', 'semiannual', 'annual'];
 const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, semiannual: 6, annual: 12 };
@@ -96,17 +93,19 @@ export async function resolveCartItems(items: CatalogCartItem[]): Promise<Catalo
     }
 
     if (item.type === 'email') {
-      const plan = EMAIL_CATALOG[item.id];
+      const plan = getEmailPlan(item.id);
       if (!plan) {
         rejected.push(item);
         continue;
       }
-      const priceMt = item.price === plan.monthly ? plan.monthly : item.price === plan.annual ? plan.annual : undefined;
-      if (priceMt === undefined) {
+      // Mesma regra da hospedagem: o preço tem de ser exactamente o de um dos
+      // três ciclos do plano e o `period` (meses) tem de ser o desse ciclo.
+      const cycle = emailCycleForMonths(item.period || 1);
+      if (!cycle || getEmailCyclePrice(plan, cycle) !== item.price) {
         rejected.push(item);
         continue;
       }
-      resolved.push({ item, priceMt });
+      resolved.push({ item, priceMt: item.price });
       continue;
     }
 

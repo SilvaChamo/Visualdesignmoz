@@ -6,7 +6,7 @@
  * houver um plano de email pendente).
  *
  * Hestia (Contabo): cria a conta real — utilizador sem sites (pacote
- * EMAIL_PLAN_HESTIA_PACKAGE) + zona DNS + domínio de email — para o cliente criar e gerir
+ * do plano em email-plans.ts) + zona DNS + domínio de email — para o cliente criar e gerir
  * as caixas no painel. Antes só ficava no espelho do painel, por isso as caixas
  * nunca podiam existir no servidor.
  * DirectAdmin (Hetzner): continua só no espelho (licença do servidor sem
@@ -17,10 +17,8 @@ import { sanitizeDaUsername } from '@/lib/reseller-provision';
 import { generateProvisionerPassword } from '@/lib/reseller-auto-provision';
 import { upsertMirrorUser, upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { emailPlanByProductName, emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
 
-export const EMAIL_PLAN_PACKAGE_NAME = 'Email Básico';
-/** Pacote no Hestia: 0 sites, 1 domínio de email, 10 caixas, 10 GB (o que /precos/email anuncia). */
-export const EMAIL_PLAN_HESTIA_PACKAGE = 'VD-Email-Basico';
 
 /** `taken`: nomes que já existem no servidor (não só no espelho). */
 async function pickAvailableMirrorUsername(base: string, taken: Set<string> = new Set()): Promise<string> {
@@ -44,6 +42,7 @@ async function provisionEmailPlanOnHestia(
   username: string,
   domain: string,
   clientEmail: string,
+  hestiaPackage: string,
 ): Promise<{ ok: true; password: string } | { ok: false; error: string }> {
   const hestia = await import('@/lib/hestia-adapter');
   const password = generateProvisionerPassword();
@@ -51,7 +50,7 @@ async function provisionEmailPlanOnHestia(
     username,
     password,
     email: clientEmail,
-    packageName: EMAIL_PLAN_HESTIA_PACKAGE,
+    packageName: hestiaPackage,
   });
   if (!created.ok) return { ok: false, error: created.error || 'Falha ao criar a conta no servidor.' };
   // Zona DNS antes do domínio de email: assim o Hestia junta logo à zona os
@@ -75,7 +74,7 @@ export type AttachEmailDomainResult =
 async function findPendingEmailPlan(admin: SupabaseClient, userId: string) {
   const { data } = await admin
     .from('hosting_renewals')
-    .select('id, domain_name')
+    .select('id, domain_name, package_name')
     .eq('user_id', userId)
     .eq('server', 'Mail')
     .eq('status', 'active')
@@ -83,7 +82,7 @@ async function findPendingEmailPlan(admin: SupabaseClient, userId: string) {
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
-  return data as { id: string; domain_name: string } | null;
+  return data as { id: string; domain_name: string; package_name: string | null } | null;
 }
 
 export async function attachDomainToEmailPlan(
@@ -96,21 +95,13 @@ export async function attachDomainToEmailPlan(
   const domain = rawDomain.toLowerCase().trim();
   if (!domain.includes('.')) return { ok: false, error: 'Domínio inválido.' };
 
+  // Um domínio por plano: só se liga a um plano ainda sem domínio (quem
+  // comprar dois planos liga um domínio a cada um).
   const pending = await findPendingEmailPlan(admin, userId);
-  if (!pending) return { ok: false, error: 'Sem plano de email pendente para este cliente.' };
-
-  // "não pode ter nenhum domínio adicional" — só um domínio por plano.
-  const { data: alreadyAttached } = await admin
-    .from('hosting_renewals')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('server', 'Mail')
-    .neq('domain_name', '')
-    .limit(1)
-    .maybeSingle();
-  if (alreadyAttached?.id) {
-    return { ok: false, error: 'Já tem um domínio associado ao seu plano de email.' };
-  }
+  if (!pending) return { ok: false, error: 'Não tem nenhum plano de email à espera de domínio.' };
+  // Planos comprados antes de 8 out chamavam-se "Email Básico" (era o único).
+  const plan = emailPlanByProductName(pending.package_name) ?? getEmailPlan('email-basico')!;
+  const planName = emailPlanProductName(plan);
 
   const { data: existingSite } = await admin.from('panel_sites').select('domain').eq('domain', domain).maybeSingle();
   if (existingSite) {
@@ -131,7 +122,7 @@ export async function attachDomainToEmailPlan(
   const username = await pickAvailableMirrorUsername(domain.split('.')[0] || clientEmail.split('@')[0], taken);
 
   if (provider === 'hestia') {
-    const provisioned = await provisionEmailPlanOnHestia(username, domain, clientEmail);
+    const provisioned = await provisionEmailPlanOnHestia(username, domain, clientEmail, plan.hestiaPackage);
     if (!provisioned.ok) {
       const { alertAdminOfTrackingFailure } = await import('@/lib/checkout-fulfillment');
       await alertAdminOfTrackingFailure('plano de email', `${domain} (${username}): ${provisioned.error}`);
@@ -152,10 +143,10 @@ export async function attachDomainToEmailPlan(
     first_name: displayName || clientEmail.split('@')[0],
     acl: 'user',
     auth_user_id: userId,
-    package_name: EMAIL_PLAN_PACKAGE_NAME,
+    package_name: planName,
     ...(provider === 'hestia' ? { hosting_provider: 'hestia' as const } : {}),
   });
-  await upsertMirrorSite({ domain, owner: username, admin_email: clientEmail, package: EMAIL_PLAN_PACKAGE_NAME });
+  await upsertMirrorSite({ domain, owner: username, admin_email: clientEmail, package: planName });
   // Sem caixa "contacto@" fictícia em email_contas: o cliente cria as caixas
   // reais em "Contas de e-mail" (antes aparecia no webmail uma caixa que não
   // existia no servidor).

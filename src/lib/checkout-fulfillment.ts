@@ -14,6 +14,7 @@ import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
 import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
+import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
 
 // Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
 // HOSTING_PLAN_PRESETS em reseller-package-form.ts, que é o que a secção
@@ -679,13 +680,14 @@ export async function fulfillCheckout(
 
     if (item.type === 'email') {
       // O plano de email não vem com domínio — o cliente escolhe (ou compra
-      // um connosco) depois, já no painel dele (ver EMAIL_PLAN_PACKAGE_NAME
-      // em user-products.ts e /api/client/attach-email-domain). domain_name
-      // fica vazio até isso acontecer.
+      // um connosco) depois, já no painel dele (/api/client/attach-email-domain,
+      // que cria então a conta no servidor com o pacote do plano — ver
+      // email-plans.ts). domain_name fica vazio até isso acontecer.
+      const emailPlan = getEmailPlan(item.id);
       const { error: insErr } = await supabase.from('hosting_renewals').insert({
         user_id: userId,
         domain_name: '',
-        package_name: 'Email Básico',
+        package_name: emailPlan ? emailPlanProductName(emailPlan) : item.name,
         start_date: today,
         expiration_date: hostingExpires,
         renewal_price: item.price,
@@ -698,7 +700,7 @@ export async function fulfillCheckout(
         console.warn('[checkout-fulfillment] email plano:', insErr.message);
         await alertAdminOfTrackingFailure('hosting_renewals (email)', insErr.message);
       }
-      created.push('email:plano-basico');
+      created.push(`email:${item.id}`);
     }
   }
 

@@ -12,7 +12,14 @@ import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB } from '@/lib/quotation
 import { formatMt } from '@/lib/pricing-catalog';
 import { DOMAIN_TLD_PRICES, domainRegistrationPriceMt } from '@/lib/domain-tld-prices';
 import { getHostingPlan, getHostingCyclePrice, type HostingBillingCycle } from '@/lib/hosting-plans';
-import { EMAIL_CATALOG } from '@/lib/package-catalog';
+import {
+  EMAIL_CYCLE_LABELS,
+  EMAIL_CYCLE_MONTHS,
+  emailCycleForMonths,
+  getEmailCyclePrice,
+  getEmailPlan,
+  type EmailBillingCycle,
+} from '@/lib/email-plans';
 import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles';
 
 // Moçambique não usa "Estado" (terminologia brasileira) — usa província.
@@ -807,21 +814,23 @@ function CheckoutContent() {
                                   ))}
                                 </select>
                               </label>
-                            ) : item.type === 'email' && EMAIL_CATALOG[item.id] ? (
+                            ) : item.type === 'email' && getEmailPlan(item.id) ? (
                               <label className="flex items-center gap-2">
                                 <span className="text-xs text-slate-400">Ciclo:</span>
                                 <select
                                   value={item.period}
                                   onChange={(e) => {
                                     const months = Number(e.target.value);
-                                    const plan = EMAIL_CATALOG[item.id];
-                                    const newPrice = months === 12 ? plan.annual : plan.monthly;
+                                    const plan = getEmailPlan(item.id);
+                                    const cycle = emailCycleForMonths(months);
+                                    const newPrice = plan && cycle ? getEmailCyclePrice(plan, cycle) : item.price;
                                     updateItemPeriod(item.id, months, newPrice);
                                   }}
                                   className="rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs font-bold text-slate-600 dark:text-zinc-300"
                                 >
-                                  <option value={1}>Mensal</option>
-                                  <option value={12}>Anual</option>
+                                  {(Object.keys(EMAIL_CYCLE_MONTHS) as EmailBillingCycle[]).map((cycle) => (
+                                    <option key={cycle} value={EMAIL_CYCLE_MONTHS[cycle]}>{EMAIL_CYCLE_LABELS[cycle]}</option>
+                                  ))}
                                 </select>
                               </label>
                             ) : (

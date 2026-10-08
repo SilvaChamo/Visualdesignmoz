@@ -7,7 +7,7 @@ import {
   getServerRenewalTemplates
 } from '@/lib/renewal-templates'
 import { sendEmail } from '@/lib/email-service'
-import { EMAIL_PLAN_PACKAGE_NAME } from '@/lib/email-plan-provision'
+import { isEmailPlanPackage } from '@/lib/email-plans'
 import { suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 
 // Cron secret para segurança
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
                 .select('server, package_name')
                 .eq('id', renewal.service_id)
                 .maybeSingle()
-              if (hostingRow?.server === 'Mail' || hostingRow?.package_name === EMAIL_PLAN_PACKAGE_NAME) {
-                serviceLabel = `${EMAIL_PLAN_PACKAGE_NAME} - ${renewal.service_name}`
+              if (hostingRow?.server === 'Mail' || isEmailPlanPackage(hostingRow?.package_name)) {
+                serviceLabel = `${hostingRow?.package_name || 'Plano de email'} - ${renewal.service_name}`
               }
             }
 
