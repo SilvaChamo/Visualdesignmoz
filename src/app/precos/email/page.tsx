@@ -179,37 +179,9 @@ export default function PrecosEmail() {
         </div>
       </div>
 
-      {/* Características — depois dos planos, numa secção virada para baixo
-          ('down': corte do rodapé em cima, meio a descer em baixo); carrossel
-          com 4 colunas a avançar uma a uma. */}
+      {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'down'
+          (corte do rodapé em cima, meio a descer em baixo). */}
       <NotchSection shape="down" bg="bg-zinc-100" className="pt-16 pb-20">
-        <div className="container mx-auto max-w-7xl px-6">
-          <EmailFeaturesCarousel
-            cards={[
-              {
-                title: t('pricing.hosting.techFeatures'),
-                items: [t('pricing.email.features.4'), t('pricing.email.features.5'), 'POP3/IMAP/SMTP'],
-              },
-              {
-                title: t('pricing.hosting.security'),
-                items: [t('pricing.email.features.3'), 'TLS/SSL', 'Two-Factor Auth (2FA)'],
-              },
-              {
-                title: t('pricing.hosting.support'),
-                items: [t('pricing.hosting.chat'), t('pricing.hosting.emailSupport'), t('pricing.hosting.backup')],
-              },
-              {
-                title: 'Gestão no painel',
-                items: ['Criar e apagar caixas', 'Encaminhamento e catch-all', 'DNS e nameservers'],
-              },
-            ]}
-          />
-        </div>
-      </NotchSection>
-
-      {/* Como funciona — também 'down': recebe por cima o meio do cinzento e
-          encaixa por baixo no topo 'end' do rodapé. */}
-      <NotchSection shape="down" bg="bg-white" className="pt-16 pb-20">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
@@ -236,6 +208,34 @@ export default function PrecosEmail() {
               </div>
             ))}
           </div>
+        </div>
+      </NotchSection>
+
+      {/* Características — carrossel (4 colunas, avança uma de cada vez), fundo
+          branco antes do rodapé; também 'down': recebe por cima o meio do
+          cinzento e encaixa por baixo no topo 'end' do rodapé. */}
+      <NotchSection shape="down" bg="bg-white" className="pt-16 pb-20">
+        <div className="container mx-auto max-w-7xl px-6">
+          <EmailFeaturesCarousel
+            cards={[
+              {
+                title: t('pricing.hosting.techFeatures'),
+                items: [t('pricing.email.features.4'), t('pricing.email.features.5'), 'POP3/IMAP/SMTP'],
+              },
+              {
+                title: t('pricing.hosting.security'),
+                items: [t('pricing.email.features.3'), 'TLS/SSL', 'Two-Factor Auth (2FA)'],
+              },
+              {
+                title: t('pricing.hosting.support'),
+                items: [t('pricing.hosting.chat'), t('pricing.hosting.emailSupport'), t('pricing.hosting.backup')],
+              },
+              {
+                title: 'Gestão no painel',
+                items: ['Criar e apagar caixas', 'Encaminhamento e catch-all', 'DNS e nameservers'],
+              },
+            ]}
+          />
         </div>
       </NotchSection>
     </div>
