@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/components/auth/AuthProvider'
 import Image from 'next/image'
 import { useI18n } from '@/lib/i18n'
 import { Globe, Shield, RefreshCw, Search, Zap, Lock, HardDrive } from 'lucide-react'
@@ -9,6 +11,14 @@ import { NotchSection } from '@/components/home/NotchSection'
 
 export default function Dominios() {
   const { t } = useI18n()
+  const { user } = useAuth()
+  // Veio do painel ("Comprar domínio connosco"): compra com a sessão da
+  // própria conta (o checkout carrega os dados de faturação dela) e volta ao
+  // painel no fim. Lido no cliente para não exigir Suspense no prerender.
+  const [fromPanel, setFromPanel] = useState(false)
+  useEffect(() => {
+    setFromPanel(new URLSearchParams(window.location.search).get('origem') === 'painel')
+  }, [])
 
   const cardsApelo = [
     {
@@ -58,6 +68,17 @@ export default function Dominios() {
               Encontre o nome perfeito para o seu negócio e garanta a sua presença online hoje mesmo.
             </p>
           </div>
+
+          {fromPanel && user && (
+            <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-sm text-white">
+              <span>
+                A comprar com a sua conta: <strong>{user.email}</strong>. No fim da compra volta ao seu painel.
+              </span>
+              <Link href="/cliente" className="font-bold text-white underline-offset-2 hover:underline whitespace-nowrap">
+                ← Voltar à minha conta
+              </Link>
+            </div>
+          )}
 
           {/* Motor de busca de domínios */}
           <div className="max-w-4xl mx-auto">

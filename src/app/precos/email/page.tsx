@@ -4,7 +4,7 @@ import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HardDrive, Mail, Globe, Monitor, Smartphone, ShieldCheck, Lock, LifeBuoy } from 'lucide-react'
 import {
   EMAIL_CYCLE_LABELS,
@@ -45,6 +45,32 @@ export default function PrecosEmail() {
               {t('pricing.email.subtitle')}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Características — carrossel (um cartão por slide, loop infinito) */}
+      <div className="bg-white pt-12">
+        <div className="container mx-auto max-w-7xl px-6">
+          <EmailFeaturesCarousel
+            cards={[
+              {
+                title: t('pricing.hosting.techFeatures'),
+                items: [t('pricing.email.features.4'), t('pricing.email.features.5'), 'POP3/IMAP/SMTP'],
+              },
+              {
+                title: t('pricing.hosting.security'),
+                items: [t('pricing.email.features.3'), 'TLS/SSL', 'Two-Factor Auth (2FA)'],
+              },
+              {
+                title: t('pricing.hosting.support'),
+                items: [t('pricing.hosting.chat'), t('pricing.hosting.emailSupport'), t('pricing.hosting.backup')],
+              },
+              {
+                title: 'Gestão no painel',
+                items: ['Criar e apagar contas de e-mail', 'Encaminhamento e catch-all', 'DNS e nameservers do domínio'],
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -175,63 +201,102 @@ export default function PrecosEmail() {
               )
             })}
           </div>
-
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.techFeatures')}</h3>
-              <ul className="space-y-2 text-gray-600">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.email.features.4')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.email.features.5')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>POP3/IMAP/SMTP</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.security')}</h3>
-              <ul className="space-y-2 text-gray-600">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.email.features.3')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>TLS/SSL</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>Two-Factor Auth (2FA)</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-black mb-3">{t('pricing.hosting.support')}</h3>
-              <ul className="space-y-2 text-gray-600">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.hosting.chat')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.hosting.emailSupport')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span>{t('pricing.hosting.backup')}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const CAROUSEL_AUTOPLAY_MS = 4000
+const CAROUSEL_TRANSITION_MS = 600
+
+type FeatureCard = { title: string; items: string[] }
+
+/** Um cartão por slide, em loop infinito: clones do último no início e do
+ * primeiro no fim; ao chegar a um clone salta sem transição para o real. */
+function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
+  const total = cards.length
+  const track = [cards[total - 1], ...cards, cards[0]]
+  const [index, setIndex] = useState(1)
+  const [withTransition, setWithTransition] = useState(true)
+  const [paused, setPaused] = useState(false)
+
+  useEffect(() => {
+    if (paused) return
+    const timer = setInterval(() => {
+      setWithTransition(true)
+      setIndex((i) => i + 1)
+    }, CAROUSEL_AUTOPLAY_MS)
+    return () => clearInterval(timer)
+  }, [paused])
+
+  const handleTransitionEnd = () => {
+    if (index > total) {
+      setWithTransition(false)
+      setIndex(1)
+    } else if (index < 1) {
+      setWithTransition(false)
+      setIndex(total)
+    }
+  }
+
+  // Reactiva a transição só depois de o browser pintar o salto (evita piscar).
+  useEffect(() => {
+    if (withTransition) return
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setWithTransition(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [withTransition])
+
+  const activeDot = ((index - 1) % total + total) % total
+
+  return (
+    <div className="max-w-2xl mx-auto" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="overflow-hidden">
+        <div
+          className="flex"
+          style={{
+            width: `${track.length * 100}%`,
+            transform: `translateX(-${(index * 100) / track.length}%)`,
+            transition: withTransition ? `transform ${CAROUSEL_TRANSITION_MS}ms ease` : 'none',
+          }}
+          onTransitionEnd={handleTransitionEnd}
+        >
+          {track.map((card, i) => (
+            <div key={`${card.title}-${i}`} className="shrink-0 px-1" style={{ width: `${100 / track.length}%` }}>
+              <div className="bg-gray-50 rounded-lg p-6 h-full">
+                <h3 className="text-lg font-bold text-black mb-3">{card.title}</h3>
+                <ul className="space-y-2 text-gray-600">
+                  {card.items.map((item) => (
+                    <li key={item} className="flex items-start">
+                      <span className="text-green-500 mr-2">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-center gap-2 mt-5">
+        {cards.map((card, i) => (
+          <button
+            key={card.title}
+            type="button"
+            aria-label={`Ir para ${card.title}`}
+            onClick={() => {
+              setWithTransition(true)
+              setIndex(i + 1)
+            }}
+            className={`h-2 rounded-full transition-all ${activeDot === i ? 'w-6 bg-red-600' : 'w-2 bg-black/20'}`}
+          />
+        ))}
       </div>
     </div>
   )
