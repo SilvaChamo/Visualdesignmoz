@@ -184,10 +184,12 @@ export default function PrecosEmail() {
       <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-24 pb-28 sm:pt-28 sm:pb-32">
         <div className="container mx-auto max-w-7xl px-[30px]">
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
+            <div className="w-12 h-12 rounded-xl bg-red-100/90 border border-red-200 flex items-center justify-center text-red-600 mb-3 shadow-sm">
+              <Workflow className="w-6 h-6" />
+            </div>
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-              <Workflow className="w-4 h-4 text-red-600 shrink-0" />
-              <span>Como funciona</span>
+              Como funciona
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
