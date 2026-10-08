@@ -30,8 +30,8 @@ export default function PrecosEmail() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header Section - Gray 25% */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      {/* Banner — mesmo recorte dos outros banners (NotchSection 'start') */}
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -47,7 +47,7 @@ export default function PrecosEmail() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Pricing Section — mesmos cartões e selector de ciclo da home (VisualWebLanding) */}
       <div className="bg-white py-16">
@@ -179,9 +179,10 @@ export default function PrecosEmail() {
         </div>
       </div>
 
-      {/* Características — depois dos planos, numa secção com o recorte virado
-          para baixo (start-alt); carrossel com 4 colunas a avançar uma a uma. */}
-      <NotchSection shape="start-alt" bg="bg-zinc-100" className="pt-14 pb-20">
+      {/* Características — depois dos planos, numa secção virada para baixo
+          ('down': corte do rodapé em cima, meio a descer em baixo); carrossel
+          com 4 colunas a avançar uma a uma. */}
+      <NotchSection shape="down" bg="bg-zinc-100" className="pt-16 pb-20">
         <div className="container mx-auto max-w-7xl px-6">
           <EmailFeaturesCarousel
             cards={[
@@ -269,7 +270,7 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
         @media (max-width: 639px) { .email-features-track { --visible: 1; } }
         @media (min-width: 640px) and (max-width: 1023px) { .email-features-track { --visible: 2; } }
       `}</style>
-      <div className="overflow-hidden">
+      <div className="overflow-hidden py-3">
         <div
           className="flex email-features-track"
           style={{
@@ -280,8 +281,8 @@ function EmailFeaturesCarousel({ cards }: { cards: FeatureCard[] }) {
           onTransitionEnd={handleTransitionEnd}
         >
           {track.map((card, i) => (
-            <div key={`${card.title}-${i}`} className="shrink-0 px-2 flex flex-col" style={{ width: `${100 / trackLength}%` }}>
-              <div className="bg-white rounded-lg p-6 h-full">
+            <div key={`${card.title}-${i}`} className="shrink-0 px-2.5 flex flex-col" style={{ width: `${100 / trackLength}%` }}>
+              <div className="bg-white rounded-lg p-5 h-full shadow-[0_0_10px_rgba(0,0,0,0.25)]">
                 <h3 className="text-lg font-bold text-black mb-3">{card.title}</h3>
                 <ul className="space-y-2 text-gray-600">
                   {card.items.map((item) => (
