@@ -16,6 +16,7 @@ import {
   Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell, Plug
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
+import { ClientAddDomainModal } from '@/components/client/ClientAddDomainModal'
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
 import { clientPanelMenuDefs } from '@/lib/panel-client-menu'
 import { MinhasComprasSection } from '@/components/client/MinhasComprasSection'
@@ -3233,7 +3234,7 @@ function ClientPageContent() {
   const router = useRouter()
   const { chrome } = useAdminSectionChrome()
   const searchParams = useSearchParams()
-  const [activeSection, setActiveSection] = useState('meus-produtos')
+  const [activeSection, setActiveSection] = useState('dashboard')
 
   useEffect(() => {
     const section = searchParams?.get('section')
@@ -3262,6 +3263,9 @@ function ClientPageContent() {
   const [hasEncomendas, setHasEncomendas] = useState(false)
   // Cliente antigo que já tem site (hospedagem web): mantém o menu Websites.
   const [hasWebsites, setHasWebsites] = useState(false)
+  // Plano de email comprado sem domínio — o "Adicionar domínio" liga-o a ele.
+  const [emailPlanWaitingDomain, setEmailPlanWaitingDomain] = useState(false)
+  const [showAddDomain, setShowAddDomain] = useState(false)
   useEffect(() => {
     fetch('/api/cotacoes')
       .then((r) => r.json())
@@ -3316,6 +3320,7 @@ function ClientPageContent() {
     setDirectAdminPackages(boot.packages)
     setClientReadOnly(boot.session?.readOnly !== false)
     setHasWebsites(boot.products?.tier === 'hosting' || boot.products?.tier === 'both')
+    setEmailPlanWaitingDomain(Boolean(boot.products?.emailPlans?.some((p) => !p.domain)))
     prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
@@ -3400,6 +3405,20 @@ function ClientPageContent() {
     />
   );
 
+  // Mesmo dashboard do painel Profissional (cards + lista de serviços); o
+  // "Gerenciar" de um domínio abre-o já seleccionado no detalhe/DNS.
+  const renderDashboard = () => (
+    <ClientProductsHub
+      onNavigate={(section, opts) => {
+        if (opts?.domain) setSelectedDNSDomain(opts.domain)
+        setActiveSection(section)
+      }}
+      displayName={cliente?.nome}
+      sessionUser={cliente?.email ?? sessionUser}
+      onProductsChanged={() => void loadDirectAdminData(true)}
+    />
+  )
+
   const renderSection = () => {
     const readOnlyBlocked =
       clientReadOnly &&
@@ -3410,13 +3429,13 @@ function ClientPageContent() {
       // logo sem conta DA, logo sempre "read-only" — nunca via as compras.
       !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras', 'facturas', 'webmail'].includes(activeSection);
     if (readOnlyBlocked) {
-      return <ClientProductsHub onNavigate={setActiveSection} />;
+      return renderDashboard();
     }
 
     switch (activeSection) {
       case 'dashboard':
       case 'meus-produtos':
-        return <ClientProductsHub onNavigate={setActiveSection} />
+        return renderDashboard()
       case 'encomendas':
         return <EncomendasListSection />
       case 'encomendas-mensagens':
@@ -3484,14 +3503,30 @@ function ClientPageContent() {
       case 'emails-new':
       case 'cp-email-mgmt':
         // O mesmo ecrã do revendedor; /api/da só deixa mexer nas caixas dos
-        // domínios da conta de alojamento deste login.
+        // domínios da conta de alojamento deste login. Sem nenhum domínio com
+        // email activo, esse ecrã só mostrava um "example.com" fictício.
+        if (directAdminSites.length === 0 && !isFetchingDirectAdmin) {
+          return (
+            <div className="max-w-2xl rounded border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <h2 className="font-bold text-amber-900 dark:text-amber-200">Ainda não tem nenhum domínio com e-mail activo</h2>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                {emailPlanWaitingDomain
+                  ? 'Associe primeiro um domínio ao seu plano de e-mail — depois cria aqui as caixas de correio.'
+                  : 'Para criar caixas de correio precisa de um plano de e-mail com um domínio associado.'}
+              </p>
+              <button type="button" onClick={() => setShowAddDomain(true)} className={`${panelBtnPrimary} mt-4`}>
+                <Plus size={14} /> Adicionar domínio
+              </button>
+            </div>
+          )
+        }
         return <EmailManagementSection sites={directAdminSites} isActive ownerScopeToSites />
       case 'webmail':
         return (
           <WebmailSection
             sites={directAdminSites}
             userEmail={sessionUser}
-            onBack={() => setActiveSection('meus-produtos')}
+            onBack={() => setActiveSection('dashboard')}
             mostrarAdicionarConta={mostrarAdicionarConta}
             setMostrarAdicionarConta={setMostrarAdicionarConta}
             modalAdicionarPasso={modalAdicionarPasso}
@@ -3640,6 +3675,8 @@ function ClientPageContent() {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
               setActiveSection(section)
             }}
+            onRefresh={() => loadDirectAdminData(true)}
+            onAddDomain={() => setShowAddDomain(true)}
           />
         )
       case 'cp-wp-restore-backup':
@@ -3683,7 +3720,7 @@ function ClientPageContent() {
         // return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       default:
-        return <ClientProductsHub onNavigate={setActiveSection} />
+        return renderDashboard()
     }
   }
 
@@ -3790,11 +3827,19 @@ function ClientPageContent() {
         />
 
         {/* Content Area */}
-        <main className={`flex-1 min-h-0 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-4 lg:p-5'}`}>
+        <main className={`flex-1 min-h-0 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-4 lg:p-5'}`}>
           <div className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
         </main>
+        {showAddDomain && (
+          <ClientAddDomainModal
+            onClose={() => setShowAddDomain(false)}
+            emailPlanWaitingDomain={emailPlanWaitingDomain}
+            onAttached={() => void loadDirectAdminData(true)}
+            onNavigate={setActiveSection}
+          />
+        )}
       </div>
     </div>
   )

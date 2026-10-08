@@ -38,11 +38,27 @@ export type HestiaCallResult = {
  * arg2, ...) — a mesma ordem da própria CLI (`v-add-user USER PASSWORD
  * EMAIL...` → args: [USER, PASSWORD, EMAIL, ...]).
  */
+const SSH_EXIT_MARK = '__VD_HESTIA_EXIT__=';
+
 async function hestiaCallViaSsh(cmd: string, args: string[]): Promise<HestiaCallResult> {
   const { executeServerCommand } = await import('@/lib/server-ssh-exec');
   const quoted = args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ');
   try {
-    const output = (await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1`)).trim();
+    const raw = (await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1; echo "${SSH_EXIT_MARK}$?"`)).trim();
+    // Os v-add-*/v-change-* não escrevem nada quando correm bem — "sem output"
+    // não pode ser falha (era assim que um v-add-user bem-sucedido aparecia
+    // como "falhou via SSH" e o resto do provisionamento ficava por fazer).
+    // O código de saída real é o mesmo contrato do cabeçalho Hestia-Exit-Code.
+    const marked = raw.match(new RegExp(`${SSH_EXIT_MARK}(\\d+)\\s*$`));
+    if (marked) {
+      const exitCode = Number(marked[1]);
+      const output = raw.slice(0, marked.index).trim();
+      if (exitCode !== 0) {
+        return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
+      }
+      return { ok: true, exitCode, output };
+    }
+    const output = raw;
     const denied = /ip is not allowed|access denied|error/i.test(output) && !output.trim().startsWith('{') && !output.trim().startsWith('[');
     if (!output || denied) {
       return { ok: false, exitCode: 1, output, error: output || `Comando ${cmd} falhou via SSH` };

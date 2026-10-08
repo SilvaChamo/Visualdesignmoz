@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { fetchUserProductsSummary } from '@/lib/user-products';
 import { resolveUserRole } from '@/lib/user-roles';
 import { profileAuthOrFilter } from '@/lib/profile-db';
@@ -14,7 +15,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
-  const products = await fetchUserProductsSummary(supabase, user.id);
+  // Mesma leitura do /api/panel/bootstrap (panel-client-context): service role
+  // filtrado pelo user.id já autenticado acima. Com o cliente da sessão, o RLS
+  // do servidor escondia as linhas criadas pela aprovação do comprovativo — o
+  // menu lateral (bootstrap) via os produtos, mas o Dashboard dizia "Ainda não
+  // encontrámos produtos".
+  const products = await fetchUserProductsSummary(getSupabaseAdmin() ?? supabase, user.id);
 
   const { data: profile } = await supabase
     .from('profiles')

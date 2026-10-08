@@ -74,6 +74,8 @@ export function clientPanelMenuDefs(opts: {
 
 export const CLIENT_SECTION_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
+  'meus-produtos': 'Dashboard',
+  'domain-detail': 'Gerir domínio',
   domains: 'O Meu Site',
   'nov-dominios': 'Domínios & DNS',
   'nov-wordpress': 'Websites',

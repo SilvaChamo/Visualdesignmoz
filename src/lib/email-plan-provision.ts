@@ -37,21 +37,61 @@ function newAccountProvider(): 'directadmin' | 'hestia' {
   return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia' ? 'hestia' : 'directadmin';
 }
 
-/** Cria no Hestia o utilizador (sem sites) e o domínio de email. */
+/**
+ * Conta Hestia vazia deixada por uma tentativa anterior deste mesmo cliente
+ * que falhou a meio (o utilizador ficou criado, o domínio de email não): mesmo
+ * email de contacto, mesmo pacote do plano, sem sites nem domínios de email, e
+ * não reclamada no painel por outro login. Reaproveitá-la evita que cada nova
+ * tentativa deixe mais uma conta órfã (concordia, concordia1, …).
+ */
+async function findLeftoverEmailPlanAccount(
+  userId: string,
+  clientEmail: string,
+  hestiaPackage: string,
+): Promise<string | null> {
+  const hestia = await import('@/lib/hestia-adapter');
+  const email = clientEmail.trim().toLowerCase();
+  const candidates = (await hestia.listUsers()).filter(
+    (u) => u.email.trim().toLowerCase() === email && u.packageName === hestiaPackage,
+  );
+  const sb = getDaSyncAdmin();
+  for (const u of candidates) {
+    const [web, mail] = await Promise.all([
+      hestia.listWebDomains(u.username).catch(() => null),
+      hestia.listMailDomains(u.username).catch(() => null),
+    ]);
+    if (!web || !mail || web.length > 0 || mail.length > 0) continue;
+    if (sb) {
+      const { data } = await sb.from('panel_users').select('auth_user_id').eq('username', u.username).maybeSingle();
+      if (data?.auth_user_id && data.auth_user_id !== userId) continue;
+    }
+    return u.username;
+  }
+  return null;
+}
+
+/**
+ * Cria no Hestia o utilizador (sem sites) e o domínio de email. Com
+ * `reuseAccount`, a conta já existe (ver findLeftoverEmailPlanAccount) — só
+ * lhe dá uma password nova, que o painel passa a guardar.
+ */
 async function provisionEmailPlanOnHestia(
   username: string,
   domain: string,
   clientEmail: string,
   hestiaPackage: string,
+  reuseAccount = false,
 ): Promise<{ ok: true; password: string } | { ok: false; error: string }> {
   const hestia = await import('@/lib/hestia-adapter');
   const password = generateProvisionerPassword();
-  const created = await hestia.createUserOnly({
-    username,
-    password,
-    email: clientEmail,
-    packageName: hestiaPackage,
-  });
+  const created = reuseAccount
+    ? await hestia.changePassword(username, password)
+    : await hestia.createUserOnly({
+        username,
+        password,
+        email: clientEmail,
+        packageName: hestiaPackage,
+      });
   if (!created.ok) return { ok: false, error: created.error || 'Falha ao criar a conta no servidor.' };
   // Zona DNS antes do domínio de email: assim o Hestia junta logo à zona os
   // registos de email (MX, SPF, DKIM, DMARC). Só conta quando o cliente
@@ -59,11 +99,30 @@ async function provisionEmailPlanOnHestia(
   // continua a funcionar com o DNS que o domínio já tiver.
   const zone = await hestia.addDnsZone(username, domain);
   if (!zone.ok) console.warn('[email-plan] zona DNS não criada:', domain, zone.error);
+  const mail = await addMailDomainVerified(username, domain);
+  if (!mail.ok) return { ok: false, error: mail.error };
+  return { ok: true, password };
+}
+
+/**
+ * addMailDomain trata "exists" como sucesso (idempotente) — mas o Hestia diz
+ * o mesmo quando o domínio é de OUTRA conta, e aí o email nunca ficava nesta.
+ * Só conta como feito se o domínio aparecer mesmo nos domínios de email da conta.
+ */
+async function addMailDomainVerified(
+  username: string,
+  domain: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const hestia = await import('@/lib/hestia-adapter');
   const mail = await hestia.addMailDomain(username, domain);
   if (!mail.ok) return { ok: false, error: mail.error || 'Falha ao activar o email do domínio.' };
   const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
   invalidateHestiaDomainCache();
-  return { ok: true, password };
+  const owned = await hestia.listMailDomains(username).catch(() => [] as string[]);
+  if (!owned.some((d) => d.toLowerCase() === domain)) {
+    return { ok: false, error: `o domínio de email ${domain} não ficou na conta ${username} (já existe noutra conta do servidor?)` };
+  }
+  return { ok: true };
 }
 
 export type AttachEmailDomainResult =
@@ -103,38 +162,71 @@ export async function attachDomainToEmailPlan(
   const plan = emailPlanByProductName(pending.package_name) ?? getEmailPlan('email-basico')!;
   const planName = emailPlanProductName(plan);
 
-  const { data: existingSite } = await admin.from('panel_sites').select('domain').eq('domain', domain).maybeSingle();
-  if (existingSite) {
-    return { ok: false, error: 'Este domínio já está registado no painel.' };
+  // Conta de alojamento que este cliente já tem (ex.: site antigo) — um
+  // domínio que já lá esteja é dele; noutra conta qualquer, não.
+  const { getProfileForAuthUser, saveProfileForAuthUser } = await import('@/lib/profile-db');
+  const profile = await getProfileForAuthUser(admin, userId, clientEmail);
+  const ownAccount = String(profile?.da_username || '').trim().toLowerCase() || null;
+
+  const { data: existingSite } = await admin.from('panel_sites').select('domain, owner').eq('domain', domain).maybeSingle();
+  if (existingSite && (!ownAccount || String(existingSite.owner || '').toLowerCase() !== ownAccount)) {
+    return { ok: false, error: 'Este domínio já está registado no painel noutra conta. Contacte o suporte.' };
   }
 
   const provider = newAccountProvider();
+  const alertFailure = async (who: string, error: string) => {
+    const { alertAdminOfTrackingFailure } = await import('@/lib/checkout-fulfillment');
+    await alertAdminOfTrackingFailure('plano de email', `${domain} (${who}): ${error}`);
+  };
 
-  // createUserOnly também diz "ok" quando o utilizador JÁ existe — por isso o
-  // nome tem de estar livre no próprio Hestia, senão o domínio do cliente ia
-  // parar à conta de outra pessoa.
-  let taken = new Set<string>();
+  let username: string;
   if (provider === 'hestia') {
-    const { listUsers } = await import('@/lib/hestia-adapter');
-    taken = new Set((await listUsers()).map((u) => u.username.toLowerCase()));
-    taken.add((process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase());
-  }
-  const username = await pickAvailableMirrorUsername(domain.split('.')[0] || clientEmail.split('@')[0], taken);
-
-  if (provider === 'hestia') {
-    const provisioned = await provisionEmailPlanOnHestia(username, domain, clientEmail, plan.hestiaPackage);
-    if (!provisioned.ok) {
-      const { alertAdminOfTrackingFailure } = await import('@/lib/checkout-fulfillment');
-      await alertAdminOfTrackingFailure('plano de email', `${domain} (${username}): ${provisioned.error}`);
-      return { ok: false, error: 'Não foi possível activar o email deste domínio no servidor. A nossa equipa foi avisada.' };
+    const { findHestiaDomainOwner } = await import('@/lib/hosting-resolver');
+    const serverOwner = await findHestiaDomainOwner(domain).catch(() => null);
+    if (serverOwner && serverOwner.toLowerCase() !== ownAccount) {
+      await alertFailure(serverOwner, `o cliente ${clientEmail} quis associar o domínio ao plano de email, mas ele já existe no servidor na conta ${serverOwner}`);
+      return {
+        ok: false,
+        error: 'Este domínio já existe no servidor noutra conta. A nossa equipa foi avisada e vai passá-lo para a sua — ou contacte o suporte.',
+      };
     }
-    const { saveProfileForAuthUser } = await import('@/lib/profile-db');
-    const { encryptDaSecret } = await import('@/lib/da-credential-store');
-    await saveProfileForAuthUser(admin, userId, {
-      email: clientEmail,
-      da_username: username,
-      da_password_encrypted: encryptDaSecret(provisioned.password),
-    });
+
+    if (serverOwner) {
+      // Já está na conta deste cliente — só falta activar o email lá.
+      username = serverOwner;
+      const mail = await addMailDomainVerified(username, domain);
+      if (!mail.ok) {
+        await alertFailure(username, mail.error);
+        return { ok: false, error: 'Não foi possível activar o email deste domínio no servidor. A nossa equipa foi avisada.' };
+      }
+    } else {
+      // createUserOnly também diz "ok" quando o utilizador JÁ existe — por isso o
+      // nome tem de estar livre no próprio Hestia, senão o domínio do cliente ia
+      // parar à conta de outra pessoa.
+      const leftover = await findLeftoverEmailPlanAccount(userId, clientEmail, plan.hestiaPackage).catch(() => null);
+      if (leftover) {
+        username = leftover;
+      } else {
+        const { listUsers } = await import('@/lib/hestia-adapter');
+        const taken = new Set((await listUsers()).map((u) => u.username.toLowerCase()));
+        taken.add((process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase());
+        username = await pickAvailableMirrorUsername(domain.split('.')[0] || clientEmail.split('@')[0], taken);
+      }
+
+      const provisioned = await provisionEmailPlanOnHestia(username, domain, clientEmail, plan.hestiaPackage, Boolean(leftover));
+      if (!provisioned.ok) {
+        await alertFailure(username, provisioned.error);
+        return { ok: false, error: 'Não foi possível activar o email deste domínio no servidor. A nossa equipa foi avisada.' };
+      }
+      const { encryptDaSecret } = await import('@/lib/da-credential-store');
+      await saveProfileForAuthUser(admin, userId, {
+        email: clientEmail,
+        da_username: username,
+        da_password_encrypted: encryptDaSecret(provisioned.password),
+      });
+    }
+  } else {
+    username = await pickAvailableMirrorUsername(domain.split('.')[0] || clientEmail.split('@')[0]);
   }
 
   await upsertMirrorUser({

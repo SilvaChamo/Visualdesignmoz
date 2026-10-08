@@ -148,6 +148,21 @@ export async function resolveHostingOwner(domain: string): Promise<string> {
   return (await getMirrorSiteOwner(domain)) ?? 'admin';
 }
 
+/**
+ * Conta Hestia que já tem este domínio (site ou email), ou null se o domínio
+ * não existe no servidor. Ao contrário de resolveHostingOwner, nunca cai em
+ * HESTIA_USER — serve para saber se um domínio está livre antes de o criar.
+ */
+export async function findHestiaDomainOwner(domain: string): Promise<string | null> {
+  const needle = domain.trim().toLowerCase();
+  if (!needle) return null;
+  invalidateHestiaDomainCache();
+  const web = (await listAllHestiaDomainRows()).find((r) => r.domain.toLowerCase() === needle);
+  if (web) return web.username;
+  const mail = (await listAllHestiaMailDomainRows()).find((r) => r.domain.toLowerCase() === needle);
+  return mail?.username ?? null;
+}
+
 // ── Domínios ─────────────────────────────────────────────────────────────────
 
 /**

@@ -44,6 +44,8 @@ export type UserProductsSummary = {
     id?: string;
     /** Vazio até o cliente associar um domínio (ver attachDomainToEmailPlan). */
     domain: string;
+    /** Nome do plano (ex.: "Email Premium"). */
+    plan?: string | null;
     expirationDate?: string | null;
     status?: string | null;
   }>;
@@ -124,6 +126,7 @@ export async function fetchUserProductsSummary(
       emailPlans.push({
         id: row.id,
         domain: row.domain_name,
+        plan: row.package_name,
         expirationDate: row.expiration_date,
         status: row.status,
       });

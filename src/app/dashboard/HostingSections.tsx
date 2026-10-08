@@ -10568,12 +10568,15 @@ export function DomainManagerSection({
   listSearch: listSearchProp,
   onListSearchChange,
   onFilteredCountChange,
+  onAddDomain,
 }: {
   sites: DirectAdminWebsite[]
   packages?: DirectAdminPackage[]
   onCreateEmail?: (domain: string) => void
   onNavigate?: (section: string, opts?: { domain?: string }) => void
   onRefresh?: () => void | Promise<void>
+  /** Painel Cliente: "Adicionar domínio" não cria um site no servidor (só staff) — abre o fluxo do cliente. */
+  onAddDomain?: () => void
   hubMode?: boolean
   hubPanel?: 'list' | 'add'
   domainListMode?: 'hosting' | 'registrar' | 'all'
@@ -11100,7 +11103,7 @@ export function DomainManagerSection({
             <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
+            <button type="button" onClick={() => (onAddDomain ? onAddDomain() : setDomainModal(true))} className={panelBtnSecondary}>
               <Plus className="h-4 w-4" /> Adicionar domínio
             </button>
             <button type="button" onClick={() => void onRefresh?.()} disabled={loading} className={panelBtnSecondary}>
