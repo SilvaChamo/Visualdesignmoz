@@ -181,9 +181,9 @@ export default function PrecosEmail() {
 
       {/* Como funciona — logo a seguir aos planos, cinzento suave, forma 'mid-alt'
           (complementar a 'mid' da secção seguinte para criar um único dente limpo sem duplicados). */}
-      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-12 pb-14">
+      <NotchSection shape="mid-alt" bg="bg-zinc-100" className="pt-16 pb-20">
         <div className="container mx-auto max-w-7xl px-[30px]">
-          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-8">
+          <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
               Como funciona
@@ -191,19 +191,19 @@ export default function PrecosEmail() {
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {[
               { Icon: ShoppingCart, title: '1. Escolha o plano', text: 'Básico, Premium ou Enterprise — pagamento mensal, semestral ou anual.' },
               { Icon: Globe, title: '2. Indique o domínio', text: 'No seu painel, use um domínio que já tenha ou compre um connosco.' },
               { Icon: Mail, title: '3. Crie as caixas', text: 'Em E-mail → Contas de e-mail, e use-as no Webmail, no telemóvel ou no Outlook.' },
             ].map(({ Icon, title, text }) => (
-              <div key={title} className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                  <Icon className="w-5 h-5 text-red-600" />
+              <div key={title} className="bg-white rounded-xl p-6 border border-zinc-200/80 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red-100/90 border border-red-200 flex items-center justify-center shrink-0">
+                  <Icon className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-black mb-1">{title}</h3>
-                  <p className="text-sm text-black/60">{text}</p>
+                  <p className="text-sm text-black/60 leading-relaxed">{text}</p>
                 </div>
               </div>
             ))}
