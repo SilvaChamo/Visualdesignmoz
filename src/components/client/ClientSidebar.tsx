@@ -107,6 +107,8 @@ export function ClientSidebar({
         // #10: precisamente quem só comprou domínio (sem hospedagem) fica
         // sempre neste modo "só leitura" — sem isto nunca via as compras.
         { id: 'minhas-compras', label: 'As Minhas Compras', icon: ShoppingBag },
+        // Quem só tem caixas de correio (sem alojamento) também lê o seu email.
+        { id: 'webmail', label: 'Webmail', icon: Mail },
         { id: 'facturas', label: 'Facturas', icon: FileText },
       ]
     : FLAT_ITEMS;

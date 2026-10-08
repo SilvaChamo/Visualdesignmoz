@@ -468,11 +468,20 @@ async function tryHestiaAction(
       case 'createEmail': {
         const userName = String(params.userName || params.user || '');
         const password = String(params.password || '');
-        const quotaMb = params.quota ? Number(params.quota) : undefined;
-        if (!userName || !password) {
+        const quotaRaw = String(params.quota ?? '');
+        const quotaMb = quotaRaw && quotaRaw !== 'unlimited' ? Number(quotaRaw) : undefined;
+        // Validação vinda do commit 7dfb1e6e (Copilot): o nome vai para o Hestia
+        // como argumento de comando — só caracteres de endereço de email.
+        if (!/^[a-zA-Z0-9._+-]{1,64}$/.test(userName) || !password) {
           return {
             handled: true,
-            response: NextResponse.json({ success: false, error: 'Utilizador e senha são obrigatórios.' }, { status: 400 }),
+            response: NextResponse.json({ success: false, error: 'Utilizador inválido ou senha em falta.' }, { status: 400 }),
+          };
+        }
+        if (quotaMb !== undefined && (!Number.isFinite(quotaMb) || quotaMb < 0)) {
+          return {
+            handled: true,
+            response: NextResponse.json({ success: false, error: 'Quota inválida.' }, { status: 400 }),
           };
         }
         // Tenta com o dono do mirror; se falhar (ex.: dono é 'admin' do DA, não existe no Hestia),
@@ -481,8 +490,11 @@ async function tryHestiaAction(
         if (!createResult.ok && owner !== hestiaAdmin) {
           createResult = await hestiaAdapter.addMailAccount(hestiaAdmin, domain, userName, password, quotaMb);
         }
-        data = createResult;
-        await syncEmailContasPassword(`${userName}@${domain}`, password);
+        // `success` (não só `ok`): o ecrã lê resData.success — antes uma
+        // recusa do servidor aparecia como criada e a senha ficava guardada
+        // para uma caixa que não existe.
+        data = { success: createResult.ok, error: createResult.error };
+        if (createResult.ok) await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
       case 'deleteEmail': {
@@ -491,8 +503,8 @@ async function tryHestiaAction(
         if (!deleteResult.ok && owner !== hestiaAdmin) {
           deleteResult = await hestiaAdapter.deleteMailAccount(hestiaAdmin, domain, userName);
         }
-        data = deleteResult;
-        await deleteEmailContasRow(`${userName}@${domain}`);
+        data = { success: deleteResult.ok, error: deleteResult.error };
+        if (deleteResult.ok) await deleteEmailContasRow(`${userName}@${domain}`);
         break;
       }
       case 'suspendEmail':
@@ -512,12 +524,18 @@ async function tryHestiaAction(
       case 'changeEmailPassword': {
         const userName = emailParam.split('@')[0] || '';
         const password = String(params.password || '');
+        if (!password) {
+          return {
+            handled: true,
+            response: NextResponse.json({ success: false, error: 'Indique a nova senha.' }, { status: 400 }),
+          };
+        }
         let passResult = await hestiaAdapter.changeMailAccountPassword(owner, domain, userName, password);
         if (!passResult.ok && owner !== hestiaAdmin) {
           passResult = await hestiaAdapter.changeMailAccountPassword(hestiaAdmin, domain, userName, password);
         }
-        data = passResult;
-        await syncEmailContasPassword(`${userName}@${domain}`, password);
+        data = { success: passResult.ok, error: passResult.error };
+        if (passResult.ok) await syncEmailContasPassword(`${userName}@${domain}`, password);
         break;
       }
       case 'setEmailLimits': {

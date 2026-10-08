@@ -3404,7 +3404,7 @@ function ClientPageContent() {
       // webmail/file-manager/etc.), por isso não deve cair neste bloqueio;
       // sem isto, exactamente quem só comprou domínio (sem hospedagem) —
       // logo sem conta DA, logo sempre "read-only" — nunca via as compras.
-      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras', 'facturas'].includes(activeSection);
+      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras', 'facturas', 'webmail'].includes(activeSection);
     if (readOnlyBlocked) {
       return <ClientProductsHub onNavigate={setActiveSection} />;
     }
