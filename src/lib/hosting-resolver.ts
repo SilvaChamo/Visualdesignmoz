@@ -31,10 +31,39 @@ type HestiaDomainRow = {
 };
 
 let hestiaDomainCache: { at: number; rows: HestiaDomainRow[] } | null = null;
+let hestiaMailDomainCache: { at: number; rows: { username: string; domain: string }[] } | null = null;
 const HESTIA_DOMAIN_CACHE_MS = 60_000;
 
 export function invalidateHestiaDomainCache(): void {
   hestiaDomainCache = null;
+  hestiaMailDomainCache = null;
+}
+
+/**
+ * Domínios de email de todas as contas Hestia. Um plano só de email é uma
+ * conta sem nenhum site — sem isto o dono desses domínios nunca era
+ * reconhecido (caía em HESTIA_USER) e o cliente via "Domínio fora do seu
+ * painel" ao gerir as próprias caixas.
+ */
+async function listAllHestiaMailDomainRows(): Promise<{ username: string; domain: string }[]> {
+  if (hestiaMailDomainCache && Date.now() - hestiaMailDomainCache.at < HESTIA_DOMAIN_CACHE_MS) {
+    return hestiaMailDomainCache.rows;
+  }
+  const { listUsers, listMailDomains } = await import('@/lib/hestia-adapter');
+  const users = await listUsers();
+  const usernames = [HESTIA_USER, ...users.map((u) => u.username).filter((name) => name !== HESTIA_USER)];
+  const rows: { username: string; domain: string }[] = [];
+  await Promise.all(
+    usernames.map(async (username) => {
+      try {
+        for (const domain of await listMailDomains(username)) rows.push({ username, domain });
+      } catch (err) {
+        console.warn(`[hosting-resolver] v-list-mail-domains(${username}) falhou:`, err);
+      }
+    }),
+  );
+  hestiaMailDomainCache = { at: Date.now(), rows };
+  return rows;
 }
 
 /**
@@ -100,6 +129,10 @@ export async function resolveHostingOwner(domain: string): Promise<string> {
     const rows = await listAllHestiaDomainRows();
     const hit = rows.find((r) => r.domain.toLowerCase() === needle);
     if (hit) return hit.username;
+
+    // Sem site: pode ser um domínio só de email (plano de email).
+    const mailHit = (await listAllHestiaMailDomainRows()).find((r) => r.domain.toLowerCase() === needle);
+    if (mailHit) return mailHit.username;
 
     try {
       const { resolveDomainSitePath } = await import('@/lib/wp-cli-server');

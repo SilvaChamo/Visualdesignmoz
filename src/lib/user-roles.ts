@@ -17,8 +17,8 @@ type RoleSource = {
   hasPaidProducts?: boolean;
   /** Tem uma checkout_sessions própria com status='pending' criada há pouco
    * (ver `RECENT_PENDING_SESSION_WINDOW_MS`) — cobre o cliente que acabou de
-   * pagar por M-Pesa/Transferência mas cuja promoção guest→profissional
-   * (`promoteGuestToProfissional`) ainda não ficou reflectida (atraso de
+   * pagar por M-Pesa/Transferência mas cuja promoção de guest
+   * (`promoteBuyerAfterPurchase`) ainda não ficou reflectida (atraso de
    * propagação, ou falhou em silêncio) no momento em que o papel é
    * recalculado a seguir ao pagamento. */
   hasRecentPendingSession?: boolean;
@@ -77,10 +77,9 @@ export function resolveUserRole(source: RoleSource): UserRole {
   // marcada guest com compras confirmadas (hasPaidProducts) nunca chegava a
   // ser avaliada, ficava sempre presa em guest. É precisamente o mecanismo
   // que o botão de sincronizar utilizadores usa para reparar essas contas.
-  // Devolve 'profissional' (não 'client') — quem compra a si próprio no
-  // checkout vai para o painel Profissional (ver checkout-fulfillment.ts,
-  // promoteGuestToProfissional); '/cliente' fica reservado a contas geridas
-  // directamente pela VisualDesign.
+  // Só para contas antigas sem papel gravado: as compras novas gravam já o
+  // papel certo (promoteBuyerAfterPurchase — 'client' sem site,
+  // 'profissional' com site), que é lido acima antes de chegar aqui.
   if (source.hasPaidProducts) return 'profissional';
 
   // Mesma lógica do #7 acima, mas para uma encomenda ainda pendente muito

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Target, FolderOpen, HardDrive
+  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Target, FolderOpen, HardDrive,
+  ShoppingBag, FileText, ClipboardList, Users,
 } from 'lucide-react';
 
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
@@ -56,6 +57,9 @@ interface ResellerSidebarProps {
   /** Caminho-base das rotas do painel (logo, link do dashboard) — '/revendedor'
    * por omissão; o painel Profissional passa '/profissional'. */
   basePath?: string;
+  /** Privilégios de menu configurados pelo admin para revendedores — o painel
+   * Cliente usa este mesmo menu mas não está sujeito a eles. */
+  applyMenuPrivileges?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -73,6 +77,14 @@ const MAIN_MENU_ICONS: Record<string, React.ElementType> = {
   'file-manager': FolderOpen,
   'backup-manager': HardDrive,
   'nov-definicoes': Settings,
+  // Painel Cliente (mesmo componente, menu próprio)
+  'nov-encomendas': ClipboardList,
+  mailmarketing: Target,
+  'minhas-compras': ShoppingBag,
+  facturas: FileText,
+  tickets: Users,
+  conta: Settings,
+  webmail: Mail,
 };
 
 const DASHBOARD_ITEM: MenuItem = {
@@ -101,13 +113,14 @@ export function ResellerSidebar({
   isMobile = false,
   menuDefs = RESELLER_MAIN_MENU_DEFS,
   basePath = '/revendedor',
+  applyMenuPrivileges = true,
 }: ResellerSidebarProps) {
   const { privileges } = useResellerMenuPrivileges();
   const { unreadCount, refreshUnread } = useResellerNotificationBadge();
   const currentSidebarWidth = isCollapsed ? 64 : 242;
   const logoUrl = customLogo || '/assets/simbolo.png';
 
-  const mainMenuItems: MenuItem[] = filterMenuByPrivileges(menuDefs, privileges).map(
+  const mainMenuItems: MenuItem[] = (applyMenuPrivileges ? filterMenuByPrivileges(menuDefs, privileges) : menuDefs).map(
     (item) => ({
       ...item,
       icon: MAIN_MENU_ICONS[item.id] || Server,

@@ -1,71 +1,75 @@
 import type { PanelMenuItemDef } from '@/lib/panel-admin-menu';
 import { resolveSectionId } from '@/lib/panel-admin-menu';
 
-/** Menus com subsecções — alinhado ao painel admin */
-export const CLIENT_MENU_DEFS: PanelMenuItemDef[] = [
-  {
-    id: 'nov-encomendas',
-    label: 'Encomendas',
-    subItems: [
-      { id: 'encomendas', label: 'Encomendas' },
-      { id: 'encomendas-mensagens', label: 'Mensagens' },
-      { id: 'encomendas-pagamentos', label: 'Pagamentos' },
-    ],
-  },
-  {
-    id: 'nov-dominios',
-    label: 'Domínios & DNS',
-    subItems: [
-      { id: 'domain-manager', label: 'Domínios' },
-      { id: 'dns-central', label: 'DNS Central' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
-      { id: 'transferir-dominio', label: 'Transferir domínio' },
-    ],
-  },
-  {
-    id: 'nov-wordpress',
-    label: 'Websites',
-    subItems: [
-      { id: 'wp-sites', label: 'Sites' },
-      { id: 'wordpress-install', label: 'Criar Website' },
-      { id: 'wp-plugins', label: 'Plugins' },
-      { id: 'wp-backup', label: 'Backups' },
-    ],
-  },
-];
-
-export const CLIENT_SECTION_TO_PARENT: Record<string, string> = {
-  encomendas: 'nov-encomendas',
-  'encomendas-mensagens': 'nov-encomendas',
-  'encomendas-pagamentos': 'nov-encomendas',
-  'dns-central': 'nov-dominios',
-  'domain-manager': 'nov-dominios',
-  'cp-dns-nameserver': 'nov-dominios',
-  'transferir-dominio': 'nov-dominios',
-  'registrar-domains': 'nov-dominios',
-  'domains-registados': 'nov-dominios',
-  'domains-dns': 'nov-dominios',
-  'wp-sites': 'nov-wordpress',
-  'wordpress-install': 'nov-wordpress',
-  'wp-plugins': 'nov-wordpress',
-  'wp-backup': 'nov-wordpress',
-  'cp-wp-list': 'nov-wordpress',
-  'cp-wp-plugins': 'nov-wordpress',
-};
-
-export function clientMenuParentForSection(sectionId: string): string | null {
-  const resolved = resolveSectionId(sectionId);
-  return CLIENT_SECTION_TO_PARENT[sectionId] || CLIENT_SECTION_TO_PARENT[resolved] || null;
-}
-
-export function isClientMenuItemActive(item: PanelMenuItemDef, activeSection: string): boolean {
-  const resolved = resolveSectionId(activeSection);
-  if (resolved === item.id || activeSection === item.id) return true;
-  return Boolean(
-    item.subItems?.some(
-      (s) => resolveSectionId(s.id) === resolved || s.id === activeSection,
-    ),
-  );
+/**
+ * Menu do painel Cliente — o mesmo menu lateral do painel Profissional
+ * (ResellerSidebar), mas só com o que um cliente sem site gere: domínios,
+ * DNS e nameservers (para o email funcionar) e as caixas de email. Quem quer
+ * um site passa a Profissional (ver promoteBuyerAfterPurchase).
+ */
+export function clientPanelMenuDefs(opts: {
+  /** Ainda sem produtos activos (só compras/facturas/webmail). */
+  readOnly: boolean;
+  hasEncomendas: boolean;
+  /** Cliente antigo que já tem um site — não lhe tirar a gestão dele. */
+  hasWebsites: boolean;
+}): PanelMenuItemDef[] {
+  const account: PanelMenuItemDef[] = [
+    { id: 'minhas-compras', label: 'As Minhas Compras' },
+    { id: 'facturas', label: 'Facturas' },
+  ];
+  if (opts.readOnly) {
+    return [{ id: 'webmail', label: 'Webmail' }, ...account];
+  }
+  return [
+    {
+      id: 'nov-dominios',
+      label: 'Domínios & DNS',
+      subItems: [
+        { id: 'domain-manager', label: 'Domínios' },
+        { id: 'dns-central', label: 'DNS Central' },
+        { id: 'cp-dns-nameserver', label: 'Nameservers' },
+        { id: 'transferir-dominio', label: 'Transferir' },
+      ],
+    },
+    {
+      id: 'nov-email',
+      label: 'E-mail',
+      subItems: [
+        { id: 'emails-new', label: 'Contas de e-mail' },
+        { id: 'webmail', label: 'Webmail' },
+        { id: 'cp-email-forwarding', label: 'Encaminhamento' },
+        { id: 'cp-email-catchall', label: 'Catch-all' },
+      ],
+    },
+    ...(opts.hasWebsites
+      ? [{
+          id: 'nov-wordpress',
+          label: 'Websites',
+          subItems: [
+            { id: 'wp-sites', label: 'Sites' },
+            { id: 'wordpress-install', label: 'Criar Website' },
+            { id: 'wp-plugins', label: 'Plugins' },
+            { id: 'wp-backup', label: 'Backups' },
+          ],
+        }]
+      : []),
+    ...(opts.hasEncomendas
+      ? [{
+          id: 'nov-encomendas',
+          label: 'Encomendas',
+          subItems: [
+            { id: 'encomendas', label: 'Encomendas' },
+            { id: 'encomendas-mensagens', label: 'Mensagens' },
+            { id: 'encomendas-pagamentos', label: 'Pagamentos' },
+          ],
+        }]
+      : []),
+    { id: 'mailmarketing', label: 'Mailmarketing' },
+    ...account,
+    { id: 'tickets', label: 'Suporte' },
+    { id: 'conta', label: 'Conta' },
+  ];
 }
 
 export const CLIENT_SECTION_LABELS: Record<string, string> = {
@@ -89,6 +93,9 @@ export const CLIENT_SECTION_LABELS: Record<string, string> = {
   facturas: 'Facturas',
   conta: 'Conta',
   'emails-new': 'Contas de e-mail',
+  'cp-email-forwarding': 'Encaminhamento',
+  'cp-email-catchall': 'Catch-all',
+  'nov-email': 'E-mail',
   encomendas: 'Encomendas',
   'encomendas-mensagens': 'Mensagens',
   'encomendas-pagamentos': 'Pagamentos',

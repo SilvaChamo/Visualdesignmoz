@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
-import { promoteGuestToProfissional } from '@/lib/checkout-fulfillment';
+import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
@@ -85,16 +85,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar o pedido.' }, { status: 500 });
     }
 
-    // Promove já para 'profissional' — deixa o comprador entrar no painel
-    // real (secção do produto visível mas desactivada) enquanto aguarda a
-    // equipa confirmar o comprovativo, em vez de ficar preso no /guest
+    // Promove já para o painel certo ('profissional' com site, 'client' sem
+    // site — ver promoteBuyerAfterPurchase) — deixa o comprador entrar no
+    // painel real (secção do produto visível mas desactivada) enquanto aguarda
+    // a equipa confirmar o comprovativo, em vez de ficar preso no /guest
     // genérico. Espera terminar (o browser navega para /profissional logo a
     // seguir a esta resposta) mas nunca falha a criação do pedido por causa
     // disto — o pedido em si já está gravado.
     try {
-      await promoteGuestToProfissional(admin, actor.buyerUserId);
+      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item.type));
     } catch (err) {
-      console.error('[checkout/manual-session] promoteGuestToProfissional falhou:', err);
+      console.error('[checkout/manual-session] promoteBuyerAfterPurchase falhou:', err);
     }
 
     const quemPaga = actor.impersonating

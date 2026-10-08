@@ -213,19 +213,14 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
 export const RESELLER_MENU_DEFS: PanelMenuItemDef[] = [...RESELLER_MAIN_MENU_DEFS];
 
 /**
- * 🔒 EM PAUSA (14 ago 2026) — NÃO adicionar secções aqui sem ordem explícita
- * do utilizador. Decisão dele: lançar o painel Profissional a crescer um
- * assunto de cada vez, só depois de cada um estar confirmado a funcionar de
- * ponta a ponta, em vez de expor tudo de uma vez sem nada estar pronto de
- * facto. Ordem combinada: Domínios primeiro (em curso) → Hospedagem (fica no
- * site de teste, à parte, por causa do limite de contas do DirectAdmin) →
- * E-mail → resto. Isto NÃO apaga nada — RESELLER_MAIN_MENU_DEFS (usado pelo
- * painel do revendedor a sério, com contas reais como a Osher Collective)
- * continua inteiro e intocado; só a lista abaixo, específica do painel
- * Profissional, fica reduzida.
+ * Painel Profissional (quem compra hospedagem para um site): o menu do
+ * revendedor sem o grupo "Hospedagem" (contas de outros clientes e pacotes,
+ * coisa só de revendedor). A pausa de 14 ago (só "Domínios") foi levantada a
+ * 8 out 2026 a pedido do utilizador: "manter tudo funcional". Quem não tem
+ * site usa o painel Cliente (clientPanelMenuDefs).
  */
 export const PROFISSIONAL_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS.filter(
-  (item) => item.id === 'nov-dominios',
+  (item) => item.id !== 'nov-hospedagem',
 );
 
 /** IDs que abrem o hub de domínios (com tab específica) */

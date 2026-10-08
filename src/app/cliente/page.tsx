@@ -16,7 +16,8 @@ import {
   Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell, Plug
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
-import { ClientSidebar } from '@/components/client/ClientSidebar'
+import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { clientPanelMenuDefs } from '@/lib/panel-client-menu'
 import { MinhasComprasSection } from '@/components/client/MinhasComprasSection'
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection'
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection'
@@ -3259,6 +3260,8 @@ function ClientPageContent() {
   // já ter hospedagem, mas também ter encomendas por acompanhar; o item só
   // aparece no menu quando existir pelo menos uma.
   const [hasEncomendas, setHasEncomendas] = useState(false)
+  // Cliente antigo que já tem site (hospedagem web): mantém o menu Websites.
+  const [hasWebsites, setHasWebsites] = useState(false)
   useEffect(() => {
     fetch('/api/cotacoes')
       .then((r) => r.json())
@@ -3312,6 +3315,7 @@ function ClientPageContent() {
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
     setClientReadOnly(boot.session?.readOnly !== false)
+    setHasWebsites(boot.products?.tier === 'hosting' || boot.products?.tier === 'both')
     prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
@@ -3526,11 +3530,9 @@ function ClientPageContent() {
         // return <EmailLimitsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Limites de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-forwarding':
-        // return <EmailForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Encaminhamento de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <EmailForwardingSection sites={directAdminSites} />
       case 'cp-email-catchall':
-        // return <CatchAllEmailSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Catch All Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <CatchAllEmailSection sites={directAdminSites} />
       case 'cp-email-pattern-fwd':
         // return <PatternForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3687,16 +3689,19 @@ function ClientPageContent() {
 
   return (
     <div className="panel-shell font-panel flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
-      <ClientSidebar
+      {/* Mesmo menu lateral do painel Profissional, com o menu do cliente
+          (só domínios/DNS e emails — ver clientPanelMenuDefs). */}
+      <ResellerSidebar
         activeSection={activeSection}
         onNavigate={setActiveSection}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
-        cliente={cliente}
+        sessionUser={cliente?.email ?? null}
+        displayName={cliente?.nome || 'Cliente'}
         isMobile={isMobile}
-        readOnly={clientReadOnly}
-        hasEncomendas={hasEncomendas}
-        hasDomains={directAdminSites.length > 0}
+        menuDefs={clientPanelMenuDefs({ readOnly: clientReadOnly, hasEncomendas, hasWebsites })}
+        basePath="/cliente"
+        applyMenuPrivileges={false}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
@@ -3777,15 +3782,15 @@ function ClientPageContent() {
                 className={panelBtnSecondary}
                 title="Sair"
               >
-                <LogOut size={13} />
-                Sair
+                <LogOut size={14} />
+                <span>Sair da Conta</span>
               </button>
             </>
           }
         />
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50 dark:bg-zinc-950`}>
+        <main className={`flex-1 min-h-0 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-4 lg:p-5'}`}>
           <div className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>

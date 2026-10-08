@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getStripe, isStripeConfigured, mznToUsdCents } from '@/lib/stripe';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
-import { promoteGuestToProfissional } from '@/lib/checkout-fulfillment';
+import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 export async function POST(request: NextRequest) {
@@ -97,13 +97,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar o pagamento.' }, { status: 500 });
     }
 
-    // Promove já para 'profissional' — quando o Stripe devolver o cliente,
-    // ele entra logo em /profissional com a secção pendente visível, sem
+    // Promove já para o painel certo ('profissional' com site, 'client' sem
+    // site — ver promoteBuyerAfterPurchase) — quando o Stripe devolver o
+    // cliente, ele entra logo no painel com a secção pendente visível, sem
     // esperar pelo webhook para conseguir sequer ver o painel.
     try {
-      await promoteGuestToProfissional(admin, actor.buyerUserId);
+      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item.type));
     } catch (err) {
-      console.error('[checkout/create-session] promoteGuestToProfissional falhou:', err);
+      console.error('[checkout/create-session] promoteBuyerAfterPurchase falhou:', err);
     }
 
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || '';

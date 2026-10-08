@@ -75,8 +75,8 @@ const METODO_META: Record<MetodoPagamento, { label: string; icon: typeof Smartph
   saldo: { label: 'Saldo da Conta', icon: Wallet },
 };
 
-/** Painel de destino depois de uma compra — quem compra a si próprio vai para
- * /profissional (nunca /cliente, reservado a contas geridas pela VisualDesign). */
+/** Painel de destino depois de uma compra — segue o papel que a compra deu
+ * (promoteBuyerAfterPurchase): com site /profissional, só domínio/email /cliente. */
 function redirectPathForSession(
   session: { user?: { email?: string | null; user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null } | null } | null,
 ): string {

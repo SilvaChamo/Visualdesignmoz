@@ -140,18 +140,15 @@ export async function provisionHostingAccountOnPanel(params: {
       email,
       da_password_encrypted: encryptDaSecret(password),
     });
-    // Quem compra a si próprio (checkout self-service) deve ficar
-    // 'profissional' (ver promoteGuestToProfissional) — nunca 'client', que é
-    // reservado a contas geridas directamente pela VisualDesign. Antes disto
-    // ficava sempre hardcoded 'client', sobrepondo-se à promoção feita à
-    // submissão da encomenda e prendendo compradores self-service no painel
-    // errado. Preserva um papel já elevado (admin/manager/reseller/client) em
-    // vez de o rebaixar — mesma regra de promoteGuestToProfissional.
+    // Hospedagem web = site → 'profissional' (ver promoteBuyerAfterPurchase),
+    // também para quem era 'client' (só email/domínio); contas da equipa
+    // (admin/manager/reseller) ficam como estão.
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
-    const ELEVATED_ROLES = ['admin', 'manager', 'reseller', 'client'];
-    const resolvedRole = ELEVATED_ROLES.includes(existingProfile?.role || '')
-      ? (existingProfile!.role as 'admin' | 'manager' | 'reseller' | 'client')
+    const STAFF_ROLES = ['admin', 'manager', 'reseller'];
+    const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
+      ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
       : 'profissional';
+    if (resolvedRole === 'profissional') await promoteBuyerAfterPurchase(admin, userId, ['hosting']);
     await upsertPanelAuthAccount(admin, {
       userId,
       email,
@@ -310,20 +307,21 @@ async function notifyClientOfDomainProvisionResult(
 }
 
 /**
- * Promove guest -> profissional (metadata do Auth + profiles.role), sem tocar
- * nos produtos em si. Extraído do fim de `fulfillCheckout` para poder correr
- * logo na SUBMISSÃO da encomenda (antes de qualquer confirmação de
- * pagamento) — é o que deixa o comprador entrar já no painel real
- * (`/profissional`) com a secção do produto comprado visível mas
- * desactivada, em vez de ser mandado para o `/guest` genérico até um humano
- * (M-Pesa/transferência) ou o webhook (Stripe/saldo) confirmar. Quem compra a
- * si próprio vai para `/profissional` (painel do revendedor sem a gestão de
- * contas de outros clientes) — `/cliente` fica reservado a contas geridas
- * directamente pela VisualDesign. Nunca despromove uma conta já elevada
- * (admin/manager/reseller) nem uma conta já gerida (client) — mesma regra de
- * sempre.
+ * Painel de quem compra a si próprio, decidido pelo que comprou (pedido do
+ * utilizador, 8 out 2026):
+ * - com site (hospedagem web) → 'profissional' (painel /profissional);
+ * - sem site (só domínio e/ou plano de email) → 'client' (painel /cliente,
+ *   para gerir emails, DNS e nameservers).
+ * Um 'client' que compre hospedagem web passa a 'profissional'. Nunca mexe em
+ * admin/manager/reseller, nem desce um 'profissional' a 'client'. Corre já na
+ * submissão do pedido (para entrar logo no painel certo enquanto aguarda a
+ * confirmação do pagamento) e outra vez no fulfillment.
  */
-export async function promoteGuestToProfissional(admin: SupabaseClient, userId: string): Promise<void> {
+export async function promoteBuyerAfterPurchase(
+  admin: SupabaseClient,
+  userId: string,
+  itemTypes: string[],
+): Promise<void> {
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
   if (!authUser?.user) return;
   const currentMetadata = authUser.user.user_metadata || {};
@@ -331,24 +329,24 @@ export async function promoteGuestToProfissional(admin: SupabaseClient, userId: 
   const displayName = currentMetadata.nome || currentMetadata.full_name || email?.split('@')[0];
 
   const existingProfile = await getProfileForAuthUser(admin, userId, email);
+  const roles = [existingProfile?.role, currentMetadata.role].map((r) => String(r || ''));
 
-  // Só promove guest -> profissional. Nunca despromove uma conta já elevada
-  // (admin/manager/reseller) que, por exemplo, esteja apenas a testar uma
-  // compra, nem uma conta 'client' (gerida directamente pela VisualDesign —
-  // essa continua em /cliente mesmo que compre algo a mais).
-  const ELEVATED_ROLES = ['admin', 'manager', 'reseller', 'client'];
-  const isElevated =
-    ELEVATED_ROLES.includes(existingProfile?.role || '') || ELEVATED_ROLES.includes(currentMetadata.role);
+  const STAFF_ROLES = ['admin', 'manager', 'reseller'];
+  let nextRole: 'profissional' | 'client' | null = null;
+  if (!roles.some((r) => STAFF_ROLES.includes(r))) {
+    const hasSite = itemTypes.includes('hosting');
+    nextRole = hasSite || roles.includes('profissional') ? 'profissional' : 'client';
+  }
 
-  if (!isElevated) {
+  if (nextRole) {
     await admin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...currentMetadata, role: 'profissional', nome: displayName },
+      user_metadata: { ...currentMetadata, role: nextRole, nome: displayName },
     });
   }
 
   await saveProfileForAuthUser(admin, userId, {
     email,
-    role: isElevated ? undefined : 'profissional',
+    role: nextRole ?? undefined,
     name: displayName,
   });
 }
@@ -715,7 +713,7 @@ export async function fulfillCheckout(
   });
 
   // #5: a password de login (Supabase Auth) do cliente nunca é tocada por
-  // promoteGuestToProfissional — era sobrescrita pela password gerada para a
+  // promoteBuyerAfterPurchase — era sobrescrita pela password gerada para a
   // conta de hospedagem, o que trancava o cliente fora da própria conta
   // depois de comprar. O botão "Direct Admin" não depende delas serem
   // iguais: usa um one-time login-url por username (ver
@@ -725,7 +723,7 @@ export async function fulfillCheckout(
   // aqui (idempotente — ver §submissão da encomenda), mas mantém-se também
   // aqui para o caso de `fulfillCheckout` ser invocada por um caminho que
   // nunca passou por lá (ex.: script de correcção manual/admin).
-  if (admin) await promoteGuestToProfissional(admin, userId);
+  if (admin) await promoteBuyerAfterPurchase(admin, userId, items.map((i) => i.type));
 
   return { created, total };
 }

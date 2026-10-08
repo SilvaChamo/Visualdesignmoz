@@ -657,6 +657,14 @@ export async function addMailDomain(username: string, domain: string): Promise<{
   return { ok: true };
 }
 
+/** Domínios de email de uma conta. Atira em falha (como listWebDomains) para
+ * nunca confundir "falhou" com "não tem domínios". */
+export async function listMailDomains(username: string): Promise<string[]> {
+  const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-mail-domains', [username]);
+  if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios de email no Hestia');
+  return Object.keys(result.data);
+}
+
 export type HestiaMailAccount = {
   account: string;
   quotaMb: number | null;
