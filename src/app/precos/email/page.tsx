@@ -6,7 +6,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { NotchSection } from '@/components/home/NotchSection'
-import { HardDrive, Mail, Globe, Monitor, Smartphone, ShieldCheck, Lock, LifeBuoy, ShoppingCart } from 'lucide-react'
+import { HardDrive, Mail, Globe, Monitor, Smartphone, ShieldCheck, Lock, LifeBuoy, ShoppingCart, Workflow } from 'lucide-react'
 import {
   EMAIL_CYCLE_LABELS,
   EMAIL_CYCLE_MONTHS,
@@ -186,7 +186,8 @@ export default function PrecosEmail() {
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-10">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 mb-2">
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
-              Como funciona
+              <Workflow className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Como funciona</span>
               <span className="text-red-600 font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-black">Email profissional em três passos</h2>
