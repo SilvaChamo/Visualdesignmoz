@@ -162,6 +162,10 @@ function CheckoutContent() {
   // A encomenda gravada ainda corresponde ao que está no rascunho (não foi
   // editada depois) — o resumo mostra o atalho para o comprovativo.
   const encomendaRegistada = encomendaRegistadaValida(encomendaDraft);
+  // "Editar dados"/"Cancelar encomenda" em curso (ver editarEncomenda mais
+  // abaixo). Tem de ficar aqui, antes dos returns antecipados ("A validar
+  // sessão", renovações) — senão o número de hooks muda entre renders.
+  const [encomendaAccao, setEncomendaAccao] = useState<'editar' | 'cancelar' | null>(null);
   // Ao voltar ao resumo, o método e a factura escolhidos ficam como estavam.
   const registadaPreenchidaRef = React.useRef<string | null>(null);
   useEffect(() => {
@@ -635,7 +639,6 @@ function CheckoutContent() {
   // Editar ou cancelar a meio do pagamento: a encomenda já gravada (sem
   // comprovativo) sai da base de dados; ao editar, os dados continuam no
   // rascunho e voltam ao formulário; ao cancelar, o rascunho também sai.
-  const [encomendaAccao, setEncomendaAccao] = useState<'editar' | 'cancelar' | null>(null);
   const editarEncomenda = async () => {
     setEncomendaAccao('editar');
     const quotationId = encomendaPending?.quotationId ?? encomendaDraft?.registada?.quotationId;
