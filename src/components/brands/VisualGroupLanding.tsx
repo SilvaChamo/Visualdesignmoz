@@ -72,17 +72,19 @@ export function VisualGroupHero({ onCtaClick }: { onCtaClick: () => void }) {
               </div>
             </div>
  
-            <div className="flex items-center gap-6">
+            {/* No mobile um por baixo do outro, com a mesma largura (lado a lado o
+                "Ver Lista de Preços" partia em duas linhas); a partir de sm, lado a lado. */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
               <Link
                 href="/precos"
-                className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer"
+                className="group/btn bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-lg shadow-red-600/20 cursor-pointer"
               >
                 <span>Ver Lista de Preços</span>
                 <ExitArrow className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover/btn:translate-x-1" />
               </Link>
               <Link
                 href="/web"
-                className="group/btn border-2 border-white/40 hover:border-red-500 text-white hover:text-red-500 font-bold px-6 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="group/btn border-2 border-white/40 hover:border-red-500 text-white hover:text-red-500 font-bold px-6 py-2 rounded-md transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
               >
                 <span>Hospedagem</span>
                 <ExitArrow className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover/btn:translate-x-1" />
