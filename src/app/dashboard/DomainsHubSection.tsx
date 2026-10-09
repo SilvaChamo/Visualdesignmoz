@@ -187,11 +187,7 @@ export function DomainsHubSection({
               !showListToolbar && 'hidden',
             )}
           >
-            <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-              {filteredCount} domínio(s)
-            </span>
-
-            <div className="relative w-full min-w-0 lg:min-w-[10rem] lg:max-w-xl lg:flex-1">
+            <div className="relative w-full min-w-0 lg:min-w-[20rem] lg:max-w-2xl lg:flex-1">
               <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
               <input
                 value={listSearch}
@@ -204,6 +200,10 @@ export function DomainsHubSection({
                 )}
               />
             </div>
+
+            <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+              {filteredCount} domínio(s)
+            </span>
 
             <button
               type="button"
@@ -230,11 +230,7 @@ export function DomainsHubSection({
 
       {hideTabs && showListToolbar ? (
         <div className="flex items-center justify-end gap-3">
-          <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-            {filteredCount} domínio(s)
-          </span>
-
-          <div className="relative min-w-[10rem] flex-1 max-w-xl">
+          <div className="relative min-w-[20rem] flex-1 max-w-2xl">
             <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
             <input
               value={listSearch}
@@ -247,6 +243,10 @@ export function DomainsHubSection({
               )}
             />
           </div>
+
+          <span className="flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+            {filteredCount} domínio(s)
+          </span>
 
           <button
             type="button"

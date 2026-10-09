@@ -135,6 +135,19 @@ export async function unsuspendWebDomain(username: string, domain: string): Prom
   return { ok: result.ok, error: result.error };
 }
 
+/** Suspende só o email deste domínio (caixas deixam de receber/enviar), sem
+ * tocar no site nem no resto da conta — planos de email expirados. Mesmo
+ * aviso do suspendWebDomain: ainda não testado ao vivo neste servidor. */
+export async function suspendMailDomain(username: string, domain: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await hestiaCall('v-suspend-mail-domain', [username, domain]);
+  return { ok: result.ok, error: result.error };
+}
+
+export async function unsuspendMailDomain(username: string, domain: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await hestiaCall('v-unsuspend-mail-domain', [username, domain]);
+  return { ok: result.ok, error: result.error };
+}
+
 export async function suspendAccount(username: string): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-suspend-user', [username]);
   return { ok: result.ok, error: result.error };

@@ -133,7 +133,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, email: configEmail, password, ...bundle });
   }
 
-  const clienteId = searchParams.get('cliente_id') || session.user.id
+  // Painel /cliente aberto por um admin dentro da conta de um cliente (ver
+  // /api/admin/impersonate-client): a lista é a do cliente, nunca as caixas
+  // todas da empresa. Só com scope=client — o webmail do próprio /dashboard
+  // do admin (noutro separador) não pode ser afectado por esta cookie.
+  let actingAsClient = false
+  if (searchParams.get('scope') === 'client') {
+    const { resolveEffectiveClientUser } = await import('@/lib/client-impersonation')
+    const effective = await resolveEffectiveClientUser()
+    if (effective?.impersonating) {
+      session.user = effective.user
+      actingAsClient = true
+    }
+  }
+
+  const clienteId = actingAsClient ? session.user.id : searchParams.get('cliente_id') || session.user.id
 
   // Protecção: utilizador só vê o seu próprio ID, a menos que seja admin
   const isBootstrap = isBootstrapAdmin(session.user?.email);
@@ -147,7 +161,7 @@ export async function GET(req: NextRequest) {
     const effectiveRole = session.user
       ? await resolveRoleForAuthUser(roleDb, session.user)
       : 'guest';
-    const isAdmin = isBootstrap || effectiveRole === 'admin';
+    const isAdmin = !actingAsClient && (isBootstrap || effectiveRole === 'admin');
     // Admin a impersonar um revendedor deve ver só as contas do revendedor impersonado,
     // nunca as de toda a empresa (mesma lógica de /api/panel/bootstrap).
     const impersonating = isAdmin ? await readImpersonateDaUsername() : null;

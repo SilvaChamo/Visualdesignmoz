@@ -1573,6 +1573,7 @@ function ResellerPageContent({
           <ResellerDashboard
             sites={filteredSites}
             isFetching={isFetchingDirectAdmin}
+            impersonating={isAdminImpersonating}
             onNavigate={handleNavigate}
             onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
@@ -1934,6 +1935,7 @@ function ResellerPageContent({
           <ResellerDashboard
             sites={filteredSites}
             isFetching={isFetchingDirectAdmin}
+            impersonating={isAdminImpersonating}
             onNavigate={handleNavigate}
             onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
@@ -2094,8 +2096,8 @@ function ResellerPageContent({
     <div className="panel-shell font-panel flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-zinc-950">
       {isAdminImpersonating && (
         <ImpersonationBanner
-          label={resellerDisplayName || 'revendedor'}
-          subject="revendedor"
+          label={resellerDisplayName || (basePath === '/profissional' ? 'profissional' : 'revendedor')}
+          subject={basePath === '/profissional' ? 'profissional' : 'revendedor'}
           exitEndpoint="/api/admin/impersonate?exit=1"
         />
       )}

@@ -60,6 +60,8 @@ interface WebmailSectionProps {
   onComposeStateChange?: (isActive: boolean) => void
   isAdmin?: boolean
   onNavigate?: (section: string) => void
+  /** Painel /cliente: pede a lista de caixas no âmbito do cliente (inclui o admin dentro da conta dele). */
+  accountsScope?: 'client'
 }
 
 export function WebmailSection({ 
@@ -74,7 +76,8 @@ export function WebmailSection({
   emailOrigem,
   onComposeStateChange,
   isAdmin = false,
-  onNavigate
+  onNavigate,
+  accountsScope,
 }: WebmailSectionProps) {
   // Estados principais
   const initialAccountsCache =
@@ -600,7 +603,7 @@ export function WebmailSection({
       const consolidated: EmailAccount[] = []
 
       try {
-        const res = await fetch('/api/email-contas', { credentials: 'include' })
+        const res = await fetch(accountsScope ? `/api/email-contas?scope=${accountsScope}` : '/api/email-contas', { credentials: 'include' })
         const data = await res.json()
         if (data.success && Array.isArray(data.contas)) {
           for (const acc of mapEmailContasToWebmailAccounts(data.contas)) {

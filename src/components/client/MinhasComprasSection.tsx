@@ -1,42 +1,41 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShoppingBag, FileDown, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react';
-import { metodoPagamentoLabel } from '@/lib/quotation-payment-info';
+import { formatMt } from '@/lib/pricing-catalog';
+import { panelSectionCard } from '@/lib/panel-ui';
+import { checkoutItemSummary, type CheckoutItemLike } from '@/lib/checkout-item-labels';
+import { openDocumentWindow } from '@/components/documents/VisualDesignDocument';
 import { Spinner } from '@/components/ui/spinner';
-
-type CompraItem = {
-  name?: string;
-  type?: string;
-  price?: number;
-  status?: string;
-};
 
 type Compra = {
   id: string;
-  items: CompraItem[];
+  items: CheckoutItemLike[];
   total_mt: number;
   metodo_pagamento: string;
   status: 'pending' | 'paid' | 'failed' | 'expired' | string;
-  comprovativo_url: string | null;
-  rejection_reason: string | null;
   created_at: string;
+  /** Algum serviço desta compra já passou da data sem ser renovado (ver a rota). */
+  renovacao_url: string | null;
 };
 
-const STATUS_META: Record<string, { label: string; icon: typeof Clock; className: string }> = {
-  pending: { label: 'Pendente de confirmação', icon: Clock, className: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' },
-  paid: { label: 'Confirmado', icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
-  failed: { label: 'Rejeitado', icon: XCircle, className: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
-  expired: { label: 'Expirado', icon: AlertCircle, className: 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400' },
+// Mesmas cores/rótulos da Contabilidade (ContabilidadeTable → ITEM_STATUS_META).
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending: { label: 'Pendente', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' },
+  paid: { label: 'Confirmado', className: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
+  failed: { label: 'Rejeitado', className: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400' },
+  expired: { label: 'Expirado', className: 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-400' },
 };
+const RENOVACAO_META = { label: 'Exige renovação', className: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400' };
 
-function formatMt(value: number) {
-  return `${Math.round(value).toLocaleString('pt-PT')} MT`;
-}
+// Rótulos curtos da Contabilidade (ContabilidadeTable → METODO_LABEL).
+const METODO_LABEL: Record<string, string> = { mpesa: 'M-Pesa', emola: 'e-Mola', transferencia: 'Transferência', stripe: 'Cartão' };
+
+const TH = 'px-4 py-2 align-middle whitespace-nowrap';
+const TD = 'whitespace-nowrap px-4 py-2.5';
+const LINK = 'text-xs font-medium text-red-600 hover:underline dark:text-red-400';
 
 export function MinhasComprasSection() {
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [compras, setCompras] = useState<Compra[] | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -48,91 +47,89 @@ export function MinhasComprasSection() {
         if (data.success) setCompras(data.compras);
         else setError(data.error || 'Não foi possível carregar as suas compras.');
       })
-      .catch(() => { if (!cancelled) setError('Não foi possível carregar as suas compras.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .catch(() => { if (!cancelled) setError('Não foi possível carregar as suas compras.'); });
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) {
-    return <div className="flex items-center gap-2 p-6 text-sm text-slate-500 dark:text-zinc-400"><Spinner /> A carregar as suas compras…</div>;
+  if (error) {
+    return <div className={`${panelSectionCard} p-8 text-center text-sm text-red-600 dark:text-red-400`}>{error}</div>;
   }
 
-  if (error) {
-    return <div className="p-6 text-sm text-red-600 dark:text-red-400">{error}</div>;
+  if (!compras) {
+    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar as suas compras...</div>;
   }
 
   if (compras.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center text-slate-400 space-y-3 py-16">
-        <ShoppingBag className="w-12 h-12 opacity-20" />
-        <p className="font-medium text-slate-700 dark:text-zinc-300">Ainda não fez nenhuma compra</p>
-      </div>
-    );
+    return <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>Ainda não fez nenhuma compra.</div>;
   }
 
   return (
-    <div className="space-y-4">
-      {compras.map((compra) => {
-        const meta = STATUS_META[compra.status] || STATUS_META.pending;
-        const StatusIcon = meta.icon;
-        return (
-          <div key={compra.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-              <div>
-                <p className="text-xs text-slate-400 dark:text-zinc-500">
-                  {new Date(compra.created_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </p>
-                <p className="text-xs text-slate-400 dark:text-zinc-500">{metodoPagamentoLabel(compra.metodo_pagamento)}</p>
-              </div>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${meta.className}`}>
-                <StatusIcon className="w-3.5 h-3.5" />
-                {meta.label}
-              </span>
-            </div>
-
-            <div className="divide-y divide-slate-100 dark:divide-zinc-800/60 border-t border-b border-slate-100 dark:border-zinc-800/60 py-1 mb-3">
-              {compra.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center py-1.5 text-sm">
-                  <span className="text-slate-700 dark:text-zinc-300">{item.name || '—'}</span>
-                  <span className="text-slate-500 dark:text-zinc-400">{item.price != null ? formatMt(item.price) : ''}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="font-bold text-slate-800 dark:text-zinc-100">Total: {formatMt(compra.total_mt)}</span>
-              <div className="flex flex-wrap items-center gap-3">
-                {compra.status === 'paid' ? (
-                  <a
-                    href={`/recibo/${compra.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    <FileDown className="w-3.5 h-3.5" />
-                    Recibo
-                  </a>
-                ) : null}
-                {compra.comprovativo_url ? (
-                  <a
-                    href={compra.comprovativo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400 hover:underline"
-                  >
-                    <FileDown className="w-3.5 h-3.5" />
-                    Ver comprovativo
-                  </a>
-                ) : null}
-              </div>
-            </div>
-
-            {compra.status === 'failed' && compra.rejection_reason ? (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400">Motivo: {compra.rejection_reason}</p>
-            ) : null}
-          </div>
-        );
-      })}
+    <div className={`${panelSectionCard} overflow-hidden`}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <th className={`${TH} text-left`}>Descrição</th>
+              <th className={`${TH} text-left`}>Preço</th>
+              <th className={`${TH} text-left`}>Método</th>
+              {/* Espaço livre — empurra Data/Estado/Recibo para a direita. */}
+              <th aria-hidden className="w-full" />
+              <th className={`${TH} text-right`}>Data</th>
+              <th className={`${TH} text-right`}>Estado</th>
+              <th className={`${TH} text-right`}>Recibo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {compras.map((compra) => {
+              const meta = compra.renovacao_url ? RENOVACAO_META : STATUS_META[compra.status] || STATUS_META.pending;
+              const [primeiro, ...outros] = compra.items;
+              const descricao = primeiro ? checkoutItemSummary(primeiro) : '—';
+              const outrosNomes = outros.map((i) => i.name).filter(Boolean).join(', ');
+              return (
+                <tr key={compra.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
+                  <td className={`${TD} font-medium text-gray-900 dark:text-white`}>
+                    <div className="max-w-[20rem] truncate" title={outrosNomes ? `${descricao} (+ ${outrosNomes})` : descricao}>
+                      {descricao}
+                      {outrosNomes && <span className="text-gray-400 dark:text-zinc-500"> (+ {outrosNomes})</span>}
+                    </div>
+                  </td>
+                  <td className={`${TD} font-bold tabular-nums text-gray-900 dark:text-white`}>
+                    {formatMt(Number(compra.total_mt) || 0)} MT
+                  </td>
+                  <td className={`${TD} text-gray-500 dark:text-zinc-400`}>
+                    {METODO_LABEL[compra.metodo_pagamento] || compra.metodo_pagamento || '—'}
+                  </td>
+                  <td aria-hidden />
+                  <td className={`${TD} text-right text-gray-500 dark:text-zinc-400`}>
+                    {new Date(compra.created_at).toLocaleDateString('pt-PT')}
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <div className="inline-flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta.className}`}>{meta.label}</span>
+                      {compra.renovacao_url && (
+                        <a href={compra.renovacao_url} className={LINK}>Renovar</a>
+                      )}
+                    </div>
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    {compra.status === 'paid' ? (
+                      <button
+                        type="button"
+                        onClick={() => openDocumentWindow(`/recibo/${compra.id}?embed=1`, `recibo-${compra.id}`)}
+                        className={LINK}
+                      >
+                        Ver recibo
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400 dark:text-zinc-500">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

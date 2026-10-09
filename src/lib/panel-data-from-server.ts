@@ -43,6 +43,8 @@ export type PanelBootstrapSession = {
   readOnly: boolean;
   capabilities?: PanelCapabilities;
   resellerTier?: ResellerTier | null;
+  /** Painel /cliente aberto por um admin dentro da conta deste cliente. */
+  impersonatedClient?: { email: string | null; nome: string | null } | null;
 };
 
 export type PanelBootstrapData = {

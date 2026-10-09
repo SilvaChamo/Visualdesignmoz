@@ -2803,6 +2803,15 @@ export function CPUsersSection({
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([])
+
+  // "Entrar" num cliente/profissional que falhou (ver /api/admin/impersonate-client).
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get('impersonate_error')
+    if (err) {
+      setMsg(`❌ ${err}`)
+      window.history.replaceState({}, '', '/dashboard')
+    }
+  }, [])
   const [bulkPanelRole, setBulkPanelRole] = useState<string>('manager')
   const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
     show: false,
@@ -3806,6 +3815,16 @@ export function CPUsersSection({
                             Entrar
                           </button>
                         )
+                      )}
+                      {(account.panelRole === 'client' || account.panelRole === 'profissional') && !account.orphaned && (
+                        <a
+                          href={`/api/admin/impersonate-client?userId=${encodeURIComponent(account.id)}`}
+                          onClick={() => clearAllPanelClientCaches()}
+                          title="Entrar na conta deste cliente para ver e gerir os dados dele"
+                          className="hidden sm:inline-flex h-8 items-center rounded border border-gray-300 dark:border-zinc-700 bg-transparent px-2.5 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                        >
+                          Entrar
+                        </a>
                       )}
                       <button
                         type="button"
@@ -11090,8 +11109,8 @@ export function DomainManagerSection({
     <div className="w-full space-y-5">
       {!hubMode ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-[140px] flex-wrap items-center gap-3">
-            <div className="relative w-full max-w-[14rem]">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="relative w-full max-w-xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
               <input
                 value={listSearch}
@@ -11100,7 +11119,7 @@ export function DomainManagerSection({
                 className="w-full rounded border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 dark:border-zinc-700 dark:bg-white dark:text-zinc-900"
               />
             </div>
-            <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
+            <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => (onAddDomain ? onAddDomain() : setDomainModal(true))} className={panelBtnSecondary}>

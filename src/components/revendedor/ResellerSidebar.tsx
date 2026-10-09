@@ -119,6 +119,8 @@ export function ResellerSidebar({
   const { unreadCount, refreshUnread } = useResellerNotificationBadge();
   const currentSidebarWidth = isCollapsed ? 64 : 242;
   const logoUrl = customLogo || '/assets/simbolo.png';
+  // Junto ao logótipo: só o primeiro nome ("Olá, Lecio"), sem apelido.
+  const firstName = displayName?.trim().split(/\s+/)[0] || '';
 
   const mainMenuItems: MenuItem[] = (applyMenuPrivileges ? filterMenuByPrivileges(menuDefs, privileges) : menuDefs).map(
     (item) => ({
@@ -315,7 +317,7 @@ export function ResellerSidebar({
 
   return (
     <div
-      className="font-panel relative z-50 flex h-screen shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
+      className="font-panel relative z-50 flex h-full shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
       <div
@@ -351,7 +353,7 @@ export function ResellerSidebar({
             />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-bold text-gray-900 dark:text-zinc-100">
-                {displayName || 'Revendedor'}
+                {firstName ? `Olá, ${firstName}` : 'Revendedor'}
               </h1>
               <p className="text-xs text-gray-500 dark:text-zinc-400">Portal Digital</p>
             </div>

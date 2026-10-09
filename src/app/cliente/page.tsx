@@ -237,7 +237,6 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase">Email</p>
-                <p className="text-sm font-bold text-gray-900">geral@visualdesignmoz.com</p>
                 <p className="text-sm font-bold text-gray-900">suporte@visualdesignmoz.com</p>
               </div>
             </div>
@@ -2597,7 +2596,8 @@ function ContaSkeleton() {
 }
 
 // Componente ContaSection
-function ContaSection() {
+/** `impersonated`: admin dentro da conta do cliente — lê/grava o perfil do cliente pelo servidor (/api/client/conta). */
+function ContaSection({ impersonated = false }: { impersonated?: boolean }) {
   const [dados, setDados] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [pass, setPass] = useState({ actual: '', nova: '', confirmar: '' })
@@ -2611,6 +2611,16 @@ function ContaSection() {
 
   const fetchProfile = async () => {
     setLoading(true)
+    if (impersonated) {
+      try {
+        const res = await fetch('/api/client/conta')
+        const data = await res.json()
+        if (data.success) setDados(data.dados)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
     try {
       // Delay para evitar conflito com outras chamadas
       await new Promise(resolve => setTimeout(resolve, 250))
@@ -2661,6 +2671,17 @@ function ContaSection() {
   }
 
   const guardar = async () => {
+    if (impersonated) {
+      const res = await fetch('/api/client/conta', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      })
+      const data = await res.json().catch(() => ({}))
+      setSavedMsg(data.success ? 'Dados guardados com sucesso!' : `Erro: ${data.error || 'Falha ao guardar dados.'}`)
+      setTimeout(() => setSavedMsg(''), 4000)
+      return
+    }
     try {
       // Delay para evitar conflito com outras chamadas
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -2745,7 +2766,15 @@ function ContaSection() {
         </div>
 
         <div className="space-y-5">
-          {/* Alterar Password */}
+          {/* Alterar Password — nunca na impersonação: auth.updateUser mudaria a password do ADMIN. */}
+          {impersonated ? (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+              <h2 className="text-sm font-bold text-gray-700 mb-2">Alterar Password</h2>
+              <p className="text-sm text-gray-500">
+                Para mudar a password deste cliente, use no painel admin: <strong>Utilizadores → ⋮ → Alterar senha</strong>.
+              </p>
+            </div>
+          ) : (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
             <h2 className="text-sm font-bold text-gray-700 mb-4">Alterar Password</h2>
             <div className="space-y-3">
@@ -2789,6 +2818,7 @@ function ContaSection() {
               </p>
             )}
           </div>
+          )}
 
           {/* Notificações */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
@@ -3278,6 +3308,9 @@ function ClientPageContent() {
   // Plano de email comprado sem domínio — o "Adicionar domínio" liga-o a ele.
   const [emailPlanWaitingDomain, setEmailPlanWaitingDomain] = useState(false)
   const [showAddDomain, setShowAddDomain] = useState(false)
+  // Admin dentro da conta deste cliente (ver /api/admin/impersonate-client):
+  // o painel mostra o nome/email do cliente e os cartões ganham "Eliminar".
+  const [impersonatedClient, setImpersonatedClient] = useState<{ email: string | null; nome: string | null } | null>(null)
   useEffect(() => {
     fetch('/api/cotacoes')
       .then((r) => r.json())
@@ -3333,6 +3366,7 @@ function ClientPageContent() {
     setClientReadOnly(boot.session?.readOnly !== false)
     setHasWebsites(boot.products?.tier === 'hosting' || boot.products?.tier === 'both')
     setEmailPlanWaitingDomain(Boolean(boot.products?.emailPlans?.some((p) => !p.domain)))
+    setImpersonatedClient(boot.session?.impersonatedClient ?? null)
     prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
@@ -3425,9 +3459,10 @@ function ClientPageContent() {
         if (opts?.domain) setSelectedDNSDomain(opts.domain)
         setActiveSection(section)
       }}
-      displayName={cliente?.nome}
-      sessionUser={cliente?.email ?? sessionUser}
+      displayName={impersonatedClient ? impersonatedClient.nome : cliente?.nome}
+      sessionUser={impersonatedClient ? impersonatedClient.email : cliente?.email ?? sessionUser}
       onProductsChanged={() => void loadDirectAdminData(true)}
+      impersonating={Boolean(impersonatedClient)}
     />
   )
 
@@ -3511,7 +3546,7 @@ function ClientPageContent() {
       case 'facturas':
         return <FacturacaoSection />
       case 'conta':
-        return <ContaSection />
+        return <ContaSection key={impersonatedClient ? 'imp' : 'own'} impersonated={Boolean(impersonatedClient)} />
       case 'emails-new':
       case 'cp-email-mgmt':
         // O mesmo ecrã do revendedor; /api/da só deixa mexer nas caixas dos
@@ -3537,7 +3572,8 @@ function ClientPageContent() {
         return (
           <WebmailSection
             sites={directAdminSites}
-            userEmail={sessionUser}
+            userEmail={impersonatedClient ? impersonatedClient.email : sessionUser}
+            accountsScope="client"
             onBack={() => setActiveSection('dashboard')}
             mostrarAdicionarConta={mostrarAdicionarConta}
             setMostrarAdicionarConta={setMostrarAdicionarConta}
@@ -3745,8 +3781,8 @@ function ClientPageContent() {
         onNavigate={setActiveSection}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
-        sessionUser={cliente?.email ?? null}
-        displayName={cliente?.nome || 'Cliente'}
+        sessionUser={impersonatedClient ? impersonatedClient.email : cliente?.email ?? null}
+        displayName={(impersonatedClient ? impersonatedClient.nome : cliente?.nome) || 'Cliente'}
         isMobile={isMobile}
         menuDefs={clientPanelMenuDefs({ readOnly: clientReadOnly, hasEncomendas, hasWebsites })}
         basePath="/cliente"

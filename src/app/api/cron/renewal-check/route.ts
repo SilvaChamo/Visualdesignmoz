@@ -8,7 +8,7 @@ import {
 } from '@/lib/renewal-templates'
 import { sendEmail } from '@/lib/email-service'
 import { isEmailPlanPackage } from '@/lib/email-plans'
-import { suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
+import { notifyExpiredCleanupDue, suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 
 // Cron secret para segurança
 const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-production'
@@ -286,12 +286,15 @@ export async function GET(request: NextRequest) {
 
     const overdue = await suspendOverdueHostingAccounts(supabaseAdmin)
     if (overdue.errors.length) results.errors.push(...overdue.errors)
+    const cleanup = await notifyExpiredCleanupDue(supabaseAdmin)
+    if (cleanup.errors.length) results.errors.push(...cleanup.errors)
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       ...results,
       overdueSuspend: overdue,
+      expiredCleanup: cleanup,
     })
 
   } catch (error: any) {

@@ -4,6 +4,7 @@ import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { resolveClientPanelContext } from '@/lib/panel-client-context';
+import { resolveEffectiveClientUser } from '@/lib/client-impersonation';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import {
@@ -74,8 +75,26 @@ export async function GET(req: NextRequest) {
 
     const lastSyncedAt = await getMirrorLastSyncAt();
 
-    if (auth.user.role === 'client') {
-      const ctx = await resolveClientPanelContext(auth.user.id, auth.user.email);
+    // Admin dentro do painel /cliente de um cliente (ver
+    // /api/admin/impersonate-client) — só para o scope do painel cliente; o
+    // /dashboard do admin (scope=admin) nunca é afectado por esta cookie.
+    let clientUser: { id: string; email?: string | null } | null =
+      auth.user.role === 'client' ? auth.user : null;
+    let impersonatedClient: { email: string | null; nome: string | null } | null = null;
+    if (auth.user.role === 'admin' && req.nextUrl.searchParams.get('scope') === 'client') {
+      const effective = await resolveEffectiveClientUser();
+      if (effective?.impersonating) {
+        clientUser = { id: effective.user.id, email: effective.user.email };
+        const meta = effective.user.user_metadata || {};
+        impersonatedClient = {
+          email: effective.user.email ?? null,
+          nome: (meta.name as string) || (meta.nome as string) || (meta.full_name as string) || null,
+        };
+      }
+    }
+
+    if (clientUser) {
+      const ctx = await resolveClientPanelContext(clientUser.id, clientUser.email);
       const capabilities = resolvePanelCapabilities({ role: 'client' });
       // 'client' cai sempre no ramo readOnly de resolvePanelCapabilities (não
       // há ramo próprio para este role) — isso bloqueava Webmail/Mailmarketing
@@ -99,6 +118,7 @@ export async function GET(req: NextRequest) {
           role: 'client',
           readOnly,
           capabilities: { ...capabilities, readOnly },
+          impersonatedClient,
         },
         meta: { source: 'mirror', lastSyncedAt },
       });
@@ -238,6 +258,16 @@ export async function GET(req: NextRequest) {
           }),
         );
       }
+    }
+
+    // Cartões que o admin escondeu do painel desta conta ("Eliminar" na
+    // impersonação — supabase-panel-hidden-domains.sql). Nada saiu do servidor.
+    if (resellerContext?.daUsername) {
+      const { listHiddenDomains } = await import('@/lib/panel-hidden-domains');
+      const owners = [...new Set([resellerContext.mainAccount, resellerContext.daUsername].filter(Boolean) as string[])];
+      const hidden = new Set<string>();
+      for (const owner of owners) for (const d of await listHiddenDomains(owner)) hidden.add(d);
+      if (hidden.size) sitesOut = sitesOut.filter((s) => !hidden.has(s.domain.toLowerCase()));
     }
 
     const capabilities = resolvePanelCapabilities({

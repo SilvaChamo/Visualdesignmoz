@@ -1,4 +1,8 @@
 import { cookies } from 'next/headers';
+import type { User } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 
 /**
  * Impersonação de conta de cliente (painel /encomendas) — mesmo princípio da
@@ -40,4 +44,35 @@ export async function resolveEffectiveClientUserId(realUserId: string, isAdmin: 
   if (!isAdmin) return realUserId;
   const impersonated = await readImpersonateClientUserId();
   return impersonated || realUserId;
+}
+
+export type EffectiveClientUser = {
+  /** Conta cujos dados o painel /cliente mostra. */
+  user: User;
+  /** Verdadeiro quando é um admin a ver/gerir a conta de um cliente. */
+  impersonating: boolean;
+};
+
+/**
+ * Utilizador "efectivo" das rotas do painel /cliente: o cliente impersonado
+ * quando quem pede é mesmo admin e tem a cookie activa; senão, o próprio
+ * utilizador da sessão. A cookie sozinha nunca chega — ver o topo do ficheiro.
+ */
+export async function resolveEffectiveClientUser(): Promise<EffectiveClientUser | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const impersonatedId = await readImpersonateClientUserId();
+  if (!impersonatedId || impersonatedId === user.id) return { user, impersonating: false };
+
+  const admin = getSupabaseAdmin();
+  if (!admin || (await resolveRoleForAuthUser(admin, user)) !== 'admin') {
+    return { user, impersonating: false };
+  }
+  const { data } = await admin.auth.admin.getUserById(impersonatedId);
+  if (!data?.user) return { user, impersonating: false };
+  return { user: data.user, impersonating: true };
 }

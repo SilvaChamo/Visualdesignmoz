@@ -22,6 +22,7 @@ import type { UserProductsSummary } from '@/lib/user-products';
 import { Spinner } from '@/components/ui/spinner';
 import { PendingOrdersSection } from '@/components/client/PendingOrdersSection';
 import { attachEmailDomain } from '@/components/client/ClientAddDomainModal';
+import { MoveToAccountModal } from '@/components/panel/MoveToAccountModal';
 
 export type ClientNavigate = (section: string, opts?: { domain?: string }) => void;
 
@@ -31,6 +32,8 @@ type Props = {
   sessionUser?: string | null;
   /** Um domínio foi associado ao plano de email — o painel volta a ler os domínios (Contas de e-mail). */
   onProductsChanged?: () => void;
+  /** Admin dentro da conta do cliente — mostra "Eliminar" nos cartões (limpeza de duplicados). */
+  impersonating?: boolean;
 };
 
 // Só a contagem interessa aqui — a lista/estado detalhado de cada encomenda
@@ -45,7 +48,7 @@ type Quotation = {
  * o mesmo dashboard do painel Profissional (ResellerDashboard), adaptado a
  * quem não tem site: domínios e planos de email em vez de sites WordPress.
  */
-export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProductsChanged }: Props) {
+export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProductsChanged, impersonating = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [products, setProducts] = useState<UserProductsSummary | null>(null);
@@ -124,6 +127,24 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
       onNavigate={onNavigate}
       displayName={displayName}
       sessionUser={sessionUser}
+      onDeleteRecord={impersonating ? async (record) => {
+        const res = await fetch(`/api/admin/impersonate-client/products?kind=${record.kind}&id=${encodeURIComponent(record.id)}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível eliminar o cartão.');
+        loadProducts();
+        onProductsChanged?.();
+      } : undefined}
+      onMoveRecord={impersonating ? async (record, targetEmail) => {
+        const res = await fetch('/api/admin/impersonate-client/products', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...record, targetEmail }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível mover o produto.');
+        loadProducts();
+        onProductsChanged?.();
+      } : undefined}
     />
   );
 }
@@ -170,6 +191,8 @@ type ServiceRow = {
   expirationDate?: string | null;
   state: RowState;
   renewHref?: string;
+  /** Registo do produto (domain_renewals / hosting_renewals) — para "Eliminar" na impersonação. */
+  record?: { kind: 'domain' | 'hosting'; id: string };
 };
 
 function domainRowState(status?: string | null): RowState {
@@ -198,6 +221,10 @@ type ViewProps = {
   onNavigate?: ClientNavigate;
   displayName?: string | null;
   sessionUser?: string | null;
+  /** Só com o admin dentro da conta do cliente — apaga o registo (o cartão), nunca nada no servidor. */
+  onDeleteRecord?: (record: { kind: 'domain' | 'hosting'; id: string }) => Promise<void>;
+  /** Idem — passa o registo (o cartão) para outra conta. */
+  onMoveRecord?: (record: { kind: 'domain' | 'hosting'; id: string }, targetEmail: string) => Promise<void>;
 };
 
 /** Parte visual do dashboard (separada da leitura para poder ser pré-visualizada com dados fictícios). */
@@ -212,7 +239,11 @@ export function ClientDashboardView({
   onNavigate,
   displayName,
   sessionUser,
+  onDeleteRecord,
+  onMoveRecord,
 }: ViewProps) {
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [movingRow, setMovingRow] = useState<ServiceRow | null>(null);
   const domains = products?.domains ?? [];
   const hosting = products?.hosting ?? [];
   const emailPlans = products?.emailPlans ?? [];
@@ -244,6 +275,7 @@ export function ClientDashboardView({
         expirationDate: d.expirationDate,
         state: domainRowState(d.status),
         renewHref: d.id ? `/renovacao/iniciar/domain/${d.id}` : undefined,
+        record: d.id ? { kind: 'domain', id: d.id } : undefined,
       });
     }
     for (const plan of emailPlans) {
@@ -256,6 +288,7 @@ export function ClientDashboardView({
         expirationDate: plan.expirationDate,
         state: serviceRowState(plan.status),
         renewHref: plan.id ? `/renovacao/iniciar/hosting/${plan.id}` : undefined,
+        record: plan.id ? { kind: 'hosting', id: plan.id } : undefined,
       });
     }
     for (const h of hosting) {
@@ -268,6 +301,7 @@ export function ClientDashboardView({
         expirationDate: h.expirationDate,
         state: serviceRowState(h.status),
         renewHref: h.id ? `/renovacao/iniciar/hosting/${h.id}` : undefined,
+        record: h.id ? { kind: 'hosting', id: h.id } : undefined,
       });
     }
     return out;
@@ -354,6 +388,68 @@ export function ClientDashboardView({
           </div>
         )}
 
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
+            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
+          >
+            <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
+              <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
+              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
+                {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
+            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
+          >
+            <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
+              <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
+            </div>
+          </button>
+
+          <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <div className={`p-3 rounded-lg ${toneClasses.box}`}>
+              <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
+              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('facturas')}
+            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
+          >
+            <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
+              <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+                {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
+            </div>
+          </button>
+        </div>
+
         {!hasAnything && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
@@ -437,68 +533,6 @@ export function ClientDashboardView({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
-          >
-            <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
-              <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
-                {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
-          >
-            <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
-              <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
-            </div>
-          </button>
-
-          <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
-            <div className={`p-3 rounded-lg ${toneClasses.box}`}>
-              <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('facturas')}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
-          >
-            <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
-              <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
-                {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
-            </div>
-          </button>
-        </div>
-
         {plansWithoutDomain.length > 0 && (
           <EmailPlanDomainPrompt onAttached={onDomainAttached ?? onReload} />
         )}
@@ -526,30 +560,7 @@ export function ClientDashboardView({
         )}
 
         <div className="space-y-3">
-          {!hasAnything ? (
-            <div className="bg-white rounded border border-gray-200 shadow-sm p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-              <Globe className="w-12 h-12 text-gray-300 mx-auto mb-4 dark:text-zinc-600" />
-              <p className="text-gray-500 dark:text-zinc-400">Ainda não tem domínios nem planos de e-mail.</p>
-              <p className="text-xs text-gray-400 mt-1 dark:text-zinc-500">
-                Se acabou de comprar, a encomenda aparece aqui assim que for registada.
-              </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-3">
-                <a
-                  href="/servicos/dominios?origem=painel"
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded transition-colors"
-                >
-                  Registar domínio
-                </a>
-                <a
-                  href="/precos/email"
-                  className="px-5 py-2 bg-white border border-gray-800 hover:bg-gray-800 hover:text-white text-gray-800 text-xs font-bold uppercase tracking-wider rounded transition-colors dark:bg-transparent dark:border-zinc-500 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  Planos de e-mail
-                </a>
-              </div>
-            </div>
-          ) : (
-            rows.map((row) => {
+          {rows.map((row) => {
               const Icon = KIND_ICON[row.kind];
               const badge = STATE_BADGE[row.state];
               const ok = row.state === 'active';
@@ -633,12 +644,41 @@ export function ClientDashboardView({
                         {manage.label}
                       </button>
                     ) : null}
+                    {onMoveRecord && row.record ? (
+                      <button
+                        type="button"
+                        onClick={() => setMovingRow(row)}
+                        className="px-5 py-2 bg-white border border-gray-800 hover:bg-gray-800 hover:text-white text-gray-800 text-xs font-bold uppercase tracking-wider rounded transition-colors dark:bg-transparent dark:border-zinc-500 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        MOVER
+                      </button>
+                    ) : null}
+                    {onDeleteRecord && row.record ? (
+                      <button
+                        type="button"
+                        disabled={deletingKey === row.key}
+                        onClick={async () => {
+                          const record = row.record!;
+                          if (!window.confirm(`Eliminar o cartão "${row.title}" (${row.subtitle}) do painel deste cliente? Só o registo é apagado — nada muda no servidor.`)) return;
+                          setDeletingKey(row.key);
+                          try {
+                            await onDeleteRecord(record);
+                          } catch (err: unknown) {
+                            window.alert(err instanceof Error ? err.message : 'Não foi possível eliminar o cartão.');
+                          } finally {
+                            setDeletingKey(null);
+                          }
+                        }}
+                        className="px-5 py-2 bg-white border border-red-600 hover:bg-red-600 hover:text-white text-red-600 text-xs font-bold uppercase tracking-wider rounded transition-colors disabled:opacity-50 dark:bg-transparent dark:border-red-500 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white"
+                      >
+                        {deletingKey === row.key ? 'A ELIMINAR…' : 'ELIMINAR'}
+                      </button>
+                    ) : null}
                     <span className={`px-3 py-1 rounded text-xs font-bold ${badge.className}`}>{badge.label}</span>
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
         </div>
       </div>
 
@@ -700,6 +740,20 @@ export function ClientDashboardView({
           </div>
         </div>
       </div>
+
+      {movingRow?.record && onMoveRecord && (
+        <MoveToAccountModal
+          title="Mover produto para outra conta"
+          subject={`${movingRow.title} — ${movingRow.subtitle}`}
+          note="O cartão passa para a área de cliente da conta de destino. Nada muda no servidor (site, email e DNS continuam onde estão)."
+          excludeEmail={sessionUser}
+          onClose={() => setMovingRow(null)}
+          onMove={async (targetEmail) => {
+            await onMoveRecord(movingRow.record!, targetEmail);
+            setMovingRow(null);
+          }}
+        />
+      )}
     </div>
   );
 }

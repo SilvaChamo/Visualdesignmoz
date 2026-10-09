@@ -4,12 +4,13 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { fetchUserProductsSummary } from '@/lib/user-products';
 import { resolveUserRole } from '@/lib/user-roles';
 import { profileAuthOrFilter } from '@/lib/profile-db';
+import { resolveEffectiveClientUser } from '@/lib/client-impersonation';
 
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Admin a impersonar um cliente (painel /cliente) vê os produtos dele.
+  const effective = await resolveEffectiveClientUser();
+  const user = effective?.user ?? null;
 
   if (!user) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -22,7 +23,7 @@ export async function GET() {
   // encontrámos produtos".
   const products = await fetchUserProductsSummary(getSupabaseAdmin() ?? supabase, user.id);
 
-  const { data: profile } = await supabase
+  const { data: profile } = await (getSupabaseAdmin() ?? supabase)
     .from('profiles')
     .select('role, da_username')
     .or(profileAuthOrFilter(user.id))

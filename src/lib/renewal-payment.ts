@@ -29,9 +29,9 @@ export async function confirmRenewalPayment(
   const table = pedido.renewal_type === 'domain' ? 'domain_renewals' : 'hosting_renewals';
   const { data: renewal, error: renewalError } = await supabase
     .from(table)
-    .select('expiration_date, domain_name')
+    .select(pedido.renewal_type === 'domain' ? 'expiration_date, domain_name' : 'expiration_date, domain_name, status, server, user_id')
     .eq('id', pedido.renewal_id)
-    .single();
+    .single<{ expiration_date: string; domain_name: string | null; status?: string | null; server?: string | null; user_id?: string | null }>();
   if (renewalError || !renewal) return { ok: false, error: 'Registo de renovação não encontrado.' };
 
   let novaExpiracao: string;
@@ -74,6 +74,19 @@ export async function confirmRenewalPayment(
     .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
     .eq('id', requestId);
   if (updateRequestError) return { ok: false, error: updateRequestError.message };
+
+  // Serviço que o cron suspendeu por ter expirado — volta a ficar activo no
+  // servidor (ver overdue-hosting-suspend.ts). Nunca falha esta confirmação.
+  if (pedido.renewal_type !== 'domain' && renewal.status === 'expired') {
+    const { reactivateRenewedHosting } = await import('@/lib/overdue-hosting-suspend');
+    await reactivateRenewedHosting(supabase, {
+      id: pedido.renewal_id,
+      user_id: renewal.user_id ?? null,
+      domain_name: renewal.domain_name,
+      status: renewal.status,
+      server: renewal.server ?? null,
+    });
+  }
 
   return { ok: true };
 }
